@@ -74,9 +74,39 @@ export const DAILY_WORDS: Readonly<
   like: { label: 'Likes', many: 'likes' },
 };
 
+/**
+ * Tidying the person's own friends (./tidy.ts, decisions 10 and 12): how many sent requests nobody answered the
+ * extension cancels in a day, and how many friends it unfriends, each only once the person ticks them. Facebook
+ * watches bulk unfriending too.
+ */
+export const TIDY_LIMITS = { cancel_request: 30, unfriend: 20 } as const;
+export type TidyKind = keyof typeof TIDY_LIMITS;
+export const TIDY_KIND_KEYS = Object.keys(TIDY_LIMITS) as [TidyKind, ...TidyKind[]];
+
+/**
+ * After Facebook warns the person (decision 25): every daily limit is halved for a week, and friend requests are left
+ * off Today's list for two days. Any warning also stops what the extension does for them for the rest of the day.
+ */
+export const WARNING_SLOWER_DAYS = 7;
+export const WARNING_NO_REQUESTS_DAYS = 2;
+
+/** A limit as it stands: halved, but never below one, while a warning slows things down. */
+export const limitNow = (most: number, slower: boolean): number =>
+  slower ? Math.max(1, Math.floor(most / 2)) : most;
+
+/** The daily limits as they stand for the person. */
+export function dailyLimitsNow(slower: boolean): Record<DailyStep, number> {
+  return Object.fromEntries(
+    DAILY_STEPS.map((step) => [step, limitNow(DAILY_LIMITS[step], slower)]),
+  ) as Record<DailyStep, number>;
+}
+
 /** The warning when a day's steps go past the limits: null while they're within them. */
-export function pastLimitWords(done: Readonly<Record<DailyStep, number>>): string | null {
-  const past = DAILY_STEPS.filter((step) => done[step] > DAILY_LIMITS[step]);
+export function pastLimitWords(
+  done: Readonly<Record<DailyStep, number>>,
+  limits: Readonly<Record<DailyStep, number>> = DAILY_LIMITS,
+): string | null {
+  const past = DAILY_STEPS.filter((step) => done[step] > limits[step]);
   if (!past.length) return null;
   const steps = past.map((step) => DAILY_WORDS[step].many);
   const listed =

@@ -1,6 +1,6 @@
 /**
  * Facebook's warnings: that you're blocked from something for a while, that you went too fast, that your account
- * needs checking. Later phases stop for the day on any of them; this one shows them. Only dialogs, alerts, headings
+ * needs checking. The extension stops for the day on any of them (../panel/warnings.ts). Only dialogs, alerts, headings
  * and Facebook's checkpoint pages count, never a post or a comment in them: a post about being blocked is not a
  * warning.
  */

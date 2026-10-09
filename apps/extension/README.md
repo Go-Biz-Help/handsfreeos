@@ -3,15 +3,16 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the seventh test build (0.7.0).** It reads the Facebook page you have open and shows what it found in
+**This is the eighth test build (0.8.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
 puts the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people
 to keep and the ones nobody pitches. It reads your Messenger chats for the AI, saves groups and their members with how
 each group fits, and gives you a list for the day with the AI's drafts to copy. It gets your Facebook download file
-for you and brings it in. It never sends anything on Facebook, and never clicks, scrolls or changes the page, except
-on Facebook's own download pages and in Messenger's chat list, once you ask it to.
+for you and brings it in, and cancels old friend requests and unfriends the people you tick. It stops for the day on
+any Facebook warning. It never sends anything on Facebook, and never clicks, scrolls or changes the page, except on
+Facebook's own download pages, in Messenger's chat list, and on the profiles you ticked, once you ask it to.
 
 ## What it reads
 
@@ -130,6 +131,27 @@ in the playbook's tone and never with its words to avoid, and **Copy** puts one 
 yourself. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
 it off the list. The Today tab on the web shows the same list.
 
+## Tidying up your friends
+
+**Tidy up your friends**, under your list for today, lists the friend requests you sent that nobody answered after
+the business's wait (3 weeks to start; Add-ons → Social Outreach), and, once your Facebook file is in, friends to
+unfriend: never kept, not in Contacts, not on Don't pitch, with no likely-prospect chat, friends for over six months
+and with no message either way in six months (`outreach.friends.tidy`). Tick who, then **Cancel the ticked
+requests** or **Unfriend the ticked** (decision 17 in docs/outreach.md).
+
+It opens each profile in a tab you can see, checks it's the one you ticked and where you stand, presses **Cancel
+request** (or **Friends**, **Unfriend** and **Confirm**), and checks the profile says **Add friend** after before
+noting it (`outreach.friend.end`). One person every 20 to 40 seconds, up to 30 cancelled and 20 unfriended a day.
+A step it can't find, it hands to you: press it, then **Carry on**, or **Skip** them. **Stop** ends it
+(`src/panel/tidy.ts`, `src/facebook/tidy.ts`).
+
+## Facebook's warnings
+
+Any warning the panel sees on a page ("You’re temporarily blocked", "going too fast", a security check) is noted in HandsFreeOS once a day
+(`src/panel/warnings.ts`, `outreach.warning.note`, decision 25). The extension then stops for the day: no more chats
+read, nobody cancelled or unfriended. For 7 days your daily limits are halved, and for 2 friend requests are off your
+list. A red note says so under **Today on Facebook**, and on the web's Today tab and activity panel.
+
 ## Getting your Facebook file
 
 **Your Facebook file**, in the panel, gets Facebook's own copy of your friends, requests and chats for the Friends
@@ -218,6 +240,13 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   and only what's in the box on top, never behind it. It never types: a password or PIN box on the page makes it
   wait for the person. Each step lists the words it may go by, the likeliest first, and one it can't find is handed
   to the person rather than guessed. `test/fetch.test.ts` walks a made-up Accounts Center, and again with bare boxes.
+- **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/facebook/tidy.ts`) press only
+  on a profile (`tidyPage`) the person ticked in the panel, after checking it's them (`sameProfile`) and where things
+  stand. The first press is a button under their name, never a link or the Friends tab (`buttonsOnly`); Unfriend and
+  Confirm are pressed only in Facebook's box on top (`inBox`). It re-reads the profile after and hands anything else
+  to the person. `test/tidy.test.ts` walks a made-up profile's menu and box, and again with bare boxes.
+- **A warning stops the day.** The panel keeps the day's warnings itself (`hfos.warned`), so reading chats and tidying
+  refuse to start, or stop, even when HandsFreeOS can't be reached.
 - **Saving only when pressed; steps noted as they happen.** Reading a page asks HandsFreeOS which people and chats on
   it are saved (the add-on's `outreach.lookup`), and nothing is saved until the person presses a button. The four
   steps are the exception, noted with `outreach.touch.save` as they're taken, and adding nobody to Contacts. Both go
@@ -254,12 +283,14 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day and its list, `chats.ts` reading chats |
 | `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                     |
 | `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                  |
+| `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`tab.ts`)                                                          |
+| `src/panel/warnings.ts` | Facebook's warnings: noted once a day, and the extension stopping for the day                                                                            |
 | `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                                                         |
 | `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
 | `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
 
 ## Next
 
-Friends, in the owner's order (decision 13): cancelling requests nobody answered and unfriending, now that the
-download file brings in your whole friends list. Then the rest of Phase 1: openers on posts in your groups, leads, the
-demo link, and results by group. Safari on Mac follows in Phase 2.
+In the owner's order (decisions 18 to 24 in docs/outreach.md): openers on posts in your groups, with **Find posts**,
+posts asking for help, and looking people up before drafting; then phone alerts, which openers work, and the demo
+link. Then leads and results by group. Safari on Mac follows in Phase 2.

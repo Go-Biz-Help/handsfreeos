@@ -72,7 +72,7 @@ export default async function OutreachPage({
       );
     }
     if (shown.view === 'friends') {
-      const [got, friends] = await Promise.all([
+      const [got, friends, tidy] = await Promise.all([
         workspace,
         api
           .POST('/v1/queries/outreach.friends', {
@@ -84,13 +84,14 @@ export default async function OutreachPage({
             },
           })
           .then(unwrapPage),
+        api.POST('/v1/queries/outreach.friends.tidy', { body: { workspaceId } }).then(unwrapPage),
       ]);
       return (
         <OutreachHome
           workspaceId={workspaceId}
           businessName={got.workspace.name}
           canManage={got.workspace.permissions.includes('outreach.manage')}
-          shown={{ view: 'friends', friends, show: shown.show, search: shown.search }}
+          shown={{ view: 'friends', friends, tidy, show: shown.show, search: shown.search }}
         />
       );
     }

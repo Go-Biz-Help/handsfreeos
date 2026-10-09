@@ -124,7 +124,12 @@ const ONLINE_COMMANDS = [
  * Outreach's steps taken on Facebook, and answers to friend requests). No phone screen sends them, so they're no
  * part of what an old app build sends.
  */
-const EXTENSION_COMMANDS = ['outreach.touch.save', 'outreach.friend.note'];
+const EXTENSION_COMMANDS = [
+  'outreach.touch.save',
+  'outreach.friend.note',
+  'outreach.friend.end',
+  'outreach.warning.note',
+];
 /** Whether the phone may keep it waiting: it can wait, a person sends it, and it isn't the extension's alone. */
 const phoneCanWait = (c: { name: string; offline: unknown; actors?: readonly string[] }) =>
   c.offline !== 'online' &&

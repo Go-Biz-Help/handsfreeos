@@ -5837,6 +5837,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.friend.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note a sent friend request the extension cancelled, or a friend it unfriended, on a social network for the person, once they ticked them: they’re no longer friends or asked, and it counts against today’s limit. One done already when the extension got there is noted but not counted.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friend.ended. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_friend_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friend.note": {
         parameters: {
             query?: never;
@@ -6011,6 +6031,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_touch_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.warning.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, and stops the extension for them for the day.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.warning.seen. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_warning_note"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15551,6 +15591,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_friends"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.friends.tidy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own sent friend requests nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with today’s counts against the limits, and any warning Facebook showed them lately.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_friends_tidy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31592,6 +31652,53 @@ export interface operations {
             };
         };
     };
+    command_outreach_friend_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    already?: boolean;
+                    /** @enum {string} */
+                    kind: "cancel_request" | "unfriend";
+                    name: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    profile: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counted: boolean;
+                        doneToday: number;
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_friend_note: {
         parameters: {
             query?: never;
@@ -32146,6 +32253,53 @@ export interface operations {
                         step: ("first_message" | "follow_up") | null;
                         /** Format: uuid */
                         touchId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_warning_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** @default null */
+                    url?: string | null;
+                    words: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        repeated: boolean;
+                        warning: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: date-time */
+                            requestsFrom: string;
+                            /** Format: date-time */
+                            slowerUntil: string;
+                            today: boolean;
+                            words: string;
+                        };
                     };
                 };
             };
@@ -57880,6 +58034,13 @@ export interface operations {
                             url: string;
                             warmedUp: number;
                         }[];
+                        limits: {
+                            comment: number;
+                            first_message: number;
+                            follow_up: number;
+                            friend_request: number;
+                            like: number;
+                        };
                         morePeople: number;
                         numbers: {
                             chatsStarted: number;
@@ -57916,6 +58077,16 @@ export interface operations {
                             friend_request: number;
                             like: number;
                         };
+                        warning: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: date-time */
+                            requestsFrom: string;
+                            /** Format: date-time */
+                            slowerUntil: string;
+                            today: boolean;
+                            words: string;
+                        } | null;
                     };
                 };
             };
@@ -58085,6 +58256,91 @@ export interface operations {
                             url: string;
                         }[];
                         total: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_friends_tidy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cancel: {
+                            fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                            lastContact: string | null;
+                            name: string;
+                            platformId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            /** Format: date-time */
+                            since: string;
+                            url: string;
+                            username: string | null;
+                        }[];
+                        cancelAfterWeeks: number;
+                        cap: number;
+                        friends: number;
+                        limits: {
+                            cancel_request: {
+                                done: number;
+                                most: number;
+                            };
+                            unfriend: {
+                                done: number;
+                                most: number;
+                            };
+                        };
+                        needsFile: boolean;
+                        totals: {
+                            cancel_request: number;
+                            unfriend: number;
+                        };
+                        unfriend: {
+                            fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                            lastContact: string | null;
+                            name: string;
+                            platformId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            /** Format: date-time */
+                            since: string;
+                            url: string;
+                            username: string | null;
+                        }[];
+                        warning: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: date-time */
+                            requestsFrom: string;
+                            /** Format: date-time */
+                            slowerUntil: string;
+                            today: boolean;
+                            words: string;
+                        } | null;
                     };
                 };
             };
@@ -58446,6 +58702,16 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        warning: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: date-time */
+                            requestsFrom: string;
+                            /** Format: date-time */
+                            slowerUntil: string;
+                            today: boolean;
+                            words: string;
+                        } | null;
                     };
                 };
             };

@@ -11,7 +11,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 ## What's built
 
 Phase 1, steps 1 to 5, the playbook builder, tracking with the activity panel, friends, Facebook's download
-file's dates, chats read by the AI from the file or live in Messenger, groups, and the list for today:
+file's dates, chats read by the AI from the file or live in Messenger, groups, the list for today, tidying up friends
+and Facebook's warnings:
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -60,6 +61,19 @@ file's dates, chats read by the AI from the file or live in Messenger, groups, a
   replies owed. A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
   about the person and the chat so far, to copy and send on Facebook (the worker's `outreach.today.draft` action,
   against the daily AI limit). HandsFreeOS never sends: the extension notes the step, which takes it off the list.
+- **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab and the extension's
+  panel suggest the sent requests nobody answered after the business's wait (3 weeks to start, a setting on the
+  Add-ons page), and friends to unfriend: only once the download file is in, and only those never kept, not in
+  Contacts, not on Don't pitch, with no likely-prospect chat, friends for over six months and with no message or step
+  in six months either way. In the panel's **Tidy up your friends** the person ticks who, and the extension opens each
+  profile in a tab they can see, checks it's them and where things stand, presses **Cancel request** (or **Friends**,
+  **Unfriend** and **Confirm**), checks the profile says Add friend after, and notes it (`outreach.friend.end`). It
+  goes one person every 20 to 40 seconds, up to 30 cancelled and 20 unfriended a day, and hands any step it can't
+  find to the person.
+- **Facebook's warnings** (decision 25): any warning the extension sees on a page is noted
+  (`outreach.warning.note`). That day it reads no more chats and cancels or unfriends nobody; for 7 days the daily
+  limits are halved, and for 2 friend requests are off the list for today. A red note says so on the Today tab, the
+  activity panel's day, and the extension's panel.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -84,24 +98,26 @@ file's dates, chats read by the AI from the file or live in Messenger, groups, a
 
 ## How it fits together
 
-| Piece                                                    | Where                                                                             |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Manifest, operations, tables, shapes                     | `packages/core/src/addons/outreach/`                                              |
-| What a save takes: lengths, counts, id shapes (no zod)   | `packages/core/src/addons/outreach/limits.ts`                                     |
-| Worker half: the AI reading the chats, and its drafts    | `apps/worker/src/addons/outreach/`                                                |
-| What the extension notes, and the panel's shapes         | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`                |
-| The page and its tabs, and the Social card               | `apps/web/src/addons/outreach/`, `/a/outreach`                                    |
-| The playbook builder                                     | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`    |
-| Tables and permissions                                   | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach`  |
-| Groups and steps noted                                   | `supabase/migrations/20261026000300_outreach_activity.sql`                        |
-| Friends, Keep and Don't pitch, and how someone fits      | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder       |
-| Friends and the Don't pitch list                         | `supabase/migrations/20261026000400_outreach_friends.sql`                         |
-| Facebook's download file: reading it, and bringing it in | `download-read.ts` (reads the zips, no zod), `download.ts` and `ops/download.ts`  |
-| The extension getting the file                           | `apps/extension/src/facebook/fetch.ts`, `src/panel/fbfile.ts`                     |
-| What the file said, by name                              | `supabase/migrations/20261027000300_outreach_facebook_download.sql`               |
-| Chats read live in Messenger                             | `chat-collect.ts`, `supabase/migrations/20261027000600_outreach_chat_reads.sql`   |
-| Groups, their people, and the list for today             | `groups.ts`, `today.ts`, `supabase/migrations/20261027000700_outreach_groups.sql` |
-| The extension                                            | `apps/extension`                                                                  |
+| Piece                                                    | Where                                                                                         |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Manifest, operations, tables, shapes                     | `packages/core/src/addons/outreach/`                                                          |
+| What a save takes: lengths, counts, id shapes (no zod)   | `packages/core/src/addons/outreach/limits.ts`                                                 |
+| Worker half: the AI reading the chats, and its drafts    | `apps/worker/src/addons/outreach/`                                                            |
+| What the extension notes, and the panel's shapes         | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`                            |
+| The page and its tabs, and the Social card               | `apps/web/src/addons/outreach/`, `/a/outreach`                                                |
+| The playbook builder                                     | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`                |
+| Tables and permissions                                   | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach`              |
+| Groups and steps noted                                   | `supabase/migrations/20261026000300_outreach_activity.sql`                                    |
+| Friends, Keep and Don't pitch, and how someone fits      | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder                   |
+| Friends and the Don't pitch list                         | `supabase/migrations/20261026000400_outreach_friends.sql`                                     |
+| Facebook's download file: reading it, and bringing it in | `download-read.ts` (reads the zips, no zod), `download.ts` and `ops/download.ts`              |
+| The extension getting the file                           | `apps/extension/src/facebook/fetch.ts`, `src/panel/fbfile.ts`                                 |
+| What the file said, by name                              | `supabase/migrations/20261027000300_outreach_facebook_download.sql`                           |
+| Chats read live in Messenger                             | `chat-collect.ts`, `supabase/migrations/20261027000600_outreach_chat_reads.sql`               |
+| Groups, their people, and the list for today             | `groups.ts`, `today.ts`, `supabase/migrations/20261027000700_outreach_groups.sql`             |
+| Tidying up friends, and Facebook's warnings              | `tidy.ts`, `ops/tidy.ts`, `supabase/migrations/20261027000900_outreach_tidy_and_warnings.sql` |
+| The buttons pressed to cancel and unfriend               | `apps/extension/src/facebook/tidy.ts`, `src/panel/tidy.ts`, `src/panel/warnings.ts`           |
+| The extension                                            | `apps/extension`                                                                              |
 
 Operations, all through the kernel:
 
@@ -125,6 +141,9 @@ Operations, all through the kernel:
 | `outreach.group.save`                                 | `outreach.use`    | A group and up to 500 people from its People tab; its admins page marks its admins as read           |
 | `outreach.groups`                                     | `outreach.use`    | The Groups tab: the counts, and a page of groups by fit, searched by name                            |
 | `outreach.today`                                      | `outreach.use`    | The person's list for today, and today's steps against the daily limits                              |
+| `outreach.friends.tidy`                               | `outreach.use`    | Sent requests to cancel and friends to unfriend, with today's counts against their limits            |
+| `outreach.friend.end`                                 | `outreach.use`    | The extension cancelled a request or unfriended someone for the person                               |
+| `outreach.warning.note`                               | `outreach.use`    | Facebook warned the person: halves their limits for 7 days, friend requests off their list for 2     |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -166,7 +185,7 @@ The owner answered the next round on 6 Oct 2026 (plan.md, "Next: what you asked 
     notes to someone on the list isn't counted, and the Friends tab and the extension mark them.
 12. **Sent requests nobody answers are cancelled after 3 weeks, with the person's OK.** The wait is a setting.
 13. **The order:** the playbook builder, then tracking and the activity panel, then friends (requests received, the
-    friends list, Keep and Don't pitch). Built, all but cancelling and unfriending ("Not yet").
+    friends list, Keep and Don't pitch). Built, with cancelling and unfriending (decision 17).
 14. **Confirm and Delete are noted** as the person presses them on a friend request they've got, like the other steps
     (a question answered the same day): Confirm makes them a friend in HandsFreeOS, and Delete marks the request
     turned down. Built.
@@ -183,6 +202,29 @@ files on its own"), and picked doing it before the chats:
     PIN; the extension never does. A step it can't find, it hands to the person and carries on after. It reads the
     zips from Chrome's downloads once the person turns on Allow access to file URLs, and brings them in as the Friends
     tab does. Built, not yet tried on the owner's account.
+
+The owner asked for the next round on 9 Oct 2026 ("lets build 1-5 and cancel old friend requests, unfriending, and
+openers on group posts") and answered its questions the same day. These are settled too:
+
+17. **The extension presses Cancel request and Unfriend** once the person ticks who, one at a time, slowly, in a tab
+    they can see. Built (the first of three parts).
+18. **Openers on group posts:** the panel marks good posts as the person scrolls their groups, and **Find posts**
+    scrolls the group feeds itself, slowly, stopping on any warning.
+19. **Posts asking for help** are found by the playbook's signs, with the AI checking each one.
+20. **A good post goes on Today's list** with two AI comment drafts. The person posts the comment; the extension
+    notes it.
+21. **Before drafting, the extension looks the person up:** it opens their profile and business page itself, quietly
+    in a tab.
+22. **Phone alerts:** a push when the extension spots a reply, and a morning push at a time that's a setting (8am to
+    start).
+23. **Which openers work:** each playbook has two or three AI opener styles and the person's own openers. Drafts
+    take turns with them, and a results card shows the replies and demos for each.
+24. **The demo link is built now,** so a booking through it counts by itself.
+25. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
+    tab, friend requests stay off Today for 2 days, and the extension stops for the day. Built.
+
+They come in three parts: cancelling and unfriending with the warnings (17 and 25); then openers on group posts, help
+posts and looking people up (18 to 21); then phone alerts, which openers work, and the demo link (22 to 24).
 
 From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached;
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
@@ -202,7 +244,16 @@ likes and 1 post, half that for new or quiet accounts.
 - **A message's place is worked out as it's noted** (`messageStep`): the first to someone starts a chat, the first on
   a later day follows up, and the rest of a day's, and answers, are neither. The daily limits count only those.
 - **The limits count, they don't stop.** The person takes these steps on Facebook themselves, so the panel and the
-  extension warn past a limit (`pastLimitWords`) and nothing is refused.
+  extension warn past a limit (`pastLimitWords`) and nothing is refused. Cancelling and unfriending are the
+  extension's own presses, so it stops at their limits (`TIDY_LIMITS`), and HandsFreeOS still counts any it's told of.
+- **The extension presses only where the person sent it:** Facebook's download pages (decision 16) and, for
+  cancelling and unfriending, the profile of someone they ticked (`tidyPage`). It checks the profile is the one
+  ticked and where things stand before pressing, and that it says Add friend after; anything else is handed to the
+  person. It presses a button under their name, never a link or tab, and Unfriend and Confirm only in Facebook's box
+  on top.
+- **A warning is a warning for a week** (`warningOf`, `dailyLimitsNow`): limits halve (never below 1) for 7 days from
+  the latest one, friend requests leave the list for 2, and the same words twice in a day come back `repeated`. The
+  extension keeps the day's warnings itself too, so it stops even when HandsFreeOS can't be reached.
 - **Each person's steps are their own** (`user_id`). Owners and admins can see everyone's; anyone else asking is
   refused (`outreach_activity_everyone`), and the page shows them their own.
 - **A profile is known by its number or its username,** whichever its links show. Saved one way and seen the other,
@@ -289,10 +340,11 @@ The extension's steps on Facebook's download pages follow the owner's own screen
 button, except the Download button beside a finished file, which no file was ready to show yet. Where it hands a
 step to the person, the panel's page outline of that screen, which keeps those steps' words, tunes it.
 
-Next, in the owner's order: cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
-unfriending (decisions 10 and 12), which the file's dates now make possible. The AI suggesting a conversation from
-the rest of the playbook comes with AI drafting. A profile saved after the file came in is matched to it when a newer
-file comes in.
+Cancelling and unfriending follow Facebook's usual buttons (Friends, Unfriend, Confirm; Cancel request), not yet
+tried on the owner's account; a step it can't find is handed to the person. Unfriending on its own within a daily
+limit (decision 10's other choice) waits for the build loaded by hand's hands-off mode.
 
-The rest of Phase 1, in order: comments on posts in the person's groups as openers, then leads, the demo link, and
-results by group. The settings for decisions 1 to 3 arrive with the steps that need them.
+Next, in the owner's order (decisions 18 to 24): openers on group posts with help posts and looking people up, then
+phone alerts, which openers work, and the demo link. The AI suggesting a conversation from the rest of the playbook
+comes with AI drafting. A profile saved after the file came in is matched to it when a newer file comes in. Then
+leads and results by group. The settings for decisions 1 to 3 arrive with the steps that need them.

@@ -560,3 +560,12 @@ section > :last-child {
 .today .list button {
   margin-top: 6px;
 }
+
+/* Facebook warned the person: what HandsFreeOS does about it (src/panel/warnings.ts). */
+.warning-note {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}

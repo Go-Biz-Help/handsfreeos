@@ -11,12 +11,8 @@ import {
   ACTIVITY_PERIODS,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
-import {
-  DAILY_LIMITS,
-  DAILY_STEPS,
-  DAILY_WORDS,
-  pastLimitWords,
-} from '@hfos/core/addons/outreach/limits';
+import { DAILY_STEPS, DAILY_WORDS, pastLimitWords } from '@hfos/core/addons/outreach/limits';
+import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
@@ -142,7 +138,7 @@ export function ActivityView({
             )}
           </div>
           <aside className="space-y-4">
-            <DayCard today={activity.today} />
+            <DayCard today={activity.today} limits={activity.limits} warning={activity.warning} />
             <Card className="p-4">
               <h3 className="text-[15px] font-semibold">The browser extension</h3>
               <p className="mt-1.5 text-[13px] text-text-2">
@@ -307,19 +303,39 @@ function PeopleCard({
   );
 }
 
-/** The person's own day so far against the daily limits, whatever the stretch above shows. */
-function DayCard({ today }: { today: Activity['today'] }) {
-  const past = pastLimitWords(today);
+/**
+ * The person's own day so far against the daily limits, whatever the stretch above shows: halved for a week after
+ * Facebook warns them (docs/outreach.md, decision 25), with a red note saying so.
+ */
+function DayCard({
+  today,
+  limits,
+  warning,
+}: {
+  today: Activity['today'];
+  limits: Activity['limits'];
+  warning: Activity['warning'];
+}) {
+  const past = pastLimitWords(today, limits);
   return (
     <Card className="p-4" data-testid="activity-today">
       <h3 className="text-[15px] font-semibold">Your day so far</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
         Against the daily limits. Stay under them so Facebook doesn’t block your account.
       </p>
+      {warning ? (
+        <p
+          role="alert"
+          data-testid="activity-warning"
+          className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
+        >
+          {warningNote(warning)}
+        </p>
+      ) : null}
       <ul className="mt-3 space-y-2.5">
         {DAILY_STEPS.map((step) => {
           const count = today[step];
-          const limit = DAILY_LIMITS[step];
+          const limit = limits[step];
           const full = count >= limit;
           return (
             <li key={step} data-testid={`activity-today-${step}`}>

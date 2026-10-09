@@ -83,6 +83,8 @@ export const outreachAddon = defineAddon({
       'outreach.chats.collected',
       'outreach.groups.saved',
       'outreach.group.saved',
+      'outreach.friend.ended',
+      'outreach.warning.seen',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts).
@@ -95,6 +97,7 @@ export const outreachAddon = defineAddon({
   tables: [
     'file_chats',
     'file_people',
+    'friend_ends',
     'friends',
     'group_people',
     'groups',
@@ -104,6 +107,7 @@ export const outreachAddon = defineAddon({
     'profiles',
     'threads',
     'touches',
+    'warnings',
   ],
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.

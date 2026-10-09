@@ -5,13 +5,11 @@
  */
 import { sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
-import { workspaceTimezone } from '../../../crm/records';
 import { requireHuman } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
 import { bestFit } from '../fit';
 import { bestGroupFit } from '../groups';
-import { DONT_PITCH_TAG } from '../limits';
+import { dailyLimitsNow, DONT_PITCH_TAG } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
   DEFAULT_PACE,
@@ -25,6 +23,7 @@ import {
 } from '../today';
 import { inWorkspace } from './common';
 import { playbooksInUse } from './friends';
+import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 /** The most people from groups weighed for requests at once. */
@@ -48,8 +47,9 @@ export const today = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
-    const timezone = await workspaceTimezone(ctx.tx, ws);
-    const todayFrom = new Date(startOfLocalDay(localDateOf(now, timezone), timezone)).toISOString();
+    const todayStart = await startOfToday(ctx, now);
+    const todayFrom = todayStart.toISOString();
+    const warning = await warningOf(ctx, me, todayStart, now);
     const [done] = await rows<{ friend_request: number; first_message: number; follow_up: number }>(
       ctx.tx,
       sql`select count(*) filter (where kind = 'friend_request')::int as friend_request,
@@ -58,7 +58,11 @@ export const today = defineAddonQuery(outreachAddon, {
           from addon_outreach.touches
           where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
     );
-    const limits = todayLimits(done ?? { friend_request: 0, first_message: 0, follow_up: 0 });
+    const limits = todayLimits(
+      done ?? { friend_request: 0, first_message: 0, follow_up: 0 },
+      dailyLimitsNow(slowsNow(warning, now)),
+    );
+    const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     const pace = {
       messageAfterDays: Math.min(
@@ -86,7 +90,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Friend requests: people found in the groups, the best fit first.
     const requestsLeft = leftToday(limits, 'friend_request');
-    if (playbooks.length && requestsLeft) {
+    if (playbooks.length && requestsLeft && !requestsOff) {
       const found = await rows<{
         id: string;
         name: string;
@@ -242,6 +246,7 @@ export const today = defineAddonQuery(outreachAddon, {
       items,
       readAdmins: readAdmins.map((g) => ({ groupId: g.id, name: g.name, url: g.url })),
       hasPlaybook: playbooks.length > 0,
+      warning,
     };
   },
 });

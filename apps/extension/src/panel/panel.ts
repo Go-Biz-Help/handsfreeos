@@ -44,7 +44,9 @@ import {
 } from './hfos';
 import { collectOpen, refreshChats, startChats } from './chats';
 import { refreshFacebookFile, startFacebookFile } from './fbfile';
+import { refreshTidy, startTidy } from './tidy';
 import { refreshToday, startToday } from './today';
+import { noteWarnings } from './warnings';
 
 const KIND: Record<PageKind, string> = {
   profile: 'A profile',
@@ -346,7 +348,7 @@ function resultView(result: ReadResult): HTMLElement[] {
           h(
             'p',
             {},
-            'Later versions stop for the day when they see this. For now, slow down and do what Facebook asks.',
+            'HandsFreeOS noted it: the extension stops for today, your daily limits are halved for a week, and friend requests are off your list for two days. Do what Facebook asks, and slow down.',
           ),
         )
       : null,
@@ -375,6 +377,7 @@ const accountBox = document.querySelector<HTMLElement>('#account')!;
 const todayBox = document.querySelector<HTMLElement>('#today')!;
 const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
 const chatsBox = document.querySelector<HTMLElement>('#chats')!;
+const tidyBox = document.querySelector<HTMLElement>('#tidy')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -501,6 +504,7 @@ async function read(quiet = false): Promise<void> {
     say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
     void lookUp(answer.result);
     void collectOpen(answer.result);
+    void noteWarnings(answer.result.warnings, answer.result.url);
   } catch (error) {
     if (seq !== reads || quiet) return;
     shown = '';
@@ -590,10 +594,12 @@ async function start(): Promise<void> {
     accountChanged: () => {
       void refreshToday();
       void refreshChats();
+      void refreshTidy();
     },
   });
   void startChats(chatsBox);
   startToday(todayBox);
+  startTidy(tidyBox);
   void startFacebookFile(fileBox);
   windowId = (await chrome.windows.getCurrent()).id;
   try {

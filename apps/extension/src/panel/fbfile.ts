@@ -18,9 +18,10 @@ import {
 } from '@hfos/core/addons/outreach/download-read';
 import { FETCH_PLANS, type FetchJob, type FetchStep, type StepResult } from '../facebook/fetch';
 import { fileNameOf, fileUrlOf, isFacebookZip } from '../hfos/files';
-import type { FetchAnswer, FetchAsk } from '../messages';
+import type { FetchAnswer } from '../messages';
 import { ask } from './ask';
 import { button, counted, h, hfosLink, type Child } from './dom';
+import { WorkTab } from './tab';
 
 const KEPT = 'hfos.facebookFile';
 /** How long a step is looked for before it's handed to the person; a screen that may not come, less. */
@@ -77,7 +78,7 @@ let files: FoundFile[] = [];
 let fileAccess = false;
 let run: Run | null = null;
 let bring: Bring = { kind: 'idle' };
-let tabId: number | null = null;
+const tab = new WorkTab();
 /** Set by Stop; the run looks at it before every step. */
 let stopped = false;
 /** Pressed Carry on: the run goes on from the step after the one handed to the person. */
@@ -93,54 +94,6 @@ async function keep(change: Partial<Kept>): Promise<void> {
 }
 
 // ---- Getting the file ----
-
-/** The tab the steps happen in: the one opened before when it's still there, else a new one at the plan's page. */
-async function openTab(url: string): Promise<number> {
-  if (tabId !== null) {
-    try {
-      const tab = await chrome.tabs.update(tabId, { url, active: true });
-      if (tab?.id !== undefined) return await loaded(tab.id);
-    } catch {
-      // Closed since.
-    }
-  }
-  const tab = await chrome.tabs.create({ url, active: true });
-  tabId = tab.id ?? null;
-  if (tabId === null) throw new Error('Chrome didn’t open the tab.');
-  return loaded(tabId);
-}
-
-/** Waits for a tab to finish loading, and for Facebook to draw the page. */
-async function loaded(id: number): Promise<number> {
-  const until = Date.now() + 30_000;
-  while (Date.now() < until) {
-    const tab = await chrome.tabs.get(id);
-    if (tab.status === 'complete') break;
-    await pause(300);
-  }
-  await pause(2 * SETTLE_MS);
-  return id;
-}
-
-async function askTab(message: FetchAsk): Promise<FetchAnswer> {
-  if (tabId === null) return { ok: false, error: 'The Facebook tab was closed.' };
-  const id = tabId;
-  try {
-    return (await chrome.tabs.sendMessage(id, message)) as FetchAnswer;
-  } catch {
-    // A tab opened before the extension was loaded or updated doesn't have its script yet.
-    try {
-      await chrome.scripting.executeScript({ target: { tabId: id }, files: ['content.js'] });
-      return (await chrome.tabs.sendMessage(id, message)) as FetchAnswer;
-    } catch {
-      return {
-        ok: false,
-        error:
-          'Facebook took the tab somewhere else. Check you’re signed in to Facebook in this browser, then try again.',
-      };
-    }
-  }
-}
 
 function set(next: Run): void {
   run = next;
@@ -185,13 +138,13 @@ async function go(job: FetchJob): Promise<void> {
   stopped = false;
   set({ job, state: 'going', line: 'Opening Facebook…' });
   try {
-    const id = await openTab(plan.url);
+    const id = await tab.open(plan.url);
     let nothingToDo: string | null = null;
     if (plan.mode === 'steps') nothingToDo = await bySteps(job, plan.steps);
     else await byPath(job, plan.steps);
     if (plan.then && !stopped && !nothingToDo) {
       // The path led to a page of its own: let it load, then do its choices in order.
-      await loaded(id);
+      await tab.loaded(id);
       nothingToDo = await bySteps(job, plan.then);
     }
     if (stopped) return;
@@ -229,7 +182,7 @@ async function bySteps(job: FetchJob, steps: readonly FetchStep[]): Promise<stri
           : `Step ${i + 1} of ${steps.length}: ${step.says}`,
     });
     const once = () =>
-      askTab({
+      tab.ask({
         type: 'hfos-fetch-step',
         step,
         waitMs: step.optional ? WAIT_OPTIONAL_MS : WAIT_MS,
@@ -255,7 +208,7 @@ async function byPath(job: FetchJob, steps: readonly FetchStep[]): Promise<void>
   let from = 0;
   while (from < steps.length && !stopped) {
     set({ job, state: 'going', line: `Looking for: ${steps[from]!.says}` });
-    const once = () => askTab({ type: 'hfos-fetch-path', steps, from, waitMs: WAIT_MS });
+    const once = () => tab.ask({ type: 'hfos-fetch-path', steps, from, waitMs: WAIT_MS });
     let answer = await once();
     if (answer.ok && answer.result === 'waiting') answer = await whileTyping(job, once);
     if (stopped) return;

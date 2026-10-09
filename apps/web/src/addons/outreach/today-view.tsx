@@ -7,6 +7,7 @@
  * and the extension notes it, which takes it off the list and counts it against today's limits.
  */
 import { DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import {
   DRAFT_KINDS,
   TODAY_KINDS,
@@ -49,7 +50,16 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
   ] as const;
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="outreach-today">
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-4">
+        {today.warning ? (
+          <p
+            role="alert"
+            data-testid="today-warning"
+            className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
+          >
+            {warningNote(today.warning)}
+          </p>
+        ) : null}
         {today.items.length ? (
           <Card className="p-0" data-testid="today-list">
             <div className="flex items-baseline justify-between gap-3 px-5 pt-4">

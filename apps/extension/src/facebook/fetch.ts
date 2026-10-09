@@ -8,7 +8,8 @@
  * Facebook draws these pages differently for different accounts and changes their words, so each step lists the words
  * it may go by, and a step it can't find is handed to the person ("Press Create files"), who presses it and lets the
  * panel carry on. Like the readers, it goes by roles, labels and Facebook's own words, never class names, and never by
- * the boxes around things. It works only on the download pages (`fetchPage`), and never presses anything else.
+ * the boxes around things. It works only on the download pages (`fetchPage`), and never presses anything else; the
+ * same way of finding and pressing serves cancelling requests and unfriending on profiles the person ticked (./tidy.ts).
  */
 import { clean, isAfter, textPieces } from './dom';
 
@@ -40,6 +41,10 @@ export interface FetchStep {
   readonly beside?: readonly string[];
   /** Press every one there is: Facebook's "Clear all", once for each part of the list. */
   readonly every?: boolean;
+  /** Only a button, never a link or a tab: a profile's Friends button, not its Friends tab. */
+  readonly buttonsOnly?: boolean;
+  /** Only in a box Facebook shows over the page (a menu or a dialog), never on the page itself. */
+  readonly inBox?: boolean;
 }
 
 /**
@@ -223,7 +228,10 @@ export const FETCH_WORDS: ReadonlySet<string> = new Set(
   ].map((word) => word.toLowerCase()),
 );
 
-/** Whether an address is one of the download pages, the only ones the extension presses anything on. */
+/**
+ * Whether an address is one of the download pages, the only ones the extension gets the file on. (It presses Cancel
+ * request and Unfriend only on the profiles the person ticked: ./tidy.ts.)
+ */
 export function fetchPage(href: string): boolean {
   let url: URL;
   try {
@@ -252,6 +260,7 @@ const PRESSES = [
   '[role="option"]',
   '[role="listitem"][tabindex]',
 ].join(', ');
+const BUTTONS = 'button, [role="button"]';
 const TICKS = 'input[type="checkbox"], [role="checkbox"], [role="switch"]';
 const PICKS =
   'input[type="radio"], [role="radio"], [role="menuitemradio"], [role="option"], [role="menuitem"]';
@@ -344,9 +353,17 @@ function besideHeading(place: Element, headings: readonly string[]): Element | n
 
 /** The elements a step would act on, the best fitting first; none when it isn't on the page. */
 function candidatesFor(doc: Document, step: FetchStep): Element[] {
-  const selector = step.action === 'press' ? PRESSES : step.action === 'pick' ? PICKS : TICKS;
+  const selector =
+    step.action === 'press'
+      ? step.buttonsOnly
+        ? BUTTONS
+        : PRESSES
+      : step.action === 'pick'
+        ? PICKS
+        : TICKS;
   const name = step.action === 'press' ? nameOf : boxName;
-  const places = placesOf(doc);
+  const places = placesOf(doc).filter((place) => !step.inBox || place !== doc.body);
+  if (!places.length) return [];
   for (const place of places) {
     const candidates = [...place.querySelectorAll(selector)].filter(shown);
     for (const word of step.words) {

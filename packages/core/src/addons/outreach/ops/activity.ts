@@ -27,7 +27,7 @@ import {
   type TouchKind,
   type TouchStep,
 } from '../activity';
-import { DONT_PITCH_TAG } from '../limits';
+import { dailyLimitsNow, DONT_PITCH_TAG } from '../limits';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
 import { groups, threads, touches } from '../tables';
@@ -40,6 +40,7 @@ import {
   type Profile,
   type ProfileKey,
 } from './common';
+import { slowsNow, warningOf } from './tidy';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -363,6 +364,7 @@ export const activity = defineAddonQuery(outreachAddon, {
     ).toISOString();
     const todayFrom = new Date(startOfLocalDay(today, timezone)).toISOString();
     const whose = input.everyone ? sql`true` : sql`t.user_id = ${me}`;
+    const warning = await warningOf(ctx, me, new Date(todayFrom));
 
     const [counts] = await rows<Counts>(
       ctx.tx,
@@ -485,6 +487,8 @@ export const activity = defineAddonQuery(outreachAddon, {
         comment: c.today_comment,
         like: c.today_like,
       },
+      limits: dailyLimitsNow(slowsNow(warning)),
+      warning,
       groups: [...byGroup.values()]
         .sort((a, b) => b.people - a.people || (a.name ?? '').localeCompare(b.name ?? ''))
         .slice(0, ACTIVITY_GROUPS),
