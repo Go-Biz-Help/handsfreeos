@@ -268,7 +268,7 @@ const PICKS =
 const ROWS = 'label, [role="listitem"], [role="row"], [role="option"], li';
 
 /** Shown to the person: not hidden from screen readers, not hidden, not turned off. */
-function shown(element: Element): boolean {
+export function shown(element: Element): boolean {
   if (element.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
   if (element.getAttribute('aria-disabled') === 'true' || element.hasAttribute('disabled'))
     return false;

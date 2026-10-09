@@ -8,6 +8,7 @@ import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
+import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds } from '../automation';
 import { demoLink, demoRef } from '../demos';
 import { bestFit } from '../fit';
 import { bestGroupFit } from '../groups';
@@ -25,11 +26,13 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
+import { automationOf } from './automation';
 import { inWorkspace } from './common';
 import { playbooksInUse } from './friends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
+const HOUR = 3_600_000;
 /** The most people from groups weighed for requests at once. */
 const CANDIDATES_MOST = 500;
 
@@ -42,7 +45,7 @@ const pitchable = (p: string) => sql`not ${sql.raw(p)}.dont_pitch and not exists
 export const today = defineAddonQuery(outreachAddon, {
   name: 'outreach.today',
   description:
-    'The person’s list for today on Facebook, for them to send themselves: friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, and replies owed; with today’s steps against the daily limits.',
+    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.',
   input: TodayInput,
   output: TodayOutput,
   permission: 'outreach.use',
@@ -62,19 +65,22 @@ export const today = defineAddonQuery(outreachAddon, {
       first_message: number;
       follow_up: number;
       comment: number;
+      like: number;
     }>(
       ctx.tx,
       sql`select count(*) filter (where kind = 'friend_request')::int as friend_request,
             count(*) filter (where step = 'first_message')::int as first_message,
             count(*) filter (where step = 'follow_up')::int as follow_up,
-            count(*) filter (where kind = 'comment')::int as comment
+            count(*) filter (where kind = 'comment')::int as comment,
+            count(*) filter (where kind = 'like')::int as "like"
           from addon_outreach.touches
           where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
     );
     const limits = todayLimits(
-      done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0 },
+      done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 },
       dailyLimitsNow(slowsNow(warning, now)),
     );
+    const { settings } = await automationOf(ctx, me);
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     const pace = {
@@ -112,9 +118,54 @@ export const today = defineAddonQuery(outreachAddon, {
     const demoFor = (profileId: string | null) =>
       linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
 
-    // Friend requests: people found in the groups, the best fit first.
+    // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30).
+    if (playbooks.length) {
+      const asked = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        intro: string[];
+        mutual_friends: number | null;
+        group_name: string | null;
+      }>(
+        ctx.tx,
+        sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
+            from addon_outreach.friends f
+            join addon_outreach.profiles p on p.id = f.profile_id
+            left join addon_outreach.groups g on g.id = p.group_id
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'request_received'
+              and ${pitchable('p')}
+            order by f.since desc limit ${CANDIDATES_MOST}`,
+      );
+      const good = asked
+        .map((p) => ({
+          p,
+          fit: bestFit(playbooks, {
+            lines: p.intro,
+            mutualFriends: p.mutual_friends,
+            groupName: p.group_name,
+          }),
+        }))
+        .filter(({ fit }) => fit.level === 'good')
+        .sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
+      for (const { p, fit } of good.slice(0, TODAY_MOST))
+        items.push(
+          item({
+            kind: 'confirm',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            why: ['Asked to be your friend', ...fit.reasons],
+            playbookName: fit.playbookName,
+          }),
+        );
+    }
+
+    // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
+    // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's.
     const requestsLeft = leftToday(limits, 'friend_request');
-    if (playbooks.length && requestsLeft && !requestsOff) {
+    const likesLeft = leftToday(limits, 'warm_up');
+    if (playbooks.length && !requestsOff && (requestsLeft || (settings.warmUp && likesLeft))) {
       const found = await rows<{
         id: string;
         name: string;
@@ -126,11 +177,16 @@ export const today = defineAddonQuery(outreachAddon, {
         group_detail: string | null;
         group_members: number | null;
         group_privacy: 'public' | 'private' | null;
+        liked_at: Date | string | null;
+        warm_up_missed_at: Date | string | null;
       }>(
         ctx.tx,
         sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
               g.name as group_name, g.detail as group_detail, g.members as group_members,
-              g.privacy as group_privacy
+              g.privacy as group_privacy, p.warm_up_missed_at,
+              (select max(t.at) from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
+                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
             from addon_outreach.group_people gp
             join addon_outreach.groups g on g.id = gp.group_id
             join addon_outreach.profiles p on p.id = gp.profile_id
@@ -163,17 +219,50 @@ export const today = defineAddonQuery(outreachAddon, {
         return fit.level === 'skip' || fit.level === 'unknown' ? [] : [{ p, fit }];
       });
       fitted.sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
-      for (const { p, fit } of fitted.slice(0, requestsLeft))
+      const likedBy = (p: (typeof found)[number]) =>
+        p.liked_at === null ? null : new Date(p.liked_at).getTime();
+      const warmed = settings.warmUp
+        ? fitted.filter(({ p }) => {
+            const liked = likedBy(p);
+            return (
+              p.warm_up_missed_at !== null ||
+              (liked !== null && liked <= now - WARM_UP_WAIT_HOURS * HOUR)
+            );
+          })
+        : fitted;
+      for (const { p, fit } of warmed.slice(0, requestsLeft))
         items.push(
           item({
             kind: 'friend_request',
             name: p.name,
             profileId: p.id,
             profileUrl: p.url,
-            why: [...fit.reasons],
+            why: [
+              ...fit.reasons,
+              ...(settings.warmUp && likedBy(p) !== null ? ['You liked a post of theirs'] : []),
+            ],
             playbookName: fit.playbookName,
           }),
         );
+      if (settings.warmUp) {
+        // Enough warmed up for a day's requests: those waiting, and those liked lately, count.
+        const waiting = fitted.filter(
+          ({ p }) => likedBy(p) !== null && p.warm_up_missed_at === null,
+        );
+        const wanted = Math.max(0, limits.friend_request.most - waiting.length);
+        const cold = fitted.filter(({ p }) => likedBy(p) === null && p.warm_up_missed_at === null);
+        for (const { p, fit } of cold.slice(0, Math.min(likesLeft, wanted)))
+          items.push(
+            item({
+              kind: 'warm_up',
+              name: p.name,
+              profileId: p.id,
+              profileUrl: p.url,
+              why: [...fit.reasons, 'Their friend request comes a day after'],
+              playbookName: fit.playbookName,
+            }),
+          );
+      }
     }
 
     // Say hi: new friends who accepted the person's request, without a message yet.
@@ -363,6 +452,7 @@ export const today = defineAddonQuery(outreachAddon, {
       readAdmins: readAdmins.map((g) => ({ groupId: g.id, name: g.name, url: g.url })),
       hasPlaybook: playbooks.length > 0,
       warning,
+      auto: autoKinds(settings),
     };
   },
 });

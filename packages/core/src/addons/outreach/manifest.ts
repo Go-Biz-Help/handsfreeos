@@ -17,7 +17,7 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.5.0',
+  version: '0.6.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace.
@@ -92,6 +92,8 @@ export const outreachAddon = defineAddon({
       'outreach.opener.used',
       'outreach.demo.marked',
       'outreach.demo.booked',
+      'outreach.automation.saved',
+      'outreach.warm_up.missed',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
@@ -112,6 +114,7 @@ export const outreachAddon = defineAddon({
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
+    'automation',
     'demos',
     'file_chats',
     'file_people',

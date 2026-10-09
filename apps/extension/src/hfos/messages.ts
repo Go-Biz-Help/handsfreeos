@@ -5,6 +5,7 @@
  */
 import type { paths } from '@hfos/api-client';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
+import type { AutoState } from '../auto/plan';
 
 type Body<P extends keyof paths> = paths[P] extends {
   post: { requestBody?: { content: { 'application/json': infer B } } };
@@ -75,6 +76,9 @@ export type DemoMarkInput = Body<'/v1/commands/outreach.demo.mark'>;
 export type DemoMarked = Ok<'/v1/commands/outreach.demo.mark'>;
 /** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
+/** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
+export type Automation = Ok<'/v1/queries/outreach.automation'>;
+export type AutomationSaveInput = Body<'/v1/commands/outreach.automation.save'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -134,6 +138,18 @@ export interface Today {
   readonly recent: readonly Noted[];
 }
 
+/** The runner that works on its own (src/auto/run.ts), for the panel: the person's choices, and where it is. */
+export interface AutoStatus {
+  /** Their choices and the business's time zone: null when nobody's signed in, or there's nowhere to save. */
+  readonly automation: Automation | null;
+  /** Why the choices couldn't be had, in words for the person. */
+  readonly trouble: string | null;
+  readonly businessId: string | null;
+  /** Whether the extension notes the steps the person takes: it works on its own only while it does. */
+  readonly noting: boolean;
+  readonly state: AutoState;
+}
+
 export type HfosAsk =
   | { readonly type: 'hfos-account'; readonly fresh?: boolean }
   | { readonly type: 'hfos-send-code'; readonly email: string }
@@ -166,7 +182,11 @@ export type HfosAsk =
   | { readonly type: 'hfos-opener-use'; readonly input: OpenerUseInput }
   | { readonly type: 'hfos-demo-mark'; readonly input: DemoMarkInput }
   | { readonly type: 'hfos-today' }
-  | { readonly type: 'hfos-noting'; readonly on: boolean };
+  | { readonly type: 'hfos-noting'; readonly on: boolean }
+  | { readonly type: 'hfos-auto' }
+  | { readonly type: 'hfos-auto-save'; readonly input: AutomationSaveInput }
+  | { readonly type: 'hfos-auto-start' }
+  | { readonly type: 'hfos-auto-stop' };
 
 /** What each ask answers with. */
 export interface HfosValues {
@@ -198,6 +218,10 @@ export interface HfosValues {
   readonly 'hfos-demo-mark': DemoMarked;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
+  readonly 'hfos-auto': AutoStatus;
+  readonly 'hfos-auto-save': AutoStatus;
+  readonly 'hfos-auto-start': AutoStatus;
+  readonly 'hfos-auto-stop': AutoStatus;
 }
 
 export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
@@ -229,6 +253,18 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-demo-mark',
   'hfos-today',
   'hfos-noting',
+  'hfos-auto',
+  'hfos-auto-save',
+  'hfos-auto-start',
+  'hfos-auto-stop',
+]);
+
+/** The asks the runner that works on its own answers (src/auto/run.ts). */
+export const AUTO_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
+  'hfos-auto',
+  'hfos-auto-save',
+  'hfos-auto-start',
+  'hfos-auto-stop',
 ]);
 
 /** What the background tells the extension's pages when it has noted a step: the day's numbers have changed. */

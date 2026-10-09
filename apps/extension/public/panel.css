@@ -578,3 +578,23 @@ blockquote.post {
   background: var(--danger-soft);
   color: var(--danger-text);
 }
+
+/* Working on its own: the person's choices, and what it's doing today. */
+.on-its-own h2 .chip {
+  margin-left: 6px;
+}
+
+.on-its-own label.auto {
+  display: block;
+  margin: 4px 0;
+}
+
+.on-its-own .hours select {
+  margin: 0 4px;
+}
+
+.on-its-own .days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}

@@ -3,9 +3,10 @@
  * works there. Every end is the extension's own: Facebook's scripts never see these messages.
  */
 import type { Answered, Seen, Step } from './facebook/actions';
+import type { AutoResult } from './facebook/auto';
 import type { FetchStep, StepResult } from './facebook/fetch';
 import type { ReplySighting } from './facebook/replies';
-import type { ReadResult } from './facebook/types';
+import type { ProfileRef, ReadResult } from './facebook/types';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
 
@@ -23,7 +24,10 @@ export type FetchAsk = (
       readonly waitMs: number;
     }
 ) & {
-  /** On the profile of someone the person ticked, to cancel a request or unfriend (src/facebook/tidy.ts). */
+  /**
+   * On someone's profile: one the person ticked, to cancel a request or unfriend (src/facebook/tidy.ts), or one on
+   * their list, to send a friend request or confirm theirs (src/facebook/auto.ts).
+   */
   readonly tidy?: boolean;
 };
 
@@ -38,6 +42,18 @@ export type BrowseAsk =
   | { readonly type: 'hfos-scroll-feed' };
 
 export type BrowseAnswer = { readonly ok: boolean };
+
+/**
+ * What the background's runner asks a tab it works in on its own (src/facebook/auto.ts): on someone's profile, like
+ * their latest post; on a post, write a comment and send it. Add friend and Confirm go as a `FetchAsk`.
+ */
+export type AutoAsk =
+  | { readonly type: 'hfos-like-latest'; readonly profile: ProfileRef }
+  | { readonly type: 'hfos-comment'; readonly text: string };
+
+export type AutoAnswer =
+  | { readonly ok: true; readonly result: AutoResult; readonly postUrl?: string | null }
+  | { readonly ok: false; readonly error: string };
 
 /** What it answers: how the step went, or the place along the path pressed; an error off the download pages. */
 export type FetchAnswer =

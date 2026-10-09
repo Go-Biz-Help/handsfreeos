@@ -12,8 +12,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 
 Phase 1, steps 1 to 5, the playbook builder, tracking with the activity panel, friends, Facebook's download
 file's dates, chats read by the AI from the file or live in Messenger, groups, the list for today, tidying up friends,
-Facebook's warnings, comments on group posts, looking people up before drafting, phone alerts, which openers work and
-the demo link:
+Facebook's warnings, comments on group posts, looking people up before drafting, phone alerts, which openers work, the
+demo link, and the extension working on its own (the first part):
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -59,7 +59,10 @@ the demo link:
   who fit a playbook, best first and as many as today's limit has left, only from groups whose admins are read and
   never to anyone who runs a group, is on Don't pitch, is in Contacts, or has had a request; a first message to new
   friends who accepted the person's request; follow-ups to likely prospects gone quiet (the playbook's pace);
-  replies owed; and comments on good group posts (below). A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
+  replies owed; and comments on good group posts (below). With **Like a post first** on (decision 33, each person's
+  own setting, on to start), someone's request waits until a day after one of their posts was liked, and the list has
+  **Like a post first** for as many as a day's requests; a profile with no post to like goes without. Requests the
+  person got from people who fit a playbook well come first, as **Confirm their request** (decision 30). A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
   about the person and the chat so far, to copy and send on Facebook (the worker's `outreach.today.draft` action,
   against the daily AI limit). HandsFreeOS never sends: the extension notes the step, which takes it off the list.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab and the extension's
@@ -110,6 +113,18 @@ the demo link:
   (`appointment_attendees.link_ref`), and a booking through it counts as that person's demo by itself
   (`outreach.demo.note`, from `appointment.booked`). **Demo booked** on a profile in the panel marks one booked some
   other way (`outreach.demo.mark`).
+- **The extension on its own** (decisions 26 to 33, `automation.ts`, `ops/automation.ts`; the extension's
+  `src/auto/`): each person picks, in the panel's **On its own**, whether the extension does their friend requests,
+  likes and comments by itself (messages always wait for them), whether it likes a post first, whether it confirms
+  requests from people who fit, and their working hours (9 to 5, Monday to Friday, to start, on the business's
+  clock). It then goes down their list for today on its own, at random times spread over the hours, or straight away at
+  a person's pace once they press **Start my day**; in a window of its own beside theirs, one step per alarm: it opens
+  the profile or post, checks it's the right person and where things stand, presses **Confirm**, **Like**, **Add
+  friend**, or writes the AI's first comment draft and sends it, checks it worked, and notes it as its own
+  (`touches.auto`). The list only ever holds what today's limits have room for, so it keeps them. It stops for the
+  day on any Facebook warning and on **Stop for today**, and works only while Chrome is open, someone is signed in
+  and noting is on. Today, in the web and the panel, marks what it does as **Done on its own**, and the morning push
+  leaves those out.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
@@ -157,6 +172,8 @@ the demo link:
 | Finding posts, and looking people up before drafting     | `apps/extension/src/panel/posts.ts`, `src/panel/lookup.ts`, `src/facebook/browse.ts`                                            |
 | Replies, openers and demos                               | `alerts.ts`, `openers.ts`, `demos.ts` and their `ops/`, `supabase/migrations/20261027001100_outreach_replies_openers_demos.sql` |
 | The pushes, and a booking through the demo link          | `apps/worker/src/addons/outreach/alerts.ts`, `demos.ts`; `apps/worker/src/addons/alerts.ts` (`pushAddonNotice`)                 |
+| The extension on its own: choices, and the warm-up       | `automation.ts`, `ops/automation.ts`, `supabase/migrations/20261027001200_outreach_automation.sql`                              |
+| The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/facebook/auto.ts`, `src/panel/auto.ts`, `src/tab.ts`                 |
 | Spotting replies on the page                             | `apps/extension/src/facebook/replies.ts`, `src/hfos/replies.ts`, `src/content.ts`                                               |
 | The extension                                            | `apps/extension`                                                                                                                |
 
@@ -193,6 +210,9 @@ Operations, all through the kernel:
 | `outreach.openers`                                    | `outreach.use`    | Which openers work: each playbook's, with sent, replies and demos; everyone's for owners, admins      |
 | `outreach.demo.mark`                                  | `outreach.use`    | Someone the person reached booked a demo some other way, or not after all                             |
 | `outreach.demo.note`                                  | the worker        | A booking through someone's demo link, from core's `appointment.booked`: a demo, once a booking       |
+| `outreach.automation`                                 | `outreach.use`    | What the person lets the extension do on its own, and their hours, in the business's time zone        |
+| `outreach.automation.save`                            | `outreach.use`    | The person's own choices for the extension on its own                                                 |
+| `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                   |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -276,6 +296,41 @@ openers on group posts") and answered its questions the same day. These are sett
 They come in three parts: cancelling and unfriending with the warnings (17 and 25); then openers on group posts, help
 posts and looking people up (18 to 21); then phone alerts, which openers work, and the demo link (22 to 24).
 
+The owner asked on 9 Oct 2026 for the extension to do more on its own, since it stays a build loaded by hand rather
+than a store extension, and for more features, and answered the questions the same day. These are settled too:
+
+26. **Sending is a setting, per person** (this replaces decision 1's choices): off, the person does everything (the
+    default); (a) friend requests, likes and comments on their own, each message one tap; (b) everything on its own;
+    (c) **Approve all** each morning. Choosing (b) starts training wheels. Off and (a) are built (part 1); (b) and (c)
+    come with messages (part 3).
+27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
+    rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Part 3.
+28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
+    button. Built.
+29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
+    their own. Part 5.
+30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
+    fit well.
+31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Part 5.
+32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
+    Next (part 1, its second half).
+33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
+    hours after the like; a like over 14 days old doesn't count; no post to like, no wait.
+34. **All the features:** results by group, team sharing, an after-demo workflow, birthday and new-job notes, more
+    templates, LinkedIn then Instagram, and a weekly report. Parts 2, 6 and 7.
+35. **Automation and features are built side by side,** one PR at a time.
+36. **Social Outreach gets an onboarding** like the main app's. Part 4.
+
+**Training wheels** (proposed with the plan; the owner can change it): when someone picks a fully automatic choice
+(26b, 27b or 27c), for the first 7 days and until they've OK'd 25 messages, everything it wants to send comes to them
+first as "I'd send this", and their daily limits are half. More than 1 edit in 3 of the last 10 keeps it on longer;
+owners and admins can end it early; a Facebook warning puts it back on for 7 days. The table keeps its count from
+part 1 (`automation.wheels_*`); it starts with part 3.
+
+The order: (1) the runner; (2) results by group and the weekly report; (3) messages and replies on their own; (4)
+onboarding; (5) tidying on its own and joining groups; (6) team sharing, after-demo workflow, birthday notes,
+templates; (7) LinkedIn, then Instagram.
+
 From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached;
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
@@ -304,6 +359,12 @@ likes and 1 post, half that for new or quiet accounts.
   ticked and where things stand before pressing, and that it says Add friend after; anything else is handed to the
   person. It presses a button under their name, never a link or tab, and Unfriend and Confirm only in Facebook's box
   on top.
+- **On its own, it does only what's on the person's list for today, and only the kinds they let it**
+  (`autoKinds`, the list's `auto`). The list holds no more than today's limits have room for, so the runner never
+  passes them; it checks each profile is the one listed and where things stand before pressing and after, passes
+  over anything that isn't as expected for the rest of the day rather than retrying, and notes each step marked as
+  its own (`auto`). It never sends a message in part 1. It stops for the day on any warning, its own or the panel's
+  (`src/hfos/warned.ts`), and keeps its state in the extension's storage, so a restart carries on where it was.
 - **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's
   only updated; the AI's answer is taken once (`outreach.post.check` changes only a `waiting` post), and an answer it
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when
@@ -421,7 +482,12 @@ link isn't followed.
 
 Cancelling and unfriending follow Facebook's usual buttons (Friends, Unfriend, Confirm; Cancel request), not yet
 tried on the owner's account; a step it can't find is handed to the person. Unfriending on its own within a daily
-limit (decision 10's other choice) waits for the build loaded by hand's hands-off mode.
+limit (decision 10's other choice) comes with tidying on its own (decision 29).
+
+The runner's presses (Add friend, Respond and Confirm, Like on the latest post, the comment box and its button) follow
+Facebook's usual 2026 pages, not yet tried on the owner's account; one it can't find is passed over for the day, and
+its line in the panel says so. Chrome must be open for it to work; a window it opens unfocused may still show in front
+on some computers.
 
 Spotting replies reads chats the way the chat readers do now, not yet tried on the owner's account; a chat's line in
 Messenger's list counts when it doesn't start "You", so a group chat's line counts too, though only a chat with
@@ -430,4 +496,4 @@ to anywhere else carries the `ref` along, and only **Demo booked** counts those.
 
 Next: the AI suggesting a conversation from the rest of the playbook
 comes with AI drafting. A profile saved after the file came in is matched to it when a newer file comes in. Then
-leads and results by group. The settings for decisions 1 to 3 arrive with the steps that need them.
+leads and results by group. Then the rest of decisions 26 to 36, in the order above.

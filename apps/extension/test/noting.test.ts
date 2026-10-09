@@ -51,8 +51,14 @@ describe('touchSave', () => {
         postUrl: null,
         threadKey: null,
         replying: null,
+        auto: false,
       },
     });
+  });
+
+  it('says when the extension took the step on its own', () => {
+    const built = touchSave(step({ auto: true }), WS);
+    expect(built.ok && built.input.auto).toBe(true);
   });
 
   it('sends a group by the name in its link, and the one remembered when the page had none', () => {

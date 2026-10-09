@@ -270,9 +270,12 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           userId: me,
           kind: input.kind,
           step,
-          groupId,
+          // The extension on its own goes from the list for today, which doesn't say the group: they were found in
+          // the one their profile was first saved from.
+          groupId: groupId ?? (input.auto ? profile.groupId : null),
           postUrl: input.postUrl,
           threadKey: input.threadKey,
+          auto: input.auto,
           at,
         })
         .returning({ id: touches.id });

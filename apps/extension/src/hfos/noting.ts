@@ -341,15 +341,13 @@ function noteAnswer(answered: Answered, at: string): Promise<void> {
  * What a Facebook tab told the background: a step taken, a friend request answered, someone opened from a group, or
  * chats whose last message is theirs (./replies.ts).
  */
-export function takeNote(note: TabNote): void {
-  if (note.type === 'hfos-replies') {
-    void isNoting()
+export function takeNote(note: TabNote): Promise<void> {
+  if (note.type === 'hfos-replies')
+    return isNoting()
       .then((on) => (on ? noteReplies(note) : undefined))
       .catch((error: unknown) =>
         console.error('HandsFreeOS Social couldn’t send the replies it saw', error),
       );
-    return;
-  }
   const work =
     note.type === 'hfos-seen'
       ? async () => {
@@ -359,7 +357,7 @@ export function takeNote(note: TabNote): void {
       : note.type === 'hfos-answered'
         ? () => noteAnswer(note.answered, note.at)
         : () => noteStep(note.step, note.at);
-  inTurn(work).catch((error: unknown) =>
+  return inTurn(work).catch((error: unknown) =>
     console.error('HandsFreeOS Social couldn’t note a step', note.type, error),
   );
 }

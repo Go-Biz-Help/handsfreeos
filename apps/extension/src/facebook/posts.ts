@@ -16,11 +16,11 @@ const ACTIONS = /^actions for\b/i;
 const POST_END =
   /^(leave a comment|comment|see who reacted to\b.*|write a (public )?comment…?|comment as\b.*)$/i;
 /** A comment or a reply to one: "Comment by Jane Doe 2 hours ago", "Reply by Jane Doe to Sam Carter's comment". */
-const COMMENT = /^(comment|reply) by\b/i;
+export const COMMENT = /^(comment|reply) by\b/i;
 /** A count on its own, as 2026 posts show them on their buttons: "6", "1.2K". */
 const COUNT = /^[\d.,]+\s*[km]?$/i;
 /** The Like button: "Like", or "Remove Like" (or Love, Haha…) once you've reacted. */
-const LIKE = /^(like|remove (like|love|care|haha|wow|sad|angry))$/i;
+export const LIKE = /^(like|remove (like|love|care|haha|wow|sad|angry))$/i;
 
 const hasWords = (element: Element) => clean(element.textContent) !== '';
 
@@ -29,7 +29,7 @@ const hasWords = (element: Element) => clean(element.textContent) !== '';
  * and the boxes around the "Actions for this post" buttons outside them. Empty articles are Facebook's grey
  * placeholders while posts load.
  */
-function postBoxes(root: Element): Element[] {
+export function postBoxes(root: Element): Element[] {
   const fromFeeds = [...root.querySelectorAll('[role="feed"]')].flatMap((feed) =>
     [...feed.children].filter(hasWords),
   );

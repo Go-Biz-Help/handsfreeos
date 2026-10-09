@@ -73,6 +73,8 @@ export interface Step {
   readonly thread: ThreadRef | null;
   /** For a message: whether it answers theirs (the chat's last message was from them), when the page said. */
   readonly replying: boolean | null;
+  /** Taken by the extension on its own (src/auto/run.ts), not by the person. */
+  readonly auto?: boolean;
 }
 
 /**
@@ -90,15 +92,15 @@ const ADD_FRIEND = /^add friend(?:\s+(.+))?$/i;
 /** The Like button before it's pressed: "Remove Like" takes it back, and "Like: 2 people" lists who reacted. */
 const LIKE = /^like$/i;
 /** The box to comment in, and the box to reply to a comment in. */
-const COMMENT_BOX =
+export const COMMENT_BOX =
   /^(comment as\b|write a (public )?comment|reply (to|as)\b|write a (public )?reply|answer as\b|write an answer)/i;
-const REPLY_BOX = /^(reply (to|as)\b|write a (public )?reply)/i;
+export const REPLY_BOX = /^(reply (to|as)\b|write a (public )?reply)/i;
 /** "Reply to Jane Doe": who a reply answers. */
 const REPLY_TO = /^reply to\s+(.+?)(?:…|\.\.\.)?$/i;
 /** The box to write in, in a chat open over another page. */
 const MESSAGE_BOX = /^(message\b|aa$|write (a message|to)\b|type a message)/i;
 /** The buttons that send what's written: a chat's, a comment's. Facebook shows them once something is. */
-const SEND = /^(press enter to send|send|comment|post comment|post reply|submit)$/i;
+export const SEND = /^(press enter to send|send|comment|post comment|post reply|submit)$/i;
 /** Your own name, in the box you write a comment in: "Comment as Jane Doe". */
 const WRITING_AS = /^(?:comment|reply|answer) as\s+(.+?)(?:…|\.\.\.)?$/i;
 const YOUR_PROFILE = /^your profile$/i;
@@ -111,7 +113,7 @@ const SEND_STEPS = 12;
 const WINDOW_STEPS = 20;
 
 /** The boxes to write in. */
-const WRITING = '[role="textbox"], [contenteditable="true"]';
+export const WRITING = '[role="textbox"], [contenteditable="true"]';
 
 const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
@@ -150,7 +152,7 @@ function isYou(
 }
 
 /** Whether a box to write in has something in it: words, or only an emoji. */
-const hasWriting = (box: Element) => textWithEmoji(box) !== '';
+export const hasWriting = (box: Element) => textWithEmoji(box) !== '';
 
 // ------------------------------------------------------------------------------------------------- groups
 

@@ -42,6 +42,7 @@ import {
   savedChip,
   startHfos,
 } from './hfos';
+import { refreshAuto, startAuto } from './auto';
 import { collectOpen, refreshChats, startChats } from './chats';
 import { refreshFacebookFile, startFacebookFile } from './fbfile';
 import { markPosts, refreshPosts, startPosts } from './posts';
@@ -376,6 +377,7 @@ function resultView(result: ReadResult): HTMLElement[] {
 
 const accountBox = document.querySelector<HTMLElement>('#account')!;
 const todayBox = document.querySelector<HTMLElement>('#today')!;
+const autoWorkBox = document.querySelector<HTMLElement>('#on-its-own')!;
 const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
 const chatsBox = document.querySelector<HTMLElement>('#chats')!;
 const tidyBox = document.querySelector<HTMLElement>('#tidy')!;
@@ -596,6 +598,7 @@ async function start(): Promise<void> {
     redraw,
     accountChanged: () => {
       void refreshToday();
+      void refreshAuto();
       void refreshChats();
       void refreshTidy();
       void refreshPosts();
@@ -604,6 +607,7 @@ async function start(): Promise<void> {
   void startChats(chatsBox);
   void startPosts(postsBox);
   startToday(todayBox);
+  startAuto(autoWorkBox);
   startTidy(tidyBox);
   void startFacebookFile(fileBox);
   windowId = (await chrome.windows.getCurrent()).id;

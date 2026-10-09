@@ -6,6 +6,10 @@
  * - **Friend requests**: people found in the business's groups who fit a playbook, from groups whose full list of
  *   admins and moderators has been read; never anyone who runs a group, is on Don't pitch, is in Contacts, or has had
  *   a request from the business already. As many as today's limit has left.
+ * - **Like a post first** (decision 33, while the person's **Like a post first** is on): someone's request waits until
+ *   a day after one of their posts was liked, so the list has likes for tomorrow's requests, as many as a day's
+ *   requests. A profile with no post to like goes without.
+ * - **Confirm their request** (decision 30): friend requests the person got from people who fit a playbook well.
  * - **Say hi**: new friends who accepted the person's request a day or more ago (the playbook's pace) and haven't
  *   had a message yet.
  * - **Follow up**: likely prospects whose chat's last message was the person's, a few quiet days ago (the pace).
@@ -31,6 +35,8 @@ import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
 
 export const TODAY_KINDS = {
+  confirm: 'Confirm their request',
+  warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   opener: 'Say hi',
   follow_up: 'Follow up',
@@ -40,8 +46,10 @@ export const TODAY_KINDS = {
 export type TodayKind = keyof typeof TODAY_KINDS;
 export const TODAY_KIND_KEYS = Object.keys(TODAY_KINDS) as [TodayKind, ...TodayKind[]];
 
-/** Which daily limit each kind counts against: a reply counts against none. */
+/** Which daily limit each kind counts against: a reply and a confirm count against none. */
 export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
+  confirm: null,
+  warm_up: 'like',
   friend_request: 'friend_request',
   opener: 'first_message',
   follow_up: 'follow_up',
@@ -99,6 +107,7 @@ export const TodayOutput = z.object({
     first_message: z.object({ done: n, most: n }),
     follow_up: z.object({ done: n, most: n }),
     comment: z.object({ done: n, most: n }),
+    like: z.object({ done: n, most: n }),
   }),
   items: z.array(TodayItem),
   /** Groups with people saved whose full list of admins hasn't been read: their members wait for it. */
@@ -109,6 +118,8 @@ export const TodayOutput = z.object({
   hasPlaybook: z.boolean(),
   /** A warning Facebook showed the person lately: limits are halved, and requests may be off the list. */
   warning: WarningState.nullable(),
+  /** The kinds the extension does on its own for the person (./automation.ts): the rest wait for them. */
+  auto: z.array(z.enum(TODAY_KIND_KEYS)),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 
@@ -121,13 +132,14 @@ export function leftToday(limits: TodayOutput['limits'], kind: TodayKind): numbe
 }
 
 export const todayLimits = (
-  done: Record<'friend_request' | 'first_message' | 'follow_up' | 'comment', number>,
+  done: Record<DailyStep, number>,
   most: Readonly<Record<DailyStep, number>>,
 ) => ({
   friend_request: { done: done.friend_request, most: most.friend_request },
   first_message: { done: done.first_message, most: most.first_message },
   follow_up: { done: done.follow_up, most: most.follow_up },
   comment: { done: done.comment, most: most.comment },
+  like: { done: done.like, most: most.like },
 });
 
 /** How much of a post Today shows. */

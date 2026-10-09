@@ -76896,6 +76896,10 @@
                       "boolean",
                       "null"
                     ]
+                  },
+                  "auto": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -79219,6 +79223,232 @@
                   "required": [
                     "profileId",
                     "booked"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.automation.save": {
+      "post": {
+        "operationId": "command_outreach_automation_save",
+        "summary": "The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit) and their working hours.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.automation.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "properties": {
+                      "sending": {
+                        "type": "string",
+                        "enum": [
+                          "off",
+                          "steps"
+                        ]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "hours": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 23
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 24
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 6
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "end",
+                          "days"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "sending",
+                      "warmUp",
+                      "confirmRequests",
+                      "hours"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "settings"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "sending": {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "steps"
+                          ]
+                        },
+                        "warmUp": {
+                          "type": "boolean"
+                        },
+                        "confirmRequests": {
+                          "type": "boolean"
+                        },
+                        "hours": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 23
+                            },
+                            "end": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 24
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "sending",
+                        "warmUp",
+                        "confirmRequests",
+                        "hours"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "saved": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "settings",
+                    "timezone",
+                    "saved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.warm_up.missed": {
+      "post": {
+        "operationId": "command_outreach_warm_up_missed",
+        "summary": "The extension found no post to like on someone’s profile before their friend request: the request goes without it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.warm_up.missed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "profileId"
                   ],
                   "additionalProperties": false
                 }
@@ -157036,7 +157266,7 @@
     "/v1/queries/outreach.today": {
       "post": {
         "operationId": "query_outreach_today",
-        "summary": "The person’s list for today on Facebook, for them to send themselves: friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, and replies owed; with today’s steps against the daily limits.",
+        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.",
         "tags": [
           "queries"
         ],
@@ -157158,13 +157388,34 @@
                             "most"
                           ],
                           "additionalProperties": false
+                        },
+                        "like": {
+                          "type": "object",
+                          "properties": {
+                            "done": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "most": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "done",
+                            "most"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "friend_request",
                         "first_message",
                         "follow_up",
-                        "comment"
+                        "comment",
+                        "like"
                       ],
                       "additionalProperties": false
                     },
@@ -157176,6 +157427,8 @@
                           "kind": {
                             "type": "string",
                             "enum": [
+                              "confirm",
+                              "warm_up",
                               "friend_request",
                               "opener",
                               "follow_up",
@@ -157374,6 +157627,21 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "auto": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "confirm",
+                          "warm_up",
+                          "friend_request",
+                          "opener",
+                          "follow_up",
+                          "reply",
+                          "comment"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -157381,7 +157649,8 @@
                     "items",
                     "readAdmins",
                     "hasPlaybook",
-                    "warning"
+                    "warning",
+                    "auto"
                   ],
                   "additionalProperties": false
                 }
@@ -157847,6 +158116,118 @@
                   "required": [
                     "everyone",
                     "playbooks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.automation": {
+      "post": {
+        "operationId": "query_outreach_automation",
+        "summary": "What the person lets the browser extension do for them on Facebook on its own, and their working hours, in the business’s time zone.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "sending": {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "steps"
+                          ]
+                        },
+                        "warmUp": {
+                          "type": "boolean"
+                        },
+                        "confirmRequests": {
+                          "type": "boolean"
+                        },
+                        "hours": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 23
+                            },
+                            "end": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 24
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "sending",
+                        "warmUp",
+                        "confirmRequests",
+                        "hours"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "saved": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "settings",
+                    "timezone",
+                    "saved"
                   ],
                   "additionalProperties": false
                 }

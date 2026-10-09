@@ -2,10 +2,12 @@
  * The extension's background worker. It opens the side panel when the toolbar button is pressed, and it holds the
  * sign-in to HandsFreeOS: the side panel asks it to sign in, look people up and save (src/hfos/session.ts), and for
  * the day on Facebook (src/hfos/noting.ts). Its script in a Facebook tab tells it the steps the person takes there,
- * which it notes; that script is never answered, and only the extension's own pages are.
+ * which it notes; that script is never answered, and only the extension's own pages are. Its alarm wakes the runner
+ * that works on Facebook on its own, once the person turns that on (src/auto/run.ts).
  */
+import { AUTO_ALARM, answerAuto, tick, wake } from './auto/run';
 import { facebookUrl } from './facebook/urls';
-import { HFOS_ASKS, type HfosAnswer, type HfosAsk } from './hfos/messages';
+import { AUTO_ASKS, HFOS_ASKS, type HfosAnswer, type HfosAsk } from './hfos/messages';
 import { answerNoting, isTabNote, takeNote } from './hfos/noting';
 import { answer } from './hfos/session';
 import { TAB_NOTES } from './messages';
@@ -29,8 +31,19 @@ chrome.runtime.onMessage.addListener(
     if (!ours || !HFOS_ASKS.has(type)) return false;
     const ask = message as HfosAsk;
     void (
-      ask.type === 'hfos-today' || ask.type === 'hfos-noting' ? answerNoting(ask) : answer(ask)
+      ask.type === 'hfos-today' || ask.type === 'hfos-noting'
+        ? answerNoting(ask)
+        : AUTO_ASKS.has(ask.type)
+          ? answerAuto(ask as Parameters<typeof answerAuto>[0])
+          : answer(ask as Parameters<typeof answer>[0])
     ).then(respond);
     return true;
   },
 );
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === AUTO_ALARM) void tick();
+});
+// Chrome started, or the extension was updated: the alarm may be gone.
+chrome.runtime.onStartup.addListener(() => void wake());
+chrome.runtime.onInstalled.addListener(() => void wake());

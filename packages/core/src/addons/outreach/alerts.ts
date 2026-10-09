@@ -82,6 +82,8 @@ export function replyPushWords(name: string): { title: string; body: string } {
 
 /** Each kind as the morning push counts it: "2 friend requests". */
 const COUNTED: Record<TodayKind, readonly [string, string]> = {
+  confirm: ['request to confirm', 'requests to confirm'],
+  warm_up: ['post to like', 'posts to like'],
   friend_request: ['friend request', 'friend requests'],
   opener: ['new friend to say hi to', 'new friends to say hi to'],
   follow_up: ['follow-up', 'follow-ups'],

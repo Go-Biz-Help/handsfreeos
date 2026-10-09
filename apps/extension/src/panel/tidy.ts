@@ -7,13 +7,13 @@
  * stops for the day on any Facebook warning. A step it can't find, it hands to the person.
  */
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
-import { TIDY_PLANS, sameProfile, type TidyJob } from '../facebook/tidy';
+import { FRIENDSHIP_WORDS, TIDY_PLANS, sameProfile, type TidyJob } from '../facebook/tidy';
 import type { FetchStep } from '../facebook/fetch';
-import type { ProfilePage, ReadResult } from '../facebook/types';
+import type { ReadResult } from '../facebook/types';
 import type { Account, Tidy, TidyCandidate } from '../hfos/messages';
 import { ask } from './ask';
 import { button, chip, counted, h, hfosLink, link, type Child } from './dom';
-import { WorkTab } from './tab';
+import { WorkTab } from '../tab';
 import { noteWarnings, onWarning, warnedToday } from './warnings';
 
 /** Between people, a steady pace like a person's: never the same twice. */
@@ -158,15 +158,6 @@ async function warnedOn(page: ReadResult): Promise<boolean> {
   });
   return true;
 }
-
-const FRIENDSHIP_WORDS: Record<ProfilePage['friendship'], string> = {
-  self: 'that’s you',
-  friends: 'you’re friends',
-  request_sent: 'your request is still waiting',
-  request_received: 'they asked to be friends with you',
-  not_friends: 'you aren’t friends',
-  unknown: 'it couldn’t tell where things stand',
-};
 
 /** One person: open, check, press, check again, note. */
 async function one(job: TidyJob, who: TidyCandidate, businessId: string): Promise<Outcome | null> {

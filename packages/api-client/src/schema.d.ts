@@ -5777,6 +5777,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.automation.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit) and their working hours.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.automation.saved.
+         */
+        post: operations["command_outreach_automation_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.chat.save": {
         parameters: {
             query?: never;
@@ -6131,6 +6151,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_touch_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.warm_up.missed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The extension found no post to like on someone’s profile before their friend request: the request goes without it.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.warm_up.missed.
+         */
+        post: operations["command_outreach_warm_up_missed"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15657,6 +15697,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person lets the browser extension do for them on Facebook on its own, and their working hours, in the business’s time zone.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_automation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.chats": {
         parameters: {
             query?: never;
@@ -15827,7 +15887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s list for today on Facebook, for them to send themselves: friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, and replies owed; with today’s steps against the daily limits.
+         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
@@ -31575,6 +31635,58 @@ export interface operations {
             };
         };
     };
+    command_outreach_automation_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    settings: {
+                        confirmRequests: boolean;
+                        hours: {
+                            days: number[];
+                            end: number;
+                            start: number;
+                        };
+                        /** @enum {string} */
+                        sending: "off" | "steps";
+                        warmUp: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        saved: boolean;
+                        settings: {
+                            confirmRequests: boolean;
+                            hours: {
+                                days: number[];
+                                end: number;
+                                start: number;
+                            };
+                            /** @enum {string} */
+                            sending: "off" | "steps";
+                            warmUp: boolean;
+                        };
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_chat_save: {
         parameters: {
             query?: never;
@@ -32567,6 +32679,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    auto?: boolean;
                     /** @default null */
                     group?: {
                         id: string | null;
@@ -32614,6 +32728,38 @@ export interface operations {
                         step: ("first_message" | "follow_up") | null;
                         /** Format: uuid */
                         touchId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_warm_up_missed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
                     };
                 };
             };
@@ -58453,6 +58599,47 @@ export interface operations {
             };
         };
     };
+    query_outreach_automation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        saved: boolean;
+                        settings: {
+                            confirmRequests: boolean;
+                            hours: {
+                                days: number[];
+                                end: number;
+                                start: number;
+                            };
+                            /** @enum {string} */
+                            sending: "off" | "steps";
+                            warmUp: boolean;
+                        };
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_chats: {
         parameters: {
             query?: never;
@@ -59079,12 +59266,13 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "follow_up" | "reply" | "comment")[];
                         hasPlaybook: boolean;
                         items: {
                             chatId: string | null;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "friend_request" | "opener" | "follow_up" | "reply" | "comment";
+                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "follow_up" | "reply" | "comment";
                             name: string;
                             nextStep: string | null;
                             playbookName: string | null;
@@ -59112,6 +59300,10 @@ export interface operations {
                                 most: number;
                             };
                             friend_request: {
+                                done: number;
+                                most: number;
+                            };
+                            like: {
                                 done: number;
                                 most: number;
                             };
