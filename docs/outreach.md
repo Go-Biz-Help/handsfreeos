@@ -10,8 +10,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 
 ## What's built
 
-Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, friends, and Facebook's download
-file's dates:
+Phase 1, steps 1 to 5, the playbook builder, tracking with the activity panel, friends, Facebook's download
+file's dates, chats read by the AI from the file or live in Messenger, groups, and the list for today:
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -29,10 +29,37 @@ file's dates:
   profile (apps/extension/README.md).
 - **Facebook's download file** (the Friends tab's **Bring in your Facebook file**): the person picks the zips
   Facebook gives them, the "Download your information" file and the chat backup that holds the newer chats, and their
-  browser reads them. Only names and dates are sent: their friends and since when, the requests they sent and got,
+  browser reads them. Names and dates are sent: their friends and since when, the requests they sent and got,
   the friends they removed, the requests they deleted, their followers and who they follow, and when they last
-  messaged each person. The Friends tab then says "Friends since Mar 2019" and the latest message either way, and a
-  sent request shows the day it really went.
+  messaged each person; and each one-to-one chat's latest 20 messages, for the AI to read. The Friends tab then says "Friends since Mar 2019" and the latest message either way, and a
+  sent request shows the day it really went. The extension can get the file too (decision 16): its panel's **Your
+  Facebook file** asks Facebook for it, downloads it when it's ready and gets the chat backup, pressing the buttons on
+  Facebook's own download pages, then finds the zips in Chrome's downloads and brings them in the same way.
+- **Chats** (`/a/outreach?view=chats`, decision 3): each one-to-one chat in the file, read by the AI from its latest
+  20 messages: a short summary, the playbooks' tags that fit, whether they look like a prospect, and a next step. The
+  likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag and a name narrow it,
+  50 to a page. Who goes in Contacts is the business's setting (Add-ons → Social Outreach): anyone tagged or looking
+  like a prospect (the default), everyone, or only likely prospects. They're added with their tags and a timeline
+  line with the summary; someone already in Contacts gets the tags whatever it says.
+- **Chats read live** (decision 3, without waiting for the file): the extension sends each one-to-one chat the person
+  opens in Messenger with its panel beside it, or, with **Read my chats**, opens their chats one at a time at a steady
+  pace and stops on any Facebook warning. Each chat's latest 20 messages join the file's, one chat per person
+  (`chat-collect.ts`, `outreach.chats.collect`), and are read the same way. A chat read live keeps its Messenger
+  thread, so the Chats tab can **Open in Messenger**.
+- **Groups** (`/a/outreach?view=groups`, step 4): the groups the extension saved from the person's groups, a search,
+  or a group's own page, each scored against the playbooks in use as **Work these**, **Maybe** or **Skip**, with why:
+  a playbook's words to search for groups, its area or a quoted sign in the name, size, and whether the person is in
+  it (`groups.ts`). A group's People tab saves its members with the lines under their names; admins and moderators
+  are kept as running it for good, and a group's full list of them (its **See all** page) marks the group's admins as
+  read. Nobody is added to Contacts.
+- **Today** (`/a/outreach?view=today`, step 5, and in the extension's panel): the person's list for the day, worked
+  out each time from what HandsFreeOS knows (`today.ts`, `ops/today.ts`). Friend requests to people from the groups
+  who fit a playbook, best first and as many as today's limit has left, only from groups whose admins are read and
+  never to anyone who runs a group, is on Don't pitch, is in Contacts, or has had a request; a first message to new
+  friends who accepted the person's request; follow-ups to likely prospects gone quiet (the playbook's pace); and
+  replies owed. A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
+  about the person and the chat so far, to copy and send on Facebook (the worker's `outreach.today.draft` action,
+  against the daily AI limit). HandsFreeOS never sends: the extension notes the step, which takes it off the list.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -41,6 +68,12 @@ file's dates:
   time, ten steps from the goal to a summary, each with ideas to tap and room for the business's own words. The offer
   step offers the business's booking pages as the link, and the tags step its own tags. A new playbook walks every
   step; changing one opens on the summary, where each part has its own Change.
+- **AI help on each part of a playbook** (owners and admins): under every part the person writes, **Improve**
+  rewrites what's there and **Suggest more** (or **Write it for me**) offers more, from the whole playbook as it
+  stands. Words come back three to pick from; list lines to tap in one by one, or a rewritten list to use instead;
+  questions with their answers, what each leads to and only the playbook's own tags. Nothing is used until the person
+  picks it, and it counts against the business's daily AI limit (`playbook-assist.ts`; the worker's
+  `outreach.playbook.assist` action). The goal, link, steps and pace are choices, not writing, so they have none.
 - **The conversation**: the questions to work into a chat, each with the answers people give. An answer can add one of
   the playbook's tags, and says what's next: the next question, a question further down, the offer, checking back
   later, or stopping. A question with no answers is answered in the person's own words.
@@ -51,21 +84,24 @@ file's dates:
 
 ## How it fits together
 
-| Piece                                                           | Where                                                                            |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Manifest, operations, tables, shapes                            | `packages/core/src/addons/outreach/`                                             |
-| What a save takes: lengths, counts, id shapes (no zod)          | `packages/core/src/addons/outreach/limits.ts`                                    |
-| Worker half: data version 2                                     | `apps/worker/src/addons/outreach/`                                               |
-| What the extension notes, and the panel's shapes                | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`               |
-| The page: Activity, Friends and Playbooks tabs, the Social card | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
-| The playbook builder                                            | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`   |
-| Tables and permissions                                          | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach` |
-| Groups and steps noted                                          | `supabase/migrations/20261026000300_outreach_activity.sql`                       |
-| Friends, Keep and Don't pitch, and how someone fits             | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder      |
-| Friends and the Don't pitch list                                | `supabase/migrations/20261026000400_outreach_friends.sql`                        |
-| Facebook's download file: reading it, and bringing it in        | `download.ts` (reads the zips, no server code) and `ops/download.ts`             |
-| What the file said, by name                                     | `supabase/migrations/20261027000300_outreach_facebook_download.sql`              |
-| The extension                                                   | `apps/extension`                                                                 |
+| Piece                                                    | Where                                                                             |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Manifest, operations, tables, shapes                     | `packages/core/src/addons/outreach/`                                              |
+| What a save takes: lengths, counts, id shapes (no zod)   | `packages/core/src/addons/outreach/limits.ts`                                     |
+| Worker half: the AI reading the chats, and its drafts    | `apps/worker/src/addons/outreach/`                                                |
+| What the extension notes, and the panel's shapes         | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`                |
+| The page and its tabs, and the Social card               | `apps/web/src/addons/outreach/`, `/a/outreach`                                    |
+| The playbook builder                                     | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`    |
+| Tables and permissions                                   | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach`  |
+| Groups and steps noted                                   | `supabase/migrations/20261026000300_outreach_activity.sql`                        |
+| Friends, Keep and Don't pitch, and how someone fits      | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder       |
+| Friends and the Don't pitch list                         | `supabase/migrations/20261026000400_outreach_friends.sql`                         |
+| Facebook's download file: reading it, and bringing it in | `download-read.ts` (reads the zips, no zod), `download.ts` and `ops/download.ts`  |
+| The extension getting the file                           | `apps/extension/src/facebook/fetch.ts`, `src/panel/fbfile.ts`                     |
+| What the file said, by name                              | `supabase/migrations/20261027000300_outreach_facebook_download.sql`               |
+| Chats read live in Messenger                             | `chat-collect.ts`, `supabase/migrations/20261027000600_outreach_chat_reads.sql`   |
+| Groups, their people, and the list for today             | `groups.ts`, `today.ts`, `supabase/migrations/20261027000700_outreach_groups.sql` |
+| The extension                                            | `apps/extension`                                                                  |
 
 Operations, all through the kernel:
 
@@ -84,6 +120,11 @@ Operations, all through the kernel:
 | `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                  |
 | `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit            |
 | `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in     |
+| `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read    |
+| `outreach.groups.save`                                | `outreach.use`    | The groups a page lists, with what it said about each, up to 100 at a time                           |
+| `outreach.group.save`                                 | `outreach.use`    | A group and up to 500 people from its People tab; its admins page marks its admins as read           |
+| `outreach.groups`                                     | `outreach.use`    | The Groups tab: the counts, and a page of groups by fit, searched by name                            |
+| `outreach.today`                                      | `outreach.use`    | The person's list for today, and today's steps against the daily limits                              |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -133,6 +174,16 @@ The owner answered the next round on 6 Oct 2026 (plan.md, "Next: what you asked 
     was sent and when the person last talked to each friend. Until then the extension knows only what it has seen
     since it started noting, too little to cancel or unfriend on.
 
+The owner answered on 9 Oct 2026, asking for it ("can we have the extension take control of the browser and get the
+files on its own"), and picked doing it before the chats:
+
+16. **The extension gets Facebook's file for the person.** Once they press its buttons, it presses Facebook's on the
+    download pages, in a tab they can see: it asks for the file (Messages, Friends and Followers only, all time,
+    JSON, lower media quality), downloads it when it's ready, and gets the chat backup (all time, without media). The person types their password and
+    PIN; the extension never does. A step it can't find, it hands to the person and carries on after. It reads the
+    zips from Chrome's downloads once the person turns on Allow access to file URLs, and brings them in as the Friends
+    tab does. Built, not yet tried on the owner's account.
+
 From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached;
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
@@ -179,10 +230,23 @@ likes and 1 post, half that for new or quiet accounts.
 - **Newer news wins.** A list saved or an answer noted never undoes what was seen later (`seen_at`), and a deleted
   request stays deleted when a later list just doesn't show them. Confirm makes them a friend; Delete keeps the
   request as deleted. Saving a list adds nobody to Contacts.
-- **Facebook's download file stays in the browser.** The web reads the zips there (`readDownload`), a file at a time,
-  so a download of many gigabytes is fine. It sends only names and moments, never what a message said, in parts the
-  API takes (`downloadParts`, `DOWNLOAD_PART_BYTES`), and the last part (`last`) finishes the bringing-in. Only the
-  person who started one sends its other parts.
+- **Facebook's download file stays in the browser.** The web, or the extension's panel, reads the zips there
+  (`readDownload`, in `download-read.ts`, which has no zod so the panel stays small), a file at a time,
+  so a download of many gigabytes is fine. It sends names and moments, and only the latest 20 messages of each
+  one-to-one chat (`RECENT_MESSAGES`, each cut to `MESSAGE_MOST`; a photo or a link is said as "(a photo)"), never a
+  group chat's words, in parts the API takes (`downloadParts`, `DOWNLOAD_PART_BYTES`), and the last part (`last`)
+  finishes the bringing-in. Only the person who started one sends its other parts.
+- **The AI reads a chat once per newer message** (`chat-read.ts`, the worker's `chats.ts`). A chat comes in
+  `waiting` when they wrote something in its latest messages, `skipped` when only the person did, and `none` with no
+  words. The same file again reads nothing twice; newer messages put it back to `waiting`. The file's last part queues
+  one read per business (`outreach.read_chats`), 20 chats a batch, the latest first. Tags are only the playbooks' own,
+  copied as the business writes them (`checkedChatRead`), and a tag missing from Contacts is made. At the day's AI
+  limit the rest wait six hours; an answer it can't use marks that chat `failed`. A read of older messages than the
+  chat has by then is dropped (`lastAt`).
+- **Who goes in Contacts is the setting, read at the moment of the read** (`contactsFromChats`, `goesInContacts`).
+  Someone already in Contacts (through their profile) is tagged whatever it says. Someone on Don't pitch is added
+  only when the setting is everyone. A chat's summary and tags are the person's own; the customer it adds is the
+  business's, like any other.
 - **The file has no links, so it's kept by name** (`file_people`, `file_chats`, each person's own). With the last
   part, a name is matched to the one profile saved here by it (`nameKey`: lower case, spaces closed up), or among
   several, the one the person's own Facebook has a say on. A name twice in one of the file's lists is two people,
@@ -221,13 +285,14 @@ likes and 1 post, half that for new or quiet accounts.
 
 ## Not yet
 
-Next, in the owner's order: the chats in Facebook's download file with AI summaries and tags, and who goes in
-Contacts (decision 3); then cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
+The extension's steps on Facebook's download pages follow the owner's own screens of October 2026, mapped button by
+button, except the Download button beside a finished file, which no file was ready to show yet. Where it hands a
+step to the person, the panel's page outline of that screen, which keeps those steps' words, tunes it.
+
+Next, in the owner's order: cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
 unfriending (decisions 10 and 12), which the file's dates now make possible. The AI suggesting a conversation from
 the rest of the playbook comes with AI drafting. A profile saved after the file came in is matched to it when a newer
 file comes in.
 
-The rest of Phase 1, in order: groups, scored against
-the playbook, with their members saved and admins and moderators skipped; the day's list (friend requests, openers,
-follow-ups, comments), which the person sends and HandsFreeOS logs and counts against the limits; then leads, the demo
-link, and results by group. The settings for decisions 1 to 3 arrive with the steps that need them.
+The rest of Phase 1, in order: comments on posts in the person's groups as openers, then leads, the demo link, and
+results by group. The settings for decisions 1 to 3 arrive with the steps that need them.

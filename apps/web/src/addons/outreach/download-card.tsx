@@ -1,9 +1,10 @@
 'use client';
 /**
  * Bringing in Facebook's download file, on the Friends tab (docs/outreach.md, decisions 2 and 15). The person picks
- * the zips Facebook gave them, and their browser reads them (@hfos/core/addons/outreach/download): only names and
- * moments are sent, a part at a time, never what a message said. With the last part, HandsFreeOS matches the names
- * to the people saved and puts what the file says in place in their own friends.
+ * the zips Facebook gave them, and their browser reads them (@hfos/core/addons/outreach/download): names and moments
+ * are sent, a part at a time, with each one-to-one chat's latest few messages for the AI to read (./chats-view.tsx).
+ * With the last part, HandsFreeOS matches the names to the people saved and puts what the file says in place in their
+ * own friends.
  */
 import {
   DOWNLOAD_LIST_KEYS,
@@ -204,8 +205,9 @@ export function DownloadCard({
           <p className="mt-1.5 text-[13px] text-text-2">
             Facebook’s download of your information says since when you’ve been friends with each
             person, when each request was sent, who you removed, and when you last messaged each
-            person. It’s read here in your browser: only names and dates are sent, never what a
-            message said.
+            person. It’s read here in your browser. Only names and dates are sent, plus the latest
+            20 messages of each one-to-one chat, which the AI reads for a summary and your tags on
+            the Chats tab.
           </p>
           <details className="mt-2 text-[13px] text-text-2">
             <summary className="cursor-pointer text-accent-text">How to get it</summary>

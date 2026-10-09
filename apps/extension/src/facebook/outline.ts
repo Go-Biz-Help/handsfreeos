@@ -8,6 +8,7 @@
  * class names are left out. It is plain text, so the person can read it before sending it.
  */
 import { clean } from './dom';
+import { FETCH_WORDS } from './fetch';
 import type { ReadResult } from './types';
 import { facebookUrl, isFacebookPathWord, pathParts } from './urls';
 import { BADGE, isDate, isFacebookText, sectionTitleOf } from './vocabulary';
@@ -65,7 +66,15 @@ export function maskText(text: string): string {
   const t = clean(text);
   // A day with no time could be a birthday: say it's a date, not which.
   if (isDate(t)) return '(a date)';
-  if (!t || isFacebookText(t) || BADGE.test(t) || sectionTitleOf(t) || PLAIN.test(t)) return t;
+  if (
+    !t ||
+    isFacebookText(t) ||
+    FETCH_WORDS.has(t.toLowerCase()) ||
+    BADGE.test(t) ||
+    sectionTitleOf(t) ||
+    PLAIN.test(t)
+  )
+    return t;
   for (const shape of SHAPES) {
     const match = shape.exec(t);
     if (!match?.indices) continue;
