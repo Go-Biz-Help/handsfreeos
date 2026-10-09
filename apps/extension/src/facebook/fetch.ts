@@ -282,8 +282,9 @@ function nameOf(element: Element): string {
   const forIt = id
     ? [...doc.querySelectorAll('label[for]')].find((l) => l.getAttribute('for') === id)
     : null;
-  if (forIt) return clean(forIt.textContent);
-  return clean(element.textContent);
+  // Word by word, so a row's name and the line under it ("End-to-end encrypted chats" "Manage your…") stay apart.
+  if (forIt) return clean(textPieces(forIt).join(' '));
+  return clean(textPieces(element).join(' '));
 }
 
 /** A box's words: its own, or else its row's. */
@@ -369,7 +370,7 @@ export function findStep(doc: Document, step: FetchStep): Element | null {
 
 /** Whether the box on top (or the page) says one of the words. */
 function says(doc: Document, words: readonly string[]): boolean {
-  const text = clean(placesOf(doc)[0]!.textContent).toLowerCase();
+  const text = clean(textPieces(placesOf(doc)[0]!).join(' ')).toLowerCase();
   return words.some((word) => text.includes(word.toLowerCase()));
 }
 

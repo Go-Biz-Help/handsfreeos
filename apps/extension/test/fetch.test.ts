@@ -160,6 +160,30 @@ describe('doing a step', () => {
     expect(findStep(doc, FETCH_PLANS.backup.steps[0]!)?.id).toBe('dots');
   });
 
+  it('goes by a menu row’s name when a line about it sits under it, in a menu inside a menu', () => {
+    const doc = page(
+      `<div role="menu" aria-label="Inbox settings menu">
+         <div aria-hidden="true">
+           <div role="menuitem"><span>Preferences</span></div>
+           <div role="menuitem" aria-expanded="true"><div><span>Privacy &amp; safety</span><i></i></div></div>
+         </div>
+         <div aria-hidden="false">
+           <div role="menu" aria-label="Privacy &amp; safety">
+             <div role="button" aria-label="Back"></div>
+             <h2><span>Privacy &amp; safety</span></h2>
+             <div role="menuitem" aria-expanded="false" id="e2ee"><div><div><span>End-to-end encrypted chats</span><span>Manage your message storage and security</span></div><i></i></div></div>
+             <div role="menuitem" aria-expanded="false"><div><div><span>Read receipts</span><span>On</span></div><i></i></div></div>
+           </div>
+         </div>
+       </div>`,
+      'https://www.facebook.com/messages/t/1/',
+    );
+    const clicked: string[] = [];
+    doc.getElementById('e2ee')!.addEventListener('click', () => clicked.push('e2ee'));
+    expect(doPath(doc, FETCH_PLANS.backup.steps, 2)).toEqual({ at: 2 });
+    expect(clicked).toEqual(['e2ee']);
+  });
+
   it('along a path, presses the furthest step on the page', () => {
     const steps = FETCH_PLANS.backup.steps;
     const doc = page(
