@@ -630,14 +630,17 @@ export function PaidScreen({
   problems,
   data,
   result,
+  ownerPart,
 }: OwnScreenProps & {
   /** `?payments=` from Stripe's or Square's sign-in, coming back. */
   readonly result: string | null;
+  /** On the owner's own part now, as the setup walks it: `data` catches up only once the page is drawn again. */
+  readonly ownerPart: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(false);
-  const back = onboardingSetupHref(data.workspaceId, 'paid', data.ownerPart);
+  const back = onboardingSetupHref(data.workspaceId, 'paid', ownerPart);
 
   const told = useRef(false);
   useEffect(() => {

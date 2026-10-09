@@ -577,7 +577,7 @@ export function OnboardingQuickSetup({
       case 'number':
         return <NumberScreen {...own} />;
       case 'paid':
-        return <PaidScreen {...own} result={payments} />;
+        return <PaidScreen {...own} result={payments} ownerPart={!!walk} />;
       case 'try':
         return teammate ? (
           <TryAva
