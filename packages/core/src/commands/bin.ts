@@ -14,7 +14,6 @@ import {
   cancelAppointment,
   removeSeat,
   requireAppointment,
-  signalSeatFreed,
   type AppointmentRow,
 } from '../calendar/appointments';
 import { lockBooking } from '../calendar/booking';
@@ -64,17 +63,18 @@ const answer = (deleted: { id: string; item: BinItem }[]) => ({
   purgeAfter: (deleted[0]?.item.purgeAfter ?? new Date()).toISOString(),
 });
 
-/** A booking cancelled first, the way Cancel does it: the calendar locked, and a 1:1's time offered on. */
+/**
+ * A booking cancelled first, the way Cancel does it, with the calendar locked. Its time isn't offered to the
+ * waitlist: it goes in the bin with the booking (docs/deleting.md), so Cancel is the way to offer it on.
+ */
 async function cancelFirst(
   ctx: CommandContext,
   appt: AppointmentRow,
   opts: { readonly notify: boolean; readonly reason: string | null },
 ): Promise<void> {
-  const ws = ctx.scope.workspaceId!;
-  const calendar = await loadCalendar(ctx.tx, ws, appt.calendarId);
+  const calendar = await loadCalendar(ctx.tx, ctx.scope.workspaceId!, appt.calendarId);
   await lockBooking(ctx.tx, calendar.id);
   await cancelAppointment(ctx, appt, { reason: opts.reason, notify: opts.notify, by: 'staff' });
-  if (appt.kind === 'booking' && appt.capacity === 1) await signalSeatFreed(ctx, calendar, appt);
 }
 
 /**
@@ -202,7 +202,7 @@ export const appointmentDelete = defineCommand({
   output: BinDeleteOutput,
   permission: 'records.delete',
   scope: inWorkspace,
-  emits: ['appointment.deleted', 'appointment.cancelled', 'waitlist.seat_freed'],
+  emits: ['appointment.deleted', 'appointment.cancelled'],
   async handler(ctx, input) {
     const appt = await requireAppointment(ctx.tx, ctx.scope.workspaceId!, input.appointmentId);
     if (appt.status === 'scheduled' && appt.endsAt > changeMoment(ctx.meta))

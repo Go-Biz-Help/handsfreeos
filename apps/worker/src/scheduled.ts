@@ -14,6 +14,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
+import { BIN_JOBS, BIN_SWEEP_KEY, binJobs } from './bin/index';
 import { addonJobs, ensureAddonSweep } from './addons/index';
 import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
 import { workspaceJobs } from './workspace/delete';
@@ -499,6 +500,8 @@ export const jobs: JobMap = {
   [EMAIL_DOMAIN_CHECK_JOB]: checkEmailDomainJob,
   [EMAIL_RECEIVING_CHECK_JOB]: checkEmailReceivingJob,
   [SPAM_SWEEP_JOB]: sweepSpam,
+  // The Deleted bin: emptied 30 days on, or at once on "Delete now" (bin/index.ts).
+  ...binJobs,
   'email.remove_files': removeEmailFiles,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
@@ -645,6 +648,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: SPAM_SWEEP_JOB,
       dedupeKey: 'sweep:spam',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // What's been in the Deleted bin 30 days is emptied, daily (bin/index.ts).
+    await scheduleJob(tx, {
+      kind: BIN_JOBS.sweep,
+      dedupeKey: BIN_SWEEP_KEY,
       runAt,
       payload: {},
       workspaceId: null,

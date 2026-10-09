@@ -1,4 +1,5 @@
 import { onAccountDeletionRequested } from '../account/delete';
+import { onBinEmptied, onBinned, onBinRestored } from '../bin/index';
 import { withAddons } from '../addons/index';
 import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
@@ -322,6 +323,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onCancelledTeamEmail,
       onWaitedForChanged,
     ],
+    // The Deleted bin (bin/index.ts): what went in comes out of people's calendars and what comes back goes back
+    // in; "Delete now" empties it at once.
+    'person.deleted': onBinned,
+    'appointment.deleted': onBinned,
+    'bin.restored': onBinRestored,
+    'bin.emptied': onBinEmptied,
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
     // A customer's HELP is answered with the business's name and number (handlers/help-reply.ts).

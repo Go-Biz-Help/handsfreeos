@@ -18,6 +18,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
 import { appointmentAttendees } from '@hfos/db/schema';
+import { readingBin } from '../bin/index';
 import { sendConfirmedThanks } from '../booking/confirm';
 import { sendNotice, type NoticeKind, type NoticeOptions } from '../booking/notices';
 import { armReminders } from '../booking/reminders';
@@ -66,16 +67,19 @@ async function onlineOnes(tx: Tx, attendeeIds: readonly string[]): Promise<Set<s
 async function cancelledOnes(tx: Tx, appointmentId: string, p: Payload): Promise<string[]> {
   const personIds = strings(p['personIds']);
   if (personIds.length === 0) return [];
-  const list = await tx
-    .select({ id: appointmentAttendees.id })
-    .from(appointmentAttendees)
-    .where(
-      and(
-        eq(appointmentAttendees.appointmentId, appointmentId),
-        inArray(appointmentAttendees.personId, personIds),
-        eq(appointmentAttendees.status, 'cancelled'),
+  // A booking deleted for good was cancelled first, and is in the Deleted bin by now (bin/index.ts).
+  const list = await readingBin(tx, () =>
+    tx
+      .select({ id: appointmentAttendees.id })
+      .from(appointmentAttendees)
+      .where(
+        and(
+          eq(appointmentAttendees.appointmentId, appointmentId),
+          inArray(appointmentAttendees.personId, personIds),
+          eq(appointmentAttendees.status, 'cancelled'),
+        ),
       ),
-    );
+  );
   return list.map((a) => a.id);
 }
 
