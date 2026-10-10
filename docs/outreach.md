@@ -573,7 +573,8 @@ showing what's going on and prompting, the app and the phone live too, and answe
     **Waiting for you** tab, third, with its count on the label) and the extension (the list in its panel, after
     **Right now** since settings part 4, the number on its icon, and pop-ups bundled as the phone's pushes are); "what it needs the person for" is a step the
     extension couldn't do there and then. Built on the phone too (settings part 5), on the same operations, its messages kept
-    on the phone.
+    on the phone. The owner confirmed (10 October) that **Approve all** leaves out replies handed over and messages to
+    someone who needs the person: each waits for an OK of its own.
 43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
     in the app; what needs the browser is started there and done by the extension. More can be added later. Built
     (settings part 4): the panel keeps signing in with the business picker, **Right now** (what it's doing, the next step, why
