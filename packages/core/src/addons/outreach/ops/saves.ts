@@ -7,6 +7,7 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { rows } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
+import { fmtMonthDay, fmtTime, localDayOf } from '../../../calendar/when';
 import { personCreate } from '../../../commands/person.create';
 import { fullName, requirePerson, userRef, workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
@@ -208,18 +209,10 @@ const keptKey = (chat: { id: string; threadKey: string | null }) =>
 
 /** When a message was sent, on the business's clock, as a card shows it: "Oct 9, 2026, 2:10 PM". */
 function sentWords(iso: string, timeZone: string): string | null {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return null;
-  }
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return null;
+  const day = localDayOf(at, timeZone);
+  return `${fmtMonthDay(day)}, ${day.slice(0, 4)}, ${fmtTime(at, timeZone)}`;
 }
 
 export const chatKeep = defineAddonCommand(outreachAddon, {

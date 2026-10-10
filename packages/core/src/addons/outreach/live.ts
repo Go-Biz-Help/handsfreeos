@@ -19,6 +19,7 @@
  */
 import { z } from 'zod';
 import { addDays, localDateOf } from '../../calendar/engine/zoned';
+import { fmtDateShort, fmtTime } from '../../calendar/when';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { WarningState } from './tidy';
 
@@ -322,22 +323,11 @@ export function stateTone(state: ShownState): 'good' | 'waiting' | 'warn' | 'pla
   return 'plain';
 }
 
-const clockFormats = new Map<string, Intl.DateTimeFormat>();
 /** "2:14 PM" on the business's clock. */
 export function clockWords(at: string | Date | number, timeZone: string): string {
-  let f = clockFormats.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat('en-US', {
-      timeZone: timeZone || 'UTC',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-    clockFormats.set(timeZone, f);
-  }
-  return f.format(new Date(at));
+  return fmtTime(new Date(at).getTime(), timeZone || 'UTC');
 }
 
-const dateFormats = new Map<string, Intl.DateTimeFormat>();
 /** When something was or will be: "2:14 PM" today, "yesterday at 2:14 PM", "tomorrow at 9:12 AM", else "Mon, Oct 5 at 2:14 PM". */
 export function seenWords(at: string | Date | number, timeZone: string, now: number): string {
   const ms = new Date(at).getTime();
@@ -347,17 +337,7 @@ export function seenWords(at: string | Date | number, timeZone: string, now: num
   if (day === today) return clock;
   if (day === addDays(today, -1)) return `yesterday at ${clock}`;
   if (day === addDays(today, 1)) return `tomorrow at ${clock}`;
-  let f = dateFormats.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat('en-US', {
-      timeZone: timeZone || 'UTC',
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-    dateFormats.set(timeZone, f);
-  }
-  return `${f.format(new Date(ms))} at ${clock}`;
+  return `${fmtDateShort(day)} at ${clock}`;
 }
 
 /** The owner's words for a computer that's offline (decision 41). */

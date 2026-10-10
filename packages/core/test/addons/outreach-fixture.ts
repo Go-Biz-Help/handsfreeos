@@ -12,6 +12,7 @@ import {
   executeCommand,
   executeQuery,
   organizationCreate,
+  queries,
   type CommandDef,
   type HumanActor,
   type QueryDef,
@@ -65,6 +66,7 @@ const op = (name: string) =>
     ...(outreachAddonServer.commands ?? []),
     ...(outreachAddonServer.queries ?? []),
     ...commands,
+    ...queries,
   ].find((x) => x.name === name)!;
 
 /**

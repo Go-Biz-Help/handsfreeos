@@ -15,6 +15,8 @@
  * Browser-safe and without server code: the web, the extension and the phone read the steps and the words from here.
  */
 import { z } from 'zod';
+import { localDateOf } from '../../calendar/engine/zoned';
+import { fmtMonthDay, fmtTime, localDayOf } from '../../calendar/when';
 import { settingsSummary, type AutomationSettings } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
 
@@ -221,12 +223,10 @@ export const showsSetupBanner = (kept: SetupKept | null, settingsSaved: boolean)
 
 /** "at 2:14 PM" today, else "on Oct 9". */
 export function whenWords(at: string, now = Date.now(), timeZone?: string): string {
-  const d = new Date(at);
-  const day = (t: Date | number) =>
-    new Intl.DateTimeFormat('en-US', { timeZone, dateStyle: 'short' }).format(t);
-  if (day(d) === day(now))
-    return `at ${new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(d)}`;
-  return `on ${new Intl.DateTimeFormat('en-US', { timeZone, month: 'short', day: 'numeric' }).format(d)}`;
+  const zone = timeZone || 'UTC';
+  const day = localDayOf(at, zone);
+  if (day === localDateOf(now, zone)) return `at ${fmtTime(at, zone)}`;
+  return `on ${fmtMonthDay(day)}`;
 }
 
 /** The setup's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
