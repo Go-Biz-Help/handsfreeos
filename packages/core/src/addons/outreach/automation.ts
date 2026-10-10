@@ -7,8 +7,12 @@
  *   on their own, and each message the AI drafts waits for one tap; (c) the same, with the day's messages drafted
  *   first thing for **Approve all**; or (b) everything on its own, messages too. Messages go through `outreach.sends`
  *   (./sends.ts): the extension drafts each one, it waits for the person's OK or goes as it is, and the extension
- *   sends it in Messenger. Replies always wait for the person for now (decision 27's (a)).
- * - **Training wheels** (proposed with the plan): choosing (b) starts them. For the first 7 days, and until the person
+ *   sends it in Messenger.
+ * - **Replies** (decision 27): (a) every reply waits for the person (the default); (b) simple ones go on their own and
+ *   the rest are handed to the person with a push; (c) every reply goes on its own. Even with (c), a reply that needs
+ *   the person (a refund, a complaint, a legal threat, cancelling, someone upset or asking for them, an emergency, or
+ *   one of the business's own hand-off topics) comes to them with a push, as the AI teammate's do (./sends.ts).
+ * - **Training wheels** (proposed with the plan): choosing Sending (b), or Replies (b) or (c), starts them. For the first 7 days, and until the person
  *   has OK'd 25 messages, every message waits for them anyway, and their daily limits are half. More than 3 changed
  *   of the last 10 they OK'd keeps them on. An owner or admin can end them early; a warning from Facebook puts them
  *   back on for 7 days.
@@ -36,6 +40,15 @@ export const SENDING_MODES = {
 export type SendingMode = keyof typeof SENDING_MODES;
 export const SENDING_MODE_KEYS = Object.keys(SENDING_MODES) as [SendingMode, ...SendingMode[]];
 
+/** Replies (decision 27): kept as `draft`, `simple` and `everything`. */
+export const REPLY_MODES = {
+  draft: 'Every reply waits for you',
+  simple: 'Simple replies go on their own; the rest come to you with a push',
+  everything: 'Every reply goes on its own, except ones that need you',
+} as const;
+export type ReplyMode = keyof typeof REPLY_MODES;
+export const REPLY_MODE_KEYS = Object.keys(REPLY_MODES) as [ReplyMode, ...ReplyMode[]];
+
 /** 0 is Sunday. */
 export const WEEKDAY_WORDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -58,6 +71,8 @@ export type WorkingHours = z.output<typeof WorkingHours>;
 
 export const AutomationSettings = z.object({
   sending: z.enum(SENDING_MODE_KEYS),
+  /** Replies (decision 27): every one waits until a person picks otherwise, and from builds before 0.15. */
+  replies: z.enum(REPLY_MODE_KEYS).default('draft'),
   warmUp: z.boolean(),
   confirmRequests: z.boolean(),
   /** The once-a-day jobs (decision 32): they fill the list it works from. On when left out, as 0.11 of the extension does. */
@@ -68,6 +83,7 @@ export type AutomationSettings = z.output<typeof AutomationSettings>;
 
 export const AUTOMATION_DEFAULTS: AutomationSettings = {
   sending: 'off',
+  replies: 'draft',
   warmUp: true,
   confirmRequests: true,
   collect: true,
@@ -100,7 +116,7 @@ export type MessageKind = (typeof MESSAGE_KINDS)[number];
 export const messageKinds = (settings: AutomationSettings): MessageKind[] =>
   settings.sending === 'off' ? [] : [...MESSAGE_KINDS];
 
-/** What choosing (b) means, said where it's chosen. */
+/** What choosing Sending (b), or Replies (b) or (c), means, said where it's chosen. */
 export const WHEELS_START_WORDS =
   'Choosing this starts training wheels: for your first 7 days, and until you’ve OK’d 25 messages, each message waits for your OK and your daily limits are half.';
 
@@ -130,15 +146,18 @@ export function wheelsEarned(kept: WheelsKept, now: number): boolean {
 export const wheelsOn = (kept: WheelsKept, now: number) =>
   kept.from !== null && kept.doneAt === null && !wheelsEarned(kept, now);
 
-/** The choices training wheels are for: messages on their own (b). They start when it's chosen. */
-export const wheelsMatter = (settings: Pick<AutomationSettings, 'sending'>) =>
-  settings.sending === 'everything';
+/**
+ * The choices training wheels are for: messages on their own (Sending (b)), or replies on their own (Replies (b) or
+ * (c)) while the extension writes messages at all. They start when one is chosen.
+ */
+export const wheelsMatter = (settings: Pick<AutomationSettings, 'sending' | 'replies'>) =>
+  settings.sending === 'everything' || (settings.sending !== 'off' && settings.replies !== 'draft');
 
 /** Training wheels as kept before anyone chose (b): not started. */
 export const NO_WHEELS: WheelsKept = { from: null, ok: 0, edits: [], doneAt: null };
 
 export const WheelsState = z.object({
-  /** Every message waits for the person, and their daily limits are half: only while Sending is (b). */
+  /** Every message waits for the person, and their daily limits are half: only while messages or replies go on their own. */
   on: z.boolean(),
   /** Since when; null when they never started. */
   from: z.iso.datetime().nullable(),

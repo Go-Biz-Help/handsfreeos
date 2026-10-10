@@ -192,6 +192,8 @@ export const TodayDraftOutput = z.object({
   drafts: z.array(z.string()),
   /** For a first message: the opener they were written with, which copying one notes (decision 23). */
   opener: DraftOpener.nullable(),
+  /** For a reply: the AI found it simple, so with Replies (b) it can go on its own (decision 27). */
+  simple: z.boolean().default(false),
 });
 export type TodayDraftOutput = z.output<typeof TodayDraftOutput>;
 
@@ -273,20 +275,31 @@ export function todayDraftPrompt(input: {
       ? `Open every draft this way: ${quoteData(input.opener.text)}`
       : null,
     `Give ${DRAFTS_FOR[input.kind]} different drafts to pick from.`,
+    input.kind === 'reply' ? REPLY_SIMPLE_ASK : null,
     TODAY_DRAFT_ASK,
   ]
     .filter(Boolean)
     .join('\n\n');
 }
 
-export const TodayDraftAnswer = z.object({ drafts: z.array(z.string()).max(10) });
+/** For a reply: whether it's simple enough to go on its own with Replies (b) (decision 27). */
+export const REPLY_SIMPLE_ASK =
+  'Also say whether the reply is simple: true only when answering their last message needs nothing that only the owner knows or decides (no price, date, time, promise, offer, or fact about the business beyond the playbook) and nothing in it is personal, upset or sensitive: thanks, a hello, small talk, or a yes to what was already offered. Otherwise false.';
+
+export const TodayDraftAnswer = z.object({
+  drafts: z.array(z.string()).max(10),
+  simple: z.boolean().default(false),
+});
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts'],
-  properties: { drafts: { type: 'array', items: { type: 'string' } } },
+  required: ['drafts', 'simple'],
+  properties: {
+    drafts: { type: 'array', items: { type: 'string' } },
+    simple: { type: 'boolean' },
+  },
 };
 
 /** The drafts that can be used: trimmed, short enough, each once, and none with the playbook's words to avoid. */

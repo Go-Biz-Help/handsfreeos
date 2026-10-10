@@ -137,6 +137,7 @@ describe('drafts for Today', () => {
         kind: 'style',
         text: PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles[0],
       },
+      simple: false,
     });
   });
 
@@ -176,6 +177,7 @@ describe('drafts for Today', () => {
     expect(res.json()).toEqual({
       drafts: ['Hi Dana! Do you run your own business?'],
       opener: { playbookId: playbook!.id, kind: 'own', text: own },
+      simple: false,
     });
     // Someone else's turns are their own.
     expect((await draft(member, { kind: 'opener', profileId })).json().opener.kind).toBe('style');
@@ -196,5 +198,19 @@ describe('drafts for Today', () => {
   it('drafts from the person’s own chats only', async () => {
     expect((await draft(owner, { kind: 'reply', chatId })).statusCode).toBe(200);
     expect((await draft(member, { kind: 'reply', chatId })).statusCode).toBe(404);
+  });
+
+  it('says whether a reply is simple, never for someone who needs the person', async () => {
+    const said = async (text: string) => {
+      await testDbs()
+        .admin.db.update(fileChats)
+        .set({ recent: [{ fromMe: false, text, at: new Date().toISOString() }] })
+        .where(eq(fileChats.id, chatId));
+      return (await draft(owner, { kind: 'reply', chatId })).json().simple;
+    };
+    expect(await said('How much is it?')).toBe(false);
+    expect(await said('Thanks, sounds great.')).toBe(true);
+    // The AI found it simple, but it's about a refund: it comes to the person.
+    expect(await said('Thanks. I want my money back.')).toBe(false);
   });
 });

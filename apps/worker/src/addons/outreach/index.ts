@@ -11,7 +11,7 @@ import { upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonSubscriber, AddonWorkerModule } from '../types';
-import { armMorning, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
+import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
 import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
@@ -61,13 +61,14 @@ export const outreachAddonWorker: AddonWorkerModule = {
     },
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
-  // checked by it (./posts.ts); a reply seen pushed to the person's phone, and the morning push and weekly report
+  // checked by it (./posts.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
   // moved with the settings (./alerts.ts, ./weekly.ts); a booking through a demo link counted (./demos.ts).
   subscribers: {
     'outreach.download.saved': andMorning(downloadSaved),
     'outreach.chats.collected': andMorning(downloadSaved),
     'outreach.posts.saved': andMorning(postsSaved),
     'outreach.reply.seen': andWeekly(replySeen),
+    'outreach.send.queued': handOver,
     'addon.settings_saved': andWeekly(settingsSaved),
     'appointment.booked': appointmentBooked,
   },

@@ -13,6 +13,8 @@ import type { DraftOpener } from '../openers';
 import {
   changed,
   goesAsItIs,
+  handedOver,
+  replyNeedsYou,
   SendApproveInput,
   SendApproveOutput,
   SendDoneInput,
@@ -100,13 +102,38 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       );
     const [chat] = input.chatId
       ? await ctx.tx
-          .select({ id: fileChats.id })
+          .select({ id: fileChats.id, userId: fileChats.userId, recent: fileChats.recent })
           .from(fileChats)
           .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
       : [];
     const { settings, wheels } = await automationOf(ctx, me);
     const at = changeMoment(ctx.meta);
-    const goes = goesAsItIs({ sending: settings.sending, wheels: wheels.on, kind: input.kind });
+    // A reply goes on its own only to what HandsFreeOS saw them write, and never to someone who needs the person.
+    const theirs =
+      chat?.userId === me
+        ? ([...chat.recent].reverse().find((m) => !m.fromMe)?.text ?? null)
+        : null;
+    const needsYou =
+      input.kind !== 'reply'
+        ? null
+        : theirs === null
+          ? 'HandsFreeOS hasn’t seen what they wrote'
+          : replyNeedsYou(theirs);
+    const goes = goesAsItIs({
+      sending: settings.sending,
+      replies: settings.replies,
+      wheels: wheels.on,
+      kind: input.kind,
+      simple: input.simple,
+      needsYou,
+    });
+    const handOver = handedOver({
+      sending: settings.sending,
+      replies: settings.replies,
+      wheels: wheels.on,
+      kind: input.kind,
+      goes,
+    });
     // Two drafts for them at once: the second finds the first.
     const [made] = await ctx.tx
       .insert(sends)
@@ -132,7 +159,12 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         type: 'outreach.send.queued',
         entityType: 'outreach_profile',
         entityId: profile.id,
-        payload: { kind: input.kind, waits: !goes },
+        payload: {
+          kind: input.kind,
+          waits: !goes,
+          // A reply the person counted on going: their phone hears why it came to them (the worker's alerts).
+          ...(handOver ? { handOver: true, userId: me, why: needsYou } : {}),
+        },
       });
     const [now] = await open();
     if (!now) throw gone();

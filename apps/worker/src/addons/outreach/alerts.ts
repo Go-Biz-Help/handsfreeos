@@ -3,6 +3,8 @@
  *
  * - **A reply** the extension saw (`outreach.reply.seen`) is pushed to the person at once, unless they were looking
  *   at it: "Dana Reyes wrote back".
+ * - **A reply handed over** (`outreach.send.queued`, decision 27): with Replies (b) or (c), a reply that waits for the
+ *   person after all, because it isn't simple or they need the person, is pushed at once: "Dana Reyes needs you".
  * - **The morning push** (`outreach.morning`, one job per business): at the business's hour, each person who noted a
  *   step lately and has something on their list for today hears how much, worked out as their list is
  *   (`outreach.today`, asked on their behalf). It comes back the next morning. A change to the hour moves it; it's
@@ -18,6 +20,7 @@ import {
   replyPushWords,
 } from '@hfos/core/addons/outreach/alerts';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import { handOverPushWords } from '@hfos/core/addons/outreach/sends';
 import { today } from '@hfos/core/addons/outreach/ops/today';
 import type { TodayOutput } from '@hfos/core/addons/outreach/today';
 import { executeQuery, localDateOf, workspaceMessaging } from '@hfos/core/server';
@@ -115,6 +118,36 @@ export async function replySeen(ctx: AddonEventContext): Promise<void> {
     });
   }
   await armMorning(ctx);
+}
+
+/** `outreach.send.queued`: a reply handed over to the person (decision 27) is pushed to them, with why. */
+export async function handOver(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as {
+    handOver?: boolean;
+    userId?: string;
+    why?: string | null;
+  };
+  if (!p.handOver || !p.userId || !ctx.event.entityId) return;
+  const userId = p.userId;
+  const profileId = ctx.event.entityId;
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    const [profile] = await rows<{ name: string; person_id: string | null }>(
+      tx,
+      sql`select name, person_id from addon_outreach.profiles
+          where workspace_id = ${ctx.scope.workspaceId} and id = ${profileId}`,
+    );
+    if (!profile) return;
+    await pushAddonNotice(ctx, tx, {
+      key: `hand-over:${ctx.event.id}`,
+      userIds: [userId],
+      permission: 'outreach.use',
+      ...handOverPushWords(profile.name, p.why ?? null),
+      href: TODAY_HREF,
+      // The same chat's "wrote back" gives way to it.
+      collapseKey: `reply-${profileId}`,
+      personId: profile.person_id,
+    });
+  });
 }
 
 /** The people to hear in the morning: those who can use Social Outreach here and noted a step lately. */

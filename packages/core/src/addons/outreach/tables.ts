@@ -22,7 +22,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
-import type { MessageKind, SendingMode } from './automation';
+import type { MessageKind, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -577,7 +577,7 @@ export const automation = addonOutreach.table(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     sending: text('sending').notNull().default('off').$type<SendingMode>(),
-    replies: text('replies').notNull().default('draft'),
+    replies: text('replies').notNull().default('draft').$type<ReplyMode>(),
     tidying: text('tidying').notNull().default('off'),
     warmUp: boolean('warm_up').notNull().default(true),
     confirmRequests: boolean('confirm_requests').notNull().default(true),

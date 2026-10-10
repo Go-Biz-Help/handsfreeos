@@ -8,7 +8,8 @@
  * Messages too, once the person picks a Sending choice (packages/core/src/addons/outreach/sends.ts): it looks each
  * person up on Facebook and drafts a first message, follow-up or reply with the AI, which then waits for their OK in
  * the panel or on the web (one tap, or Approve all), or goes as it is with Everything on its own once their training
- * wheels are off. Replies always wait, for now. What's OK'd it sends in Messenger: in the chat when HandsFreeOS knows
+ * wheels are off. A reply follows the person's Replies (decision 27): with (b) it goes when the AI found it simple,
+ * with (c) always, but never to someone who needs them, who is handed over with a push instead. What's OK'd it sends in Messenger: in the chat when HandsFreeOS knows
  * it, else from their profile's Message; it notes it as its own, and says when one couldn't go and why.
  *
  * It goes in their working hours, in the business's time zone, at random times spread over the day, or straight away
@@ -400,7 +401,7 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
     input: { kind, profileId: item.profileId, chatId: item.chatId, lookup: looked.lines },
   });
   if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
-  const { drafts, opener } = drafted.value as Drafts;
+  const { drafts, opener, simple } = drafted.value as Drafts;
   const text = drafts[0];
   if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
   const queued = await call(
@@ -413,6 +414,7 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
         threadKey: item.threadKey,
         text,
         opener: kind === 'opener' ? opener : null,
+        simple: kind === 'reply' && simple,
       },
     }),
     businessId,

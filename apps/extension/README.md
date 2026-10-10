@@ -328,7 +328,9 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   HandsFreeOS says it's OK'd (`outreach.send.*`, `workLeft`): it drafts it with the AI after looking the person up in
   its own window, queues it, and sends what's OK'd in their chat in Messenger, or the chat window their profile's
   **Message** opens, typing only into that chat's box and leaving one with writing in it alone (`writeMessage`). A
-  message it couldn't send is reported as not sent, with why, and never tried again that day.
+  message it couldn't send is reported as not sent, with why, and never tried again that day. A reply's draft says
+  whether the AI found it simple, which with **Replies** (b) lets it go by itself; HandsFreeOS decides
+  (`goesAsItIs`), and holds back any reply to someone who needs the person.
   `test/auto.test.ts` walks a made-up profile, post, chat and chat window.
 - **A warning stops the day.** The panel keeps the day's warnings itself (`hfos.warned`), so reading chats and tidying
   refuse to start, or stop, even when HandsFreeOS can't be reached.
@@ -381,5 +383,5 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Next
 
-The once-a-day jobs on their own (decision 32), then results by group and the weekly report, then messages and
-replies on their own with training wheels (docs/outreach.md, decisions 26 to 36). Safari on Mac follows in Phase 2.
+Onboarding for Social Outreach (decision 36), then tidying on its own and joining groups (decisions 29 and 31)
+(docs/outreach.md, decisions 26 to 36). Safari on Mac follows in Phase 2.

@@ -1668,11 +1668,16 @@ function scriptedPlaybookAssist(message: string) {
   };
 }
 
-/** Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. */
+/**
+ * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. A reply is
+ * simple when their last message asks nothing.
+ */
 function scriptedTodayDraft(message: string) {
   const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
   const first = unquote(name).split(' ')[0];
+  const theirs = [...message.matchAll(/^Them: (.*)$/gm)].at(-1)?.[1] ?? '';
   return {
+    simple: theirs !== '' && !theirs.includes('?'),
     drafts: [
       `Hi ${first}, thanks for adding me! How’s business going?`,
       `Hey ${first}, good to connect. What keeps you busiest these days?`,
