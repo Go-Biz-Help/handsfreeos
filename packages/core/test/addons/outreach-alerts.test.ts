@@ -322,6 +322,19 @@ describe('replies, openers and demos in a business', () => {
         (o: { text: string }) => o.text === own,
       ),
     ).toMatchObject({ demos: 0 });
+
+    // For the weekly report, only openers copied in the week: Sam's was copied ten days ago.
+    await rows(
+      admin(),
+      sql`update addon_outreach.opener_uses set used_at = now() - interval '10 days'
+          where workspace_id = ${ws} and profile_id = ${sam}`,
+    );
+    const sentWith = async (period: string) =>
+      (await runAs(owner, ws, 'outreach.openers', { period })).playbooks[0].openers.find(
+        (o: { text: string }) => o.text === style,
+      ).sent;
+    expect(await sentWith('week')).toBe(0);
+    expect(await sentWith('all')).toBe(1);
   });
 
   it('everyone’s openers are for owners and admins; a member sees their own', async () => {

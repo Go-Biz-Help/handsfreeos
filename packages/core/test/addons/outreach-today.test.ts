@@ -184,4 +184,59 @@ describe('the list for today', () => {
       'follow_up: Avery Lane',
     ]);
   });
+
+  it('puts people from groups that brought demos and replies ahead of others who fit as well', async () => {
+    const at = await outreachBusiness(owner, 'Outreach Today Results Co');
+    const as = (name: string, input: Record<string, unknown>) => runAs(owner, at, name, input);
+    await as('outreach.automation.save', { settings: { ...AUTOMATION_DEFAULTS, warmUp: false } });
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    await as('outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: crm.details,
+    });
+    const coffee = {
+      ...group,
+      id: '323456789',
+      url: 'https://www.facebook.com/groups/323456789/',
+      name: 'Coffee Lovers',
+    };
+    const books = {
+      ...group,
+      id: '423456789',
+      url: 'https://www.facebook.com/groups/423456789/',
+      name: 'Book Club',
+    };
+    for (const [g, people] of [
+      [coffee, [member('ava.north.2', 'Ava North', ['Owner at North Bakery'])]],
+      [
+        books,
+        [
+          member('bo.west.5', 'Bo West', ['Owner at West Bakery']),
+          member('cy.stone.8', 'Cy Stone', ['Owner at Stone Bakery']),
+        ],
+      ],
+    ] as const) {
+      await as('outreach.group.save', { group: g, members: 20_000, people });
+      await as('outreach.group.save', { group: g, people: [], adminsPage: true });
+    }
+    const names = async () =>
+      ((await runAs(owner, at, 'outreach.today', {})).items as { name: string; why: string[] }[])
+        .filter((i) => i.name !== 'Cy Stone')
+        .map((i) => i.name);
+    expect(await names()).toEqual(['Ava North', 'Bo West']);
+    // Cy, from the Book Club, was sent a request and booked a demo.
+    await as('outreach.touch.save', {
+      kind: 'friend_request',
+      profile: fb('cy.stone.8'),
+      name: 'Cy Stone',
+      group: books,
+    });
+    await as('outreach.demo.mark', { profile: fb('cy.stone.8'), name: 'Cy Stone', booked: true });
+    expect(await names()).toEqual(['Bo West', 'Ava North']);
+    const bo = (await runAs(owner, at, 'outreach.today', {})).items.find(
+      (i: { name: string }) => i.name === 'Bo West',
+    );
+    expect(bo.why).toContain('Their group has brought demos');
+  });
 });

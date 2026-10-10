@@ -1,8 +1,9 @@
 /**
  * Groups (docs/outreach.md, the plan's Phase 1 step 4): the groups the extension saw, with what the page said about
  * them, and the people found on their People tab. How each group fits the playbooks is worked out as it's listed
- * (../groups.ts), so a changed playbook changes it at once. Admins and moderators are kept as such and never
- * suggested; a group's members are suggested only once its full list of them has been read. Nobody goes in Contacts.
+ * (../groups.ts), so a changed playbook changes it at once; the ones whose people wrote back and booked demos come
+ * first (../results.ts). Admins and moderators are kept as such and never suggested; a group's members are suggested
+ * only once its full list of them has been read. Nobody goes in Contacts.
  */
 import { eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -24,8 +25,9 @@ import {
 } from '../groups';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
+import { byResults } from '../results';
 import { groupPeople, groups, myGroups } from '../tables';
-import { keepGroup } from './activity';
+import { EVER, keepGroup, reachedPeople, resultsByGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
 import { playbooksInUse } from './friends';
 
@@ -165,7 +167,7 @@ const GROUPS_MOST = 2000;
 export const groupsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.groups',
   description:
-    'The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, and whether the person is in it. The best first.',
+    'The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.',
   input: GroupsInput,
   output: GroupsOutput,
   permission: 'outreach.use',
@@ -201,6 +203,7 @@ export const groupsList = defineAddonQuery(outreachAddon, {
           limit ${GROUPS_MOST}`,
     );
     const playbooks = await playbooksInUse(ctx);
+    const results = resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }));
     const fitted = listed.map((g) => ({
       g,
       fit: bestGroupFit(playbooks, {
@@ -214,11 +217,18 @@ export const groupsList = defineAddonQuery(outreachAddon, {
     const counts = Object.fromEntries(
       GROUP_VERDICT_KEYS.map((v) => [v, fitted.filter((f) => f.fit.verdict === v).length]),
     ) as Record<GroupVerdict, number>;
+    const resultsOf = (id: string) => results.get(id) ?? { replies: 0, demos: 0 };
     const search = input.search?.toLowerCase();
     const shown = fitted
       .filter((f) => input.view === 'all' || f.fit.verdict === input.view)
       .filter((f) => !search || (f.g.name ?? '').toLowerCase().includes(search))
-      .sort((a, b) => b.fit.score - a.fit.score || (b.g.members ?? 0) - (a.g.members ?? 0));
+      // The ones that brought demos and replies first, so they're worked more; then the best fit.
+      .sort(
+        (a, b) =>
+          byResults(resultsOf(a.g.id), resultsOf(b.g.id)) ||
+          b.fit.score - a.fit.score ||
+          (b.g.members ?? 0) - (a.g.members ?? 0),
+      );
     const total = shown.length;
     const pages = Math.max(1, Math.ceil(total / GROUPS_PAGE));
     const page = Math.min(input.page, pages);
@@ -239,6 +249,8 @@ export const groupsList = defineAddonQuery(outreachAddon, {
         runsGroup: g.runs,
         adminsRead: g.admins_read_at !== null,
         requests: g.requests,
+        replies: resultsOf(g.id).replies,
+        demos: resultsOf(g.id).demos,
         seenAt: g.seen_at === null ? null : new Date(g.seen_at).toISOString(),
       })),
       page,

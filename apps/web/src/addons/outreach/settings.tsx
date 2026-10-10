@@ -8,6 +8,7 @@ import {
 } from '@hfos/core/addons/outreach/chat-read';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RadioCard } from '@/components/ui/radio-card';
 import type { AddonSettingsProps } from '../registry';
 import { useAct } from './use-act';
@@ -18,8 +19,9 @@ const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
 /**
  * On the Add-ons page: who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), and how long a sent friend request waits before it's suggested for cancelling
- * (decision 12), and the hour of the morning push to each person's phone, in the business's time zone (decision 22).
- * Anyone already in Contacts gets the tags whatever it says.
+ * (decision 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), and
+ * whether each person gets the weekly report by email (decision 34). Anyone already in Contacts gets the tags whatever
+ * it says.
  */
 export default function OutreachSettings({ settings, saveSettings }: AddonSettingsProps) {
   const now = outreachSettings(settings);
@@ -27,6 +29,7 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
   const [pick, setPick] = useState<ContactsFromChats>(saved);
   const [weeks, setWeeks] = useState(now.cancelRequestsAfterWeeks);
   const [hour, setHour] = useState(now.morningPushHour);
+  const [weekly, setWeekly] = useState(now.weeklyReport);
   const { busy, act } = useAct();
   if (settings === null)
     return (
@@ -34,8 +37,9 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
         Who from your Facebook chats goes in Contacts: {CONTACTS_FROM_CHATS_WORDS[saved]}. Friend
         requests are suggested for cancelling after {weeksWords(now.cancelRequestsAfterWeeks)}. The
         morning push{' '}
-        {now.morningPushHour === null ? 'is off' : `comes at ${hourWords(now.morningPushHour)}`}. An
-        owner or admin can change these.
+        {now.morningPushHour === null ? 'is off' : `comes at ${hourWords(now.morningPushHour)}`},
+        and the weekly report {now.weeklyReport ? 'comes by email on Mondays' : 'is off'}. An owner
+        or admin can change these.
       </p>
     );
   return (
@@ -101,12 +105,26 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
           <option value="off">Off</option>
         </select>
       </label>
+      <div>
+        <Checkbox
+          label={<span className="text-[14px] font-semibold">Weekly report by email</span>}
+          checked={weekly}
+          onChange={(e) => setWeekly(e.target.checked)}
+          data-testid="outreach-weekly-report"
+        />
+        <span className="mt-0.5 block pl-7 text-[13px] text-text-2">
+          Each person who used the extension that week gets their friend requests, replies and
+          demos, their best group and their best opener, on Monday at the morning push’s hour (8 AM
+          when that’s off).
+        </span>
+      </div>
       <Button
         size="sm"
         disabled={
           (pick === saved &&
             weeks === now.cancelRequestsAfterWeeks &&
-            hour === now.morningPushHour) ||
+            hour === now.morningPushHour &&
+            weekly === now.weeklyReport) ||
           busy !== null
         }
         onClick={() =>
@@ -118,6 +136,7 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
                 contactsFromChats: pick,
                 cancelRequestsAfterWeeks: weeks,
                 morningPushHour: hour,
+                weeklyReport: weekly,
               }),
             'Saved.',
           )

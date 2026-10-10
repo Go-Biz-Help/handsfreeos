@@ -4,6 +4,7 @@
  * sends the posts that say a playbook's signs or ask for help to HandsFreeOS, where the AI checks each one. The good
  * ones go on Today's list with comment drafts. Nothing is pressed or written on Facebook.
  */
+import { groupsToWork as pickGroups } from '@hfos/core/addons/outreach/results';
 import type { ReadResult } from '../facebook/types';
 import type { GroupsList } from '../hfos/messages';
 import { counted } from '../panel/dom';
@@ -19,18 +20,23 @@ const GROUP_PACE_MS = [15_000, 30_000] as const;
 export type WorkGroup = GroupsList['groups'][number];
 
 /**
- * The groups the person is in, marked Work these, else Maybe, as HandsFreeOS has them; or why there are none, in
- * words for the person.
+ * The groups the person is in, marked Work these, else Maybe, as HandsFreeOS has them: most of them the ones whose
+ * people wrote back and booked demos, and the rest others, so a new group gets its chance
+ * (@hfos/core/addons/outreach/results); or why there are none, in words for the person.
  */
 export async function groupsToWork(job: Job, most: number): Promise<WorkGroup[] | string> {
-  for (const view of ['work', 'maybe'] as const) {
-    const list = valueOf(
-      await job.hfos({ type: 'hfos-groups', input: { workspaceId: job.businessId, view } }),
-    );
-    const joined = list.groups.filter((g) => g.joined === true);
-    if (joined.length) return joined.slice(0, most);
-  }
-  return 'You’re not in any of the groups marked Work these or Maybe yet. Join one, open it with this panel beside it, then try again.';
+  const [work, maybe] = await Promise.all(
+    (['work', 'maybe'] as const).map(
+      async (view) =>
+        valueOf(
+          await job.hfos({ type: 'hfos-groups', input: { workspaceId: job.businessId, view } }),
+        ).groups,
+    ),
+  );
+  const these = pickGroups(work!, maybe!, most);
+  return these.length
+    ? these
+    : 'You’re not in any of the groups marked Work these or Maybe yet. Join one, open it with this panel beside it, then try again.';
 }
 
 /**

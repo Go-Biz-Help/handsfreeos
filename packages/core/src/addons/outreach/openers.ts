@@ -87,10 +87,16 @@ export const OpenerUseOutput = z.object({
   noted: z.boolean(),
 });
 
+/** The stretches the results can cover: a week or a month (as the activity panel's), or all of it. */
+export const OPENER_PERIOD_KEYS = ['all', 'week', 'month'] as const;
+export type OpenerPeriod = (typeof OPENER_PERIOD_KEYS)[number];
+
 export const OpenersInput = z.object({
   workspaceId: z.uuid(),
   /** Everyone's, for owners and admins; else the person's own. */
   everyone: z.boolean().default(false),
+  /** Only first messages copied in the last week or month, to the business's midnight; left out, all of them. */
+  period: z.enum(OPENER_PERIOD_KEYS).default('all'),
 });
 export type OpenersInput = z.input<typeof OpenersInput>;
 

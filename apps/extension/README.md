@@ -132,7 +132,9 @@ that say your playbooks' signs or ask for help, with who wrote them, and the AI 
 **Good to comment** or **AI checking**, with why. **Find posts** goes through the groups you're in that are marked
 Work these (or Maybe, with none), up to 5 a run, in a tab you can see: it scrolls each feed a screen at a time, 6 to
 12 seconds apart, 8 screens a group, and stops at once on any Facebook warning. **Stop** ends it. The good ones go on
-your list for today (`src/panel/posts.ts`, `outreach.posts.save`).
+your list for today (`src/panel/posts.ts`, `outreach.posts.save`). Groups whose people wrote back or booked a demo
+take 3 of the 5 places, from Work these or Maybe, the best first; the rest go to others, so a new group gets its
+chance (decision 34, `@hfos/core/addons/outreach/results`). Saving group members picks from the same groups.
 
 ## Your list for today
 

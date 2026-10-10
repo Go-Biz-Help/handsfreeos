@@ -1892,3 +1892,83 @@ export function safetyOkEmail(input: { person: string; business: string }): Emai
   );
   return { subject, text, html };
 }
+
+/**
+ * Social Outreach's weekly report (docs/outreach.md, decision 34; apps/worker/src/addons/outreach/weekly.ts): the
+ * person's last 7 days on Facebook, their best group and best opener, and, for an owner or admin with a team, the
+ * team's.
+ */
+export function outreachWeeklyEmail(input: {
+  business: string;
+  numbers: {
+    friendRequests: number;
+    chatsStarted: number;
+    replies: number;
+    demos: number;
+  };
+  /** "Austin Small Biz", with "2 wrote back · 1 demo booked". */
+  bestGroup: { name: string; results: string } | null;
+  /** The opener's words, its playbook, and how it did. */
+  bestOpener: {
+    text: string;
+    playbook: string;
+    sent: number;
+    replies: number;
+    demos: number;
+  } | null;
+  /** Everyone's, when more than one person did outreach. */
+  team: { people: number; friendRequests: number; replies: number; demos: number } | null;
+  link: string;
+}): EmailContent {
+  const n = input.numbers;
+  const subject = `Your week on Facebook: ${count(n.friendRequests, 'friend request')}, ${count(n.replies, 'reply', 'replies')}, ${count(n.demos, 'demo')}`;
+  const tally = [
+    ['Friend requests sent', n.friendRequests],
+    ['Chats started', n.chatsStarted],
+    ['Wrote back', n.replies],
+    ['Demos booked', n.demos],
+  ] as const;
+  const opener = input.bestOpener;
+  const openerWords = opener
+    ? `“${opener.text.length > 140 ? `${opener.text.slice(0, 139)}…` : opener.text}” (${opener.playbook}): ${opener.replies} of ${opener.sent} wrote back${opener.demos ? `, ${count(opener.demos, 'demo')} booked` : ''}.`
+    : null;
+  const lines = [
+    input.bestGroup
+      ? `Best group: ${input.bestGroup.name}, ${input.bestGroup.results}. The extension works it more.`
+      : 'No group brought a reply this week yet. The extension keeps trying new ones.',
+    ...(openerWords ? [`Best opener: ${openerWords}`] : []),
+    ...(input.team
+      ? [
+          `The team, ${count(input.team.people, 'person', 'people')}: ${count(input.team.friendRequests, 'friend request')}, ${input.team.replies} wrote back, ${count(input.team.demos, 'demo')} booked.`,
+        ]
+      : []),
+  ];
+  const footer = `From Social Outreach at ${input.business}. An owner or admin can turn this email off in Add-ons → Social Outreach; you can turn off all add-on emails in Settings → Account.`;
+  const opening = `Your last 7 days on Facebook for ${input.business}.`;
+  const text = [
+    opening,
+    '',
+    ...tally.map(([label, value]) => `${label}: ${value.toLocaleString()}`),
+    '',
+    ...lines.flatMap((l) => [l, '']),
+    `Open Social Outreach: ${input.link}`,
+    '',
+    footer,
+  ].join('\n');
+  const table = `<table style="border-collapse: collapse; margin: 16px 0; font-size: 15px;">${tally
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding: 4px 24px 4px 0; color: #5b616a;">${escapeHtml(label)}</td><td style="padding: 4px 0; font-weight: 600; text-align: right;">${value.toLocaleString()}</td></tr>`,
+    )
+    .join('')}</table>`;
+  const html = shell(
+    preheader(lines[0]!) +
+      wordmark +
+      para(`<strong>${escapeHtml(opening)}</strong>`) +
+      table +
+      lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Open Social Outreach') +
+      small(escapeHtml(footer)),
+  );
+  return { subject, text, html };
+}

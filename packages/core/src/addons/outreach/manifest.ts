@@ -97,8 +97,8 @@ export const outreachAddon = defineAddon({
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
-    // A reply seen pushes to the person's phone, and a change to the settings moves the morning push (./alerts.ts);
-    // a booking through a demo link counts as a demo (./demos.ts).
+    // A reply seen pushes to the person's phone, and a change to the settings moves the morning push (./alerts.ts)
+    // and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -108,9 +108,9 @@ export const outreachAddon = defineAddon({
       'appointment.booked',
     ],
   },
-  jobs: ['outreach.read_chats', 'outreach.check_posts', 'outreach.morning'],
-  // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, and the hour of
-  // the morning push: Add-ons → Social Outreach.
+  jobs: ['outreach.read_chats', 'outreach.check_posts', 'outreach.morning', 'outreach.weekly'],
+  // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
+  // morning push, and the weekly report: Add-ons → Social Outreach.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [

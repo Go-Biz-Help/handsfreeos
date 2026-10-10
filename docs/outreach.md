@@ -192,7 +192,7 @@ Operations, all through the kernel:
 | `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, who in Contacts has a name, and Keep and Don't pitch    |
 | `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                  |
 | `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from    |
-| `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, by group and person, and the day; everyone's for owners, admins   |
+| `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins    |
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                          |
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                 |
 | `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                   |
@@ -201,7 +201,7 @@ Operations, all through the kernel:
 | `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read     |
 | `outreach.groups.save`                                | `outreach.use`    | The groups a page lists, with what it said about each, up to 100 at a time                            |
 | `outreach.group.save`                                 | `outreach.use`    | A group and up to 500 people from its People tab; its admins page marks its admins as read            |
-| `outreach.groups`                                     | `outreach.use`    | The Groups tab: the counts, and a page of groups by fit, searched by name                             |
+| `outreach.groups`                                     | `outreach.use`    | The Groups tab: the counts, and a page of groups, those bringing results first, then by fit           |
 | `outreach.today`                                      | `outreach.use`    | The person's list for today, and today's steps against the daily limits                               |
 | `outreach.friends.tidy`                               | `outreach.use`    | Sent requests to cancel and friends to unfriend, with today's counts against their limits             |
 | `outreach.friend.end`                                 | `outreach.use`    | The extension cancelled a request or unfriended someone for the person                                |
@@ -211,7 +211,7 @@ Operations, all through the kernel:
 | `outreach.post.skip`                                  | `outreach.use`    | The person put a post aside: off their list for good                                                  |
 | `outreach.replies.note`                               | `outreach.use`    | Up to 20 chats the extension saw whose last message is theirs: each answering the person's is a reply |
 | `outreach.opener.use`                                 | `outreach.use`    | The person copied a first message: which opener it was drafted with                                   |
-| `outreach.openers`                                    | `outreach.use`    | Which openers work: each playbook's, with sent, replies and demos; everyone's for owners, admins      |
+| `outreach.openers`                                    | `outreach.use`    | Which openers work, ever or in a week or month: sent, replies, demos; everyone's for owners, admins   |
 | `outreach.demo.mark`                                  | `outreach.use`    | Someone the person reached booked a demo some other way, or not after all                             |
 | `outreach.demo.note`                                  | the worker        | A booking through someone's demo link, from core's `appointment.booked`: a demo, once a booking       |
 | `outreach.automation`                                 | `outreach.use`    | What the person lets the extension do on its own, and their hours, in the business's time zone        |
@@ -322,7 +322,16 @@ than a store extension, and for more features, and answered the questions the sa
 33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
     hours after the like; a like over 14 days old doesn't count; no post to like, no wait.
 34. **All the features:** results by group, team sharing, an after-demo workflow, birthday and new-job notes, more
-    templates, LinkedIn then Instagram, and a weekly report. Parts 2, 6 and 7.
+    templates, LinkedIn then Instagram, and a weekly report. Parts 2, 6 and 7. Built (part 2): **results by group**,
+    everyone reached counted under the group they were found in, with who wrote back (in a saved chat, a chat read,
+    or a reply the extension saw) and who booked a demo, on the Activity tab and, ever, on the Groups tab, where the
+    groups that bring demos, then replies, come first; the extension gives them 3 of the 5 groups it works a run and
+    tries others with the rest, and Today puts people from them ahead of others who fit as well. The **weekly
+    report**: on Monday at the morning push's hour (8 when that's off), each person who used the extension that week
+    gets an email of their friend requests, chats started, replies and demos, their best group and their best
+    opener; an owner or admin with a team gets the team's too. It's on to start: Add-ons → Social Outreach turns it
+    off, and Settings → Account turns off all add-on emails (`packages/core/src/addons/outreach/results.ts`,
+    `apps/worker/src/addons/outreach/weekly.ts`).
 35. **Automation and features are built side by side,** one PR at a time.
 36. **Social Outreach gets an onboarding** like the main app's. Part 4.
 
@@ -501,4 +510,4 @@ to anywhere else carries the `ref` along, and only **Demo booked** counts those.
 
 Next: the AI suggesting a conversation from the rest of the playbook
 comes with AI drafting. A profile saved after the file came in is matched to it when a newer file comes in. Then
-leads and results by group. Then the rest of decisions 26 to 36, in the order above.
+leads. Then the rest of decisions 26 to 36, in the order above.

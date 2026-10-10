@@ -6,11 +6,10 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
-import { requireHuman } from '../../../kernel/actor';
-import { scopeCan } from '../../../kernel/execute';
+import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { ACTIVITY_PERIODS } from '../activity';
 import { outreachAddon } from '../manifest';
 import {
   openerKey,
@@ -23,7 +22,8 @@ import {
   type OpenerResult,
 } from '../openers';
 import { openerUses, playbooks, profiles } from '../tables';
-import { inWorkspace } from './common';
+import { periodStart } from './activity';
+import { inWorkspace, seesEveryone } from './common';
 import { playbooksInUse } from './friends';
 
 /** A message noted this soon before the copy still counts as sent with it: the copy and the send race. */
@@ -88,20 +88,27 @@ export const openerUse = defineAddonCommand(outreachAddon, {
 export const openers = defineAddonQuery(outreachAddon, {
   name: 'outreach.openers',
   description:
-    'Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo. Everyone’s for owners and admins.',
+    'Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo, ever or in the last week or month. Everyone’s for owners and admins.',
   input: OpenersInput,
   output: OpenersOutput,
   permission: 'outreach.use',
+  // The worker asks on a person's behalf for the weekly report (../results.ts).
+  actors: ['human', 'system'],
   scope: inWorkspace,
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
+    const me = userIdOf(ctx.actor);
+    if (!me) throw HfosError.forbidden('Only a person has outreach of their own.');
     const ws = ctx.scope.workspaceId!;
-    if (input.everyone && !scopeCan(ctx.scope, 'outreach.manage' as Permission))
+    if (input.everyone && !(await seesEveryone(ctx, me)))
       throw HfosError.forbidden(
         'Only owners and admins can see how everyone’s openers did. Ask an owner of this business if you need them.',
         'outreach_openers_everyone',
       );
     const whose = input.everyone ? sql`true` : sql`u.user_id = ${me}`;
+    const since =
+      input.period === 'all'
+        ? sql`true`
+        : sql`u.used_at >= ${await periodStart(ctx, ACTIVITY_PERIODS[input.period].days)}::timestamptz`;
     const counted = await rows<{
       playbook_id: string;
       kind: OpenerKind;
@@ -130,7 +137,7 @@ export const openers = defineAddonQuery(outreachAddon, {
                 where d.workspace_id = u.workspace_id and d.user_id = u.user_id and d.profile_id = u.profile_id
                   and d.undone_at is null and d.at >= u.used_at - ${sql.raw(SENT_SLACK)}) as demo
             from addon_outreach.opener_uses u
-            where u.workspace_id = ${ws} and u.playbook_id is not null and ${whose}
+            where u.workspace_id = ${ws} and u.playbook_id is not null and ${whose} and ${since}
           ) uses
           group by playbook_id, kind, text`,
     );

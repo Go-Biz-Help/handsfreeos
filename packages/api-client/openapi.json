@@ -155935,6 +155935,11 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "demos": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -155944,7 +155949,8 @@
                         "comments",
                         "chatsStarted",
                         "followUps",
-                        "replies"
+                        "replies",
+                        "demos"
                       ],
                       "additionalProperties": false
                     },
@@ -156108,6 +156114,11 @@
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 9007199254740991
+                          },
+                          "demos": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -156118,7 +156129,8 @@
                           "friendRequests",
                           "warmedUp",
                           "chatsStarted",
-                          "replies"
+                          "replies",
+                          "demos"
                         ],
                         "additionalProperties": false
                       }
@@ -157021,7 +157033,7 @@
     "/v1/queries/outreach.groups": {
       "post": {
         "operationId": "query_outreach_groups",
-        "summary": "The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, and whether the person is in it. The best first.",
+        "summary": "The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.",
         "tags": [
           "queries"
         ],
@@ -157208,6 +157220,16 @@
                             "minimum": 0,
                             "maximum": 9007199254740991
                           },
+                          "replies": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "demos": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
                           "seenAt": {
                             "anyOf": [
                               {
@@ -157236,6 +157258,8 @@
                           "runsGroup",
                           "adminsRead",
                           "requests",
+                          "replies",
+                          "demos",
                           "seenAt"
                         ],
                         "additionalProperties": false
@@ -158014,7 +158038,7 @@
     "/v1/queries/outreach.openers": {
       "post": {
         "operationId": "query_outreach_openers",
-        "summary": "Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo. Everyone’s for owners and admins.",
+        "summary": "Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo, ever or in the last week or month. Everyone’s for owners and admins.",
         "tags": [
           "queries"
         ],
@@ -158034,6 +158058,15 @@
                   "everyone": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "period": {
+                    "default": "all",
+                    "type": "string",
+                    "enum": [
+                      "all",
+                      "week",
+                      "month"
+                    ]
                   }
                 },
                 "required": [

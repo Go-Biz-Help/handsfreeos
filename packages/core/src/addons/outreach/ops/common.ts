@@ -4,16 +4,18 @@
  * security decides what a request sees.
  */
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { rows } from '@hfos/db/client';
 import { people, recordTags, tags } from '@hfos/db/schema';
 import { fullName, requirePerson, userRef } from '../../../crm/records';
 import { personCreate } from '../../../commands/person.create';
 import { splitName } from '../../../inbox/contact';
 import { userIdOf } from '../../../kernel/actor';
 import { HfosError } from '../../../errors';
-import { executeCommandWithin } from '../../../kernel/execute';
+import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
+import type { Permission } from '../../../permissions';
 import { addonTimelineLine } from '../../server';
 import type { DontPitch } from '../friends';
 import { DONT_PITCH_TAG, type FriendState } from '../limits';
@@ -23,6 +25,22 @@ import type { Friendship } from '../saves';
 import { friends, profiles } from '../tables';
 
 export type Ctx = CommandContext | QueryContext;
+
+/**
+ * Whether whoever asks sees the whole team's outreach: an owner or admin (`outreach.manage`), or the worker asking for
+ * one (the weekly report).
+ */
+export async function seesEveryone(ctx: Ctx, me: string): Promise<boolean> {
+  if (scopeCan(ctx.scope, 'outreach.manage' as Permission)) return true;
+  if (ctx.actor.type !== 'system') return false;
+  const [can] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select true as ok from app.workspace_access
+        where workspace_id = ${ctx.scope.workspaceId} and user_id = ${me}
+          and 'outreach.manage' = any (permissions)`,
+  );
+  return !!can;
+}
 export type Profile = typeof profiles.$inferSelect;
 type ProfileRow = typeof profiles.$inferInsert;
 
