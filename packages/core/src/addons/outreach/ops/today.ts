@@ -12,7 +12,7 @@ import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds, messageKinds } from
 import { demoLink, demoRef } from '../demos';
 import { bestFit } from '../fit';
 import { bestGroupFit } from '../groups';
-import { dailyLimitsNow, DONT_PITCH_TAG } from '../limits';
+import { dailyLimitsNow, DONT_PITCH_TAG, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
   DEFAULT_PACE,
@@ -29,13 +29,49 @@ import { POST_FRESH_DAYS } from '../posts';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
-import { inWorkspace } from './common';
+import { inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
+
+const NONE_DONE: Record<DailyStep, number> = {
+  friend_request: 0,
+  first_message: 0,
+  follow_up: 0,
+  comment: 0,
+  like: 0,
+};
+
+/**
+ * Each person's steps since the start of today that count against the daily limits, as Today counts them; the live
+ * view (./live.ts) counts with it too, so the two never disagree.
+ */
+export async function dayCounts(
+  ctx: Ctx,
+  userIds: readonly string[],
+  todayFrom: Date,
+): Promise<Map<string, Record<DailyStep, number>>> {
+  const counted = new Map(userIds.map((id) => [id, { ...NONE_DONE }]));
+  if (!userIds.length) return counted;
+  const found = await rows<{ user_id: string } & Record<DailyStep, number>>(
+    ctx.tx,
+    sql`select user_id, count(*) filter (where kind = 'friend_request')::int as friend_request,
+          count(*) filter (where step = 'first_message')::int as first_message,
+          count(*) filter (where step = 'follow_up')::int as follow_up,
+          count(*) filter (where kind = 'comment')::int as comment,
+          count(*) filter (where kind = 'like')::int as "like"
+        from addon_outreach.touches
+        where workspace_id = ${ctx.scope.workspaceId!}
+          and user_id = any (${`{${userIds.join(',')}}`}::uuid[])
+          and at >= ${todayFrom.toISOString()}::timestamptz
+        group by user_id`,
+  );
+  for (const { user_id, ...done } of found) counted.set(user_id, done);
+  return counted;
+}
 /** The most people from groups weighed for requests at once. */
 const CANDIDATES_MOST = 500;
 
@@ -63,26 +99,11 @@ export const today = defineAddonQuery(outreachAddon, {
     const todayStart = await startOfToday(ctx, now);
     const todayFrom = todayStart.toISOString();
     const warning = await warningOf(ctx, me, todayStart, now);
-    const [done] = await rows<{
-      friend_request: number;
-      first_message: number;
-      follow_up: number;
-      comment: number;
-      like: number;
-    }>(
-      ctx.tx,
-      sql`select count(*) filter (where kind = 'friend_request')::int as friend_request,
-            count(*) filter (where step = 'first_message')::int as first_message,
-            count(*) filter (where step = 'follow_up')::int as follow_up,
-            count(*) filter (where kind = 'comment')::int as comment,
-            count(*) filter (where kind = 'like')::int as "like"
-          from addon_outreach.touches
-          where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
-    );
+    const done = (await dayCounts(ctx, [me], todayStart)).get(me)!;
     const { settings, wheels, rules } = await automationOf(ctx, me, now);
     // The business's own, halved after a warning from Facebook, and on training wheels.
     const limits = todayLimits(
-      done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 },
+      done,
       dailyLimitsNow(slowsNow(warning, now) || wheels.on, rules.dailyLimits),
     );
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;

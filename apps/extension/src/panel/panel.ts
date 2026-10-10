@@ -4,7 +4,8 @@
  * as you scroll, a new message). Signed in to HandsFreeOS (./hfos.ts), it marks the people and chats saved there and
  * saves the ones the person picks; nothing is saved until they press Save. Above, it shows the day's steps on
  * Facebook against the daily limits (./today.ts). "Copy page outline" and "Save page outline" give the page's shape
- * with names and words hidden, to send to whoever is tuning the readers when the panel gets a page wrong.
+ * with names and words hidden, to send to whoever is tuning the readers when the panel gets a page wrong. Opening it,
+ * or coming back to it, makes this the person's computer that works (src/hfos/live.ts).
  */
 import { runsGroup } from '../facebook/people';
 import type {
@@ -21,6 +22,7 @@ import type {
 } from '../facebook/types';
 import { facebookUrl } from '../facebook/urls';
 import { WATCH, type Answer, type Ask, type Note } from '../messages';
+import { ask as askHfos } from './ask';
 import { chip, clip, counted, h, link, type Child } from './dom';
 import type { Fit } from '@hfos/core/addons/outreach/fit';
 import {
@@ -591,7 +593,14 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   }
 });
 
+/** The person is here: this computer becomes the one that works. */
+function here(): void {
+  if (document.visibilityState === 'visible') void askHfos({ type: 'hfos-here' });
+}
+document.addEventListener('visibilitychange', here);
+
 async function start(): Promise<void> {
+  here();
   void startHfos({
     into: accountBox,
     say,

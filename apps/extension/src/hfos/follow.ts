@@ -8,6 +8,10 @@
  * as they're opened, looking for posts while scrolling) is written here from those settings, so they change with
  * them. The live channel keeps the background awake while Chrome is open; when it can't connect, the next step's
  * look is the fallback.
+ *
+ * The same channel brings the person's day and computers (decision 41): Start my day or Stop for today pressed in the
+ * app, another computer of theirs used, a warning seen on one. Those go to ./live.ts, whose beat asks HandsFreeOS
+ * where things stand and wakes the runner.
  */
 import { RealtimeClient, type RealtimeChannel } from '@supabase/realtime-js';
 import { NOTING_KEY } from '../messages';
@@ -22,6 +26,16 @@ export const READ_CHATS_KEY = 'hfos.readChats';
 export const MARK_POSTS_KEY = 'hfos.markPosts';
 /** The changes that can move the person's settings. */
 const SETTINGS_EVENTS = new Set(['outreach.automation.saved', 'addon.settings_saved']);
+/**
+ * The changes that can move the person's day or which of their computers works (decision 41): Start my day or Stop
+ * for today pressed anywhere, another computer of theirs used, or a Facebook warning seen on one (./live.ts).
+ */
+const LIVE_EVENTS = new Set([
+  'outreach.day.started',
+  'outreach.day.stopped',
+  'outreach.live.changed',
+  'outreach.warning.seen',
+]);
 
 let live: RealtimeClient | null = null;
 let channel: RealtimeChannel | null = null;
@@ -29,6 +43,8 @@ let channel: RealtimeChannel | null = null;
 let listening: string | null = null;
 /** Called when the settings change, to wake the runner (../auto/run.ts). */
 let changed: () => void = () => undefined;
+/** Called with a change to the person's day or computers, for ./live.ts to look at. */
+let livened: (payload: Record<string, unknown>) => void = () => undefined;
 
 /** Writes what the content script and the panel read, from the settings. */
 async function apply(found: Automation): Promise<void> {
@@ -62,8 +78,12 @@ function close(): void {
  * Listens for changes to the person's settings in the business they save to, and keeps the channel's sign-in fresh.
  * Safe to call often: it opens a channel only when there's none for that business.
  */
-export async function follow(onChange?: () => void): Promise<void> {
+export async function follow(
+  onChange?: () => void,
+  onLive?: (payload: Record<string, unknown>) => void,
+): Promise<void> {
   if (onChange) changed = onChange;
+  if (onLive) livened = onLive;
   if (!config.supabaseUrl || !config.supabasePublishableKey) return;
   const to = await savingTo().catch(() => null);
   const jwt = to ? await token().catch(() => null) : null;
@@ -77,8 +97,9 @@ export async function follow(onChange?: () => void): Promise<void> {
   listening = to.businessId;
   const mine = live.channel(`workspace:${to.businessId}`, { config: { private: true } });
   channel = mine;
-  mine.on('broadcast', { event: 'change' }, (message: { payload?: { type?: unknown } }) => {
+  mine.on('broadcast', { event: 'change' }, (message: { payload?: Record<string, unknown> }) => {
     const type = message.payload?.type;
+    if (typeof type === 'string' && LIVE_EVENTS.has(type)) return livened(message.payload!);
     if (typeof type !== 'string' || !SETTINGS_EVENTS.has(type)) return;
     void loadSettings(to.businessId)
       .then(() => changed())

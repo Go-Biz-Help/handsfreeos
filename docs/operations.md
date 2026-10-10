@@ -1255,7 +1255,7 @@ Restoring from this copy into a new project follows Supabase's "Backup and Resto
 The worker does two jobs in the database at night, spread out so they never compete with the day's work. There is nothing to set up.
 
 - **The phones' window** (`sync_window.plan`, then one `sync_window.sweep` per business). The phone app keeps a business's recent history: messages, calls and the timeline from the last 12 months, appointments from 90 days back, and documents closed within the year. Each night the worker marks what aged out, and phones drop it on their next sync. Businesses start between 08:00 and 11:00 UTC (3 to 6 AM in Chicago in summer), each at its own time. A business hides at most 2,000 rows per table per round, runs up to 25 rounds with a short pause between, and carries on 5 minutes later if more is left. Something that comes back into range, like an old appointment moved to next week, shows on phones again straight away.
-- **Command receipts** (`command_receipts.clean_up`). Every change the phone app sends leaves a receipt, so a change sent twice happens once. Receipts older than 90 days are deleted every day at 07:30 UTC, 5,000 at a time.
+- **Command receipts** (`command_receipts.clean_up`). Every change the phone app sends leaves a receipt, so a change sent twice happens once; the browser extension's heartbeat (`outreach.live.beat`) leaves none, since it only says it's still there. Receipts older than 90 days are deleted every day at 07:30 UTC, 5,000 at a time.
 
 Both are ordinary jobs in `app.scheduled_jobs`, so a failure shows as `job failed` in the worker's log, and the job is tried again.
 

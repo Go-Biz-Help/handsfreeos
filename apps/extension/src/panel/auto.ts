@@ -22,6 +22,8 @@ import { onWarning } from './warnings';
 let box: HTMLElement;
 let status: AutoStatus | null = null;
 let problem: string | null = null;
+/** Why HandsFreeOS refused Start my day or Stop for today, in its words. */
+let refused: string | null = null;
 
 const DONE_WORDS: Record<DoneKind, readonly [string, string]> = {
   confirm: ['request confirmed', 'requests confirmed'],
@@ -112,6 +114,7 @@ function stateView(now: AutoStatus, settings: AutomationSettings, state: AutoSta
         disabled: state.stopped !== null,
       }),
     ),
+    refused ? h('p', { class: 'warn-line', role: 'alert' }, refused) : null,
     h(
       'p',
       { class: 'muted' },
@@ -121,7 +124,11 @@ function stateView(now: AutoStatus, settings: AutomationSettings, state: AutoSta
 }
 
 async function act(type: 'hfos-auto-start' | 'hfos-auto-stop'): Promise<void> {
-  take(await ask({ type }));
+  const answer = await ask({ type });
+  if (answer.ok) return ((refused = null), take(answer));
+  // Refused: the choices are as they were; the panel says why beside the buttons.
+  refused = answer.problem.message;
+  draw();
 }
 
 function draw(): void {

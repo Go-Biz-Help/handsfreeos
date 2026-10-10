@@ -17,6 +17,7 @@ import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
+import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 
 /**
@@ -71,18 +72,24 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.send.queued': handOver,
     'addon.settings_saved': andWeekly(settingsSaved),
     'appointment.booked': appointmentBooked,
+    // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
+    // pruning armed (./live.ts).
+    'outreach.warning.seen': warningSeen,
+    'outreach.live.changed': liveChanged,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [MORNING_JOB]: morningJob,
     [WEEKLY_JOB]: weeklyJob,
+    [LIVE_PRUNE_JOB]: livePruneJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
   actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
-  // The morning push and weekly report, from now: nothing that came due while it was off runs late.
+  // The morning push, weekly report and the feed's pruning, from now: nothing that came due while it was off runs late.
   onEnable: async (ctx) => {
     await armMorning(ctx);
     await armWeekly(ctx);
+    await armPrune(ctx);
   },
 };

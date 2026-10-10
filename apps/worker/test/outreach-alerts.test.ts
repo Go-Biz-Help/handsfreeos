@@ -23,6 +23,7 @@ import {
 import { outreachBusiness, runAs } from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
 import { MORNING_JOB } from '../src/addons/outreach/alerts';
+import { LIVE_PRUNE_JOB } from '../src/addons/outreach/live';
 import { WEEKLY_JOB } from '../src/addons/outreach/weekly';
 import { processJobs } from '../src/jobs';
 import type { MailMessage } from '../src/mailer';
@@ -213,6 +214,100 @@ describe('phone alerts', () => {
     );
     expect(new Date(next!.run_at).getTime()).toBeGreaterThan(Date.now() + 20 * 3_600_000);
   }, 60_000);
+});
+
+describe('live status', () => {
+  it('pushes a Facebook warning to that person alone, once a day, and keeps the feed a week', async () => {
+    const s = testServices();
+    const ws = await outreachBusiness(owner, 'Outreach Live Worker Co');
+    const teammate = await createTestUser('outreach-alerts-teammate', { fullName: 'Riley Member' });
+    await phone(teammate);
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${ws}, ${teammate.id}, 'member')`,
+    );
+    await runAs(owner, ws, 'outreach.warning.note', {
+      words: ['You’re temporarily blocked from sending friend requests'],
+    });
+    await runAs(owner, ws, 'outreach.warning.note', { words: ['We limit how often you can post'] });
+    await drain(s, ws);
+    expect(await pushes(ws)).toEqual([
+      {
+        title: 'Facebook showed a warning.',
+        body: 'The extension stopped for today.',
+        path: `/app/w/${ws}/a/outreach?view=live`,
+        user_ids: [owner.id],
+      },
+    ]);
+
+    // The feed: a line from last week goes, today's stays, and the pruning comes back tomorrow.
+    const install = randomUUID();
+    await runAs(owner, ws, 'outreach.live.beat', {
+      computer: { id: install, name: 'Chrome on Mac', version: '0.17.0' },
+      status: { state: 'idle', line: null, lineAt: null, nextAt: null },
+      steps: [
+        {
+          id: randomUUID(),
+          at: new Date().toISOString(),
+          kind: 'done',
+          line: 'Sent Dana Reyes a friend request',
+        },
+      ],
+    });
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.live_steps (workspace_id, user_id, at, kind, line)
+          values (${ws}, ${owner.id}, now() - interval '8 days', 'done', 'A line from last week')`,
+    );
+    await drain(s, ws);
+    const [armed] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = ${LIVE_PRUNE_JOB} and status = 'pending'`,
+    );
+    expect(armed).toBeDefined();
+    await rows(admin(), sql`update app.scheduled_jobs set run_at = now() where id = ${armed!.id}`);
+    await drain(s, ws);
+    const kept = await rows<{ line: string }>(
+      admin(),
+      sql`select line from addon_outreach.live_steps where workspace_id = ${ws} order by at`,
+    );
+    expect(kept.map((k) => k.line)).not.toContain('A line from last week');
+    expect(kept.map((k) => k.line)).toContain('Sent Dana Reyes a friend request');
+    const [again] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = ${LIVE_PRUNE_JOB} and status = 'pending'`,
+    );
+    expect(new Date(again!.run_at).getTime()).toBeGreaterThan(Date.now() + 20 * 60 * MIN);
+
+    // A step from a computer HandsFreeOS knows already tells the app, but doesn't arm the pruning again.
+    await rows(
+      admin(),
+      sql`delete from app.scheduled_jobs where workspace_id = ${ws} and kind = ${LIVE_PRUNE_JOB}`,
+    );
+    await runAs(owner, ws, 'outreach.live.beat', {
+      computer: { id: install, name: 'Chrome on Mac', version: '0.17.0' },
+      status: { state: 'idle', line: null, lineAt: null, nextAt: null },
+      steps: [
+        {
+          id: randomUUID(),
+          at: new Date().toISOString(),
+          kind: 'done',
+          line: 'Liked a post of Dana Reyes',
+        },
+      ],
+    });
+    await drain(s, ws);
+    expect(
+      await rows(
+        admin(),
+        sql`select id from app.scheduled_jobs
+            where workspace_id = ${ws} and kind = ${LIVE_PRUNE_JOB} and status = 'pending'`,
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe('the weekly report', () => {

@@ -23,3 +23,7 @@ export type Openers = Ok<'/v1/queries/outreach.openers'>;
 /** Someone's choices for the extension, inside the business's rules (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
 export type AutomationPeople = Ok<'/v1/queries/outreach.automation.people'>;
+/** The person's extension right now, their day and today's steps (packages/core/src/addons/outreach/live.ts). */
+export type Live = Ok<'/v1/queries/outreach.live'>;
+/** Each person's status for owners and admins: never their lines, feed or messages. */
+export type LiveTeam = Ok<'/v1/queries/outreach.live.team'>;

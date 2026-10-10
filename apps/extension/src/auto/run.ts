@@ -24,8 +24,13 @@
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
  * chats, one job a go, a few minutes apart.
+ *
+ * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
+ * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
+ * recently used computer works; on any other it stands by and says why.
  */
 import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
+import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { AUTO_PLANS, MESSAGE_PATH, sameRef, type AutoJob } from '../facebook/auto';
 import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
@@ -45,6 +50,7 @@ import type {
 } from '../hfos/messages';
 import { config } from '../hfos/config';
 import { follow, loadSettings } from '../hfos/follow';
+import { beatSoon, dayChange, feed, liveNow, onWake, pressDay, pressWaiting } from '../hfos/live';
 import { isNoting, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -83,8 +89,13 @@ const LOOK_AGAIN_MS = 30 * 60_000;
 
 const tab = new WorkTab('window');
 let busy = false;
-/** Stop for today was pressed: a once-a-day job under way ends at its next page. */
+/**
+ * Stop for today was pressed (here, in the app or on the phone), or another computer works now: a once-a-day job
+ * under way ends at its next page.
+ */
 let stopAsked = false;
+/** A beat's answer asked it to end what it was doing while a go was under way: one more go once that ends. */
+let haltAgain = false;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -109,11 +120,14 @@ function setState(change: Partial<AutoState>): Promise<AutoState> {
     return next;
   });
   writing = write.catch(() => undefined);
+  // HandsFreeOS hears what changed within a couple of seconds (../hfos/live.ts).
+  beatSoon();
   return write;
 }
 
+/** A new line for the person; one that needs them says so (`needs`), and the next line clears it. */
 const say = (line: string, more: Partial<AutoState> = {}) =>
-  setState({ line, lineAt: Date.now(), ...more });
+  setState({ line, lineAt: Date.now(), needs: false, ...more });
 
 /** Goes next at `when`, or not at all. */
 async function goAt(when: number | null): Promise<void> {
@@ -602,6 +616,8 @@ async function automationOf(businessId: string) {
 
 /** One go: works out where things stand, does the next step when it's time, and sets when to go next. */
 async function go(): Promise<void> {
+  // A stop asked for before this go is in the day it reads below; one asked for from here on ends a job under way.
+  stopAsked = false;
   const to = await savingTo();
   if (!to) {
     await goAt(null);
@@ -616,10 +632,26 @@ async function go(): Promise<void> {
     stopAsked = false;
     state = await setState(freshState(day, state.tabId));
   }
+  // HandsFreeOS keeps the day, pressed anywhere, and says whether this computer is the one that works (decision 41).
+  // With no word from it ever, this goes on as it did before.
+  const live = await liveNow(to);
+  if (live) {
+    const change = dayChange(state, live.day, await pressWaiting(to));
+    if (change) {
+      stopAsked = change.stopped != null;
+      state = await setState(change);
+    }
+  }
   await tab.adopt(state.tabId);
   if (settings.sending === 'off') {
     await goAt(null);
     return closeWindow();
+  }
+  // Another computer of theirs works: this one stands by, and says why, until the person uses it again.
+  if (live && !live.working) {
+    await closeWindow();
+    await say(standDownWords(live.workingName));
+    return goAt(null);
   }
   const random = Math.random();
   const tomorrow = () => nextStart(settings.hours, timezone, at, random);
@@ -642,6 +674,7 @@ async function go(): Promise<void> {
     await closeWindow();
     await say(
       'Turn on “Note my steps on Facebook” in Social Outreach → Settings in HandsFreeOS: the extension works on its own only while it notes.',
+      { needs: true },
     );
     return goAt(at + LOOK_AGAIN_MS);
   }
@@ -661,6 +694,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     await say(`${DAILY_NAMES[daily]}: ${end.line}`);
+    void feed('job', `${DAILY_NAMES[daily]}: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -715,6 +749,8 @@ async function go(): Promise<void> {
     return goAt(tomorrow());
   }
   await say(outcome.line);
+  // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
+  void feed(outcome.done ? 'done' : 'passed', outcome.line);
   // Stop for today, pressed while that step went.
   if (state.stopped) {
     await closeWindow();
@@ -746,12 +782,29 @@ export async function tick(): Promise<void> {
           : String(error);
     console.error('HandsFreeOS Social couldn’t work on its own', error);
     await setState({ working: false }).catch(() => undefined);
-    await say(`Stopped for now: ${words} It tries again in a few minutes.`).catch(() => undefined);
+    await say(`Stopped for now: ${words} It tries again in a few minutes.`, { needs: true }).catch(
+      () => undefined,
+    );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
     busy = false;
+    // The day stopped, or another computer took over, while that go went: it looks again now, and stops or stands
+    // by, rather than at the next step's time.
+    if (haltAgain) {
+      haltAgain = false;
+      void tick();
+    }
   }
 }
+
+// A beat's answer that moves the day, or which computer works, has it look again. One that ends what it's doing
+// (stopped in the app, or another computer works now) ends a once-a-day job under way at its next page, and has it
+// look again as soon as the step under way is done.
+onWake((halt) => {
+  if (halt) stopAsked = true;
+  if (!busy) return void tick();
+  if (halt) haltAgain = true;
+});
 
 /** Makes sure it's going: when the background starts, there's an alarm unless it has stopped for good. */
 export async function wake(): Promise<void> {
@@ -815,17 +868,26 @@ export function answerAuto(
           api().POST('/v1/commands/outreach.send.skip', { body: ask.input }),
           ask.input.workspaceId,
         );
-      case 'hfos-auto-start':
+      // Kept in HandsFreeOS, with this computer's id, which makes it the one that works. A start refused there (a
+      // warning today, or nothing to do on its own) changes nothing here and the panel says why; a stop stops here
+      // whatever HandsFreeOS says. With no connection, it waits to be sent and the day goes as pressed here meanwhile.
+      case 'hfos-auto-start': {
+        const pressed = await pressDay('start');
+        if (pressed.kind === 'refused') throw new Refused(pressed.problem);
         stopAsked = false;
         await setState({ started: true, stopped: null });
         void tick();
         break;
-      case 'hfos-auto-stop':
+      }
+      case 'hfos-auto-stop': {
+        await pressDay('stop');
         stopAsked = true;
-        await setState({ started: false, stopped: 'person' });
+        const { stopped } = await stateNow();
+        await setState({ started: false, stopped: stopped === 'warning' ? 'warning' : 'person' });
         await say('Stopped for today. It starts again in your next working hours.');
         void tick();
         break;
+      }
     }
     return status();
   });

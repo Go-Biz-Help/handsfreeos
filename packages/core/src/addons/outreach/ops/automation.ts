@@ -113,6 +113,21 @@ export async function automationOf(
   };
 }
 
+/** Everyone's choices and training wheels in the business at once, for the team's live view (./live.ts). */
+export async function everyoneAutomation(ctx: Ctx, now = Date.now()) {
+  const [rules, kept] = await Promise.all([
+    rulesOf(ctx),
+    ctx.tx.select().from(automation).where(eq(automation.workspaceId, ctx.scope.workspaceId!)),
+  ]);
+  return {
+    rules,
+    of(userId: string): { settings: AutomationSettings; wheels: WheelsState } {
+      const row = kept.find((k) => k.userId === userId);
+      return { settings: settingsOf(row, rules), wheels: stateOf(row, rules, now) };
+    },
+  };
+}
+
 /**
  * Whether the person's daily limits are half now: after a warning from Facebook (decision 25), or on training wheels.
  */

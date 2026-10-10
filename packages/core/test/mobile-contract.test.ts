@@ -129,6 +129,7 @@ const EXTENSION_COMMANDS = [
   'outreach.friend.note',
   'outreach.friend.end',
   'outreach.warning.note',
+  'outreach.live.beat',
 ];
 /** Whether the phone may keep it waiting: it can wait, a person sends it, and it isn't the extension's alone. */
 const phoneCanWait = (c: { name: string; offline: unknown; actors?: readonly string[] }) =>
@@ -268,6 +269,14 @@ describe('the phone’s contract', () => {
         'estimate.update',
       ]),
     );
+  });
+
+  it('never lets the phone keep waiting a command that leaves no receipt', () => {
+    // The phone's queue lets a command go once its receipt comes back: one that keeps none would wait forever there.
+    const none = registry.commands.filter(
+      (c) => (c as { receipt?: false }).receipt === false && phoneCanWait(c),
+    );
+    expect(none.map((c) => c.name)).toEqual([]);
   });
 
   it('versions every sync stream, so a change old builds can’t take is a new stream', async () => {

@@ -57,6 +57,11 @@ export interface AutoState {
   readonly nextAt: number | null;
   /** Whether a step is under way now. */
   readonly working: boolean;
+  /**
+   * It stopped for now and needs the person: noting is off, or something went wrong and it tries again later.
+   * Missing in a state kept by 0.16; cleared at the next line it says.
+   */
+  readonly needs?: boolean;
   /** The tab in its window, while it's open. */
   readonly tabId: number | null;
 }

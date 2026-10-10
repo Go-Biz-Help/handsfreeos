@@ -1,0 +1,431 @@
+/**
+ * Live status and control (docs/outreach.md, decision 41): what the extension is doing right now, told to HandsFreeOS
+ * so the app can show it, and the person's day, which the app can start and stop.
+ *
+ * - **Computers:** each place the extension runs for a person is a computer, with an id it makes once and a plain name
+ *   ("Chrome on Windows"). Settings follow the person; only one computer works at a time, the one they used most
+ *   recently (the panel opened there, a step of their own, signing in, Start or Stop pressed there). The others stand
+ *   by and say why.
+ * - **The beat:** every minute while Chrome is open, and soon after a change, the extension says it's there, what it
+ *   shows (working, waiting, stopped…), its line ("Sending a friend request to Dana Cole…"), the next step's time,
+ *   and the steps it took since (`outreach.live.beat`). A beat that changes nothing tells nobody.
+ * - **The day:** **Start my day** and **Stop for today** are kept in HandsFreeOS (`outreach.day.start`,
+ *   `outreach.day.stop`), pressed in the app, on the phone or in the extension; the extension follows within seconds.
+ *   An older press never undoes a newer one, and a Facebook warning stops the day whatever was pressed.
+ * - **Offline:** no beat for a few minutes, and the app says the computer is offline and when it was last seen.
+ *
+ * Owners and admins see each person's status, today's counts and how many wait, never the lines or the feed, which
+ * name the people being reached. Browser-safe: the web, the phone, the extension and the worker read it.
+ */
+import { z } from 'zod';
+import { addDays, localDateOf } from '../../calendar/engine/zoned';
+import { SENDING_MODE_KEYS, type SendingMode } from './automation';
+import { WarningState } from './tidy';
+
+/** How often the extension says it's there, and how long without that before the app calls the computer offline. */
+export const BEAT_MINUTES = 1;
+export const OFFLINE_MINUTES = 3;
+/** A change to the line alone tells the app at most this often (HandsFreeOS), and is sent at most this often (the extension). */
+export const LINE_TELL_SECONDS = 45;
+export const LINE_BEAT_SECONDS = 20;
+/** Feed lines one beat carries, lines the extension keeps unsent, lines the Live tab shows, and days kept. */
+export const LIVE_STEPS_SENT_MOST = 20;
+export const LIVE_STEPS_UNSENT_MOST = 50;
+export const LIVE_STEPS_SHOWN_MOST = 200;
+export const LIVE_KEEP_DAYS = 7;
+/** A computer's name, as the person may write it, and as the extension may send it (numbered, it stays within this). */
+export const COMPUTER_NAME_MOST = 40;
+/** The most a line says: the status line and each line of the feed. A longer one is cut short, never refused. */
+export const LINE_MOST = 300;
+/**
+ * How often the Live tab asks again while it's open. A heartbeat that changes nothing tells nobody, so without this the
+ * last-seen time it shows would stand still and a computer still beating would look offline. Under OFFLINE_MINUTES,
+ * less a beat, so a computer that beats every minute is never shown offline.
+ */
+export const LIVE_REFETCH_SECONDS = 60;
+
+const MIN = 60_000;
+
+/** A line cut to `most` characters, ending in "…" when it was longer. */
+export function clipLine(line: string, most = LINE_MOST): string {
+  return line.length > most ? `${line.slice(0, most - 1).trimEnd()}…` : line;
+}
+/** A line as it's kept: trimmed and cut short, never refused for its length. */
+const keptLine = z
+  .string()
+  .trim()
+  .transform((s) => clipLine(s));
+
+/** What a computer says it's doing (`computers.state`). */
+export const REPORTED_STATES = {
+  working: 'Working',
+  waiting: 'Waiting for the next step',
+  idle: 'Nothing to do right now',
+  stopped: 'Stopped for today',
+  off: 'Not working on its own',
+  standby: 'Standing by',
+  trouble: 'Paused',
+  signed_out: 'Signed out of the extension',
+} as const;
+export type ReportedState = keyof typeof REPORTED_STATES;
+export const REPORTED_STATE_KEYS = Object.keys(REPORTED_STATES) as [
+  ReportedState,
+  ...ReportedState[],
+];
+
+/** What the app shows for a person: the above, plus offline and no computer yet. */
+export const SHOWN_STATES = {
+  ...REPORTED_STATES,
+  offline: 'Offline',
+  none: 'No computer yet',
+} as const;
+export type ShownState = keyof typeof SHOWN_STATES;
+export const SHOWN_STATE_KEYS = Object.keys(SHOWN_STATES) as [ShownState, ...ShownState[]];
+
+/** The feed's lines: a step done, one passed over, a once-a-day job, a stop on a warning, and the day pressed. */
+export const STEP_KINDS = ['done', 'passed', 'job', 'stopped', 'day'] as const;
+export type StepKind = (typeof STEP_KINDS)[number];
+/** The extension sends these; HandsFreeOS writes `stopped` (a warning) and `day` itself. */
+export const SENT_STEP_KINDS = ['done', 'passed', 'job'] as const;
+
+export const DAY_STATES = ['started', 'stopped'] as const;
+export type DayState = (typeof DAY_STATES)[number];
+export const DAY_WHY = ['person', 'warning'] as const;
+export type DayWhy = (typeof DAY_WHY)[number];
+export const DAY_VIA = ['web', 'mobile', 'extension'] as const;
+export type DayVia = (typeof DAY_VIA)[number];
+const VIA_WORDS: Record<DayVia, string> = {
+  web: 'in HandsFreeOS',
+  mobile: 'on your phone',
+  extension: 'in the extension',
+};
+
+const moment = z.iso.datetime();
+
+/** The person's day as HandsFreeOS keeps it. */
+export const LiveDay = z.object({
+  /** The business's day: "2026-10-10". */
+  date: z.string(),
+  /** Nothing pressed today, started, or stopped. */
+  state: z.enum(['none', ...DAY_STATES]),
+  why: z.enum(DAY_WHY).nullable(),
+  via: z.enum(DAY_VIA).nullable(),
+  at: moment.nullable(),
+});
+export type LiveDay = z.output<typeof LiveDay>;
+
+/** One of the person's computers, as the app shows it. */
+export const ComputerShown = z.object({
+  /** The row's id (not the extension's own install id). */
+  id: z.uuid(),
+  name: z.string(),
+  lastSeenAt: moment,
+  activeAt: moment.nullable(),
+  /** The one that works: the most recently used. */
+  working: z.boolean(),
+  state: z.enum(REPORTED_STATE_KEYS),
+  version: z.string().nullable(),
+});
+export type ComputerShown = z.output<typeof ComputerShown>;
+
+/** What a computer shows right now, as it said. */
+export const LiveStatus = z.object({
+  state: z.enum(REPORTED_STATE_KEYS),
+  line: z.string().max(300).nullable(),
+  lineAt: moment.nullable(),
+  nextAt: moment.nullable(),
+});
+export type LiveStatus = z.output<typeof LiveStatus>;
+
+export const LiveStep = z.object({
+  at: moment,
+  kind: z.enum(STEP_KINDS),
+  line: z.string(),
+});
+export type LiveStep = z.output<typeof LiveStep>;
+
+const LIMIT = z.object({ done: z.number().int().min(0), most: z.number().int().min(0) });
+/** Today's steps against the daily limits, as Today counts them. */
+export const LiveLimits = z.object({
+  friend_request: LIMIT,
+  first_message: LIMIT,
+  follow_up: LIMIT,
+  comment: LIMIT,
+  like: LIMIT,
+});
+
+// ------------------------------------------------------------------------------------------------- operations
+
+export const LiveBeatInput = z.object({
+  workspaceId: z.uuid(),
+  computer: z.object({
+    /** The id the extension made once and keeps: its install id. */
+    id: z.uuid(),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((s) => clipLine(s, COMPUTER_NAME_MOST)),
+    version: z.string().trim().max(20).nullable().default(null),
+  }),
+  /** The person used this computer just now: the panel opened, a step of their own, sign-in. */
+  active: z.boolean().default(false),
+  status: z.object({
+    state: z.enum(REPORTED_STATE_KEYS),
+    line: keptLine.nullable().default(null),
+    lineAt: moment.nullable().default(null),
+    nextAt: moment.nullable().default(null),
+  }),
+  /** Feed lines since the last beat that was answered, oldest first, each with the extension's own id. */
+  steps: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        at: moment,
+        kind: z.enum(SENT_STEP_KINDS),
+        line: z
+          .string()
+          .trim()
+          .min(1)
+          .transform((s) => clipLine(s)),
+      }),
+    )
+    .max(LIVE_STEPS_SENT_MOST)
+    .default([]),
+});
+export type LiveBeatInput = z.input<typeof LiveBeatInput>;
+
+export const LiveBeatOutput = z.object({
+  /** This computer's row id, which the live channel's events name. */
+  computerId: z.uuid(),
+  /** Its name as kept: the person may have renamed it. */
+  name: z.string(),
+  /** Whether it's the one that works. */
+  working: z.boolean(),
+  /** The one that works, when it isn't this one. */
+  workingName: z.string().nullable(),
+  day: LiveDay,
+  /** The ids of the lines sent that are kept now: the extension lets them go. */
+  stepsKept: z.array(z.uuid()),
+});
+export type LiveBeatOutput = z.output<typeof LiveBeatOutput>;
+
+export const DayInput = z.object({
+  workspaceId: z.uuid(),
+  /** The extension's install id, when pressed there: that computer becomes the one that works. */
+  installId: z.uuid().optional(),
+});
+export type DayInput = z.input<typeof DayInput>;
+export const DayOutput = LiveDay;
+
+export const ComputerRenameInput = z.object({
+  workspaceId: z.uuid(),
+  /** The computer's row id. */
+  computerId: z.uuid(),
+  name: z
+    .string()
+    .trim()
+    .min(1, { error: 'Give the computer a name.' })
+    .max(COMPUTER_NAME_MOST, { error: `Keep the name to ${COMPUTER_NAME_MOST} characters.` }),
+});
+export type ComputerRenameInput = z.input<typeof ComputerRenameInput>;
+export const ComputerRenameOutput = z.object({ computerId: z.uuid(), name: z.string() });
+
+export const LiveInput = z.object({ workspaceId: z.uuid() });
+export type LiveInput = z.input<typeof LiveInput>;
+
+export const LiveOutput = z.object({
+  /** The business's time zone, for the times shown. */
+  timezone: z.string(),
+  /** The server's clock, for the app's offline check. */
+  now: moment,
+  /** What the person lets the extension do on its own. */
+  sending: z.enum(SENDING_MODE_KEYS),
+  /** Whether the business allows anything but doing everything yourself. */
+  canSend: z.boolean(),
+  day: LiveDay,
+  /** The computer that works, and the person's others, working first, then the latest seen. */
+  computer: ComputerShown.nullable(),
+  computers: z.array(ComputerShown),
+  /** The working computer's status, as it last said. */
+  status: LiveStatus.nullable(),
+  limits: LiveLimits,
+  /** Messages waiting for the person's OK. */
+  waiting: z.number().int().min(0),
+  warning: WarningState.nullable(),
+  /** Today's steps, the newest first. */
+  steps: z.array(LiveStep),
+});
+export type LiveOutput = z.output<typeof LiveOutput>;
+
+export const LiveTeamInput = z.object({ workspaceId: z.uuid() });
+export type LiveTeamInput = z.input<typeof LiveTeamInput>;
+
+/** Each person's status for owners and admins (decision 24): never their lines, feed or messages. */
+export const LiveTeamOutput = z.object({
+  timezone: z.string(),
+  now: moment,
+  people: z.array(
+    z.object({
+      userId: z.uuid(),
+      name: z.string(),
+      /** What to show for them now; the app works it out again as time passes (`shownState`), for offline. */
+      state: z.enum(SHOWN_STATE_KEYS),
+      day: LiveDay,
+      sending: z.enum(SENDING_MODE_KEYS),
+      /** The computer that works for them: its name, what it says it's doing (no line), and when it was last seen. */
+      computer: z
+        .object({ name: z.string(), state: z.enum(REPORTED_STATE_KEYS), lastSeenAt: moment })
+        .nullable(),
+      limits: LiveLimits,
+      waiting: z.number().int().min(0),
+      warned: z.boolean(),
+    }),
+  ),
+});
+export type LiveTeamOutput = z.output<typeof LiveTeamOutput>;
+
+// ------------------------------------------------------------------------------------------------- rules
+
+/** Whether a computer last seen then is offline now. */
+export const isOffline = (lastSeenAt: string | Date | number, now: number): boolean =>
+  now - new Date(lastSeenAt).getTime() > OFFLINE_MINUTES * MIN;
+
+/** What the app shows for a person: no computer, signed out, offline, stopped today, not on its own, or as it said. */
+export function shownState(input: {
+  readonly computer: { readonly state: ReportedState; readonly lastSeenAt: string } | null;
+  readonly day: Pick<LiveDay, 'state'>;
+  readonly sending: SendingMode;
+  readonly now: number;
+}): ShownState {
+  const { computer } = input;
+  if (!computer) return 'none';
+  if (computer.state === 'signed_out') return 'signed_out';
+  if (isOffline(computer.lastSeenAt, input.now)) return 'offline';
+  if (input.day.state === 'stopped') return 'stopped';
+  if (input.sending === 'off') return 'off';
+  return computer.state;
+}
+
+/** A shown state's place, for a coloured chip: good, waiting, needs a look, or plain. */
+export function stateTone(state: ShownState): 'good' | 'waiting' | 'warn' | 'plain' {
+  if (state === 'working') return 'good';
+  if (state === 'waiting' || state === 'idle') return 'waiting';
+  if (state === 'offline' || state === 'trouble') return 'warn';
+  return 'plain';
+}
+
+const clockFormats = new Map<string, Intl.DateTimeFormat>();
+/** "2:14 PM" on the business's clock. */
+export function clockWords(at: string | Date | number, timeZone: string): string {
+  let f = clockFormats.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone || 'UTC',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    clockFormats.set(timeZone, f);
+  }
+  return f.format(new Date(at));
+}
+
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+/** When something was or will be: "2:14 PM" today, "yesterday at 2:14 PM", "tomorrow at 9:12 AM", else "Mon, Oct 5 at 2:14 PM". */
+export function seenWords(at: string | Date | number, timeZone: string, now: number): string {
+  const ms = new Date(at).getTime();
+  const day = localDateOf(ms, timeZone || 'UTC');
+  const today = localDateOf(now, timeZone || 'UTC');
+  const clock = clockWords(ms, timeZone);
+  if (day === today) return clock;
+  if (day === addDays(today, -1)) return `yesterday at ${clock}`;
+  if (day === addDays(today, 1)) return `tomorrow at ${clock}`;
+  let f = dateFormats.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone || 'UTC',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    dateFormats.set(timeZone, f);
+  }
+  return `${f.format(new Date(ms))} at ${clock}`;
+}
+
+/** The owner's words for a computer that's offline (decision 41). */
+export const offlineWords = (lastSeenAt: string | Date, timeZone: string, now: number): string =>
+  `Your computer is offline: nothing runs until Chrome is open. Last seen ${seenWords(lastSeenAt, timeZone, now)}.`;
+
+/** What a computer that stands by says, in the extension. */
+export const standDownWords = (workingName: string | null): string =>
+  `${workingName ?? 'Another computer'} is working for you now, so this one stands by. Open the panel here to work from this computer instead.`;
+
+/** Where the day stands, under Start my day and Stop for today: empty when nothing was pressed today. */
+export function dayWords(day: LiveDay, timeZone: string): string {
+  if (day.state === 'none') return '';
+  if (day.why === 'warning') return 'Stopped for today: Facebook showed a warning.';
+  const at = day.at ? ` at ${clockWords(day.at, timeZone)}` : '';
+  const via = day.via ? ` ${VIA_WORDS[day.via]}` : '';
+  return day.state === 'started' ? `Started${at}${via}.` : `Stopped for today${at}${via}.`;
+}
+
+/** The feed's line for a day pressed, which HandsFreeOS writes. */
+export const dayLine = (state: DayState, via: DayVia): string =>
+  `You pressed ${state === 'started' ? 'Start my day' : 'Stop for today'} ${VIA_WORDS[via]}.`;
+
+/** The feed's line for a warning, which HandsFreeOS writes: Facebook's words cut short so the whole stays a line. */
+export function warningLine(words: string): string {
+  const before = 'Facebook showed a warning (“';
+  const after = '”). The extension stopped for today, and your daily limits are halved for a week.';
+  return `${before}${clipLine(words.trim(), LINE_MOST - before.length - after.length)}${after}`;
+}
+
+/** The push a warning sends to the person's phone (decision 41). */
+export const warningPushWords = (): { title: string; body: string } => ({
+  title: 'Facebook showed a warning.',
+  body: 'The extension stopped for today.',
+});
+
+/** Why Start my day can't start while the extension does nothing on its own: who can change that, and where. */
+export function sendingOffWords(businessAllowsMore: boolean): string {
+  return businessAllowsMore
+    ? 'The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → My settings.'
+    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → Business settings.';
+}
+
+/** A computer's plain name, from Chrome's word for its system. */
+export function computerName(os: string | null | undefined): string {
+  switch (os) {
+    case 'win':
+      return 'Chrome on Windows';
+    case 'mac':
+      return 'Chrome on Mac';
+    case 'cros':
+      return 'Chrome on a Chromebook';
+    case 'linux':
+    case 'openbsd':
+      return 'Chrome on Linux';
+    default:
+      return 'Chrome';
+  }
+}
+
+/**
+ * A new computer's name, numbered when the person has one by that name already: "Chrome on Windows 2". It stays
+ * within `most` characters, the name cut short to leave room for the number.
+ */
+export function numberedName(
+  name: string,
+  taken: readonly string[],
+  most = COMPUTER_NAME_MOST,
+): string {
+  const have = new Set(taken.map((t) => t.toLowerCase()));
+  const base = name.slice(0, most);
+  if (!have.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) {
+    const suffix = ` ${n}`;
+    const next = `${name.slice(0, most - suffix.length).trimEnd()}${suffix}`;
+    if (!have.has(next.toLowerCase())) return next;
+  }
+}

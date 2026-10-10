@@ -99,11 +99,17 @@ export const outreachAddon = defineAddon({
       'outreach.send.skipped',
       'outreach.send.done',
       'outreach.wheels.ended',
+      'outreach.live.changed',
+      'outreach.day.started',
+      'outreach.day.stopped',
+      'outreach.computer.renamed',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
     // A reply seen, or one handed over to the person (decision 27), pushes to their phone, and a change to the settings
     // moves the morning push (./alerts.ts) and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
+    // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's pruning
+    // armed (decision 41, ./live.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -112,15 +118,25 @@ export const outreachAddon = defineAddon({
       'outreach.send.queued',
       'addon.settings_saved',
       'appointment.booked',
+      'outreach.warning.seen',
+      'outreach.live.changed',
     ],
   },
-  jobs: ['outreach.read_chats', 'outreach.check_posts', 'outreach.morning', 'outreach.weekly'],
+  jobs: [
+    'outreach.read_chats',
+    'outreach.check_posts',
+    'outreach.morning',
+    'outreach.weekly',
+    'outreach.live_prune',
+  ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, and the weekly report: Add-ons → Social Outreach.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
     'automation',
+    'computers',
+    'days',
     'demos',
     'file_chats',
     'file_people',
@@ -129,6 +145,7 @@ export const outreachAddon = defineAddon({
     'group_people',
     'groups',
     'imports',
+    'live_steps',
     'my_groups',
     'opener_uses',
     'playbooks',

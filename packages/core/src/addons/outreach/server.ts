@@ -13,6 +13,7 @@ import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { groupCommands, groupQueries } from './ops/groups';
+import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
@@ -38,6 +39,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...demoCommands,
     ...automationCommands,
     ...sendCommands,
+    ...liveCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -51,5 +53,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...openerQueries,
     ...automationQueries,
     ...sendQueries,
+    ...liveQueries,
   ],
 };

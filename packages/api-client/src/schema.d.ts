@@ -5837,6 +5837,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.computer.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person renames one of their own computers the extension runs on.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.computer.renamed.
+         */
+        post: operations["command_outreach_computer_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.day.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start my day: the extension on the person’s computer that works starts on their list for today now, at a person’s pace, working hours or not. Pressed on the web, the phone or in the extension.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.day.started, outreach.live.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_day_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.day.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop for today: the extension on the person’s computers does nothing more on its own until their next working hours. Pressed on the web, the phone or in the extension.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.day.stopped, outreach.live.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_day_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.demo.mark": {
         parameters: {
             query?: never;
@@ -5991,6 +6051,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.groups.saved.
          */
         post: operations["command_outreach_groups_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.live.beat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension says it’s there, on one of the person’s computers: what it’s doing now, its next step and the steps it took since. Answers whether this computer is the one that works, and the person’s day.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.live.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_live_beat"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6267,7 +6347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, and stops the extension for them for the day.
+         * Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.
          * @description Risk level 1. Requires outreach.use. Emits outreach.warning.seen. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_warning_note"];
@@ -15911,6 +15991,46 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many messages wait for them, any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_live"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.live.team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many messages wait for them. Never what it says it’s doing, nor their messages.
+         * @description Requires outreach.manage.
+         */
+        post: operations["query_outreach_live_team"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32026,6 +32146,112 @@ export interface operations {
             };
         };
     };
+    command_outreach_computer_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    computerId: string;
+                    name: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        computerId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_day_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    installId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        at: string | null;
+                        date: string;
+                        /** @enum {string} */
+                        state: "none" | "started" | "stopped";
+                        via: ("web" | "mobile" | "extension") | null;
+                        why: ("person" | "warning") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_day_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    installId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        at: string | null;
+                        date: string;
+                        /** @enum {string} */
+                        state: "none" | "started" | "stopped";
+                        via: ("web" | "mobile" | "extension") | null;
+                        why: ("person" | "warning") | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_demo_mark: {
         parameters: {
             query?: never;
@@ -32456,6 +32682,75 @@ export interface operations {
                 content: {
                     "application/json": {
                         saved: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_live_beat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    active?: boolean;
+                    computer: {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        /** @default null */
+                        version?: string | null;
+                    };
+                    status: {
+                        line?: string | null;
+                        /** @default null */
+                        lineAt?: string | null;
+                        /** @default null */
+                        nextAt?: string | null;
+                        /** @enum {string} */
+                        state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                    };
+                    steps?: {
+                        /** Format: date-time */
+                        at: string;
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "done" | "passed" | "job";
+                        line: string;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        computerId: string;
+                        day: {
+                            at: string | null;
+                            date: string;
+                            /** @enum {string} */
+                            state: "none" | "started" | "stopped";
+                            via: ("web" | "mobile" | "extension") | null;
+                            why: ("person" | "warning") | null;
+                        };
+                        name: string;
+                        stepsKept: string[];
+                        working: boolean;
+                        workingName: string | null;
                     };
                 };
             };
@@ -59476,6 +59771,198 @@ export interface operations {
                         page: number;
                         pages: number;
                         total: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canSend: boolean;
+                        computer: {
+                            activeAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            name: string;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                            version: string | null;
+                            working: boolean;
+                        } | null;
+                        computers: {
+                            activeAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            name: string;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                            version: string | null;
+                            working: boolean;
+                        }[];
+                        day: {
+                            at: string | null;
+                            date: string;
+                            /** @enum {string} */
+                            state: "none" | "started" | "stopped";
+                            via: ("web" | "mobile" | "extension") | null;
+                            why: ("person" | "warning") | null;
+                        };
+                        limits: {
+                            comment: {
+                                done: number;
+                                most: number;
+                            };
+                            first_message: {
+                                done: number;
+                                most: number;
+                            };
+                            follow_up: {
+                                done: number;
+                                most: number;
+                            };
+                            friend_request: {
+                                done: number;
+                                most: number;
+                            };
+                            like: {
+                                done: number;
+                                most: number;
+                            };
+                        };
+                        /** Format: date-time */
+                        now: string;
+                        /** @enum {string} */
+                        sending: "off" | "steps" | "approve_all" | "everything";
+                        status: {
+                            line: string | null;
+                            lineAt: string | null;
+                            nextAt: string | null;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                        } | null;
+                        steps: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "done" | "passed" | "job" | "stopped" | "day";
+                            line: string;
+                        }[];
+                        timezone: string;
+                        waiting: number;
+                        warning: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: date-time */
+                            requestsFrom: string;
+                            /** Format: date-time */
+                            slowerUntil: string;
+                            today: boolean;
+                            words: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_live_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        now: string;
+                        people: {
+                            computer: {
+                                /** Format: date-time */
+                                lastSeenAt: string;
+                                name: string;
+                                /** @enum {string} */
+                                state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                            } | null;
+                            day: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
+                            limits: {
+                                comment: {
+                                    done: number;
+                                    most: number;
+                                };
+                                first_message: {
+                                    done: number;
+                                    most: number;
+                                };
+                                follow_up: {
+                                    done: number;
+                                    most: number;
+                                };
+                                friend_request: {
+                                    done: number;
+                                    most: number;
+                                };
+                                like: {
+                                    done: number;
+                                    most: number;
+                                };
+                            };
+                            name: string;
+                            /** @enum {string} */
+                            sending: "off" | "steps" | "approve_all" | "everything";
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out" | "offline" | "none";
+                            /** Format: uuid */
+                            userId: string;
+                            waiting: number;
+                            warned: boolean;
+                        }[];
+                        timezone: string;
                     };
                 };
             };

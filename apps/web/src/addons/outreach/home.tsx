@@ -1,6 +1,7 @@
 'use client';
 /**
- * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, the person's list for today,
+ * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, what it's doing right now
+ * with Start my day and Stop for today (Live), the person's list for today,
  * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, the business's playbooks, and
  * every setting the extension follows, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
@@ -18,6 +19,7 @@ import { outreachHref } from './address';
 import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
+import { LiveView } from './live-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-view';
 import { TodayView } from './today-view';
@@ -28,6 +30,8 @@ import type {
   Chats,
   Friends,
   Groups,
+  Live,
+  LiveTeam,
   Openers,
   PlaybookList,
   Tidy,
@@ -37,6 +41,7 @@ import type {
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
+  | { readonly view: 'live'; readonly live: Live; readonly team: LiveTeam | null }
   | { readonly view: 'today'; readonly today: TodayList; readonly wheels: WheelsList | null }
   | {
       readonly view: 'groups';
@@ -69,6 +74,7 @@ export type OutreachShown =
 
 const TABS = [
   { view: 'activity', label: 'Activity' },
+  { view: 'live', label: 'Live' },
   { view: 'today', label: 'Today' },
   { view: 'groups', label: 'Groups' },
   { view: 'friends', label: 'Friends' },
@@ -124,6 +130,8 @@ export function OutreachHome({
           period={shown.period}
           canManage={canManage}
         />
+      ) : shown.view === 'live' ? (
+        <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} />
       ) : shown.view === 'today' ? (
         <TodayView workspaceId={workspaceId} today={shown.today} wheels={shown.wheels} />
       ) : shown.view === 'groups' ? (

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the tenth test build (0.10.0).** It reads the Facebook page you have open and shows what it found in
+**This is a test build (0.17.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
@@ -13,8 +13,8 @@ each group fits, finds posts in your groups worth a comment, and gives you a lis
 to copy, after looking the person up on Facebook. It gets your Facebook download file for you and brings it in, and
 cancels old friend requests and unfriends the people you tick. It spots who wrote back so your phone can tell you,
 takes turns with your playbook's openers, and gives you a demo link for each person. It stops for the day on any
-Facebook warning. It never
-sends anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages,
+Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live and can start and stop its day. It
+never sends anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages,
 in Messenger's chat list, in your groups' feeds and on the profiles you ticked, once you ask it to.
 
 ## What it reads
@@ -210,6 +210,35 @@ only while Chrome is open, you're signed in and noting is on (`src/auto/run.ts`,
 `src/facebook/auto.ts`, `src/panel/auto.ts`). On the list, in the panel and on the web, what it does says **Done on its
 own**, and your phone's morning push leaves those out.
 
+## What it tells HandsFreeOS
+
+Signed in, the extension tells HandsFreeOS how things stand on your computer, so Social Outreach's **Live** tab on the
+web (and later the phone) shows it as it happens (decision 41 in docs/outreach.md, `src/hfos/live.ts`):
+
+- **This computer.** Each install makes an id once and keeps it in its storage (`hfos.computer`), with a plain name,
+  "Chrome on Windows" or "Chrome on Mac", that you can rename on the Live tab. Only the computer you used last works:
+  opening or coming back to the panel, a step of your own on Facebook, signing in, or Start my day or Stop for today
+  pressed there makes it the one. On the others the runner stands by, and the panel says which computer works and
+  how to work from this one instead. Nothing hands over by itself.
+- **The beat** (`outreach.live.beat`): every minute while Chrome is open and you're signed in (the `hfos-beat` alarm),
+  and a couple of seconds after the runner's state changes, a step is taken or you use the computer. It sends what the
+  runner is doing (working, waiting for the next step, stopped, paused, standing by), its line and when the next step
+  is, and the steps it took since (`hfos.live.steps`, each with its own id, kept until HandsFreeOS has it). A line alone
+  goes at most every 20 seconds, and a line longer than 300 characters is cut short, so a beat is never refused for its
+  wording. A beat that changes nothing keeps no record and tells nobody. With no beat for 3
+  minutes the Live tab says your computer is offline and when it was last seen. Signing out sends a last beat that says
+  so.
+- **Your day:** **Start my day** and **Stop for today** in the panel are kept in HandsFreeOS (`outreach.day.start`,
+  `outreach.day.stop`), and pressed in the app they reach this computer within seconds over the live channel; the
+  answer to each beat says where the day stands (`hfos.live`). Offline, a press here waits (`hfos.live.press`), keeps
+  its moment and goes with the next beat; a newer press wins. HandsFreeOS refuses Start my day after a Facebook warning
+  that day, or while you do everything yourself, and the panel says why; Stop for today always stops here. A warning
+  seen here is never undone here. A press here updates the answer kept at once. When a beat's answer says the day
+  stopped or another computer works now, a once-a-day job under way ends at its next page, and the runner looks again
+  as soon as the step under way is done.
+- **Whose:** every line, waiting press and answer kept says whose it is (you and the business), so none goes as
+  someone else's or to another business after signing in as someone else.
+
 ## Tidying up your friends
 
 **Tidy up your friends**, under your list for today, lists the friend requests you sent that nobody answered after
@@ -375,24 +404,25 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                    | What it is                                                                                                                                               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps                                  |
-| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete                                  |
-| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day and its list, `chats.ts` reading chats |
-| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                     |
-| `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                  |
-| `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`../tab.ts`)                                                       |
-| `src/panel/warnings.ts` | Facebook's warnings: noted once a day, and the extension stopping for the day                                                                            |
-| `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                              |
-| `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                           |
-| `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                 |
-| `src/hfos/follow.ts`    | Your settings from HandsFreeOS: loaded at sign-in and each step, and followed live                                                                       |
-| `src/jobs/`             | The jobs that go page by page: Find posts, Read my chats, and once a day checking friend requests and saving group members (`src/auto/daily.ts`)         |
-| `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                            |
-| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, follows your settings, and wakes the runner                |
-| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
-| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
+| Path                    | What it is                                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps                                       |
+| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete                                       |
+| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day and its list, `chats.ts` reading chats      |
+| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                          |
+| `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                       |
+| `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`../tab.ts`)                                                            |
+| `src/panel/warnings.ts` | Facebook's warnings: noted once a day, and the extension stopping for the day                                                                                 |
+| `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                                   |
+| `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                                |
+| `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                      |
+| `src/hfos/follow.ts`    | Your settings from HandsFreeOS: loaded at sign-in and each step, and followed live                                                                            |
+| `src/hfos/live.ts`      | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                              |
+| `src/jobs/`             | The jobs that go page by page: Find posts, Read my chats, and once a day checking friend requests and saving group members (`src/auto/daily.ts`)              |
+| `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                                 |
+| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner |
+| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                         |
+| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                               |
 
 ## Next
 

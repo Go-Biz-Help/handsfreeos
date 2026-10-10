@@ -2,14 +2,15 @@
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
  * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
- * and demos, 20261027001200 for the extension on its own, and 20261027001300 for the messages it sends): the Drizzle mirror its server code reads and writes
- * through.
- * Server-only.
+ * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends, and
+ * 20261027001500 for live status: the computers, the day and the feed): the Drizzle mirror its server code reads and
+ * writes through. Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  date,
   foreignKey,
   integer,
   jsonb,
@@ -25,6 +26,7 @@ import type { TouchKind, TouchStep } from './activity';
 import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
+import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
@@ -642,9 +644,82 @@ export const sends = addonOutreach.table(
   ],
 );
 
+/** Each place the extension runs for a person (./live.ts): only the most recently used one works. */
+export const computers = addonOutreach.table(
+  'computers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    installId: uuid('install_id').notNull(),
+    name: text('name').notNull(),
+    version: text('version'),
+    lastSeenAt: ts('last_seen_at').notNull(),
+    activeAt: ts('active_at'),
+    state: text('state').notNull().default('idle').$type<ReportedState>(),
+    line: text('line'),
+    lineAt: ts('line_at'),
+    nextAt: ts('next_at'),
+    toldAt: ts('told_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.installId)],
+);
+
+/** The person's day: started or stopped, why, from where and when (./live.ts). */
+export const days = addonOutreach.table(
+  'days',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    state: text('state').notNull().$type<DayState>(),
+    why: text('why').$type<DayWhy>(),
+    via: text('via').notNull().$type<DayVia>(),
+    changedAt: ts('changed_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
+/** The feed of the extension's steps, and the day's starts, stops and warnings (./live.ts). */
+export const liveSteps = addonOutreach.table(
+  'live_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    computerId: uuid('computer_id'),
+    clientId: uuid('client_id').notNull().defaultRandom(),
+    at: ts('at').notNull(),
+    kind: text('kind').notNull().$type<StepKind>(),
+    line: text('line').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.clientId),
+    foreignKey({
+      columns: [t.workspaceId, t.computerId],
+      foreignColumns: [computers.workspaceId, computers.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   automation,
+  computers,
+  days,
   fileChats,
   filePeople,
   friendEnds,
@@ -654,6 +729,7 @@ export const OUTREACH_TABLES = {
   myGroups,
   imports,
   demos,
+  liveSteps,
   openerUses,
   playbooks,
   posts,

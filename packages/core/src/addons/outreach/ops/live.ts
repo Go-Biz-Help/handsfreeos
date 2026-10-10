@@ -1,0 +1,574 @@
+/**
+ * Live status and control (../live.ts, docs/outreach.md decision 41): what each of the person's computers says it's
+ * doing, which one works, their day, and the feed of today's steps; Start my day and Stop for today from anywhere;
+ * and, for owners and admins, the team's status, counts and how many wait, never their lines or messages. Each
+ * person's computers, day and feed are their own.
+ */
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { rows } from '@hfos/db/client';
+import { HfosError } from '../../../errors';
+import { requireHuman } from '../../../kernel/actor';
+import { changeMoment } from '../../../kernel/moment';
+import type { CommandContext, RequestMeta } from '../../../kernel/types';
+import { onServerClock } from '../../../mobile';
+import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { businessDay } from '../automation';
+import {
+  ComputerRenameInput,
+  ComputerRenameOutput,
+  dayLine,
+  DayInput,
+  DayOutput,
+  isOffline,
+  LINE_TELL_SECONDS,
+  LIVE_STEPS_SHOWN_MOST,
+  LiveBeatInput,
+  LiveBeatOutput,
+  LiveInput,
+  LiveOutput,
+  LiveTeamInput,
+  LiveTeamOutput,
+  numberedName,
+  sendingOffWords,
+  shownState,
+  type ComputerShown,
+  type DayState,
+  type DayVia,
+  type LiveDay,
+} from '../live';
+import { dailyLimitsNow, WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
+import { outreachAddon } from '../manifest';
+import { computers, days, liveSteps } from '../tables';
+import { todayLimits } from '../today';
+import { automationOf, everyoneAutomation } from './automation';
+import { inWorkspace, type Ctx } from './common';
+import { businessToday, dayOf, dayShown, keepDay, writeLine } from './day';
+import { dayCounts } from './today';
+import { slowsNow, startOfToday, warningOf } from './tidy';
+
+type Computer = typeof computers.$inferSelect;
+
+const DAY = 86_400_000;
+
+/**
+ * The computer that works: the most recently used, then the latest seen. One signed out of the extension works only
+ * when every one is.
+ */
+export function workingOf<
+  T extends Pick<Computer, 'activeAt' | 'lastSeenAt' | 'state'> & { id: string },
+>(all: readonly T[]): T | null {
+  const time = (d: Date | null) => (d ? d.getTime() : -Infinity);
+  const ranked = [...all].sort(
+    (a, b) =>
+      Number(a.state === 'signed_out') - Number(b.state === 'signed_out') ||
+      time(b.activeAt) - time(a.activeAt) ||
+      time(b.lastSeenAt) - time(a.lastSeenAt) ||
+      a.id.localeCompare(b.id),
+  );
+  return ranked[0] ?? null;
+}
+
+/** Where a press came from: the phone, the extension, or the web. */
+const viaOf = (meta: RequestMeta): DayVia =>
+  meta.channel === 'mobile' ? 'mobile' : meta.channel === 'extension' ? 'extension' : 'web';
+
+/** A time the extension read off its own clock, moved onto the server's: one in the future stays ahead. */
+function serverTime(iso: string | null, meta: RequestMeta, now: Date, ahead = false): Date | null {
+  if (iso === null) return null;
+  const at = new Date(iso);
+  if (!ahead) return onServerClock(at, meta.sentAt ?? null, now);
+  const skew = meta.sentAt ? now.getTime() - meta.sentAt.getTime() : 0;
+  return new Date(at.getTime() + skew);
+}
+
+const sameTime = (a: Date | null, b: Date | null) =>
+  a === null || b === null ? a === b : Math.abs(a.getTime() - b.getTime()) < 5_000;
+
+async function mine(ctx: Ctx, me: string): Promise<Computer[]> {
+  return ctx.tx
+    .select()
+    .from(computers)
+    .where(and(eq(computers.workspaceId, ctx.scope.workspaceId!), eq(computers.userId, me)));
+}
+
+const shown = (c: Computer, working: Computer | null): ComputerShown => ({
+  id: c.id,
+  name: c.name,
+  lastSeenAt: c.lastSeenAt.toISOString(),
+  activeAt: c.activeAt?.toISOString() ?? null,
+  working: c.id === working?.id,
+  state: c.state,
+  version: c.version,
+});
+
+export const liveBeat = defineAddonCommand(outreachAddon, {
+  name: 'outreach.live.beat',
+  description:
+    'The browser extension says it’s there, on one of the person’s computers: what it’s doing now, its next step and the steps it took since. Answers whether this computer is the one that works, and the person’s day.',
+  risk: 0,
+  input: LiveBeatInput,
+  output: LiveBeatOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  // Kept whenever it arrives; and a heartbeat leaves no receipt (it's sent every minute, and a repeat does no harm).
+  offline: 'anytime',
+  receipt: false,
+  emits: ['outreach.live.changed'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const now = new Date();
+    const before = await mine(ctx, me);
+    const workingBefore = workingOf(before);
+    let row = before.find((c) => c.installId === input.computer.id);
+    const isNew = row === undefined;
+    const wasOffline = row ? isOffline(row.lastSeenAt, at.getTime()) : false;
+    if (!row) {
+      const [made] = await ctx.tx
+        .insert(computers)
+        .values({
+          workspaceId: ws,
+          userId: me,
+          installId: input.computer.id,
+          name: numberedName(
+            input.computer.name,
+            before.map((c) => c.name),
+          ),
+          version: input.computer.version,
+          lastSeenAt: at,
+          // The person's first computer works; a later one once they use it.
+          activeAt: input.active || before.length === 0 ? at : null,
+          state: input.status.state,
+        })
+        .onConflictDoNothing()
+        .returning();
+      row = made ?? (await mine(ctx, me)).find((c) => c.installId === input.computer.id)!;
+    } else {
+      row = {
+        ...row,
+        lastSeenAt: at > row.lastSeenAt ? at : row.lastSeenAt,
+        activeAt: input.active && (row.activeAt === null || at > row.activeAt) ? at : row.activeAt,
+        version: input.computer.version ?? row.version,
+      };
+    }
+    const after = before.some((c) => c.id === row.id)
+      ? before.map((c) => (c.id === row.id ? row : c))
+      : [...before, row];
+    const working = workingOf(
+      after.map((c) =>
+        c.id === row.id && input.status.state !== 'signed_out' && c.state === 'signed_out'
+          ? { ...c, state: input.status.state }
+          : c,
+      ),
+    );
+    const isWorking = working?.id === row.id;
+    const state = isWorking || input.status.state === 'signed_out' ? input.status.state : 'standby';
+    const line = input.status.line;
+    const nextAt = serverTime(input.status.nextAt, ctx.meta, now, true);
+    // A line saved after the last time the app was told is still news, though the last beat already brought it.
+    const untoldLine = row.toldAt !== null && row.lineAt !== null && row.lineAt > row.toldAt;
+    const lineChanged =
+      !isNew && (line !== row.line || !sameTime(nextAt, row.nextAt) || untoldLine);
+    const stateChanged = !isNew && state !== row.state;
+
+    const sent = input.steps.map((s) => ({
+      workspaceId: ws,
+      userId: me,
+      computerId: row.id,
+      clientId: s.id,
+      at: serverTime(s.at, ctx.meta, now)!,
+      kind: s.kind,
+      line: s.line,
+    }));
+    const inserted = sent.length
+      ? await ctx.tx
+          .insert(liveSteps)
+          .values(sent)
+          .onConflictDoNothing()
+          .returning({ id: liveSteps.id })
+      : [];
+
+    // A heartbeat tells nobody. A new computer, a different one working, a new state or step, one back online, or a
+    // new line (at most every so often) tells the app and the person's other computers once.
+    const toldLately =
+      row.toldAt !== null && now.getTime() - row.toldAt.getTime() < LINE_TELL_SECONDS * 1000;
+    const tell =
+      isNew ||
+      workingBefore?.id !== working?.id ||
+      inserted.length > 0 ||
+      (isWorking && (stateChanged || wasOffline || (lineChanged && !toldLately))) ||
+      (!isWorking && stateChanged);
+    const [kept] = await ctx.tx
+      .update(computers)
+      .set({
+        lastSeenAt: row.lastSeenAt,
+        activeAt: row.activeAt,
+        version: row.version,
+        state,
+        line,
+        lineAt: serverTime(input.status.lineAt, ctx.meta, now),
+        nextAt,
+        ...(tell ? { toldAt: now } : {}),
+      })
+      .where(eq(computers.id, row.id))
+      .returning();
+    if (tell)
+      await ctx.emit({
+        type: 'outreach.live.changed',
+        entityType: 'outreach_computer',
+        entityId: row.id,
+        // `made`: a computer new to HandsFreeOS, which has the worker make sure the feed's pruning is armed.
+        payload: { userId: me, state, working: isWorking, made: isNew },
+      });
+    const { today } = await businessToday(ctx, now.getTime());
+    return {
+      computerId: kept!.id,
+      name: kept!.name,
+      working: isWorking,
+      workingName: isWorking ? null : (working?.name ?? null),
+      day: await dayOf(ctx, me, today),
+      stepsKept: input.steps.map((s) => s.id),
+    };
+  },
+});
+
+/** Start my day or Stop for today, for the person's own day, from wherever it was pressed. */
+async function setDay(
+  ctx: CommandContext,
+  input: { installId?: string | undefined },
+  state: DayState,
+): Promise<LiveDay> {
+  const me = requireHuman(ctx).userId;
+  const ws = ctx.scope.workspaceId!;
+  const at = changeMoment(ctx.meta);
+  const { today, timezone } = await businessToday(ctx);
+  const via = viaOf(ctx.meta);
+  // A press from another day (one that waited overnight on the phone) changes nothing today, and is passed over
+  // quietly: today's warning or Sending off never comes back as a refusal for it.
+  if (businessDay(at.getTime(), timezone) !== today) return dayOf(ctx, me, today);
+  if (state === 'started') {
+    const warning = await warningOf(ctx, me, await startOfToday(ctx));
+    const kept = await dayOf(ctx, me, today);
+    if (warning?.today || kept.why === 'warning')
+      throw HfosError.rule(
+        'outreach_warned_today',
+        409,
+        'Facebook showed you a warning today, so the extension stays stopped until tomorrow. Your daily limits are halved for a week.',
+      );
+    const { settings, rules } = await automationOf(ctx, me);
+    if (settings.sending === 'off')
+      throw HfosError.rule(
+        'outreach_sending_off',
+        409,
+        sendingOffWords(rules.sendingAllowed.some((m) => m !== 'off')),
+      );
+  }
+  // Pressed in the extension: that computer is the one the person is using, so it works. When that makes a different
+  // computer the one that works, the app and the person's other computers hear it at once, day changed or not.
+  const workingBefore = input.installId ? workingOf(await mine(ctx, me)) : null;
+  if (input.installId)
+    await ctx.tx
+      .update(computers)
+      .set({
+        activeAt: sql`greatest(coalesce(${computers.activeAt}, ${at.toISOString()}::timestamptz), ${at.toISOString()}::timestamptz)`,
+      })
+      .where(
+        and(
+          eq(computers.workspaceId, ws),
+          eq(computers.userId, me),
+          eq(computers.installId, input.installId),
+        ),
+      );
+  if (input.installId) {
+    const workingNow = workingOf(await mine(ctx, me));
+    if (workingNow && workingNow.id !== workingBefore?.id)
+      await ctx.emit({
+        type: 'outreach.live.changed',
+        entityType: 'outreach_computer',
+        entityId: workingNow.id,
+        payload: { userId: me, state: workingNow.state, working: true, made: false },
+      });
+  }
+  if (await keepDay(ctx, me, { today, state, via, at })) {
+    await writeLine(ctx, me, at, 'day', dayLine(state, via));
+    const [row] = await ctx.tx
+      .select({ id: days.id })
+      .from(days)
+      .where(and(eq(days.workspaceId, ws), eq(days.userId, me)));
+    await ctx.emit({
+      type: state === 'started' ? 'outreach.day.started' : 'outreach.day.stopped',
+      entityType: 'outreach_day',
+      entityId: row!.id,
+      payload: { userId: me, via },
+    });
+  }
+  return dayOf(ctx, me, today);
+}
+
+export const dayStart = defineAddonCommand(outreachAddon, {
+  name: 'outreach.day.start',
+  description:
+    'Start my day: the extension on the person’s computer that works starts on their list for today now, at a person’s pace, working hours or not. Pressed on the web, the phone or in the extension.',
+  risk: 1,
+  input: DayInput,
+  output: DayOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  // Pressed with no signal, it waits and keeps its moment: an older press never undoes a newer one.
+  offline: 'anytime',
+  emits: ['outreach.day.started', 'outreach.live.changed'],
+  handler: (ctx, input) => setDay(ctx, input, 'started'),
+});
+
+export const dayStop = defineAddonCommand(outreachAddon, {
+  name: 'outreach.day.stop',
+  description:
+    'Stop for today: the extension on the person’s computers does nothing more on its own until their next working hours. Pressed on the web, the phone or in the extension.',
+  risk: 1,
+  input: DayInput,
+  output: DayOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  offline: 'anytime',
+  emits: ['outreach.day.stopped', 'outreach.live.changed'],
+  handler: (ctx, input) => setDay(ctx, input, 'stopped'),
+});
+
+export const computerRename = defineAddonCommand(outreachAddon, {
+  name: 'outreach.computer.rename',
+  description: 'The person renames one of their own computers the extension runs on.',
+  risk: 0,
+  input: ComputerRenameInput,
+  output: ComputerRenameOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.computer.renamed'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const [row] = await ctx.tx
+      .update(computers)
+      .set({ name: input.name })
+      .where(
+        and(
+          eq(computers.workspaceId, ctx.scope.workspaceId!),
+          eq(computers.userId, me),
+          eq(computers.id, input.computerId),
+        ),
+      )
+      .returning({ id: computers.id, name: computers.name });
+    if (!row)
+      throw HfosError.notFound('That computer isn’t one of yours any more. Refresh the page.');
+    await ctx.emit({
+      type: 'outreach.computer.renamed',
+      entityType: 'outreach_computer',
+      entityId: row.id,
+      payload: { userId: me },
+    });
+    return { computerId: row.id, name: row.name };
+  },
+});
+
+/** Messages waiting for each person's OK; part 3 widens this to everything waiting for them, in this one place. */
+export async function waitingFor(
+  ctx: Ctx,
+  userIds: readonly string[],
+): Promise<Map<string, number>> {
+  const counted = new Map(userIds.map((id) => [id, 0]));
+  if (!userIds.length) return counted;
+  const found = await rows<{ user_id: string; n: number }>(
+    ctx.tx,
+    sql`select user_id, count(*)::int as n from addon_outreach.sends
+        where workspace_id = ${ctx.scope.workspaceId!} and state = 'waiting'
+          and user_id = any (${`{${userIds.join(',')}}`}::uuid[])
+        group by user_id`,
+  );
+  for (const f of found) counted.set(f.user_id, f.n);
+  return counted;
+}
+
+const NONE: Record<DailyStep, number> = {
+  friend_request: 0,
+  first_message: 0,
+  follow_up: 0,
+  comment: 0,
+  like: 0,
+};
+
+export const live = defineAddonQuery(outreachAddon, {
+  name: 'outreach.live',
+  description:
+    'What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many messages wait for them, any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.',
+  input: LiveInput,
+  output: LiveOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx) {
+    const me = requireHuman(ctx).userId;
+    const now = Date.now();
+    const { today, timezone } = await businessToday(ctx, now);
+    const todayStart = await startOfToday(ctx, now);
+    const [warning, auto, all, day, counts, waiting] = await Promise.all([
+      warningOf(ctx, me, todayStart, now),
+      automationOf(ctx, me, now),
+      mine(ctx, me),
+      dayOf(ctx, me, today),
+      dayCounts(ctx, [me], todayStart),
+      waitingFor(ctx, [me]),
+    ]);
+    const working = workingOf(all);
+    const steps = await ctx.tx
+      .select({ at: liveSteps.at, kind: liveSteps.kind, line: liveSteps.line })
+      .from(liveSteps)
+      .where(
+        and(
+          eq(liveSteps.workspaceId, ctx.scope.workspaceId!),
+          eq(liveSteps.userId, me),
+          gte(liveSteps.at, todayStart),
+        ),
+      )
+      .orderBy(desc(liveSteps.at), desc(liveSteps.createdAt))
+      .limit(LIVE_STEPS_SHOWN_MOST);
+    const listed = [...all].sort(
+      (a, b) =>
+        Number(b.id === working?.id) - Number(a.id === working?.id) ||
+        b.lastSeenAt.getTime() - a.lastSeenAt.getTime(),
+    );
+    return {
+      timezone,
+      now: new Date(now).toISOString(),
+      sending: auto.settings.sending,
+      canSend: auto.rules.sendingAllowed.some((m) => m !== 'off'),
+      day,
+      computer: working ? shown(working, working) : null,
+      computers: listed.map((c) => shown(c, working)),
+      status: working
+        ? {
+            state: working.state,
+            line: working.line,
+            lineAt: working.lineAt?.toISOString() ?? null,
+            nextAt: working.nextAt?.toISOString() ?? null,
+          }
+        : null,
+      limits: todayLimits(
+        counts.get(me) ?? NONE,
+        dailyLimitsNow(slowsNow(warning, now) || auto.wheels.on, auto.rules.dailyLimits),
+      ),
+      waiting: waiting.get(me) ?? 0,
+      warning,
+      steps: steps.map((s) => ({ at: s.at.toISOString(), kind: s.kind, line: s.line })),
+    };
+  },
+});
+
+/**
+ * The team's computers, for owners and admins: a computer's line names the people reached, so the database shows them
+ * no colleague's row but through this, which gives its state and when it was seen, never its line.
+ */
+async function teamComputers(ctx: Ctx) {
+  const found = await rows<{
+    id: string;
+    user_id: string;
+    name: string;
+    state: Computer['state'];
+    last_seen_at: Date | string;
+    active_at: Date | string | null;
+  }>(
+    ctx.tx,
+    sql`select id, user_id, name, state, last_seen_at, active_at
+        from private.outreach_team_computers(${ctx.scope.workspaceId!}::uuid)`,
+  );
+  return found.map((c) => ({
+    id: c.id,
+    userId: c.user_id,
+    name: c.name,
+    state: c.state,
+    lastSeenAt: new Date(c.last_seen_at),
+    activeAt: c.active_at === null ? null : new Date(c.active_at),
+  }));
+}
+
+export const liveTeam = defineAddonQuery(outreachAddon, {
+  name: 'outreach.live.team',
+  description:
+    'For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many messages wait for them. Never what it says it’s doing, nor their messages.',
+  input: LiveTeamInput,
+  output: LiveTeamOutput,
+  permission: 'outreach.manage',
+  scope: inWorkspace,
+  async handler(ctx) {
+    const ws = ctx.scope.workspaceId!;
+    const now = Date.now();
+    const { today, timezone } = await businessToday(ctx, now);
+    const todayStart = await startOfToday(ctx, now);
+    const found = await rows<{ user_id: string; full_name: string | null; email: string }>(
+      ctx.tx,
+      // Each person's own access row is theirs alone to read: their permissions come from their membership.
+      sql`select m.user_id, u.full_name, u.email from app.workspace_memberships m
+          join app.users u on u.id = m.user_id
+          where m.workspace_id = ${ws}
+            and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`,
+    );
+    const ids = found.map((p) => p.user_id);
+    const [all, kept, counts, waiting, warned, auto] = await Promise.all([
+      teamComputers(ctx),
+      ctx.tx.select().from(days).where(eq(days.workspaceId, ws)),
+      dayCounts(ctx, ids, todayStart),
+      waitingFor(ctx, ids),
+      rows<{ user_id: string; at: Date | string }>(
+        ctx.tx,
+        sql`select distinct on (user_id) user_id, at from addon_outreach.warnings
+            where workspace_id = ${ws} and at >= ${new Date(now - WARNING_SLOWER_DAYS * DAY).toISOString()}::timestamptz
+            order by user_id, at desc`,
+      ),
+      everyoneAutomation(ctx, now),
+    ]);
+    return {
+      timezone,
+      now: new Date(now).toISOString(),
+      people: found
+        .map((p) => {
+          const theirs = all.filter((c) => c.userId === p.user_id);
+          const working = workingOf(theirs);
+          const day = dayShown(
+            kept.find((d) => d.userId === p.user_id),
+            today,
+          );
+          const { settings, wheels } = auto.of(p.user_id);
+          const warning = warned.find((w) => w.user_id === p.user_id);
+          const slower = warning !== undefined || wheels.on;
+          return {
+            userId: p.user_id,
+            name: p.full_name || p.email,
+            state: shownState({
+              computer: working
+                ? { state: working.state, lastSeenAt: working.lastSeenAt.toISOString() }
+                : null,
+              day,
+              sending: settings.sending,
+              now,
+            }),
+            day,
+            sending: settings.sending,
+            computer: working
+              ? {
+                  name: working.name,
+                  state: working.state,
+                  lastSeenAt: working.lastSeenAt.toISOString(),
+                }
+              : null,
+            limits: todayLimits(
+              counts.get(p.user_id) ?? NONE,
+              dailyLimitsNow(slower, auto.rules.dailyLimits),
+            ),
+            waiting: waiting.get(p.user_id) ?? 0,
+            warned: warning !== undefined && new Date(warning.at) >= todayStart,
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  },
+});
+
+export const liveCommands = [liveBeat, dayStart, dayStop, computerRename] as const;
+export const liveQueries = [live, liveTeam] as const;

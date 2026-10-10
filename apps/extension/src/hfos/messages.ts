@@ -194,7 +194,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
   | { readonly type: 'hfos-send-ok'; readonly input: SendApproveInput }
-  | { readonly type: 'hfos-send-skip'; readonly input: SendSkipInput };
+  | { readonly type: 'hfos-send-skip'; readonly input: SendSkipInput }
+  /** The person has the panel open on this computer: it becomes the one that works (./live.ts). */
+  | { readonly type: 'hfos-here' };
 
 /** What each ask answers with. */
 export interface HfosValues {
@@ -230,6 +232,7 @@ export interface HfosValues {
   readonly 'hfos-auto-stop': AutoStatus;
   readonly 'hfos-send-ok': SendApproved;
   readonly 'hfos-send-skip': SendSkipped;
+  readonly 'hfos-here': null;
 }
 
 export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
@@ -265,6 +268,7 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto-stop',
   'hfos-send-ok',
   'hfos-send-skip',
+  'hfos-here',
 ]);
 
 /** The asks the runner that works on its own answers (src/auto/run.ts). */

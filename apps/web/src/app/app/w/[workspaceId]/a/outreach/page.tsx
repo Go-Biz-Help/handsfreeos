@@ -7,7 +7,8 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 export const metadata: Metadata = { title: 'Social Outreach' };
 
 /**
- * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, the
+ * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, what it's
+ * doing right now with the person's day, and the team's for owners and admins (`?view=live`), the
  * person's list for today (`?view=today`), the groups saved (`?view=groups`), the person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
  * the business's playbooks with how each opener did (`?view=playbooks`), and every setting the extension follows, with
  * anyone's for owners and admins (`?view=settings&for=`). It
@@ -69,6 +70,27 @@ export default async function OutreachPage({
             people,
             business: business?.settings ?? null,
           }}
+        />
+      );
+    }
+    if (shown.view === 'live') {
+      const [got, live] = await Promise.all([
+        workspace,
+        api.POST('/v1/queries/outreach.live', { body: { workspaceId } }).then(unwrapPage),
+      ]);
+      const canManage = got.workspace.permissions.includes('outreach.manage');
+      // Owners and admins see how each person's extension is doing: never their lines or messages.
+      const team = canManage
+        ? await api
+            .POST('/v1/queries/outreach.live.team', { body: { workspaceId } })
+            .then(unwrapPage)
+        : null;
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          businessName={got.workspace.name}
+          canManage={canManage}
+          shown={{ view: 'live', live, team }}
         />
       );
     }
