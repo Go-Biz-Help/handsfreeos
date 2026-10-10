@@ -16,6 +16,7 @@ import { groupCommands, groupQueries } from './ops/groups';
 import { openerCommands, openerQueries } from './ops/openers';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
+import { sendCommands, sendQueries } from './ops/sends';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { postCommands } from './ops/posts';
 import { todayQueries } from './ops/today';
@@ -36,6 +37,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...openerCommands,
     ...demoCommands,
     ...automationCommands,
+    ...sendCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -48,5 +50,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...tidyQueries,
     ...openerQueries,
     ...automationQueries,
+    ...sendQueries,
   ],
 };

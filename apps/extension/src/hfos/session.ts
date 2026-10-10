@@ -33,7 +33,9 @@ export type SessionAsk = Exclude<
       | 'hfos-auto'
       | 'hfos-auto-save'
       | 'hfos-auto-start'
-      | 'hfos-auto-stop';
+      | 'hfos-auto-stop'
+      | 'hfos-send-ok'
+      | 'hfos-send-skip';
   }
 >;
 

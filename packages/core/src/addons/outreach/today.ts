@@ -27,6 +27,7 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
+import { MESSAGE_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
 import type { DownloadMessage } from './download';
 import { type DailyStep } from './limits';
 import { DraftOpener, type Opener } from './openers';
@@ -97,6 +98,13 @@ export const TodayItem = z.object({
    * booking through it counts by itself. For a message, when a playbook in use has a link.
    */
   demoLink: z.string().nullable(),
+  /**
+   * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
+   * to go. Null until it drafts one.
+   */
+  send: z
+    .object({ sendId: z.uuid(), state: z.enum(['waiting', 'approved']), text: z.string() })
+    .nullable(),
 });
 export type TodayItem = z.output<typeof TodayItem>;
 
@@ -120,6 +128,11 @@ export const TodayOutput = z.object({
   warning: WarningState.nullable(),
   /** The kinds the extension does on its own for the person (./automation.ts): the rest wait for them. */
   auto: z.array(z.enum(TODAY_KIND_KEYS)),
+  /** The messages it drafts for them to send (./sends.ts): none while Sending is off. */
+  messages: z.array(z.enum(MESSAGE_KINDS)),
+  /** Their Sending choice, and their training wheels: while they're on, every message waits and limits are half. */
+  sending: z.enum(SENDING_MODE_KEYS),
+  wheels: WheelsState,
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

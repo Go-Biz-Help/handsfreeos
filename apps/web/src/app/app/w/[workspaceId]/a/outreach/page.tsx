@@ -39,12 +39,17 @@ export default async function OutreachPage({
         workspace,
         api.POST('/v1/queries/outreach.today', { body: { workspaceId } }).then(unwrapPage),
       ]);
+      const canManage = got.workspace.permissions.includes('outreach.manage');
+      // Owners and admins see who's on training wheels, to end them early.
+      const wheels = canManage
+        ? await api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
+        : null;
       return (
         <OutreachHome
           workspaceId={workspaceId}
           businessName={got.workspace.name}
-          canManage={got.workspace.permissions.includes('outreach.manage')}
-          shown={{ view: 'today', today }}
+          canManage={canManage}
+          shown={{ view: 'today', today, wheels }}
         />
       );
     }

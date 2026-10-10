@@ -28,7 +28,7 @@ import {
   type Answered,
   type Step,
 } from './facebook/actions';
-import { likeLatest, writeComment } from './facebook/auto';
+import { likeLatest, writeComment, writeMessage } from './facebook/auto';
 import { openChat, scrollChats, scrollFeed, scrollList } from './facebook/browse';
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { outlinePage } from './facebook/outline';
@@ -89,13 +89,18 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
   }
 }
 
-/** One of the runner's steps (src/facebook/auto.ts): a like on someone's profile, or a comment on a post. */
+/** One of the runner's steps (src/facebook/auto.ts): a like on someone's profile, a comment on a post, or a message. */
 async function autoStep(ask: AutoAsk): Promise<AutoAnswer> {
   const kind = classifyUrl(location.href).kind;
   if (ask.type === 'hfos-like-latest') {
     if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
     const liked = await likeLatest(document, location.href, ask.profile, window);
     return { ok: true, ...liked };
+  }
+  if (ask.type === 'hfos-message') {
+    if (kind !== 'chat' && kind !== 'profile')
+      return { ok: false, error: 'Facebook didn’t open a chat with them.' };
+    return { ok: true, result: await writeMessage(document, ask.text) };
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
   return { ok: true, result: await writeComment(document, ask.text) };
@@ -122,7 +127,11 @@ if (!here.hfosSocialListening) {
   chrome.runtime.onMessage.addListener(
     (ask: Ask | FetchAsk | BrowseAsk | AutoAsk, sender, respond: (answer: Answer) => void) => {
       if (sender.id !== chrome.runtime.id) return false;
-      if (ask.type === 'hfos-like-latest' || ask.type === 'hfos-comment') {
+      if (
+        ask.type === 'hfos-like-latest' ||
+        ask.type === 'hfos-comment' ||
+        ask.type === 'hfos-message'
+      ) {
         void autoStep(ask).then(respond as (answer: AutoAnswer) => void);
         return true;
       }

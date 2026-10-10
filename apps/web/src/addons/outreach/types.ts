@@ -16,5 +16,7 @@ export type Groups = Ok<'/v1/queries/outreach.groups'>;
 export type Group = Groups['groups'][number];
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 export type TodayItem = TodayList['items'][number];
+/** Who's on training wheels, for owners and admins (packages/core/src/addons/outreach/automation.ts). */
+export type WheelsList = Ok<'/v1/queries/outreach.wheels'>;
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
 export type Openers = Ok<'/v1/queries/outreach.openers'>;

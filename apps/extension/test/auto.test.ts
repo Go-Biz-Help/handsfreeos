@@ -5,8 +5,24 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
-import { gapAfter, GAP_MS, itemKey, itemsLeft, nextStart, STARTED_GAP_MS } from '../src/auto/plan';
-import { AUTO_PLANS, likeLatest, sameRef, writeComment } from '../src/facebook/auto';
+import {
+  gapAfter,
+  GAP_MS,
+  itemKey,
+  itemsLeft,
+  nextStart,
+  STARTED_GAP_MS,
+  workKey,
+  workLeft,
+} from '../src/auto/plan';
+import {
+  AUTO_PLANS,
+  likeLatest,
+  MESSAGE_PATH,
+  sameRef,
+  writeComment,
+  writeMessage,
+} from '../src/facebook/auto';
 import { doPath, doStep, type FetchStep } from '../src/facebook/fetch';
 import { readPage } from '../src/facebook/page';
 import { load } from './load';
@@ -31,6 +47,7 @@ const item = (more: Partial<TodayListItem>): TodayListItem => ({
   nextStep: null,
   playbookName: null,
   demoLink: null,
+  send: null,
   ...more,
 });
 
@@ -72,6 +89,48 @@ describe('what it does next', () => {
       itemsLeft(list, ['friend_request', 'comment'], [itemKey(request)]).map((i) => i.name),
     ).toEqual(['Sam Carter']);
     expect(itemsLeft([item({ profileUrl: null })], all, [])).toEqual([]);
+  });
+
+  it('sends messages OK’d first, and drafts the rest after the steps, or before them with Approve all', () => {
+    const request = item({});
+    const hi = item({
+      kind: 'opener',
+      name: 'Jo Hill',
+      profileId: '5b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      profileUrl: `${FB}/jo.hill.2`,
+    });
+    const ok = item({
+      kind: 'follow_up',
+      name: 'Kim Lee',
+      profileId: '6b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      threadKey: '100009000000002',
+      profileUrl: null,
+      send: { sendId: '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e', state: 'approved', text: 'Hi Kim' },
+    });
+    const waiting = item({
+      kind: 'reply',
+      name: 'Max Ford',
+      profileId: '8b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      send: { sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e', state: 'waiting', text: 'Thanks!' },
+    });
+    const nobody = item({ kind: 'opener', name: 'No Link', profileId: null });
+    const list = {
+      items: [request, hi, ok, waiting, nobody],
+      auto: ['friend_request' as const],
+      messages: ['opener' as const, 'follow_up' as const, 'reply' as const],
+    };
+    const what = (work: ReturnType<typeof workLeft>) => work.map((w) => `${w.do}: ${w.item.name}`);
+    const steps = workLeft({ ...list, sending: 'steps' }, []);
+    expect(what(steps)).toEqual(['send: Kim Lee', 'step: Dana Reyes', 'draft: Jo Hill']);
+    expect(what(workLeft({ ...list, sending: 'approve_all' }, []))).toEqual([
+      'send: Kim Lee',
+      'draft: Jo Hill',
+      'step: Dana Reyes',
+    ]);
+    // Each once a day; nothing while Sending is off.
+    expect(what(workLeft({ ...list, sending: 'steps' }, steps.map(workKey)))).toEqual([]);
+    expect(workKey(steps[0]!)).toBe('send:7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e');
+    expect(workLeft({ ...list, auto: [], messages: [], sending: 'off' }, [])).toEqual([]);
   });
 
   it('spreads the day’s steps over what’s left of the hours, and goes at a person’s pace after Start my day', () => {
@@ -251,5 +310,87 @@ describe('writing a comment', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     vi.useRealTimers();
     expect(await writing).toBe('not_sent');
+  });
+});
+
+describe('writing a message', () => {
+  /** A chat whose box takes typing as Chrome does; sending empties it. */
+  function chatPage(file: string, page: string, label: string, send: 'button' | 'enter') {
+    const doc = load(file, page);
+    const box = doc.querySelector<HTMLElement>(`[role="textbox"][aria-label="${label}"]`)!;
+    doc.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+      box.textContent = text ?? '';
+      return true;
+    };
+    const sent: string[] = [];
+    const take = () => {
+      sent.push(box.textContent ?? '');
+      box.textContent = '';
+    };
+    const button = doc.querySelector<HTMLElement>(
+      '[role="button"][aria-label="Press enter to send"]',
+    );
+    if (send === 'button') button!.addEventListener('click', take);
+    else {
+      button?.remove();
+      box.addEventListener('keydown', (event) => {
+        if ((event as KeyboardEvent).key === 'Enter') take();
+      });
+    }
+    return { doc, sent };
+  }
+
+  it('types into the open chat’s box in Messenger, and sends it with Enter', async () => {
+    const { doc, sent } = chatPage(
+      'chat-2026.html',
+      `${FB}/messages/t/100009000000002/`,
+      'Message Dana Reyes',
+      'enter',
+    );
+    vi.useFakeTimers();
+    const writing = writeMessage(doc, 'Hi Dana, how did Saturday go?');
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+    expect(await writing).toBe('done');
+    expect(sent).toEqual(['Hi Dana, how did Saturday go?']);
+  });
+
+  it('types into a chat window over the page, and sends it with its button', async () => {
+    const { doc, sent } = chatPage(
+      'chat-window-2026.html',
+      `${FB}/friends/requests/`,
+      'Write to Riley Quinn',
+      'button',
+    );
+    vi.useFakeTimers();
+    const writing = writeMessage(doc, 'Here are three times that work.');
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+    expect(await writing).toBe('done');
+    expect(sent).toEqual(['Here are three times that work.']);
+  });
+
+  it('leaves a box the person is writing in alone, and says when there’s none', async () => {
+    const page = `${FB}/messages/t/100009000000002/`;
+    const doc = load('chat-2026.html', page);
+    doc.querySelector('[role="textbox"][aria-label="Message Dana Reyes"]')!.textContent =
+      'half written';
+    expect(await writeMessage(doc, 'Hi Dana')).toBe('not_sent');
+    const profile = load('profile-2026.html', URL);
+    vi.useFakeTimers();
+    const writing = writeMessage(profile, 'Hi Dana');
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+    expect(await writing).toBe('none');
+  });
+
+  it('opens a chat from their profile’s Message', () => {
+    const doc = load('profile-2026.html', URL);
+    let pressed = 0;
+    doc
+      .querySelector('[role="button"][aria-label="Message"]')!
+      .addEventListener('click', () => pressed++);
+    walk(doc, MESSAGE_PATH, []);
+    expect(pressed).toBe(1);
   });
 });

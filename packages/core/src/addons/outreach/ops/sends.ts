@@ -1,0 +1,334 @@
+/**
+ * Messages the extension sends on its own (../sends.ts, docs/outreach.md decisions 26 and 27): each drafted one waits
+ * for the person's OK or goes as it is, and the extension says when it went. Each person's are their own.
+ */
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { rows } from '@hfos/db/client';
+import { HfosError } from '../../../errors';
+import { requireHuman, userIdOf } from '../../../kernel/actor';
+import { changeMoment } from '../../../kernel/moment';
+import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { outreachAddon } from '../manifest';
+import type { DraftOpener } from '../openers';
+import {
+  changed,
+  goesAsItIs,
+  SendApproveInput,
+  SendApproveOutput,
+  SendDoneInput,
+  SendDoneOutput,
+  SendQueueInput,
+  SendQueueOutput,
+  SENDS_MOST,
+  SendSkipInput,
+  SendSkipOutput,
+  SendsInput,
+  SendsOutput,
+  type Send,
+} from '../sends';
+import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
+import { automationOf, countWheels } from './automation';
+import { inWorkspace, type Ctx } from './common';
+
+type Row = typeof sends.$inferSelect;
+
+const gone = () =>
+  HfosError.notFound(
+    'That message isn’t waiting any more: it was sent, skipped, or the person was removed. Refresh your list for today.',
+  );
+
+/** The person's sends, with who each is to. */
+async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<Send[]> {
+  const found = await ctx.tx
+    .select({ s: sends, name: profiles.name, url: profiles.url })
+    .from(sends)
+    .innerJoin(profiles, eq(profiles.id, sends.profileId))
+    .where(where)
+    .orderBy(sends.createdAt)
+    .limit(SENDS_MOST);
+  return found.map(({ s, name, url }) => ({
+    sendId: s.id,
+    kind: s.kind,
+    profileId: s.profileId,
+    name,
+    profileUrl: url,
+    chatId: s.chatId,
+    threadKey: s.threadKey,
+    text: s.text,
+    state: s.state,
+    why: s.why,
+    opener: s.opener,
+    createdAt: s.createdAt.toISOString(),
+  }));
+}
+
+const mine = (ctx: Ctx, me: string) =>
+  and(eq(sends.workspaceId, ctx.scope.workspaceId!), eq(sends.userId, me));
+
+export const sendQueue = defineAddonCommand(outreachAddon, {
+  name: 'outreach.send.queue',
+  description:
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead.',
+  risk: 0,
+  input: SendQueueInput,
+  output: SendQueueOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.send.queued'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const open = () =>
+      listed(
+        ctx,
+        and(
+          mine(ctx, me),
+          eq(sends.profileId, input.profileId),
+          eq(sends.kind, input.kind),
+          inArray(sends.state, ['waiting', 'approved']),
+        ),
+      );
+    const [had] = await open();
+    if (had) return had;
+    const [profile] = await ctx.tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
+    if (!profile)
+      throw HfosError.notFound(
+        'That person isn’t kept in Social Outreach any more. Refresh your list for today.',
+      );
+    const [chat] = input.chatId
+      ? await ctx.tx
+          .select({ id: fileChats.id })
+          .from(fileChats)
+          .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
+      : [];
+    const { settings, wheels } = await automationOf(ctx, me);
+    const at = changeMoment(ctx.meta);
+    const goes = goesAsItIs({ sending: settings.sending, wheels: wheels.on, kind: input.kind });
+    // Two drafts for them at once: the second finds the first.
+    const [made] = await ctx.tx
+      .insert(sends)
+      .values({
+        workspaceId: ws,
+        userId: me,
+        profileId: profile.id,
+        kind: input.kind,
+        chatId: chat?.id ?? null,
+        threadKey: input.threadKey,
+        text: input.text,
+        drafted: input.text,
+        opener: input.kind === 'opener' ? input.opener : null,
+        state: goes ? 'approved' : 'waiting',
+        approvedAt: goes ? at : null,
+        createdAt: at,
+        updatedAt: at,
+      })
+      .onConflictDoNothing()
+      .returning({ id: sends.id });
+    if (made)
+      await ctx.emit({
+        type: 'outreach.send.queued',
+        entityType: 'outreach_profile',
+        entityId: profile.id,
+        payload: { kind: input.kind, waits: !goes },
+      });
+    const [now] = await open();
+    if (!now) throw gone();
+    return now;
+  },
+});
+
+export const sendApprove = defineAddonCommand(outreachAddon, {
+  name: 'outreach.send.approve',
+  description:
+    'The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all). The extension sends them. On training wheels, each counts toward coming off them.',
+  risk: 1,
+  input: SendApproveInput,
+  output: SendApproveOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.send.approved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const named = input.sends ? new Map(input.sends.map((s) => [s.sendId, s.text])) : null;
+    if (named && !named.size) throw gone();
+    const waiting: Row[] = await ctx.tx
+      .select()
+      .from(sends)
+      .where(
+        and(
+          mine(ctx, me),
+          eq(sends.state, 'waiting'),
+          ...(named ? [inArray(sends.id, [...named.keys()])] : []),
+        ),
+      )
+      .orderBy(sends.createdAt)
+      .limit(SENDS_MOST);
+    if (named && waiting.length < named.size) throw gone();
+    const at = changeMoment(ctx.meta);
+    const edits: boolean[] = [];
+    for (const s of waiting) {
+      const text = named?.get(s.id) ?? s.text;
+      edits.push(changed(s.drafted, text));
+      await ctx.tx
+        .update(sends)
+        .set({ text, state: 'approved', approvedAt: at, updatedAt: at })
+        .where(eq(sends.id, s.id));
+      await ctx.emit({
+        type: 'outreach.send.approved',
+        entityType: 'outreach_profile',
+        entityId: s.profileId,
+        payload: { kind: s.kind, changed: edits[edits.length - 1] },
+      });
+    }
+    const wheels = await countWheels(ctx, me, edits);
+    return { approved: waiting.map((s) => s.id), wheels };
+  },
+});
+
+export const sendSkip = defineAddonCommand(outreachAddon, {
+  name: 'outreach.send.skip',
+  description:
+    'The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today.',
+  risk: 0,
+  input: SendSkipInput,
+  output: SendSkipOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.send.skipped'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const at = changeMoment(ctx.meta);
+    const [row] = await ctx.tx
+      .update(sends)
+      .set({ state: 'skipped', doneAt: at, updatedAt: at })
+      .where(
+        and(
+          mine(ctx, me),
+          eq(sends.id, input.sendId),
+          inArray(sends.state, ['waiting', 'approved']),
+        ),
+      )
+      .returning();
+    if (!row) throw gone();
+    await ctx.emit({
+      type: 'outreach.send.skipped',
+      entityType: 'outreach_profile',
+      entityId: row.profileId,
+      payload: { kind: row.kind },
+    });
+    return { sendId: row.id };
+  },
+});
+
+/** The opener a first message went with (decision 23), for the results card. */
+async function noteOpener(ctx: Ctx, me: string, row: Row, opener: DraftOpener) {
+  const ws = ctx.scope.workspaceId!;
+  const [playbook] = await ctx.tx
+    .select({ id: playbooks.id })
+    .from(playbooks)
+    .where(and(eq(playbooks.workspaceId, ws), eq(playbooks.id, opener.playbookId)));
+  if (!playbook) return;
+  const use = {
+    playbookId: playbook.id,
+    kind: opener.kind,
+    text: opener.text,
+    usedAt: row.approvedAt ?? row.createdAt,
+  };
+  await ctx.tx
+    .insert(openerUses)
+    .values({ workspaceId: ws, userId: me, profileId: row.profileId, ...use })
+    .onConflictDoUpdate({
+      target: [openerUses.workspaceId, openerUses.userId, openerUses.profileId],
+      set: use,
+    });
+}
+
+export const sendDone = defineAddonCommand(outreachAddon, {
+  name: 'outreach.send.done',
+  description:
+    'The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other.',
+  risk: 0,
+  input: SendDoneInput,
+  output: SendDoneOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.send.done'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const at = changeMoment(ctx.meta);
+    const state = input.sent ? ('sent' as const) : ('failed' as const);
+    const [row] = await ctx.tx
+      .update(sends)
+      .set({ state, why: input.sent ? null : input.why, doneAt: at, updatedAt: at })
+      .where(and(mine(ctx, me), eq(sends.id, input.sendId), eq(sends.state, 'approved')))
+      .returning();
+    if (!row) throw gone();
+    if (input.sent && row.kind === 'opener' && row.opener)
+      await noteOpener(ctx, me, row, row.opener);
+    await ctx.emit({
+      type: 'outreach.send.done',
+      entityType: 'outreach_profile',
+      entityId: row.profileId,
+      payload: { kind: row.kind, sent: input.sent },
+    });
+    return { sendId: row.id, state };
+  },
+});
+
+export const sendsList = defineAddonQuery(outreachAddon, {
+  name: 'outreach.sends',
+  description:
+    'The person’s messages the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.',
+  input: SendsInput,
+  output: SendsOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx) {
+    const me = userIdOf(ctx.actor);
+    if (!me) throw HfosError.forbidden('Only a person has messages of their own to send.');
+    const { wheels } = await automationOf(ctx, me);
+    return {
+      sends: await listed(ctx, and(mine(ctx, me), inArray(sends.state, ['waiting', 'approved']))),
+      wheels,
+    };
+  },
+});
+
+/**
+ * Today's sends for the list for today (./today.ts): those open, by profile and kind, and the people skipped or not
+ * sent to today, who are off the list until tomorrow.
+ */
+export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
+  const found = await rows<{
+    id: string;
+    profile_id: string;
+    kind: string;
+    state: Send['state'];
+    text: string;
+  }>(
+    ctx.tx,
+    sql`select id, profile_id, kind, state, text from addon_outreach.sends
+        where workspace_id = ${ctx.scope.workspaceId} and user_id = ${me}
+          and (state in ('waiting', 'approved')
+            or (state in ('skipped', 'failed') and done_at >= ${todayFrom}::timestamptz))`,
+  );
+  const key = (profileId: string, kind: string) => `${profileId}:${kind}`;
+  const open = new Map<string, { sendId: string; state: 'waiting' | 'approved'; text: string }>();
+  const off = new Set<string>();
+  for (const s of found)
+    if (s.state === 'waiting' || s.state === 'approved')
+      open.set(key(s.profile_id, s.kind), { sendId: s.id, state: s.state, text: s.text });
+    else off.add(key(s.profile_id, s.kind));
+  return {
+    open: (profileId: string | null, kind: string) =>
+      profileId ? (open.get(key(profileId, kind)) ?? null) : null,
+    off: (profileId: string | null, kind: string) =>
+      profileId !== null && off.has(key(profileId, kind)) && !open.has(key(profileId, kind)),
+  };
+}
+
+export const sendCommands = [sendQueue, sendApprove, sendSkip, sendDone] as const;
+export const sendQueries = [sendsList] as const;

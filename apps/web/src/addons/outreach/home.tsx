@@ -28,11 +28,12 @@ import type {
   PlaybookList,
   Tidy,
   TodayList,
+  WheelsList,
 } from './types';
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
-  | { readonly view: 'today'; readonly today: TodayList }
+  | { readonly view: 'today'; readonly today: TodayList; readonly wheels: WheelsList | null }
   | {
       readonly view: 'groups';
       readonly groups: Groups;
@@ -112,7 +113,7 @@ export function OutreachHome({
           canManage={canManage}
         />
       ) : shown.view === 'today' ? (
-        <TodayView workspaceId={workspaceId} today={shown.today} />
+        <TodayView workspaceId={workspaceId} today={shown.today} wheels={shown.wheels} />
       ) : shown.view === 'groups' ? (
         <GroupsView
           workspaceId={workspaceId}

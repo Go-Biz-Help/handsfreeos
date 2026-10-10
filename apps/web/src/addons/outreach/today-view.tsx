@@ -11,7 +11,13 @@
  * up on Facebook before drafting (decision 21); here, the drafts come from what HandsFreeOS knows. A first message's
  * drafts open the way the playbook's next opener says, and copying one notes which it was, for the results card
  * (decision 23). Anyone on the list for a message has the person's own demo link to copy (decision 24).
+ *
+ * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
+ * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting; the
+ * extension then sends them in Messenger. While the person's training wheels are on, it says what's left before they
+ * come off; owners and admins see who's on them and can end them early.
  */
+import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -21,7 +27,7 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
-import { CalendarCheck, Copy, Loader2, Sparkles, X } from 'lucide-react';
+import { CalendarCheck, Check, CheckCheck, Copy, Loader2, Send, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -30,10 +36,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { outreachHref } from './address';
-import type { TodayItem, TodayList } from './types';
+import type { TodayItem, TodayList, WheelsList } from './types';
 import { useAct } from './use-act';
 
 const KIND_BADGE = {
@@ -54,7 +61,27 @@ function openUrl(item: TodayItem): string | null {
   return item.profileUrl;
 }
 
-export function TodayView({ workspaceId, today }: { workspaceId: string; today: TodayList }) {
+export function TodayView({
+  workspaceId,
+  today,
+  wheels,
+}: {
+  workspaceId: string;
+  today: TodayList;
+  /** Who's on training wheels: for owners and admins, else null. */
+  wheels: WheelsList | null;
+}) {
+  const waiting = today.items.filter((i) => i.send?.state === 'waiting').length;
+  const approving = useAct();
+  const approveAll = () =>
+    approving.act(
+      'all',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
+        ),
+      'OK’d. The extension sends them in Messenger, at a person’s pace.',
+    );
   const limits = [
     ['friend_request', today.limits.friend_request],
     ['first_message', today.limits.first_message],
@@ -74,13 +101,33 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
             {warningNote(today.warning)}
           </p>
         ) : null}
+        {today.wheels.on ? (
+          <p
+            data-testid="today-wheels"
+            className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
+          >
+            {wheelsWords(today.wheels)}
+          </p>
+        ) : null}
         {today.items.length ? (
           <Card className="p-0" data-testid="today-list">
-            <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
               <h3 className="text-[15px] font-semibold">Your list for today</h3>
-              <span className="text-[12.5px] text-text-3">
-                You do each one, or the extension does on its own
-              </span>
+              {waiting > 1 ? (
+                <Button
+                  size="sm"
+                  disabled={approving.busy !== null}
+                  onClick={() => void approveAll()}
+                  data-testid="today-approve-all"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Approve all {waiting.toLocaleString()} messages
+                </Button>
+              ) : (
+                <span className="text-[12.5px] text-text-3">
+                  You do each one, or the extension does on its own
+                </span>
+              )}
             </div>
             <ul className="mt-2">
               {today.items.map((item) => (
@@ -117,6 +164,7 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
             ))}
           </ul>
         </Card>
+        {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
         {!today.hasPlaybook ? (
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Friend requests need a playbook</h3>
@@ -214,8 +262,141 @@ function TodayRow({
       {item.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
       ) : null}
-      {draftKind ? <Drafts workspaceId={workspaceId} item={item} kind={draftKind} /> : null}
+      {item.send ? (
+        <Drafted workspaceId={workspaceId} item={item} send={item.send} />
+      ) : draftKind ? (
+        <Drafts workspaceId={workspaceId} item={item} kind={draftKind} />
+      ) : null}
     </li>
+  );
+}
+
+/** A message the extension drafted to send: to change, send or skip while it waits; else it goes soon. */
+function Drafted({
+  workspaceId,
+  item,
+  send,
+}: {
+  workspaceId: string;
+  item: TodayItem;
+  send: NonNullable<TodayItem['send']>;
+}) {
+  const [text, setText] = useState(send.text);
+  const { busy, act } = useAct();
+  if (send.state === 'approved')
+    return (
+      <div className="mt-2" data-testid="today-send-approved">
+        <p className="text-[12.5px] text-text-3">OK’d: the extension sends it soon.</p>
+        <p className="mt-1 whitespace-pre-wrap rounded-md bg-card-2 px-3 py-2 text-[13px]">
+          {send.text}
+        </p>
+      </div>
+    );
+  return (
+    <div className="mt-2 space-y-1.5" data-testid="today-send">
+      <p className="text-[12.5px] text-text-3">
+        I’d send this. Change it if you like; your changes teach the AI.
+      </p>
+      <Textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        aria-label={`Message to ${item.name}`}
+        rows={3}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          size="sm"
+          disabled={busy !== null || !text.trim()}
+          onClick={() =>
+            void act(
+              'send',
+              async () =>
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/outreach.send.approve', {
+                    body: { workspaceId, sends: [{ sendId: send.sendId, text }] },
+                  }),
+                ),
+              'OK’d. The extension sends it in Messenger.',
+            )
+          }
+          data-testid="today-send-ok"
+        >
+          <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Send
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() =>
+            void act(
+              'skip',
+              async () =>
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/outreach.send.skip', {
+                    body: { workspaceId, sendId: send.sendId },
+                  }),
+                ),
+              `Skipped. ${item.name} is off your list for today.`,
+            )
+          }
+          data-testid="today-send-skip"
+        >
+          <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Skip
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Who's on training wheels, for owners and admins: how far each has come, and End now. */
+function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: WheelsList }) {
+  const { busy, act } = useAct();
+  return (
+    <Card className="p-4" data-testid="today-wheels-team">
+      <h3 className="text-[15px] font-semibold">On training wheels</h3>
+      <p className="mt-1.5 text-[13px] text-text-2">
+        Their messages wait for their OK and their daily limits are half, for 7 days and 25 messages
+        OK’d. End them early for someone you trust.
+      </p>
+      <ul className="mt-2 space-y-2 text-[13px]">
+        {wheels.people.map((p) => (
+          <li key={p.userId} className="flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="font-medium">{p.name}</span>
+              <span className="block text-[12px] text-text-3">
+                {p.wheels.ok.toLocaleString()} of 25 OK’d ·{' '}
+                {p.wheels.daysLeft
+                  ? `${p.wheels.daysLeft} ${p.wheels.daysLeft === 1 ? 'day' : 'days'} to go`
+                  : 'days done'}
+              </span>
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() =>
+                void act(
+                  p.userId,
+                  async () =>
+                    unwrap(
+                      await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
+                        body: { workspaceId, userId: p.userId },
+                      }),
+                    ),
+                  `Training wheels ended for ${p.name}.`,
+                )
+              }
+              data-testid="today-wheels-end"
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+              End now
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

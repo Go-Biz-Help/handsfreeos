@@ -1,14 +1,16 @@
 /**
  * What the runner that works on its own (./run.ts) does next, and when: plain workings, kept apart so they can be
  * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts) in its own order: requests to
- * confirm, then posts to like, then friend requests, then comments (decisions 26, 30 and 33). Messages wait for the
- * person. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
+ * confirm, then posts to like, then friend requests, then comments (decisions 26, 30 and 33). Messages
+ * (packages/core/src/addons/outreach/sends.ts) come around those: the ones OK'd go first, then it drafts the rest,
+ * which wait for the person or go as they are; with Approve all, it drafts them all before anything else, so they're
+ * ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
  * a person's pace, a minute or few apart. Before any of it, once a day, it checks the person's friend requests, saves
  * their groups' members, finds posts and reads their chats (decision 32), which fill that list.
  */
 import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automation';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
-import type { TodayListItem } from '../hfos/messages';
+import type { TodayList, TodayListItem } from '../hfos/messages';
 
 /** Where the runner keeps its state, which the panel watches. */
 export const AUTO_STATE_KEY = 'hfos.auto';
@@ -16,6 +18,8 @@ export const AUTO_STATE_KEY = 'hfos.auto';
 /** The kinds it does on its own, in the order it does them. */
 export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
+/** What it counts as done today: the steps above, messages drafted, and messages sent. */
+export type DoneKind = AutoKind | 'drafted' | 'sent';
 
 /** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
 export const DAILY_JOBS = ['requests', 'members', 'posts', 'chats'] as const;
@@ -43,7 +47,7 @@ export interface AutoState {
   /** Those on the list done or passed over today, by `itemKey`, so none is tried twice. */
   readonly tried: readonly string[];
   /** How many of each it did today. */
-  readonly done: Readonly<Partial<Record<AutoKind, number>>>;
+  readonly done: Readonly<Partial<Record<DoneKind, number>>>;
   /** The once-a-day jobs it did today, each with how it went in words. Missing in a state kept by 0.11. */
   readonly daily?: Readonly<Partial<Record<DailyJob, string>>>;
   /** What it's doing, or last did, in words for the person, and when. */
@@ -113,6 +117,51 @@ export function itemsLeft(
           : item.profileUrl !== null),
     ),
   );
+}
+
+/** One thing for it to do: a step on the list, drafting a message, or sending one OK'd. */
+export type Work =
+  | { readonly do: 'step'; readonly item: TodayListItem }
+  | { readonly do: 'draft'; readonly item: TodayListItem }
+  | { readonly do: 'send'; readonly item: TodayListItem };
+
+/** A piece of work by what it is, so none is tried twice in a day: a send by its own id. */
+export const workKey = (work: Work): string =>
+  work.do === 'step'
+    ? itemKey(work.item)
+    : work.do === 'send'
+      ? `send:${work.item.send?.sendId ?? itemKey(work.item)}`
+      : `draft:${itemKey(work.item)}`;
+
+/**
+ * What's left for it to do today, in its order: messages OK'd first; then, with Approve all, every message to draft
+ * before the steps, else the steps before them. A message needs the person kept, and their chat or profile to send in.
+ */
+export function workLeft(
+  list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'>,
+  tried: readonly string[],
+): Work[] {
+  const done = new Set(tried);
+  const steps = itemsLeft(list.items, list.auto, tried).map(
+    (item) => ({ do: 'step', item }) as const,
+  );
+  const messages = list.items.filter(
+    (item) =>
+      (list.messages as readonly string[]).includes(item.kind) &&
+      item.profileId !== null &&
+      (item.profileUrl !== null || item.threadKey !== null),
+  );
+  const sends = messages
+    .filter((item) => item.send?.state === 'approved')
+    .map((item) => ({ do: 'send', item }) as const);
+  const drafts = messages
+    .filter((item) => item.send === null)
+    .map((item) => ({ do: 'draft', item }) as const);
+  const all: Work[] =
+    list.sending === 'approve_all'
+      ? [...sends, ...drafts, ...steps]
+      : [...sends, ...steps, ...drafts];
+  return all.filter((work) => !done.has(workKey(work)));
 }
 
 /**

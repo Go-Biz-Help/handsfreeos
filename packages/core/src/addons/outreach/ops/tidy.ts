@@ -36,6 +36,7 @@ import {
   type TidyCandidate,
   type WarningState,
 } from '../tidy';
+import { slowerFor, wheelsBackOn } from './automation';
 import { inWorkspace, keepFriendStates, keptProfile, once, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 
@@ -140,7 +141,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     );
     const weeks = outreachSettings(installed?.settings).cancelRequestsAfterWeeks;
     const warning = await warningOf(ctx, me, todayFrom, now);
-    const slower = slowsNow(warning, now);
+    const slower = await slowerFor(ctx, me, slowsNow(warning, now), now);
     const done = await endsToday(ctx, me, todayFrom);
 
     const cancel = await rows<Found>(
@@ -318,6 +319,8 @@ export const warningNote = defineAddonCommand(outreachAddon, {
       url: input.url,
       at,
     });
+    // Training wheels go back on for 7 days, for anyone who ever had them.
+    await wheelsBackOn(ctx, me);
     await ctx.emit({
       type: 'outreach.warning.seen',
       entityType: 'workspace',

@@ -3,7 +3,13 @@
  * **Friend requests, likes and comments on their own** in the panel, it goes down their list for today
  * (packages/core/src/addons/outreach/today.ts) by itself, a step at a time: it confirms requests from people who fit
  * a playbook well, likes a post of someone's a day before their friend request, sends friend requests, and writes
- * comments on good posts with the AI's draft. Messages wait for the person.
+ * comments on good posts with the AI's draft.
+ *
+ * Messages too, once the person picks a Sending choice (packages/core/src/addons/outreach/sends.ts): it looks each
+ * person up on Facebook and drafts a first message, follow-up or reply with the AI, which then waits for their OK in
+ * the panel or on the web (one tap, or Approve all), or goes as it is with Everything on its own once their training
+ * wheels are off. Replies always wait, for now. What's OK'd it sends in Messenger: in the chat when HandsFreeOS knows
+ * it, else from their profile's Message; it notes it as its own, and says when one couldn't go and why.
  *
  * It goes in their working hours, in the business's time zone, at random times spread over the day, or straight away
  * at a person's pace once they press **Start my day** (./plan.ts). Each step wakes the background with an alarm, opens
@@ -18,17 +24,20 @@
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
  * chats, one job a go, a few minutes apart.
  */
-import { businessDay, workWindow } from '@hfos/core/addons/outreach/automation';
-import { AUTO_PLANS, sameRef, type AutoJob } from '../facebook/auto';
+import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
+import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { AUTO_PLANS, MESSAGE_PATH, sameRef, type AutoJob } from '../facebook/auto';
+import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
 import type { FetchStep } from '../facebook/fetch';
 import { FRIENDSHIP_WORDS } from '../facebook/tidy';
-import type { ProfileRef, ReadResult } from '../facebook/types';
+import type { ProfileRef, ReadResult, ThreadRef } from '../facebook/types';
 import type { Hfos, Job, JobEnd } from '../jobs/job';
 import { sameName } from '../facebook/people';
-import { profileFromUrl } from '../facebook/urls';
+import { FACEBOOK, profileFromUrl } from '../facebook/urls';
 import type {
   AutomationSaveInput,
   AutoStatus,
+  Drafts,
   HfosAnswer,
   HfosAsk,
   TodayList,
@@ -45,13 +54,15 @@ import {
   gapAfter,
   IDLE_MS,
   isState,
-  itemKey,
-  itemsLeft,
   nextDaily,
   nextStart,
+  workKey,
+  workLeft,
   type AutoKind,
   type AutoState,
   type DailyJob,
+  type DoneKind,
+  type Work,
 } from './plan';
 
 export const AUTO_ALARM = 'hfos-auto';
@@ -347,6 +358,162 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
   return { done: true, line: `Commented on ${item.name}’s post` };
 }
 
+// ------------------------------------------------------------------------------------------------- messages
+
+/**
+ * What their profile and business page say, for the AI (decision 21), read in the runner's window; empty when it
+ * couldn't look, which still lets the draft be written from what HandsFreeOS knows. A warning stops it.
+ */
+async function lookUpIn(
+  item: TodayListItem,
+  businessId: string,
+): Promise<{ readonly lines: string[] } | { readonly stop: string }> {
+  if (!item.profileUrl) return { lines: [] };
+  const opened = await openProfile(item, businessId);
+  if ('outcome' in opened) return 'stop' in opened.outcome ? opened.outcome : { lines: [] };
+  const lines = linesOf(opened.page, null, POSTS_READ);
+  const business = opened.page.pages?.[0];
+  if (business?.profile) {
+    await tab.open(business.profile.url);
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { stop };
+    lines.push(
+      `Their business page: ${lookupLine(business.name)}`,
+      ...linesOf(page, business.name, 1),
+    );
+  }
+  return { lines: [...new Set(lines.filter(Boolean))].slice(0, LOOKUP_LINES) };
+}
+
+/**
+ * Drafts a message to someone on the list with the AI, after looking them up, and hands it to HandsFreeOS: it waits
+ * for the person's OK, or goes as it is.
+ */
+async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const looked = await lookUpIn(item, businessId);
+  if ('stop' in looked) return looked;
+  const kind = item.kind as MessageKind;
+  const drafted = await answer({
+    type: 'hfos-draft',
+    workspaceId: businessId,
+    input: { kind, profileId: item.profileId, chatId: item.chatId, lookup: looked.lines },
+  });
+  if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
+  const { drafts, opener } = drafted.value as Drafts;
+  const text = drafts[0];
+  if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
+  const queued = await call(
+    api().POST('/v1/commands/outreach.send.queue', {
+      body: {
+        workspaceId: businessId,
+        profileId: item.profileId!,
+        kind,
+        chatId: item.chatId,
+        threadKey: item.threadKey,
+        text,
+        opener: kind === 'opener' ? opener : null,
+      },
+    }),
+    businessId,
+  );
+  return {
+    done: true,
+    line:
+      queued.state === 'approved'
+        ? `Wrote a message to ${item.name}: it goes soon`
+        : `Wrote a message to ${item.name}: it waits for your OK`,
+  };
+}
+
+/** Opens the chat with them: theirs in Messenger when it's known, else their profile's Message. */
+async function openChat(
+  item: TodayListItem,
+  businessId: string,
+): Promise<
+  | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
+  | { readonly outcome: Outcome }
+> {
+  const want = profileOf(item.profileUrl);
+  if (item.threadKey) {
+    await tab.open(`${FACEBOOK}/messages/t/${encodeURIComponent(item.threadKey)}/`);
+    await setState({ tabId: tab.tabId });
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { outcome: { stop } };
+    const chat = page.chat;
+    const them =
+      chat?.profile && want
+        ? samePerson(chat.profile, chat.name, want, item.name)
+        : chat?.name != null && sameName(chat.name, item.name);
+    const profile = want ?? chat?.profile ?? null;
+    if (!chat || !them || !profile)
+      return { outcome: { done: false, line: `${item.name}: Messenger showed a different chat` } };
+    return { profile, thread: chat.thread };
+  }
+  const opened = await openProfile(item, businessId);
+  if ('outcome' in opened) return opened;
+  if (!(await pressPath(MESSAGE_PATH)))
+    return {
+      outcome: { done: false, line: `${item.name}: couldn’t find “Message” on their profile` },
+    };
+  await pause(SETTLE_MS);
+  return { profile: opened.noted, thread: null };
+}
+
+/** Says how a send went in HandsFreeOS. One the person skipped meanwhile went anyway: nothing more to say. */
+async function sendDone(sendId: string, businessId: string, sent: boolean, why: string | null) {
+  try {
+    await call(
+      api().POST('/v1/commands/outreach.send.done', {
+        body: { workspaceId: businessId, sendId, sent, why },
+      }),
+      businessId,
+    );
+  } catch (error) {
+    if (!(error instanceof Refused) || error.problem.status !== 404) throw error;
+  }
+}
+
+/** Sends a message OK'd (or let go as it is) in Messenger, and notes it as its own. */
+async function sendMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const send = item.send!;
+  const failed = async (line: string): Promise<Outcome> => {
+    const lead = `${item.name}: `;
+    await sendDone(
+      send.sendId,
+      businessId,
+      false,
+      line.startsWith(lead) ? line.slice(lead.length) : line,
+    );
+    return { done: false, line };
+  };
+  const chat = await openChat(item, businessId);
+  if ('outcome' in chat) return 'stop' in chat.outcome ? chat.outcome : failed(chat.outcome.line);
+  const wrote = await tab.ask({ type: 'hfos-message', text: send.text });
+  if (!wrote.ok) return failed(`${item.name}: ${wrote.error}`);
+  if (wrote.result === 'none') return failed(`${item.name}: couldn’t find the box to write in`);
+  if (wrote.result !== 'done') return failed(`${item.name}: Facebook didn’t take the message`);
+  await takeNote({
+    type: 'hfos-noted',
+    step: {
+      kind: 'message',
+      to: { name: item.name, profile: chat.profile },
+      group: null,
+      postUrl: null,
+      thread: chat.thread,
+      replying: item.kind === 'reply',
+      auto: true,
+    },
+    at: now(),
+  });
+  await sendDone(send.sendId, businessId, true, null);
+  await pause(SETTLE_MS);
+  const stop = await warnedOn(await read(), businessId);
+  if (stop) return { stop };
+  return { done: true, line: `Sent ${item.name} a message` };
+}
+
 function doItem(item: TodayListItem, businessId: string): Promise<Outcome> {
   switch (item.kind) {
     case 'confirm':
@@ -366,6 +533,23 @@ const DOING: Record<AutoKind, string> = {
   friend_request: 'Sending a friend request to',
   comment: 'Commenting on a post of',
 };
+
+const doing = (work: Work) =>
+  work.do === 'step'
+    ? `${DOING[work.item.kind as AutoKind]} ${work.item.name}…`
+    : work.do === 'draft'
+      ? `Writing a message to ${work.item.name}…`
+      : `Sending ${work.item.name} a message…`;
+
+/** What a piece of work counts as, done. */
+const doneAs = (work: Work): DoneKind =>
+  work.do === 'step' ? (work.item.kind as AutoKind) : work.do === 'draft' ? 'drafted' : 'sent';
+
+function doWork(work: Work, businessId: string): Promise<Outcome> {
+  if (work.do === 'draft') return draftMessage(work.item, businessId);
+  if (work.do === 'send') return sendMessage(work.item, businessId);
+  return doItem(work.item, businessId);
+}
 
 /** A once-a-day job, in the runner's window, noting any warning it sees as the runner does. */
 function jobFor(businessId: string): Job {
@@ -488,9 +672,9 @@ async function go(): Promise<void> {
     api().POST('/v1/queries/outreach.today', { body: { workspaceId: to.businessId } }),
     to.businessId,
   );
-  const left = itemsLeft(list.items, list.auto, state.tried);
-  const item = left[0];
-  if (!item) {
+  const left = workLeft(list, state.tried);
+  const work = left[0];
+  if (!work) {
     await closeWindow();
     await say(
       state.tried.length
@@ -500,10 +684,11 @@ async function go(): Promise<void> {
     return goAt(inHours ? Math.min(at + IDLE_MS, window!.to) : tomorrow());
   }
 
-  await say(`${DOING[item.kind as AutoKind]} ${item.name}…`, { working: true });
+  const { item } = work;
+  await say(doing(work), { working: true });
   let outcome: Outcome;
   try {
-    outcome = await doItem(item, to.businessId);
+    outcome = await doWork(work, to.businessId);
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;
@@ -515,12 +700,12 @@ async function go(): Promise<void> {
     await setState({ working: false });
   }
   state = await stateNow();
-  const kind = item.kind as AutoKind;
+  const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, itemKey(item)], done });
+  await setState({ tried: [...state.tried, workKey(work)], done });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -602,11 +787,33 @@ async function status(): Promise<AutoStatus> {
 export function answerAuto(
   ask: Extract<
     HfosAsk,
-    { readonly type: 'hfos-auto' | 'hfos-auto-save' | 'hfos-auto-start' | 'hfos-auto-stop' }
+    {
+      readonly type:
+        | 'hfos-auto'
+        | 'hfos-auto-save'
+        | 'hfos-auto-start'
+        | 'hfos-auto-stop'
+        | 'hfos-send-ok'
+        | 'hfos-send-skip';
+    }
   >,
 ): Promise<HfosAnswer<unknown>> {
   return answerWith(ask.type, async () => {
     switch (ask.type) {
+      // A message OK'd goes next: the runner looks now.
+      case 'hfos-send-ok': {
+        const ok = await call(
+          api().POST('/v1/commands/outreach.send.approve', { body: ask.input }),
+          ask.input.workspaceId,
+        );
+        void tick();
+        return ok;
+      }
+      case 'hfos-send-skip':
+        return call(
+          api().POST('/v1/commands/outreach.send.skip', { body: ask.input }),
+          ask.input.workspaceId,
+        );
       case 'hfos-auto-save': {
         const input: AutomationSaveInput = ask.input;
         await call(
