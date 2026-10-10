@@ -1,7 +1,7 @@
 /**
  * Working on its own, in the side panel (docs/outreach.md, decisions 26 to 33): what the person lets the extension do
- * for them on Facebook without pressing anything, and when; then what it's doing, with **Start my day** and **Stop
- * for today**. The choices are kept in HandsFreeOS, each person's own (packages/core/src/addons/outreach/automation.ts);
+ * for them on Facebook without pressing anything, and when, the once-a-day jobs among it; then what it's doing and what
+ * those jobs found, with **Start my day** and **Stop for today**. The choices are kept in HandsFreeOS, each person's own (packages/core/src/addons/outreach/automation.ts);
  * the background's runner does the work (src/auto/run.ts), and this watches where it is.
  */
 import {
@@ -13,7 +13,8 @@ import {
   type AutomationSettings,
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
-import { AUTO_STATE_KEY, isState, type AutoKind, type AutoState } from '../auto/plan';
+import { DAILY_NAMES } from '../auto/daily';
+import { AUTO_STATE_KEY, DAILY_JOBS, isState, type AutoKind, type AutoState } from '../auto/plan';
 import type { AutoStatus } from '../hfos/messages';
 import { ask } from './ask';
 import { ago, button, chip, counted, h, type Child } from './dom';
@@ -123,6 +124,11 @@ function choicesView(settings: AutomationSettings, timezone: string): Child[] {
       settings.confirmRequests,
       (confirmRequests) => ({ ...(draft ?? settings), confirmRequests }),
     ),
+    tick(
+      'Once a day, first: check friend requests, save group members, find posts and read my chats',
+      settings.collect,
+      (collect) => ({ ...(draft ?? settings), collect }),
+    ),
     h('h3', {}, 'When'),
     h(
       'p',
@@ -165,6 +171,7 @@ function stateView(now: AutoStatus, settings: AutomationSettings, state: AutoSta
     state.stopped || state.working || state.nextAt === null
       ? null
       : `Next step: ${clock(state.nextAt)}.`;
+  const daily = DAILY_JOBS.filter((job) => state.daily?.[job] !== undefined);
   return [
     h('h3', {}, 'Today'),
     !now.noting
@@ -185,6 +192,15 @@ function stateView(now: AutoStatus, settings: AutomationSettings, state: AutoSta
         )
       : h('p', { class: 'muted' }, `It works ${hoursWords(settings.hours)}.`),
     counts.length ? h('p', {}, `Done today: ${counts.join(', ')}.`) : null,
+    daily.length
+      ? h(
+          'ul',
+          { class: 'list' },
+          ...daily.map((job) =>
+            h('li', {}, h('strong', {}, DAILY_NAMES[job]), ' ', state.daily![job]!),
+          ),
+        )
+      : null,
     next ? h('p', { class: 'muted' }, next) : null,
     h(
       'div',

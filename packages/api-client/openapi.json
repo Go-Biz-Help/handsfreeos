@@ -79235,7 +79235,7 @@
     "/v1/commands/outreach.automation.save": {
       "post": {
         "operationId": "command_outreach_automation_save",
-        "summary": "The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit) and their working hours.",
+        "summary": "The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.",
         "tags": [
           "commands"
         ],
@@ -79266,6 +79266,10 @@
                         "type": "boolean"
                       },
                       "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
                         "type": "boolean"
                       },
                       "hours": {
@@ -79339,6 +79343,10 @@
                         "confirmRequests": {
                           "type": "boolean"
                         },
+                        "collect": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "hours": {
                           "type": "object",
                           "properties": {
@@ -79375,6 +79383,7 @@
                         "sending",
                         "warmUp",
                         "confirmRequests",
+                        "collect",
                         "hours"
                       ],
                       "additionalProperties": false
@@ -158177,6 +158186,10 @@
                         "confirmRequests": {
                           "type": "boolean"
                         },
+                        "collect": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "hours": {
                           "type": "object",
                           "properties": {
@@ -158213,6 +158226,7 @@
                         "sending",
                         "warmUp",
                         "confirmRequests",
+                        "collect",
                         "hours"
                       ],
                       "additionalProperties": false

@@ -124,7 +124,11 @@ demo link, and the extension working on its own (the first part):
   (`touches.auto`). The list only ever holds what today's limits have room for, so it keeps them. It stops for the
   day on any Facebook warning and on **Stop for today**, and works only while Chrome is open, someone is signed in
   and noting is on. Today, in the web and the panel, marks what it does as **Done on its own**, and the morning push
-  leaves those out.
+  leaves those out. Once a day, first, it does the jobs that fill that list
+  (decision 32, the extension's `src/auto/daily.ts` and `src/jobs/`): it saves the friend requests the person has got
+  (`outreach.friends.save`), then the admins and moderators of up to 3 of their Work these groups, read to the end,
+  and their members (`outreach.group.save`), then Find posts (`outreach.posts.save`) and Read my chats, up to 60
+  (`outreach.chats.collect`). Each reads and saves only, as the panel's buttons do, and a warning stops the day.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
@@ -313,7 +317,8 @@ than a store extension, and for more features, and answered the questions the sa
     fit well.
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Part 5.
 32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
-    Next (part 1, its second half).
+    Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
+    own and **Once a day** is ticked (on to start).
 33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
     hours after the like; a like over 14 days old doesn't count; no post to like, no wait.
 34. **All the features:** results by group, team sharing, an after-demo workflow, birthday and new-job notes, more

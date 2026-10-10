@@ -1,0 +1,69 @@
+/**
+ * **Find posts** (docs/outreach.md, decision 18): it goes through the groups the person is in that are marked Work
+ * these (or Maybe, when none are), scrolling each one's feed slowly, a screen at a time (src/facebook/browse.ts), and
+ * sends the posts that say a playbook's signs or ask for help to HandsFreeOS, where the AI checks each one. The good
+ * ones go on Today's list with comment drafts. Nothing is pressed or written on Facebook.
+ */
+import type { ReadResult } from '../facebook/types';
+import type { GroupsList } from '../hfos/messages';
+import { counted } from '../panel/dom';
+import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
+
+/** The most groups one Find posts goes through, and screens it scrolls in each. */
+export const RUN_GROUPS = 5;
+export const FEED_SCROLLS = 8;
+/** Between screens, and between groups: a steady pace like a person reading. */
+const PACE_MS = [6_000, 12_000] as const;
+const GROUP_PACE_MS = [15_000, 30_000] as const;
+
+export type WorkGroup = GroupsList['groups'][number];
+
+/**
+ * The groups the person is in, marked Work these, else Maybe, as HandsFreeOS has them; or why there are none, in
+ * words for the person.
+ */
+export async function groupsToWork(job: Job, most: number): Promise<WorkGroup[] | string> {
+  for (const view of ['work', 'maybe'] as const) {
+    const list = valueOf(
+      await job.hfos({ type: 'hfos-groups', input: { workspaceId: job.businessId, view } }),
+    );
+    const joined = list.groups.filter((g) => g.joined === true);
+    if (joined.length) return joined.slice(0, most);
+  }
+  return 'You’re not in any of the groups marked Work these or Maybe yet. Join one, open it with this panel beside it, then try again.';
+}
+
+/**
+ * Goes through the groups' feeds, sending each screen's posts with `send`, which says how many went to the AI to
+ * check.
+ */
+export async function findPosts(
+  job: Job,
+  groups: readonly Pick<WorkGroup, 'name' | 'url'>[],
+  send: (page: ReadResult) => Promise<number>,
+): Promise<JobEnd> {
+  let checking = 0;
+  let looked = 0;
+  for (const [g, group] of groups.entries()) {
+    if (job.stopped()) break;
+    const name = group.name ?? 'your group';
+    job.progress(`Opening ${name}… ${counted(checking, 'post')} sent to check so far.`);
+    await job.tab.open(group.url);
+    for (let screen = 0; screen < FEED_SCROLLS && !job.stopped(); screen++) {
+      const page = await readIn(job.tab);
+      const warned = await warnedOn(job, page);
+      if (warned) return warned;
+      checking += await send(page);
+      job.progress(`Reading ${name}… ${counted(checking, 'post')} sent to check so far.`);
+      const moved = await job.tab.ask({ type: 'hfos-scroll-feed' });
+      if (!moved.ok) break;
+      await pause(paced(PACE_MS));
+    }
+    looked++;
+    if (!job.stopped() && g < groups.length - 1) await pause(paced(GROUP_PACE_MS));
+  }
+  return {
+    line: `${job.stopped() ? 'Stopped. ' : ''}Looked through ${counted(looked, 'group')}: ${counted(checking, 'post')} sent for the AI to check. The good ones go on your list for today.`,
+    warned: false,
+  };
+}

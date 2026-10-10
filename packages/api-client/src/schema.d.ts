@@ -5787,7 +5787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit) and their working hours.
+         * The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.
          * @description Risk level 0. Requires outreach.use. Emits outreach.automation.saved.
          */
         post: operations["command_outreach_automation_save"];
@@ -31646,6 +31646,8 @@ export interface operations {
             content: {
                 "application/json": {
                     settings: {
+                        /** @default true */
+                        collect?: boolean;
                         confirmRequests: boolean;
                         hours: {
                             days: number[];
@@ -31671,6 +31673,8 @@ export interface operations {
                     "application/json": {
                         saved: boolean;
                         settings: {
+                            /** @default true */
+                            collect: boolean;
                             confirmRequests: boolean;
                             hours: {
                                 days: number[];
@@ -58624,6 +58628,8 @@ export interface operations {
                     "application/json": {
                         saved: boolean;
                         settings: {
+                            /** @default true */
+                            collect: boolean;
                             confirmRequests: boolean;
                             hours: {
                                 days: number[];

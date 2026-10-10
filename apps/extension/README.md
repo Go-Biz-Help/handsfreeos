@@ -173,7 +173,16 @@ to 33 in docs/outreach.md). Your choices are your own, kept in HandsFreeOS (`out
   for people you'll ask tomorrow, and their request comes a day after the like. A profile with no post of theirs to
   like gets its request without one.
 - **Confirm friend requests from people who fit a playbook** (on to start): **Confirm their request** on your list.
+- **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts and
+  Read my chats, which fill your list (decision 32).
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
+
+With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
+job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests
+you've got (Friend requests, loading a few screens of them); the admins and moderators of up to 3 of your Work these
+groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
+don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; and Read
+my chats, up to 60 a day. The panel lists what each found today. They only read and save, as the panel's buttons do.
 
 In your hours it goes down the list at random times spread over the day, in this order: requests to confirm, posts to
 like, friend requests, then comments. **Start my day** starts it now and goes a minute or few apart, hours or not;
@@ -288,13 +297,15 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   around them whether one was a step and who to (`src/facebook/actions.ts`), and tells the background. It never reads
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rules. What it does on its
   own keeps the owner's decisions: off by default, the daily limits, and a stop for the day on any Facebook warning.
-- **Scrolling groups only when asked, slowly.** **Find posts** (`src/panel/posts.ts`) only scrolls a group's own
+- **Scrolling groups only when asked, slowly.** **Find posts** (`src/jobs/posts.ts`) only scrolls a group's own
   feed (`scrollFeed`, `groupFeedPage`), a screen at a time, 6 to 12 seconds apart: it opens nothing and presses
-  nothing. The look-up before drafting (`src/panel/lookup.ts`) only opens and reads two pages in a tab out of view,
+  nothing. Once a day, on its own, it also scrolls your friend requests and a group's members the same way
+  (`scrollList`, `peopleListPage`, `src/jobs/people.ts`), 4 to 9 seconds apart. The look-up before drafting (`src/panel/lookup.ts`) only opens and reads two pages in a tab out of view,
   then closes it; it does neither on a day Facebook warned you.
-- **Opening chats only when asked, slowly.** **Read my chats** (`src/panel/chats.ts`) clicks the chat links in
+- **Opening chats only when asked, slowly.** **Read my chats** (`src/jobs/chats.ts`) clicks the chat links in
   Messenger's own list and scrolls that list (`src/facebook/browse.ts`), nothing else: never a button, never a box to
-  type in. One chat every 7 to 14 seconds, at most 150 a run, and it stops at once on a Facebook warning.
+  type in. One chat every 7 to 14 seconds, at most 150 a run (60 once a day on its own), and it stops at once on a
+  Facebook warning.
 - **Pressing only on the download pages, only when asked.** `src/facebook/fetch.ts` presses Facebook's buttons only
   on Accounts Center's download pages and the chats (`fetchPage`), only for a job the person started in the panel,
   and only what's in the box on top, never behind it. It never types: a password or PIN box on the page makes it
@@ -356,6 +367,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                              |
 | `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                           |
 | `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                 |
+| `src/jobs/`             | The jobs that go page by page: Find posts, Read my chats, and once a day checking friend requests and saving group members (`src/auto/daily.ts`)         |
 | `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                            |
 | `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, and wakes the runner                                       |
 | `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |

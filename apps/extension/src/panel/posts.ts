@@ -6,8 +6,9 @@
  *   or ask for help to HandsFreeOS (`outreach.posts.save`), where the AI checks each one. The panel marks them: good,
  *   or still being checked. On by default.
  * - **Find posts**: the extension goes through the groups the person is in that are marked Work these (or Maybe, when
- *   none are), in a tab they can see, scrolling each one's feed slowly, a screen at a time (src/facebook/browse.ts),
- *   and sends what it finds the same way. It stops on any Facebook warning, and does nothing on a day it saw one.
+ *   none are), in a tab they can see, scrolling each one's feed slowly (src/jobs/posts.ts), and sends what it finds
+ *   the same way. It stops on any Facebook warning, and does nothing on a day it saw one. While it works on its own,
+ *   it does this once a day by itself too (src/auto/daily.ts).
  *
  * The good ones go on Today's list with two comment drafts (./today.ts). Nothing is pressed or written on Facebook.
  */
@@ -15,18 +16,14 @@ import type { ReadResult } from '../facebook/types';
 import type { Account, PostMark, PostsSaveInput } from '../hfos/messages';
 import { postsSave } from '../hfos/saves';
 import { ask } from './ask';
+import type { Job } from '../jobs/job';
+import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
 import { button, chip, clip, counted, h, link, type Child } from './dom';
 import { WorkTab } from '../tab';
 import { refreshToday } from './today';
 import { noteWarnings, onWarning, warnedToday } from './warnings';
 
 const ON_KEY = 'hfos.markPosts';
-/** The most groups one Find posts goes through, and screens it scrolls in each. */
-const RUN_GROUPS = 5;
-const FEED_SCROLLS = 8;
-/** Between screens, and between groups: a steady pace like a person reading. */
-const PACE_MS = [6_000, 12_000] as const;
-const GROUP_PACE_MS = [15_000, 30_000] as const;
 /** A post still being checked is asked about again after this, as the person keeps scrolling. */
 const RECHECK_MS = 30_000;
 /** The most marked posts shown. */
@@ -54,8 +51,6 @@ const marks = new Map<string, Marked>();
 let problem: string | null = null;
 const tab = new WorkTab();
 
-const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const paced = ([low, high]: readonly [number, number]) => low + Math.random() * (high - low);
 const businessId = () => (account?.signedIn ? account.businessId : null);
 
 function set(next: Run): void {
@@ -108,17 +103,6 @@ export async function markPosts(result: ReadResult): Promise<void> {
 
 // ---- Find posts ----
 
-/** The groups to go through: the ones the person is in, Work these first, else Maybe. */
-async function groupsToWork(id: string): Promise<{ name: string | null; url: string }[] | string> {
-  for (const view of ['work', 'maybe'] as const) {
-    const answer = await ask({ type: 'hfos-groups', input: { workspaceId: id, view } });
-    if (!answer.ok) return answer.problem.message;
-    const joined = answer.value.groups.filter((g) => g.joined === true);
-    if (joined.length) return joined.slice(0, RUN_GROUPS);
-  }
-  return 'You’re not in any of the groups marked Work these or Maybe yet. Join one, open it with this panel beside it, then try again.';
-}
-
 async function find(): Promise<void> {
   const id = businessId();
   if (run.state === 'going' || !id) return;
@@ -131,53 +115,25 @@ async function find(): Promise<void> {
     });
     return;
   }
+  const job: Job = {
+    tab,
+    hfos: ask,
+    businessId: id,
+    stopped: () => stopped,
+    progress: (line) => set({ state: 'going', line }),
+    warn: noteWarnings,
+  };
   set({ state: 'going', line: 'Getting your groups…' });
-  const groups = await groupsToWork(id);
-  if (typeof groups === 'string') return set({ state: 'over', line: groups });
-  let checking = 0;
-  let looked = 0;
   try {
-    for (const [g, group] of groups.entries()) {
-      if (stopped) break;
-      const name = group.name ?? 'your group';
-      set({
-        state: 'going',
-        line: `Opening ${name}… ${counted(checking, 'post')} sent to check so far.`,
-      });
-      await tab.open(group.url);
-      for (let screen = 0; screen < FEED_SCROLLS && !stopped; screen++) {
-        const answer = await tab.ask({ type: 'hfos-read' });
-        if (!answer.ok) throw new Error(answer.error);
-        const page = answer.result;
-        if (page.warnings.length) {
-          await noteWarnings(page.warnings, page.url);
-          set({
-            state: 'over',
-            line: `Stopped: Facebook says “${page.warnings[0]}”. The extension stops for today, and your daily limits are halved for a week.`,
-          });
-          return;
-        }
-        checking += await send(page, 'find');
-        set({
-          state: 'going',
-          line: `Reading ${name}… ${counted(checking, 'post')} sent to check so far.`,
-        });
-        const moved = await tab.ask({ type: 'hfos-scroll-feed' });
-        if (!moved.ok) break;
-        await pause(paced(PACE_MS));
-      }
-      looked++;
-      if (!stopped && g < groups.length - 1) await pause(paced(GROUP_PACE_MS));
-    }
-    set({
-      state: 'over',
-      line: `${stopped ? 'Stopped. ' : ''}Looked through ${counted(looked, 'group')}: ${counted(checking, 'post')} sent for the AI to check. The good ones go on your list for today.`,
-    });
-    void refreshToday();
+    const groups = await groupsToWork(job, RUN_GROUPS);
+    if (typeof groups === 'string') return set({ state: 'over', line: groups });
+    const end = await findPosts(job, groups, (page) => send(page, 'find'));
+    set({ state: 'over', line: end.line });
+    if (!end.warned) void refreshToday();
   } catch (error) {
     set({
       state: 'over',
-      line: `Stopped after ${counted(looked, 'group')}: ${error instanceof Error ? error.message : String(error)}`,
+      line: `Stopped: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 }

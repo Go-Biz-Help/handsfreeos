@@ -29,7 +29,7 @@ import {
   type Step,
 } from './facebook/actions';
 import { likeLatest, writeComment } from './facebook/auto';
-import { openChat, scrollChats, scrollFeed } from './facebook/browse';
+import { openChat, scrollChats, scrollFeed, scrollList } from './facebook/browse';
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { outlinePage } from './facebook/outline';
 import { tidyPage } from './facebook/tidy';
@@ -129,14 +129,17 @@ if (!here.hfosSocialListening) {
       if (
         ask.type === 'hfos-open-chat' ||
         ask.type === 'hfos-scroll-chats' ||
-        ask.type === 'hfos-scroll-feed'
+        ask.type === 'hfos-scroll-feed' ||
+        ask.type === 'hfos-scroll-list'
       ) {
         const ok =
           ask.type === 'hfos-open-chat'
             ? openChat(document, location.href, ask.threadId)
             : ask.type === 'hfos-scroll-chats'
               ? scrollChats(document, location.href)
-              : scrollFeed(location.href);
+              : ask.type === 'hfos-scroll-list'
+                ? scrollList(document, location.href)
+                : scrollFeed(location.href);
         (respond as (answer: BrowseAnswer) => void)({ ok });
         return false;
       }
