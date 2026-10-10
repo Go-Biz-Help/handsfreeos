@@ -6,8 +6,9 @@
  *
  * And for **Find posts** (docs/outreach.md, decision 18): on a group's own page, it scrolls the feed down a screen at a
  * time, as the person would, for Facebook to load more posts. For the once-a-day jobs (decision 32), it scrolls the
- * person's friend requests, and a group's members, the same way, for Facebook to load more people. Nothing else: it
- * opens nothing and presses nothing.
+ * person's friend requests, and a group's members, the same way, for Facebook to load more people; and the list of
+ * their groups, or a search for groups, for more groups (decision 43). Nothing else: it opens nothing and presses
+ * nothing.
  */
 import { inTopBar } from './dom';
 import { classifyUrl, facebookUrl, profileFromUrl, threadFromUrl } from './urls';
@@ -111,6 +112,24 @@ export function scrollList(root: Document, base: string): boolean {
     box.scrollTop = before + Math.max(200, box.clientHeight * FEED_SCROLL);
     return box.scrollTop !== before;
   }
+  const view = root.defaultView!;
+  const before = view.scrollY;
+  view.scrollBy({ top: Math.max(300, view.innerHeight * FEED_SCROLL), behavior: 'smooth' });
+  return root.documentElement.scrollHeight - before - view.innerHeight > 4;
+}
+
+/** Whether an address is a list of groups: the person's, or a search's. */
+export const groupsListPage = (href: string) => {
+  const kind = classifyUrl(href).kind;
+  return kind === 'groups' || kind === 'search';
+};
+
+/**
+ * Scrolls a list of groups, or a search's results, down most of a screen, for Facebook to load more. Whether there was
+ * room to move: at the end of the list, or off those pages, there isn't.
+ */
+export function scrollPage(root: Document, base: string): boolean {
+  if (!groupsListPage(base)) return false;
   const view = root.defaultView!;
   const before = view.scrollY;
   view.scrollBy({ top: Math.max(300, view.innerHeight * FEED_SCROLL), behavior: 'smooth' });

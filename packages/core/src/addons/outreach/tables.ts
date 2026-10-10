@@ -4,7 +4,8 @@
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
- * steps it needs the person for, and the bundled push): the Drizzle mirror its server code reads and writes through.
+ * steps it needs the person for, and the bundled push, and 20261027001700 for asking the extension): the Drizzle mirror
+ * its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -24,6 +25,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
+import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
@@ -782,8 +784,48 @@ export const waitingPushes = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
 
+/** What a person asked their computer to do from HandsFreeOS (./asks.ts): who took it, how it's going, how it ended. */
+export const asks = addonOutreach.table(
+  'asks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull().$type<AskKind>(),
+    target: text('target').notNull().default(''),
+    task: jsonb('task')
+      .notNull()
+      .default(sql`'{}'::jsonb`)
+      .$type<AskTask>(),
+    about: text('about'),
+    via: text('via').notNull().$type<AskVia>(),
+    state: text('state').notNull().default('waiting').$type<AskState>(),
+    line: text('line'),
+    result: jsonb('result').$type<AskResult>(),
+    reply: text('reply').$type<AskReply>(),
+    computerId: uuid('computer_id'),
+    askedAt: ts('asked_at').notNull(),
+    startedAt: ts('started_at'),
+    endedAt: ts('ended_at'),
+    toldAt: ts('told_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    // The database sets only computer_id to null (`on delete set null (computer_id)`).
+    foreignKey({
+      columns: [t.workspaceId, t.computerId],
+      foreignColumns: [computers.workspaceId, computers.id],
+    }).onDelete('set null'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
+  asks,
   automation,
   computers,
   days,

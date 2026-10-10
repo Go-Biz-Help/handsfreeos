@@ -1,16 +1,24 @@
 /**
- * Waiting for you, first in the side panel (docs/outreach.md, decisions 40 and 42): everything waiting for the
- * person, the same list as HandsFreeOS's Waiting for you tab, in four groups:
+ * Waiting for you, in the side panel after Right now (docs/outreach.md, decisions 40, 42 and 43): everything waiting
+ * for the person, the same list as HandsFreeOS's Waiting for you tab, in five groups:
  *
  * - **Replies handed over to you**, each with why, its words to change, **Send** and **Skip**;
  * - **Messages to OK**, the same, with **Approve all** above them (which leaves those that wait one at a time);
  * - **Steps it needs you for**: what to do, why the extension couldn't, a link to do it on Facebook, **I did it** and
  *   **Let it go**; a message that didn't go has its words to copy;
- * - **Friend requests to decide**: why they're the person's, a link to their profile, and **Leave it**.
+ * - **Friend requests to decide**: why they're the person's, a link to their profile, and **Leave it**;
+ * - **Your computer needs you**: a step something they asked of it from HandsFreeOS handed them, with **Carry on**
+ *   (and **Skip**, for one person ticked) once they've done it, and **Stop** (decision 43).
  *
  * The background keeps the list (src/hfos/waiting.ts), with the number on the icon; this draws it, and again whenever
  * it changes. Acting on one asks the background, which asks HandsFreeOS and then looks again.
  */
+import {
+  ASK_KINDS,
+  ASK_REPLIES,
+  ASK_TYPING_WORDS,
+  askRepliesFor,
+} from '@hfos/core/addons/outreach/asks';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import {
   approveAllCount,
@@ -42,6 +50,7 @@ import { ago, button, chip, h, hfosLink, link, type Child } from './dom';
 type SendItem = Extract<WaitingItem, { kind: 'reply' | 'message' }>;
 type NeedItem = Extract<WaitingItem, { kind: 'need' }>;
 type RequestItem = Extract<WaitingItem, { kind: 'request' }>;
+type AskItem = Extract<WaitingItem, { kind: 'ask' }>;
 
 /** What the background kept, as the panel reads it: whose it is, and the list. */
 interface Kept {
@@ -157,6 +166,18 @@ function leave(item: RequestItem): void {
   );
 }
 
+/** Carry on, Skip or Stop, for a step something the person asked of their computer handed them. */
+function answerAsk(item: AskItem, how: 'carry_on' | 'skip' | 'stop'): void {
+  const askId = item.ask.askId;
+  void act(askId, () =>
+    ask(
+      how === 'stop'
+        ? { type: 'hfos-ask-stop', askId }
+        : { type: 'hfos-ask-reply', askId, reply: how },
+    ),
+  );
+}
+
 /** A button that copies `text`, and says so. */
 function copyButton(text: string): HTMLElement {
   const copy = button('Copy', () => {
@@ -221,6 +242,34 @@ function needView(item: NeedItem): HTMLElement {
   );
 }
 
+function askItemView(item: AskItem): HTMLElement {
+  const a = item.ask;
+  const replies = a.state === 'stuck' ? askRepliesFor(a.kind) : [];
+  return h(
+    'li',
+    {},
+    h('div', { class: 'name' }, ASK_KINDS[a.kind], a.about ? ` · ${a.about}` : ''),
+    h(
+      'div',
+      { class: 'muted' },
+      a.state === 'typing' ? ASK_TYPING_WORDS : (a.line ?? ''),
+      a.computerName ? ` · ${a.computerName}` : '',
+    ),
+    h(
+      'div',
+      { class: 'actions' },
+      ...replies.map((r) =>
+        button(ASK_REPLIES[r], () => answerAsk(item, r), {
+          primary: r === 'carry_on',
+          disabled: busy,
+        }),
+      ),
+      button('Stop', () => answerAsk(item, 'stop'), { disabled: busy }),
+    ),
+    trouble(a.askId),
+  );
+}
+
 function requestView(item: RequestItem): HTMLElement {
   const request = item.request;
   return h(
@@ -272,7 +321,9 @@ function groupView(kind: WaitingKind, list: Waiting): Child[] {
           ? needView(item)
           : item.kind === 'request'
             ? requestView(item)
-            : sendView(item),
+            : item.kind === 'ask'
+              ? askItemView(item)
+              : sendView(item),
       ),
     ),
     items.length < count

@@ -3,6 +3,8 @@
  * Social Outreach's Waiting for you tab (docs/outreach.md, decisions 40 and 42): everything waiting for the person, in
  * one list, the same as the extension's panel and the number on its icon (packages/core/src/addons/outreach/waiting.ts):
  *
+ * - **Your computer needs you**: something asked of it from here hit a step it couldn't find, or Facebook wants a
+ *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
  * - **Replies handed over to you**: replies that need the person, each with why, to change, send or skip;
  * - **Messages to OK**: **Approve all** OKs them, except one to someone who needs the person, which waits on its own;
  * - **Steps it needs you for**: a step the extension couldn't do, to do on Facebook (**I did it**) or **Let it go**;
@@ -40,6 +42,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
+import { AskLine } from './asks';
+import { KeepChatButton } from './chat-keep';
+import { PersonMenu } from './person-menu';
 import { Drafted } from './today-view';
 import type { Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
@@ -65,7 +70,14 @@ function when(iso: string, timeZone: string): string {
 
 export function WaitingView({ workspaceId, waiting }: { workspaceId: string; waiting: Waiting }) {
   useLiveRefresh(
-    ['outreach_profile', 'outreach_need', 'workspace', 'outreach_automation', 'addon'],
+    [
+      'outreach_profile',
+      'outreach_need',
+      'outreach_ask',
+      'workspace',
+      'outreach_automation',
+      'addon',
+    ],
     800,
   );
   return (
@@ -146,16 +158,25 @@ function Group({
         {items.map((item) => (
           <li
             key={
-              item.kind === 'need'
-                ? item.need.needId
-                : item.kind === 'request'
-                  ? item.request.profileId
-                  : item.send.sendId
+              item.kind === 'ask'
+                ? item.ask.askId
+                : item.kind === 'need'
+                  ? item.need.needId
+                  : item.kind === 'request'
+                    ? item.request.profileId
+                    : item.send.sendId
             }
             className="border-t border-border px-5 py-3.5"
             data-testid="waiting-item"
           >
-            {item.kind === 'need' ? (
+            {item.kind === 'ask' ? (
+              <AskLine
+                workspaceId={workspaceId}
+                asks={{ timezone: waiting.timezone, computer: null, now: item.at }}
+                ask={item.ask}
+                named
+              />
+            ) : item.kind === 'need' ? (
               <NeedRow workspaceId={workspaceId} item={item} timeZone={waiting.timezone} />
             ) : item.kind === 'request' ? (
               <RequestRow workspaceId={workspaceId} item={item} timeZone={waiting.timezone} />
@@ -233,8 +254,20 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
           <span className="text-[14px] font-medium">{send.name}</span>
         )}
         {item.kind === 'reply' ? <Badge variant="pending">Handed over</Badge> : null}
+        <PersonMenu workspaceId={workspaceId} who={send} />
       </div>
       <Drafted workspaceId={workspaceId} name={send.name} send={send} />
+      {/* The chat it answers, onto their card in Contacts. */}
+      {item.kind === 'reply' && send.chatId ? (
+        <div className="mt-1.5">
+          <KeepChatButton
+            workspaceId={workspaceId}
+            chatId={send.chatId}
+            name={send.name}
+            withProfile
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -266,9 +299,12 @@ function NeedRow({
   const onFacebook = need.url && FacebookUrl.safeParse(need.url).success ? need.url : null;
   return (
     <div>
-      <p className="text-[14px] font-medium" data-testid="waiting-need">
-        {needTitle(need.step, need.name)}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[14px] font-medium" data-testid="waiting-need">
+          {needTitle(need.step, need.name)}
+        </p>
+        <PersonMenu workspaceId={workspaceId} who={need} />
+      </div>
       <p className="mt-1 text-[12.5px] text-text-2">
         {needWhyWords(need.why)}
         {when(need.seenAt, timeZone) ? ` · ${when(need.seenAt, timeZone)}` : ''}
@@ -351,6 +387,7 @@ function RequestRow({
           Asked {when(request.since, timeZone)}
           {request.mutualFriends ? ` · ${request.mutualFriends.toLocaleString()} mutual` : ''}
         </span>
+        <PersonMenu workspaceId={workspaceId} who={request} />
       </div>
       {request.why.length ? (
         <p className="mt-1 text-[12.5px] text-text-2">{request.why.join(' · ')}</p>

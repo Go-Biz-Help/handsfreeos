@@ -102,7 +102,9 @@ const idOf = (item: WaitingItem) =>
     ? item.need.needId
     : item.kind === 'request'
       ? item.request.profileId
-      : item.send.sendId;
+      : item.kind === 'ask'
+        ? item.ask.askId
+        : item.send.sendId;
 
 describe('the pop-ups', () => {
   it('bundle what’s new in one, when it’s due, and remember it as told', () => {

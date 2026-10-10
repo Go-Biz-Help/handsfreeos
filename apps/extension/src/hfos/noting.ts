@@ -19,34 +19,20 @@ import { FRIEND_ANSWER_KEYS, TOUCH_KIND_KEYS } from '@hfos/core/addons/outreach/
 import type { Answered, Seen, Step, StepGroup } from '../facebook/actions';
 import { profileKey } from '../facebook/urls';
 import { NOTING_KEY, type TabNote } from '../messages';
-import { config } from './config';
-import type {
-  FriendNoteInput,
-  HfosAnswer,
-  NeedNoteInput,
-  HfosAsk,
-  Noted,
-  Today,
-  Touched,
-  TouchInput,
-  TouchSaved,
-} from './messages';
+import type { FriendNoteInput, NeedNoteInput, TouchInput, TouchSaved } from './messages';
 import { isRepliesNote, noteReplies } from './replies';
 import { friendNote, nameKey, touchSave, type Built } from './saves';
-import { answerWith, api, call, Refused, savingTo } from './session';
+import { api, savingTo } from './session';
 
 /** Steps waiting to be sent, kept across restarts. */
 const WAITING_KEY = 'hfos.waiting';
-/** The groups people were opened from, and the last steps noted: only while the browser is open. */
+/** The groups people were opened from: only while the browser is open. */
 const GROUPS_KEY = 'hfos.groups';
-const RECENT_KEY = 'hfos.recent';
 
 /** The most steps kept waiting, more than a day's: past it, the oldest go. */
 export const WAITING_MOST = 200;
 /** How many people's groups are remembered, the latest kept. */
 export const GROUPS_MOST = 300;
-/** How many of the last steps the panel lists. */
-export const RECENT_MOST = 5;
 
 /**
  * What's sent: a step (`outreach.touch.save`), an answer to a friend request (`outreach.friend.note`), or a step the
@@ -70,12 +56,6 @@ export interface Remembered {
   readonly name: string | null;
   readonly group: StepGroup;
   readonly at: number;
-}
-
-/** One of the last steps, with the business it went to and the id it was sent with. */
-interface Kept extends Noted {
-  readonly id: string;
-  readonly businessId: string;
 }
 
 /** What came of sending a step. */
@@ -142,7 +122,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 /** Whether a tab's note has the shape of one. The tab's script is the extension's own; what it read was a page's. */
-export function isTabNote(note: unknown): note is TabNote {
+export function isTabNote(note: unknown): note is Exclude<TabNote, { type: 'hfos-looked' }> {
   if (!isObject(note)) return false;
   const withProfile = (person: unknown): person is Record<string, unknown> =>
     isObject(person) && isObject(person.profile);
@@ -185,8 +165,6 @@ const waitingNow = async () =>
   (await stored(chrome.storage.local, WAITING_KEY, isList, [])) as Waiting[];
 const groupsNow = async () =>
   (await stored(chrome.storage.session, GROUPS_KEY, isObject, {})) as Record<string, Remembered>;
-const recentNow = async () =>
-  (await stored(chrome.storage.session, RECENT_KEY, isList, [])) as Kept[];
 
 export async function isNoting(): Promise<boolean> {
   try {
@@ -254,26 +232,6 @@ async function send(entry: Waiting): Promise<{ readonly sent: Sent; readonly ent
   return { sent: second.kind === 'again' ? { kind: 'later' } : second, entry: again };
 }
 
-/** The last steps, with one changed by `change` (found by its id) or added at the top. */
-async function keepRecent(
-  id: string,
-  change: (kept: Kept | undefined) => Kept | null,
-): Promise<void> {
-  const recent = await recentNow();
-  const at = recent.findIndex((kept) => kept.id === id);
-  const next = change(at === -1 ? undefined : recent[at]);
-  if (!next) return;
-  const list = at === -1 ? [next, ...recent] : recent.map((kept, i) => (i === at ? next : kept));
-  await chrome.storage.session.set({ [RECENT_KEY]: list.slice(0, RECENT_MOST) });
-}
-
-const keptAs = (sent: Sent): Pick<Noted, 'state' | 'step' | 'repeated' | 'why'> =>
-  sent.kind === 'saved'
-    ? { state: 'saved', step: sent.saved.step, repeated: sent.saved.repeated, why: null }
-    : sent.kind === 'refused'
-      ? { state: 'not_saved', step: null, repeated: false, why: sent.why }
-      : { state: 'waiting', step: null, repeated: false, why: null };
-
 /** Sends the person's steps that are waiting, oldest first, while HandsFreeOS takes them. True when none are left. */
 async function sendWaiting(userId: string): Promise<boolean> {
   const waiting = await waitingNow();
@@ -286,9 +244,6 @@ async function sendWaiting(userId: string): Promise<boolean> {
       left.push(last, ...theirs.slice(i + 1));
       break;
     }
-    await keepRecent(entry.commandId, (kept) =>
-      kept ? { ...kept, ...keptAs(sent), id: last.commandId } : null,
-    );
   }
   // Someone else's steps wait for them to sign in again.
   const others = waiting.filter((entry) => entry.userId !== userId);
@@ -296,18 +251,11 @@ async function sendWaiting(userId: string): Promise<boolean> {
   return left.length === 0;
 }
 
-/** Tells the extension's pages the day's numbers have changed. Nobody may be listening. */
-function tellPages(): void {
-  chrome.runtime.sendMessage({ type: 'hfos-touched' } satisfies Touched).catch(() => undefined);
-}
-
 /**
  * Something the person did: sent to HandsFreeOS after anything still waiting, or kept to send when it can be reached.
- * What HandsFreeOS refuses (Social Outreach turned off, someone on the Don't pitch list) isn't kept: the panel's last
- * steps say why.
+ * What HandsFreeOS refuses (Social Outreach turned off, someone on the Don't pitch list) isn't kept.
  */
 async function noteDone(
-  what: Pick<Noted, 'kind' | 'name'>,
   at: string,
   build: (businessId: string) => Promise<Built<Sending>>,
 ): Promise<void> {
@@ -316,13 +264,9 @@ async function noteDone(
   // Nobody signed in, or nowhere to save: nothing is noted.
   if (!to) return;
   const built = await build(to.businessId);
+  if (!built.ok) return;
   const id = crypto.randomUUID();
   const occurredAt = momentOf(at, new Date());
-  const base = { id, businessId: to.businessId, ...what, at: occurredAt };
-  if (!built.ok) {
-    await keepRecent(id, () => ({ ...base, ...keptAs({ kind: 'refused', why: built.why }) }));
-    return tellPages();
-  }
   const entry: Waiting = { ...built.input, commandId: id, occurredAt, userId: to.userId };
   const clear = await sendWaiting(to.userId);
   const { sent, entry: last } = clear
@@ -332,13 +276,11 @@ async function noteDone(
     await chrome.storage.local.set({
       [WAITING_KEY]: [...(await waitingNow()), last].slice(-WAITING_MOST),
     });
-  await keepRecent(id, () => ({ ...base, ...keptAs(sent), id: last.commandId }));
-  tellPages();
 }
 
 /** A step the person took, with the group they found the person in when the page or the background knows it. */
 function noteStep(step: Step, at: string): Promise<void> {
-  return noteDone({ kind: step.kind, name: step.to.name }, at, async (businessId) => {
+  return noteDone(at, async (businessId) => {
     const built = touchSave(step, businessId, rememberedFor(await groupsNow(), step));
     return built.ok ? { ok: true, input: { input: built.input } } : built;
   });
@@ -346,7 +288,7 @@ function noteStep(step: Step, at: string): Promise<void> {
 
 /** The person's answer to a friend request they got. */
 function noteAnswer(answered: Answered, at: string): Promise<void> {
-  return noteDone({ kind: answered.answer, name: answered.to.name }, at, async (businessId) => {
+  return noteDone(at, async (businessId) => {
     const built = friendNote(answered, businessId);
     return built.ok ? { ok: true, input: { op: 'answer', input: built.input } } : built;
   });
@@ -385,7 +327,7 @@ export function noteNeed(input: NeedNoteInput, at = new Date().toISOString()): P
  * What a Facebook tab told the background: a step taken, a friend request answered, someone opened from a group, or
  * chats whose last message is theirs (./replies.ts).
  */
-export function takeNote(note: TabNote): Promise<void> {
+export function takeNote(note: Exclude<TabNote, { type: 'hfos-looked' }>): Promise<void> {
   if (note.type === 'hfos-replies')
     return isNoting()
       .then((on) => (on ? noteReplies(note) : undefined))
@@ -406,53 +348,10 @@ export function takeNote(note: TabNote): Promise<void> {
   );
 }
 
-// ------------------------------------------------------------------------------------------------- the day
+// ------------------------------------------------------------------------------------------------- the beat
 
-/**
- * The person's day so far, sending what's waiting first: their numbers, the last steps, and the switch. When
- * HandsFreeOS can't give the numbers, the rest still comes, with why.
- */
-async function today(): Promise<Today> {
-  const noting = await isNoting();
-  const to = await savingTo();
-  const none = { activity: null, trouble: null, waiting: 0, recent: [] };
-  if (!to) return { ...none, businessId: null, webUrl: config.webUrl, noting };
-  await inTurn(() => sendWaiting(to.userId)).catch(() => false);
-  // The person's own steps waiting to be saved: not those the runner couldn't do, which wait for them elsewhere.
-  const waiting = (await waitingNow()).filter(
-    (entry) => entry.userId === to.userId && entry.op !== 'need',
-  );
-  const recent = (await recentNow())
-    .filter((kept) => kept.businessId === to.businessId)
-    .map(({ id: _id, businessId: _business, ...noted }) => noted);
-  let activity: Today['activity'] = null;
-  let trouble: string | null = null;
-  try {
-    activity = await call(
-      api().POST('/v1/queries/outreach.activity', {
-        body: { workspaceId: to.businessId, period: 'today', everyone: false },
-      }),
-      to.businessId,
-    );
-  } catch (error) {
-    if (!(error instanceof Refused)) throw error;
-    trouble = error.problem.message;
-  }
-  return {
-    activity,
-    trouble,
-    businessId: to.businessId,
-    webUrl: config.webUrl,
-    noting,
-    waiting: waiting.length,
-    recent,
-  };
-}
-
-/** The panel's ask about the day on Facebook. Never throws: what went wrong comes back as a problem. Noting is set in
- * HandsFreeOS (decision 37), which ./follow.ts writes here. */
-export function answerNoting(
-  ask: Extract<HfosAsk, { readonly type: 'hfos-today' }>,
-): Promise<HfosAnswer<unknown>> {
-  return answerWith(ask.type, () => today());
+/** The person's steps that waited while HandsFreeOS couldn't be reached, sent with the minute's beat. */
+export async function sendWaitingSteps(): Promise<void> {
+  const to = await savingTo().catch(() => null);
+  if (to) await inTurn(() => sendWaiting(to.userId)).catch(() => false);
 }

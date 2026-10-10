@@ -1,7 +1,9 @@
 /**
  * Waiting for you (docs/outreach.md, decisions 40 and 42): the words and rules the web, the phone, the worker and the
- * extension all show and follow, once. One list, the same everywhere, of four kinds:
+ * extension all show and follow, once. One list, the same everywhere, of five kinds:
  *
+ * - **Your computer needs you**: something the person asked of their computer from HandsFreeOS (./asks.ts) handed
+ *   them a step it can't find, or waits for their password on Facebook. It pushed at once.
  * - **Replies handed over to you**: a reply the extension drafted that waits because it needs the person, with
  *   Replies (b) or (c) (./sends.ts, `handedOver`). Each waits for an OK of its own, never Approve all.
  * - **Messages to OK**: every other message waiting for the person's OK. Approve all OKs them, except one to someone
@@ -23,6 +25,7 @@ import { inWorkingHours, workWindow, type WorkingHours } from './automation';
 import type { FitLevel } from './fit';
 
 export const WAITING_KINDS = {
+  ask: 'Your computer needs you',
   reply: 'Replies handed over to you',
   message: 'Messages to OK',
   need: 'Steps it needs you for',
@@ -31,12 +34,16 @@ export const WAITING_KINDS = {
 export type WaitingKind = keyof typeof WAITING_KINDS;
 /** The list's order. */
 export const WAITING_KIND_KEYS = [
+  'ask',
   'reply',
   'message',
   'need',
   'request',
 ] as const satisfies readonly WaitingKind[];
-/** What pushes and pop-ups tell of. Friend requests aren't: Facebook tells people of those itself. */
+/**
+ * What pushes and pop-ups tell of. Friend requests aren't: Facebook tells people of those itself. Nor is an ask that
+ * needs the person (./asks.ts): it pushed at once on its own, and the computer it's on shows its own pop-up.
+ */
 export const NUDGE_KINDS = ['reply', 'message', 'need'] as const satisfies readonly WaitingKind[];
 /**
  * What the bundled push tells of: messages and needs. A reply handed over pushed at once on its own (owner answer 15),
@@ -59,6 +66,11 @@ export type NeedClear = keyof typeof NEED_CLEARS;
 export const NEED_SHOWN_DAYS = 7;
 /** After Let it go, the same step for the same person isn't handed over again for a week. */
 export const NEED_QUIET_DAYS = 7;
+/**
+ * An open need off the list (not seen for `NEED_SHOWN_DAYS`) this many days more goes (the worker's
+ * `outreach.live_prune`): noted again after that, it's a new one, as it would be anyway.
+ */
+export const NEED_GONE_DAYS = 7;
 /** Requests that came in the last two weeks. */
 export const REQUEST_SHOWN_DAYS = 14;
 /** Needs and requests listed (each counted in full); messages are listed up to `SENDS_MOST`. */
@@ -177,6 +189,7 @@ export type WaitingKinds = Record<
 >;
 
 export const NO_KINDS: WaitingKinds = {
+  ask: { count: 0, newestAt: null },
   reply: { count: 0, newestAt: null },
   message: { count: 0, newestAt: null },
   need: { count: 0, newestAt: null },
@@ -185,7 +198,11 @@ export const NO_KINDS: WaitingKinds = {
 
 /** Everything waiting. */
 export const waitingCount = (kinds: WaitingKinds): number =>
-  kinds.reply.count + kinds.message.count + kinds.need.count + kinds.request.count;
+  kinds.ask.count +
+  kinds.reply.count +
+  kinds.message.count +
+  kinds.need.count +
+  kinds.request.count;
 
 /** What the bundled push tells of: messages and needs, not replies handed over (they pushed on their own). */
 export const nudgeCount = (kinds: WaitingKinds): number =>

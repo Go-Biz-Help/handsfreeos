@@ -1,7 +1,8 @@
 /**
  * Facebook's warnings seen today (docs/outreach.md, decision 25), kept in the extension's own storage, where the
- * panel (panel/warnings.ts) and the runner that works on its own (auto/run.ts) both look before doing anything: after
- * one, the extension does nothing more for the person that day.
+ * panel (panel/status.ts), the runner that works on its own (auto/run.ts) and what's asked from HandsFreeOS
+ * (asks/run.ts, which also listens for one kept while it goes) look before doing anything: after one, the extension
+ * does nothing more for the person on Facebook that day.
  */
 export const WARNED_KEY = 'hfos.warned';
 

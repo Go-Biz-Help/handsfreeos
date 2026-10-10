@@ -1,10 +1,11 @@
 /**
- * The Facebook tab the panel works in when the person asks it to press something for them: getting their file
- * (panel/fbfile.ts), cancelling old requests and unfriending (panel/tidy.ts), or scrolling their groups for Find posts
- * (panel/posts.ts). One tab per job, in view, reused from step to step while it's open. A quiet one opens out of view
- * and closes after: looking someone up before drafting (panel/lookup.ts), where nothing is pressed. The runner that
- * works on its own (auto/run.ts) has a window of its own, which it opens without taking the person's attention.
+ * The Facebook tab the extension works in. What the person asks of it from HandsFreeOS (asks/run.ts) that they may
+ * need to finish themselves (getting their file, where they type their password; cancelling old requests and
+ * unfriending) goes in a tab in view, reused from step to step while it's open, and brought to the front when a step
+ * is handed to them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts),
+ * and the rest of what's asked, have a window of their own, which opens without taking the person's attention.
  */
+import { workUrl } from './facebook/urls';
 import type {
   Answer,
   Ask,
@@ -46,8 +47,16 @@ export class WorkTab {
     );
   }
 
-  /** Opens an address in the tab: the one opened before when it's still there, else a new one. */
-  async open(url: string): Promise<number> {
+  /**
+   * Opens an address in the tab: the one opened before when it's still there, else a new one. Only Facebook's own
+   * pages (`workUrl`): anything else is refused, so a bad link kept or read never sends the tab elsewhere.
+   */
+  async open(href: string): Promise<number> {
+    const url = workUrl(href);
+    if (url === null)
+      throw new Error(
+        'That link isn’t a Facebook page, so the extension didn’t open it. Check the link in HandsFreeOS, then try again.',
+      );
     const active = this.place === 'view';
     if (this.id !== null) {
       try {
@@ -80,6 +89,14 @@ export class WorkTab {
     }
     await pause(DRAW_MS);
     return id;
+  }
+
+  /** Brings the tab, and its window, to the front: a step is handed to the person there. */
+  async focus(): Promise<void> {
+    if (this.id === null) return;
+    const tab = await chrome.tabs.update(this.id, { active: true }).catch(() => null);
+    if (tab?.windowId !== undefined)
+      await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
   }
 
   /** Closes the tab, when it's still open; for the runner, its whole window. */

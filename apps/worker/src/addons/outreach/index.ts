@@ -17,6 +17,7 @@ import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
+import { askProgressed } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
 import { needNoted, sendWaits, WAITING_PUSH_JOB, waitingPushJob } from './waiting';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
@@ -88,6 +89,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // pruning armed (./live.ts).
     'outreach.warning.seen': warningSeen,
     'outreach.live.changed': liveChanged,
+    // Something the person asked of their computer needs them: their phone hears it at once (./asks.ts).
+    'outreach.ask.progressed': askProgressed,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,

@@ -38,6 +38,7 @@ const friday10 = Date.UTC(2026, 9, 9, 15);
 const monday9 = Date.UTC(2026, 9, 12, 14);
 
 const kinds = (k: Partial<Record<keyof WaitingKinds, number>>): WaitingKinds => ({
+  ask: { count: k.ask ?? 0, newestAt: k.ask ? new Date(friday10).toISOString() : null },
   reply: { count: k.reply ?? 0, newestAt: k.reply ? new Date(friday10).toISOString() : null },
   message: {
     count: k.message ?? 0,
@@ -173,6 +174,9 @@ describe('the words', () => {
     expect(nudgeCount(kinds({ reply: 2 }))).toBe(0);
     expect(newestNudgeAt(kinds({ reply: 2 }))).toBeNull();
     expect(newestNudgeAt(kinds({ request: 2 }))).toBeNull();
+    // An ask that needs the person counts, and pushed at once on its own: never in a bundle.
+    expect(waitingCount(kinds({ ask: 1, reply: 1 }))).toBe(2);
+    expect(nudgeCount(kinds({ ask: 2 }))).toBe(0);
     expect(waitingWords(0)).toBe('Nothing waits for you.');
     expect(waitingWords(1)).toBe('1 thing waits for you.');
     expect(waitingWords(5)).toBe('5 things wait for you.');

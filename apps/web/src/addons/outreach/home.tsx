@@ -6,7 +6,8 @@
  * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, the business's playbooks, and
  * every setting the extension follows, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
- * (`app/w/[workspaceId]/a/outreach/page.tsx`).
+ * (`app/w/[workspaceId]/a/outreach/page.tsx`), with what the person asked their computer to do on it: the buttons
+ * on the Friends, Groups, Chats and Today tabs ask the computer (./asks.tsx), and Live lists them all.
  */
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
@@ -27,6 +28,7 @@ import { TodayView } from './today-view';
 import { WaitingView } from './waiting-view';
 import type {
   Activity,
+  Asks,
   Automation,
   AutomationPeople,
   Chats,
@@ -44,14 +46,27 @@ import type {
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
-  | { readonly view: 'live'; readonly live: Live; readonly team: LiveTeam | null }
+  | {
+      readonly view: 'live';
+      readonly live: Live;
+      readonly team: LiveTeam | null;
+      readonly asks: Asks;
+    }
   | { readonly view: 'waiting'; readonly waiting: Waiting }
-  | { readonly view: 'today'; readonly today: TodayList; readonly wheels: WheelsList | null }
+  | {
+      readonly view: 'today';
+      readonly today: TodayList;
+      readonly wheels: WheelsList | null;
+      readonly asks: Asks;
+    }
   | {
       readonly view: 'groups';
       readonly groups: Groups;
       readonly show: GroupView;
       readonly search: string;
+      readonly asks: Asks;
+      /** Find groups' box starts with these. */
+      readonly searchWords: string;
     }
   | {
       readonly view: 'friends';
@@ -59,6 +74,7 @@ export type OutreachShown =
       readonly tidy: Tidy;
       readonly show: FriendView;
       readonly search: string;
+      readonly asks: Asks;
     }
   | {
       readonly view: 'chats';
@@ -66,6 +82,7 @@ export type OutreachShown =
       readonly show: ChatView;
       readonly tag: string;
       readonly search: string;
+      readonly asks: Asks;
     }
   | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers }
   | {
@@ -148,17 +165,24 @@ export function OutreachHome({
           canManage={canManage}
         />
       ) : shown.view === 'live' ? (
-        <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} />
+        <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} asks={shown.asks} />
       ) : shown.view === 'waiting' ? (
         <WaitingView workspaceId={workspaceId} waiting={shown.waiting} />
       ) : shown.view === 'today' ? (
-        <TodayView workspaceId={workspaceId} today={shown.today} wheels={shown.wheels} />
+        <TodayView
+          workspaceId={workspaceId}
+          today={shown.today}
+          wheels={shown.wheels}
+          asks={shown.asks}
+        />
       ) : shown.view === 'groups' ? (
         <GroupsView
           workspaceId={workspaceId}
           groups={shown.groups}
           show={shown.show}
           search={shown.search}
+          asks={shown.asks}
+          searchWords={shown.searchWords}
         />
       ) : shown.view === 'friends' ? (
         <FriendsView
@@ -168,6 +192,7 @@ export function OutreachHome({
           tidy={shown.tidy}
           show={shown.show}
           search={shown.search}
+          asks={shown.asks}
         />
       ) : shown.view === 'chats' ? (
         <ChatsView
@@ -177,6 +202,7 @@ export function OutreachHome({
           tag={shown.tag}
           search={shown.search}
           canManage={canManage}
+          asks={shown.asks}
         />
       ) : shown.view === 'settings' ? (
         <SettingsView

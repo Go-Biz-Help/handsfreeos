@@ -85,13 +85,19 @@ export const DEMO_HOWS = { link: 'Booked through your link', marked: 'Marked by 
 export type DemoHow = keyof typeof DEMO_HOWS;
 
 /** The person marking a demo booked, or taking the mark off, from a profile in the extension. */
-export const DemoMarkInput = z.object({
-  workspaceId: z.uuid(),
-  platform: z.enum(PLATFORM_KEYS).default('facebook'),
-  profile: ProfileRef,
-  name: PersonName,
-  booked: z.boolean(),
-});
+export const DemoMarkInput = z
+  .object({
+    workspaceId: z.uuid(),
+    platform: z.enum(PLATFORM_KEYS).default('facebook'),
+    /** The profile kept here (the web's Today), or their profile on Facebook and their name. */
+    profileId: z.uuid().optional(),
+    profile: ProfileRef.optional(),
+    name: PersonName.optional(),
+    booked: z.boolean(),
+  })
+  .refine((i) => i.profileId !== undefined || (i.profile !== undefined && i.name !== undefined), {
+    error: 'Say who: the profile kept here, or their profile on Facebook and their name.',
+  });
 export type DemoMarkInput = z.input<typeof DemoMarkInput>;
 
 export const DemoMarkOutput = z.object({

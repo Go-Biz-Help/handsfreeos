@@ -1,6 +1,6 @@
 /**
  * Waiting for you (../waiting.ts, docs/outreach.md decisions 40 and 42): one list, worked out each time it's asked for,
- * of the messages waiting for the person's OK (replies handed over first), the steps the extension needs them for, and
+ * of what the person asked of their computer that waits on them there (decision 43), the messages waiting for the person's OK (replies handed over first), the steps the extension needs them for, and
  * the friend requests that are theirs to decide; and its actions: I did it and Let it go for a need, Leave it for a
  * request (a message's are `outreach.send.*`). The Live tab, the team view, the extension's icon and the pushes all
  * count what waits here (`waitingFor`), so they never disagree. Each person's are their own.
@@ -36,6 +36,7 @@ import {
   type WaitingNeed,
   type WaitingRequest,
 } from '../waiting';
+import { asksNeedingYou } from './ask-rows';
 import { automationOf } from './automation';
 import { inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
@@ -96,6 +97,8 @@ async function sendAndNeedKinds(
     k.message = { count: s.messages, newestAt: iso(s.messaged_at) };
   }
   for (const n of needed) kinds.get(n.user_id)!.need = { count: n.n, newestAt: iso(n.newest) };
+  for (const [userId, counted] of (await asksNeedingYou(ctx, userIds, now)).counts)
+    kinds.get(userId)!.ask = counted;
   return kinds;
 }
 
@@ -260,10 +263,13 @@ export const waiting = defineAddonQuery(outreachAddon, {
     const counted = kinds.get(me)!;
     const items: WaitingItem[] = [];
     if (input.items) {
-      const [waitingSends, needed] = await Promise.all([
+      const [waitingSends, needed, asked] = await Promise.all([
         listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'))),
         neededOf(ctx, me, now),
+        asksNeedingYou(ctx, [me], now, me),
       ]);
+      for (const ask of asked.items)
+        items.push({ kind: 'ask', at: ask.startedAt ?? ask.askedAt, ask });
       for (const send of waitingSends.filter((s) => s.handedOver))
         items.push({ kind: 'reply', at: send.createdAt, send });
       for (const send of waitingSends.filter((s) => !s.handedOver))

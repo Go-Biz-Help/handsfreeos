@@ -1,7 +1,8 @@
 /**
  * Openers on group posts (docs/outreach.md, decisions 18 to 20): posts in the business's groups worth a comment from
- * the person, found as they scroll a group with the extension's panel open, or by its **Find posts**, which scrolls
- * their groups' feeds itself. Browser-safe: the extension marks posts with these, and Today lists the good ones.
+ * the person, found as they scroll a group in the tab in front of them (Look for posts as I scroll a group), or by
+ * **Find posts**, asked from the Groups tab, which scrolls their groups' feeds itself. Browser-safe: the extension
+ * marks posts with these, and Today lists the good ones.
  *
  * - **Worth a look** (`postLook`): a post saying one of a playbook's signs (the words in quotes, or its words to
  *   search for groups), or asking for help ("Can anyone recommend…", "Looking for…"). A word from who to skip in it
@@ -30,7 +31,7 @@ export const COMMENT_DRAFTS = 2;
 /** What the AI made of a post: waiting to be read, good to comment on, not for the business, or couldn't be read. */
 export const POST_CHECKS = ['waiting', 'good', 'not', 'failed'] as const;
 export type PostCheck = (typeof POST_CHECKS)[number];
-/** How a post was found: as the person scrolled with the panel open, or by Find posts. */
+/** How a post was found: as the person scrolled, or by Find posts. */
 export const POST_FOUND = ['scroll', 'find'] as const;
 export type PostFound = (typeof POST_FOUND)[number];
 
@@ -128,7 +129,7 @@ export const PostsSaveInput = z.object({
 });
 export type PostsSaveInput = z.input<typeof PostsSaveInput>;
 
-/** How a post the page shows stands, for the panel to mark it. */
+/** How a post the page shows stands, for the extension to mark it. */
 export const PostMark = z.object({
   url: z.string(),
   /** Null: not worth a look, and not kept. */

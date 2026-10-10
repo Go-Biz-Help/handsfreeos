@@ -250,11 +250,18 @@ export const chatsList = defineAddonQuery(outreachAddon, {
       prospect: boolean | null;
       next_step: string | null;
       thread_key: string | null;
+      profile_id: string | null;
+      on_card: boolean;
     }>(
       ctx.tx,
       sql`select c.id, coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), c.name) as name,
             c.person_id, c.last_at, c.last_from_me, c.messages, c.read_state, c.summary, c.tags, c.prospect,
-            c.next_step, c.thread_key
+            c.next_step, c.thread_key, c.profile_id,
+            -- Saved to their card (outreach.chat.keep): by its number, or its own key while it had none.
+            exists (select 1 from addon_outreach.threads t
+                    where t.workspace_id = c.workspace_id and t.platform = c.platform
+                      and t.owner_user_id = c.user_id
+                      and t.thread_key in (coalesce(c.thread_key, 'file.' || c.id), 'file.' || c.id)) as on_card
           from addon_outreach.file_chats c left join app.people pp on pp.id = c.person_id
           where ${shown} order by c.last_at desc, c.id
           limit ${CHATS_PAGE} offset ${(page - 1) * CHATS_PAGE}`,
@@ -276,6 +283,8 @@ export const chatsList = defineAddonQuery(outreachAddon, {
         prospect: c.prospect,
         nextStep: c.next_step,
         threadKey: c.thread_key,
+        profileId: c.profile_id,
+        onCard: c.on_card,
       })),
       page,
       pages,

@@ -6,6 +6,7 @@
  * Browser-safe.
  */
 import { z } from 'zod';
+import { AskShown } from './asks';
 import { clipLine } from './live';
 import { PUSH_MODE_KEYS, WheelsState, WorkingHours } from './automation';
 import { FIT_LEVEL_KEYS } from './fit';
@@ -68,6 +69,7 @@ export const WaitingRequest = z.object({
 export type WaitingRequest = z.output<typeof WaitingRequest>;
 
 export const WaitingItem = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('ask'), at: z.iso.datetime(), ask: AskShown }),
   z.object({ kind: z.literal('reply'), at: z.iso.datetime(), send: Send }),
   z.object({ kind: z.literal('message'), at: z.iso.datetime(), send: Send }),
   z.object({ kind: z.literal('need'), at: z.iso.datetime(), need: WaitingNeed }),
@@ -84,7 +86,7 @@ const kind = z.object({
 export const WaitingOutput = z.object({
   /** Everything waiting: what the icon, the tab and the Live tab show. */
   count: z.number().int().min(0),
-  kinds: z.object({ reply: kind, message: kind, need: kind, request: kind }),
+  kinds: z.object({ ask: kind, reply: kind, message: kind, need: kind, request: kind }),
   /** In the list's order (`WAITING_KIND_KEYS`): empty when only the counts were asked for. */
   items: z.array(WaitingItem),
   /** Their training wheels, for Approve all's words. */

@@ -15,18 +15,19 @@
  *
  * And what waits for the person (decisions 40 and 42): a message drafted, OK'd or sent, a step handed over or done, a
  * friend request answered. Those go to ./waiting.ts, which asks again and keeps the icon's number and the pop-ups.
+ *
+ * And what the person asks of their computer from HandsFreeOS (decision 43): an ask made, stopped or answered. Those go
+ * to ../asks/run.ts, which takes and does them.
  */
 import { RealtimeClient, type RealtimeChannel } from '@supabase/realtime-js';
-import { NOTING_KEY } from '../messages';
+import { MARK_POSTS_KEY, NOTING_KEY, READ_CHATS_KEY } from '../messages';
 import { config } from './config';
-import { WAITING_EVENTS, type Automation } from './messages';
+import { ASK_EVENTS, WAITING_EVENTS, type Automation } from './messages';
 import { api, call, savingTo, token } from './session';
 
 /** The person's settings as last loaded, for the panel's summary. */
 export const SETTINGS_KEY = 'hfos.settings';
-/** The panel's chats and posts read these; this writes them. */
-export const READ_CHATS_KEY = 'hfos.readChats';
-export const MARK_POSTS_KEY = 'hfos.markPosts';
+export { MARK_POSTS_KEY, READ_CHATS_KEY };
 /** The changes that can move the person's settings. */
 const SETTINGS_EVENTS = new Set(['outreach.automation.saved', 'addon.settings_saved']);
 /**
@@ -50,6 +51,9 @@ let changed: () => void = () => undefined;
 let livened: (payload: Record<string, unknown>) => void = () => undefined;
 /** Called with a change that may move what waits for the person, for ./waiting.ts to look at. */
 let waited: (payload: Record<string, unknown>) => void = () => undefined;
+
+/** Called with an ask made, stopped or answered, for ../asks/run.ts. */
+let asked: (payload: Record<string, unknown>) => void = () => undefined;
 
 /** Writes what the content script and the panel read, from the settings. */
 async function apply(found: Automation): Promise<void> {
@@ -87,8 +91,10 @@ export async function follow(
   onChange?: () => void,
   onLive?: (payload: Record<string, unknown>) => void,
   onWaiting?: (payload: Record<string, unknown>) => void,
+  onAsk?: (payload: Record<string, unknown>) => void,
 ): Promise<void> {
   if (onChange) changed = onChange;
+  if (onAsk) asked = onAsk;
   if (onLive) livened = onLive;
   if (onWaiting) waited = onWaiting;
   if (!config.supabaseUrl || !config.supabasePublishableKey) return;
@@ -108,6 +114,7 @@ export async function follow(
     const type = message.payload?.type;
     // One change can be in two sets: the pushes choice saved also reloads the settings below.
     if (typeof type === 'string' && WAITING_EVENTS.has(type)) waited(message.payload!);
+    if (typeof type === 'string' && ASK_EVENTS.has(type)) return asked(message.payload!);
     if (typeof type === 'string' && LIVE_EVENTS.has(type)) return livened(message.payload!);
     if (typeof type !== 'string' || !SETTINGS_EVENTS.has(type)) return;
     void loadSettings(to.businessId)

@@ -399,7 +399,9 @@ export async function reachedPeople(
         ),
         -- When they first wrote back: the first-saved time of a message from them after one from us, in a chat
         -- with them saved here (by its customer, or the chat a message went in); a reply the extension saw
-        -- (decision 22); or a chat read in Messenger or brought in whose last message is theirs.
+        -- (decision 22); or a chat read in Messenger or brought in whose last message is theirs. Only what came
+        -- after outreach to them began counts: a chat saved to their card keeps each message's own time, which
+        -- can be years before it (outreach.chat.keep).
         wrote as (
           select p.id as profile_id, r.at
           from reached e
@@ -412,6 +414,7 @@ export async function reachedPeople(
             select min((x.m ->> 'savedAt')::timestamptz) as at
             from jsonb_array_elements(c.messages) with ordinality as x(m, i)
             where x.m ->> 'from' = 'them'
+              and (x.m ->> 'savedAt')::timestamptz > e.first_at
               and x.i > (select min(y.i) from jsonb_array_elements(c.messages) with ordinality as y(m, i)
                          where y.m ->> 'from' = 'me')
           ) r

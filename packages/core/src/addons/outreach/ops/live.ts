@@ -41,6 +41,7 @@ import { outreachAddon } from '../manifest';
 import { computers, days, liveSteps } from '../tables';
 import { todayLimits } from '../today';
 import { automationOf, everyoneAutomation } from './automation';
+import { asksWaiting } from './ask-rows';
 import { inWorkspace, type Ctx } from './common';
 import { businessToday, dayOf, dayShown, keepDay, writeLine } from './day';
 import { dayCounts } from './today';
@@ -85,7 +86,8 @@ function serverTime(iso: string | null, meta: RequestMeta, now: Date, ahead = fa
 const sameTime = (a: Date | null, b: Date | null) =>
   a === null || b === null ? a === b : Math.abs(a.getTime() - b.getTime()) < 5_000;
 
-async function mine(ctx: Ctx, me: string): Promise<Computer[]> {
+/** The person's computers. */
+export async function myComputers(ctx: Ctx, me: string): Promise<Computer[]> {
   return ctx.tx
     .select()
     .from(computers)
@@ -120,7 +122,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const now = new Date();
-    const before = await mine(ctx, me);
+    const before = await myComputers(ctx, me);
     const workingBefore = workingOf(before);
     let row = before.find((c) => c.installId === input.computer.id);
     const isNew = row === undefined;
@@ -144,7 +146,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
         })
         .onConflictDoNothing()
         .returning();
-      row = made ?? (await mine(ctx, me)).find((c) => c.installId === input.computer.id)!;
+      row = made ?? (await myComputers(ctx, me)).find((c) => c.installId === input.computer.id)!;
     } else {
       row = {
         ...row,
@@ -230,6 +232,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
       workingName: isWorking ? null : (working?.name ?? null),
       day: await dayOf(ctx, me, today),
       stepsKept: input.steps.map((s) => s.id),
+      asks: isWorking ? await asksWaiting(ctx, me, now.getTime()) : 0,
     };
   },
 });
@@ -267,7 +270,7 @@ async function setDay(
   }
   // Pressed in the extension: that computer is the one the person is using, so it works. When that makes a different
   // computer the one that works, the app and the person's other computers hear it at once, day changed or not.
-  const workingBefore = input.installId ? workingOf(await mine(ctx, me)) : null;
+  const workingBefore = input.installId ? workingOf(await myComputers(ctx, me)) : null;
   if (input.installId)
     await ctx.tx
       .update(computers)
@@ -282,7 +285,7 @@ async function setDay(
         ),
       );
   if (input.installId) {
-    const workingNow = workingOf(await mine(ctx, me));
+    const workingNow = workingOf(await myComputers(ctx, me));
     if (workingNow && workingNow.id !== workingBefore?.id)
       await ctx.emit({
         type: 'outreach.live.changed',
@@ -394,7 +397,7 @@ export const live = defineAddonQuery(outreachAddon, {
     const [warning, auto, all, day, counts, waiting] = await Promise.all([
       warningOf(ctx, me, todayStart, now),
       automationOf(ctx, me, now),
-      mine(ctx, me),
+      myComputers(ctx, me),
       dayOf(ctx, me, today),
       dayCounts(ctx, [me], todayStart),
       waitingFor(ctx, [me]),

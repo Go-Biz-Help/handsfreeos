@@ -35,7 +35,8 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import type { Live, LiveTeam } from './types';
+import { AskLine } from './asks';
+import type { Asks, Live, LiveTeam } from './types';
 import { useAct } from './use-act';
 
 const TONES: Record<ReturnType<typeof stateTone>, BadgeVariant> = {
@@ -83,15 +84,19 @@ export function LiveView({
   workspaceId,
   live,
   team,
+  asks,
 }: {
   workspaceId: string;
   live: Live;
   /** Everyone's status, for owners and admins. */
   team: LiveTeam | null;
+  /** What the person asked their computer to do from here: today's and the open ones. */
+  asks: Asks;
 }) {
   useLiveRefresh(
     [
       'outreach_computer',
+      'outreach_ask',
       'outreach_need',
       'outreach_day',
       'outreach_profile',
@@ -107,6 +112,7 @@ export function LiveView({
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]" data-testid="outreach-live">
       <div className="grid content-start gap-4">
         <RightNow workspaceId={workspaceId} live={live} now={now} />
+        <AskedCard workspaceId={workspaceId} asks={asks} />
         <StepsCard live={live} />
         {team ? <TeamCard team={team} now={now} /> : null}
       </div>
@@ -247,6 +253,29 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           {said}
         </p>
       ) : null}
+    </Card>
+  );
+}
+
+/** What the person asked their computer to do from the other tabs, today's and the open ones, each as it goes. */
+function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
+  return (
+    <Card className="p-4" data-testid="live-asks">
+      <h3 className="text-[15px] font-semibold">Asked of your computer</h3>
+      {asks.asks.length ? (
+        <ul className="mt-3 grid gap-2">
+          {asks.asks.map((a) => (
+            <li key={a.askId} data-testid="live-ask">
+              <AskLine workspaceId={workspaceId} asks={asks} ask={a} named />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-[13px] text-text-2" data-testid="live-asks-empty">
+          Nothing asked today. The buttons on the Friends, Groups, Chats and Today tabs ask your
+          computer to do things on Facebook for you.
+        </p>
+      )}
     </Card>
   );
 }

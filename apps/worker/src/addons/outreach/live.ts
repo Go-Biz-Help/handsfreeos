@@ -4,11 +4,23 @@
  * - **A Facebook warning** (`outreach.warning.seen`) pushes to the person's phone: "Facebook showed a warning. The
  *   extension stopped for today." Once per person a business day, to them alone, on their add-ons switch; it opens
  *   the Live tab.
- * - **The feed is kept a week** (`outreach.live_prune`, one job a business, each day): older lines go. It's armed
- *   when the add-on comes on, and when a computer is new to HandsFreeOS (`outreach.live.changed` with `made`), so
- *   a business that had the add-on before it gets one too.
+ * - **The feed is kept a week** (`outreach.live_prune`, one job a business, each day): older lines go, asks of
+ *   the extension asked a week ago (decision 43), needs done, let go or no longer shown a while since, and computers
+ *   not seen for a month but each person's working one. It's armed when the add-on comes on, and when a computer is
+ *   new to HandsFreeOS (`outreach.live.changed` with `made`), so a business that had the add-on before it gets one
+ *   too.
  */
-import { LIVE_KEEP_DAYS, warningPushWords } from '@hfos/core/addons/outreach/live';
+import { ASK_KEEP_DAYS } from '@hfos/core/addons/outreach/asks';
+import {
+  COMPUTER_KEEP_DAYS,
+  LIVE_KEEP_DAYS,
+  warningPushWords,
+} from '@hfos/core/addons/outreach/live';
+import {
+  NEED_GONE_DAYS,
+  NEED_QUIET_DAYS,
+  NEED_SHOWN_DAYS,
+} from '@hfos/core/addons/outreach/waiting-words';
 import { localDateOf } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
@@ -73,15 +85,47 @@ export async function liveChanged(ctx: AddonEventContext): Promise<void> {
   if (p.made === true) await armPrune(ctx);
 }
 
-/** `outreach.live_prune`: lines older than a week go, and it comes back tomorrow. */
+/**
+ * `outreach.live_prune`: lines older than a week go, and so do asks of the extension asked a week ago (decision 43);
+ * needs done or let go more than `NEED_QUIET_DAYS` ago (Let it go keeps a step quiet that long, no more), and open ones
+ * not seen for `NEED_SHOWN_DAYS` and `NEED_GONE_DAYS` more (off the list a while; noted again, one is new anyway);
+ * and computers not seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
+ * `workingOf`): their lines went with the week already, and an ask one took keeps no computer. Seen again, a computer
+ * comes back as new. It comes back tomorrow.
+ */
 export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
   const before = new Date(ctx.now - LIVE_KEEP_DAYS * DAY).toISOString();
-  await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows(
+  const asked = new Date(ctx.now - ASK_KEEP_DAYS * DAY).toISOString();
+  const unseen = new Date(ctx.now - COMPUTER_KEEP_DAYS * DAY).toISOString();
+  const cleared = new Date(ctx.now - NEED_QUIET_DAYS * DAY).toISOString();
+  const offList = new Date(ctx.now - (NEED_SHOWN_DAYS + NEED_GONE_DAYS) * DAY).toISOString();
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    await rows(
       tx,
       sql`delete from addon_outreach.live_steps
           where workspace_id = ${ctx.scope.workspaceId} and at < ${before}::timestamptz`,
-    ),
-  );
+    );
+    await rows(
+      tx,
+      sql`delete from addon_outreach.asks
+          where workspace_id = ${ctx.scope.workspaceId} and asked_at < ${asked}::timestamptz`,
+    );
+    await rows(
+      tx,
+      sql`delete from addon_outreach.needs
+          where workspace_id = ${ctx.scope.workspaceId}
+            and ((state <> 'open' and cleared_at < ${cleared}::timestamptz)
+              or (state = 'open' and seen_at < ${offList}::timestamptz))`,
+    );
+    await rows(
+      tx,
+      sql`delete from addon_outreach.computers c
+          where c.workspace_id = ${ctx.scope.workspaceId} and c.last_seen_at < ${unseen}::timestamptz
+            and c.id <> (select w.id from addon_outreach.computers w
+              where w.workspace_id = c.workspace_id and w.user_id = c.user_id
+              order by w.state = 'signed_out', w.active_at desc nulls last, w.last_seen_at desc, w.id
+              limit 1)`,
+    );
+  });
   return { rescheduleAt: new Date(ctx.now + DAY) };
 }

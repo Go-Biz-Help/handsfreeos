@@ -235,10 +235,10 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
   },
 });
 
-/** The profile `friend.set` is about: the one kept here, or the one on the page, kept now when it's new. */
-async function profileToSet(
+/** The profile `friend.set` and `demo.mark` are about: the one kept here, or the one on the page, kept now when it's new. */
+export async function profileToSet(
   ctx: CommandContext,
-  input: FriendSetInput & { readonly platform: Platform },
+  input: Pick<FriendSetInput, 'profileId' | 'profile' | 'name'> & { readonly platform: Platform },
   me: string,
   at: Date,
 ): Promise<Profile> {

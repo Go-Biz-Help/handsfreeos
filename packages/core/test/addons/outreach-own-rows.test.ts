@@ -1,8 +1,8 @@
 /**
  * Social Outreach: each person's own rows stay their own on the database, not only in the operations. A member reads
- * and writes only their own computers, day, feed, needs and pushes; owners and admins may read the team's computers,
- * days and needs, for the team's status and how many wait, but never change them, and never read anyone's feed or
- * pushes.
+ * and writes only their own computers, day, feed, needs, pushes and asks. Owners and admins may read the team's days,
+ * which hold no words, and see the team's computers and how many needs and asks wait only through private functions
+ * that give status and counts, never a line, a need or a drafted message. Nobody changes a colleague's.
  */
 import { randomUUID } from 'node:crypto';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -89,6 +89,11 @@ beforeAll(async () => {
       admin(),
       sql`insert into addon_outreach.waiting_pushes (workspace_id, user_id, pushed_at)
           values (${ws}, ${u.id}, now())`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.asks (workspace_id, user_id, kind, via, asked_at, task)
+          values (${ws}, ${u.id}, 'unfriend', 'web', now(), '{"names": ["Avery Lane"]}')`,
     );
   }
 });
@@ -228,5 +233,62 @@ describe('needs and pushes, on the database', () => {
             where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
       ),
     ).toBe(0);
+  });
+});
+
+describe('asks, on the database', () => {
+  it('show each person only their own, owners and admins included, and count the team’s on the database', async () => {
+    // Riley's look-up, stuck at their computer, with the AI's drafts for Avery Lane.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.asks
+            (workspace_id, user_id, kind, via, state, asked_at, started_at, computer_id, line, result)
+          select ${ws}, ${riley.id}, 'lookup', 'web', 'stuck', now(), now(), c.id, 'Looking up Avery Lane',
+            '{"drafts": ["Hi Avery! Saw your post in Austin Makers."]}'
+          from addon_outreach.computers c where c.workspace_id = ${ws} and c.user_id = ${riley.id}`,
+    );
+    expect(await seenBy(riley, 'asks')).toEqual([riley.id, riley.id]);
+    expect(await seenBy(owner, 'asks')).toEqual([owner.id]);
+    // Not even named: the owner can't read Riley's drafted messages.
+    expect(
+      await asUser(api(), owner.claims, (tx) =>
+        rows(
+          tx,
+          sql`select result, task, line from addon_outreach.asks
+              where workspace_id = ${ws} and user_id = ${riley.id}`,
+        ),
+      ),
+    ).toEqual([]);
+    const counted = (u: TestUser, users: TestUser[]) =>
+      asUser(api(), u.claims, (tx) =>
+        rows<{ user_id: string; n: number }>(
+          tx,
+          sql`select user_id, n from private.outreach_asks_waiting(${ws}::uuid,
+                ${`{${users.map((x) => x.id).join(',')}}`}::uuid[], '{stuck,typing}'::text[],
+                now() - interval '3 minutes', now() - interval '6 hours')`,
+        ),
+      );
+    expect(await counted(owner, [owner, riley, dana])).toEqual([{ user_id: riley.id, n: 1 }]);
+    expect(await counted(riley, [riley])).toEqual([{ user_id: riley.id, n: 1 }]);
+    expect(await counted(dana, [riley])).toEqual([]);
+  });
+
+  it('let nobody ask for a colleague, or change a colleague’s, owners included', async () => {
+    for (const u of [riley, owner]) {
+      expect(
+        await tried(
+          u,
+          sql`insert into addon_outreach.asks (workspace_id, user_id, kind, via, asked_at)
+              values (${ws}, ${dana.id}, 'unfriend', 'web', now()) returning id`,
+        ),
+      ).toBe('refused');
+      expect(
+        await tried(
+          u,
+          sql`update addon_outreach.asks set state = 'cancelled', ended_at = now()
+              where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
+        ),
+      ).toBe(0);
+    }
   });
 });

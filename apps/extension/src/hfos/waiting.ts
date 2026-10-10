@@ -222,7 +222,8 @@ async function clearPopUps(): Promise<void> {
   }
 }
 
-async function popUp(shown: PopUp): Promise<void> {
+/** Shows a pop-up; one with the same id replaces it. Also for a step an ask hands the person (../asks/run.ts). */
+export async function popUp(shown: PopUp): Promise<void> {
   try {
     await chrome.notifications.create(shown.id, {
       type: 'basic',

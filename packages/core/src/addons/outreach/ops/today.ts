@@ -178,6 +178,8 @@ export const today = defineAddonQuery(outreachAddon, {
       playbookName: null,
       demoLink: null,
       send: null,
+      personId: null,
+      demoBooked: false,
       ...more,
     });
     // The demo link for a message (decision 24): the first playbook in use with a link, by name.
@@ -510,11 +512,29 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list.
     const drafted = await sendsToday(ctx, me, todayFrom);
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each.
+    const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
+    const known = profileIds.length
+      ? await rows<{ id: string; person_id: string | null; marked: boolean }>(
+          ctx.tx,
+          sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
+                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked
+              from addon_outreach.profiles p
+              where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
+        )
+      : [];
+    const knownOf = new Map(known.map((k) => [k.id, k]));
     const listedItems = items
       .filter((i) => !drafted.off(i.profileId, i.kind))
       .map((i) => {
         const send = drafted.open(i.profileId, i.kind);
-        return send ? { ...i, send } : i;
+        const k = i.profileId ? knownOf.get(i.profileId) : undefined;
+        return {
+          ...i,
+          personId: k?.person_id ?? null,
+          demoBooked: k?.marked ?? false,
+          ...(send ? { send } : {}),
+        };
       });
     return {
       limits,

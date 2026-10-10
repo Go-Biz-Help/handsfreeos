@@ -111,6 +111,7 @@ const kept = (more: Partial<Kept> = {}): Kept => ({
   workingName: null,
   day: day('started'),
   stepsKept: [],
+  asks: 0,
   ...ME,
   at: Date.now(),
   ...more,
@@ -121,11 +122,15 @@ const beatAnswer = (more: Partial<Kept> = {}) => {
 };
 const runner = (more: Partial<AutoState> = {}): AutoState => ({ ...freshState(DAY), ...more });
 
+/** Listeners each test adds, taken away after it. */
+const listening: (() => void)[] = [];
+const listen = (fn: (halt: boolean) => void) => listening.push(onWake(fn));
+
 beforeEach(() => {
   store.clear();
   posted.length = 0;
   answers = {};
-  onWake(() => undefined);
+  for (const stop of listening.splice(0)) stop();
 });
 
 describe('a press in the panel', () => {
@@ -185,7 +190,7 @@ describe('the beat', () => {
 
   it('has the runner end what it’s doing when the day was stopped in the app', async () => {
     const woke: boolean[] = [];
-    onWake((halt) => woke.push(halt));
+    listen((halt) => woke.push(halt));
     store.set(LIVE_KEY, kept({ day: day('started') }));
     store.set(AUTO_STATE_KEY, runner({ started: true, working: true }));
     answers['/v1/commands/outreach.live.beat'] = {
@@ -198,7 +203,7 @@ describe('the beat', () => {
 
   it('has the runner stand by when another computer works now', async () => {
     const woke: boolean[] = [];
-    onWake((halt) => woke.push(halt));
+    listen((halt) => woke.push(halt));
     store.set(LIVE_KEY, kept());
     store.set(AUTO_STATE_KEY, runner({ started: true, working: true }));
     answers['/v1/commands/outreach.live.beat'] = {
@@ -209,9 +214,25 @@ describe('the beat', () => {
     expect(woke).toEqual([true]);
   });
 
+  it('tells the runner and the ask under way alike: one never takes the other’s place', async () => {
+    const runnerHeard: boolean[] = [];
+    const askHeard: boolean[] = [];
+    listen((halt) => runnerHeard.push(halt));
+    listen((halt) => askHeard.push(halt));
+    store.set(LIVE_KEY, kept({ day: day('started') }));
+    store.set(AUTO_STATE_KEY, runner({ started: true, working: true }));
+    answers['/v1/commands/outreach.live.beat'] = {
+      status: 200,
+      data: beatAnswer({ day: day('stopped', 'person') }),
+    };
+    await beat(true);
+    expect(runnerHeard).toEqual([true]);
+    expect(askHeard).toEqual([true]);
+  });
+
   it('wakes a computer chosen to work again without stopping it', async () => {
     const woke: boolean[] = [];
-    onWake((halt) => woke.push(halt));
+    listen((halt) => woke.push(halt));
     store.set(LIVE_KEY, kept({ working: false, workingName: 'Chrome on Mac' }));
     store.set(AUTO_STATE_KEY, runner({ started: true }));
     answers['/v1/commands/outreach.live.beat'] = { status: 200, data: beatAnswer() };

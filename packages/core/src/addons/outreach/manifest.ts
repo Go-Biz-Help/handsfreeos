@@ -106,6 +106,12 @@ export const outreachAddon = defineAddon({
       'outreach.need.noted',
       'outreach.need.cleared',
       'outreach.request.set_aside',
+      'outreach.ask.made',
+      'outreach.ask.started',
+      'outreach.ask.progressed',
+      'outreach.ask.replied',
+      'outreach.ask.cancelled',
+      'outreach.ask.ended',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
@@ -113,7 +119,8 @@ export const outreachAddon = defineAddon({
     // moves the morning push (./alerts.ts) and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's pruning
     // armed (decision 41, ./live.ts). A message waiting for the person's OK, and a step the extension needs them for,
-    // reach their phone as their pushes setting says (decision 40, ./waiting.ts).
+    // reach their phone as their pushes setting says (decision 40, ./waiting.ts). An ask that first needs the person
+    // pushes to them at once (decision 43, ./asks.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -125,6 +132,7 @@ export const outreachAddon = defineAddon({
       'outreach.warning.seen',
       'outreach.live.changed',
       'outreach.need.noted',
+      'outreach.ask.progressed',
     ],
   },
   jobs: [
@@ -140,6 +148,7 @@ export const outreachAddon = defineAddon({
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
+    'asks',
     'automation',
     'computers',
     'days',

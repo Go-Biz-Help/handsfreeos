@@ -11,6 +11,8 @@
  * - **The feed:** each step the runner takes waits here, with its own id, until a beat's answer says HandsFreeOS has
  *   it. Lines, a waiting press and the last answer each say whose they are (the person and the business), so one
  *   person's never goes as another's, nor to another business.
+ * - **What the person asks of this computer** (decision 43): the beat's answer says how many asks wait for it, so one
+ *   missed on the live channel still starts (../asks/run.ts).
  * - **Start my day and Stop for today** pressed in the panel go to HandsFreeOS (`outreach.day.start|stop`) with this
  *   computer's id. With no connection the press waits, keeping its moment, and goes with the next beat; one refused
  *   for good is let go.
@@ -244,12 +246,32 @@ export async function computer(): Promise<{ id: string; name: string; version: s
 // ------------------------------------------------------------------------------------------------- the beat
 
 /**
- * Called when a beat's answer means the runner should look again (../auto/run.ts sets it); `halt` when what it's
- * doing should end now.
+ * Told when a beat's answer means the runner should look again (../auto/run.ts), and the ask under way
+ * (../asks/run.ts); `halt` when what they're doing should end now. Each listener is told; the call returns a way to
+ * stop listening.
  */
-let wake: (halt: boolean) => void = () => undefined;
-export function onWake(fn: (halt: boolean) => void): void {
-  wake = fn;
+const wakes = new Set<(halt: boolean) => void>();
+export function onWake(fn: (halt: boolean) => void): () => void {
+  wakes.add(fn);
+  return () => void wakes.delete(fn);
+}
+const wake = (halt: boolean) => {
+  for (const fn of wakes) {
+    try {
+      fn(halt);
+    } catch (error) {
+      console.error('HandsFreeOS Social couldn’t wake what’s under way', error);
+    }
+  }
+};
+
+/**
+ * Told of every beat sent (../asks/run.ts: asks may wait for this computer, and ends not yet taken go with it). Never
+ * awaited: a beat doesn't wait for what's under way.
+ */
+let answered: (kept: Kept) => void = () => undefined;
+export function onBeat(fn: (kept: Kept) => void): void {
+  answered = fn;
 }
 
 let told: Told | null = null;
@@ -380,6 +402,7 @@ async function beatOnce(
   await write({ [LIVE_KEY]: next });
   const then = wakeFor(kept, next, state, await pressWaiting(place));
   if (then.wake) wake(then.halt);
+  answered(next);
   return next;
 }
 
@@ -446,9 +469,22 @@ export async function liveNow(place: Place): Promise<Kept | null> {
 
 /**
  * Start my day or Stop for today, pressed here: kept in HandsFreeOS, which this computer then works for. With no
- * connection it waits and goes with the next beat.
+ * connection it waits and goes with the next beat. Stop for today ends what's under way here at once, whatever
+ * HandsFreeOS says (the runner's step, and an ask: ../asks/run.ts), as a beat's answer that stops the day does.
  */
 export async function pressDay(
+  kind: Press['kind'],
+): Promise<
+  | { readonly kind: 'done'; readonly day: LiveDay }
+  | { readonly kind: 'waiting' }
+  | { readonly kind: 'refused'; readonly problem: Problem }
+> {
+  const pressed = await sendDay(kind);
+  if (kind === 'stop') wake(true);
+  return pressed;
+}
+
+async function sendDay(
   kind: Press['kind'],
 ): Promise<
   | { readonly kind: 'done'; readonly day: LiveDay }

@@ -33,3 +33,9 @@ export type LiveTeam = Ok<'/v1/queries/outreach.live.team'>;
  */
 export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
 export type WaitingItem = Waiting['items'][number];
+/**
+ * What the person asked their computer to do from HandsFreeOS, today's and the open ones, with the computer that does
+ * them (packages/core/src/addons/outreach/asks.ts).
+ */
+export type Asks = Ok<'/v1/queries/outreach.asks'>;
+export type Ask = Asks['asks'][number];

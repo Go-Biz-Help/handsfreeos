@@ -28,9 +28,14 @@
  * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
  * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
  * recently used computer works; on any other it stands by and says why.
+ *
+ * It takes turns on Facebook with what the person asks of the extension from HandsFreeOS (../asks/run.ts, decision
+ * 43), through ./turns.ts: an ask goes first, and the runner carries on after.
  */
 import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
+import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
+import { pastLimitWords } from '@hfos/core/addons/outreach/limits';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { AUTO_PLANS, MESSAGE_PATH, sameRef, type AutoJob } from '../facebook/auto';
 import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
@@ -50,12 +55,22 @@ import type {
 } from '../hfos/messages';
 import { config } from '../hfos/config';
 import { follow, loadSettings } from '../hfos/follow';
-import { beatSoon, dayChange, feed, liveNow, onWake, pressDay, pressWaiting } from '../hfos/live';
+import {
+  beatSoon,
+  dayChange,
+  feed,
+  keptFor,
+  liveNow,
+  onWake,
+  pressDay,
+  pressWaiting,
+} from '../hfos/live';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
 import { DAILY_DOING, DAILY_NAMES, runDaily } from './daily';
+import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
   freshState,
@@ -87,8 +102,12 @@ const KEEP_WINDOW_MS = 5 * 60_000;
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, or nobody has picked a business, it looks again this often. */
 const LOOK_AGAIN_MS = 30 * 60_000;
+/** While an ask the person made goes first, the runner looks again after this. */
+const ASK_FIRST_MS = 2 * 60_000;
 
 const tab = new WorkTab('window');
+/** The runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
+export const runnerTabId = (): number | null => tab.tabId;
 let busy = false;
 /**
  * Stop for today was pressed (here, in the app or on the phone), or another computer works now: a once-a-day job
@@ -704,9 +723,15 @@ async function go(): Promise<void> {
     return goAt(tomorrow());
   }
 
+  // What the person asked from HandsFreeOS goes first (../asks/run.ts): the runner looks again in a couple of minutes.
+  if (askInLine()) {
+    await say(ASK_FIRST_WORDS);
+    return goAt(at + ASK_FIRST_MS);
+  }
+
   const daily = settings.collect ? nextDaily(state) : null;
   if (daily) {
-    const end = await collect(daily, to.businessId);
+    const end = await inTurn('runner', () => collect(daily, to.businessId));
     if (end.warned) {
       await closeWindow();
       await say(end.line, { stopped: 'warning' });
@@ -744,7 +769,7 @@ async function go(): Promise<void> {
   await say(doing(work), { working: true });
   let outcome: Outcome;
   try {
-    outcome = await doWork(work, to.businessId);
+    outcome = await inTurn('runner', () => doWork(work, to.businessId));
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;
@@ -821,7 +846,7 @@ export async function tick(): Promise<void> {
 }
 
 // A beat's answer that moves the day, or which computer works, has it look again. One that ends what it's doing
-// (stopped in the app, or another computer works now) ends a once-a-day job under way at its next page, and has it
+// (stopped in the app or in the panel, or another computer works now) ends a once-a-day job under way at its next page, and has it
 // look again as soon as the step under way is done.
 onWake((halt) => {
   if (halt) stopAsked = true;
@@ -837,30 +862,60 @@ export async function wake(): Promise<void> {
 
 // ------------------------------------------------------------------------------------------------- the panel
 
+/**
+ * The warning when the person's own steps today go past a daily limit: the limits count, they don't
+ * stop, so the panel says so where the steps happen. Null within them, or when HandsFreeOS can't say.
+ */
+async function pastLimitOf(businessId: string): Promise<string | null> {
+  try {
+    const day = await call(
+      api().POST('/v1/queries/outreach.activity', {
+        body: { workspaceId: businessId, period: 'today' },
+      }),
+      businessId,
+    );
+    return pastLimitWords(day.today, day.limits);
+  } catch {
+    return null;
+  }
+}
+
 async function status(): Promise<AutoStatus> {
   const noting = await isNoting();
   const to = await savingTo();
   const state = await stateNow();
   const webUrl = config.webUrl;
-  if (!to) return { automation: null, trouble: null, businessId: null, noting, state, webUrl };
+  const warned = (await warnedNow())?.words ?? null;
+  const none = {
+    automation: null,
+    trouble: null,
+    live: null,
+    pastLimit: null,
+    warned,
+    noting,
+    state,
+    webUrl,
+  };
+  if (!to) return { ...none, businessId: null };
+  const kept = await keptFor(to);
+  const live = kept ? { working: kept.working, workingName: kept.workingName } : null;
+  const pastLimit = pastLimitOf(to.businessId);
   try {
     return {
+      ...none,
       automation: await automationOf(to.businessId),
-      trouble: null,
       businessId: to.businessId,
-      noting,
-      state,
-      webUrl,
+      live,
+      pastLimit: await pastLimit,
     };
   } catch (error) {
     if (!(error instanceof Refused)) throw error;
     return {
-      automation: null,
+      ...none,
       trouble: error.problem.message,
       businessId: to.businessId,
-      noting,
-      state,
-      webUrl,
+      live,
+      pastLimit: await pastLimit,
     };
   }
 }

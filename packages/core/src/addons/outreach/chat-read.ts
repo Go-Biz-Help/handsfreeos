@@ -247,6 +247,10 @@ export const ChatsOutput = z.object({
       nextStep: z.string().nullable(),
       /** The chat's number from its link, once it's been read in Messenger: it opens there. */
       threadKey: z.string().nullable(),
+      /** Who it's with, kept as a profile: Add to Contacts, Demo booked and Don't pitch are for them. */
+      profileId: z.uuid().nullable(),
+      /** Saved to the customer's Social card (`outreach.chat.keep`). */
+      onCard: z.boolean(),
     }),
   ),
   page: count.min(1),

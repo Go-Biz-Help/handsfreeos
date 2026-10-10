@@ -5777,6 +5777,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.ask.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person stops something they asked of their computer: one waiting never starts, and one under way stops at its next page.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.cancelled.
+         */
+        post: operations["command_outreach_ask_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.ask.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension says how an ask ended: done, or why it didn’t finish, with a look-up’s drafts. One the person stopped stays stopped.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.ended. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_ask_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.ask.make": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, or look someone up before drafting. The computer that works for them takes it. Asking again while one like it is open answers that one.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made.
+         */
+        post: operations["command_outreach_ask_make"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.ask.progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, or their password). Answers whether the person stopped it, and their answer to a step handed to them.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.progressed.
+         */
+        post: operations["command_outreach_ask_progress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.ask.reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person answers a step their computer handed to them: Carry on (they did it, or it should look again), or Skip (that person).
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.replied.
+         */
+        post: operations["command_outreach_ask_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.ask.take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension on the person’s computer that works takes the oldest thing they asked of it from HandsFreeOS. A computer standing by takes nothing. On a day Facebook warned them, asks that would open Facebook end instead.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.started, outreach.ask.ended.
+         */
+        post: operations["command_outreach_ask_take"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.automation.save": {
         parameters: {
             query?: never;
@@ -5791,6 +5911,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.automation.saved.
          */
         post: operations["command_outreach_automation_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.chat.keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save to their card: copy a chat brought in from Messenger or Facebook’s file onto the customer’s Social card, adding the messages it hadn’t saved before. Finds the customer from the chat or its profile, or takes the one picked, or adds them when asked.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved.
+         */
+        post: operations["command_outreach_chat_keep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6211,6 +6351,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.profile.contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add to Contacts: someone the person reached, kept as a profile, becomes a customer in Contacts with Facebook as their source, or is tied to the customer the person says they are.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
+         */
+        post: operations["command_outreach_profile_contact"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15931,6 +16091,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.asks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person asked their computer to do from HandsFreeOS: the ones still open and today’s, newest first, each with how it’s going or how it ended; and the computer that works for them, whether it’s on.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_asks"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31995,6 +32175,455 @@ export interface operations {
             };
         };
     };
+    command_outreach_ask_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ask: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            computerName: string | null;
+                            endedAt: string | null;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            line: string | null;
+                            reply: ("carry_on" | "skip") | null;
+                            result: {
+                                drafts: string[];
+                                /** @default false */
+                                lookedUp: boolean;
+                                /** @default null */
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** @default false */
+                                simple: boolean;
+                            } | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            target: string;
+                            /** @enum {string} */
+                            via: "web" | "mobile" | "extension";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    line: string;
+                    /** @default null */
+                    result?: {
+                        drafts: string[];
+                        /** @default false */
+                        lookedUp?: boolean;
+                        /** @default null */
+                        opener?: {
+                            /** @enum {string} */
+                            kind: "style" | "own";
+                            /** Format: uuid */
+                            playbookId: string;
+                            text: string;
+                        } | null;
+                        /** @default false */
+                        simple?: boolean;
+                    } | null;
+                    /** @enum {string} */
+                    state: "done" | "failed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_make: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ask: {
+                        /** @enum {string} */
+                        kind: "file_request";
+                    } | {
+                        /** @enum {string} */
+                        kind: "file_download";
+                    } | {
+                        /** @enum {string} */
+                        kind: "file_backup";
+                    } | {
+                        /** @enum {string} */
+                        kind: "file_in";
+                    } | {
+                        /** @enum {string} */
+                        kind: "requests";
+                    } | {
+                        /** @enum {string} */
+                        kind: "friends";
+                    } | {
+                        /** @enum {string} */
+                        kind: "groups";
+                    } | {
+                        /** @enum {string} */
+                        kind: "chats";
+                    } | {
+                        /** @enum {string} */
+                        kind: "group_search";
+                        words: string;
+                    } | {
+                        groupIds?: string[];
+                        /** @enum {string} */
+                        kind: "members";
+                        url?: string;
+                    } | {
+                        groupIds?: string[];
+                        /** @enum {string} */
+                        kind: "posts";
+                    } | {
+                        /** @enum {string} */
+                        kind: "cancel";
+                        profileIds: string[];
+                    } | {
+                        /** @enum {string} */
+                        kind: "unfriend";
+                        profileIds: string[];
+                    } | {
+                        draft: {
+                            /** @default null */
+                            chatId?: string | null;
+                            /** @enum {string} */
+                            kind: "opener" | "follow_up" | "reply" | "comment";
+                            /** @default null */
+                            postId?: string | null;
+                            /** @default null */
+                            profileId?: string | null;
+                        };
+                        /** @enum {string} */
+                        kind: "lookup";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ask: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            computerName: string | null;
+                            endedAt: string | null;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            line: string | null;
+                            reply: ("carry_on" | "skip") | null;
+                            result: {
+                                drafts: string[];
+                                /** @default false */
+                                lookedUp: boolean;
+                                /** @default null */
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** @default false */
+                                simple: boolean;
+                            } | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            target: string;
+                            /** @enum {string} */
+                            via: "web" | "mobile" | "extension";
+                        };
+                        fresh: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    line: string;
+                    /** @enum {string} */
+                    state: "working" | "stuck" | "typing";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cancelled: boolean;
+                        reply: ("carry_on" | "skip") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    /** @enum {string} */
+                    reply: "carry_on" | "skip";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ask: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            computerName: string | null;
+                            endedAt: string | null;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            line: string | null;
+                            reply: ("carry_on" | "skip") | null;
+                            result: {
+                                drafts: string[];
+                                /** @default false */
+                                lookedUp: boolean;
+                                /** @default null */
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** @default false */
+                                simple: boolean;
+                            } | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            target: string;
+                            /** @enum {string} */
+                            via: "web" | "mobile" | "extension";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_take: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    installId: string;
+                    /** @default null */
+                    underway?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ask: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            task: {
+                                /** @enum {string} */
+                                kind: "file_request";
+                            } | {
+                                /** @enum {string} */
+                                kind: "file_download";
+                            } | {
+                                /** @enum {string} */
+                                kind: "file_backup";
+                            } | {
+                                /** @enum {string} */
+                                kind: "file_in";
+                            } | {
+                                /** @enum {string} */
+                                kind: "requests";
+                            } | {
+                                /** @enum {string} */
+                                kind: "friends";
+                            } | {
+                                /** @enum {string} */
+                                kind: "groups";
+                            } | {
+                                /** @enum {string} */
+                                kind: "chats";
+                            } | {
+                                /** @enum {string} */
+                                kind: "group_search";
+                                words: string;
+                            } | {
+                                groups: {
+                                    adminsRead: boolean;
+                                    groupId: string | null;
+                                    name: string | null;
+                                    people: number;
+                                    url: string;
+                                }[] | null;
+                                /** @enum {string} */
+                                kind: "members";
+                            } | {
+                                groups: {
+                                    adminsRead: boolean;
+                                    groupId: string | null;
+                                    name: string | null;
+                                    people: number;
+                                    url: string;
+                                }[] | null;
+                                /** @enum {string} */
+                                kind: "posts";
+                            } | {
+                                /** @enum {string} */
+                                kind: "cancel";
+                                profileIds: string[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "unfriend";
+                                profileIds: string[];
+                            } | {
+                                draft: {
+                                    chatId: string | null;
+                                    /** @enum {string} */
+                                    kind: "opener" | "follow_up" | "reply" | "comment";
+                                    postId: string | null;
+                                    profileId: string | null;
+                                };
+                                /** @enum {string} */
+                                kind: "lookup";
+                                name: string;
+                                profileUrl: string | null;
+                            };
+                        } | null;
+                        waiting: number;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_automation_save: {
         parameters: {
             query?: never;
@@ -32102,6 +32731,48 @@ export interface operations {
                             ok: number;
                             on: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_chat_keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    add?: boolean;
+                    /** Format: uuid */
+                    chatId: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        addedPerson: boolean;
+                        kept: number;
+                        /** Format: uuid */
+                        personId: string;
+                        personName: string;
+                        /** Format: uuid */
+                        threadId: string;
                     };
                 };
             };
@@ -32343,17 +33014,19 @@ export interface operations {
             content: {
                 "application/json": {
                     booked: boolean;
-                    name: string;
+                    name?: string;
                     /**
                      * @default facebook
                      * @enum {string}
                      */
                     platform?: "facebook";
-                    profile: {
+                    profile?: {
                         id: string | null;
                         url: string;
                         username: string | null;
                     };
+                    /** Format: uuid */
+                    profileId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -32817,6 +33490,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        asks: number;
                         /** Format: uuid */
                         computerId: string;
                         day: {
@@ -33233,6 +33907,44 @@ export interface operations {
                             url: string;
                             why: string[];
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_profile_contact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    personId?: string | null;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addedPerson: boolean;
+                        /** Format: uuid */
+                        personId: string;
+                        personName: string;
+                        /** Format: uuid */
+                        profileId: string;
                     };
                 };
             };
@@ -59519,6 +60231,82 @@ export interface operations {
             };
         };
     };
+    query_outreach_asks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asks: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            computerName: string | null;
+                            endedAt: string | null;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            line: string | null;
+                            reply: ("carry_on" | "skip") | null;
+                            result: {
+                                drafts: string[];
+                                /** @default false */
+                                lookedUp: boolean;
+                                /** @default null */
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** @default false */
+                                simple: boolean;
+                            } | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            target: string;
+                            /** @enum {string} */
+                            via: "web" | "mobile" | "extension";
+                        }[];
+                        computer: {
+                            /** Format: uuid */
+                            computerId: string;
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            name: string;
+                            online: boolean;
+                            signedOut: boolean;
+                        } | null;
+                        /** Format: date-time */
+                        now: string;
+                        timezone: string;
+                        warnedToday: boolean;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_automation: {
         parameters: {
             query?: never;
@@ -59682,7 +60470,9 @@ export interface operations {
                             messages: number;
                             name: string;
                             nextStep: string | null;
+                            onCard: boolean;
                             personId: string | null;
+                            profileId: string | null;
                             prospect: boolean | null;
                             /** @enum {string} */
                             readState: "none" | "waiting" | "read" | "skipped" | "failed";
@@ -60532,11 +61322,13 @@ export interface operations {
                         hasPlaybook: boolean;
                         items: {
                             chatId: string | null;
+                            demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
                             kind: "confirm" | "warm_up" | "friend_request" | "opener" | "follow_up" | "reply" | "comment";
                             name: string;
                             nextStep: string | null;
+                            personId: string | null;
                             playbookName: string | null;
                             post: string | null;
                             posted: string | null;
@@ -60642,6 +61434,45 @@ export interface operations {
                             start: number;
                         };
                         items: ({
+                            ask: {
+                                about: string | null;
+                                /** Format: date-time */
+                                askedAt: string;
+                                /** Format: uuid */
+                                askId: string;
+                                computerName: string | null;
+                                endedAt: string | null;
+                                /** @enum {string} */
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                                line: string | null;
+                                reply: ("carry_on" | "skip") | null;
+                                result: {
+                                    drafts: string[];
+                                    /** @default false */
+                                    lookedUp: boolean;
+                                    /** @default null */
+                                    opener: {
+                                        /** @enum {string} */
+                                        kind: "style" | "own";
+                                        /** Format: uuid */
+                                        playbookId: string;
+                                        text: string;
+                                    } | null;
+                                    /** @default false */
+                                    simple: boolean;
+                                } | null;
+                                startedAt: string | null;
+                                /** @enum {string} */
+                                state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                                target: string;
+                                /** @enum {string} */
+                                via: "web" | "mobile" | "extension";
+                            };
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "ask";
+                        } | {
                             /** Format: date-time */
                             at: string;
                             /** @enum {string} */
@@ -60747,6 +61578,10 @@ export interface operations {
                             };
                         })[];
                         kinds: {
+                            ask: {
+                                count: number;
+                                newestAt: string | null;
+                            };
                             message: {
                                 count: number;
                                 newestAt: string | null;

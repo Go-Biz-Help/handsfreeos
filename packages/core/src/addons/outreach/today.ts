@@ -98,6 +98,10 @@ export const TodayItem = z.object({
    * booking through it counts by itself. For a message, when a playbook in use has a link.
    */
   demoLink: z.string().nullable(),
+  /** The customer they are in Contacts, when they're there: the web offers Add to Contacts otherwise. */
+  personId: z.uuid().nullable(),
+  /** The person marked them as having booked a demo (`outreach.demo.mark`). */
+  demoBooked: z.boolean(),
   /**
    * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
    * to go. Null until it drafts one. One handed over, or to someone who needs the person, waits for an OK of its own:

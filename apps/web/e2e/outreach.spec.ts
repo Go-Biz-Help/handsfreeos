@@ -12,8 +12,9 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   the owner's day against the daily limits.
  * - The friends tab lists the friends and requests the extension saved and the answers it noted, finds one by name,
  *   keeps a friend, and puts someone on the Don't pitch list, after which a step to them isn't counted.
+ * - Anyone kept as a profile has a menu on the Friends tab, as on Today: Add to Contacts and Demo booked.
  * - Facebook's download file, read in the browser, says since when they've been friends, when a request was sent,
- *   and the latest message with each person.
+ *   and the latest message with each person; a chat from it goes onto the customer's card from the Chats tab.
  * - The groups tab scores the groups the extension saved, and Today waits for a group's admins before it suggests
  *   anyone from it.
  */
@@ -328,6 +329,17 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
     'true',
   );
 
+  // Anyone kept as a profile has the person menu, here as on Today: Add to Contacts, and Demo booked.
+  const parker = people.filter({ hasText: 'Parker Reed' });
+  await parker.getByTestId('person-menu').click();
+  await page.getByTestId('person-add-contact').click();
+  await expect(page.getByText('Parker Reed is in Contacts now.')).toBeVisible();
+  await expect(parker.getByRole('link', { name: 'Parker Reed' })).toBeVisible();
+  await parker.getByTestId('person-menu').click();
+  await expect(page.getByTestId('person-in-contacts')).toBeVisible();
+  await page.getByTestId('person-demo-mark').click();
+  await expect(page.getByText('Marked: Parker Reed booked a demo.')).toBeVisible();
+
   // The request still waiting, by fit: mutual friends alone until a playbook says what to look for.
   await page.getByTestId('friends-show-requests').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&show=requests$`));
@@ -455,6 +467,22 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
   await page.getByTestId('friends-show-sent').click();
   await expect(people).toHaveText([/Quinn Harper/]);
   await expect(people.getByTestId('friend-since')).toHaveText(`Sent · ${day(sentAt)}`);
+
+  // The chats it brought in go onto the customer's card from the Chats tab: Sky isn't in Contacts, so is added.
+  // Sky's chat waits for the AI's read, or is read already where the worker has one.
+  const sky = page.getByTestId('chat').filter({ hasText: 'Sky Patel' });
+  for (const show of ['waiting', 'read']) {
+    await page.goto(`/app/w/${workspaceId}/a/outreach?view=chats&show=${show}`);
+    await expect(page.getByTestId('chats-list').or(page.getByTestId('chats-empty'))).toBeVisible();
+    if (await sky.count()) break;
+  }
+  await sky.getByTestId('chat-keep').click();
+  await expect(
+    page.getByText('Sky Patel is in Contacts now, with your chat on their card.'),
+  ).toBeVisible();
+  await expect(sky).toContainText('On their card');
+  await sky.getByRole('link', { name: 'Sky Patel' }).click();
+  await expect(page.getByTestId('outreach-panel')).toContainText('Made-up words');
 });
 
 test('the groups tab scores saved groups, and today waits for a group’s admins and a playbook', async ({

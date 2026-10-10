@@ -18,13 +18,8 @@ type Ok<P extends keyof paths> = paths[P] extends {
   ? R
   : never;
 
-/** Social Outreach's look-up and saves (packages/core/src/addons/outreach/saves.ts), as the API takes and answers them. */
-export type LookupInput = Body<'/v1/queries/outreach.lookup'>;
-export type Lookup = Ok<'/v1/queries/outreach.lookup'>;
+/** A profile saved (packages/core/src/addons/outreach/saves.ts), as the API takes it. */
 export type ProfileInput = Body<'/v1/commands/outreach.profile.save'>;
-export type ProfileSaved = Ok<'/v1/commands/outreach.profile.save'>;
-export type ChatInput = Body<'/v1/commands/outreach.chat.save'>;
-export type ChatSaved = Ok<'/v1/commands/outreach.chat.save'>;
 /** Chats read in Messenger for the AI (packages/core/src/addons/outreach/chat-collect.ts). */
 export type ChatsCollectInput = Body<'/v1/commands/outreach.chats.collect'>;
 export type ChatsCollected = Ok<'/v1/commands/outreach.chats.collect'>;
@@ -33,17 +28,13 @@ export type Me = Ok<'/v1/queries/account.me'>;
 export type TouchInput = Body<'/v1/commands/outreach.touch.save'>;
 export type TouchSaved = Ok<'/v1/commands/outreach.touch.save'>;
 export type Activity = Ok<'/v1/queries/outreach.activity'>;
-/** Friends (packages/core/src/addons/outreach/friends.ts): an answer to a request, a list saved, Keep and Don't pitch. */
+/** Friends (packages/core/src/addons/outreach/friends.ts): an answer to a request, and a list saved. */
 export type FriendNoteInput = Body<'/v1/commands/outreach.friend.note'>;
 export type FriendsSaveInput = Body<'/v1/commands/outreach.friends.save'>;
 export type FriendsSaved = Ok<'/v1/commands/outreach.friends.save'>;
-export type FriendSetInput = Body<'/v1/commands/outreach.friend.set'>;
-export type FriendSet = Ok<'/v1/commands/outreach.friend.set'>;
 /** A part of Facebook's download file, brought in (packages/core/src/addons/outreach/download.ts). */
 export type DownloadSaveInput = Body<'/v1/commands/outreach.download.save'>;
 export type DownloadSaved = Ok<'/v1/commands/outreach.download.save'>;
-/** The business's playbooks, which the requests on a page are sorted by (packages/core/src/addons/outreach/fit.ts). */
-export type Playbooks = Ok<'/v1/queries/outreach.playbook.list'>;
 /** Groups and the people in them (packages/core/src/addons/outreach/groups.ts). */
 export type GroupsSaveInput = Body<'/v1/commands/outreach.groups.save'>;
 export type GroupsSaved = Ok<'/v1/commands/outreach.groups.save'>;
@@ -63,24 +54,14 @@ export type FriendEnded = Ok<'/v1/commands/outreach.friend.end'>;
 /** A warning Facebook showed the person, noted (decision 25). */
 export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;
 export type WarningNoted = Ok<'/v1/commands/outreach.warning.note'>;
-/** Group posts worth a comment, kept and marked, and one put aside (packages/core/src/addons/outreach/posts.ts). */
+/** Group posts worth a comment, kept and marked (packages/core/src/addons/outreach/posts.ts). */
 export type PostsSaveInput = Body<'/v1/commands/outreach.posts.save'>;
 export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
-export type PostMark = PostsSaved['posts'][number];
-export type PostSkipInput = Body<'/v1/commands/outreach.post.skip'>;
-export type PostSkipped = Ok<'/v1/commands/outreach.post.skip'>;
-/** Which opener a copied draft was, and a demo marked booked (packages/core/src/addons/outreach/openers.ts, demos.ts). */
-export type OpenerUseInput = Body<'/v1/commands/outreach.opener.use'>;
-export type OpenerUsed = Ok<'/v1/commands/outreach.opener.use'>;
-export type DemoMarkInput = Body<'/v1/commands/outreach.demo.mark'>;
-export type DemoMarked = Ok<'/v1/commands/outreach.demo.mark'>;
 /** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 /** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
-/** Messages the extension drafted to send, OK'd or skipped (packages/core/src/addons/outreach/sends.ts). */
-export type SendQueueInput = Body<'/v1/commands/outreach.send.queue'>;
-export type SendQueued = Ok<'/v1/commands/outreach.send.queue'>;
+/** Messages the extension drafted, OK'd or skipped (packages/core/src/addons/outreach/sends.ts). */
 export type SendApproveInput = Body<'/v1/commands/outreach.send.approve'>;
 export type SendApproved = Ok<'/v1/commands/outreach.send.approve'>;
 export type SendSkipInput = Body<'/v1/commands/outreach.send.skip'>;
@@ -92,7 +73,6 @@ export type SendSkipped = Ok<'/v1/commands/outreach.send.skip'>;
 export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
 export type WaitingItem = Waiting['items'][number];
 export type NeedNoteInput = Body<'/v1/commands/outreach.need.note'>;
-export type NeedNoted = Ok<'/v1/commands/outreach.need.note'>;
 export type NeedClearInput = Body<'/v1/commands/outreach.need.clear'>;
 export type NeedCleared = Ok<'/v1/commands/outreach.need.clear'>;
 export type RequestSetAsideInput = Body<'/v1/commands/outreach.request.set_aside'>;
@@ -168,6 +148,12 @@ export interface AutoStatus {
   readonly state: AutoState;
   /** HandsFreeOS on the web, where the choices are changed. */
   readonly webUrl: string;
+  /** Whether this computer is the one that works, and which does when it isn't: null before the first beat. */
+  readonly live: { readonly working: boolean; readonly workingName: string | null } | null;
+  /** Facebook's warning words seen here today: null when there were none. */
+  readonly warned: readonly string[] | null;
+  /** The warning when the person's steps today go past a daily limit (`pastLimitWords`): null within them. */
+  readonly pastLimit: string | null;
 }
 
 export type HfosAsk =
@@ -177,18 +163,12 @@ export type HfosAsk =
   | { readonly type: 'hfos-password'; readonly email: string; readonly password: string }
   | { readonly type: 'hfos-sign-out' }
   | { readonly type: 'hfos-pick'; readonly businessId: string }
-  | { readonly type: 'hfos-lookup'; readonly input: LookupInput }
-  | { readonly type: 'hfos-save-profile'; readonly input: ProfileInput }
-  | { readonly type: 'hfos-save-chat'; readonly input: ChatInput }
   | { readonly type: 'hfos-collect-chats'; readonly input: ChatsCollectInput }
   | { readonly type: 'hfos-save-friends'; readonly input: FriendsSaveInput }
-  | { readonly type: 'hfos-set-friend'; readonly input: FriendSetInput }
   | { readonly type: 'hfos-save-download'; readonly input: DownloadSaveInput }
-  | { readonly type: 'hfos-playbooks'; readonly workspaceId: string }
   | { readonly type: 'hfos-save-groups'; readonly input: GroupsSaveInput }
   | { readonly type: 'hfos-save-group'; readonly input: GroupSaveInput }
   | { readonly type: 'hfos-groups'; readonly input: GroupsListInput }
-  | { readonly type: 'hfos-today-list'; readonly workspaceId: string }
   | {
       readonly type: 'hfos-draft';
       readonly workspaceId: string;
@@ -198,10 +178,6 @@ export type HfosAsk =
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
-  | { readonly type: 'hfos-post-skip'; readonly input: PostSkipInput }
-  | { readonly type: 'hfos-opener-use'; readonly input: OpenerUseInput }
-  | { readonly type: 'hfos-demo-mark'; readonly input: DemoMarkInput }
-  | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -212,7 +188,14 @@ export type HfosAsk =
   | { readonly type: 'hfos-need-clear'; readonly input: NeedClearInput }
   | { readonly type: 'hfos-request-aside'; readonly input: RequestSetAsideInput }
   /** The person has the panel open on this computer: it becomes the one that works (./live.ts). */
-  | { readonly type: 'hfos-here' };
+  | { readonly type: 'hfos-here' }
+  /** Carry on or Skip, for a step the ask under way handed to the person; Stop for it (../asks/run.ts). */
+  | {
+      readonly type: 'hfos-ask-reply';
+      readonly reply: 'carry_on' | 'skip';
+      readonly askId?: string;
+    }
+  | { readonly type: 'hfos-ask-stop'; readonly askId?: string };
 
 /** What each ask answers with. */
 export interface HfosValues {
@@ -222,27 +205,17 @@ export interface HfosValues {
   readonly 'hfos-password': Account;
   readonly 'hfos-sign-out': Account;
   readonly 'hfos-pick': Account;
-  readonly 'hfos-lookup': Lookup;
-  readonly 'hfos-save-profile': ProfileSaved;
-  readonly 'hfos-save-chat': ChatSaved;
   readonly 'hfos-collect-chats': ChatsCollected;
   readonly 'hfos-save-friends': FriendsSaved;
-  readonly 'hfos-set-friend': FriendSet;
   readonly 'hfos-save-download': DownloadSaved;
-  readonly 'hfos-playbooks': Playbooks;
   readonly 'hfos-save-groups': GroupsSaved;
   readonly 'hfos-save-group': GroupSaved;
   readonly 'hfos-groups': GroupsList;
-  readonly 'hfos-today-list': TodayList;
   readonly 'hfos-draft': Drafts;
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
-  readonly 'hfos-post-skip': PostSkipped;
-  readonly 'hfos-opener-use': OpenerUsed;
-  readonly 'hfos-demo-mark': DemoMarked;
-  readonly 'hfos-today': Today;
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;
@@ -252,6 +225,8 @@ export interface HfosValues {
   readonly 'hfos-need-clear': NeedCleared;
   readonly 'hfos-request-aside': RequestSetAside;
   readonly 'hfos-here': null;
+  readonly 'hfos-ask-reply': null;
+  readonly 'hfos-ask-stop': null;
 }
 
 export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
@@ -261,27 +236,6 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-password',
   'hfos-sign-out',
   'hfos-pick',
-  'hfos-lookup',
-  'hfos-save-profile',
-  'hfos-save-chat',
-  'hfos-collect-chats',
-  'hfos-save-friends',
-  'hfos-set-friend',
-  'hfos-save-download',
-  'hfos-playbooks',
-  'hfos-save-groups',
-  'hfos-save-group',
-  'hfos-groups',
-  'hfos-today-list',
-  'hfos-draft',
-  'hfos-tidy',
-  'hfos-friend-end',
-  'hfos-warning',
-  'hfos-save-posts',
-  'hfos-post-skip',
-  'hfos-opener-use',
-  'hfos-demo-mark',
-  'hfos-today',
   'hfos-auto',
   'hfos-auto-start',
   'hfos-auto-stop',
@@ -291,6 +245,14 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-need-clear',
   'hfos-request-aside',
   'hfos-here',
+  'hfos-ask-reply',
+  'hfos-ask-stop',
+]);
+
+/** The panel's asks about the ask under way (src/asks/run.ts). */
+export const ASK_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
+  'hfos-ask-reply',
+  'hfos-ask-stop',
 ]);
 
 /** The asks about Waiting for you (src/hfos/waiting.ts). */
@@ -337,6 +299,21 @@ export const WAITING_EVENTS: ReadonlySet<string> = new Set([
   'outreach.download.saved',
   'outreach.automation.saved',
   'outreach.wheels.ended',
+  // An ask that no longer needs the person (decision 43). One that newly does, this computer's runner of asks tells
+  // itself (../asks/run.ts): its every line isn't worth a look.
+  'outreach.ask.replied',
+  'outreach.ask.ended',
+  'outreach.ask.cancelled',
+]);
+
+/**
+ * What the person asks of their computer from HandsFreeOS (decision 43, ../asks/run.ts): an ask made, which this
+ * computer takes when it's the one that works; and one stopped or answered, which reaches the ask under way.
+ */
+export const ASK_EVENTS: ReadonlySet<string> = new Set([
+  'outreach.ask.made',
+  'outreach.ask.cancelled',
+  'outreach.ask.replied',
 ]);
 
 /**
@@ -347,9 +324,6 @@ export const WAITING_ANY_ACTOR: ReadonlySet<string> = new Set([
   'outreach.automation.saved',
   'outreach.wheels.ended',
 ]);
-
-/** What the background tells the extension's pages when it has noted a step: the day's numbers have changed. */
-export type Touched = { readonly type: 'hfos-touched' };
 
 /** Why something didn't work, in words for the person, and HandsFreeOS's rule when one refused it. */
 export interface Problem {

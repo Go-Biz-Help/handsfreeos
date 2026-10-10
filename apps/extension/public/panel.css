@@ -155,42 +155,6 @@ button.quiet {
   font-size: 12px;
 }
 
-.hfos {
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  background: var(--accent-soft);
-}
-
-.hfos > p {
-  margin: 0 0 8px;
-}
-
-.hfos > :last-child,
-.hfos .list > li:last-child button {
-  margin-bottom: 0;
-}
-
-.hfos .list > li.same {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.hfos .list > li.same button {
-  flex: none;
-  white-space: nowrap;
-}
-
-.hfos .list > li.same + li.same {
-  border-color: var(--card);
-}
-
-.hfos > div + button {
-  margin-top: 8px;
-}
-
 .chip.saved {
   background: var(--accent-soft);
   font-weight: 600;
@@ -198,23 +162,6 @@ button.quiet {
 
 .chip.saved a {
   text-decoration: none;
-}
-
-.page {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card);
-}
-
-.page .kind {
-  font-weight: 600;
-}
-
-.page .url {
-  color: var(--text-2);
-  font-size: 12px;
-  overflow-wrap: anywhere;
 }
 
 .actions {
@@ -246,14 +193,6 @@ button:disabled {
   cursor: default;
 }
 
-.auto {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--text-2);
-  font-size: 12px;
-}
-
 .status {
   min-height: 1.45em;
   margin: 0 0 12px;
@@ -266,23 +205,6 @@ section {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--card);
-}
-
-section.warning {
-  border-color: transparent;
-  background: var(--danger-soft);
-  color: var(--danger-text);
-}
-
-section.notes {
-  background: var(--card-2);
-  color: var(--text-2);
-  font-size: 12px;
-}
-
-section.notes ul {
-  margin: 0;
-  padding-left: 18px;
 }
 
 .count {
@@ -310,27 +232,8 @@ section.notes ul {
   border-top: 0;
 }
 
-.list > li.part {
-  padding-top: 12px;
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.lines {
-  margin: 0;
-  padding-left: 18px;
-}
-
 .name {
   font-weight: 600;
-}
-
-.text {
-  margin: 4px 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .chip {
@@ -345,27 +248,6 @@ section.notes ul {
 .chip.warn {
   background: var(--warning-soft);
   color: var(--warning-text);
-}
-
-.message {
-  margin: 6px 0;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: var(--card-2);
-}
-
-.message.me {
-  margin-left: 24px;
-  background: var(--accent-soft);
-}
-
-.message.them {
-  margin-right: 24px;
-}
-
-.message .who {
-  color: var(--text-2);
-  font-size: 12px;
 }
 
 footer {
@@ -406,116 +288,12 @@ section > :last-child {
   margin: 0 0 8px;
 }
 
-.limits {
-  margin: 0 0 8px;
-  padding: 0;
-  list-style: none;
-}
-
-.limits li {
-  display: grid;
-  grid-template-columns: 104px 1fr auto;
-  gap: 8px;
-  align-items: center;
-  margin: 4px 0;
-  font-size: 12px;
-}
-
-.limits .bar {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--card-2);
-}
-
-.limits .fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-}
-
-.limits .of {
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.limits li.full .fill {
-  background: var(--warning-text);
-}
-
-.limits li.full .of {
-  color: var(--warning-text);
-  font-weight: 600;
-}
-
 .warn-line {
   padding: 6px 8px;
   border-radius: 8px;
   background: var(--warning-soft);
   color: var(--warning-text);
   font-size: 12px;
-}
-
-.recent {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 12px;
-}
-
-.recent li {
-  padding: 3px 0;
-}
-
-.recent .chip {
-  margin-left: 6px;
-}
-
-.today .auto {
-  margin-top: 10px;
-}
-
-/* Your Facebook file: getting Facebook's download file, and bringing it in. */
-.fbfile summary {
-  cursor: pointer;
-  list-style: none;
-}
-
-.fbfile summary::-webkit-details-marker {
-  display: none;
-}
-
-.fbfile summary h2::after {
-  content: '▸';
-  margin-left: auto;
-  color: var(--text-2);
-}
-
-.fbfile details[open] summary h2::after {
-  content: '▾';
-}
-
-.fbfile h3 {
-  margin: 12px 0 4px;
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.fetch-steps {
-  margin: 0 0 8px;
-  padding: 0;
-  list-style: none;
-}
-
-.fetch-steps li {
-  margin: 6px 0;
-}
-
-.fetch-steps li > div {
-  margin-top: 4px;
 }
 
 .run-line {
@@ -530,44 +308,11 @@ section > :last-child {
   margin: 0 0 6px;
 }
 
-.fbfile .actions {
-  margin: 6px 0;
-}
-
 /* The AI's drafts for someone on today's list, each with Copy. */
 .drafts {
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
-}
-
-.drafts li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.drafts li p {
-  flex: 1;
-  margin: 0;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: var(--card-2);
-  white-space: pre-wrap;
-}
-
-.today .list button {
-  margin-top: 6px;
-  margin-right: 6px;
-}
-
-/* A group post: on today's list to comment on, or marked in Posts worth a comment (src/panel/posts.ts). */
-blockquote.post {
-  margin: 4px 0;
-  padding: 4px 8px;
-  border-left: 3px solid var(--border);
-  white-space: pre-wrap;
 }
 
 /* Facebook warned the person: what HandsFreeOS does about it (src/panel/warnings.ts). */
@@ -577,26 +322,6 @@ blockquote.post {
   border-radius: 8px;
   background: var(--danger-soft);
   color: var(--danger-text);
-}
-
-/* Working on its own: the person's choices, and what it's doing today. */
-.on-its-own h2 .chip {
-  margin-left: 6px;
-}
-
-.on-its-own label.auto {
-  display: block;
-  margin: 4px 0;
-}
-
-.on-its-own .hours select {
-  margin: 0 4px;
-}
-
-.on-its-own .days {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
 }
 
 /* Waiting for you (src/panel/waiting.ts): the same list as HandsFreeOS's tab, first in the panel. */
@@ -619,4 +344,21 @@ blockquote.post {
   border-radius: 6px;
   background: var(--card-2);
   white-space: pre-wrap;
+}
+
+.now-line .chip {
+  margin-right: 4px;
+}
+
+.asked {
+  margin: 8px 0;
+}
+
+footer details summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+footer details[open] summary {
+  margin-bottom: 6px;
 }

@@ -33,6 +33,11 @@ export const LIVE_STEPS_SENT_MOST = 20;
 export const LIVE_STEPS_UNSENT_MOST = 50;
 export const LIVE_STEPS_SHOWN_MOST = 200;
 export const LIVE_KEEP_DAYS = 7;
+/**
+ * A computer not seen for this long goes (the worker's `outreach.live_prune`), unless it's the one that works for its
+ * person; seen again, it comes back as new.
+ */
+export const COMPUTER_KEEP_DAYS = 30;
 /** A computer's name, as the person may write it, and as the extension may send it (numbered, it stays within this). */
 export const COMPUTER_NAME_MOST = 40;
 /** The most a line says: the status line and each line of the feed. A longer one is cut short, never refused. */
@@ -207,6 +212,8 @@ export const LiveBeatOutput = z.object({
   day: LiveDay,
   /** The ids of the lines sent that are kept now: the extension lets them go. */
   stepsKept: z.array(z.uuid()),
+  /** Asks from HandsFreeOS waiting for this computer (./asks.ts): 0 when it isn't the one that works. */
+  asks: z.number().int().min(0),
 });
 export type LiveBeatOutput = z.output<typeof LiveBeatOutput>;
 

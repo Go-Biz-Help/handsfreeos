@@ -26,14 +26,13 @@ import {
 import { outreachBusinesses } from './saves';
 
 /**
- * The asks answered here; the day on Facebook and its switch are ./noting.ts's, working on its own ../auto/run.ts's,
- * and Waiting for you ./waiting.ts's.
+ * The asks answered here: the panel's sign-in, and the jobs' calls (../jobs/), which only the background makes.
+ * Working on its own is ../auto/run.ts's, Waiting for you ./waiting.ts's, and the ask under way ../asks/run.ts's.
  */
 export type SessionAsk = Exclude<
   HfosAsk,
   {
     readonly type:
-      | 'hfos-today'
       | 'hfos-auto'
       | 'hfos-auto-start'
       | 'hfos-auto-stop'
@@ -42,7 +41,9 @@ export type SessionAsk = Exclude<
       | 'hfos-waiting'
       | 'hfos-need-clear'
       | 'hfos-request-aside'
-      | 'hfos-here';
+      | 'hfos-here'
+      | 'hfos-ask-reply'
+      | 'hfos-ask-stop';
   }
 >;
 
@@ -357,21 +358,6 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-pick':
       await chrome.storage.local.set({ [BUSINESS_KEY]: ask.businessId });
       return account();
-    case 'hfos-lookup':
-      return call(
-        api().POST('/v1/queries/outreach.lookup', { body: ask.input }),
-        ask.input.workspaceId,
-      );
-    case 'hfos-save-profile':
-      return call(
-        api().POST('/v1/commands/outreach.profile.save', { body: ask.input }),
-        ask.input.workspaceId,
-      );
-    case 'hfos-save-chat':
-      return call(
-        api().POST('/v1/commands/outreach.chat.save', { body: ask.input }),
-        ask.input.workspaceId,
-      );
     case 'hfos-collect-chats':
       return call(
         api().POST('/v1/commands/outreach.chats.collect', { body: ask.input }),
@@ -382,22 +368,10 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.friends.save', { body: ask.input }),
         ask.input.workspaceId,
       );
-    case 'hfos-set-friend':
-      return call(
-        api().POST('/v1/commands/outreach.friend.set', { body: ask.input }),
-        ask.input.workspaceId,
-      );
     case 'hfos-save-download':
       return call(
         api().POST('/v1/commands/outreach.download.save', { body: ask.input }),
         ask.input.workspaceId,
-      );
-    case 'hfos-playbooks':
-      return call(
-        api().POST('/v1/queries/outreach.playbook.list', {
-          body: { workspaceId: ask.workspaceId },
-        }),
-        ask.workspaceId,
       );
     case 'hfos-save-groups':
       return call(
@@ -413,11 +387,6 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
       return call(
         api().POST('/v1/queries/outreach.groups', { body: ask.input }),
         ask.input.workspaceId,
-      );
-    case 'hfos-today-list':
-      return call(
-        api().POST('/v1/queries/outreach.today', { body: { workspaceId: ask.workspaceId } }),
-        ask.workspaceId,
       );
     case 'hfos-tidy':
       return call(
@@ -439,21 +408,6 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-save-posts':
       return call(
         api().POST('/v1/commands/outreach.posts.save', { body: ask.input }),
-        ask.input.workspaceId,
-      );
-    case 'hfos-post-skip':
-      return call(
-        api().POST('/v1/commands/outreach.post.skip', { body: ask.input }),
-        ask.input.workspaceId,
-      );
-    case 'hfos-opener-use':
-      return call(
-        api().POST('/v1/commands/outreach.opener.use', { body: ask.input }),
-        ask.input.workspaceId,
-      );
-    case 'hfos-demo-mark':
-      return call(
-        api().POST('/v1/commands/outreach.demo.mark', { body: ask.input }),
         ask.input.workspaceId,
       );
     case 'hfos-draft':
@@ -489,7 +443,7 @@ async function workerPost<T>(
   return response.ok ? { data: json as T, response } : { error: json, response };
 }
 
-/** The answer to one of the panel's asks. Never throws: what went wrong comes back as a problem. */
+/** The answer to one of the panel's or the jobs' asks. Never throws: what went wrong comes back as a problem. */
 export function answer(ask: SessionAsk): Promise<HfosAnswer<unknown>> {
   return answerWith(ask.type, () => value(ask));
 }

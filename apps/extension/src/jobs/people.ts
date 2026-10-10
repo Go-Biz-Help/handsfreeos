@@ -1,22 +1,26 @@
 /**
- * The once-a-day jobs that save people (docs/outreach.md, decision 32), from pages the person could save by hand in
- * the panel (src/panel/hfos.ts): **checking friend requests** saves the requests they've got, which Today confirms the
- * ones that fit from (decision 30); **saving group members** saves each good group's admins and moderators, then its
- * members, which Today suggests friend requests from (decision 8). It loads a few screens of each list, a screen at a
- * time, and saves what loaded. Nothing is pressed on Facebook.
+ * The jobs that save people (docs/outreach.md, decisions 32 and 43), once a day on their own or when the person asks
+ * from HandsFreeOS: **checking friend requests** saves the requests they've got, which Today confirms the ones that
+ * fit from (decision 30); **saving group members** saves each good group's admins and moderators, then its members,
+ * which Today suggests friend requests from (decision 8). Asked for only: **saving the friends list**, to its end,
+ * which Tidy up your friends and the Friends tab work from. It loads each list a screen at a time, and saves what
+ * loaded. Nothing is pressed on Facebook.
  */
 import type { Person, ReadResult } from '../facebook/types';
 import { profileKey } from '../facebook/urls';
 import { friendsSave, groupSave, isAdminsPage, listOnPage } from '../hfos/saves';
-import { counted } from '../panel/dom';
+import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 import type { WorkGroup } from './posts';
 
-/** Where Facebook lists the friend requests the person has got. */
+/** Where Facebook lists the friend requests the person has got, and their friends. */
 export const FRIEND_REQUESTS = 'https://www.facebook.com/friends/requests';
+export const YOUR_FRIENDS = 'https://www.facebook.com/me/friends';
 /** Screens of each list it loads. */
 export const REQUEST_SCROLLS = 6;
 export const MEMBER_SCROLLS = 10;
+/** The friends list is read to its end, up to this many screens. */
+export const FRIENDS_SCROLLS = 150;
 /** A group's admins and moderators are read to the end, up to this many screens. */
 export const ADMIN_SCROLLS = 20;
 /** The most groups whose members it saves in a day. */
@@ -72,12 +76,44 @@ export async function checkRequests(job: Job): Promise<JobEnd> {
   if (ended(got)) return got;
   if (!got.people.length) return { line: 'No friend requests waiting.', warned: false };
   const built = friendsSave(got.people, 'requests', job.businessId);
-  if (!built.ok) return { line: built.why, warned: false };
+  if (!built.ok) return { line: built.why, warned: false, failed: true };
   let added = 0;
   for (const input of built.input)
     added += valueOf(await job.hfos({ type: 'hfos-save-friends', input })).added;
   return {
     line: `Saved ${counted(got.people.length, 'friend request')}${added ? `, ${added.toLocaleString()} new` : ''}.`,
+    warned: false,
+  };
+}
+
+/** Opens the person's friends list, reads it to the end, and saves it. */
+export async function saveFriends(job: Job): Promise<JobEnd> {
+  job.progress('Opening your friends list…');
+  await job.tab.open(YOUR_FRIENDS);
+  const got = await gather(
+    job,
+    FRIENDS_SCROLLS,
+    (page) => {
+      const mine = listOnPage(page);
+      return mine?.list === 'friends' ? mine.people : [];
+    },
+    (count) => `Reading your friends… ${counted(count, 'friend')} so far.`,
+  );
+  if (ended(got)) return got;
+  if (!got.people.length)
+    return {
+      line: 'Facebook showed no friends. Check you’re signed in to Facebook in this browser, then ask again.',
+      warned: false,
+      failed: true,
+    };
+  const built = friendsSave(got.people, 'friends', job.businessId);
+  if (!built.ok) return { line: built.why, warned: false, failed: true };
+  let added = 0;
+  for (const input of built.input)
+    added += valueOf(await job.hfos({ type: 'hfos-save-friends', input })).added;
+  const tail = got.whole ? '' : ' It stopped before the end of the list: ask again for the rest.';
+  return {
+    line: `Saved ${counted(got.people.length, 'friend')}${added ? `, ${added.toLocaleString()} new` : ''}.${tail}`,
     warned: false,
   };
 }
