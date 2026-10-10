@@ -177,6 +177,7 @@ demo link, and the extension working on its own (the first part):
 | Replies, openers and demos                               | `alerts.ts`, `openers.ts`, `demos.ts` and their `ops/`, `supabase/migrations/20261027001100_outreach_replies_openers_demos.sql` |
 | The pushes, and a booking through the demo link          | `apps/worker/src/addons/outreach/alerts.ts`, `demos.ts`; `apps/worker/src/addons/alerts.ts` (`pushAddonNotice`)                 |
 | The extension on its own: choices, and the warm-up       | `automation.ts`, `ops/automation.ts`, `supabase/migrations/20261027001200_outreach_automation.sql`                              |
+| Messages on their own, and training wheels               | `sends.ts`, `ops/sends.ts`, `supabase/migrations/20261027001300_outreach_sends.sql`                                             |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/facebook/auto.ts`, `src/panel/auto.ts`, `src/tab.ts`                 |
 | Spotting replies on the page                             | `apps/extension/src/facebook/replies.ts`, `src/hfos/replies.ts`, `src/content.ts`                                               |
 | The extension                                            | `apps/extension`                                                                                                                |
@@ -217,6 +218,13 @@ Operations, all through the kernel:
 | `outreach.automation`                                 | `outreach.use`    | What the person lets the extension do on its own, and their hours, in the business's time zone        |
 | `outreach.automation.save`                            | `outreach.use`    | The person's own choices for the extension on its own                                                 |
 | `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                   |
+| `outreach.send.queue`                                 | `outreach.use`    | A message the extension drafted: it waits for the person's OK, or goes as it is                       |
+| `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, every one waiting (Approve all)                         |
+| `outreach.send.skip`                                  | `outreach.use`    | Skip a message: not sent, and off the list for today                                                  |
+| `outreach.send.done`                                  | `outreach.use`    | The extension sent an OK'd message, or couldn't, and why                                              |
+| `outreach.sends`                                      | `outreach.use`    | The person's messages waiting for their OK, and those OK'd, with their training wheels                |
+| `outreach.wheels`                                     | `outreach.manage` | Who's on training wheels, and how far each has come                                                   |
+| `outreach.wheels.end`                                 | `outreach.manage` | End someone's training wheels early                                                                   |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -305,10 +313,17 @@ than a store extension, and for more features, and answered the questions the sa
 
 26. **Sending is a setting, per person** (this replaces decision 1's choices): off, the person does everything (the
     default); (a) friend requests, likes and comments on their own, each message one tap; (b) everything on its own;
-    (c) **Approve all** each morning. Choosing (b) starts training wheels. Off and (a) are built (part 1); (b) and (c)
-    come with messages (part 3).
+    (c) **Approve all** each morning. Choosing (b) starts training wheels. Built: off and the steps of (a) in part 1;
+    messages in part 3 (`packages/core/src/addons/outreach/sends.ts`). With any choice but off, the extension looks
+    each person up and drafts their first message, follow-up or reply with the AI, which waits as "I'd send this" in
+    the panel and on Today: **Send** (changed or not), **Skip** (off the list for today), or **Approve all**. With
+    (c) it drafts the day's messages first thing, before the other steps; with (a) after them. With (b), once the
+    training wheels are off, a first message or follow-up goes as it is. What's OK'd, the extension sends in
+    Messenger, in the chat when HandsFreeOS knows it, else from their profile's **Message**, at a person's pace, and
+    notes it as its own; one it couldn't send says why and leaves the list for the day.
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
-    rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Part 3.
+    rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Part 3:
+    for now every reply waits, as (a); (b) and (c) follow in the next PR.
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
     button. Built.
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
@@ -338,8 +353,10 @@ than a store extension, and for more features, and answered the questions the sa
 **Training wheels** (proposed with the plan; the owner can change it): when someone picks a fully automatic choice
 (26b, 27b or 27c), for the first 7 days and until they've OK'd 25 messages, everything it wants to send comes to them
 first as "I'd send this", and their daily limits are half. More than 1 edit in 3 of the last 10 keeps it on longer;
-owners and admins can end it early; a Facebook warning puts it back on for 7 days. The table keeps its count from
-part 1 (`automation.wheels_*`); it starts with part 3.
+owners and admins can end it early; a Facebook warning puts it back on for 7 days. Built (part 3, for 26b): choosing
+it starts them once (`automation.wheels_from`); each message OK'd counts toward the 25, and whether it was changed
+first toward the last 10 (`wheels_ok`, `wheels_edits`); earned, they're off for good (`wheels_done_at`). Owners and
+admins see who's on them under Today and can **End now**. They matter only while Sending is (b).
 
 The order: (1) the runner; (2) results by group and the weekly report; (3) messages and replies on their own; (4)
 onboarding; (5) tidying on its own and joining groups; (6) team sharing, after-demo workflow, birthday notes,
@@ -377,8 +394,15 @@ likes and 1 post, half that for new or quiet accounts.
   (`autoKinds`, the list's `auto`). The list holds no more than today's limits have room for, so the runner never
   passes them; it checks each profile is the one listed and where things stand before pressing and after, passes
   over anything that isn't as expected for the rest of the day rather than retrying, and notes each step marked as
-  its own (`auto`). It never sends a message in part 1. It stops for the day on any warning, its own or the panel's
+  its own (`auto`). It stops for the day on any warning, its own or the panel's
   (`src/hfos/warned.ts`), and keeps its state in the extension's storage, so a restart carries on where it was.
+- **A message goes only through `sends`** (`outreach.send.*`). The extension drafts it and queues it; it waits
+  (`waiting`) unless Sending is (b), the training wheels are off and it isn't a reply (`goesAsItIs`). Only an OK'd one
+  (`approved`) is sent, and only the extension says it went (`outreach.send.done`); the message itself is noted as any
+  step is. One open send a person, profile and kind at a time: drafting again returns it. A send skipped or not sent
+  takes them off the list for the rest of the day. A first message sent this way notes its opener, as copying does.
+- **Training wheels halve the limits as a warning does** (`slowerFor`), on Today, the activity panel and tidying,
+  and they're counted only on OKs while they're on (`countWheels`).
 - **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's
   only updated; the AI's answer is taken once (`outreach.post.check` changes only a `waiting` post), and an answer it
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when

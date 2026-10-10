@@ -47,11 +47,13 @@ export type BrowseAnswer = { readonly ok: boolean };
 
 /**
  * What the background's runner asks a tab it works in on its own (src/facebook/auto.ts): on someone's profile, like
- * their latest post; on a post, write a comment and send it. Add friend and Confirm go as a `FetchAsk`.
+ * their latest post; on a post, write a comment and send it; in a chat, write a message and send it. Add friend,
+ * Confirm and their profile's Message go as a `FetchAsk`.
  */
 export type AutoAsk =
   | { readonly type: 'hfos-like-latest'; readonly profile: ProfileRef }
-  | { readonly type: 'hfos-comment'; readonly text: string };
+  | { readonly type: 'hfos-comment'; readonly text: string }
+  | { readonly type: 'hfos-message'; readonly text: string };
 
 export type AutoAnswer =
   | { readonly ok: true; readonly result: AutoResult; readonly postUrl?: string | null }

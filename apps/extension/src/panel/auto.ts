@@ -10,11 +10,13 @@ import {
   SENDING_MODES,
   SENDING_MODE_KEYS,
   WEEKDAY_WORDS,
+  WHEELS_START_WORDS,
+  wheelsWords,
   type AutomationSettings,
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
 import { DAILY_NAMES } from '../auto/daily';
-import { AUTO_STATE_KEY, DAILY_JOBS, isState, type AutoKind, type AutoState } from '../auto/plan';
+import { AUTO_STATE_KEY, DAILY_JOBS, isState, type AutoState, type DoneKind } from '../auto/plan';
 import type { AutoStatus } from '../hfos/messages';
 import { ask } from './ask';
 import { ago, button, chip, counted, h, type Child } from './dom';
@@ -28,11 +30,13 @@ let draft: AutomationSettings | null = null;
 let saving = false;
 let saved: string | null = null;
 
-const DONE_WORDS: Record<AutoKind, readonly [string, string]> = {
+const DONE_WORDS: Record<DoneKind, readonly [string, string]> = {
   confirm: ['request confirmed', 'requests confirmed'],
   warm_up: ['post liked', 'posts liked'],
   friend_request: ['friend request', 'friend requests'],
   comment: ['comment', 'comments'],
+  drafted: ['message written', 'messages written'],
+  sent: ['message sent', 'messages sent'],
 };
 
 /** Asks the background for the person's choices and where the runner is. */
@@ -115,6 +119,9 @@ function choicesView(settings: AutomationSettings, timezone: string): Child[] {
   return [
     h('h3', {}, 'What it does on its own'),
     ...modes,
+    settings.sending === 'everything' && !status?.automation?.wheels.from
+      ? h('p', { class: 'muted' }, WHEELS_START_WORDS)
+      : null,
     tick('Like one of their posts a day before each friend request', settings.warmUp, (warmUp) => ({
       ...(draft ?? settings),
       warmUp,
@@ -164,7 +171,7 @@ function choicesView(settings: AutomationSettings, timezone: string): Child[] {
 
 function stateView(now: AutoStatus, settings: AutomationSettings, state: AutoState): Child[] {
   if (settings.sending === 'off') return [];
-  const counts = (Object.keys(DONE_WORDS) as AutoKind[])
+  const counts = (Object.keys(DONE_WORDS) as DoneKind[])
     .filter((kind) => (state.done[kind] ?? 0) > 0)
     .map((kind) => counted(state.done[kind]!, DONE_WORDS[kind][0], DONE_WORDS[kind][1]));
   const next =
@@ -252,8 +259,9 @@ function draw(): void {
     h(
       'p',
       { class: 'muted' },
-      'Let the extension do some of your list for today by itself. It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook. Messages always wait for you.',
+      'Let the extension do some of your list for today by itself. It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook. It writes messages for you to OK under Your list for today; with Everything on its own, they go without waiting once your training wheels are off. Replies always wait for you.',
     ),
+    automation?.wheels.on ? h('p', { class: 'warn-line' }, wheelsWords(automation.wheels)) : null,
     ...(settings && automation ? choicesView(settings, automation.timezone) : []),
     ...(status && automation ? stateView(status, automation.settings, status.state) : []),
   ];

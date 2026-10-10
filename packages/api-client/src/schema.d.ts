@@ -6137,6 +6137,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.send.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all). The extension sends them. On training wheels, each counts toward coming off them.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved.
+         */
+        post: operations["command_outreach_send_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.send.done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.done.
+         */
+        post: operations["command_outreach_send_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.send.queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
+         */
+        post: operations["command_outreach_send_queue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.send.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.skipped.
+         */
+        post: operations["command_outreach_send_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.touch.save": {
         parameters: {
             query?: never;
@@ -6191,6 +6271,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.warning.seen. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_warning_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.wheels.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An owner or admin ends someone’s training wheels early: their messages go without waiting for them, and their daily limits are full again.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.wheels.ended.
+         */
+        post: operations["command_outreach_wheels_end"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15877,6 +15977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.sends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s messages the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_sends"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.today": {
         parameters: {
             query?: never;
@@ -15891,6 +16011,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.wheels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everyone in the business on training wheels now, with how far each has come: messages OK’d, days left and how many they changed.
+         * @description Requires outreach.manage.
+         */
+        post: operations["query_outreach_wheels"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31655,7 +31795,7 @@ export interface operations {
                             start: number;
                         };
                         /** @enum {string} */
-                        sending: "off" | "steps";
+                        sending: "off" | "steps" | "approve_all" | "everything";
                         warmUp: boolean;
                     };
                     /** Format: uuid */
@@ -31682,10 +31822,17 @@ export interface operations {
                                 start: number;
                             };
                             /** @enum {string} */
-                            sending: "off" | "steps";
+                            sending: "off" | "steps" | "approve_all" | "everything";
                             warmUp: boolean;
                         };
                         timezone: string;
+                        wheels: {
+                            daysLeft: number;
+                            edits: number;
+                            from: string | null;
+                            ok: number;
+                            on: boolean;
+                        };
                     };
                 };
             };
@@ -32673,6 +32820,184 @@ export interface operations {
             };
         };
     };
+    command_outreach_send_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    sends?: {
+                        /** Format: uuid */
+                        sendId: string;
+                        text?: string;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: string[];
+                        wheels: {
+                            daysLeft: number;
+                            edits: number;
+                            from: string | null;
+                            ok: number;
+                            on: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_send_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sendId: string;
+                    sent: boolean;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        sendId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "sent" | "skipped" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_send_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    chatId?: string | null;
+                    /** @enum {string} */
+                    kind: "opener" | "follow_up" | "reply";
+                    /** @default null */
+                    opener?: {
+                        /** @enum {string} */
+                        kind: "style" | "own";
+                        /** Format: uuid */
+                        playbookId: string;
+                        text: string;
+                    } | null;
+                    /** Format: uuid */
+                    profileId: string;
+                    text: string;
+                    /** @default null */
+                    threadKey?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        chatId: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** @enum {string} */
+                        kind: "opener" | "follow_up" | "reply";
+                        name: string;
+                        opener: {
+                            /** @enum {string} */
+                            kind: "style" | "own";
+                            /** Format: uuid */
+                            playbookId: string;
+                            text: string;
+                        } | null;
+                        /** Format: uuid */
+                        profileId: string;
+                        profileUrl: string | null;
+                        /** Format: uuid */
+                        sendId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "sent" | "skipped" | "failed";
+                        text: string;
+                        threadKey: string | null;
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_send_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sendId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        sendId: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_touch_save: {
         parameters: {
             query?: never;
@@ -32811,6 +33136,39 @@ export interface operations {
                             today: boolean;
                             words: string;
                         };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_wheels_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ended: boolean;
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };
@@ -58639,10 +58997,17 @@ export interface operations {
                                 start: number;
                             };
                             /** @enum {string} */
-                            sending: "off" | "steps";
+                            sending: "off" | "steps" | "approve_all" | "everything";
                             warmUp: boolean;
                         };
                         timezone: string;
+                        wheels: {
+                            daysLeft: number;
+                            edits: number;
+                            from: string | null;
+                            ok: number;
+                            on: boolean;
+                        };
                     };
                 };
             };
@@ -59253,6 +59618,66 @@ export interface operations {
             };
         };
     };
+    query_outreach_sends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sends: {
+                            chatId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** @enum {string} */
+                            kind: "opener" | "follow_up" | "reply";
+                            name: string;
+                            opener: {
+                                /** @enum {string} */
+                                kind: "style" | "own";
+                                /** Format: uuid */
+                                playbookId: string;
+                                text: string;
+                            } | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string | null;
+                            /** Format: uuid */
+                            sendId: string;
+                            /** @enum {string} */
+                            state: "waiting" | "approved" | "sent" | "skipped" | "failed";
+                            text: string;
+                            threadKey: string | null;
+                            why: string | null;
+                        }[];
+                        wheels: {
+                            daysLeft: number;
+                            edits: number;
+                            from: string | null;
+                            ok: number;
+                            on: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_outreach_today: {
         parameters: {
             query?: never;
@@ -59297,6 +59722,13 @@ export interface operations {
                             postUrl: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
+                            send: {
+                                /** Format: uuid */
+                                sendId: string;
+                                /** @enum {string} */
+                                state: "waiting" | "approved";
+                                text: string;
+                            } | null;
                             summary: string | null;
                             threadKey: string | null;
                             why: string[];
@@ -59323,12 +59755,15 @@ export interface operations {
                                 most: number;
                             };
                         };
+                        messages: ("opener" | "follow_up" | "reply")[];
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;
                             name: string | null;
                             url: string;
                         }[];
+                        /** @enum {string} */
+                        sending: "off" | "steps" | "approve_all" | "everything";
                         warning: {
                             /** Format: date-time */
                             at: string;
@@ -59339,6 +59774,53 @@ export interface operations {
                             today: boolean;
                             words: string;
                         } | null;
+                        wheels: {
+                            daysLeft: number;
+                            edits: number;
+                            from: string | null;
+                            ok: number;
+                            on: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_wheels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            wheels: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                        }[];
                     };
                 };
             };

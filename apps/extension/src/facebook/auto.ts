@@ -3,13 +3,16 @@
  * panel: on the profile of someone on their list for today, Add friend, or Confirm on a request they got, or Like on
  * their latest post; and on a post on their list, the comment the AI drafted. The background's runner opens each
  * page in a window of its own (src/auto/run.ts), checks it's the right one and where things stand, and asks this
- * script in that tab for one step at a time. It never sends a message.
+ * script in that tab for one step at a time. A message goes only once it's drafted, and OK'd or let go as it is
+ * (packages/core/src/addons/outreach/sends.ts).
  *
- * Add friend and Confirm go the way Cancel request and Unfriend do (./tidy.ts, ./fetch.ts); a like and a comment are
- * their own: the like goes on the first post on the profile that's theirs, and only when it isn't liked already; the
- * comment is typed into the post's own box to comment in (never a reply's) and sent with its button, or Enter.
+ * Add friend and Confirm go the way Cancel request and Unfriend do (./tidy.ts, ./fetch.ts); a like, a comment and a
+ * message are their own: the like goes on the first post on the profile that's theirs, and only when it isn't liked
+ * already; the comment is typed into the post's own box to comment in (never a reply's), and the message into the
+ * chat's box (in Messenger, or the chat window their profile's Message opens), and each is sent with its button, or
+ * Enter.
  */
-import { COMMENT_BOX, hasWriting, REPLY_BOX, SEND, WRITING } from './actions';
+import { COMMENT_BOX, hasWriting, MESSAGE_BOX, REPLY_BOX, SEND, WRITING } from './actions';
 import { clean, inTopBar, isAfter, labelOf } from './dom';
 import { shown, type FetchStep } from './fetch';
 import { COMMENT, LIKE, postBoxes, readPost } from './posts';
@@ -65,6 +68,11 @@ export const AUTO_PLANS: Readonly<Record<AutoJob, AutoPlan>> = {
   },
 };
 
+/** On someone's profile, Message opens a chat with them: a small window over the page, or Messenger. */
+export const MESSAGE_PATH: readonly FetchStep[] = [
+  press(['Message'], 'Press “Message” under their name.', { exact: true }),
+];
+
 /** Whether two profiles are the same person: by number or by username, either way they were linked. */
 export function sameRef(a: ProfileRef | null, b: ProfileRef | null): boolean {
   if (!a || !b) return false;
@@ -76,13 +84,13 @@ export function sameRef(a: ProfileRef | null, b: ProfileRef | null): boolean {
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
-/** How a like or a comment went. */
+/** How a like, a comment or a message went. */
 export type AutoResult =
-  /** Liked, or the comment sent. */
+  /** Liked, or the comment or message sent. */
   | 'done'
   /** Their post was liked already. */
   | 'already'
-  /** No post of theirs on the page to like, or no box to comment in. */
+  /** No post of theirs on the page to like, or no box to comment or write in. */
   | 'none'
   /** Written, but Facebook didn't take it. */
   | 'not_sent';
@@ -186,6 +194,39 @@ export async function writeComment(doc: Document, text: string): Promise<AutoRes
     box = commentBox(doc);
   }
   if (!box) return 'none';
+  return typeAndSend(doc, box, text);
+}
+
+/**
+ * The box to write a message in: the open chat's in Messenger, else the chat window's over the page that opened last.
+ * Never a box to comment in.
+ */
+function messageBox(doc: Document): HTMLElement | null {
+  const label = (box: Element) =>
+    clean(box.getAttribute('aria-label')) || clean(box.getAttribute('aria-placeholder'));
+  const boxes = [...doc.querySelectorAll(WRITING)].filter(
+    (b) => shown(b) && !inTopBar(b) && MESSAGE_BOX.test(label(b)) && !COMMENT_BOX.test(label(b)),
+  );
+  return (boxes.at(-1) as HTMLElement | undefined) ?? null;
+}
+
+/**
+ * Writes a message in the chat the page shows, and sends it (decisions 26 and 27): types it into the chat's box,
+ * presses the button that sends it (or Enter), and waits for the box to empty. A box with writing in it already is
+ * left alone: the person may be writing there.
+ */
+export async function writeMessage(doc: Document, text: string): Promise<AutoResult> {
+  let box = messageBox(doc);
+  for (let wait = 0; !box && wait < 10; wait++) {
+    await pause(500);
+    box = messageBox(doc);
+  }
+  if (!box) return 'none';
+  return typeAndSend(doc, box, text);
+}
+
+/** Types into a box to write in, and sends it with the button beside it, or Enter. */
+async function typeAndSend(doc: Document, box: HTMLElement, text: string): Promise<AutoResult> {
   if (hasWriting(box)) return 'not_sent';
   box.focus();
   box.click();

@@ -7,33 +7,16 @@
  *
  * It stops when Facebook shows a warning (decision 25), and isn't done at all on a day it already has.
  */
-import { LOOKUP_LINE_MOST, LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { line, linesOf, POSTS_READ } from '../facebook/lookup';
 import type { ReadResult } from '../facebook/types';
 import { WorkTab } from '../tab';
 import { noteWarnings, warnedToday } from './warnings';
 
-/** What's read from their latest posts, and the business's: a couple each, cut short. */
-const POSTS_READ = 2;
-const POST_LINE_MOST = 240;
 /** A look-up kept for this long, so Draft again doesn't open their profile again. */
 const KEPT_MS = 30 * 60_000;
 
 const kept = new Map<string, { readonly at: number; readonly lines: readonly string[] }>();
-
-const line = (text: string, most = LOOKUP_LINE_MOST) => {
-  const one = text.replace(/\s+/g, ' ').trim();
-  return one.length <= most ? one : `${one.slice(0, most - 1)}…`;
-};
-
-/** What a profile or page read says, as lines for the AI: what it says about itself, and its latest posts. */
-function linesOf(read: ReadResult, label: string | null, posts: number): string[] {
-  const intro = read.profile?.intro ?? [];
-  const latest = (read.posts ?? [])
-    .filter((post) => post.text.trim())
-    .slice(0, posts)
-    .map((post) => `${label ?? 'They'} posted: ${line(post.text, POST_LINE_MOST)}`);
-  return [...intro.map((l) => line(label ? `${label}: ${l}` : l)), ...latest];
-}
 
 async function readIn(tab: WorkTab, url: string): Promise<ReadResult | null> {
   await tab.open(url);

@@ -40,6 +40,7 @@ import {
   type Profile,
   type ProfileKey,
 } from './common';
+import { slowerFor } from './automation';
 import { slowsNow, warningOf } from './tidy';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -557,7 +558,7 @@ export const activity = defineAddonQuery(outreachAddon, {
         comment: c.today_comment,
         like: c.today_like,
       },
-      limits: dailyLimitsNow(slowsNow(warning)),
+      limits: dailyLimitsNow(await slowerFor(ctx, me, slowsNow(warning))),
       warning,
       groups: [...resultsByGroup(listed).values()]
         .sort(

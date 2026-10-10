@@ -98,7 +98,7 @@ export const REPLY_BOX = /^(reply (to|as)\b|write a (public )?reply)/i;
 /** "Reply to Jane Doe": who a reply answers. */
 const REPLY_TO = /^reply to\s+(.+?)(?:…|\.\.\.)?$/i;
 /** The box to write in, in a chat open over another page. */
-const MESSAGE_BOX = /^(message\b|aa$|write (a message|to)\b|type a message)/i;
+export const MESSAGE_BOX = /^(message\b|aa$|write (a message|to)\b|type a message)/i;
 /** The buttons that send what's written: a chat's, a comment's. Facebook shows them once something is. */
 export const SEND = /^(press enter to send|send|comment|post comment|post reply|submit)$/i;
 /** Your own name, in the box you write a comment in: "Comment as Jane Doe". */

@@ -2,7 +2,7 @@
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
  * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
- * and demos, and 20261027001200 for the extension on its own): the Drizzle mirror its server code reads and writes
+ * and demos, 20261027001200 for the extension on its own, and 20261027001300 for the messages it sends): the Drizzle mirror its server code reads and writes
  * through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -22,14 +22,15 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
-import type { SendingMode } from './automation';
+import type { MessageKind, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
-import type { OpenerKind } from './openers';
+import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
+import type { SendState } from './sends';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -601,6 +602,41 @@ export const automation = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
 
+/**
+ * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27): the words that go and the
+ * AI's own, and where it stands. One open (waiting or OK'd) a person, profile and kind at a time.
+ */
+export const sends = addonOutreach.table(
+  'sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<MessageKind>(),
+    chatId: uuid('chat_id'),
+    threadKey: text('thread_key'),
+    text: text('text').notNull(),
+    drafted: text('drafted').notNull(),
+    opener: jsonb('opener').$type<DraftOpener>(),
+    state: text('state').notNull().default('waiting').$type<SendState>(),
+    why: text('why'),
+    approvedAt: ts('approved_at'),
+    doneAt: ts('done_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   automation,
@@ -618,6 +654,7 @@ export const OUTREACH_TABLES = {
   posts,
   profiles,
   replies,
+  sends,
   threads,
   touches,
   warnings,

@@ -324,8 +324,12 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   presses (`AUTO_PLANS`, a button under their name, Confirm in the menu Respond opens), Like only on the first post
   on the profile that's theirs and isn't liked yet, and types a comment only in the post's own box, never a reply's,
   sending it with its button or Enter (`src/facebook/auto.ts`). Its presses aren't the person's, so the content
-  script doesn't notice them; the runner notes each one itself, marked `auto`. It never sends a message.
-  `test/auto.test.ts` walks a made-up profile and post.
+  script doesn't notice them; the runner notes each one itself, marked `auto`. It sends a message only once
+  HandsFreeOS says it's OK'd (`outreach.send.*`, `workLeft`): it drafts it with the AI after looking the person up in
+  its own window, queues it, and sends what's OK'd in their chat in Messenger, or the chat window their profile's
+  **Message** opens, typing only into that chat's box and leaving one with writing in it alone (`writeMessage`). A
+  message it couldn't send is reported as not sent, with why, and never tried again that day.
+  `test/auto.test.ts` walks a made-up profile, post, chat and chat window.
 - **A warning stops the day.** The panel keeps the day's warnings itself (`hfos.warned`), so reading chats and tidying
   refuse to start, or stop, even when HandsFreeOS can't be reached.
 - **Saving only when pressed; steps noted as they happen.** Reading a page asks HandsFreeOS which people and chats on

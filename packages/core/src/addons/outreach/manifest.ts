@@ -94,6 +94,11 @@ export const outreachAddon = defineAddon({
       'outreach.demo.booked',
       'outreach.automation.saved',
       'outreach.warm_up.missed',
+      'outreach.send.queued',
+      'outreach.send.approved',
+      'outreach.send.skipped',
+      'outreach.send.done',
+      'outreach.wheels.ended',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
@@ -129,6 +134,7 @@ export const outreachAddon = defineAddon({
     'posts',
     'profiles',
     'replies',
+    'sends',
     'threads',
     'touches',
     'warnings',

@@ -12,6 +12,10 @@
  * drafts open the way the playbook's next opener says, and copying one notes which it was (decision 23); anyone on the
  * list for a message has the person's demo link to copy, so a booking through it counts by itself (decision 24). What
  * the extension does on its own for them (./auto.ts) says so.
+ *
+ * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
+ * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting; one
+ * OK'd says it goes soon. While training wheels are on, it says what's left before they come off.
  */
 import {
   DAILY_STEPS,
@@ -22,6 +26,7 @@ import {
 } from '@hfos/core/addons/outreach/limits';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { DRAFT_KINDS, TODAY_KINDS, type DraftKind } from '@hfos/core/addons/outreach/today';
 import type {
   Activity,
@@ -56,6 +61,10 @@ const drafts = new Map<
   { readonly texts: readonly string[]; readonly opener: DraftOpener | null } | 'looking' | 'writing'
 >();
 const draftProblems = new Map<string, string>();
+/** Messages waiting for the person's OK as they're changing them, by send; and why one couldn't be OK'd or skipped. */
+const edits = new Map<string, string>();
+const sendProblems = new Map<string, string>();
+let approving = false;
 /** The list's shown, or all of it. */
 let showAll = false;
 
@@ -141,6 +150,69 @@ function copyButton(label: string, text: string, then?: () => void): HTMLElement
     );
   });
   return copy;
+}
+
+/** OKs messages the extension drafted, as the person left them; with none named, every one waiting (Approve all). */
+async function approve(item: TodayListItem | null): Promise<void> {
+  if (!list || approving) return;
+  approving = true;
+  draw();
+  const sendId = item?.send?.sendId;
+  const answer = await ask({
+    type: 'hfos-send-ok',
+    input: {
+      workspaceId: list.businessId,
+      ...(sendId ? { sends: [{ sendId, text: edits.get(sendId) ?? item.send!.text }] } : {}),
+    },
+  });
+  approving = false;
+  if (answer.ok) {
+    sendProblems.delete(sendId ?? 'all');
+    for (const id of answer.value.approved) edits.delete(id);
+  } else sendProblems.set(sendId ?? 'all', answer.problem.message);
+  await refreshList();
+}
+
+/** Skips a message the extension drafted: it isn't sent, and they're off the list for today. */
+async function skipSend(item: TodayListItem): Promise<void> {
+  if (!list || !item.send) return;
+  const answer = await ask({
+    type: 'hfos-send-skip',
+    input: { workspaceId: list.businessId, sendId: item.send.sendId },
+  });
+  if (answer.ok) sendProblems.delete(item.send.sendId);
+  else sendProblems.set(item.send.sendId, answer.problem.message);
+  await refreshList();
+}
+
+/** The message the extension drafted for someone: to change and send or skip while it waits; else going soon. */
+function sendView(item: TodayListItem): Child {
+  const send = item.send;
+  if (!send) return null;
+  if (send.state === 'approved')
+    return h(
+      'div',
+      {},
+      h('p', { class: 'muted' }, 'OK’d: the extension sends it soon.'),
+      h('blockquote', { class: 'post' }, send.text),
+    );
+  const words = h('textarea', { rows: '4', 'aria-label': `Message to ${item.name}` });
+  words.value = edits.get(send.sendId) ?? send.text;
+  words.addEventListener('input', () => edits.set(send.sendId, words.value));
+  const trouble = sendProblems.get(send.sendId);
+  return h(
+    'div',
+    {},
+    h('p', { class: 'muted' }, 'I’d send this. Change it if you like; your changes teach the AI.'),
+    words,
+    h(
+      'div',
+      { class: 'actions' },
+      button('Send', () => void approve(item), { primary: true, disabled: approving }),
+      button('Skip', () => void skipSend(item), { disabled: approving }),
+    ),
+    trouble ? h('div', { class: 'error' }, trouble) : null,
+  );
 }
 
 /** Puts a post aside: off the list, and never suggested again. */
@@ -324,7 +396,7 @@ function itemView(item: TodayListItem): HTMLElement {
       : null,
     item.summary ? h('div', {}, item.summary) : null,
     item.nextStep ? h('div', { class: 'muted' }, `Next: ${item.nextStep}`) : null,
-    draftsView(item),
+    item.send ? sendView(item) : draftsView(item),
     item.demoLink ? h('div', {}, copyButton('Copy demo link', item.demoLink)) : null,
   );
 }
@@ -336,11 +408,25 @@ function listView(): Child[] {
     return listProblem
       ? [h('p', { class: 'muted' }, `Couldn’t get your list. ${listProblem}`)]
       : [];
-  const { items, readAdmins, hasPlaybook } = list.value;
+  const { items, readAdmins, hasPlaybook, wheels } = list.value;
   const shownItems = showAll ? items : items.slice(0, LIST_SHOWN);
   const web = `${today.webUrl}/app/w/${list.businessId}/a/outreach`;
+  const waiting = items.filter((item) => item.send?.state === 'waiting').length;
+  const allTrouble = sendProblems.get('all');
   return [
     h('h3', {}, 'Your list for today'),
+    wheels.on ? h('p', { class: 'muted' }, wheelsWords(wheels)) : null,
+    waiting > 1
+      ? h(
+          'div',
+          { class: 'actions' },
+          button(`Approve all ${waiting.toLocaleString()} messages`, () => void approve(null), {
+            primary: true,
+            disabled: approving,
+          }),
+        )
+      : null,
+    allTrouble ? h('div', { class: 'error' }, allTrouble) : null,
     items.length
       ? h('ul', { class: 'list' }, ...shownItems.map(itemView))
       : h(

@@ -8,7 +8,7 @@ import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
-import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds } from '../automation';
+import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds, messageKinds } from '../automation';
 import { demoLink, demoRef } from '../demos';
 import { bestFit } from '../fit';
 import { bestGroupFit } from '../groups';
@@ -31,6 +31,7 @@ import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
 import { inWorkspace } from './common';
 import { playbooksInUse } from './friends';
+import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
@@ -78,11 +79,12 @@ export const today = defineAddonQuery(outreachAddon, {
           from addon_outreach.touches
           where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
     );
+    const { settings, wheels } = await automationOf(ctx, me, now);
+    // Halved after a warning from Facebook, and on training wheels.
     const limits = todayLimits(
       done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 },
-      dailyLimitsNow(slowsNow(warning, now)),
+      dailyLimitsNow(slowsNow(warning, now) || wheels.on),
     );
-    const { settings } = await automationOf(ctx, me);
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     const pace = {
@@ -111,6 +113,7 @@ export const today = defineAddonQuery(outreachAddon, {
       nextStep: null,
       playbookName: null,
       demoLink: null,
+      send: null,
       ...more,
     });
     // The demo link for a message (decision 24): the first playbook in use with a link, by name.
@@ -470,13 +473,24 @@ export const today = defineAddonQuery(outreachAddon, {
               where gp.group_id = g.id and not gp.runs_group)
           order by g.seen_at desc nulls last limit 10`,
     );
+    // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list.
+    const drafted = await sendsToday(ctx, me, todayFrom);
+    const listedItems = items
+      .filter((i) => !drafted.off(i.profileId, i.kind))
+      .map((i) => {
+        const send = drafted.open(i.profileId, i.kind);
+        return send ? { ...i, send } : i;
+      });
     return {
       limits,
-      items,
+      items: listedItems,
       readAdmins: readAdmins.map((g) => ({ groupId: g.id, name: g.name, url: g.url })),
       hasPlaybook: playbooks.length > 0,
       warning,
       auto: autoKinds(settings),
+      messages: messageKinds(settings),
+      sending: settings.sending,
+      wheels,
     };
   },
 });

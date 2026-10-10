@@ -79,6 +79,13 @@ export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 /** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
 export type AutomationSaveInput = Body<'/v1/commands/outreach.automation.save'>;
+/** Messages the extension drafted to send, OK'd or skipped (packages/core/src/addons/outreach/sends.ts). */
+export type SendQueueInput = Body<'/v1/commands/outreach.send.queue'>;
+export type SendQueued = Ok<'/v1/commands/outreach.send.queue'>;
+export type SendApproveInput = Body<'/v1/commands/outreach.send.approve'>;
+export type SendApproved = Ok<'/v1/commands/outreach.send.approve'>;
+export type SendSkipInput = Body<'/v1/commands/outreach.send.skip'>;
+export type SendSkipped = Ok<'/v1/commands/outreach.send.skip'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -186,7 +193,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-save'; readonly input: AutomationSaveInput }
   | { readonly type: 'hfos-auto-start' }
-  | { readonly type: 'hfos-auto-stop' };
+  | { readonly type: 'hfos-auto-stop' }
+  | { readonly type: 'hfos-send-ok'; readonly input: SendApproveInput }
+  | { readonly type: 'hfos-send-skip'; readonly input: SendSkipInput };
 
 /** What each ask answers with. */
 export interface HfosValues {
@@ -222,6 +231,8 @@ export interface HfosValues {
   readonly 'hfos-auto-save': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;
+  readonly 'hfos-send-ok': SendApproved;
+  readonly 'hfos-send-skip': SendSkipped;
 }
 
 export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
@@ -257,6 +268,8 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto-save',
   'hfos-auto-start',
   'hfos-auto-stop',
+  'hfos-send-ok',
+  'hfos-send-skip',
 ]);
 
 /** The asks the runner that works on its own answers (src/auto/run.ts). */
@@ -265,6 +278,8 @@ export const AUTO_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto-save',
   'hfos-auto-start',
   'hfos-auto-stop',
+  'hfos-send-ok',
+  'hfos-send-skip',
 ]);
 
 /** What the background tells the extension's pages when it has noted a step: the day's numbers have changed. */
