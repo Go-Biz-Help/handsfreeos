@@ -24,11 +24,19 @@
  * - **Once a day** (decision 32): checking friend requests, saving group members, Find posts and Read my chats, at the
  *   start of the working day, while it works on its own.
  *
+ * - **Where they're set** (decisions 37 to 40): in HandsFreeOS, on Social Outreach's Settings tab, on the web and the
+ *   phone; never in the extension, which loads them when the person signs in and follows each change within seconds.
+ *   They take in the extension's three switches (noting steps, reading chats as they're opened, looking for posts while
+ *   scrolling) and how the phone hears what waits. Each person picks their own, inside the business's rules
+ *   (`BusinessRules`): the choices it allows, its own daily limits under the starting ones, and the defaults a new
+ *   person starts with. Owners and admins can change anyone's; the person sees who did.
+ *
  * Every step keeps the daily limits, goes at a person's pace, and stops for the day on any Facebook warning.
  * Browser-safe: the extension, the web and the API read it.
  */
 import { z } from 'zod';
 import { localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
+import { DAILY_LIMITS } from './limits';
 import type { TodayKind } from './today';
 
 export const SENDING_MODES = {
@@ -48,6 +56,14 @@ export const REPLY_MODES = {
 } as const;
 export type ReplyMode = keyof typeof REPLY_MODES;
 export const REPLY_MODE_KEYS = Object.keys(REPLY_MODES) as [ReplyMode, ...ReplyMode[]];
+
+/** How the phone hears about messages waiting for the person's OK (decision 15): a reply handed over always pushes at once. */
+export const PUSH_MODES = {
+  bundled: 'One push for what’s waiting, at most every 2 hours in your working hours',
+  each: 'A push for each message that waits',
+} as const;
+export type PushMode = keyof typeof PUSH_MODES;
+export const PUSH_MODE_KEYS = Object.keys(PUSH_MODES) as [PushMode, ...PushMode[]];
 
 /** 0 is Sunday. */
 export const WEEKDAY_WORDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -78,6 +94,14 @@ export const AutomationSettings = z.object({
   /** The once-a-day jobs (decision 32): they fill the list it works from. On when left out, as 0.11 of the extension does. */
   collect: z.boolean().default(true),
   hours: WorkingHours,
+  /** The extension notes the person's own steps on Facebook (decision 8). */
+  noting: z.boolean().default(true),
+  /** It sends a chat the person opens in Messenger for the AI to read. */
+  readChats: z.boolean().default(true),
+  /** It looks for posts worth a comment as the person scrolls a group. */
+  markPosts: z.boolean().default(true),
+  /** How the phone hears about messages waiting for their OK. */
+  pushes: z.enum(PUSH_MODE_KEYS).default('bundled'),
 });
 export type AutomationSettings = z.output<typeof AutomationSettings>;
 
@@ -88,7 +112,72 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   confirmRequests: true,
   collect: true,
   hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
+  noting: true,
+  readChats: true,
+  markPosts: true,
+  pushes: 'bundled',
 };
+
+/** The daily limits a business can set, each at most the starting one (./limits.ts). */
+export const BusinessLimits = z
+  .object({
+    friend_request: z.number().int().min(0).max(DAILY_LIMITS.friend_request),
+    first_message: z.number().int().min(0).max(DAILY_LIMITS.first_message),
+    follow_up: z.number().int().min(0).max(DAILY_LIMITS.follow_up),
+    comment: z.number().int().min(0).max(DAILY_LIMITS.comment),
+    like: z.number().int().min(0).max(DAILY_LIMITS.like),
+  })
+  .partial();
+export type BusinessLimits = z.output<typeof BusinessLimits>;
+
+/**
+ * What owners and admins set for everyone (decision 38): the Sending and Replies choices people may pick (doing
+ * everything themselves, and every reply waiting, are always allowed), daily limits under the starting ones, and the
+ * choices a new person starts with. Kept with the business's Social Outreach settings.
+ */
+export const BusinessRules = z.object({
+  sendingAllowed: z
+    .array(z.enum(SENDING_MODE_KEYS))
+    .default([...SENDING_MODE_KEYS])
+    .transform((modes) => SENDING_MODE_KEYS.filter((m) => m === 'off' || modes.includes(m))),
+  repliesAllowed: z
+    .array(z.enum(REPLY_MODE_KEYS))
+    .default([...REPLY_MODE_KEYS])
+    .transform((modes) => REPLY_MODE_KEYS.filter((m) => m === 'draft' || modes.includes(m))),
+  dailyLimits: BusinessLimits.default({}),
+  defaults: AutomationSettings.default(AUTOMATION_DEFAULTS),
+});
+export type BusinessRules = z.output<typeof BusinessRules>;
+export const NO_RULES: BusinessRules = BusinessRules.parse({});
+
+/** The nearest choice the business allows, at or before this one: a choice it stopped allowing steps back. */
+function allowedOf<T extends string>(order: readonly T[], allowed: readonly T[], want: T): T {
+  for (let i = order.indexOf(want); i > 0; i--) if (allowed.includes(order[i]!)) return order[i]!;
+  return order[0]!;
+}
+
+/** A person's choices as they stand inside the business's rules. */
+export function withinRules(
+  settings: AutomationSettings,
+  rules: BusinessRules,
+): AutomationSettings {
+  return {
+    ...settings,
+    sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, settings.sending),
+    replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, settings.replies),
+  };
+}
+
+/** What the business doesn't allow of these choices, in words to refuse them with; null when it's all allowed. */
+export function notAllowedWords(settings: AutomationSettings, rules: BusinessRules): string | null {
+  const off = [
+    rules.sendingAllowed.includes(settings.sending) ? null : `“${SENDING_MODES[settings.sending]}”`,
+    rules.repliesAllowed.includes(settings.replies) ? null : `“${REPLY_MODES[settings.replies]}”`,
+  ].filter(Boolean);
+  return off.length
+    ? `Your business doesn’t allow ${off.join(' or ')}. Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.`
+    : null;
+}
 
 /**
  * The kinds on the list for today the extension does on its own for someone, in the order it does them: requests
@@ -195,7 +284,11 @@ export function wheelsWords(state: WheelsState): string {
   return `Training wheels: every message waits for your OK, and your daily limits are half${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
 }
 
-export const AutomationInput = z.object({ workspaceId: z.uuid() });
+export const AutomationInput = z.object({
+  workspaceId: z.uuid(),
+  /** Someone else's, for an owner or admin; the person's own when left out. */
+  userId: z.uuid().optional(),
+});
 export type AutomationInput = z.input<typeof AutomationInput>;
 
 export const AutomationOutput = z.object({
@@ -206,11 +299,24 @@ export const AutomationOutput = z.object({
   saved: z.boolean(),
   /** Their training wheels. */
   wheels: WheelsState,
+  /** Whose they are. */
+  userId: z.uuid(),
+  name: z.string(),
+  /** An owner or admin who changed them last, when it wasn't the person. */
+  changedBy: z.string().nullable(),
+  /** What the business allows (decision 38). */
+  rules: z.object({
+    sendingAllowed: z.array(z.enum(SENDING_MODE_KEYS)),
+    repliesAllowed: z.array(z.enum(REPLY_MODE_KEYS)),
+    dailyLimits: BusinessLimits,
+  }),
 });
 export type AutomationOutput = z.output<typeof AutomationOutput>;
 
 export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
+  /** Someone else's, for an owner or admin; the person's own when left out. */
+  userId: z.uuid().optional(),
   settings: AutomationSettings,
 });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
@@ -229,6 +335,24 @@ export const WheelsListOutput = z.object({
   people: z.array(z.object({ userId: z.uuid(), name: z.string(), wheels: WheelsState })),
 });
 export type WheelsListOutput = z.output<typeof WheelsListOutput>;
+
+/** Everyone who can use Social Outreach here, with their choices, for owners and admins (decision 39). */
+export const AutomationPeopleInput = z.object({ workspaceId: z.uuid() });
+export type AutomationPeopleInput = z.input<typeof AutomationPeopleInput>;
+export const AutomationPeopleOutput = z.object({
+  people: z.array(
+    z.object({
+      userId: z.uuid(),
+      name: z.string(),
+      /** Whether they've saved their own; until then the business's defaults stand. */
+      saved: z.boolean(),
+      sending: z.enum(SENDING_MODE_KEYS),
+      replies: z.enum(REPLY_MODE_KEYS),
+      wheels: z.boolean(),
+    }),
+  ),
+});
+export type AutomationPeopleOutput = z.output<typeof AutomationPeopleOutput>;
 
 /** A profile with no post to like (decision 33): its friend request goes without the warm-up. */
 export const WarmUpMissedInput = z.object({
@@ -295,4 +419,33 @@ export function hoursWords(hours: WorkingHours): string {
         ? `${WEEKDAY_WORDS[days[0]!]} to ${WEEKDAY_WORDS[days[days.length - 1]!]}`
         : days.map((d) => WEEKDAY_WORDS[d]).join(', ');
   return `${at(hours.start)} to ${at(hours.end)}, ${dayWords}`;
+}
+
+/** The short words for each choice, for a one-line summary (decision 39: the extension shows it, read-only). */
+const SENDING_SHORT: Record<SendingMode, string> = {
+  off: 'Off: you do everything',
+  steps: 'Requests, likes and comments on their own; each message waits for you',
+  approve_all: 'Requests, likes and comments on their own; messages ready to Approve all',
+  everything: 'Everything on its own',
+};
+const REPLIES_SHORT: Record<ReplyMode, string> = {
+  draft: 'every one waits for you',
+  simple: 'simple ones on their own',
+  everything: 'on their own, except ones that need you',
+};
+
+/** "On its own: … · Replies: … · 9 AM to 5 PM, Mon to Fri", one line per part. */
+export function settingsSummary(settings: AutomationSettings): string[] {
+  const lines = [`On its own: ${SENDING_SHORT[settings.sending]}`];
+  if (settings.sending !== 'off') {
+    lines.push(`Replies: ${REPLIES_SHORT[settings.replies]}`);
+    lines.push(`When: ${hoursWords(settings.hours)}`);
+  }
+  const off = [
+    !settings.noting && 'noting your steps',
+    !settings.readChats && 'reading chats you open',
+    !settings.markPosts && 'looking for posts as you scroll',
+  ].filter((word): word is string => Boolean(word));
+  if (off.length) lines.push(`Off: ${off.join(', ')}`);
+  return lines;
 }

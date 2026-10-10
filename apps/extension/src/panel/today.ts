@@ -1,6 +1,6 @@
 /**
  * Today on Facebook, in the side panel: the person's steps so far today against the daily limits, the people they
- * reached and who wrote back, and the last few steps noted; with the switch that turns noting on and off, and a link
+ * reached and who wrote back, and the last few steps noted (noting itself is turned on and off in HandsFreeOS, decision 37), and a link
  * to the activity panel in HandsFreeOS (docs/outreach.md, decisions 7 and 8). The background notes the steps and
  * answers for the day (src/hfos/noting.ts); this asks it, and asks again whenever it notes one.
  *
@@ -51,7 +51,6 @@ let box: HTMLElement;
 let today: Today | null = null;
 let problem: Problem | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
-let switching = false;
 /** The list for today in the business it saves to, and why it couldn't be had. */
 let list: { readonly businessId: string; readonly value: TodayList } | null = null;
 let listProblem: string | null = null;
@@ -233,16 +232,6 @@ async function skip(item: TodayListItem): Promise<void> {
 function soon(): void {
   clearTimeout(timer);
   timer = setTimeout(() => void refreshToday(), SOON_MS);
-}
-
-async function turn(on: boolean): Promise<void> {
-  switching = true;
-  draw();
-  const answer = await ask({ type: 'hfos-noting', on });
-  switching = false;
-  if (answer.ok) [today, problem] = [answer.value, null];
-  else problem = answer.problem;
-  draw();
 }
 
 /** What each step or answer noted is called. */
@@ -488,7 +477,7 @@ function draw(): void {
       ? h(
           'p',
           { class: 'muted' },
-          'Noting is off, so the steps you take on Facebook aren’t counted here.',
+          'Noting is off, so the steps you take on Facebook aren’t counted here. Turn on “Note my steps on Facebook” in HandsFreeOS.',
         )
       : null,
     ...(activity ? limitsView(activity) : []),
@@ -501,18 +490,8 @@ function draw(): void {
       : null,
     ...listView(),
     recentView(today?.recent ?? []),
-    today ? switchView(today) : null,
   ];
   box.replaceChildren(...parts.filter((part): part is Node | string => Boolean(part)));
-}
-
-/** The switch that turns noting on and off. */
-function switchView(now: Today): Child {
-  const toggle = h('input', { type: 'checkbox' });
-  toggle.checked = now.noting;
-  toggle.disabled = switching;
-  toggle.addEventListener('change', () => void turn(toggle.checked));
-  return h('label', { class: 'auto' }, toggle, ' Note what I do on Facebook');
 }
 
 /** Draws the day into `into`, and asks again when a step is noted, and every few minutes while the panel shows. */

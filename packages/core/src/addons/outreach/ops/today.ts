@@ -79,11 +79,11 @@ export const today = defineAddonQuery(outreachAddon, {
           from addon_outreach.touches
           where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
     );
-    const { settings, wheels } = await automationOf(ctx, me, now);
-    // Halved after a warning from Facebook, and on training wheels.
+    const { settings, wheels, rules } = await automationOf(ctx, me, now);
+    // The business's own, halved after a warning from Facebook, and on training wheels.
     const limits = todayLimits(
       done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 },
-      dailyLimitsNow(slowsNow(warning, now) || wheels.on),
+      dailyLimitsNow(slowsNow(warning, now) || wheels.on, rules.dailyLimits),
     );
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);

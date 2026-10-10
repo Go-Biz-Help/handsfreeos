@@ -20,3 +20,6 @@ export type TodayItem = TodayList['items'][number];
 export type WheelsList = Ok<'/v1/queries/outreach.wheels'>;
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
 export type Openers = Ok<'/v1/queries/outreach.openers'>;
+/** Someone's choices for the extension, inside the business's rules (packages/core/src/addons/outreach/automation.ts). */
+export type Automation = Ok<'/v1/queries/outreach.automation'>;
+export type AutomationPeople = Ok<'/v1/queries/outreach.automation.people'>;

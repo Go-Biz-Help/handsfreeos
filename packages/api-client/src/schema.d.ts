@@ -5787,7 +5787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.
+         * The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows.
          * @description Risk level 0. Requires outreach.use. Emits outreach.automation.saved.
          */
         post: operations["command_outreach_automation_save"];
@@ -15807,10 +15807,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person lets the browser extension do for them on Facebook on its own, and their working hours, in the business’s time zone.
+         * What the person lets the browser extension do for them on Facebook on its own, its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_automation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.automation.people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everyone who can use Social Outreach in the business, with what each lets the extension do on its own, for an owner or admin to look over or change.
+         * @description Requires outreach.manage.
+         */
+        post: operations["query_outreach_automation_people"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31794,6 +31814,17 @@ export interface operations {
                             end: number;
                             start: number;
                         };
+                        /** @default true */
+                        markPosts?: boolean;
+                        /** @default true */
+                        noting?: boolean;
+                        /**
+                         * @default bundled
+                         * @enum {string}
+                         */
+                        pushes?: "bundled" | "each";
+                        /** @default true */
+                        readChats?: boolean;
                         /**
                          * @default draft
                          * @enum {string}
@@ -31803,6 +31834,8 @@ export interface operations {
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warmUp: boolean;
                     };
+                    /** Format: uuid */
+                    userId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -31816,6 +31849,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        changedBy: string | null;
+                        name: string;
+                        rules: {
+                            dailyLimits: {
+                                comment?: number;
+                                first_message?: number;
+                                follow_up?: number;
+                                friend_request?: number;
+                                like?: number;
+                            };
+                            repliesAllowed: ("draft" | "simple" | "everything")[];
+                            sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
+                        };
                         saved: boolean;
                         settings: {
                             /** @default true */
@@ -31826,6 +31872,17 @@ export interface operations {
                                 end: number;
                                 start: number;
                             };
+                            /** @default true */
+                            markPosts: boolean;
+                            /** @default true */
+                            noting: boolean;
+                            /**
+                             * @default bundled
+                             * @enum {string}
+                             */
+                            pushes: "bundled" | "each";
+                            /** @default true */
+                            readChats: boolean;
                             /**
                              * @default draft
                              * @enum {string}
@@ -31836,6 +31893,8 @@ export interface operations {
                             warmUp: boolean;
                         };
                         timezone: string;
+                        /** Format: uuid */
+                        userId: string;
                         wheels: {
                             daysLeft: number;
                             edits: number;
@@ -58986,6 +59045,8 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
                     workspaceId: string;
                 };
             };
@@ -58998,6 +59059,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        changedBy: string | null;
+                        name: string;
+                        rules: {
+                            dailyLimits: {
+                                comment?: number;
+                                first_message?: number;
+                                follow_up?: number;
+                                friend_request?: number;
+                                like?: number;
+                            };
+                            repliesAllowed: ("draft" | "simple" | "everything")[];
+                            sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
+                        };
                         saved: boolean;
                         settings: {
                             /** @default true */
@@ -59008,6 +59082,17 @@ export interface operations {
                                 end: number;
                                 start: number;
                             };
+                            /** @default true */
+                            markPosts: boolean;
+                            /** @default true */
+                            noting: boolean;
+                            /**
+                             * @default bundled
+                             * @enum {string}
+                             */
+                            pushes: "bundled" | "each";
+                            /** @default true */
+                            readChats: boolean;
                             /**
                              * @default draft
                              * @enum {string}
@@ -59018,6 +59103,8 @@ export interface operations {
                             warmUp: boolean;
                         };
                         timezone: string;
+                        /** Format: uuid */
+                        userId: string;
                         wheels: {
                             daysLeft: number;
                             edits: number;
@@ -59025,6 +59112,45 @@ export interface operations {
                             ok: number;
                             on: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_automation_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            name: string;
+                            /** @enum {string} */
+                            replies: "draft" | "simple" | "everything";
+                            saved: boolean;
+                            /** @enum {string} */
+                            sending: "off" | "steps" | "approve_all" | "everything";
+                            /** Format: uuid */
+                            userId: string;
+                            wheels: boolean;
+                        }[];
                     };
                 };
             };

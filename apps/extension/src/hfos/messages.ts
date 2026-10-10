@@ -78,7 +78,6 @@ export type DemoMarked = Ok<'/v1/commands/outreach.demo.mark'>;
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 /** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
-export type AutomationSaveInput = Body<'/v1/commands/outreach.automation.save'>;
 /** Messages the extension drafted to send, OK'd or skipped (packages/core/src/addons/outreach/sends.ts). */
 export type SendQueueInput = Body<'/v1/commands/outreach.send.queue'>;
 export type SendQueued = Ok<'/v1/commands/outreach.send.queue'>;
@@ -155,6 +154,8 @@ export interface AutoStatus {
   /** Whether the extension notes the steps the person takes: it works on its own only while it does. */
   readonly noting: boolean;
   readonly state: AutoState;
+  /** HandsFreeOS on the web, where the choices are changed. */
+  readonly webUrl: string;
 }
 
 export type HfosAsk =
@@ -189,9 +190,7 @@ export type HfosAsk =
   | { readonly type: 'hfos-opener-use'; readonly input: OpenerUseInput }
   | { readonly type: 'hfos-demo-mark'; readonly input: DemoMarkInput }
   | { readonly type: 'hfos-today' }
-  | { readonly type: 'hfos-noting'; readonly on: boolean }
   | { readonly type: 'hfos-auto' }
-  | { readonly type: 'hfos-auto-save'; readonly input: AutomationSaveInput }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
   | { readonly type: 'hfos-send-ok'; readonly input: SendApproveInput }
@@ -226,9 +225,7 @@ export interface HfosValues {
   readonly 'hfos-opener-use': OpenerUsed;
   readonly 'hfos-demo-mark': DemoMarked;
   readonly 'hfos-today': Today;
-  readonly 'hfos-noting': Today;
   readonly 'hfos-auto': AutoStatus;
-  readonly 'hfos-auto-save': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;
   readonly 'hfos-send-ok': SendApproved;
@@ -263,9 +260,7 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-opener-use',
   'hfos-demo-mark',
   'hfos-today',
-  'hfos-noting',
   'hfos-auto',
-  'hfos-auto-save',
   'hfos-auto-start',
   'hfos-auto-stop',
   'hfos-send-ok',
@@ -275,7 +270,6 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
 /** The asks the runner that works on its own answers (src/auto/run.ts). */
 export const AUTO_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto',
-  'hfos-auto-save',
   'hfos-auto-start',
   'hfos-auto-stop',
   'hfos-send-ok',

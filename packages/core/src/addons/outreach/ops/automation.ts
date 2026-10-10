@@ -1,22 +1,27 @@
 /**
- * The extension on its own (../automation.ts, docs/outreach.md decisions 26 to 36): each person's own choices, which
- * the extension reads before it does anything for them, their training wheels, and a profile it found no post to like
- * on before a friend request (decision 33).
+ * The extension on its own (../automation.ts, docs/outreach.md decisions 26 to 40): each person's own choices, set on
+ * Social Outreach's Settings tab and read by the extension before it does anything for them, inside the business's
+ * rules; their training wheels; and a profile it found no post to like on before a friend request (decision 33).
  */
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { rows } from '@hfos/db/client';
 import { users } from '@hfos/db/schema';
 import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
+import { scopeCan } from '../../../kernel/execute';
+import type { Permission } from '../../../permissions';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
-  AUTOMATION_DEFAULTS,
   AutomationInput,
+  AutomationPeopleInput,
+  AutomationPeopleOutput,
   AutomationOutput,
   AutomationSaveInput,
   AutomationSaveOutput,
   dayList,
+  notAllowedWords,
   NO_WHEELS,
   WHEELS,
   WarmUpMissedInput,
@@ -28,37 +33,57 @@ import {
   wheelsMatter,
   wheelsOn,
   wheelsState,
+  withinRules,
   type AutomationSettings,
+  type BusinessRules,
   type WheelsKept,
   type WheelsState,
 } from '../automation';
+import { outreachSettings } from '../chat-read';
+import { dailyLimitsNow } from '../limits';
 import { outreachAddon } from '../manifest';
 import { automation, profiles } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
 type Row = typeof automation.$inferSelect;
 
-const settingsOf = (row: Row | undefined): AutomationSettings =>
-  row
-    ? {
-        sending: row.sending,
-        replies: row.replies,
-        warmUp: row.warmUp,
-        confirmRequests: row.confirmRequests,
-        collect: row.collect,
-        hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
-      }
-    : AUTOMATION_DEFAULTS;
+/** A person's choices as kept, or the business's defaults until they save their own; inside its rules either way. */
+const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =>
+  withinRules(
+    row
+      ? {
+          sending: row.sending,
+          replies: row.replies,
+          warmUp: row.warmUp,
+          confirmRequests: row.confirmRequests,
+          collect: row.collect,
+          hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
+          noting: row.noting,
+          readChats: row.readChats,
+          markPosts: row.markPosts,
+          pushes: row.pushes,
+        }
+      : rules.defaults,
+    rules,
+  );
+
+/** The business's rules for everyone's choices (decision 38), kept with its Social Outreach settings. */
+export async function rulesOf(ctx: Ctx): Promise<BusinessRules> {
+  const [installed] = await rows<{ settings: unknown }>(
+    ctx.tx,
+    sql`select settings from app.addon_installations
+        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
+  );
+  return outreachSettings(installed?.settings).rules;
+}
 
 const keptOf = (row: Row | undefined): WheelsKept =>
   row
     ? { from: row.wheelsFrom, ok: row.wheelsOk, edits: row.wheelsEdits, doneAt: row.wheelsDoneAt }
     : NO_WHEELS;
 
-const stateOf = (row: Row | undefined, now: number): WheelsState => {
-  const settings = settingsOf(row);
-  return wheelsState(keptOf(row), now, wheelsMatter(settings));
-};
+const stateOf = (row: Row | undefined, rules: BusinessRules, now: number): WheelsState =>
+  wheelsState(keptOf(row), now, wheelsMatter(settingsOf(row, rules)));
 
 async function rowOf(ctx: Ctx, userId: string): Promise<Row | undefined> {
   const [row] = await ctx.tx
@@ -73,9 +98,19 @@ export async function automationOf(
   ctx: Ctx,
   userId: string,
   now = Date.now(),
-): Promise<{ settings: AutomationSettings; saved: boolean; wheels: WheelsState }> {
-  const row = await rowOf(ctx, userId);
-  return { settings: settingsOf(row), saved: row !== undefined, wheels: stateOf(row, now) };
+): Promise<{
+  settings: AutomationSettings;
+  saved: boolean;
+  wheels: WheelsState;
+  rules: BusinessRules;
+}> {
+  const [row, rules] = await Promise.all([rowOf(ctx, userId), rulesOf(ctx)]);
+  return {
+    settings: settingsOf(row, rules),
+    saved: row !== undefined,
+    wheels: stateOf(row, rules, now),
+    rules,
+  };
 }
 
 /**
@@ -85,12 +120,18 @@ export async function slowerFor(ctx: Ctx, userId: string, warned: boolean, now =
   return warned || (await automationOf(ctx, userId, now)).wheels.on;
 }
 
+/** The person's daily limits now: the business's own, halved after a warning or on training wheels. */
+export async function limitsFor(ctx: Ctx, userId: string, warned: boolean, now = Date.now()) {
+  const { wheels, rules } = await automationOf(ctx, userId, now);
+  return dailyLimitsNow(warned || wheels.on, rules.dailyLimits);
+}
+
 /** One message OK'd on training wheels: it counts toward the 25, and whether it was changed toward the last 10. */
 export async function countWheels(ctx: Ctx, userId: string, edits: readonly boolean[]) {
-  const row = await rowOf(ctx, userId);
+  const [row, rules] = await Promise.all([rowOf(ctx, userId), rulesOf(ctx)]);
   const now = Date.now();
-  if (!row || !edits.length || !wheelsMatter(settingsOf(row)) || !wheelsOn(keptOf(row), now))
-    return stateOf(row, now);
+  if (!row || !edits.length || !wheelsMatter(settingsOf(row, rules)) || !wheelsOn(keptOf(row), now))
+    return stateOf(row, rules, now);
   const [after] = await ctx.tx
     .update(automation)
     .set({
@@ -101,7 +142,7 @@ export async function countWheels(ctx: Ctx, userId: string, edits: readonly bool
     .where(eq(automation.id, row.id))
     .returning();
   // Earned: they stay off from now on, whatever comes of the next ones.
-  const state = stateOf(after, now);
+  const state = stateOf(after, rules, now);
   if (!state.on)
     await ctx.tx
       .update(automation)
@@ -124,26 +165,74 @@ export async function wheelsBackOn(ctx: Ctx, userId: string) {
     );
 }
 
+/** Whose choices a request is for: the person's own, or for an owner or admin, anyone's here. */
+async function whoseFor(ctx: Ctx, userId: string | undefined) {
+  const me = userIdOf(ctx.actor);
+  if (!me) throw HfosError.forbidden('Only a person has their own choices for the extension.');
+  if (!userId || userId === me) return { me, whose: me };
+  if (!scopeCan(ctx.scope, 'outreach.manage' as Permission))
+    throw HfosError.forbidden(
+      'Only an owner or admin of this business can see or change someone else’s Social Outreach settings.',
+    );
+  const [them] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select true as ok from app.workspace_memberships m
+        where m.workspace_id = ${ctx.scope.workspaceId} and m.user_id = ${userId}
+          and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`,
+  );
+  if (!them)
+    throw HfosError.notFound(
+      'That person can’t use Social Outreach in this business. Refresh the list of people.',
+    );
+  return { me, whose: userId };
+}
+
+/** Everything the Settings tab and the extension show about someone's choices. */
+async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: BusinessRules) {
+  const ids = [whose, ...(row?.changedBy ? [row.changedBy] : [])];
+  const named = await ctx.tx
+    .select({ id: users.id, fullName: users.fullName, email: users.email })
+    .from(users)
+    .where(sql`${users.id} = any (${`{${ids.join(',')}}`}::uuid[])`);
+  const nameOf = (id: string) => {
+    const u = named.find((n) => n.id === id);
+    return u ? u.fullName || u.email : 'Someone';
+  };
+  return {
+    settings: settingsOf(row, rules),
+    saved: row !== undefined,
+    wheels: stateOf(row, rules, Date.now()),
+    timezone: await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+    userId: whose,
+    name: nameOf(whose),
+    changedBy: row?.changedBy ? nameOf(row.changedBy) : null,
+    rules: {
+      sendingAllowed: rules.sendingAllowed,
+      repliesAllowed: rules.repliesAllowed,
+      dailyLimits: rules.dailyLimits,
+    },
+  };
+}
+
 export const automationGet = defineAddonQuery(outreachAddon, {
   name: 'outreach.automation',
   description:
-    'What the person lets the browser extension do for them on Facebook on its own, and their working hours, in the business’s time zone.',
+    'What the person lets the browser extension do for them on Facebook on its own, its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.',
   input: AutomationInput,
   output: AutomationOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  async handler(ctx) {
-    const me = userIdOf(ctx.actor);
-    if (!me) throw HfosError.forbidden('Only a person has their own choices for the extension.');
-    const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
-    return { ...(await automationOf(ctx, me)), timezone };
+  async handler(ctx, input) {
+    const { whose } = await whoseFor(ctx, input.userId);
+    const [row, rules] = await Promise.all([rowOf(ctx, whose), rulesOf(ctx)]);
+    return shown(ctx, whose, row, rules);
   },
 });
 
 export const automationSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.automation.save',
   description:
-    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.',
+    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows.',
   risk: 0,
   input: AutomationSaveInput,
   output: AutomationSaveOutput,
@@ -151,38 +240,55 @@ export const automationSave = defineAddonCommand(outreachAddon, {
   scope: inWorkspace,
   emits: ['outreach.automation.saved'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
+    requireHuman(ctx);
+    const { me, whose } = await whoseFor(ctx, input.userId);
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
-    const { sending, replies, warmUp, confirmRequests, collect, hours } = input.settings;
-    const before = await rowOf(ctx, me);
+    const rules = await rulesOf(ctx);
+    const refused = notAllowedWords(input.settings, rules);
+    if (refused) throw HfosError.rule('not_allowed', 403, refused);
+    const s = input.settings;
+    const before = await rowOf(ctx, whose);
     // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once.
-    const wheels = wheelsMatter(input.settings) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
+    const wheels = wheelsMatter(s) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
     const values = {
       ...wheels,
-      sending,
-      replies,
-      warmUp,
-      confirmRequests,
-      collect,
-      hoursStart: hours.start,
-      hoursEnd: hours.end,
-      days: dayList(hours.days),
+      sending: s.sending,
+      replies: s.replies,
+      warmUp: s.warmUp,
+      confirmRequests: s.confirmRequests,
+      collect: s.collect,
+      hoursStart: s.hours.start,
+      hoursEnd: s.hours.end,
+      days: dayList(s.hours.days),
+      noting: s.noting,
+      readChats: s.readChats,
+      markPosts: s.markPosts,
+      pushes: s.pushes,
+      // Someone else's choices say who changed them; the person's own clear it.
+      changedBy: whose === me ? null : me,
       updatedAt: at,
     };
     const [row] = await ctx.tx
       .insert(automation)
-      .values({ workspaceId: ws, userId: me, ...values })
+      .values({ workspaceId: ws, userId: whose, ...values })
       .onConflictDoUpdate({ target: [automation.workspaceId, automation.userId], set: values })
       .returning();
     await ctx.emit({
       type: 'outreach.automation.saved',
       entityType: 'outreach_automation',
       entityId: row!.id,
-      payload: { sending, replies, warmUp, confirmRequests, collect },
+      payload: {
+        userId: whose,
+        sending: s.sending,
+        replies: s.replies,
+        warmUp: s.warmUp,
+        confirmRequests: s.confirmRequests,
+        collect: s.collect,
+        byOther: whose !== me,
+      },
     });
-    const timezone = await workspaceTimezone(ctx.tx, ws);
-    return { settings: settingsOf(row), timezone, saved: true, wheels: stateOf(row, Date.now()) };
+    return shown(ctx, whose, row, rules);
   },
 });
 
@@ -263,6 +369,7 @@ export const wheelsList = defineAddonQuery(outreachAddon, {
   scope: inWorkspace,
   async handler(ctx) {
     const now = Date.now();
+    const rules = await rulesOf(ctx);
     const kept = await ctx.tx
       .select({ row: automation, fullName: users.fullName, email: users.email })
       .from(automation)
@@ -275,7 +382,7 @@ export const wheelsList = defineAddonQuery(outreachAddon, {
         .map(({ row, fullName, email }) => ({
           userId: row.userId,
           name: fullName || email,
-          wheels: stateOf(row, now),
+          wheels: stateOf(row, rules, now),
         }))
         .filter((p) => p.wheels.on)
         .sort((a, b) => a.name.localeCompare(b.name)),
@@ -283,5 +390,47 @@ export const wheelsList = defineAddonQuery(outreachAddon, {
   },
 });
 
+export const automationPeople = defineAddonQuery(outreachAddon, {
+  name: 'outreach.automation.people',
+  description:
+    'Everyone who can use Social Outreach in the business, with what each lets the extension do on its own, for an owner or admin to look over or change.',
+  input: AutomationPeopleInput,
+  output: AutomationPeopleOutput,
+  permission: 'outreach.manage',
+  scope: inWorkspace,
+  async handler(ctx) {
+    const now = Date.now();
+    const rules = await rulesOf(ctx);
+    const found = await rows<{ user_id: string; full_name: string | null; email: string }>(
+      ctx.tx,
+      // Each person's own access row is theirs alone to read: their permissions come from their membership.
+      sql`select m.user_id, u.full_name, u.email from app.workspace_memberships m
+          join app.users u on u.id = m.user_id
+          where m.workspace_id = ${ctx.scope.workspaceId}
+            and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`,
+    );
+    const kept = await ctx.tx
+      .select()
+      .from(automation)
+      .where(eq(automation.workspaceId, ctx.scope.workspaceId!));
+    return {
+      people: found
+        .map((p) => {
+          const row = kept.find((k) => k.userId === p.user_id);
+          const settings = settingsOf(row, rules);
+          return {
+            userId: p.user_id,
+            name: p.full_name || p.email,
+            saved: row !== undefined,
+            sending: settings.sending,
+            replies: settings.replies,
+            wheels: stateOf(row, rules, now).on,
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  },
+});
+
 export const automationCommands = [automationSave, warmUpMissed, wheelsEnd] as const;
-export const automationQueries = [automationGet, wheelsList] as const;
+export const automationQueries = [automationGet, wheelsList, automationPeople] as const;

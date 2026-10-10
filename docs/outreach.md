@@ -114,7 +114,7 @@ demo link, and the extension working on its own (the first part):
   (`outreach.demo.note`, from `appointment.booked`). **Demo booked** on a profile in the panel marks one booked some
   other way (`outreach.demo.mark`).
 - **The extension on its own** (decisions 26 to 33, `automation.ts`, `ops/automation.ts`; the extension's
-  `src/auto/`): each person picks, in the panel's **On its own**, whether the extension does their friend requests,
+  `src/auto/`): each person picks, on Social Outreach's **Settings** tab (decision 37), whether the extension does their friend requests,
   likes and comments by itself (messages always wait for them), whether it likes a post first, whether it confirms
   requests from people who fit, and their working hours (9 to 5, Monday to Friday, to start, on the business's
   clock). It then goes down their list for today on its own, at random times spread over the hours, or straight away at
@@ -129,6 +129,16 @@ demo link, and the extension working on its own (the first part):
   (`outreach.friends.save`), then the admins and moderators of up to 3 of their Work these groups, read to the end,
   and their members (`outreach.group.save`), then Find posts (`outreach.posts.save`) and Read my chats, up to 60
   (`outreach.chats.collect`). Each reads and saves only, as the panel's buttons do, and a warning stops the day.
+- **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
+  `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the
+  extension follows is set here, never in the extension. **My settings** holds what it does on its own, Replies, the
+  working hours, the three switches it used to keep (**Note my steps on Facebook**, **Read chats I open**, **Look for
+  posts as I scroll**) and how the phone hears about messages waiting (`pushes`). **Business settings**, for owners
+  and admins, holds the choices people may pick, daily limits under the starting ones, where a new person starts
+  (`rules` in the business's Social Outreach settings), and the business's other Social Outreach settings. An owner or
+  admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by". The extension
+  loads them when the person signs in and hears each change within seconds on the same live channel the web listens
+  on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
@@ -153,78 +163,81 @@ demo link, and the extension working on its own (the first part):
 
 ## How it fits together
 
-| Piece                                                    | Where                                                                                                                           |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest, operations, tables, shapes                     | `packages/core/src/addons/outreach/`                                                                                            |
-| What a save takes: lengths, counts, id shapes (no zod)   | `packages/core/src/addons/outreach/limits.ts`                                                                                   |
-| Worker half: the AI reading the chats, and its drafts    | `apps/worker/src/addons/outreach/`                                                                                              |
-| What the extension notes, and the panel's shapes         | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`                                                              |
-| The page and its tabs, and the Social card               | `apps/web/src/addons/outreach/`, `/a/outreach`                                                                                  |
-| The playbook builder                                     | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`                                                  |
-| Tables and permissions                                   | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach`                                                |
-| Groups and steps noted                                   | `supabase/migrations/20261026000300_outreach_activity.sql`                                                                      |
-| Friends, Keep and Don't pitch, and how someone fits      | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder                                                     |
-| Friends and the Don't pitch list                         | `supabase/migrations/20261026000400_outreach_friends.sql`                                                                       |
-| Facebook's download file: reading it, and bringing it in | `download-read.ts` (reads the zips, no zod), `download.ts` and `ops/download.ts`                                                |
-| The extension getting the file                           | `apps/extension/src/facebook/fetch.ts`, `src/panel/fbfile.ts`                                                                   |
-| What the file said, by name                              | `supabase/migrations/20261027000300_outreach_facebook_download.sql`                                                             |
-| Chats read live in Messenger                             | `chat-collect.ts`, `supabase/migrations/20261027000600_outreach_chat_reads.sql`                                                 |
-| Groups, their people, and the list for today             | `groups.ts`, `today.ts`, `supabase/migrations/20261027000700_outreach_groups.sql`                                               |
-| Tidying up friends, and Facebook's warnings              | `tidy.ts`, `ops/tidy.ts`, `supabase/migrations/20261027000900_outreach_tidy_and_warnings.sql`                                   |
-| The buttons pressed to cancel and unfriend               | `apps/extension/src/facebook/tidy.ts`, `src/panel/tidy.ts`, `src/panel/warnings.ts`                                             |
-| Posts worth a comment, and the AI's check of them        | `posts.ts`, `ops/posts.ts`, `supabase/migrations/20261027001000_outreach_group_posts.sql`                                       |
-| Finding posts, and looking people up before drafting     | `apps/extension/src/panel/posts.ts`, `src/panel/lookup.ts`, `src/facebook/browse.ts`                                            |
-| Replies, openers and demos                               | `alerts.ts`, `openers.ts`, `demos.ts` and their `ops/`, `supabase/migrations/20261027001100_outreach_replies_openers_demos.sql` |
-| The pushes, and a booking through the demo link          | `apps/worker/src/addons/outreach/alerts.ts`, `demos.ts`; `apps/worker/src/addons/alerts.ts` (`pushAddonNotice`)                 |
-| The extension on its own: choices, and the warm-up       | `automation.ts`, `ops/automation.ts`, `supabase/migrations/20261027001200_outreach_automation.sql`                              |
-| Messages on their own, and training wheels               | `sends.ts`, `ops/sends.ts`, `supabase/migrations/20261027001300_outreach_sends.sql`                                             |
-| The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/facebook/auto.ts`, `src/panel/auto.ts`, `src/tab.ts`                 |
-| Spotting replies on the page                             | `apps/extension/src/facebook/replies.ts`, `src/hfos/replies.ts`, `src/content.ts`                                               |
-| The extension                                            | `apps/extension`                                                                                                                |
+| Piece                                                    | Where                                                                                                                                                     |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest, operations, tables, shapes                     | `packages/core/src/addons/outreach/`                                                                                                                      |
+| What a save takes: lengths, counts, id shapes (no zod)   | `packages/core/src/addons/outreach/limits.ts`                                                                                                             |
+| Worker half: the AI reading the chats, and its drafts    | `apps/worker/src/addons/outreach/`                                                                                                                        |
+| What the extension notes, and the panel's shapes         | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`                                                                                        |
+| The page and its tabs, and the Social card               | `apps/web/src/addons/outreach/`, `/a/outreach`                                                                                                            |
+| The playbook builder                                     | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`                                                                            |
+| Tables and permissions                                   | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach`                                                                          |
+| Groups and steps noted                                   | `supabase/migrations/20261026000300_outreach_activity.sql`                                                                                                |
+| Friends, Keep and Don't pitch, and how someone fits      | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder                                                                               |
+| Friends and the Don't pitch list                         | `supabase/migrations/20261026000400_outreach_friends.sql`                                                                                                 |
+| Facebook's download file: reading it, and bringing it in | `download-read.ts` (reads the zips, no zod), `download.ts` and `ops/download.ts`                                                                          |
+| The extension getting the file                           | `apps/extension/src/facebook/fetch.ts`, `src/panel/fbfile.ts`                                                                                             |
+| What the file said, by name                              | `supabase/migrations/20261027000300_outreach_facebook_download.sql`                                                                                       |
+| Chats read live in Messenger                             | `chat-collect.ts`, `supabase/migrations/20261027000600_outreach_chat_reads.sql`                                                                           |
+| Groups, their people, and the list for today             | `groups.ts`, `today.ts`, `supabase/migrations/20261027000700_outreach_groups.sql`                                                                         |
+| Tidying up friends, and Facebook's warnings              | `tidy.ts`, `ops/tidy.ts`, `supabase/migrations/20261027000900_outreach_tidy_and_warnings.sql`                                                             |
+| The buttons pressed to cancel and unfriend               | `apps/extension/src/facebook/tidy.ts`, `src/panel/tidy.ts`, `src/panel/warnings.ts`                                                                       |
+| Posts worth a comment, and the AI's check of them        | `posts.ts`, `ops/posts.ts`, `supabase/migrations/20261027001000_outreach_group_posts.sql`                                                                 |
+| Finding posts, and looking people up before drafting     | `apps/extension/src/panel/posts.ts`, `src/panel/lookup.ts`, `src/facebook/browse.ts`                                                                      |
+| Replies, openers and demos                               | `alerts.ts`, `openers.ts`, `demos.ts` and their `ops/`, `supabase/migrations/20261027001100_outreach_replies_openers_demos.sql`                           |
+| The pushes, and a booking through the demo link          | `apps/worker/src/addons/outreach/alerts.ts`, `demos.ts`; `apps/worker/src/addons/alerts.ts` (`pushAddonNotice`)                                           |
+| The extension on its own: choices, and the warm-up       | `automation.ts`, `ops/automation.ts`, `supabase/migrations/20261027001200_outreach_automation.sql`                                                        |
+| Settings in HandsFreeOS, and the business's rules        | `automation.ts`, `ops/automation.ts`, `apps/web/src/addons/outreach/settings-view.tsx`, `supabase/migrations/20261027001400_outreach_settings_in_app.sql` |
+| The extension following them live                        | `apps/extension/src/hfos/follow.ts`, `src/panel/auto.ts`                                                                                                  |
+| Messages on their own, and training wheels               | `sends.ts`, `ops/sends.ts`, `supabase/migrations/20261027001300_outreach_sends.sql`                                                                       |
+| The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/facebook/auto.ts`, `src/panel/auto.ts`, `src/tab.ts`                                           |
+| Spotting replies on the page                             | `apps/extension/src/facebook/replies.ts`, `src/hfos/replies.ts`, `src/content.ts`                                                                         |
+| The extension                                            | `apps/extension`                                                                                                                                          |
 
 Operations, all through the kernel:
 
-| Operation                                             | Who               | What                                                                                                     |
-| ----------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `outreach.playbook.list`                              | `outreach.use`    | The playbooks, those in use first                                                                        |
-| `outreach.playbook.save`, `outreach.playbook.archive` | `outreach.manage` | Write one; put one away or bring it back                                                                 |
-| `outreach.profile.save`                               | `outreach.use`    | A profile as the extension read it: finds the customer it's saved to, or the one picked, or adds one     |
-| `outreach.chat.save`                                  | `outreach.use`    | A chat as read: the new messages join what was saved                                                     |
-| `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, who in Contacts has a name, and Keep and Don't pitch       |
-| `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                     |
-| `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from       |
-| `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins       |
-| `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                             |
-| `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                    |
-| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                      |
-| `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit                |
-| `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in         |
-| `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read        |
-| `outreach.groups.save`                                | `outreach.use`    | The groups a page lists, with what it said about each, up to 100 at a time                               |
-| `outreach.group.save`                                 | `outreach.use`    | A group and up to 500 people from its People tab; its admins page marks its admins as read               |
-| `outreach.groups`                                     | `outreach.use`    | The Groups tab: the counts, and a page of groups, those bringing results first, then by fit              |
-| `outreach.today`                                      | `outreach.use`    | The person's list for today, and today's steps against the daily limits                                  |
-| `outreach.friends.tidy`                               | `outreach.use`    | Sent requests to cancel and friends to unfriend, with today's counts against their limits                |
-| `outreach.friend.end`                                 | `outreach.use`    | The extension cancelled a request or unfriended someone for the person                                   |
-| `outreach.warning.note`                               | `outreach.use`    | Facebook warned the person: halves their limits for 7 days, friend requests off their list for 2         |
-| `outreach.posts.save`                                 | `outreach.use`    | Up to 30 posts from a group's feed: keeps those worth a look for the AI, and says how each stands        |
-| `outreach.post.check`                                 | the worker        | What the AI made of a kept post: good, not, or couldn't be read, with why                                |
-| `outreach.post.skip`                                  | `outreach.use`    | The person put a post aside: off their list for good                                                     |
-| `outreach.replies.note`                               | `outreach.use`    | Up to 20 chats the extension saw whose last message is theirs: each answering the person's is a reply    |
-| `outreach.opener.use`                                 | `outreach.use`    | The person copied a first message: which opener it was drafted with                                      |
-| `outreach.openers`                                    | `outreach.use`    | Which openers work, ever or in a week or month: sent, replies, demos; everyone's for owners, admins      |
-| `outreach.demo.mark`                                  | `outreach.use`    | Someone the person reached booked a demo some other way, or not after all                                |
-| `outreach.demo.note`                                  | the worker        | A booking through someone's demo link, from core's `appointment.booked`: a demo, once a booking          |
-| `outreach.automation`                                 | `outreach.use`    | What the person lets the extension do on its own, and their hours, in the business's time zone           |
-| `outreach.automation.save`                            | `outreach.use`    | The person's own choices for the extension on its own                                                    |
-| `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                      |
-| `outreach.send.queue`                                 | `outreach.use`    | A message the extension drafted: it waits for the person's OK, or goes as it is; a reply as Replies says |
-| `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, every one waiting (Approve all)                            |
-| `outreach.send.skip`                                  | `outreach.use`    | Skip a message: not sent, and off the list for today                                                     |
-| `outreach.send.done`                                  | `outreach.use`    | The extension sent an OK'd message, or couldn't, and why                                                 |
-| `outreach.sends`                                      | `outreach.use`    | The person's messages waiting for their OK, and those OK'd, with their training wheels                   |
-| `outreach.wheels`                                     | `outreach.manage` | Who's on training wheels, and how far each has come                                                      |
-| `outreach.wheels.end`                                 | `outreach.manage` | End someone's training wheels early                                                                      |
+| Operation                                             | Who               | What                                                                                                        |
+| ----------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| `outreach.playbook.list`                              | `outreach.use`    | The playbooks, those in use first                                                                           |
+| `outreach.playbook.save`, `outreach.playbook.archive` | `outreach.manage` | Write one; put one away or bring it back                                                                    |
+| `outreach.profile.save`                               | `outreach.use`    | A profile as the extension read it: finds the customer it's saved to, or the one picked, or adds one        |
+| `outreach.chat.save`                                  | `outreach.use`    | A chat as read: the new messages join what was saved                                                        |
+| `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, who in Contacts has a name, and Keep and Don't pitch          |
+| `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                        |
+| `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from          |
+| `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins          |
+| `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                |
+| `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                       |
+| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                         |
+| `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit                   |
+| `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in            |
+| `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read           |
+| `outreach.groups.save`                                | `outreach.use`    | The groups a page lists, with what it said about each, up to 100 at a time                                  |
+| `outreach.group.save`                                 | `outreach.use`    | A group and up to 500 people from its People tab; its admins page marks its admins as read                  |
+| `outreach.groups`                                     | `outreach.use`    | The Groups tab: the counts, and a page of groups, those bringing results first, then by fit                 |
+| `outreach.today`                                      | `outreach.use`    | The person's list for today, and today's steps against the daily limits                                     |
+| `outreach.friends.tidy`                               | `outreach.use`    | Sent requests to cancel and friends to unfriend, with today's counts against their limits                   |
+| `outreach.friend.end`                                 | `outreach.use`    | The extension cancelled a request or unfriended someone for the person                                      |
+| `outreach.warning.note`                               | `outreach.use`    | Facebook warned the person: halves their limits for 7 days, friend requests off their list for 2            |
+| `outreach.posts.save`                                 | `outreach.use`    | Up to 30 posts from a group's feed: keeps those worth a look for the AI, and says how each stands           |
+| `outreach.post.check`                                 | the worker        | What the AI made of a kept post: good, not, or couldn't be read, with why                                   |
+| `outreach.post.skip`                                  | `outreach.use`    | The person put a post aside: off their list for good                                                        |
+| `outreach.replies.note`                               | `outreach.use`    | Up to 20 chats the extension saw whose last message is theirs: each answering the person's is a reply       |
+| `outreach.opener.use`                                 | `outreach.use`    | The person copied a first message: which opener it was drafted with                                         |
+| `outreach.openers`                                    | `outreach.use`    | Which openers work, ever or in a week or month: sent, replies, demos; everyone's for owners, admins         |
+| `outreach.demo.mark`                                  | `outreach.use`    | Someone the person reached booked a demo some other way, or not after all                                   |
+| `outreach.demo.note`                                  | the worker        | A booking through someone's demo link, from core's `appointment.booked`: a demo, once a booking             |
+| `outreach.automation`                                 | `outreach.use`    | Someone's settings for the extension, inside the business's rules; anyone's for owners and admins           |
+| `outreach.automation.save`                            | `outreach.use`    | Save someone's settings; anyone's for owners and admins. A choice the business doesn't allow: `not_allowed` |
+| `outreach.automation.people`                          | `outreach.manage` | Everyone who uses Social Outreach, with what each lets the extension do on its own                          |
+| `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                         |
+| `outreach.send.queue`                                 | `outreach.use`    | A message the extension drafted: it waits for the person's OK, or goes as it is; a reply as Replies says    |
+| `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, every one waiting (Approve all)                               |
+| `outreach.send.skip`                                  | `outreach.use`    | Skip a message: not sent, and off the list for today                                                        |
+| `outreach.send.done`                                  | `outreach.use`    | The extension sent an OK'd message, or couldn't, and why                                                    |
+| `outreach.sends`                                      | `outreach.use`    | The person's messages waiting for their OK, and those OK'd, with their training wheels                      |
+| `outreach.wheels`                                     | `outreach.manage` | Who's on training wheels, and how far each has come                                                         |
+| `outreach.wheels.end`                                 | `outreach.manage` | End someone's training wheels early                                                                         |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -372,13 +385,48 @@ From the plan, not contested: it reads only pages the person opens; group admins
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
 likes and 1 post, half that for new or quiet accounts.
 
+The owner asked on 10 Oct 2026 for every setting to live in HandsFreeOS, with the extension only doing the work,
+showing what's going on and prompting, the app and the phone live too, and answered the questions the same day
+(`questions-10-oct-settings.md` in the project's files). These are settled too:
+
+37. **Every setting lives in HandsFreeOS,** on Social Outreach's **Settings** tab: **My settings** and **Business
+    settings**. The extension keeps none of its own: it loads them when the person signs in and follows a change
+    within seconds while Chrome is open. Built (part 1).
+38. **Each person picks their own, inside the business's rules:** the choices owners and admins allow, their daily
+    limits (at most the starting ones), and the defaults a new person starts with. A choice the business stops
+    allowing steps back to the nearest one it allows. Built.
+39. **Owners and admins see and change anyone's settings;** the person sees "Changed by". The extension's panel shows
+    a short read-only summary with **Change in HandsFreeOS**. Built.
+40. **How the phone hears about messages waiting is a setting:** one push for what's waiting, at most every 2 hours in
+    working hours (the default), or one for each. A reply handed over always pushes at once. The choice is kept from
+    part 1; the bundled pushes come with part 3.
+41. **Live status and control in the app:** **Start my day** and **Stop for today** on the web and the phone; only
+    the person's most recently active computer works; the app says when it's offline and when it was last seen;
+    what it's doing, the next step, today's counts, what waits and warnings, with a feed of today's steps; a Facebook
+    warning pushes to the phone; owners and admins see each person's status, counts and how many wait, never their
+    messages. Part 2.
+42. **One Waiting for you list,** the same in the extension, the web and the phone: messages to OK, replies handed
+    over, friend requests that didn't fit, and what it needs the person for. On the phone: change, OK, skip and
+    Approve all. On the computer: a number on the extension's icon and a Chrome pop-up. Part 3.
+43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
+    in the app; what needs the browser is started there and done by the extension. More can be added later. Part 4.
+44. **The whole add-on on the phone,** as one item under More: settings, Waiting for you (which works offline and
+    sends when back online), the live view, Today, Groups, Chats, and Playbooks with editing. Part 5.
+45. **The onboarding lives in HandsFreeOS** (decision 36), after these. Part 6.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button,** except the four steps the extension notes (decision 8),
-  and what its panel's switches send as the person goes, each on by default and turned off there: the chats they open
-  in Messenger (**Read chats I open**), and the posts worth a look in a group's feed (**Look for posts as I scroll**).
+  and what two switches send as the person goes, each on by default and turned off in their settings in HandsFreeOS
+  (decision 37): the chats they open in Messenger (**Read chats I open**), and the posts worth a look in a group's feed
+  (**Look for posts as I scroll**).
   While noting is on, it also tells HandsFreeOS who wrote last in the chats on the page (decision 22). Reading any
   other page only looks things up.
+- **Settings live in HandsFreeOS, never in the extension** (decision 37). A new choice for what the extension does
+  is a field on `AutomationSettings` (each person's, with a column in `addon_outreach.automation`) or on the business's
+  `rules`, set on the Settings tab; the extension reads it from `outreach.automation` and keeps no copy but the one
+  `src/hfos/follow.ts` writes. Saving the person's settings is what tells the extension (`outreach.automation.saved`
+  and `addon.settings_saved` on the live channel), so nothing else needs to.
 - **Noting a step adds nobody to Contacts.** Someone reached is kept as a profile with no customer, and the group
   they were first found in, until the person saves them; saving keeps their steps. A friend request marks the profile
   "request sent".

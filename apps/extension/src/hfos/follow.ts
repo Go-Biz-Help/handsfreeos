@@ -1,0 +1,91 @@
+/**
+ * The extension follows the person's settings in HandsFreeOS (docs/outreach.md, decisions 37 to 40): it keeps none of
+ * its own. It loads them when the person signs in, at every step the runner takes, and within seconds of a change,
+ * from the same live channel the web app listens on (`workspace:<id>`, which carries only that something changed,
+ * never what). A change to anyone's choices, or to the business's, has it ask HandsFreeOS again for the person's own.
+ *
+ * What the content script and the panel read from the extension's storage (noting the person's steps, reading chats
+ * as they're opened, looking for posts while scrolling) is written here from those settings, so they change with
+ * them. The live channel keeps the background awake while Chrome is open; when it can't connect, the next step's
+ * look is the fallback.
+ */
+import { RealtimeClient, type RealtimeChannel } from '@supabase/realtime-js';
+import { NOTING_KEY } from '../messages';
+import { config } from './config';
+import type { Automation } from './messages';
+import { api, call, savingTo, token } from './session';
+
+/** The person's settings as last loaded, for the panel's summary. */
+export const SETTINGS_KEY = 'hfos.settings';
+/** The panel's chats and posts read these; this writes them. */
+export const READ_CHATS_KEY = 'hfos.readChats';
+export const MARK_POSTS_KEY = 'hfos.markPosts';
+/** The changes that can move the person's settings. */
+const SETTINGS_EVENTS = new Set(['outreach.automation.saved', 'addon.settings_saved']);
+
+let live: RealtimeClient | null = null;
+let channel: RealtimeChannel | null = null;
+/** The business the channel listens to. */
+let listening: string | null = null;
+/** Called when the settings change, to wake the runner (../auto/run.ts). */
+let changed: () => void = () => undefined;
+
+/** Writes what the content script and the panel read, from the settings. */
+async function apply(found: Automation): Promise<void> {
+  await chrome.storage.local.set({
+    [SETTINGS_KEY]: found,
+    [NOTING_KEY]: found.settings.noting,
+    [READ_CHATS_KEY]: found.settings.readChats,
+    [MARK_POSTS_KEY]: found.settings.markPosts,
+  });
+}
+
+/** The person's settings from HandsFreeOS, kept for the panel and the pages; null when nobody is signed in. */
+export async function loadSettings(businessId?: string): Promise<Automation | null> {
+  const id = businessId ?? (await savingTo())?.businessId;
+  if (!id) return null;
+  const found = await call(
+    api().POST('/v1/queries/outreach.automation', { body: { workspaceId: id } }),
+    id,
+  );
+  await apply(found);
+  return found;
+}
+
+function close(): void {
+  if (channel && live) void live.removeChannel(channel).catch(() => undefined);
+  channel = null;
+  listening = null;
+}
+
+/**
+ * Listens for changes to the person's settings in the business they save to, and keeps the channel's sign-in fresh.
+ * Safe to call often: it opens a channel only when there's none for that business.
+ */
+export async function follow(onChange?: () => void): Promise<void> {
+  if (onChange) changed = onChange;
+  if (!config.supabaseUrl || !config.supabasePublishableKey) return;
+  const to = await savingTo().catch(() => null);
+  const jwt = to ? await token().catch(() => null) : null;
+  if (!to || !jwt) return close();
+  live ??= new RealtimeClient(`${config.supabaseUrl}/realtime/v1`, {
+    params: { apikey: config.supabasePublishableKey },
+  });
+  await live.setAuth(jwt);
+  if (listening === to.businessId && channel) return;
+  close();
+  listening = to.businessId;
+  const mine = live.channel(`workspace:${to.businessId}`, { config: { private: true } });
+  channel = mine;
+  mine.on('broadcast', { event: 'change' }, (message: { payload?: { type?: unknown } }) => {
+    const type = message.payload?.type;
+    if (typeof type !== 'string' || !SETTINGS_EVENTS.has(type)) return;
+    void loadSettings(to.businessId)
+      .then(() => changed())
+      .catch(() => undefined);
+  });
+  mine.subscribe((status) => {
+    // Closed or refused: the next call opens it again.
+    if (channel === mine && status !== 'SUBSCRIBED' && status !== 'TIMED_OUT') close();
+  });
+}
