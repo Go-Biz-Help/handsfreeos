@@ -36,6 +36,13 @@ function fakeTab(
   let at = '';
   const opened: string[] = [];
   const asked: string[] = [];
+  // Each page is made once: reading doesn't change it, and a list read to its end reads it 20 times or more.
+  const made = new Map<string, Document>();
+  const page = (name: string) => {
+    const key = `${name} ${at}`;
+    if (!made.has(key)) made.set(key, load(name, at));
+    return made.get(key)!;
+  };
   const tab = {
     async open(url: string) {
       at = url;
@@ -43,8 +50,7 @@ function fakeTab(
     },
     async ask(message: { readonly type: string }) {
       asked.push(message.type);
-      if (message.type === 'hfos-read')
-        return { ok: true, result: readPage(load(pages(at), at), at) };
+      if (message.type === 'hfos-read') return { ok: true, result: readPage(page(pages(at)), at) };
       return { ok: scrolls[message.type as BrowseAsk['type']]?.shift() ?? false };
     },
   } as unknown as JobTab;
