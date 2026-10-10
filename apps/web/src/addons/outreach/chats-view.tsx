@@ -13,6 +13,7 @@ import {
   CONTACTS_FROM_CHATS_WORDS,
   type ChatView,
 } from '@hfos/core/addons/outreach/chat-read';
+import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useTransition } from 'react';
@@ -227,7 +228,7 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
               <>
                 {' · '}
                 <a
-                  href={`https://www.facebook.com/messages/t/${encodeURIComponent(c.threadKey)}`}
+                  href={messengerChatUrl(c.threadKey) ?? undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="text-accent-text hover:underline"

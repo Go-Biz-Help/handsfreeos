@@ -50,6 +50,7 @@ import { refreshFacebookFile, startFacebookFile } from './fbfile';
 import { markPosts, refreshPosts, startPosts } from './posts';
 import { refreshTidy, startTidy } from './tidy';
 import { refreshToday, startToday } from './today';
+import { refreshWaiting, startWaiting } from './waiting';
 import { noteWarnings } from './warnings';
 
 const KIND: Record<PageKind, string> = {
@@ -378,6 +379,7 @@ function resultView(result: ReadResult): HTMLElement[] {
 // --------------------------------------------------------------------------------------------------- state
 
 const accountBox = document.querySelector<HTMLElement>('#account')!;
+const waitingBox = document.querySelector<HTMLElement>('#waiting')!;
 const todayBox = document.querySelector<HTMLElement>('#today')!;
 const autoWorkBox = document.querySelector<HTMLElement>('#on-its-own')!;
 const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
@@ -606,6 +608,7 @@ async function start(): Promise<void> {
     say,
     redraw,
     accountChanged: () => {
+      void refreshWaiting();
       void refreshToday();
       void refreshAuto();
       void refreshChats();
@@ -615,6 +618,7 @@ async function start(): Promise<void> {
   });
   void startChats(chatsBox);
   void startPosts(postsBox);
+  startWaiting(waitingBox);
   startToday(todayBox);
   startAuto(autoWorkBox);
   startTidy(tidyBox);

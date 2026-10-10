@@ -1,7 +1,8 @@
 /**
  * Social Outreach: each person's own rows stay their own on the database, not only in the operations. A member reads
- * and writes only their own computers, day and feed; owners and admins may read the team's computers and days, for the
- * team's status and counts, but never change them, and never read anyone's feed.
+ * and writes only their own computers, day, feed, needs and pushes; owners and admins may read the team's computers,
+ * days and needs, for the team's status and how many wait, but never change them, and never read anyone's feed or
+ * pushes.
  */
 import { randomUUID } from 'node:crypto';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -17,6 +18,7 @@ let owner: TestUser;
 let riley: TestUser;
 let dana: TestUser;
 let ws: string;
+let profileId: string;
 
 /** What `u` sees of a table's rows in the business, by whose they are. */
 const seenBy = async (u: TestUser, table: string): Promise<string[]> =>
@@ -54,6 +56,13 @@ beforeAll(async () => {
       { workspaceId: ws, userId: riley.id, role: 'member' },
       { workspaceId: ws, userId: dana.id, role: 'member' },
     ]);
+  const [profile] = await rows<{ id: string }>(
+    admin(),
+    sql`insert into addon_outreach.profiles (workspace_id, platform, url, name, username)
+        values (${ws}, 'facebook', 'https://www.facebook.com/avery.lane', 'Avery Lane', 'avery.lane')
+        returning id`,
+  );
+  profileId = profile!.id;
   for (const u of [owner, riley, dana]) {
     const [computer] = await rows<{ id: string }>(
       admin(),
@@ -70,6 +79,16 @@ beforeAll(async () => {
       admin(),
       sql`insert into addon_outreach.live_steps (workspace_id, user_id, computer_id, at, kind, line)
           values (${ws}, ${u.id}, ${computer!.id}, now(), 'done', 'Sent a friend request to Avery Lane')`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.needs (workspace_id, user_id, step, profile_id, name, why, seen_at)
+          values (${ws}, ${u.id}, 'confirm', ${profileId}, 'Avery Lane', 'The Confirm button wasn’t there.', now())`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.waiting_pushes (workspace_id, user_id, pushed_at)
+          values (${ws}, ${u.id}, now())`,
     );
   }
 });
@@ -155,5 +174,59 @@ describe('computers, days and the feed, on the database', () => {
             where workspace_id = ${ws} and user_id = ${riley.id} returning id`,
       ),
     ).toBe(1);
+  });
+});
+
+describe('needs and pushes, on the database', () => {
+  it('show a member only their own', async () => {
+    for (const table of ['needs', 'waiting_pushes'])
+      expect(await seenBy(riley, table)).toEqual([riley.id]);
+  });
+
+  it('show owners and admins no colleague’s needs or pushes, and count the team’s needs on the database', async () => {
+    expect(await seenBy(owner, 'needs')).toEqual([owner.id]);
+    expect(await seenBy(owner, 'waiting_pushes')).toEqual([owner.id]);
+    const counted = (u: TestUser, users: TestUser[]) =>
+      asUser(api(), u.claims, (tx) =>
+        rows<{ user_id: string; n: number }>(
+          tx,
+          sql`select user_id, n from private.outreach_needs_waiting(${ws}::uuid,
+                ${`{${users.map((x) => x.id).join(',')}}`}::uuid[], now() - interval '7 days')
+              order by user_id`,
+        ),
+      );
+    const everyone = [owner, riley, dana];
+    expect(await counted(owner, everyone)).toEqual(
+      sorted(owner.id, riley.id, dana.id).map((user_id) => ({ user_id, n: 1 })),
+    );
+    // A member counts their own, never a colleague's.
+    expect(await counted(riley, [riley])).toEqual([{ user_id: riley.id, n: 1 }]);
+    expect(await counted(riley, everyone)).toEqual([]);
+  });
+
+  it('let nobody change a colleague’s, owners included', async () => {
+    for (const u of [riley, owner])
+      expect(
+        await tried(
+          u,
+          sql`update addon_outreach.needs set state = 'dismissed', cleared_at = now()
+              where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
+        ),
+      ).toBe(0);
+    expect(
+      await tried(
+        riley,
+        sql`insert into addon_outreach.needs (workspace_id, user_id, step, profile_id, name, why, seen_at)
+            values (${ws}, ${dana.id}, 'friend_request', ${profileId}, 'Avery Lane', 'Not theirs', now())
+            returning id`,
+      ),
+    ).toBe('refused');
+    expect(
+      await tried(
+        riley,
+        sql`update addon_outreach.waiting_pushes set pushed_at = now()
+            where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
+      ),
+    ).toBe(0);
   });
 });

@@ -5,15 +5,24 @@
  * which it notes; that script is never answered, and only the extension's own pages are. Its alarm wakes the runner
  * that works on Facebook on its own, once the person turns that on (src/auto/run.ts). It follows the person's settings
  * in HandsFreeOS from the moment they sign in (src/hfos/follow.ts). Every minute while someone is signed in it tells
- * HandsFreeOS how things stand on this computer, and hears from it about the person's day (src/hfos/live.ts).
+ * HandsFreeOS how things stand on this computer, and hears from it about the person's day (src/hfos/live.ts). It keeps
+ * the number of things waiting for the person on its icon, and Chrome's pop-ups about them (src/hfos/waiting.ts).
  */
 import { AUTO_ALARM, answerAuto, tick, wake } from './auto/run';
 import { facebookUrl } from './facebook/urls';
 import { follow, loadSettings } from './hfos/follow';
 import { BEAT_ALARM, beat, heard, keepBeating, markActive, signOff } from './hfos/live';
-import { AUTO_ASKS, HFOS_ASKS, type HfosAnswer, type HfosAsk } from './hfos/messages';
+import { AUTO_ASKS, HFOS_ASKS, WAITING_ASKS, type HfosAnswer, type HfosAsk } from './hfos/messages';
 import { answerNoting, isTabNote, takeNote } from './hfos/noting';
 import { answer, savingTo } from './hfos/session';
+import {
+  answerWaiting,
+  heardWaiting,
+  openWaiting,
+  refreshWaitingIfOld,
+  trackWindows,
+  waitingSoon,
+} from './hfos/waiting';
 import { TAB_NOTES } from './messages';
 
 chrome.sidePanel
@@ -24,6 +33,9 @@ chrome.sidePanel
 
 /** After these, whose settings it follows may have changed. */
 const SIGN_INS = new Set(['hfos-check-code', 'hfos-password', 'hfos-pick', 'hfos-sign-out']);
+
+/** After these, what waits for the person has changed. */
+const WAITING_MOVED = new Set(['hfos-send-ok', 'hfos-send-skip']);
 
 /** The person's own steps on Facebook: this computer is the one they use. */
 const OWN_STEPS = new Set(['hfos-noted', 'hfos-answered']);
@@ -38,6 +50,7 @@ async function followNow(load = false): Promise<void> {
     await follow(
       () => void tick(),
       (payload) => void heard(payload),
+      (payload) => void heardWaiting(payload),
     );
   } catch {
     // Signed out, or offline: the runner's next step looks again.
@@ -65,16 +78,21 @@ chrome.runtime.onMessage.addListener(
         ? markActive().then(() => ({ ok: true as const, value: null }))
         : ask.type === 'hfos-today'
           ? answerNoting(ask)
-          : AUTO_ASKS.has(ask.type)
-            ? answerAuto(ask as Parameters<typeof answerAuto>[0])
-            : ask.type === 'hfos-sign-out'
-              ? // The last beat says so while the sign-in still works, so the app doesn't call it offline.
-                signOff().then(() => answer(ask))
-              : answer(ask as Parameters<typeof answer>[0])
+          : WAITING_ASKS.has(ask.type)
+            ? answerWaiting(ask as Parameters<typeof answerWaiting>[0])
+            : AUTO_ASKS.has(ask.type)
+              ? answerAuto(ask as Parameters<typeof answerAuto>[0])
+              : ask.type === 'hfos-sign-out'
+                ? // The last beat says so while the sign-in still works, so the app doesn't call it offline.
+                  signOff().then(() => answer(ask))
+                : answer(ask as Parameters<typeof answer>[0])
     ).then((answered) => {
       respond(answered);
+      if (WAITING_MOVED.has(ask.type)) waitingSoon();
       if (!SIGN_INS.has(ask.type)) return;
       void followNow(true);
+      // Signed in, out or to another business: the icon's number and the pop-ups are theirs now.
+      waitingSoon();
       // Signing in here makes this the computer that works.
       if (ask.type !== 'hfos-sign-out' && answered.ok) void markActive();
     });
@@ -84,9 +102,19 @@ chrome.runtime.onMessage.addListener(
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === AUTO_ALARM) void tick();
-  if (alarm.name === BEAT_ALARM) void beat(true);
+  if (alarm.name === BEAT_ALARM) {
+    void beat(true);
+    // Nothing heard on the live channel for a while: it asks what waits again.
+    void refreshWaitingIfOld();
+  }
   void followNow();
 });
+// A pop-up about what waits, clicked: registered here at the top, so a click wakes the background to answer it.
+chrome.notifications.onClicked.addListener((id) => openWaiting(id));
+chrome.notifications.onButtonClicked.addListener((id, button) => openWaiting(id, button));
+trackWindows();
+// The icon's number, from the last look or a new one.
+void refreshWaitingIfOld();
 // The background woke: it listens again, and the channel keeps it awake while Chrome is open.
 void followNow();
 // Chrome started, or the extension was updated: the alarm may be gone.

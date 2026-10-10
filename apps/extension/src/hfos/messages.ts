@@ -85,6 +85,18 @@ export type SendApproveInput = Body<'/v1/commands/outreach.send.approve'>;
 export type SendApproved = Ok<'/v1/commands/outreach.send.approve'>;
 export type SendSkipInput = Body<'/v1/commands/outreach.send.skip'>;
 export type SendSkipped = Ok<'/v1/commands/outreach.send.skip'>;
+/**
+ * Waiting for you (packages/core/src/addons/outreach/waiting.ts, decisions 40 and 42): everything waiting for the
+ * person, a step the extension couldn't do handed to them, one done or let go, and a friend request left.
+ */
+export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
+export type WaitingItem = Waiting['items'][number];
+export type NeedNoteInput = Body<'/v1/commands/outreach.need.note'>;
+export type NeedNoted = Ok<'/v1/commands/outreach.need.note'>;
+export type NeedClearInput = Body<'/v1/commands/outreach.need.clear'>;
+export type NeedCleared = Ok<'/v1/commands/outreach.need.clear'>;
+export type RequestSetAsideInput = Body<'/v1/commands/outreach.request.set_aside'>;
+export type RequestSetAside = Ok<'/v1/commands/outreach.request.set_aside'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -195,6 +207,10 @@ export type HfosAsk =
   | { readonly type: 'hfos-auto-stop' }
   | { readonly type: 'hfos-send-ok'; readonly input: SendApproveInput }
   | { readonly type: 'hfos-send-skip'; readonly input: SendSkipInput }
+  /** Waiting for you, asked again now (src/hfos/waiting.ts); a need done or let go; a friend request left. */
+  | { readonly type: 'hfos-waiting' }
+  | { readonly type: 'hfos-need-clear'; readonly input: NeedClearInput }
+  | { readonly type: 'hfos-request-aside'; readonly input: RequestSetAsideInput }
   /** The person has the panel open on this computer: it becomes the one that works (./live.ts). */
   | { readonly type: 'hfos-here' };
 
@@ -232,6 +248,9 @@ export interface HfosValues {
   readonly 'hfos-auto-stop': AutoStatus;
   readonly 'hfos-send-ok': SendApproved;
   readonly 'hfos-send-skip': SendSkipped;
+  readonly 'hfos-waiting': Waiting | null;
+  readonly 'hfos-need-clear': NeedCleared;
+  readonly 'hfos-request-aside': RequestSetAside;
   readonly 'hfos-here': null;
 }
 
@@ -268,7 +287,17 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto-stop',
   'hfos-send-ok',
   'hfos-send-skip',
+  'hfos-waiting',
+  'hfos-need-clear',
+  'hfos-request-aside',
   'hfos-here',
+]);
+
+/** The asks about Waiting for you (src/hfos/waiting.ts). */
+export const WAITING_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
+  'hfos-waiting',
+  'hfos-need-clear',
+  'hfos-request-aside',
 ]);
 
 /** The asks the runner that works on its own answers (src/auto/run.ts). */
@@ -278,6 +307,45 @@ export const AUTO_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto-stop',
   'hfos-send-ok',
   'hfos-send-skip',
+]);
+
+/** The business the person picked to save to (./session.ts). */
+export const BUSINESS_KEY = 'hfos.business';
+/** Where the person's steps on Facebook are noted, kept until they sign out (./session.ts, ./noting.ts). */
+export const PLACE_KEY = 'hfos.place';
+
+/** Waiting for you's last answer, with whose it is and when it came (./waiting.ts writes it, the panel reads it). */
+export const WAITING_FOR_KEY = 'hfos.waitingFor';
+
+/**
+ * Waiting for you (./waiting.ts): the changes that can move what waits for the person: a message drafted, OK'd, skipped or sent; a step handed over
+ * or cleared; a friend request answered, saved, marked or set aside; a step noted; a download brought in; their pushes
+ * choice or hours; their training wheels ended.
+ */
+export const WAITING_EVENTS: ReadonlySet<string> = new Set([
+  'outreach.send.queued',
+  'outreach.send.approved',
+  'outreach.send.skipped',
+  'outreach.send.done',
+  'outreach.need.noted',
+  'outreach.need.cleared',
+  'outreach.request.set_aside',
+  'outreach.friend.answered',
+  'outreach.friend.marked',
+  'outreach.friends.saved',
+  'outreach.touch.saved',
+  'outreach.download.saved',
+  'outreach.automation.saved',
+  'outreach.wheels.ended',
+]);
+
+/**
+ * Of those, the ones heard whoever made them: an owner or admin may change the person's pushes, hours or training
+ * wheels (decision 39), and the live channel names only who did it, not whose they were.
+ */
+export const WAITING_ANY_ACTOR: ReadonlySet<string> = new Set([
+  'outreach.automation.saved',
+  'outreach.wheels.ended',
 ]);
 
 /** What the background tells the extension's pages when it has noted a step: the day's numbers have changed. */

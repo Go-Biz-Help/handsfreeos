@@ -130,6 +130,7 @@ const EXTENSION_COMMANDS = [
   'outreach.friend.end',
   'outreach.warning.note',
   'outreach.live.beat',
+  'outreach.need.note',
 ];
 /** Whether the phone may keep it waiting: it can wait, a person sends it, and it isn't the extension's alone. */
 const phoneCanWait = (c: { name: string; offline: unknown; actors?: readonly string[] }) =>

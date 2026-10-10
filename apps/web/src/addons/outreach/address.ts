@@ -1,5 +1,5 @@
 /**
- * What Social Outreach's page shows, from its address: the tab (`?view=live`, `today`, `groups`, `friends`, `chats`,
+ * What Social Outreach's page shows, from its address: the tab (`?view=live`, `waiting`, `today`, `groups`, `friends`, `chats`,
  * `playbooks` or `settings`, else the activity); for settings, whose (`?for=` someone's id, for owners and admins); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
  * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or
  * `dont_pitch`); for chats, which (`?show=tagged`, `read` or `waiting`) and a tag (`?tag=`); for both, a name
@@ -17,9 +17,18 @@ export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
 export const DEFAULT_PERIOD: ActivityPeriod = 'week';
 
 export type OutreachView =
-  'activity' | 'live' | 'today' | 'groups' | 'friends' | 'chats' | 'playbooks' | 'settings';
+  | 'activity'
+  | 'live'
+  | 'waiting'
+  | 'today'
+  | 'groups'
+  | 'friends'
+  | 'chats'
+  | 'playbooks'
+  | 'settings';
 const VIEWS: readonly OutreachView[] = [
   'live',
+  'waiting',
   'today',
   'groups',
   'friends',
@@ -75,7 +84,7 @@ export function readOutreachAddress(
  */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
-  if (to.view === 'playbooks' || to.view === 'today' || to.view === 'live')
+  if (to.view === 'playbooks' || to.view === 'today' || to.view === 'live' || to.view === 'waiting')
     params.set('view', to.view);
   else if (to.view === 'settings') {
     params.set('view', 'settings');

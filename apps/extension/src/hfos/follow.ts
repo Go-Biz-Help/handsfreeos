@@ -12,11 +12,14 @@
  * The same channel brings the person's day and computers (decision 41): Start my day or Stop for today pressed in the
  * app, another computer of theirs used, a warning seen on one. Those go to ./live.ts, whose beat asks HandsFreeOS
  * where things stand and wakes the runner.
+ *
+ * And what waits for the person (decisions 40 and 42): a message drafted, OK'd or sent, a step handed over or done, a
+ * friend request answered. Those go to ./waiting.ts, which asks again and keeps the icon's number and the pop-ups.
  */
 import { RealtimeClient, type RealtimeChannel } from '@supabase/realtime-js';
 import { NOTING_KEY } from '../messages';
 import { config } from './config';
-import type { Automation } from './messages';
+import { WAITING_EVENTS, type Automation } from './messages';
 import { api, call, savingTo, token } from './session';
 
 /** The person's settings as last loaded, for the panel's summary. */
@@ -45,6 +48,8 @@ let listening: string | null = null;
 let changed: () => void = () => undefined;
 /** Called with a change to the person's day or computers, for ./live.ts to look at. */
 let livened: (payload: Record<string, unknown>) => void = () => undefined;
+/** Called with a change that may move what waits for the person, for ./waiting.ts to look at. */
+let waited: (payload: Record<string, unknown>) => void = () => undefined;
 
 /** Writes what the content script and the panel read, from the settings. */
 async function apply(found: Automation): Promise<void> {
@@ -81,9 +86,11 @@ function close(): void {
 export async function follow(
   onChange?: () => void,
   onLive?: (payload: Record<string, unknown>) => void,
+  onWaiting?: (payload: Record<string, unknown>) => void,
 ): Promise<void> {
   if (onChange) changed = onChange;
   if (onLive) livened = onLive;
+  if (onWaiting) waited = onWaiting;
   if (!config.supabaseUrl || !config.supabasePublishableKey) return;
   const to = await savingTo().catch(() => null);
   const jwt = to ? await token().catch(() => null) : null;
@@ -99,6 +106,8 @@ export async function follow(
   channel = mine;
   mine.on('broadcast', { event: 'change' }, (message: { payload?: Record<string, unknown> }) => {
     const type = message.payload?.type;
+    // One change can be in two sets: the pushes choice saved also reloads the settings below.
+    if (typeof type === 'string' && WAITING_EVENTS.has(type)) waited(message.payload!);
     if (typeof type === 'string' && LIVE_EVENTS.has(type)) return livened(message.payload!);
     if (typeof type !== 'string' || !SETTINGS_EVENTS.has(type)) return;
     void loadSettings(to.businessId)

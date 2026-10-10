@@ -29,6 +29,7 @@ import { DONT_PITCH_TAG } from '../limits';
 import { byResults } from '../results';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
+import type { NeedStep } from '../waiting-words';
 import { groups, threads, touches } from '../tables';
 import {
   dontPitchOf,
@@ -41,6 +42,7 @@ import {
   type ProfileKey,
 } from './common';
 import { limitsFor } from './automation';
+import { clearNeeds } from './needs';
 import { slowsNow, warningOf } from './tidy';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -213,6 +215,14 @@ async function messageStep(
   return saved ? 'follow_up' : 'first_message';
 }
 
+/** The steps the extension hands over that each step noted takes care of. */
+const NEED_FOR: Readonly<Record<TouchKind, readonly NeedStep[]>> = {
+  friend_request: ['friend_request'],
+  like: ['warm_up'],
+  comment: ['comment'],
+  message: ['message'],
+};
+
 export const touchSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.touch.save',
   description:
@@ -280,6 +290,17 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           at,
         })
         .returning({ id: touches.id });
+      // A step the extension handed to the person, taken now: it's done (Waiting for you).
+      await clearNeeds(
+        ctx,
+        me,
+        {
+          profileId: profile.id,
+          steps: NEED_FOR[input.kind],
+          postUrl: input.kind === 'comment' ? input.postUrl : null,
+        },
+        at,
+      );
       await ctx.emit({
         type: 'outreach.touch.saved',
         entityType: 'outreach_profile',

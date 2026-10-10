@@ -44,6 +44,7 @@ import { automationOf, everyoneAutomation } from './automation';
 import { inWorkspace, type Ctx } from './common';
 import { businessToday, dayOf, dayShown, keepDay, writeLine } from './day';
 import { dayCounts } from './today';
+import { waitingFor } from './waiting';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 type Computer = typeof computers.$inferSelect;
@@ -369,24 +370,6 @@ export const computerRename = defineAddonCommand(outreachAddon, {
   },
 });
 
-/** Messages waiting for each person's OK; part 3 widens this to everything waiting for them, in this one place. */
-export async function waitingFor(
-  ctx: Ctx,
-  userIds: readonly string[],
-): Promise<Map<string, number>> {
-  const counted = new Map(userIds.map((id) => [id, 0]));
-  if (!userIds.length) return counted;
-  const found = await rows<{ user_id: string; n: number }>(
-    ctx.tx,
-    sql`select user_id, count(*)::int as n from addon_outreach.sends
-        where workspace_id = ${ctx.scope.workspaceId!} and state = 'waiting'
-          and user_id = any (${`{${userIds.join(',')}}`}::uuid[])
-        group by user_id`,
-  );
-  for (const f of found) counted.set(f.user_id, f.n);
-  return counted;
-}
-
 const NONE: Record<DailyStep, number> = {
   friend_request: 0,
   first_message: 0,
@@ -398,7 +381,7 @@ const NONE: Record<DailyStep, number> = {
 export const live = defineAddonQuery(outreachAddon, {
   name: 'outreach.live',
   description:
-    'What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many messages wait for them, any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.',
+    'What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many things wait for them (Waiting for you), any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.',
   input: LiveInput,
   output: LiveOutput,
   permission: 'outreach.use',
@@ -491,7 +474,7 @@ async function teamComputers(ctx: Ctx) {
 export const liveTeam = defineAddonQuery(outreachAddon, {
   name: 'outreach.live.team',
   description:
-    'For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many messages wait for them. Never what it says it’s doing, nor their messages.',
+    'For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.',
   input: LiveTeamInput,
   output: LiveTeamOutput,
   permission: 'outreach.manage',

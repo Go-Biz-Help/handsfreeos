@@ -43,6 +43,7 @@ import {
   type Profile,
   type ProfileKey,
 } from './common';
+import { clearNeeds } from './needs';
 
 /** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
 const LIST_STATE: Readonly<Record<FriendList, FriendState & Friendship>> = {
@@ -89,6 +90,8 @@ export const friendNote = defineAddonCommand(outreachAddon, {
         }),
       );
       await keepFriendStates(ctx, me, [{ profileId: profile.id, state }], at);
+      // Confirm or Delete pressed: a request the extension handed to the person is answered.
+      await clearNeeds(ctx, me, { profileId: profile.id, steps: ['confirm'] }, at);
       await ctx.emit({
         type: 'outreach.friend.answered',
         entityType: 'outreach_profile',

@@ -13,8 +13,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 Phase 1, steps 1 to 5, the playbook builder, tracking with the activity panel, friends, Facebook's download
 file's dates, chats read by the AI from the file or live in Messenger, groups, the list for today, tidying up friends,
 Facebook's warnings, comments on group posts, looking people up before drafting, phone alerts, which openers work, the
-demo link, the extension working on its own (the first part), its settings in HandsFreeOS, and its live status with
-Start my day and Stop for today in the app:
+demo link, the extension working on its own (the first part), its settings in HandsFreeOS, its live status with
+Start my day and Stop for today in the app, and Waiting for you:
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -151,6 +151,20 @@ Start my day and Stop for today in the app:
   open. Last seen 2:14 PM." While it's shown, the tab asks again every minute, so a computer still beating never
   looks offline. A warning stops the day there too and pushes to the person's phone once that day. Owners
   and admins see each person's status, computer, counts and how many wait, never their lines or messages.
+- **Waiting for you** (decisions 40 and 42, `/a/outreach?view=waiting`, `waiting.ts`, `waiting-words.ts`,
+  `ops/waiting.ts`, `ops/needs.ts`, the web's `waiting-view.tsx`, the worker's `waiting.ts`, the extension's
+  `src/hfos/waiting.ts` and `src/panel/waiting.ts`): one list of everything waiting for the person, worked out each
+  time (`outreach.waiting`), the same on the web's third tab, first in the extension's panel, and as the number on its
+  icon. **Replies handed over to you** (each waits for an OK of its own); **Messages to OK**, with **Approve all**,
+  which leaves a reply handed over or one to someone who needs the person; **Steps it needs you for**, a step the
+  extension couldn't do there and then (a button or box it couldn't find, a different page, Facebook not taking it, a
+  message that didn't go), with **I did it** and **Let it go**; and **Friend requests to decide**, those from the last
+  two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**. Each tab's label
+  carries the count. New
+  messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
+  in their working hours ("5 messages wait for your OK", the default), or one for each; a reply handed over pushes at
+  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens the
+  side panel, or Waiting for you in HandsFreeOS.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
@@ -205,6 +219,9 @@ Start my day and Stop for today in the app:
 | The extension's heartbeat, and following the day         | `apps/extension/src/hfos/live.ts`, `src/hfos/follow.ts`, `src/background.ts`                                                                              |
 | The warning push, and pruning the feed                   | `apps/worker/src/addons/outreach/live.ts`                                                                                                                 |
 | Messages on their own, and training wheels               | `sends.ts`, `ops/sends.ts`, `supabase/migrations/20261027001300_outreach_sends.sql`                                                                       |
+| Waiting for you, and steps it needs you for              | `waiting.ts`, `waiting-words.ts` (no zod of its own), `ops/waiting.ts`, `ops/needs.ts`, `supabase/migrations/20261027001600_outreach_waiting.sql`         |
+| Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                             |
+| The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                         |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/facebook/auto.ts`, `src/panel/auto.ts`, `src/tab.ts`                                           |
 | Spotting replies on the page                             | `apps/extension/src/facebook/replies.ts`, `src/hfos/replies.ts`, `src/content.ts`                                                                         |
 | The extension                                            | `apps/extension`                                                                                                                                          |
@@ -247,7 +264,7 @@ Operations, all through the kernel:
 | `outreach.automation.people`                          | `outreach.manage` | Everyone who uses Social Outreach, with what each lets the extension do on its own                                                                |
 | `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                                                               |
 | `outreach.send.queue`                                 | `outreach.use`    | A message the extension drafted: it waits for the person's OK, or goes as it is; a reply as Replies says                                          |
-| `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, every one waiting (Approve all)                                                                     |
+| `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, all waiting (Approve all) but those that wait one at a time (`oneByOne`)                            |
 | `outreach.send.skip`                                  | `outreach.use`    | Skip a message: not sent, and off the list for today                                                                                              |
 | `outreach.send.done`                                  | `outreach.use`    | The extension sent an OK'd message, or couldn't, and why                                                                                          |
 | `outreach.sends`                                      | `outreach.use`    | The person's messages waiting for their OK, and those OK'd, with their training wheels                                                            |
@@ -258,6 +275,10 @@ Operations, all through the kernel:
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                              |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed                                    |
 | `outreach.live.team`                                  | `outreach.manage` | Each person's status, computer, counts and how many wait; never their lines or messages                                                           |
+| `outreach.waiting`                                    | `outreach.use`    | Waiting for you: replies handed over, messages to OK, steps it needs them for, requests to decide; asked by the worker too                        |
+| `outreach.need.note`                                  | `outreach.use`    | The extension couldn't do a step there and then: it waits for the person, unless they let the same go this week                                   |
+| `outreach.need.clear`                                 | `outreach.use`    | I did it, or Let it go. One the extension couldn't do again after the moment pressed stays                                                        |
+| `outreach.request.set_aside`                          | `outreach.use`    | Leave it: a friend request off Waiting for you until they ask again                                                                               |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -419,7 +440,10 @@ showing what's going on and prompting, the app and the phone live too, and answe
     a short read-only summary with **Change in HandsFreeOS**. Built.
 40. **How the phone hears about messages waiting is a setting:** one push for what's waiting, at most every 2 hours in
     working hours (the default), or one for each. A reply handed over always pushes at once. The choice is kept from
-    part 1; the bundled pushes come with part 3.
+    part 1. Built (part 3): the bundled push gathers for 10 minutes after the first new message or step, goes at most
+    every 2 hours and only in the person's working hours, and only when something is new since the last ("5 messages
+    wait for your OK"); one for each pushes each message and step at once. Friend requests aren't pushed: Facebook
+    tells people of those itself.
 41. **Live status and control in the app:** **Start my day** and **Stop for today** on the web and the phone; only
     the person's most recently active computer works; the app says when it's offline and when it was last seen;
     what it's doing, the next step, today's counts, what waits and warnings, with a feed of today's steps; a Facebook
@@ -429,7 +453,10 @@ showing what's going on and prompting, the app and the phone live too, and answe
     view comes with part 5, on the same operations.
 42. **One Waiting for you list,** the same in the extension, the web and the phone: messages to OK, replies handed
     over, friend requests that didn't fit, and what it needs the person for. On the phone: change, OK, skip and
-    Approve all. On the computer: a number on the extension's icon and a Chrome pop-up. Part 3.
+    Approve all. On the computer: a number on the extension's icon and a Chrome pop-up. Built (part 3) for the web (a
+    **Waiting for you** tab, third, with its count on the label) and the extension (the list first in its panel, the
+    number on its icon, and pop-ups bundled as the phone's pushes are); "what it needs the person for" is a step the
+    extension couldn't do there and then. The phone's list comes with part 5, on the same operations.
 43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
     in the app; what needs the browser is started there and done by the extension. More can be added later. Part 4.
 44. **The whole add-on on the phone,** as one item under More: settings, Waiting for you (which works offline and
@@ -442,8 +469,8 @@ showing what's going on and prompting, the app and the phone live too, and answe
   and what two switches send as the person goes, each on by default and turned off in their settings in HandsFreeOS
   (decision 37): the chats they open in Messenger (**Read chats I open**), and the posts worth a look in a group's feed
   (**Look for posts as I scroll**).
-  While noting is on, it also tells HandsFreeOS who wrote last in the chats on the page (decision 22). Reading any
-  other page only looks things up.
+  While noting is on, it also tells HandsFreeOS who wrote last in the chats on the page (decision 22), and the runner
+  hands over a step it couldn't do (`outreach.need.note`, decision 42). Reading any other page only looks things up.
 - **Settings live in HandsFreeOS, never in the extension** (decision 37). A new choice for what the extension does
   is a field on `AutomationSettings` (each person's, with a column in `addon_outreach.automation`) or on the business's
   `rules`, set on the Settings tab; the extension reads it from `outreach.automation` and keeps no copy but the one
@@ -500,11 +527,12 @@ showing what's going on and prompting, the app and the phone live too, and answe
   while it's shown (`LIVE_REFETCH_SECONDS`) to keep the last-seen time moving.
 - **Owners and admins see status, counts and how many wait; never lines, feeds or messages** (`outreach.live.team`).
   The feed's lines name the people reached, so they stay the person's own, and the database holds it too: beside the
-  add-on's usual policies, restrictive ones let a person read and write only their own `computers`, `days` and
-  `live_steps`. Owners and admins (`outreach.manage`) may also read the team's computers and days, for the team's
-  status, but never change them and never read a feed; the operations show them no line. The worker runs as
-  `service_actor`, which these don't narrow (`test/addons/outreach-own-rows.test.ts`). `sends` keeps only the usual
-  policy (`outreach.use` reads the business's rows), so there the operations alone keep a message to its person.
+  add-on's usual policies, restrictive ones let a person read and write only their own `computers`, `days`,
+  `live_steps`, `needs` and `waiting_pushes`. Owners and admins (`outreach.manage`) may also read the team's
+  computers, days and needs, for the team's status and how many wait, but never change them and never read a feed;
+  the operations show them no line. The worker runs as `service_actor`, which these don't narrow
+  (`test/addons/outreach-own-rows.test.ts`). `sends` keeps only the usual policy (`outreach.use` reads the business's
+  rows), so there the operations alone keep a message to its person.
 - **The feed keeps a week** (`addon_outreach.live_steps`, the worker's `outreach.live_prune`), each line once by the
   id the extension gave it, at the server's time.
 - **A message goes only through `sends`** (`outreach.send.*`). The extension drafts it and queues it; it waits
@@ -515,6 +543,40 @@ showing what's going on and prompting, the app and the phone live too, and answe
   (`approved`) is sent, and only the extension says it went (`outreach.send.done`); the message itself is noted as any
   step is. One open send a person, profile and kind at a time: drafting again returns it. A send skipped or not sent
   takes them off the list for the rest of the day. A first message sent this way notes its opener, as copying does.
+- **Waiting for you is worked out each time** (`outreach.waiting`), from `sends`, `needs` and the person's friend
+  requests. The Live tab, the team view, the tab's label, the icon and the pushes all count it the same way
+  (`waitingFor` in `ops/waiting.ts`). What waits for a person is theirs alone.
+- **Approve all leaves what needs the person** (`oneByOne`): a reply handed over (`handedOver`) and a message to
+  someone who needs them (`needsYou`) each wait for an OK of their own, on Today, in the panel and in Waiting for you.
+  Today's button counts only what it OKs; the web's and the panel's Waiting for you say the same number
+  (`approveAllCount`).
+- **A need is a step the extension couldn't do there and then** (`needs`, `openNeed`): a button or box it couldn't
+  find, a different page, Facebook not taking it, or a message that didn't go (`outreach.send.done`, which hands it
+  over itself). Never what changed on Facebook meanwhile ("Facebook says…"), no post to like, the AI, or a closed
+  window. One open per step and person (or post, for a comment); noted again, it's seen again with the newest why. The
+  step noted later, by anyone and however it was done, clears it (`clearNeeds`; a comment's by its post, or by the
+  profile with no post kept or the same link), unless the extension couldn't do it again after that moment, and then
+  **I did it** says so. Only a Facebook link is kept. Its `seen_at` is when it couldn't (kept offline); it begins to
+  wait (`created_at`) when it reaches HandsFreeOS. **Let it go** keeps the same step quiet for a week (`NEED_QUIET_DAYS`); it's shown for a
+  week from the last time it couldn't (`NEED_SHOWN_DAYS`), and back after that is new again. The runner still tries
+  the step another day. A confirm need hides once the request is answered on Facebook, and a friend request need once
+  a request is sent.
+- **Friend requests to decide** are those from the last two weeks (`REQUEST_SHOWN_DAYS`) that didn't fit a playbook
+  (owner answer 13a): those that don't fit well, and those that do but aren't Today's to confirm (no playbook in use,
+  or Don't pitch or tagged Friend or family), with why. A good fit from someone pitched is never here, even past the
+  most Today lists at once: Today confirms it on a later day (decision 30).
+  **Leave it** sets one aside until they ask again (`set_aside_at`). They count on the icon and the lists, and are
+  never pushed.
+- **Pushes for what waits follow the person's choice** (`pushes`, the worker's `waiting.ts`): bundled, one job a
+  person (`outreach.waiting_push`), 10 minutes after the first new one, at most every 2 hours and only in their
+  working hours, and only when a message or step reached HandsFreeOS since the last (`waiting_pushes`, kept in the
+  same transaction as the push); one for each pushes each message and step at once. A reply handed over pushes at
+  once either way (the worker's `handOver`), and is never counted in, nor makes, a bundled push (`BUNDLE_KINDS`). A
+  refusal for good (the add-on off, the person out of reach) drops the push; anything else is tried again, and the
+  push keys (with the business in them) stop a second. The extension's pop-ups follow the same rule (`popUpsFor`) on
+  the computer that works, telling of what was there, replies too, in one pop-up at most on its first look; its
+  icon's number is everything waiting, asked again on the person's own changes, HandsFreeOS's own, and anyone's
+  change to their settings or training wheels.
 - **Training wheels halve the limits as a warning does** (`slowerFor`), on Today, the activity panel and tidying,
   and they're counted only on OKs while they're on (`countWheels`).
 - **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's

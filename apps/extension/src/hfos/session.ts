@@ -12,18 +12,23 @@ import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-clien
 import { APP_HEADERS, EXTENSION_CLIENT } from '@hfos/core/mobile';
 import { GoTrueClient, isAuthError, isAuthRetryableFetchError } from '@supabase/auth-js';
 import { canSignIn, config } from './config';
-import type {
-  Account,
-  Business,
-  Drafts,
-  HfosAnswer,
-  HfosAsk,
-  HfosValues,
-  Problem,
+import {
+  BUSINESS_KEY,
+  PLACE_KEY,
+  type Account,
+  type Business,
+  type Drafts,
+  type HfosAnswer,
+  type HfosAsk,
+  type HfosValues,
+  type Problem,
 } from './messages';
 import { outreachBusinesses } from './saves';
 
-/** The asks answered here; the day on Facebook and its switch are ./noting.ts's, and working on its own ../auto/run.ts's. */
+/**
+ * The asks answered here; the day on Facebook and its switch are ./noting.ts's, working on its own ../auto/run.ts's,
+ * and Waiting for you ./waiting.ts's.
+ */
 export type SessionAsk = Exclude<
   HfosAsk,
   {
@@ -34,14 +39,14 @@ export type SessionAsk = Exclude<
       | 'hfos-auto-stop'
       | 'hfos-send-ok'
       | 'hfos-send-skip'
+      | 'hfos-waiting'
+      | 'hfos-need-clear'
+      | 'hfos-request-aside'
       | 'hfos-here';
   }
 >;
 
 const SESSION_KEY = 'hfos.session';
-const BUSINESS_KEY = 'hfos.business';
-/** Where the person's steps on Facebook are noted, kept until they sign out (./noting.ts). */
-const PLACE_KEY = 'hfos.place';
 /** How long the person's businesses are taken as they were, before HandsFreeOS is asked again. */
 const ME_FOR_MS = 60_000;
 

@@ -6628,6 +6628,44 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.need.clear": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "needId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "how": {
+            "type": "string",
+            "enum": ["done", "dismissed"]
+          }
+        },
+        "required": ["workspaceId", "needId", "how"]
+      }
+    },
+    "outreach.request.set_aside": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
+      }
+    },
     "payment_connection.connect": {
       "offline": "online",
       "input": {

@@ -2,7 +2,7 @@
  * Messages the extension sends on its own (../sends.ts, docs/outreach.md decisions 26 and 27): each drafted one waits
  * for the person's OK or goes as it is, and the extension says when it went. Each person's are their own.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -31,6 +31,7 @@ import {
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { automationOf, countWheels } from './automation';
 import { inWorkspace, type Ctx } from './common';
+import { openNeed } from './needs';
 
 type Row = typeof sends.$inferSelect;
 
@@ -39,8 +40,8 @@ const gone = () =>
     'That message isn’t waiting any more: it was sent, skipped, or the person was removed. Refresh your list for today.',
   );
 
-/** The person's sends, with who each is to. */
-async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<Send[]> {
+/** The person's sends, with who each is to, the oldest first. */
+export async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<Send[]> {
   const found = await ctx.tx
     .select({ s: sends, name: profiles.name, url: profiles.url })
     .from(sends)
@@ -60,11 +61,13 @@ async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<Send[]> 
     state: s.state,
     why: s.why,
     opener: s.opener,
+    handedOver: s.handedOver,
+    needsYou: s.needsYou,
     createdAt: s.createdAt.toISOString(),
   }));
 }
 
-const mine = (ctx: Ctx, me: string) =>
+export const mine = (ctx: Ctx, me: string) =>
   and(eq(sends.workspaceId, ctx.scope.workspaceId!), eq(sends.userId, me));
 
 export const sendQueue = defineAddonCommand(outreachAddon, {
@@ -149,6 +152,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         opener: input.kind === 'opener' ? input.opener : null,
         state: goes ? 'approved' : 'waiting',
         approvedAt: goes ? at : null,
+        // Waits for an OK of its own (Waiting for you): handed over, or to someone who needs the person.
+        handedOver: handOver,
+        needsYou,
         createdAt: at,
         updatedAt: at,
       })
@@ -162,8 +168,10 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         payload: {
           kind: input.kind,
           waits: !goes,
-          // A reply the person counted on going: their phone hears why it came to them (the worker's alerts).
-          ...(handOver ? { handOver: true, userId: me, why: needsYou } : {}),
+          // Whose it is: their phone hears it waits as their pushes say (the worker's waiting.ts).
+          userId: me,
+          // A reply the person counted on going: their phone hears why it came to them at once (the worker's alerts).
+          ...(handOver ? { handOver: true, why: needsYou } : {}),
         },
       });
     const [now] = await open();
@@ -175,7 +183,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
 export const sendApprove = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.approve',
   description:
-    'The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all). The extension sends them. On training wheels, each counts toward coming off them.',
+    'The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them and messages to someone who needs them, which wait to be OK’d one at a time. The extension sends them. On training wheels, each counts toward coming off them.',
   risk: 1,
   input: SendApproveInput,
   output: SendApproveOutput,
@@ -193,7 +201,10 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         and(
           mine(ctx, me),
           eq(sends.state, 'waiting'),
-          ...(named ? [inArray(sends.id, [...named.keys()])] : []),
+          // Approve all leaves those that wait for an OK of their own (`oneByOne`): naming one OKs it.
+          ...(named
+            ? [inArray(sends.id, [...named.keys()])]
+            : [eq(sends.handedOver, false), isNull(sends.needsYou)]),
         ),
       )
       .orderBy(sends.createdAt)
@@ -281,13 +292,13 @@ async function noteOpener(ctx: Ctx, me: string, row: Row, opener: DraftOpener) {
 export const sendDone = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.done',
   description:
-    'The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other.',
+    'The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves.',
   risk: 0,
   input: SendDoneInput,
   output: SendDoneOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.send.done'],
+  emits: ['outreach.send.done', 'outreach.need.noted'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
@@ -300,6 +311,29 @@ export const sendDone = defineAddonCommand(outreachAddon, {
     if (!row) throw gone();
     if (input.sent && row.kind === 'opener' && row.opener)
       await noteOpener(ctx, me, row, row.opener);
+    // One that didn't go is the person's to send: it waits in Waiting for you with its words.
+    if (!input.sent) {
+      const [to] = await ctx.tx
+        .select({ name: profiles.name, url: profiles.url })
+        .from(profiles)
+        .where(eq(profiles.id, row.profileId));
+      if (to)
+        await openNeed(
+          ctx,
+          me,
+          {
+            step: 'message',
+            profileId: row.profileId,
+            sendId: row.id,
+            name: to.name,
+            url: row.threadKey
+              ? `https://www.facebook.com/messages/t/${encodeURIComponent(row.threadKey)}`
+              : to.url,
+            why: input.why || 'it didn’t go',
+          },
+          at,
+        );
+    }
     await ctx.emit({
       type: 'outreach.send.done',
       entityType: 'outreach_profile',
@@ -340,19 +374,36 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
     kind: string;
     state: Send['state'];
     text: string;
+    handed_over: boolean;
+    needs_you: string | null;
   }>(
     ctx.tx,
-    sql`select id, profile_id, kind, state, text from addon_outreach.sends
+    sql`select id, profile_id, kind, state, text, handed_over, needs_you from addon_outreach.sends
         where workspace_id = ${ctx.scope.workspaceId} and user_id = ${me}
           and (state in ('waiting', 'approved')
             or (state in ('skipped', 'failed') and done_at >= ${todayFrom}::timestamptz))`,
   );
   const key = (profileId: string, kind: string) => `${profileId}:${kind}`;
-  const open = new Map<string, { sendId: string; state: 'waiting' | 'approved'; text: string }>();
+  const open = new Map<
+    string,
+    {
+      sendId: string;
+      state: 'waiting' | 'approved';
+      text: string;
+      handedOver: boolean;
+      needsYou: string | null;
+    }
+  >();
   const off = new Set<string>();
   for (const s of found)
     if (s.state === 'waiting' || s.state === 'approved')
-      open.set(key(s.profile_id, s.kind), { sendId: s.id, state: s.state, text: s.text });
+      open.set(key(s.profile_id, s.kind), {
+        sendId: s.id,
+        state: s.state,
+        text: s.text,
+        handedOver: s.handed_over,
+        needsYou: s.needs_you,
+      });
     else off.add(key(s.profile_id, s.kind));
   return {
     open: (profileId: string | null, kind: string) =>

@@ -103,13 +103,17 @@ export const outreachAddon = defineAddon({
       'outreach.day.started',
       'outreach.day.stopped',
       'outreach.computer.renamed',
+      'outreach.need.noted',
+      'outreach.need.cleared',
+      'outreach.request.set_aside',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
     // A reply seen, or one handed over to the person (decision 27), pushes to their phone, and a change to the settings
     // moves the morning push (./alerts.ts) and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's pruning
-    // armed (decision 41, ./live.ts).
+    // armed (decision 41, ./live.ts). A message waiting for the person's OK, and a step the extension needs them for,
+    // reach their phone as their pushes setting says (decision 40, ./waiting.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -120,6 +124,7 @@ export const outreachAddon = defineAddon({
       'appointment.booked',
       'outreach.warning.seen',
       'outreach.live.changed',
+      'outreach.need.noted',
     ],
   },
   jobs: [
@@ -128,6 +133,7 @@ export const outreachAddon = defineAddon({
     'outreach.morning',
     'outreach.weekly',
     'outreach.live_prune',
+    'outreach.waiting_push',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, and the weekly report: Add-ons → Social Outreach.
@@ -147,6 +153,7 @@ export const outreachAddon = defineAddon({
     'imports',
     'live_steps',
     'my_groups',
+    'needs',
     'opener_uses',
     'playbooks',
     'posts',
@@ -155,6 +162,7 @@ export const outreachAddon = defineAddon({
     'sends',
     'threads',
     'touches',
+    'waiting_pushes',
     'warnings',
   ],
   ui: {

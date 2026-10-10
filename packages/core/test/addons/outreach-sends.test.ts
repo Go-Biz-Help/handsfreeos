@@ -118,10 +118,10 @@ describe('training wheels', () => {
     expect(replyNeedsYou('Please stop messaging me')).toBe('they asked you to stop messaging them');
     expect(handOverPushWords('Dana Cole', 'they asked for you')).toEqual({
       title: 'Dana Cole needs you',
-      body: 'Their reply waits for your OK in Today: they asked for you.',
+      body: 'Their reply waits for your OK in Waiting for you: they asked for you.',
     });
     expect(handOverPushWords('Dana Cole', null).body).toBe(
-      'Their reply waits for your OK in Today: it isn’t a simple one.',
+      'Their reply waits for your OK in Waiting for you: it isn’t a simple one.',
     );
   });
 });
@@ -237,6 +237,8 @@ describe('messages on their own', () => {
       sendId: queued.sendId,
       state: 'waiting',
       text: 'Hi Dana! How do you keep track of customers?',
+      handedOver: false,
+      needsYou: null,
     });
     expect((await runAs(owner, ws, 'outreach.sends', {})).sends).toHaveLength(1);
 

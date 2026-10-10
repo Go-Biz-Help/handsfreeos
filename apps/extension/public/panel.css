@@ -598,3 +598,25 @@ blockquote.post {
   flex-wrap: wrap;
   gap: 4px 10px;
 }
+
+/* Waiting for you (src/panel/waiting.ts): the same list as HandsFreeOS's tab, first in the panel. */
+.waiting .list .actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.waiting .drafts {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.waiting .drafts p {
+  flex: 1;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--card-2);
+  white-space: pre-wrap;
+}

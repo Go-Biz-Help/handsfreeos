@@ -9,6 +9,9 @@
  * While the browser is open it also remembers the group each person was opened from, for a step taken later on their
  * own profile, whose address doesn't say which. Nothing is noted while the switch in the panel is off, or while
  * nobody is signed in with somewhere to save.
+ *
+ * A step the runner couldn't do there and then, handed to the person (`outreach.need.note`, decision 42), waits in the
+ * same list, so it keeps its moment and goes in its turn.
  */
 import { isApiErrorBody } from '@hfos/api-client';
 import { APP_HEADERS } from '@hfos/core/mobile';
@@ -20,6 +23,7 @@ import { config } from './config';
 import type {
   FriendNoteInput,
   HfosAnswer,
+  NeedNoteInput,
   HfosAsk,
   Noted,
   Today,
@@ -44,10 +48,14 @@ export const GROUPS_MOST = 300;
 /** How many of the last steps the panel lists. */
 export const RECENT_MOST = 5;
 
-/** What's sent: a step (`outreach.touch.save`), or an answer to a friend request (`outreach.friend.note`). */
+/**
+ * What's sent: a step (`outreach.touch.save`), an answer to a friend request (`outreach.friend.note`), or a step the
+ * runner couldn't do, handed to the person (`outreach.need.note`).
+ */
 type Sending =
   | { readonly op?: undefined; readonly input: TouchInput }
-  | { readonly op: 'answer'; readonly input: FriendNoteInput };
+  | { readonly op: 'answer'; readonly input: FriendNoteInput }
+  | { readonly op: 'need'; readonly input: NeedNoteInput };
 
 /** A step waiting to be sent: its id and moment stay the same however many times it's sent. */
 type Waiting = Sending & {
@@ -212,6 +220,13 @@ async function post(entry: Waiting) {
     });
     return { saved: data && { step: null, repeated: false }, error, response };
   }
+  if (entry.op === 'need') {
+    const { data, error, response } = await api().POST('/v1/commands/outreach.need.note', {
+      body: entry.input,
+      headers,
+    });
+    return { saved: data && { step: null, repeated: false }, error, response };
+  }
   const { data, error, response } = await api().POST('/v1/commands/outreach.touch.save', {
     body: entry.input,
     headers,
@@ -338,6 +353,35 @@ function noteAnswer(answered: Answered, at: string): Promise<void> {
 }
 
 /**
+ * A step the runner couldn't do, handed to the person: sent after anything still waiting, or kept to send when
+ * HandsFreeOS can be reached. It isn't one of the person's steps, so the panel's last steps don't list it; what
+ * HandsFreeOS refuses (the person gone from the list meanwhile) is let go.
+ */
+export function noteNeed(input: NeedNoteInput, at = new Date().toISOString()): Promise<void> {
+  return inTurn(async () => {
+    const to = await savingTo().catch(() => null);
+    if (!to || to.businessId !== input.workspaceId) return;
+    const entry: Waiting = {
+      op: 'need',
+      input,
+      commandId: crypto.randomUUID(),
+      occurredAt: momentOf(at, new Date()),
+      userId: to.userId,
+    };
+    const clear = await sendWaiting(to.userId);
+    const { sent, entry: last } = clear
+      ? await send(entry)
+      : { sent: { kind: 'later' } as Sent, entry };
+    if (sent.kind === 'later')
+      await chrome.storage.local.set({
+        [WAITING_KEY]: [...(await waitingNow()), last].slice(-WAITING_MOST),
+      });
+  }).catch((error: unknown) =>
+    console.error('HandsFreeOS Social couldn’t hand a step over', error),
+  );
+}
+
+/**
  * What a Facebook tab told the background: a step taken, a friend request answered, someone opened from a group, or
  * chats whose last message is theirs (./replies.ts).
  */
@@ -374,7 +418,10 @@ async function today(): Promise<Today> {
   const none = { activity: null, trouble: null, waiting: 0, recent: [] };
   if (!to) return { ...none, businessId: null, webUrl: config.webUrl, noting };
   await inTurn(() => sendWaiting(to.userId)).catch(() => false);
-  const waiting = (await waitingNow()).filter((entry) => entry.userId === to.userId);
+  // The person's own steps waiting to be saved: not those the runner couldn't do, which wait for them elsewhere.
+  const waiting = (await waitingNow()).filter(
+    (entry) => entry.userId === to.userId && entry.op !== 'need',
+  );
   const recent = (await recentNow())
     .filter((kept) => kept.businessId === to.businessId)
     .map(({ id: _id, businessId: _business, ...noted }) => noted);

@@ -2,7 +2,7 @@
 /**
  * Social Outreach's Live tab (docs/outreach.md, decision 41): what the person's extension is doing right now, on which
  * computer, and what's next; Start my day and Stop for today, which reach that computer within seconds; today's counts
- * against the limits and how many messages wait for an OK; today's steps; their computers, renamable; and for owners
+ * against the limits and how many things wait for the person (Waiting for you); today's steps; their computers, renamable; and for owners
  * and admins, each person's status, counts and how many wait, never their lines or messages. It follows changes live,
  * and works out "offline" itself on a 30-second clock, so the note shows with no event at all. A heartbeat tells
  * nobody, so while the tab is shown it also asks again every minute, which keeps "last seen" moving: a computer still
@@ -92,6 +92,7 @@ export function LiveView({
   useLiveRefresh(
     [
       'outreach_computer',
+      'outreach_need',
       'outreach_day',
       'outreach_profile',
       'outreach_automation',
@@ -281,9 +282,9 @@ function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) 
         <p className="mt-3 text-[13px]" data-testid="live-waiting">
           <Link
             className="font-medium text-accent-text underline-offset-2 hover:underline"
-            href={outreachHref(workspaceId, { view: 'today' })}
+            href={outreachHref(workspaceId, { view: 'waiting' })}
           >
-            Waiting for your OK: {live.waiting} {live.waiting === 1 ? 'message' : 'messages'}
+            Waiting for you: {live.waiting.toLocaleString()}
           </Link>
         </p>
       ) : null}

@@ -2,9 +2,10 @@
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
  * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
- * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends, and
- * 20261027001500 for live status: the computers, the day and the feed): the Drizzle mirror its server code reads and
- * writes through. Server-only.
+ * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
+ * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
+ * steps it needs the person for, and the bundled push): the Drizzle mirror its server code reads and writes through.
+ * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
@@ -33,6 +34,7 @@ import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
 import type { SendState } from './sends';
+import type { NeedState, NeedStep } from './waiting-words';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -203,6 +205,8 @@ export const friends = addonOutreach.table(
     since: ts('since').notNull(),
     seenAt: ts('seen_at').notNull(),
     keep: boolean('keep').notNull().default(false),
+    /** When the person set a request they got aside (Waiting for you's Leave it): it counts while it's since `since`. */
+    setAsideAt: ts('set_aside_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -630,6 +634,10 @@ export const sends = addonOutreach.table(
     opener: jsonb('opener').$type<DraftOpener>(),
     state: text('state').notNull().default('waiting').$type<SendState>(),
     why: text('why'),
+    /** A reply handed over to the person (Replies (b) or (c)): it waits for an OK of its own, never Approve all. */
+    handedOver: boolean('handed_over').notNull().default(false),
+    /** Why a reply needs the person (`replyNeedsYou`): it waits for an OK of its own too. */
+    needsYou: text('needs_you'),
     approvedAt: ts('approved_at'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -715,6 +723,65 @@ export const liveSteps = addonOutreach.table(
   ],
 );
 
+/**
+ * A step the extension couldn't do and handed to the person (./waiting.ts): open until they did it, let it go, or the
+ * step was noted. One open a person, step and profile or post.
+ */
+export const needs = addonOutreach.table(
+  'needs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    step: text('step').notNull().$type<NeedStep>(),
+    profileId: uuid('profile_id').notNull(),
+    postId: uuid('post_id'),
+    sendId: uuid('send_id'),
+    name: text('name').notNull(),
+    url: text('url'),
+    why: text('why').notNull(),
+    state: text('state').notNull().default('open').$type<NeedState>(),
+    seenAt: ts('seen_at').notNull(),
+    clearedAt: ts('cleared_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.postId],
+      foreignColumns: [posts.workspaceId, posts.id],
+    }).onDelete('cascade'),
+    // The database sets only send_id to null (`on delete set null (send_id)`), as the other column-list keys here.
+    foreignKey({
+      columns: [t.workspaceId, t.sendId],
+      foreignColumns: [sends.workspaceId, sends.id],
+    }).onDelete('set null'),
+  ],
+);
+
+/** When each person last got the bundled push about what waits for them (decision 40). */
+export const waitingPushes = addonOutreach.table(
+  'waiting_pushes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    pushedAt: ts('pushed_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   automation,
@@ -730,6 +797,7 @@ export const OUTREACH_TABLES = {
   imports,
   demos,
   liveSteps,
+  needs,
   openerUses,
   playbooks,
   posts,
@@ -738,5 +806,6 @@ export const OUTREACH_TABLES = {
   sends,
   threads,
   touches,
+  waitingPushes,
   warnings,
 } as const;

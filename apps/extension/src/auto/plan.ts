@@ -10,7 +10,7 @@
  */
 import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automation';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
-import type { TodayList, TodayListItem } from '../hfos/messages';
+import type { NeedNoteInput, TodayList, TodayListItem } from '../hfos/messages';
 
 /** Where the runner keeps its state, which the panel watches. */
 export const AUTO_STATE_KEY = 'hfos.auto';
@@ -201,4 +201,30 @@ export function nextStart(
     if (window && window.from > now) return window.from + Math.round(random * START_JITTER_MS);
   }
   return null;
+}
+
+/**
+ * A step it couldn't do there and then, handed to the person (decision 42): the line it shows, less its lead ("Dana
+ * Reyes: ", "Dana Reyes’s post: "), is why. Null for one that isn't the person's to do: a message (HandsFreeOS hands
+ * over one that didn't go itself), or one with nobody kept to do it to.
+ */
+export function needOf(
+  item: Pick<TodayListItem, 'kind' | 'name' | 'profileId' | 'postId' | 'postUrl' | 'profileUrl'>,
+  line: string,
+  businessId: string,
+): NeedNoteInput | null {
+  if (!(AUTO_KINDS as readonly string[]).includes(item.kind) || !item.profileId) return null;
+  const why = [`${item.name}’s post: `, `${item.name}: `].reduce(
+    (said, lead) => (said.startsWith(lead) ? said.slice(lead.length) : said),
+    line,
+  );
+  return {
+    workspaceId: businessId,
+    step: item.kind as AutoKind,
+    profileId: item.profileId,
+    postId: item.kind === 'comment' ? (item.postId ?? null) : null,
+    name: item.name,
+    url: (item.kind === 'comment' ? item.postUrl : null) ?? item.profileUrl ?? null,
+    why,
+  };
 }

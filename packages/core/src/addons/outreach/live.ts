@@ -250,7 +250,7 @@ export const LiveOutput = z.object({
   /** The working computer's status, as it last said. */
   status: LiveStatus.nullable(),
   limits: LiveLimits,
-  /** Messages waiting for the person's OK. */
+  /** Everything waiting for the person (Waiting for you, ./waiting.ts), counted as that list counts it. */
   waiting: z.number().int().min(0),
   warning: WarningState.nullable(),
   /** Today's steps, the newest first. */

@@ -6077,6 +6077,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.need.clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person did a step the extension handed to them, or let it go: it leaves Waiting for you. Let go, the same step for the same person isn’t handed over again for a week.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.need.cleared. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_need_clear"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.need.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension couldn’t do a step on the person’s list for today on Facebook (a button or box it couldn’t find, a different page, Facebook not taking it): it’s handed to the person in Waiting for you, to do themselves or let go. The same step again is the same one; one let go lately keeps nothing.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.need.noted. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_need_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.opener.use": {
         parameters: {
             query?: never;
@@ -6217,6 +6257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.request.set_aside": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person leaves a friend request they got as it is: it leaves Waiting for you until the same person asks again. Nothing changes on Facebook.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.request.set_aside. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_request_set_aside"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.send.approve": {
         parameters: {
             query?: never;
@@ -6227,7 +6287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all). The extension sends them. On training wheels, each counts toward coming off them.
+         * The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them and messages to someone who needs them, which wait to be OK’d one at a time. The extension sends them. On training wheels, each counts toward coming off them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved.
          */
         post: operations["command_outreach_send_approve"];
@@ -6247,8 +6307,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.send.done.
+         * The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.done, outreach.need.noted.
          */
         post: operations["command_outreach_send_done"];
         delete?: never;
@@ -16007,7 +16067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many messages wait for them, any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.
+         * What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many things wait for them (Waiting for you), any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_live"];
@@ -16027,7 +16087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many messages wait for them. Never what it says it’s doing, nor their messages.
+         * For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_live_team"];
@@ -16151,6 +16211,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.waiting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything waiting for the person, in one list: replies handed over to them, messages the extension drafted that wait for their OK, steps it couldn’t do and needs them for, and friend requests that are theirs to decide; with how many of each, their training wheels, and how their phone hears of it.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_waiting"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32756,6 +32836,82 @@ export interface operations {
             };
         };
     };
+    command_outreach_need_clear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    how: "done" | "dismissed";
+                    /** Format: uuid */
+                    needId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        needId: string;
+                        /** @enum {string} */
+                        state: "open" | "done" | "dismissed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_need_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @default null */
+                    postId?: string | null;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** @enum {string} */
+                    step: "confirm" | "friend_request" | "warm_up" | "comment";
+                    /** @default null */
+                    url?: string | null;
+                    why: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fresh: boolean;
+                        needId: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_opener_use: {
         parameters: {
             query?: never;
@@ -33184,6 +33340,38 @@ export interface operations {
             };
         };
     };
+    command_outreach_request_set_aside: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_send_approve: {
         parameters: {
             query?: never;
@@ -33307,9 +33495,11 @@ export interface operations {
                         chatId: string | null;
                         /** Format: date-time */
                         createdAt: string;
+                        handedOver: boolean;
                         /** @enum {string} */
                         kind: "opener" | "follow_up" | "reply";
                         name: string;
+                        needsYou: string | null;
                         opener: {
                             /** @enum {string} */
                             kind: "style" | "own";
@@ -60275,9 +60465,11 @@ export interface operations {
                             chatId: string | null;
                             /** Format: date-time */
                             createdAt: string;
+                            handedOver: boolean;
                             /** @enum {string} */
                             kind: "opener" | "follow_up" | "reply";
                             name: string;
+                            needsYou: string | null;
                             opener: {
                                 /** @enum {string} */
                                 kind: "style" | "own";
@@ -60353,6 +60545,8 @@ export interface operations {
                             profileId: string | null;
                             profileUrl: string | null;
                             send: {
+                                handedOver: boolean;
+                                needsYou: string | null;
                                 /** Format: uuid */
                                 sendId: string;
                                 /** @enum {string} */
@@ -60404,6 +60598,175 @@ export interface operations {
                             today: boolean;
                             words: string;
                         } | null;
+                        wheels: {
+                            daysLeft: number;
+                            edits: number;
+                            from: string | null;
+                            ok: number;
+                            on: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_waiting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    items?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        hours: {
+                            days: number[];
+                            end: number;
+                            start: number;
+                        };
+                        items: ({
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "reply";
+                            send: {
+                                chatId: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                handedOver: boolean;
+                                /** @enum {string} */
+                                kind: "opener" | "follow_up" | "reply";
+                                name: string;
+                                needsYou: string | null;
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                profileUrl: string | null;
+                                /** Format: uuid */
+                                sendId: string;
+                                /** @enum {string} */
+                                state: "waiting" | "approved" | "sent" | "skipped" | "failed";
+                                text: string;
+                                threadKey: string | null;
+                                why: string | null;
+                            };
+                        } | {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "message";
+                            send: {
+                                chatId: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                handedOver: boolean;
+                                /** @enum {string} */
+                                kind: "opener" | "follow_up" | "reply";
+                                name: string;
+                                needsYou: string | null;
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                profileUrl: string | null;
+                                /** Format: uuid */
+                                sendId: string;
+                                /** @enum {string} */
+                                state: "waiting" | "approved" | "sent" | "skipped" | "failed";
+                                text: string;
+                                threadKey: string | null;
+                                why: string | null;
+                            };
+                        } | {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "need";
+                            need: {
+                                name: string;
+                                /** Format: uuid */
+                                needId: string;
+                                postId: string | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                /** Format: date-time */
+                                seenAt: string;
+                                sendId: string | null;
+                                /** @enum {string} */
+                                step: "confirm" | "friend_request" | "warm_up" | "comment" | "message";
+                                text: string | null;
+                                threadKey: string | null;
+                                url: string | null;
+                                why: string;
+                            };
+                        } | {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "request";
+                            request: {
+                                /** @enum {string} */
+                                fit: "good" | "maybe" | "unknown" | "skip";
+                                held: ("no_playbook" | "dont_pitch") | null;
+                                mutualFriends: number | null;
+                                name: string;
+                                /** Format: uuid */
+                                profileId: string;
+                                /** Format: date-time */
+                                since: string;
+                                url: string;
+                                why: string[];
+                            };
+                        })[];
+                        kinds: {
+                            message: {
+                                count: number;
+                                newestAt: string | null;
+                            };
+                            need: {
+                                count: number;
+                                newestAt: string | null;
+                            };
+                            reply: {
+                                count: number;
+                                newestAt: string | null;
+                            };
+                            request: {
+                                count: number;
+                                newestAt: string | null;
+                            };
+                        };
+                        /** @enum {string} */
+                        pushes: "bundled" | "each";
+                        timezone: string;
                         wheels: {
                             daysLeft: number;
                             edits: number;

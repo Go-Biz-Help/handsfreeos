@@ -100,10 +100,17 @@ export const TodayItem = z.object({
   demoLink: z.string().nullable(),
   /**
    * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
-   * to go. Null until it drafts one.
+   * to go. Null until it drafts one. One handed over, or to someone who needs the person, waits for an OK of its own:
+   * Approve all leaves it (`oneByOne` in ./waiting-words.ts).
    */
   send: z
-    .object({ sendId: z.uuid(), state: z.enum(['waiting', 'approved']), text: z.string() })
+    .object({
+      sendId: z.uuid(),
+      state: z.enum(['waiting', 'approved']),
+      text: z.string(),
+      handedOver: z.boolean(),
+      needsYou: z.string().nullable(),
+    })
     .nullable(),
 });
 export type TodayItem = z.output<typeof TodayItem>;

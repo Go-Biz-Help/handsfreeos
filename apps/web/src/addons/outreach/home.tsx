@@ -1,7 +1,8 @@
 'use client';
 /**
  * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, what it's doing right now
- * with Start my day and Stop for today (Live), the person's list for today,
+ * with Start my day and Stop for today (Live), everything waiting for the person (Waiting for you, with how many on its
+ * tab), the person's list for today,
  * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, the business's playbooks, and
  * every setting the extension follows, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
@@ -23,6 +24,7 @@ import { LiveView } from './live-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-view';
 import { TodayView } from './today-view';
+import { WaitingView } from './waiting-view';
 import type {
   Activity,
   Automation,
@@ -36,12 +38,14 @@ import type {
   PlaybookList,
   Tidy,
   TodayList,
+  Waiting,
   WheelsList,
 } from './types';
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
   | { readonly view: 'live'; readonly live: Live; readonly team: LiveTeam | null }
+  | { readonly view: 'waiting'; readonly waiting: Waiting }
   | { readonly view: 'today'; readonly today: TodayList; readonly wheels: WheelsList | null }
   | {
       readonly view: 'groups';
@@ -75,6 +79,7 @@ export type OutreachShown =
 const TABS = [
   { view: 'activity', label: 'Activity' },
   { view: 'live', label: 'Live' },
+  { view: 'waiting', label: 'Waiting for you' },
   { view: 'today', label: 'Today' },
   { view: 'groups', label: 'Groups' },
   { view: 'friends', label: 'Friends' },
@@ -88,13 +93,17 @@ export function OutreachHome({
   businessName,
   shown,
   canManage,
+  waitingCount = null,
 }: {
   workspaceId: string;
   businessName: string;
   shown: OutreachShown;
   /** Owners and admins write the playbooks and see everyone's activity. */
   canManage: boolean;
+  /** How many things wait for the person, on the Waiting for you tab: null when it couldn't be had. */
+  waitingCount?: number | null;
 }) {
+  const count = shown.view === 'waiting' ? shown.waiting.count : waitingCount;
   return (
     <div data-testid="outreach-home">
       <PageHeader
@@ -118,6 +127,14 @@ export function OutreachHome({
               )}
             >
               {t.label}
+              {t.view === 'waiting' && count ? (
+                <span
+                  className="ml-1.5 rounded-full bg-danger-soft px-1.5 text-[11.5px] tabular-nums text-danger-text"
+                  data-testid="outreach-tab-waiting-count"
+                >
+                  {count.toLocaleString()}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -132,6 +149,8 @@ export function OutreachHome({
         />
       ) : shown.view === 'live' ? (
         <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} />
+      ) : shown.view === 'waiting' ? (
+        <WaitingView workspaceId={workspaceId} waiting={shown.waiting} />
       ) : shown.view === 'today' ? (
         <TodayView workspaceId={workspaceId} today={shown.today} wheels={shown.wheels} />
       ) : shown.view === 'groups' ? (

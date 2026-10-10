@@ -27,3 +27,9 @@ export type AutomationPeople = Ok<'/v1/queries/outreach.automation.people'>;
 export type Live = Ok<'/v1/queries/outreach.live'>;
 /** Each person's status for owners and admins: never their lines, feed or messages. */
 export type LiveTeam = Ok<'/v1/queries/outreach.live.team'>;
+/**
+ * Everything waiting for the person: replies handed over, messages to OK, steps the extension needs them for, and
+ * friend requests to decide (packages/core/src/addons/outreach/waiting.ts).
+ */
+export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
+export type WaitingItem = Waiting['items'][number];

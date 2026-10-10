@@ -105,13 +105,25 @@ describe('what it does next', () => {
       profileId: '6b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
       threadKey: '100009000000002',
       profileUrl: null,
-      send: { sendId: '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e', state: 'approved', text: 'Hi Kim' },
+      send: {
+        sendId: '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+        state: 'approved',
+        text: 'Hi Kim',
+        handedOver: false,
+        needsYou: null,
+      },
     });
     const waiting = item({
       kind: 'reply',
       name: 'Max Ford',
       profileId: '8b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
-      send: { sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e', state: 'waiting', text: 'Thanks!' },
+      send: {
+        sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+        state: 'waiting',
+        text: 'Thanks!',
+        handedOver: false,
+        needsYou: null,
+      },
     });
     const nobody = item({ kind: 'opener', name: 'No Link', profileId: null });
     const list = {

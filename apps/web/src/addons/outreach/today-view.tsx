@@ -13,8 +13,9 @@
  * (decision 23). Anyone on the list for a message has the person's own demo link to copy (decision 24).
  *
  * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
- * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting; the
- * extension then sends them in Messenger. While the person's training wheels are on, it says what's left before they
+ * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting but a
+ * reply handed over or one to someone who needs the person, which wait for an OK of their own (`oneByOne`, decision
+ * 42); the extension then sends them in Messenger. The same messages are in Waiting for you (./waiting-view.tsx). While the person's training wheels are on, it says what's left before they
  * come off; owners and admins see who's on them and can end them early.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
@@ -27,6 +28,12 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import {
+  approveAllWords,
+  messengerChatUrl,
+  oneByOne,
+  oneByOneWords,
+} from '@hfos/core/addons/outreach/waiting-words';
 import { CalendarCheck, Check, CheckCheck, Copy, Loader2, Send, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -56,9 +63,7 @@ const KIND_BADGE = {
 /** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
 function openUrl(item: TodayItem): string | null {
   if (item.postUrl) return item.postUrl;
-  if (item.threadKey)
-    return `https://www.facebook.com/messages/t/${encodeURIComponent(item.threadKey)}`;
-  return item.profileUrl;
+  return messengerChatUrl(item.threadKey) ?? item.profileUrl;
 }
 
 export function TodayView({
@@ -71,7 +76,10 @@ export function TodayView({
   /** Who's on training wheels: for owners and admins, else null. */
   wheels: WheelsList | null;
 }) {
-  const waiting = today.items.filter((i) => i.send?.state === 'waiting').length;
+  // Approve all leaves those that wait for an OK of their own: a reply handed over, or one to someone who needs them.
+  const waiting = today.items.filter(
+    (i) => i.send?.state === 'waiting' && !oneByOne(i.send),
+  ).length;
   const approving = useAct();
   const approveAll = () =>
     approving.act(
@@ -121,7 +129,7 @@ export function TodayView({
                   data-testid="today-approve-all"
                 >
                   <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Approve all {waiting.toLocaleString()} messages
+                  {approveAllWords(waiting)}
                 </Button>
               ) : (
                 <span className="text-[12.5px] text-text-3">
@@ -263,7 +271,7 @@ function TodayRow({
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
       ) : null}
       {item.send ? (
-        <Drafted workspaceId={workspaceId} item={item} send={item.send} />
+        <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
       ) : draftKind ? (
         <Drafts workspaceId={workspaceId} item={item} kind={draftKind} />
       ) : null}
@@ -271,15 +279,28 @@ function TodayRow({
   );
 }
 
-/** A message the extension drafted to send: to change, send or skip while it waits; else it goes soon. */
-function Drafted({
+/** What Drafted needs of a message the extension drafted: Today's and Waiting for you's both have it. */
+export interface DraftedSend {
+  readonly sendId: string;
+  readonly state: 'waiting' | 'approved' | (string & {});
+  readonly text: string;
+  readonly handedOver: boolean;
+  readonly needsYou: string | null;
+}
+
+/**
+ * A message the extension drafted to send: to change, send or skip while it waits, with why it waits for an OK of its
+ * own when it does; else it goes soon. Today and Waiting for you both show it.
+ */
+export function Drafted({
   workspaceId,
-  item,
+  name,
   send,
 }: {
   workspaceId: string;
-  item: TodayItem;
-  send: NonNullable<TodayItem['send']>;
+  /** Who it's to. */
+  name: string;
+  send: DraftedSend;
 }) {
   const [text, setText] = useState(send.text);
   const { busy, act } = useAct();
@@ -292,15 +313,21 @@ function Drafted({
         </p>
       </div>
     );
+  const alone = oneByOneWords(send);
   return (
     <div className="mt-2 space-y-1.5" data-testid="today-send">
       <p className="text-[12.5px] text-text-3">
         I’d send this. Change it if you like; your changes teach the AI.
       </p>
+      {alone ? (
+        <p className="text-[12.5px] text-warning-text" data-testid="today-send-alone">
+          {alone}
+        </p>
+      ) : null}
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        aria-label={`Message to ${item.name}`}
+        aria-label={`Message to ${name}`}
         rows={3}
       />
       <div className="flex flex-wrap gap-1.5">
@@ -337,7 +364,7 @@ function Drafted({
                     body: { workspaceId, sendId: send.sendId },
                   }),
                 ),
-              `Skipped. ${item.name} is off your list for today.`,
+              `Skipped. ${name} is off your list for today.`,
             )
           }
           data-testid="today-send-skip"

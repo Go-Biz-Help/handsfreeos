@@ -21,6 +21,7 @@ import { sendCommands, sendQueries } from './ops/sends';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { postCommands } from './ops/posts';
 import { todayQueries } from './ops/today';
+import { waitingCommands, waitingQueries } from './ops/waiting';
 
 export const outreachAddonServer: AddonServerModule = {
   manifest: outreachAddon,
@@ -40,6 +41,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationCommands,
     ...sendCommands,
     ...liveCommands,
+    ...waitingCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -54,5 +56,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationQueries,
     ...sendQueries,
     ...liveQueries,
+    ...waitingQueries,
   ],
 };

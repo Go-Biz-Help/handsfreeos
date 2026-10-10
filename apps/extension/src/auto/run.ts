@@ -51,7 +51,7 @@ import type {
 import { config } from '../hfos/config';
 import { follow, loadSettings } from '../hfos/follow';
 import { beatSoon, dayChange, feed, liveNow, onWake, pressDay, pressWaiting } from '../hfos/live';
-import { isNoting, takeNote } from '../hfos/noting';
+import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
@@ -62,6 +62,7 @@ import {
   gapAfter,
   IDLE_MS,
   isState,
+  needOf,
   nextDaily,
   nextStart,
   workKey,
@@ -143,10 +144,14 @@ async function closeWindow(): Promise<void> {
 
 // ------------------------------------------------------------------------------------------------- Facebook
 
-/** What a step came to: done, or passed over and why; or a reason to stop for the day. */
+/**
+ * What a step came to: done, or passed over and why, with `need` when it's one the person can do themselves (a button
+ * or box it couldn't find, a different page, Facebook not taking it: handed to them, decision 42); or a reason to stop
+ * for the day.
+ */
 type Outcome =
   | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string }
+  | { readonly done: false; readonly line: string; readonly need?: true }
   | { readonly stop: string };
 
 async function read(): Promise<ReadResult> {
@@ -234,7 +239,9 @@ async function openProfile(
   if (stop) return { outcome: { stop } };
   const shown = page.profile?.profile ?? null;
   if (!page.profile || !shown || !samePerson(shown, page.profile.name, want, item.name))
-    return { outcome: { done: false, line: `${item.name}: Facebook showed a different page` } };
+    return {
+      outcome: { done: false, line: `${item.name}: Facebook showed a different page`, need: true },
+    };
   const noted = {
     id: want.id ?? shown.id,
     username: want.username ?? shown.username,
@@ -255,14 +262,18 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (friendship !== plan.before)
     return { done: false, line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}` };
   if (!(await pressPath(plan.path)))
-    return { done: false, line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”` };
+    return {
+      done: false,
+      line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”`,
+      need: true,
+    };
   await sure(plan.then);
   await pause(SETTLE_MS);
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   if (page.profile?.friendship !== plan.after)
-    return { done: false, line: `${item.name}: Facebook didn’t take it` };
+    return { done: false, line: `${item.name}: Facebook didn’t take it`, need: true };
   const to = { name: page.profile.name ?? item.name, profile: opened.noted };
   if (job === 'confirm') {
     await takeNote({
@@ -352,9 +363,17 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
   const wrote = await tab.ask({ type: 'hfos-comment', text });
   if (!wrote.ok) throw new Error(wrote.error);
   if (wrote.result === 'none')
-    return { done: false, line: `${item.name}’s post: couldn’t find the box to comment in` };
+    return {
+      done: false,
+      line: `${item.name}’s post: couldn’t find the box to comment in`,
+      need: true,
+    };
   if (wrote.result !== 'done')
-    return { done: false, line: `${item.name}’s post: Facebook didn’t take the comment` };
+    return {
+      done: false,
+      line: `${item.name}’s post: Facebook didn’t take the comment`,
+      need: true,
+    };
   await pause(SETTLE_MS);
   const after = await warnedOn(await read(), businessId);
   if (after) return { stop: after };
@@ -749,6 +768,10 @@ async function go(): Promise<void> {
     return goAt(tomorrow());
   }
   await say(outcome.line);
+  // One the person can do themselves goes to their Waiting for you; done another day, or by them, it clears.
+  const need =
+    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+  if (need) void noteNeed(need);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcome.done ? 'done' : 'passed', outcome.line);
   // Stop for today, pressed while that step went.

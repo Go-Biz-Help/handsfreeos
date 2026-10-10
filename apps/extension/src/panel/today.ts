@@ -14,7 +14,8 @@
  * the extension does on its own for them (./auto.ts) says so.
  *
  * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
- * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting; one
+ * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting but a
+ * reply handed over or one to someone who needs the person, which wait to be OK'd one at a time (decision 42); one
  * OK'd says it goes soon. While training wheels are on, it says what's left before they come off.
  */
 import {
@@ -28,6 +29,7 @@ import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/o
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { DRAFT_KINDS, TODAY_KINDS, type DraftKind } from '@hfos/core/addons/outreach/today';
+import { approveAllWords, oneByOne, oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
 import type {
   Activity,
   Noted,
@@ -199,10 +201,12 @@ function sendView(item: TodayListItem): Child {
   words.value = edits.get(send.sendId) ?? send.text;
   words.addEventListener('input', () => edits.set(send.sendId, words.value));
   const trouble = sendProblems.get(send.sendId);
+  const alone = oneByOneWords(send);
   return h(
     'div',
     {},
     h('p', { class: 'muted' }, 'I’d send this. Change it if you like; your changes teach the AI.'),
+    alone ? h('p', { class: 'muted' }, alone) : null,
     words,
     h(
       'div',
@@ -400,7 +404,10 @@ function listView(): Child[] {
   const { items, readAdmins, hasPlaybook, wheels } = list.value;
   const shownItems = showAll ? items : items.slice(0, LIST_SHOWN);
   const web = `${today.webUrl}/app/w/${list.businessId}/a/outreach`;
-  const waiting = items.filter((item) => item.send?.state === 'waiting').length;
+  // Approve all leaves those that wait one at a time: a reply handed over, or one to someone who needs the person.
+  const waiting = items.filter(
+    (item) => item.send?.state === 'waiting' && !oneByOne(item.send),
+  ).length;
   const allTrouble = sendProblems.get('all');
   return [
     h('h3', {}, 'Your list for today'),
@@ -409,7 +416,7 @@ function listView(): Child[] {
       ? h(
           'div',
           { class: 'actions' },
-          button(`Approve all ${waiting.toLocaleString()} messages`, () => void approve(null), {
+          button(approveAllWords(waiting), () => void approve(null), {
             primary: true,
             disabled: approving,
           }),

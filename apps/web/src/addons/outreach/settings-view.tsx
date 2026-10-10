@@ -187,8 +187,11 @@ export function ChoicesForm({
           'markPosts',
         )}
       </Part>
-      <Part title="Your phone" about="How it tells you about messages waiting for your OK.">
-        <div role="radiogroup" aria-label="Phone" className="flex flex-col gap-2">
+      <Part
+        title="Your phone and the extension"
+        about="How you hear about messages and steps waiting for you."
+      >
+        <div role="radiogroup" aria-label="Pushes" className="flex flex-col gap-2">
           {PUSH_MODE_KEYS.map((m) => (
             <RadioCard
               key={m}

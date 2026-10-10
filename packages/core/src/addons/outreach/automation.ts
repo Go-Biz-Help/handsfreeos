@@ -57,10 +57,13 @@ export const REPLY_MODES = {
 export type ReplyMode = keyof typeof REPLY_MODES;
 export const REPLY_MODE_KEYS = Object.keys(REPLY_MODES) as [ReplyMode, ...ReplyMode[]];
 
-/** How the phone hears about messages waiting for the person's OK (decision 15): a reply handed over always pushes at once. */
+/**
+ * How the phone, and the extension's pop-ups, tell of messages and steps waiting for the person (decision 15): a reply
+ * handed over always pushes at once.
+ */
 export const PUSH_MODES = {
   bundled: 'One push for what’s waiting, at most every 2 hours in your working hours',
-  each: 'A push for each message that waits',
+  each: 'A push for each message or step that waits',
 } as const;
 export type PushMode = keyof typeof PUSH_MODES;
 export const PUSH_MODE_KEYS = Object.keys(PUSH_MODES) as [PushMode, ...PushMode[]];

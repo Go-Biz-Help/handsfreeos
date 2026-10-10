@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.17.0).** It reads the Facebook page you have open and shows what it found in
+**This is a test build (0.18.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
@@ -13,7 +13,8 @@ each group fits, finds posts in your groups worth a comment, and gives you a lis
 to copy, after looking the person up on Facebook. It gets your Facebook download file for you and brings it in, and
 cancels old friend requests and unfriends the people you tick. It spots who wrote back so your phone can tell you,
 takes turns with your playbook's openers, and gives you a demo link for each person. It stops for the day on any
-Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live and can start and stop its day. It
+Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live and can start and stop its day. Its
+icon shows how many things wait for you, and Chrome's pop-ups tell you of new ones, as your phone does. It
 never sends anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages,
 in Messenger's chat list, in your groups' feeds and on the profiles you ticked, once you ask it to.
 
@@ -239,6 +240,38 @@ web (and later the phone) shows it as it happens (decision 41 in docs/outreach.m
 - **Whose:** every line, waiting press and answer kept says whose it is (you and the business), so none goes as
   someone else's or to another business after signing in as someone else.
 
+## Waiting for you: the number and the pop-ups
+
+**Waiting for you**, first in the panel, is the same list as the Waiting for you tab in HandsFreeOS (decisions 40 and
+42 in docs/outreach.md, `outreach.waiting`): replies handed over to you, messages waiting for your OK (with **Approve
+all**, which leaves a reply handed over or one to someone who needs you, each to OK on its own), steps the extension
+couldn't do and hands to you (**I did it** or **Let it go**), and friend requests to decide (**Leave it**). The
+background keeps it (`src/hfos/waiting.ts`), and the panel draws it (`src/panel/waiting.ts`):
+
+- **The number on its icon** is everything waiting (`chrome.action.setBadgeText`, "99+" past 99). It's asked again a
+  moment after a change of yours heard on the live channel (a message drafted, OK'd or sent, a step noted or handed
+  over, a request answered), one HandsFreeOS made itself (a download brought in), or a change to your pushes, hours
+  or training wheels by anyone (an owner may change yours); after you act on one in the panel, after signing in, and
+  every 10 minutes with nothing heard (the `hfos-beat` alarm). Signed out, or with Social Outreach turned off or out
+  of your reach, there's none; with no connection, the last number stays.
+- **Chrome's pop-ups** (the `notifications` permission) follow your **pushes** setting, as your phone does: one for
+  what's new at most every 2 hours in your working hours (to start), or one for each, with more than 3 at once going as
+  one. A reply handed over pops up at once either way, and isn't told again in the bundled one; friend requests never
+  pop up. Only the computer that works shows them (src/hfos/live.ts); the first look after signing in tells of what's
+  there, replies too, in one pop-up at most. A click opens the side panel in the window you last used (kept in the
+  session's storage, so a click that wakes the background still knows it); **Open in HandsFreeOS**, or a click Chrome
+  won't open the panel for, opens Waiting for you on the web.
+- **The panel's list** shows only while it's for who's signed in and the business they save to, so picking another
+  business never shows, or acts on, the last one's. **Approve all** names the same number as the web's. **I did it**
+  on a step the extension couldn't do again since says so, and the step stays.
+- **Steps it hands to you:** when the runner can't find a button or the box, Facebook shows a different page, or
+  Facebook doesn't take a step, it hands the step to you (`outreach.need.note`, from the same waiting list as the
+  steps it notes, so it keeps its moment offline), and still tries again another day. A message that didn't go is
+  handed over by HandsFreeOS itself. The step noted later, however it was done, takes it off.
+- **What it keeps:** the last list (`hfos.waitingFor`) and what a pop-up told of (`hfos.waitingFor.told`), each saying
+  whose it is (you and the business). `hfos.waiting` is the steps waiting to be sent (src/hfos/noting.ts), not this;
+  Today's count of them leaves out the steps handed to you.
+
 ## Tidying up your friends
 
 **Tidy up your friends**, under your list for today, lists the friend requests you sent that nobody answered after
@@ -418,6 +451,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                      |
 | `src/hfos/follow.ts`    | Your settings from HandsFreeOS: loaded at sign-in and each step, and followed live                                                                            |
 | `src/hfos/live.ts`      | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                              |
+| `src/hfos/waiting.ts`   | Waiting for you: the number on the icon and Chrome's pop-ups; the panel's part is `src/panel/waiting.ts`                                                      |
 | `src/jobs/`             | The jobs that go page by page: Find posts, Read my chats, and once a day checking friend requests and saving group members (`src/auto/daily.ts`)              |
 | `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                                 |
 | `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner |
