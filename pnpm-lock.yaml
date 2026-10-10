@@ -202,6 +202,9 @@ importers:
       '@supabase/auth-js':
         specifier: ^2.116.0
         version: 2.116.0
+      '@supabase/realtime-js':
+        specifier: ^2.116.0
+        version: 2.116.0
     devDependencies:
       '@types/chrome':
         specifier: ^0.3.4

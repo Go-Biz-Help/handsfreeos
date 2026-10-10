@@ -103,8 +103,8 @@ card with several people. Popups and Facebook's other layouts may slip past; tel
 Answers to requests aren't outreach, so they don't count toward the daily limits.
 
 **Today on Facebook**, in the panel, shows today's steps against the daily limits, the people reached and who wrote
-back, and the last few steps noted, with **See all** opening the activity on the Social Outreach page. **Note what I
-do on Facebook** turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
+back, and the last few steps noted, with **See all** opening the activity on the Social Outreach page. **Note my
+steps on Facebook**, in your settings in HandsFreeOS, turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
 up to 200, and go in order when it's back.
 
 **Who wrote back** (decision 22): while noting is on, each Facebook tab looks at the chats on the page as it changes,
@@ -118,7 +118,7 @@ only when it answers a message of yours it noted, and tells your phone unless yo
 
 Facebook's file can take hours to be ready, so the panel reads your chats in Messenger too. With **Read chats I
 open** on (it starts on), each one-to-one chat you open with the panel beside it has its latest messages sent for the
-AI to read. **Read my chats**, on a Messenger page, opens your chats one at a time from the list, 7 to 14 seconds
+AI to read; it's one of your settings in HandsFreeOS. **Read my chats**, on a Messenger page, opens your chats one at a time from the list, 7 to 14 seconds
 apart, and scrolls the list for more: up to 150 a run, skipping any read in the last day that hasn't changed, and
 stopping at once on any Facebook warning. **Stop** ends it. Group chats are left out. Each chat's latest 20 messages
 join what the file brought in, one chat per person, and the Chats tab on the web shows what the AI made of them, with
@@ -127,7 +127,7 @@ join what the file brought in, one chat per person, and the Chats tab on the web
 ## Posts worth a comment
 
 **Posts worth a comment** finds posts in your groups where a comment from you could help (decisions 18 to 20 in
-docs/outreach.md). With **Look for posts as I scroll** on (it starts on), each read of a group's feed sends the posts
+docs/outreach.md). With **Look for posts as I scroll** on (it starts on; it's one of your settings in HandsFreeOS), each read of a group's feed sends the posts
 that say your playbooks' signs or ask for help, with who wrote them, and the AI checks each one; the panel marks them
 **Good to comment** or **AI checking**, with why. **Find posts** goes through the groups you're in that are marked
 Work these (or Maybe, with none), up to 5 a run, in a tab you can see: it scrolls each feed a screen at a time, 6 to
@@ -164,13 +164,25 @@ your own link to the playbook's booking page for them: a booking through it coun
 24). On a profile, **Demo booked** marks one they booked some other way. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
 it off the list. The Today tab on the web shows the same list.
 
+## Your settings
+
+Everything the extension does is set in HandsFreeOS, on Social Outreach's **Settings** tab, on the web (decision 37
+in docs/outreach.md); it keeps nothing of its own. Signing in loads them, and a change made there reaches it within a
+few seconds while Chrome is open: the background listens on the same live channel the web app does and asks
+HandsFreeOS again when anyone's choices or the business's change (`src/hfos/follow.ts`). It writes what the Facebook
+tabs and the panel read (noting, reading chats as you open them, looking for posts as you scroll) into its storage
+from them. When it can't listen, each step the runner takes loads them again. Owners and admins can change yours;
+your settings then say who did.
+
 ## On its own
 
 **On its own**, under **Today on Facebook**, lets the extension do some of your list for today by itself (decisions 26
-to 33 in docs/outreach.md). Your choices are your own, kept in HandsFreeOS (`outreach.automation`):
+to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's **Settings** tab in HandsFreeOS
+(decision 37, `outreach.automation`); the panel shows them in a few lines with **Change in HandsFreeOS**:
 
-- **What it does on its own:** nothing (**You do everything**, to start), or **Friend requests, likes and comments
-  on their own**. Messages always wait for you.
+- **What it does on its own:** nothing (**You do everything**, to start), friend requests, likes and comments on
+  their own with each message waiting for one tap, the same with the day's messages ready to **Approve all**, or
+  everything on its own; and **Replies**. Your business may allow only some of them.
 - **Like one of their posts a day before each friend request** (on to start): the list then has **Like a post first**
   for people you'll ask tomorrow, and their request comes a day after the like. A profile with no post of theirs to
   like gets its request without one.
@@ -375,9 +387,10 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                              |
 | `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                           |
 | `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                 |
+| `src/hfos/follow.ts`    | Your settings from HandsFreeOS: loaded at sign-in and each step, and followed live                                                                       |
 | `src/jobs/`             | The jobs that go page by page: Find posts, Read my chats, and once a day checking friend requests and saving group members (`src/auto/daily.ts`)         |
 | `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                            |
-| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, and wakes the runner                                       |
+| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, follows your settings, and wakes the runner                |
 | `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
 | `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
 

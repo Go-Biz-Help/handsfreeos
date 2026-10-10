@@ -94,10 +94,19 @@ export const WARNING_NO_REQUESTS_DAYS = 2;
 export const limitNow = (most: number, slower: boolean): number =>
   slower ? Math.max(1, Math.floor(most / 2)) : most;
 
-/** The daily limits as they stand for the person. */
-export function dailyLimitsNow(slower: boolean): Record<DailyStep, number> {
+/** The daily limits as they stand for the person: the business's, halved after a warning or on training wheels. */
+export function dailyLimitsNow(
+  slower: boolean,
+  /** The business's own, each at most the starting one (decision 38). */
+  business: Partial<Readonly<Record<DailyStep, number>>> = {},
+): Record<DailyStep, number> {
   return Object.fromEntries(
-    DAILY_STEPS.map((step) => [step, limitNow(DAILY_LIMITS[step], slower)]),
+    DAILY_STEPS.map((step) => [
+      step,
+      business[step] === 0
+        ? 0
+        : limitNow(Math.min(DAILY_LIMITS[step], business[step] ?? Infinity), slower),
+    ]),
   ) as Record<DailyStep, number>;
 }
 

@@ -9,7 +9,8 @@ export const metadata: Metadata = { title: 'Social Outreach' };
 /**
  * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, the
  * person's list for today (`?view=today`), the groups saved (`?view=groups`), the person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
- * the business's playbooks with how each opener did (`?view=playbooks`). It
+ * the business's playbooks with how each opener did (`?view=playbooks`), and every setting the extension follows, with
+ * anyone's for owners and admins (`?view=settings&for=`). It
  * opens through the gate: "not available here" while the add-on is off, and not found for someone without
  * `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's activity
  * (`?who=everyone`); anyone else asking for that sees their own.
@@ -34,6 +35,43 @@ export default async function OutreachPage({
           body: { workspaceId, period: shown.period, everyone },
         })
         .then(unwrapPage);
+    if (shown.view === 'settings') {
+      const got = await workspace;
+      const canManage = got.workspace.permissions.includes('outreach.manage');
+      // Someone else's, for owners and admins; anyone else asking sees their own.
+      const whose = canManage && shown.for ? shown.for : undefined;
+      const [me, people, business] = await Promise.all([
+        api
+          .POST('/v1/queries/outreach.automation', {
+            body: { workspaceId, ...(whose ? { userId: whose } : {}) },
+          })
+          .then(unwrapPage),
+        canManage
+          ? api
+              .POST('/v1/queries/outreach.automation.people', { body: { workspaceId } })
+              .then(unwrapPage)
+          : null,
+        canManage
+          ? api
+              .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
+              .then(unwrapPage)
+          : null,
+      ]);
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          businessName={got.workspace.name}
+          canManage={canManage}
+          shown={{
+            view: 'settings',
+            me,
+            mine: !whose,
+            people,
+            business: business?.settings ?? null,
+          }}
+        />
+      );
+    }
     if (shown.view === 'today') {
       const [got, today] = await Promise.all([
         workspace,

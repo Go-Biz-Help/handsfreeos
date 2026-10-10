@@ -22,7 +22,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
-import type { MessageKind, ReplyMode, SendingMode } from './automation';
+import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -596,6 +596,11 @@ export const automation = addonOutreach.table(
       .notNull()
       .default(sql`'{}'`),
     wheelsDoneAt: ts('wheels_done_at'),
+    noting: boolean('noting').notNull().default(true),
+    readChats: boolean('read_chats').notNull().default(true),
+    markPosts: boolean('mark_posts').notNull().default(true),
+    pushes: text('pushes').notNull().default('bundled').$type<PushMode>(),
+    changedBy: uuid('changed_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

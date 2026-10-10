@@ -29,9 +29,7 @@ export type SessionAsk = Exclude<
   {
     readonly type:
       | 'hfos-today'
-      | 'hfos-noting'
       | 'hfos-auto'
-      | 'hfos-auto-save'
       | 'hfos-auto-start'
       | 'hfos-auto-stop'
       | 'hfos-send-ok'
@@ -97,7 +95,7 @@ function auth(): GoTrueClient {
 }
 
 /** The signed-in person's token, refreshed first when it's about to run out; null when nobody is signed in. */
-async function token(): Promise<string | null> {
+export async function token(): Promise<string | null> {
   const { data, error } = await auth().getSession();
   if (error && isAuthRetryableFetchError(error)) throw refuse(NO_CONNECTION);
   return data.session?.access_token ?? null;

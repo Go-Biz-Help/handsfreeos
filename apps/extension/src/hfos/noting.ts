@@ -402,13 +402,10 @@ async function today(): Promise<Today> {
   };
 }
 
-/** The panel's asks about the day on Facebook, and its switch. Never throws: what went wrong comes back as a problem. */
+/** The panel's ask about the day on Facebook. Never throws: what went wrong comes back as a problem. Noting is set in
+ * HandsFreeOS (decision 37), which ./follow.ts writes here. */
 export function answerNoting(
-  ask: Extract<HfosAsk, { readonly type: 'hfos-today' | 'hfos-noting' }>,
+  ask: Extract<HfosAsk, { readonly type: 'hfos-today' }>,
 ): Promise<HfosAnswer<unknown>> {
-  return answerWith(ask.type, async () => {
-    if (ask.type === 'hfos-noting')
-      await chrome.storage.local.set({ [NOTING_KEY]: ask.on === true });
-    return today();
-  });
+  return answerWith(ask.type, () => today());
 }

@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
+import { BusinessRules, NO_RULES } from './automation';
 import type { DownloadMessage } from './download-read';
 import type { PlaybookDetails } from './playbooks';
 import { CANCEL_AFTER_WEEKS } from './tidy';
@@ -37,6 +38,8 @@ export const OutreachSettingsSchema = z.object({
   morningPushHour: z.number().int().min(0).max(23).nullable().default(MORNING_PUSH_HOUR),
   /** Whether each person gets the weekly report by email, Monday at the morning push's hour (./results.ts). */
   weeklyReport: z.boolean().default(true),
+  /** What each person may pick for the extension, their daily limits and where a new person starts (./automation.ts). */
+  rules: BusinessRules.default(NO_RULES),
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 

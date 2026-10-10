@@ -1,6 +1,6 @@
 /**
- * What Social Outreach's page shows, from its address: the tab (`?view=today`, `groups`, `friends`, `chats` or
- * `playbooks`, else the activity); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
+ * What Social Outreach's page shows, from its address: the tab (`?view=today`, `groups`, `friends`, `chats`,
+ * `playbooks` or `settings`, else the activity); for settings, whose (`?for=` someone's id, for owners and admins); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
  * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or
  * `dont_pitch`); for chats, which (`?show=tagged`, `read` or `waiting`) and a tag (`?tag=`); for both, a name
  * searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server and the tabs
@@ -16,8 +16,17 @@ export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
 /** The stretch the activity opens on. */
 export const DEFAULT_PERIOD: ActivityPeriod = 'week';
 
-export type OutreachView = 'activity' | 'today' | 'groups' | 'friends' | 'chats' | 'playbooks';
-const VIEWS: readonly OutreachView[] = ['today', 'groups', 'friends', 'chats', 'playbooks'];
+export type OutreachView =
+  'activity' | 'today' | 'groups' | 'friends' | 'chats' | 'playbooks' | 'settings';
+const VIEWS: readonly OutreachView[] = [
+  'today',
+  'groups',
+  'friends',
+  'chats',
+  'playbooks',
+  'settings',
+];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface OutreachAddress {
   readonly view: OutreachView;
@@ -36,6 +45,8 @@ export interface OutreachAddress {
   readonly search: string;
   /** Which page of groups, friends or chats, from 1. */
   readonly page: number;
+  /** Whose settings, for an owner or admin: someone's id, or empty for their own. */
+  readonly for: string;
 }
 
 export function readOutreachAddress(
@@ -53,6 +64,7 @@ export function readOutreachAddress(
     tag: one(sp.tag).trim().slice(0, 40),
     search: one(sp.q).trim().slice(0, 100),
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
+    for: UUID.test(one(sp.for)) ? one(sp.for).toLowerCase() : '',
   };
 }
 
@@ -63,7 +75,10 @@ export function readOutreachAddress(
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
   if (to.view === 'playbooks' || to.view === 'today') params.set('view', to.view);
-  else if (to.view === 'groups') {
+  else if (to.view === 'settings') {
+    params.set('view', 'settings');
+    if (to.for) params.set('for', to.for);
+  } else if (to.view === 'groups') {
     params.set('view', 'groups');
     if (to.groups && to.groups !== 'work') params.set('show', to.groups);
     if (to.search) params.set('q', to.search);

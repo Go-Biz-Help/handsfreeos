@@ -8,6 +8,7 @@ import { testDbs, type TestUser } from '@hfos/db/testing';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
 import {
+  commands,
   executeCommand,
   executeQuery,
   organizationCreate,
@@ -59,9 +60,11 @@ export async function setOutreach(ws: string, state: 'enabled' | 'disabled'): Pr
 }
 
 const op = (name: string) =>
-  [...(outreachAddonServer.commands ?? []), ...(outreachAddonServer.queries ?? [])].find(
-    (x) => x.name === name,
-  )!;
+  [
+    ...(outreachAddonServer.commands ?? []),
+    ...(outreachAddonServer.queries ?? []),
+    ...commands,
+  ].find((x) => x.name === name)!;
 
 /**
  * Runs one of the add-on's operations as `u` in `ws`, from the extension. A command is done now, or at `at`: one that

@@ -3,7 +3,7 @@
  * Facebook's file, the extension reads the person's one-to-one chats in Messenger and sends each one's latest few
  * messages to HandsFreeOS, where the AI reads them for the Chats tab, as it does the file's (decision 3).
  *
- * - **Read chats I open**: each chat the person opens with the panel open is read for the AI. On by default.
+ * - **Read chats I open**: each chat the person opens with the panel open is read for the AI. On by default; set in HandsFreeOS.
  * - **Read my chats**: it goes through their chats for them in the Messenger tab, one at a time from the list beside
  *   it, at a steady pace, scrolling the list for more (src/jobs/chats.ts). It stops on any Facebook warning, after a
  *   run's worth, or when they press Stop, and skips chats read in the last day with nothing new. While it works on its
@@ -11,6 +11,7 @@
  *
  * Group chats are left out. Nothing is sent on Facebook.
  */
+import { READ_CHATS_KEY } from '../hfos/follow';
 import type { Account } from '../hfos/messages';
 import type { ReadResult } from '../facebook/types';
 import { facebookUrl } from '../facebook/urls';
@@ -21,7 +22,7 @@ import { ask } from './ask';
 import { button, h, hfosLink, type Child } from './dom';
 import { noteWarnings, warnedToday } from './warnings';
 
-const OPEN_KEY = 'hfos.readChats';
+const OPEN_KEY = READ_CHATS_KEY;
 /** The most chats one run reads: press again to go on. */
 const RUN_MOST = 150;
 /** While Facebook draws a page just opened. */
@@ -155,12 +156,6 @@ function draw(): void {
   box.hidden = !where;
   if (!where) return;
   const going = run.state === 'going';
-  const toggle = h('input', { type: 'checkbox' });
-  toggle.checked = readOpen;
-  toggle.addEventListener('change', () => {
-    readOpen = toggle.checked;
-    void chrome.storage.local.set({ [OPEN_KEY]: readOpen }).catch(() => undefined);
-  });
   const parts: Child[] = [
     h('h2', {}, 'Your chats, for the AI'),
     h(
@@ -168,7 +163,13 @@ function draw(): void {
       { class: 'muted' },
       'No need to wait for your Facebook file. Chats read here go to the Chats tab, where the AI sums each up, tags it and spots likely prospects. Group chats are left out, and nothing is sent on Facebook.',
     ),
-    h('label', { class: 'auto' }, toggle, ' Read chats I open'),
+    h(
+      'p',
+      { class: 'muted' },
+      readOpen
+        ? 'Chats you open are read too. Change that in HandsFreeOS.'
+        : 'Chats you open aren’t read. Change that in HandsFreeOS.',
+    ),
     h(
       'div',
       { class: 'actions' },
@@ -200,5 +201,11 @@ export async function startChats(into: HTMLElement): Promise<void> {
   } catch {
     // Read chats I open stays on.
   }
+  // Set in HandsFreeOS: ../hfos/follow.ts writes it here.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[OPEN_KEY]) return;
+    readOpen = changes[OPEN_KEY].newValue !== false;
+    draw();
+  });
   await refreshChats();
 }

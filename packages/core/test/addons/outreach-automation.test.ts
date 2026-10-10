@@ -2,7 +2,8 @@
  * Social Outreach: the extension on its own (docs/outreach.md, decisions 26 to 33). Each person's own choices, the
  * defaults until they save theirs; liking one of someone's posts a day before their friend request, and the request
  * going without when there's no post; requests the person got from people who fit a playbook, to confirm; and the
- * steps the extension took itself, marked as its own.
+ * steps the extension took itself, marked as its own. Then the settings in HandsFreeOS (decisions 37 to 40): the
+ * business's rules and defaults, an owner or admin changing someone else's, and the extension's summary.
  */
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
@@ -11,10 +12,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   AUTOMATION_DEFAULTS,
   autoKinds,
+  BusinessRules,
   hoursWords,
   inWorkingHours,
+  settingsSummary,
+  withinRules,
   workWindow,
 } from '../../src/addons/outreach/automation';
+import { dailyLimitsNow } from '../../src/addons/outreach/limits';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
 
@@ -225,5 +230,153 @@ describe('the extension on its own', () => {
     expect((await list()).auto).toEqual(['confirm', 'friend_request', 'comment']);
     await runAs(owner, ws, 'outreach.automation.save', { settings: AUTOMATION_DEFAULTS });
     expect((await list()).auto).toEqual([]);
+  });
+});
+
+describe('the business’s rules', () => {
+  const rules = BusinessRules.parse({
+    sendingAllowed: ['steps'],
+    repliesAllowed: [],
+    dailyLimits: { friend_request: 10, like: 0 },
+  });
+
+  it('always allow doing everything yourself, and every reply waiting', () => {
+    expect(rules.sendingAllowed).toEqual(['off', 'steps']);
+    expect(rules.repliesAllowed).toEqual(['draft']);
+  });
+
+  it('step a choice they stopped allowing back to the nearest one they allow', () => {
+    const before = {
+      ...AUTOMATION_DEFAULTS,
+      sending: 'everything' as const,
+      replies: 'simple' as const,
+    };
+    expect(withinRules(before, rules)).toMatchObject({ sending: 'steps', replies: 'draft' });
+  });
+
+  it('keep the daily limits under the starting ones, halved on training wheels', () => {
+    const limits = dailyLimitsNow(false, rules.dailyLimits);
+    expect(limits.friend_request).toBe(10);
+    expect(limits.like).toBe(0);
+    expect(dailyLimitsNow(true, rules.dailyLimits).friend_request).toBe(5);
+    expect(() => BusinessRules.parse({ dailyLimits: { friend_request: 500 } })).toThrow();
+  });
+
+  it('read as a short summary for the extension', () => {
+    expect(settingsSummary(AUTOMATION_DEFAULTS)).toEqual(['On its own: Off: you do everything']);
+    expect(
+      settingsSummary({
+        ...AUTOMATION_DEFAULTS,
+        sending: 'steps',
+        replies: 'simple',
+        readChats: false,
+      }),
+    ).toEqual([
+      'On its own: Requests, likes and comments on their own; each message waits for you',
+      'Replies: simple ones on their own',
+      'When: 9 AM to 5 PM, Mon to Fri',
+      'Off: reading chats you open',
+    ]);
+  });
+});
+
+describe('settings in HandsFreeOS', () => {
+  let owner: TestUser;
+  let member: TestUser;
+  let other: TestUser;
+  let ws: string;
+  const steps = { ...AUTOMATION_DEFAULTS, sending: 'steps' as const };
+  const setRules = (rules: Record<string, unknown>) =>
+    runAs(owner, ws, 'addon.save_settings', { addonId: 'outreach', settings: { rules } });
+
+  beforeAll(async () => {
+    [owner, member, other] = await Promise.all([
+      createTestUser('outs-owner', { fullName: 'Morgan Owner' }),
+      createTestUser('outs-member', { fullName: 'Riley Member' }),
+      createTestUser('outs-other', { fullName: 'Casey Elsewhere' }),
+    ]);
+    ws = await outreachBusiness(owner, 'Outreach Settings Co');
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: member.id, role: 'member' });
+  }, 60_000);
+  afterAll(closeTestDbs);
+
+  it('keeps the switches and the push choice with the rest', async () => {
+    const mine = { ...steps, noting: false, readChats: false, markPosts: true, pushes: 'each' };
+    const saved = await runAs(member, ws, 'outreach.automation.save', { settings: mine });
+    expect(saved).toMatchObject({ settings: mine, name: 'Riley Member', changedBy: null });
+    expect(saved.rules.sendingAllowed).toEqual(['off', 'steps', 'approve_all', 'everything']);
+    // An extension before 0.16 saves without them: they're on, and pushes are bundled.
+    const { noting: _n, readChats: _r, markPosts: _m, pushes: _p, ...older } = steps;
+    expect(
+      (await runAs(member, ws, 'outreach.automation.save', { settings: older })).settings,
+    ).toEqual(steps);
+  });
+
+  it('lets an owner see and change someone’s, and says who changed them', async () => {
+    const theirs = await runAs(owner, ws, 'outreach.automation', { userId: member.id });
+    expect(theirs).toMatchObject({ userId: member.id, name: 'Riley Member', saved: true });
+    await runAs(owner, ws, 'outreach.automation.save', {
+      userId: member.id,
+      settings: { ...steps, warmUp: false },
+    });
+    const seen = await runAs(member, ws, 'outreach.automation', {});
+    expect(seen).toMatchObject({ settings: { warmUp: false }, changedBy: 'Morgan Owner' });
+    // Their own change clears it.
+    await runAs(member, ws, 'outreach.automation.save', { settings: steps });
+    expect((await runAs(member, ws, 'outreach.automation', {})).changedBy).toBeNull();
+
+    const people = await runAs(owner, ws, 'outreach.automation.people', {});
+    expect(people.people.map((p: { name: string; saved: boolean }) => [p.name, p.saved])).toEqual([
+      ['Morgan Owner', false],
+      ['Riley Member', true],
+    ]);
+  });
+
+  it('keeps someone else’s settings to owners and admins, and to people here', async () => {
+    expect(await refused(runAs(member, ws, 'outreach.automation', { userId: owner.id }))).toBe(
+      'forbidden',
+    );
+    expect(
+      await refused(
+        runAs(member, ws, 'outreach.automation.save', { userId: owner.id, settings: steps }),
+      ),
+    ).toBe('forbidden');
+    expect(await refused(runAs(member, ws, 'outreach.automation.people', {}))).toBe('forbidden');
+    expect(await refused(runAs(owner, ws, 'outreach.automation', { userId: other.id }))).toBe(
+      'not_found',
+    );
+  });
+
+  it('holds everyone to the business’s rules, and gives a new person its defaults', async () => {
+    await runAs(member, ws, 'outreach.automation.save', {
+      settings: { ...steps, sending: 'everything', replies: 'simple' },
+    });
+    await setRules({
+      sendingAllowed: ['steps'],
+      repliesAllowed: [],
+      dailyLimits: { friend_request: 10 },
+      defaults: { ...steps, hours: { start: 8, end: 16, days: [1, 2, 3, 4] } },
+    });
+    // What they'd picked steps back.
+    const now = await runAs(member, ws, 'outreach.automation', {});
+    expect(now.settings).toMatchObject({ sending: 'steps', replies: 'draft' });
+    expect(now.rules).toMatchObject({
+      sendingAllowed: ['off', 'steps'],
+      repliesAllowed: ['draft'],
+    });
+    const no = runAs(member, ws, 'outreach.automation.save', {
+      settings: { ...steps, sending: 'everything' },
+    });
+    expect(await refused(no)).toBe('not_allowed');
+    // The owner hasn't saved theirs: they start from the business's defaults.
+    expect((await runAs(owner, ws, 'outreach.automation', {})).settings).toMatchObject({
+      sending: 'steps',
+      hours: { start: 8, end: 16, days: [1, 2, 3, 4] },
+    });
+    // The daily limits are the business's.
+    const activity = await runAs(member, ws, 'outreach.activity', {});
+    expect(activity.limits.friend_request).toBe(10);
   });
 });

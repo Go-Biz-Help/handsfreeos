@@ -1,7 +1,8 @@
 'use client';
 /**
  * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, the person's list for today,
- * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, and the business's playbooks, each a tab with its own address (./address.ts), so a link or the
+ * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, the business's playbooks, and
+ * every setting the extension follows, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
  * (`app/w/[workspaceId]/a/outreach/page.tsx`).
  */
@@ -18,9 +19,12 @@ import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
 import { PlaybooksView } from './playbooks-page';
+import { SettingsView } from './settings-view';
 import { TodayView } from './today-view';
 import type {
   Activity,
+  Automation,
+  AutomationPeople,
   Chats,
   Friends,
   Groups,
@@ -54,7 +58,14 @@ export type OutreachShown =
       readonly tag: string;
       readonly search: string;
     }
-  | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers };
+  | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers }
+  | {
+      readonly view: 'settings';
+      readonly me: Automation;
+      readonly mine: boolean;
+      readonly people: AutomationPeople | null;
+      readonly business: Readonly<Record<string, unknown>> | null;
+    };
 
 const TABS = [
   { view: 'activity', label: 'Activity' },
@@ -63,6 +74,7 @@ const TABS = [
   { view: 'friends', label: 'Friends' },
   { view: 'chats', label: 'Chats' },
   { view: 'playbooks', label: 'Playbooks' },
+  { view: 'settings', label: 'Settings' },
 ] as const;
 
 export function OutreachHome({
@@ -138,6 +150,14 @@ export function OutreachHome({
           tag={shown.tag}
           search={shown.search}
           canManage={canManage}
+        />
+      ) : shown.view === 'settings' ? (
+        <SettingsView
+          workspaceId={workspaceId}
+          me={shown.me}
+          mine={shown.mine}
+          people={shown.people}
+          business={shown.business}
         />
       ) : (
         <PlaybooksView

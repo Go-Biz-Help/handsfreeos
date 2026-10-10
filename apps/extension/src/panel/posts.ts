@@ -4,7 +4,7 @@
  *
  * - **Look for posts as I scroll**: on a group's page, each read of its feed sends the posts that say a playbook's signs
  *   or ask for help to HandsFreeOS (`outreach.posts.save`), where the AI checks each one. The panel marks them: good,
- *   or still being checked. On by default.
+ *   or still being checked. On by default; set in HandsFreeOS.
  * - **Find posts**: the extension goes through the groups the person is in that are marked Work these (or Maybe, when
  *   none are), in a tab they can see, scrolling each one's feed slowly (src/jobs/posts.ts), and sends what it finds
  *   the same way. It stops on any Facebook warning, and does nothing on a day it saw one. While it works on its own,
@@ -13,6 +13,7 @@
  * The good ones go on Today's list with two comment drafts (./today.ts). Nothing is pressed or written on Facebook.
  */
 import type { ReadResult } from '../facebook/types';
+import { MARK_POSTS_KEY } from '../hfos/follow';
 import type { Account, PostMark, PostsSaveInput } from '../hfos/messages';
 import { postsSave } from '../hfos/saves';
 import { ask } from './ask';
@@ -23,7 +24,7 @@ import { WorkTab } from '../tab';
 import { refreshToday } from './today';
 import { noteWarnings, onWarning, warnedToday } from './warnings';
 
-const ON_KEY = 'hfos.markPosts';
+const ON_KEY = MARK_POSTS_KEY;
 /** A post still being checked is asked about again after this, as the person keeps scrolling. */
 const RECHECK_MS = 30_000;
 /** The most marked posts shown. */
@@ -165,12 +166,6 @@ function draw(): void {
   const all = [...marks.values()];
   const shown = all.filter((m) => !m.done && (m.check === 'good' || m.check === 'waiting'));
   shown.sort((a, b) => Number(b.check === 'good') - Number(a.check === 'good'));
-  const toggle = h('input', { type: 'checkbox' });
-  toggle.checked = markOn;
-  toggle.addEventListener('change', () => {
-    markOn = toggle.checked;
-    void chrome.storage.local.set({ [ON_KEY]: markOn }).catch(() => undefined);
-  });
   const parts: Child[] = [
     h('h2', {}, 'Posts worth a comment'),
     h(
@@ -178,7 +173,13 @@ function draw(): void {
       { class: 'muted' },
       'Posts in your groups that ask for help or match your playbooks. The AI checks each one, and the good ones go on your list for today with two comment drafts. You post the comment yourself.',
     ),
-    h('label', { class: 'auto' }, toggle, ' Look for posts as I scroll'),
+    h(
+      'p',
+      { class: 'muted' },
+      markOn
+        ? 'It looks for them as you scroll a group, too. Change that in HandsFreeOS.'
+        : 'It doesn’t look as you scroll. Change that in HandsFreeOS.',
+    ),
     h(
       'div',
       { class: 'actions' },
@@ -220,5 +221,11 @@ export async function startPosts(into: HTMLElement): Promise<void> {
   } catch {
     // Look for posts as I scroll stays on.
   }
+  // Set in HandsFreeOS: ../hfos/follow.ts writes it here.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[ON_KEY]) return;
+    markOn = changes[ON_KEY].newValue !== false;
+    draw();
+  });
   await refreshPosts();
 }

@@ -36,7 +36,6 @@ import type { Hfos, Job, JobEnd } from '../jobs/job';
 import { sameName } from '../facebook/people';
 import { FACEBOOK, profileFromUrl } from '../facebook/urls';
 import type {
-  AutomationSaveInput,
   AutoStatus,
   Drafts,
   HfosAnswer,
@@ -44,6 +43,8 @@ import type {
   TodayList,
   TodayListItem,
 } from '../hfos/messages';
+import { config } from '../hfos/config';
+import { follow, loadSettings } from '../hfos/follow';
 import { isNoting, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -591,12 +592,12 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
 
 // ------------------------------------------------------------------------------------------------- the day
 
-/** The person's choices and the business's time zone. */
-function automationOf(businessId: string) {
-  return call(
-    api().POST('/v1/queries/outreach.automation', { body: { workspaceId: businessId } }),
-    businessId,
-  );
+/** The person's choices and the business's time zone, from HandsFreeOS, followed live from now on (../hfos/follow.ts). */
+async function automationOf(businessId: string) {
+  const found = await loadSettings(businessId);
+  if (!found) throw new Error('Sign in to HandsFreeOS in the panel, and the extension carries on.');
+  void follow(() => void tick()).catch(() => undefined);
+  return found;
 }
 
 /** One go: works out where things stand, does the next step when it's time, and sets when to go next. */
@@ -640,7 +641,7 @@ async function go(): Promise<void> {
   if (!(await isNoting())) {
     await closeWindow();
     await say(
-      'Turn on “Note what I do on Facebook” below: the extension works on its own only while it notes.',
+      'Turn on “Note my steps on Facebook” in Social Outreach → Settings in HandsFreeOS: the extension works on its own only while it notes.',
     );
     return goAt(at + LOOK_AGAIN_MS);
   }
@@ -764,7 +765,8 @@ async function status(): Promise<AutoStatus> {
   const noting = await isNoting();
   const to = await savingTo();
   const state = await stateNow();
-  if (!to) return { automation: null, trouble: null, businessId: null, noting, state };
+  const webUrl = config.webUrl;
+  if (!to) return { automation: null, trouble: null, businessId: null, noting, state, webUrl };
   try {
     return {
       automation: await automationOf(to.businessId),
@@ -772,6 +774,7 @@ async function status(): Promise<AutoStatus> {
       businessId: to.businessId,
       noting,
       state,
+      webUrl,
     };
   } catch (error) {
     if (!(error instanceof Refused)) throw error;
@@ -781,6 +784,7 @@ async function status(): Promise<AutoStatus> {
       businessId: to.businessId,
       noting,
       state,
+      webUrl,
     };
   }
 }
@@ -791,12 +795,7 @@ export function answerAuto(
     HfosAsk,
     {
       readonly type:
-        | 'hfos-auto'
-        | 'hfos-auto-save'
-        | 'hfos-auto-start'
-        | 'hfos-auto-stop'
-        | 'hfos-send-ok'
-        | 'hfos-send-skip';
+        'hfos-auto' | 'hfos-auto-start' | 'hfos-auto-stop' | 'hfos-send-ok' | 'hfos-send-skip';
     }
   >,
 ): Promise<HfosAnswer<unknown>> {
@@ -816,16 +815,6 @@ export function answerAuto(
           api().POST('/v1/commands/outreach.send.skip', { body: ask.input }),
           ask.input.workspaceId,
         );
-      case 'hfos-auto-save': {
-        const input: AutomationSaveInput = ask.input;
-        await call(
-          api().POST('/v1/commands/outreach.automation.save', { body: input }),
-          input.workspaceId,
-        );
-        if (input.settings.sending === 'off') await setState({ started: false });
-        void tick();
-        break;
-      }
       case 'hfos-auto-start':
         stopAsked = false;
         await setState({ started: true, stopped: null });
