@@ -42,6 +42,7 @@ const settingsOf = (row: Row | undefined): AutomationSettings =>
   row
     ? {
         sending: row.sending,
+        replies: row.replies,
         warmUp: row.warmUp,
         confirmRequests: row.confirmRequests,
         collect: row.collect,
@@ -142,7 +143,7 @@ export const automationGet = defineAddonQuery(outreachAddon, {
 export const automationSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.automation.save',
   description:
-    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.',
+    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.',
   risk: 0,
   input: AutomationSaveInput,
   output: AutomationSaveOutput,
@@ -153,13 +154,14 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
-    const { sending, warmUp, confirmRequests, collect, hours } = input.settings;
+    const { sending, replies, warmUp, confirmRequests, collect, hours } = input.settings;
     const before = await rowOf(ctx, me);
-    // Choosing (b) starts the training wheels, once.
+    // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once.
     const wheels = wheelsMatter(input.settings) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
     const values = {
       ...wheels,
       sending,
+      replies,
       warmUp,
       confirmRequests,
       collect,
@@ -177,7 +179,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       type: 'outreach.automation.saved',
       entityType: 'outreach_automation',
       entityId: row!.id,
-      payload: { sending, warmUp, confirmRequests, collect },
+      payload: { sending, replies, warmUp, confirmRequests, collect },
     });
     const timezone = await workspaceTimezone(ctx.tx, ws);
     return { settings: settingsOf(row), timezone, saved: true, wheels: stateOf(row, Date.now()) };

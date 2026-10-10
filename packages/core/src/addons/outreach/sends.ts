@@ -3,10 +3,13 @@
  * message, a follow-up or a reply on the person's list for today, which the extension drafts with the AI, and which
  * then waits for their OK or goes as it is.
  *
- * - **Waits** while the person's Sending is (a) or (c), while their training wheels are on, and always for a reply
- *   (for now). They OK it from the extension's panel or Today on the web, as it is or changed, one at a time or all at
- *   once (**Approve all**), or skip it, which takes the person off today's list.
+ * - **Waits** while the person's Sending is (a) or (c), and while their training wheels are on. They OK it from the
+ *   extension's panel or Today on the web, as it is or changed, one at a time or all at once (**Approve all**), or
+ *   skip it, which takes the person off today's list.
  * - **Goes as it is** with Sending (b) once the training wheels are off.
+ * - **A reply** follows the person's Replies instead (decision 27): with (b) it goes as it is when the AI found it
+ *   simple; with (c) it always does; with (a) it waits. Whatever they chose, a reply to someone who needs the person
+ *   (`replyNeedsYou`) waits, and with (b) or (c) one that waits is **handed over**: their phone hears it.
  * - The extension sends what's OK'd in Messenger, in working hours, at a person's pace, and notes it as sent, or not
  *   sent and why.
  *
@@ -16,7 +19,14 @@
  * Browser-safe: the extension and the web read it.
  */
 import { z } from 'zod';
-import { MESSAGE_KINDS, WheelsState } from './automation';
+import {
+  asksForPerson,
+  isEmergency,
+  looksFrustrated,
+  optOutPhrase,
+  sensitiveTopic,
+} from '../../ai-team/guardrails';
+import { MESSAGE_KINDS, WheelsState, type ReplyMode, type SendingMode } from './automation';
 import { MESSAGE_MOST } from './limits';
 import { DraftOpener } from './openers';
 
@@ -68,6 +78,8 @@ export const SendQueueInput = z.object({
   threadKey: z.string().max(64).nullable().default(null),
   text: words,
   opener: DraftOpener.nullable().default(null),
+  /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */
+  simple: z.boolean().default(false),
 });
 export type SendQueueInput = z.input<typeof SendQueueInput>;
 export const SendQueueOutput = Send;
@@ -109,12 +121,60 @@ export const SendsOutput = z.object({
 });
 export type SendsOutput = z.output<typeof SendsOutput>;
 
-/** Whether a message goes without waiting: Sending (b), training wheels off, and not a reply (decision 27, for now). */
-export const goesAsItIs = (o: {
-  readonly sending: string;
+/**
+ * Why a reply needs the person, from their last message, as the AI teammate hands over (packages/core/src/ai-team/
+ * guardrails.ts): an emergency, asking to stop, a refund, a complaint, a legal threat or cancelling, asking for a
+ * person, or sounding upset. Null when nothing does.
+ */
+export function replyNeedsYou(theirs: string | null): string | null {
+  if (!theirs?.trim()) return null;
+  if (isEmergency(theirs)) return 'it sounds like an emergency';
+  if (optOutPhrase(theirs)) return 'they asked you to stop messaging them';
+  const topic = sensitiveTopic(theirs);
+  if (topic) return `it’s about ${topic.label}`;
+  if (asksForPerson(theirs)) return 'they asked for you';
+  if (looksFrustrated(theirs)) return 'they sound upset';
+  return null;
+}
+
+/** Whether a message goes without waiting for the person's OK, and why a reply waits for them when it does. */
+export function goesAsItIs(o: {
+  readonly sending: SendingMode;
+  readonly replies: ReplyMode;
   readonly wheels: boolean;
   readonly kind: (typeof MESSAGE_KINDS)[number];
-}) => o.sending === 'everything' && !o.wheels && o.kind !== 'reply';
+  readonly simple: boolean;
+  /** From `replyNeedsYou`. */
+  readonly needsYou: string | null;
+}): boolean {
+  if (o.wheels || o.sending === 'off') return false;
+  if (o.kind !== 'reply') return o.sending === 'everything';
+  if (o.needsYou) return false;
+  return o.replies === 'everything' || (o.replies === 'simple' && o.simple);
+}
+
+/**
+ * Whether a reply that waits is handed over with a push: with Replies (b) or (c), off training wheels, the person
+ * counted on it going; so it comes to them, with why.
+ */
+export const handedOver = (o: {
+  readonly sending: SendingMode;
+  readonly replies: ReplyMode;
+  readonly wheels: boolean;
+  readonly kind: (typeof MESSAGE_KINDS)[number];
+  readonly goes: boolean;
+}) => o.kind === 'reply' && !o.goes && !o.wheels && o.sending !== 'off' && o.replies !== 'draft';
+
+/** The push for a reply handed over: "Dana Reyes needs you". */
+export function handOverPushWords(
+  name: string,
+  why: string | null,
+): { title: string; body: string } {
+  return {
+    title: `${name} needs you`,
+    body: `Their reply waits for your OK in Today${why ? `: ${why}` : ': it isn’t a simple one'}.`,
+  };
+}
 
 /** Whether the person changed the AI's words before the OK: spaces and line breaks don't count. */
 export const changed = (drafted: string, text: string) =>

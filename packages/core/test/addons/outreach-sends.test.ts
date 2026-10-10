@@ -1,7 +1,8 @@
 /**
  * Social Outreach: messages the extension sends on its own (docs/outreach.md, decisions 26 and 27, and training
  * wheels). Each drafted one waits for the person's OK, or goes as it is with Sending (b) once training wheels are off;
- * replies always wait for now. Training wheels start with (b), halve the daily limits, come off after 7 days and 25
+ * a reply follows Replies, never goes to someone who needs the person, and one that waits after all is handed over.
+ * Training wheels start with Sending (b) or Replies (b) or (c), halve the daily limits, come off after 7 days and 25
  * OK'd with few changes, end early for an owner or admin, and go back on with a warning from Facebook.
  */
 import { rows, sql } from '@hfos/db/client';
@@ -12,11 +13,18 @@ import {
   AUTOMATION_DEFAULTS,
   NO_WHEELS,
   wheelsEarned,
+  wheelsMatter,
   wheelsState,
   wheelsWords,
 } from '../../src/addons/outreach/automation';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { changed, goesAsItIs } from '../../src/addons/outreach/sends';
+import {
+  changed,
+  goesAsItIs,
+  handedOver,
+  handOverPushWords,
+  replyNeedsYou,
+} from '../../src/addons/outreach/sends';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -59,12 +67,62 @@ describe('training wheels', () => {
   });
 
   it('decide what goes without waiting', () => {
-    expect(goesAsItIs({ sending: 'everything', wheels: false, kind: 'opener' })).toBe(true);
-    expect(goesAsItIs({ sending: 'everything', wheels: true, kind: 'opener' })).toBe(false);
-    expect(goesAsItIs({ sending: 'everything', wheels: false, kind: 'reply' })).toBe(false);
-    expect(goesAsItIs({ sending: 'approve_all', wheels: false, kind: 'follow_up' })).toBe(false);
+    const o = {
+      sending: 'everything',
+      replies: 'draft',
+      wheels: false,
+      kind: 'opener',
+      simple: false,
+      needsYou: null,
+    } as const;
+    expect(goesAsItIs(o)).toBe(true);
+    expect(goesAsItIs({ ...o, wheels: true })).toBe(false);
+    expect(goesAsItIs({ ...o, kind: 'reply' })).toBe(false);
+    expect(goesAsItIs({ ...o, sending: 'approve_all', kind: 'follow_up' })).toBe(false);
+    // Replies (b): the simple ones; (c): all; never to someone who needs the person, nor on training wheels.
+    const reply = { ...o, sending: 'steps', kind: 'reply' } as const;
+    expect(goesAsItIs({ ...reply, replies: 'simple' })).toBe(false);
+    expect(goesAsItIs({ ...reply, replies: 'simple', simple: true })).toBe(true);
+    expect(goesAsItIs({ ...reply, replies: 'everything' })).toBe(true);
+    expect(goesAsItIs({ ...reply, replies: 'everything', needsYou: 'they asked for you' })).toBe(
+      false,
+    );
+    expect(goesAsItIs({ ...reply, replies: 'everything', wheels: true })).toBe(false);
+    expect(goesAsItIs({ ...reply, replies: 'everything', sending: 'off' })).toBe(false);
+    // One that waits after all is handed over, but not with (a), nor on training wheels.
+    const waits = {
+      sending: 'steps',
+      replies: 'simple',
+      wheels: false,
+      kind: 'reply',
+      goes: false,
+    } as const;
+    expect(handedOver(waits)).toBe(true);
+    expect(handedOver({ ...waits, replies: 'draft' })).toBe(false);
+    expect(handedOver({ ...waits, wheels: true })).toBe(false);
+    expect(handedOver({ ...waits, goes: true })).toBe(false);
+    expect(handedOver({ ...waits, kind: 'opener' })).toBe(false);
+    expect(wheelsMatter({ sending: 'steps', replies: 'simple' })).toBe(true);
+    expect(wheelsMatter({ sending: 'off', replies: 'everything' })).toBe(false);
+    expect(wheelsMatter({ sending: 'approve_all', replies: 'draft' })).toBe(false);
     expect(changed('Hi Dana!\n How are you?', ' Hi Dana! How are you?')).toBe(false);
     expect(changed('Hi Dana!', 'Hey Dana!')).toBe(true);
+  });
+
+  it('know a reply that needs the person, as the AI teammate does', () => {
+    expect(replyNeedsYou('Thanks so much, talk soon!')).toBeNull();
+    expect(replyNeedsYou(null)).toBeNull();
+    expect(replyNeedsYou('Can I get my money back?')).toBe('it’s about a refund');
+    expect(replyNeedsYou('Can I talk to a real person?')).toBe('they asked for you');
+    expect(replyNeedsYou('This is ridiculous, nobody is answering')).toBe('they sound upset');
+    expect(replyNeedsYou('Please stop messaging me')).toBe('they asked you to stop messaging them');
+    expect(handOverPushWords('Dana Cole', 'they asked for you')).toEqual({
+      title: 'Dana Cole needs you',
+      body: 'Their reply waits for your OK in Today: they asked for you.',
+    });
+    expect(handOverPushWords('Dana Cole', null).body).toBe(
+      'Their reply waits for your OK in Today: it isn’t a simple one.',
+    );
   });
 });
 
@@ -114,9 +172,9 @@ describe('messages on their own', () => {
     (await today()).items.find(
       (i: { kind: string; name: string }) => i.kind === 'opener' && i.name === name,
     );
-  const automation = (u: TestUser, sending: string) =>
+  const automation = (u: TestUser, sending: string, replies = 'draft') =>
     runAs(u, ws, 'outreach.automation.save', {
-      settings: { ...AUTOMATION_DEFAULTS, sending },
+      settings: { ...AUTOMATION_DEFAULTS, sending, replies },
     });
   const opener = () => ({
     playbookId: playbookId,
@@ -358,5 +416,103 @@ describe('messages on their own', () => {
     expect(
       (await runAs(owner, ws, 'outreach.wheels', {})).people.map((p: { name: string }) => p.name),
     ).toEqual(['Morgan Owner']);
+  });
+  describe('replies on their own', () => {
+    const chat = (username: string, name: string, thread: string, theirs: string) =>
+      runAs(member, ws, 'outreach.chats.collect', {
+        chats: [
+          {
+            name,
+            thread: { id: thread, encrypted: false },
+            profile: fb(username),
+            messages: [
+              { fromMe: true, text: 'How’s business?', at: daysAgo(2) },
+              { fromMe: false, text: theirs, at: daysAgo(1) },
+            ],
+          },
+        ],
+      });
+    const chatOf = async (name: string) => {
+      const [c] = await rows<{ id: string; profile_id: string }>(
+        admin(),
+        sql`select id, profile_id from addon_outreach.file_chats
+            where workspace_id = ${ws} and user_id = ${member.id} and name = ${name}`,
+      );
+      return c!;
+    };
+    const reply = (c: { id: string; profile_id: string }, simple: boolean) =>
+      runAs(member, ws, 'outreach.send.queue', {
+        profileId: c.profile_id,
+        kind: 'reply',
+        chatId: c.id,
+        text: 'Glad to hear it!',
+        simple,
+      });
+    const handOvers = async () =>
+      (
+        await rows<{ payload: { handOver?: boolean; why?: string | null; userId?: string } }>(
+          admin(),
+          sql`select payload from app.events where workspace_id = ${ws}
+                and event_type = 'outreach.send.queued' and payload ? 'handOver' order by created_at`,
+        )
+      ).map((e) => e.payload);
+
+    it('with (b), a simple one goes; one that isn’t, or needs the person, is handed over', async () => {
+      // Their training wheels were ended above: replies go as chosen.
+      const saved = await automation(member, 'steps', 'simple');
+      expect(saved.settings.replies).toBe('simple');
+      expect(saved.wheels.on).toBe(false);
+      await chat('hana.vale.7', 'Hana Vale', '2000111', 'Thanks, things are great!');
+      await chat('ivo.reed.1', 'Ivo Reed', '2000222', 'Can I get a refund on the last order?');
+      await chat('jo.park.8', 'Jo Park', '2000333', 'What would it cost for my team?');
+      const hana = await chatOf('Hana Vale');
+      expect((await reply(hana, true)).state).toBe('approved');
+      expect((await reply(await chatOf('Ivo Reed'), true)).state).toBe('waiting');
+      expect((await reply(await chatOf('Jo Park'), false)).state).toBe('waiting');
+      expect(await handOvers()).toEqual([
+        expect.objectContaining({ handOver: true, userId: member.id, why: 'it’s about a refund' }),
+        expect.objectContaining({ handOver: true, userId: member.id, why: null }),
+      ]);
+      await runAs(member, ws, 'outreach.send.skip', { sendId: (await reply(hana, true)).sendId });
+    });
+
+    it('with (c), every reply goes but to someone who needs the person, or one HandsFreeOS hasn’t seen', async () => {
+      await automation(member, 'steps', 'everything');
+      await chat('kit.moss.2', 'Kit Moss', '2000444', 'Sounds good, what’s next?');
+      await chat('lee.hart.6', 'Lee Hart', '2000555', 'I want to talk to a real person');
+      expect((await reply(await chatOf('Kit Moss'), false)).state).toBe('approved');
+      expect((await reply(await chatOf('Lee Hart'), true)).state).toBe('waiting');
+      const dana = await profileOf('dana.cole.4');
+      const unseen = await runAs(member, ws, 'outreach.send.queue', {
+        profileId: dana,
+        kind: 'reply',
+        text: 'Thanks!',
+        simple: true,
+      });
+      expect(unseen.state).toBe('waiting');
+      expect((await handOvers()).slice(2).map((p) => p.why)).toEqual([
+        'they asked for you',
+        'HandsFreeOS hasn’t seen what they wrote',
+      ]);
+    });
+
+    it('with (a), every reply waits, and nobody is buzzed', async () => {
+      await automation(member, 'steps', 'draft');
+      await chat('mo.lane.4', 'Mo Lane', '2000666', 'Thanks!');
+      expect((await reply(await chatOf('Mo Lane'), true)).state).toBe('waiting');
+      expect(await handOvers()).toHaveLength(4);
+    });
+
+    it('choosing (b) or (c) starts training wheels, with Sending on', async () => {
+      const [fresh] = await Promise.all([createTestUser('outs-fresh', { fullName: 'Sam Fresh' })]);
+      await admin()
+        .insert(workspaceMemberships)
+        .values({ workspaceId: ws, userId: fresh!.id, role: 'member' });
+      expect((await automation(fresh!, 'off', 'everything')).wheels.on).toBe(false);
+      expect((await automation(fresh!, 'steps', 'everything')).wheels).toMatchObject({
+        on: true,
+        ok: 0,
+      });
+    });
   });
 });

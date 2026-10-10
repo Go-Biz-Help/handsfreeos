@@ -1,6 +1,6 @@
 /**
  * Social Outreach's phone alerts and demo link in the worker (docs/outreach.md, decisions 22 and 24): a reply the
- * extension saw is pushed to the person, unless they were looking; at the business's hour each person who used the
+ * extension saw is pushed to the person, unless they were looking, and one handed over to them (decision 27); at the business's hour each person who used the
  * extension lately hears how much is on their list for today; and a booking through someone's demo link counts as a
  * demo by itself.
  */
@@ -101,6 +101,51 @@ beforeAll(async () => {
 }, 60_000);
 
 describe('phone alerts', () => {
+  it('hands a reply that needs the person over to their phone', async () => {
+    const s = testServices();
+    const ws = await outreachBusiness(owner, 'Outreach Hand Over Co');
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: {
+        sending: 'steps',
+        replies: 'simple',
+        warmUp: true,
+        confirmRequests: true,
+        collect: true,
+        hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
+      },
+    });
+    await runAs(owner, ws, 'outreach.wheels.end', { userId: owner.id });
+    await runAs(owner, ws, 'outreach.chats.collect', {
+      chats: [
+        {
+          name: 'Ana Moss',
+          thread: { id: '3001', encrypted: false },
+          profile: fb('ana.moss.3'),
+          messages: [{ fromMe: false, text: 'Can I get a refund?', at: new Date().toISOString() }],
+        },
+      ],
+    });
+    const [chat] = await rows<{ id: string; profile_id: string }>(
+      admin(),
+      sql`select id, profile_id from addon_outreach.file_chats where workspace_id = ${ws}`,
+    );
+    const queued = await runAs(owner, ws, 'outreach.send.queue', {
+      profileId: chat!.profile_id,
+      kind: 'reply',
+      chatId: chat!.id,
+      text: 'Sure, let me look into it.',
+      simple: true,
+    });
+    expect(queued.state).toBe('waiting');
+    await drain(s, ws);
+    expect(await pushes(ws)).toContainEqual({
+      title: 'Ana Moss needs you',
+      body: 'Their reply waits for your OK in Today: it’s about a refund.',
+      path: `/app/w/${ws}/a/outreach?view=today`,
+      user_ids: [owner.id],
+    });
+  });
+
   it('pushes a reply, unless they were looking, and the list in the morning', async () => {
     const s = testServices();
     const ws = await outreachBusiness(owner, 'Outreach Alerts Worker Co');

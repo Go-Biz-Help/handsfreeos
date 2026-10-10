@@ -3,7 +3,8 @@
  * or a comment on a group post, written by the AI in the playbook's tone from what's known about the person, the chat
  * or post so far, and what the extension looked up on their profile and business page just before (decision 21). Core holds
  * what the model is asked and checks what it answers (packages/core/src/addons/outreach/today.ts). Nothing is saved
- * or sent: the person copies the one they like, changes it as they like, and sends it on Facebook themselves.
+ * or sent here: the person copies the one they like, or the extension hands it to `outreach.send.queue`. For a reply,
+ * the AI also says whether it's simple (decision 27), never for someone who needs the person (`replyNeedsYou`).
  */
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
@@ -17,6 +18,7 @@ import {
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
+import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   checkedDrafts,
   DRAFTS_FOR,
@@ -133,7 +135,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
     // One of the business's own openers goes as written, with their first name in: no AI.
     if (opener?.kind === 'own')
-      return { drafts: [ownOpenerText(opener.text, name)], opener: drafted };
+      return { drafts: [ownOpenerText(opener.text, name)], opener: drafted, simple: false };
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
     const link =
@@ -164,9 +166,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         maxTokens: 800,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
+      const theirs = [...(found.chat?.recent ?? [])].reverse().find((m) => !m.fromMe)?.text ?? null;
       return {
         drafts: checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]),
         opener: drafted,
+        simple: input.kind === 'reply' && value.simple && theirs !== null && !replyNeedsYou(theirs),
       };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;

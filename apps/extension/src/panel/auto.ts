@@ -7,13 +7,17 @@
 import {
   hourWords,
   hoursWords,
+  REPLY_MODES,
+  REPLY_MODE_KEYS,
   SENDING_MODES,
   SENDING_MODE_KEYS,
   WEEKDAY_WORDS,
   WHEELS_START_WORDS,
   wheelsWords,
   type AutomationSettings,
+  type ReplyMode,
   type SendingMode,
+  wheelsMatter,
 } from '@hfos/core/addons/outreach/automation';
 import { DAILY_NAMES } from '../auto/daily';
 import { AUTO_STATE_KEY, DAILY_JOBS, isState, type AutoState, type DoneKind } from '../auto/plan';
@@ -81,10 +85,20 @@ function choicesView(settings: AutomationSettings, timezone: string): Child[] {
     const pick = h('input', { type: 'radio', name: 'auto-sending' });
     pick.checked = settings.sending === mode;
     pick.addEventListener('change', () => {
-      if (pick.checked) draft = { ...settings, sending: mode };
+      if (pick.checked) draft = { ...(draft ?? settings), sending: mode };
       draw();
     });
     return h('label', { class: 'auto' }, pick, ` ${SENDING_MODES[mode]}`);
+  });
+  const replies = REPLY_MODE_KEYS.map((mode: ReplyMode) => {
+    const pick = h('input', { type: 'radio', name: 'auto-replies' });
+    pick.checked = settings.replies === mode;
+    pick.disabled = settings.sending === 'off';
+    pick.addEventListener('change', () => {
+      if (pick.checked) draft = { ...(draft ?? settings), replies: mode };
+      draw();
+    });
+    return h('label', { class: 'auto' }, pick, ` ${REPLY_MODES[mode]}`);
   });
   const tick = (label: string, on: boolean, change: (on: boolean) => AutomationSettings) => {
     const box = h('input', { type: 'checkbox' });
@@ -119,7 +133,16 @@ function choicesView(settings: AutomationSettings, timezone: string): Child[] {
   return [
     h('h3', {}, 'What it does on its own'),
     ...modes,
-    settings.sending === 'everything' && !status?.automation?.wheels.from
+    h('h3', {}, 'Replies'),
+    ...replies,
+    h(
+      'p',
+      { class: 'muted' },
+      settings.sending === 'off'
+        ? 'Pick what it does on its own first: replies go out only while it writes messages.'
+        : 'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.',
+    ),
+    wheelsMatter(settings) && !status?.automation?.wheels.from
       ? h('p', { class: 'muted' }, WHEELS_START_WORDS)
       : null,
     tick('Like one of their posts a day before each friend request', settings.warmUp, (warmUp) => ({
@@ -259,7 +282,7 @@ function draw(): void {
     h(
       'p',
       { class: 'muted' },
-      'Let the extension do some of your list for today by itself. It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook. It writes messages for you to OK under Your list for today; with Everything on its own, they go without waiting once your training wheels are off. Replies always wait for you.',
+      'Let the extension do some of your list for today by itself. It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook. It writes messages for you to OK under Your list for today; with Everything on its own, they go without waiting once your training wheels are off. Replies go as you choose under Replies.',
     ),
     automation?.wheels.on ? h('p', { class: 'warn-line' }, wheelsWords(automation.wheels)) : null,
     ...(settings && automation ? choicesView(settings, automation.timezone) : []),

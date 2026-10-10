@@ -79235,7 +79235,7 @@
     "/v1/commands/outreach.automation.save": {
       "post": {
         "operationId": "command_outreach_automation_save",
-        "summary": "The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.",
+        "summary": "The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.",
         "tags": [
           "commands"
         ],
@@ -79261,6 +79261,15 @@
                           "off",
                           "steps",
                           "approve_all",
+                          "everything"
+                        ]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "simple",
                           "everything"
                         ]
                       },
@@ -79341,6 +79350,15 @@
                             "everything"
                           ]
                         },
+                        "replies": {
+                          "default": "draft",
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "simple",
+                            "everything"
+                          ]
+                        },
                         "warmUp": {
                           "type": "boolean"
                         },
@@ -79385,6 +79403,7 @@
                       },
                       "required": [
                         "sending",
+                        "replies",
                         "warmUp",
                         "confirmRequests",
                         "collect",
@@ -79675,6 +79694,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "simple": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -158937,6 +158960,15 @@
                             "everything"
                           ]
                         },
+                        "replies": {
+                          "default": "draft",
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "simple",
+                            "everything"
+                          ]
+                        },
                         "warmUp": {
                           "type": "boolean"
                         },
@@ -158981,6 +159013,7 @@
                       },
                       "required": [
                         "sending",
+                        "replies",
                         "warmUp",
                         "confirmRequests",
                         "collect",

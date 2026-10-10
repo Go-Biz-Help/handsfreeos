@@ -35,7 +35,9 @@ describe('drafts', () => {
     expect(prompt).toMatch(/1\. Do you use a CRM\?/);
     expect(prompt.endsWith('Write the message.')).toBe(true);
     expect(
-      checkedDrafts({ drafts: ['Hi!', ' hi! ', 'Want a FREE TRIAL?', '', 'Hey'] }, ['free trial']),
+      checkedDrafts({ drafts: ['Hi!', ' hi! ', 'Want a FREE TRIAL?', '', 'Hey'], simple: false }, [
+        'free trial',
+      ]),
     ).toEqual(['Hi!', 'Hey']);
   });
 });

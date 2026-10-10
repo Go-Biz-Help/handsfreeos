@@ -102,13 +102,14 @@ export const outreachAddon = defineAddon({
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
-    // A reply seen pushes to the person's phone, and a change to the settings moves the morning push (./alerts.ts)
-    // and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
+    // A reply seen, or one handed over to the person (decision 27), pushes to their phone, and a change to the settings
+    // moves the morning push (./alerts.ts) and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
       'outreach.posts.saved',
       'outreach.reply.seen',
+      'outreach.send.queued',
       'addon.settings_saved',
       'appointment.booked',
     ],
