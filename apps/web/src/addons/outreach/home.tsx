@@ -13,6 +13,7 @@ import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
+import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shell/page-header';
 import { cn } from '@/lib/utils';
@@ -93,17 +94,20 @@ export type OutreachShown =
       readonly business: Readonly<Record<string, unknown>> | null;
     };
 
-const TABS = [
-  { view: 'activity', label: 'Activity' },
-  { view: 'live', label: 'Live' },
-  { view: 'waiting', label: 'Waiting for you' },
-  { view: 'today', label: 'Today' },
-  { view: 'groups', label: 'Groups' },
-  { view: 'friends', label: 'Friends' },
-  { view: 'chats', label: 'Chats' },
-  { view: 'playbooks', label: 'Playbooks' },
-  { view: 'settings', label: 'Settings' },
-] as const;
+/** The tabs, in order; their names are the phone's rows, from core. */
+const TABS = (
+  [
+    'activity',
+    'live',
+    'waiting',
+    'today',
+    'groups',
+    'friends',
+    'chats',
+    'playbooks',
+    'settings',
+  ] as const
+).map((view) => ({ view, label: OUTREACH_WORDS.rows[view] }));
 
 export function OutreachHome({
   workspaceId,

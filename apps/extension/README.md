@@ -227,7 +227,7 @@ and carries on after.
 ## What it tells HandsFreeOS
 
 Signed in, the extension tells HandsFreeOS how things stand on your computer, so Social Outreach's **Live** tab on the
-web (and later the phone) shows it as it happens (decision 41 in docs/outreach.md, `src/hfos/live.ts`):
+web and the phone shows it as it happens (decision 41 in docs/outreach.md, `src/hfos/live.ts`):
 
 - **This computer.** Each install makes an id once and keeps it in its storage (`hfos.computer`), with a plain name,
   "Chrome on Windows" or "Chrome on Mac", that you can rename on the Live tab. Only the computer you used last works:

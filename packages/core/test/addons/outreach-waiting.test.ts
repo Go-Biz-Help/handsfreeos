@@ -555,7 +555,24 @@ describe('Waiting for you', () => {
     expect(ok.approved).toHaveLength(counted);
     expect(await list()).toContain('reply: Ana Moss');
     expect(await list()).not.toContain('message: Dana Reyes');
-    // Named, it's OK'd.
+    // Named in an Approve all (the phone's, `partial`, any build) it's passed over too; named among others, refused.
+    expect(
+      (
+        await runAs(owner, ws, 'outreach.send.approve', {
+          sends: [{ sendId: reply.sendId }],
+          partial: true,
+        })
+      ).approved,
+    ).toEqual([]);
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.send.approve', {
+          sends: [{ sendId: reply.sendId }, { sendId: opener.sendId }],
+        }),
+      ),
+    ).toBe('outreach_send_one_by_one');
+    expect(await list()).toContain('reply: Ana Moss');
+    // Named alone, it's OK'd.
     expect(
       (await runAs(owner, ws, 'outreach.send.approve', { sends: [{ sendId: reply.sendId }] }))
         .approved,

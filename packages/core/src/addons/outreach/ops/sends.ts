@@ -2,11 +2,12 @@
  * Messages the extension sends on its own (../sends.ts, docs/outreach.md decisions 26 and 27): each drafted one waits
  * for the person's OK or goes as it is, and the extension says when it went. Each person's are their own.
  */
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
+import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import type { DraftOpener } from '../openers';
@@ -189,11 +190,18 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
   output: SendApproveOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
+  // It reaches a prospect: an OK that waited on the phone goes by itself for 30 minutes, and asks "Still send?" after
+  // (decision 44). The contract may grow it to `anytime` one day, never back.
+  offline: { freshMinutes: FRESH_MINUTES },
   emits: ['outreach.send.approved'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const named = input.sends ? new Map(input.sends.map((s) => [s.sendId, s.text])) : null;
     if (named && !named.size) throw gone();
+    // A reply handed over, or a message to someone who needs the person, waits for an OK of its own (`oneByOne`,
+    // decisions 27 and 42): only one named alone, without `partial`, is OK'd. Approve all, named (the phone's, any
+    // build) or not, passes over them, so no client can OK them in bulk.
+    const alone = named?.size === 1 && !input.partial;
     const waiting: Row[] = await ctx.tx
       .select()
       .from(sends)
@@ -201,15 +209,34 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         and(
           mine(ctx, me),
           eq(sends.state, 'waiting'),
-          // Approve all leaves those that wait for an OK of their own (`oneByOne`): naming one OKs it.
-          ...(named
-            ? [inArray(sends.id, [...named.keys()])]
-            : [eq(sends.handedOver, false), isNull(sends.needsYou)]),
+          ...(named ? [inArray(sends.id, [...named.keys()])] : []),
+          ...(alone ? [] : [eq(sends.handedOver, false), isNull(sends.needsYou)]),
         ),
       )
       .orderBy(sends.createdAt)
       .limit(SENDS_MOST);
-    if (named && waiting.length < named.size) throw gone();
+    // The phone's Approve all names what it showed: those handled elsewhere since are passed over (`partial`).
+    if (named && waiting.length < named.size && !input.partial) {
+      const [oneOfTheirOwn] = await ctx.tx
+        .select({ id: sends.id })
+        .from(sends)
+        .where(
+          and(
+            mine(ctx, me),
+            eq(sends.state, 'waiting'),
+            inArray(sends.id, [...named.keys()]),
+            or(eq(sends.handedOver, true), isNotNull(sends.needsYou)),
+          ),
+        )
+        .limit(1);
+      if (oneOfTheirOwn)
+        throw HfosError.rule(
+          'outreach_send_one_by_one',
+          409,
+          'A reply handed over to you, or a message to someone who needs you, waits for an OK of its own. OK each one on its own in Waiting for you.',
+        );
+      throw gone();
+    }
     const at = changeMoment(ctx.meta);
     const edits: boolean[] = [];
     for (const s of waiting) {
@@ -240,10 +267,23 @@ export const sendSkip = defineAddonCommand(outreachAddon, {
   output: SendSkipOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
+  // It reaches nobody, so a skip made on the phone with no signal waits as long as it takes (decision 44).
+  offline: 'anytime',
   emits: ['outreach.send.skipped'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
+    // The newer press wins: a skip that waited never undoes an OK given after it was pressed.
+    const [okd] = await ctx.tx
+      .select({ approvedAt: sends.approvedAt })
+      .from(sends)
+      .where(and(mine(ctx, me), eq(sends.id, input.sendId), eq(sends.state, 'approved')));
+    if (okd?.approvedAt && okd.approvedAt > at)
+      throw HfosError.rule(
+        'outreach_send_okd_since',
+        409,
+        'You OK’d that message after you skipped it, so the OK stands and the extension sends it. To hold it, press Stop for today on the Live tab: nothing more goes out until tomorrow.',
+      );
     const [row] = await ctx.tx
       .update(sends)
       .set({ state: 'skipped', doneAt: at, updatedAt: at })

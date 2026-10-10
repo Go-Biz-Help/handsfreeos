@@ -27,6 +27,7 @@ import {
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -95,23 +96,20 @@ export function ChoicesForm({
     ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => SENDING_MODES[m]),
     ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
   ];
-  const tick = (label: string, about: string, key: keyof AutomationSettings) => (
+  const tick = (key: keyof typeof W.ticks & keyof AutomationSettings) => (
     <div>
       <Checkbox
-        label={<span className="text-[14px]">{label}</span>}
+        label={<span className="text-[14px]">{W.ticks[key][0]}</span>}
         checked={value[key] === true}
         onChange={(e) => set({ [key]: e.target.checked })}
         data-testid={`${testId}-${key}`}
       />
-      <span className="mt-0.5 block pl-7 text-[13px] text-text-2">{about}</span>
+      <span className="mt-0.5 block pl-7 text-[13px] text-text-2">{W.ticks[key][1]}</span>
     </div>
   );
   return (
     <div className="space-y-5" data-testid={testId}>
-      <Part
-        title="What it does on its own"
-        about="It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook."
-      >
+      <Part title={W.sections.onItsOwn} about={W.abouts.onItsOwn}>
         <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
           {sending.map((m) => (
             <RadioCard
@@ -125,12 +123,8 @@ export function ChoicesForm({
         </div>
       </Part>
       <Part
-        title="Replies"
-        about={
-          value.sending === 'off'
-            ? 'Replies go out only while it writes messages: pick what it does on its own first.'
-            : 'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.'
-        }
+        title={W.sections.replies}
+        about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
       >
         <div role="radiogroup" aria-label="Replies" className="flex flex-col gap-2">
           {replies.map((m) => (
@@ -145,52 +139,19 @@ export function ChoicesForm({
         </div>
       </Part>
       {notAllowed.length ? (
-        <p className="text-[13px] text-text-2">
-          Your business doesn’t allow: {notAllowed.join('; ')}. An owner or admin can change that
-          under Business settings.
-        </p>
+        <p className="text-[13px] text-text-2">{W.notAllowed(notAllowed)}</p>
       ) : null}
-      <Part title="Along the way">
-        {tick(
-          'Like one of their posts a day before each friend request',
-          'Facebook trusts a request more after a like.',
-          'warmUp',
-        )}
-        {tick(
-          'Confirm friend requests from people who fit a playbook',
-          'The rest wait for you.',
-          'confirmRequests',
-        )}
-        {tick(
-          'Once a day, first: check friend requests, save group members, find posts and read my chats',
-          'These fill the list it works from.',
-          'collect',
-        )}
+      <Part title={W.sections.along}>
+        {tick('warmUp')}
+        {tick('confirmRequests')}
+        {tick('collect')}
       </Part>
-      <Part
-        title="The extension"
-        about="What it does while you use Facebook yourself, on every computer you’re signed in on."
-      >
-        {tick(
-          'Note my steps on Facebook',
-          'Friend requests, likes, comments and messages you send yourself count toward your day.',
-          'noting',
-        )}
-        {tick(
-          'Read chats as I open them',
-          'A chat you open in Messenger goes to the AI to read, for the Chats tab.',
-          'readChats',
-        )}
-        {tick(
-          'Look for posts as I scroll a group',
-          'Posts worth a comment go on your list for today.',
-          'markPosts',
-        )}
+      <Part title={W.sections.extension} about={W.abouts.extension}>
+        {tick('noting')}
+        {tick('readChats')}
+        {tick('markPosts')}
       </Part>
-      <Part
-        title="Your phone and the extension"
-        about="How you hear about messages and steps waiting for you."
-      >
+      <Part title={W.sections.pushes} about={W.abouts.pushes}>
         <div role="radiogroup" aria-label="Pushes" className="flex flex-col gap-2">
           {PUSH_MODE_KEYS.map((m) => (
             <RadioCard
@@ -198,19 +159,16 @@ export function ChoicesForm({
               selected={value.pushes === m}
               onSelect={() => set({ pushes: m })}
               title={PUSH_MODES[m]}
-              description={m === 'bundled' ? 'The usual choice.' : undefined}
+              description={m === 'bundled' ? W.usual : undefined}
               testId={`${testId}-pushes-${m}`}
             />
           ))}
         </div>
-        <p className="text-[13px] text-text-2">A reply handed over to you always comes at once.</p>
+        <p className="text-[13px] text-text-2">{W.abouts.pushesAlways}</p>
       </Part>
-      <Part
-        title="When"
-        about={`On your business’s clock (${timezone}), at random times spread over the hours.`}
-      >
+      <Part title={W.sections.when} about={W.abouts.when(timezone)}>
         <p className="flex flex-wrap items-center gap-2 text-[13px]">
-          From
+          {W.from}
           <select
             className={select}
             value={value.hours.start}
@@ -224,7 +182,7 @@ export function ChoicesForm({
               </option>
             ))}
           </select>
-          to
+          {W.to}
           <select
             className={select}
             value={value.hours.end}
@@ -269,7 +227,7 @@ function MySettings({ workspaceId, me }: { workspaceId: string; me: Automation }
     <>
       {me.changedBy ? (
         <p className="text-[13px] text-text-2" data-testid="outreach-settings-changed-by">
-          Changed by {me.changedBy}.
+          {W.changedBy(me.changedBy)}
         </p>
       ) : null}
       {me.wheels.on ? (
@@ -298,12 +256,12 @@ function MySettings({ workspaceId, me }: { workspaceId: string; me: Automation }
                   body: { workspaceId, userId: theirs, settings: value },
                 }),
               ),
-            'Saved. The extension follows it in a few seconds.',
+            W.savedFollows,
           )
         }
         data-testid="outreach-my-save"
       >
-        Save
+        {W.save}
       </Button>
     </>
   );
@@ -326,10 +284,7 @@ function RulesForm({
     on ? [...list, item] : list.filter((x) => x !== item);
   return (
     <div className="space-y-5" data-testid="outreach-rules">
-      <Part
-        title="What people may pick"
-        about="Doing everything themselves, and every reply waiting, are always allowed. Someone whose choice you stop allowing steps back to the nearest one you do."
-      >
+      <Part title={W.sections.allowed} about={W.abouts.allowed}>
         {SENDING_MODE_KEYS.filter((m) => m !== 'off').map((m) => (
           <Checkbox
             key={m}
@@ -359,10 +314,7 @@ function RulesForm({
           />
         ))}
       </Part>
-      <Part
-        title="Daily limits for each person"
-        about="Up to the starting limits, which keep a Facebook account safe. Halved for a week after a warning, and on training wheels."
-      >
+      <Part title={W.sections.limits} about={W.abouts.limits}>
         <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
           {DAILY_STEPS.map((step) => (
             <label key={step} className="flex items-center justify-between gap-2 text-[13px]">
@@ -384,8 +336,8 @@ function RulesForm({
         </div>
       </Part>
       <Part
-        title="Where a new person starts"
-        about="Until they save their own. Change anyone’s under Settings for, above."
+        title={W.sections.defaults}
+        about={`${W.abouts.defaults} Change anyone’s under Settings for, above.`}
       >
         <ChoicesForm
           value={rules.defaults}
@@ -408,12 +360,12 @@ function RulesForm({
                   body: { workspaceId, addonId: 'outreach', settings: { ...settings, rules } },
                 }),
               ),
-            'Saved for everyone.',
+            W.savedForEveryone,
           )
         }
         data-testid="outreach-rules-save"
       >
-        Save
+        {W.save}
       </Button>
     </div>
   );
@@ -441,13 +393,10 @@ export function SettingsView({
   useLiveRefresh(['outreach_automation', 'addon']);
   return (
     <div className="max-w-2xl space-y-4" data-testid="outreach-settings-view">
-      <p className="text-[13px] text-text-2">
-        Everything the browser extension does is set here. It follows a change within a few seconds
-        on every computer you’re signed in on.
-      </p>
+      <p className="text-[13px] text-text-2">{W.settingsIntro}</p>
       {people ? (
         <label className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span className="font-semibold">Settings for</span>
+          <span className="font-semibold">{W.settingsFor}</span>
           <select
             className={select}
             value={me.userId}
@@ -459,13 +408,13 @@ export function SettingsView({
             {people.people.map((p) => (
               <option key={p.userId} value={p.userId}>
                 {p.name}
-                {p.saved ? '' : ' (not set yet)'}
+                {p.saved ? '' : W.notSetYet}
               </option>
             ))}
           </select>
         </label>
       ) : null}
-      <Section title={mine ? 'My settings' : `Settings for ${me.name}`}>
+      <Section title={mine ? W.mySettings : W.settingsOf(me.name)}>
         <MySettings
           // Saved somewhere else: the form starts again from what's kept.
           key={`${me.userId}:${JSON.stringify(me.settings)}:${me.changedBy ?? ''}`}
@@ -474,7 +423,7 @@ export function SettingsView({
         />
       </Section>
       {business ? (
-        <Section title="Business settings">
+        <Section title={W.sections.business}>
           <RulesForm
             key={JSON.stringify(business.rules ?? null)}
             workspaceId={workspaceId}
@@ -499,7 +448,7 @@ export function SettingsView({
         </Section>
       ) : (
         <p className="text-[13px] text-text-2">
-          An owner or admin of this business sets the choices you may pick and your daily limits.{' '}
+          {W.abouts.notOwner}{' '}
           <Link className="underline" href={outreachHref(workspaceId, { view: 'today' })}>
             Back to Today
           </Link>

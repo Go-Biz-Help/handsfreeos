@@ -4,7 +4,8 @@
  * one opens its screen here once this set has it, and the web until then, so no link changes when a screen arrives.
  *
  * Real Estate Agent's screens (round six) live in `app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/`, inside More
- * so the tab bar stays; each route is added here, in its group, once its screen is built.
+ * so the tab bar stays; each route is added here, in its group, once its screen is built. Social Outreach's
+ * (decision 44) live beside them in `a/outreach/`.
  */
 export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   // Real Estate: Deals, My duties, Coordinate, Vendors (board 76–77).
@@ -43,4 +44,7 @@ export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   'a/realestate/deals/:dealId/open-houses',
   'a/realestate/deals/:dealId/net-sheet',
   'a/realestate/deals/:dealId/showings',
+  // Social Outreach (decision 44): its page, whichever tab (`?view=`), and a playbook.
+  'a/outreach',
+  'a/outreach/playbooks/:playbookId',
 ]);

@@ -118,6 +118,21 @@ const ONLINE_COMMANDS = [
   'look.use_upload',
   'look.set',
   'look.find',
+  // Social Outreach on the phone (decision 44): saving someone's settings or the business's, ending someone's training
+  // wheels, and writing, archiving or bringing back a playbook.
+  'outreach.automation.save',
+  'addon.save_settings',
+  'outreach.wheels.end',
+  'outreach.playbook.save',
+  'outreach.playbook.archive',
+  // Asking the person's computer from the phone (decision 43): asking, Carry on or Skip, and Stop.
+  'outreach.ask.make',
+  'outreach.ask.reply',
+  'outreach.ask.cancel',
+  // The person menu on Today (decision 44): Add to Contacts, Demo booked and Don't pitch.
+  'outreach.profile.contact',
+  'outreach.demo.mark',
+  'outreach.friend.set',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -188,6 +203,24 @@ const QUERIES = [
   'knowledge_suggestion.list',
   // The onboarding setup: where it stands.
   'onboarding_setup.get',
+  // Social Outreach on the phone (decision 44), with signal: Waiting for you's steps and friend requests, the live
+  // view and the team's, Today and training wheels, Groups, Chats, the playbooks, and the settings (someone's, who uses
+  // it, and the business's).
+  'outreach.waiting',
+  'outreach.live',
+  'outreach.live.team',
+  'outreach.today',
+  'outreach.wheels',
+  'outreach.groups',
+  'outreach.chats',
+  'outreach.playbook.list',
+  'outreach.automation',
+  'outreach.automation.people',
+  'addon.settings',
+  // What the person asked their computer, for the Groups, Chats and Live screens.
+  'outreach.asks',
+  // Add to Contacts' customers with the same name, offered first.
+  'outreach.lookup',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

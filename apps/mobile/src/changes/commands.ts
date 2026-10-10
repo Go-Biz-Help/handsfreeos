@@ -5,6 +5,8 @@ import {
   ActivityLogOutput,
   AddonAlertAcknowledgeInput,
   AddonAlertAcknowledgeOutput,
+  AddonSaveSettingsInput,
+  AddonSettingsSaved,
   AiSetupFinishInput,
   AiSetupFinishOutput,
   AiSetupSaveInput,
@@ -296,6 +298,43 @@ import {
   RepairSendInput,
   WalkthroughPlanInput,
 } from '@hfos/core/addons/realestate/schemas';
+// Social Outreach's changes the phone may make (decision 44): its schemas live with the add-on in core.
+import {
+  AskCancelInput,
+  AskChangedOutput,
+  AskMakeInput,
+  AskMakeOutput,
+  AskReplyInput,
+  ProfileContactInput,
+} from '@hfos/core/addons/outreach/asks';
+import {
+  AutomationSaveInput,
+  AutomationSaveOutput,
+  WheelsEndInput,
+  WheelsEndOutput,
+} from '@hfos/core/addons/outreach/automation';
+import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos';
+import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
+import { DayInput, DayOutput } from '@hfos/core/addons/outreach/live';
+import {
+  Playbook,
+  PlaybookArchiveInput,
+  PlaybookSaveInput,
+} from '@hfos/core/addons/outreach/playbooks';
+import { PostSkipInput, PostSkipOutput } from '@hfos/core/addons/outreach/posts';
+import { ProfileSaveOutput } from '@hfos/core/addons/outreach/saves';
+import {
+  SendApproveInput,
+  SendApproveOutput,
+  SendSkipInput,
+  SendSkipOutput,
+} from '@hfos/core/addons/outreach/sends';
+import {
+  NeedClearInput,
+  NeedClearOutput,
+  RequestSetAsideInput,
+  RequestSetAsideOutput,
+} from '@hfos/core/addons/outreach/waiting';
 
 /**
  * The commands the phone may send: exactly the phone's contract (`packages/core/test/contract/mobile-contract.json`),
@@ -328,6 +367,9 @@ function command<C extends OfflineClass, I extends Schema, O extends Schema>(
 export const PHONE_COMMANDS = {
   'account.delete': command(ONLINE, AccountDeleteInput, AccountDeleteOutput),
   'activity.log': command(ANYTIME, ActivityLogInput, ActivityLogOutput),
+  // Social Outreach's business settings (decision 44), for owners and admins. Online: the rest of the form is
+  // HandsFreeOS's answer, and a change waiting on the phone could undo someone else's.
+  'addon.save_settings': command(ONLINE, AddonSaveSettingsInput, AddonSettingsSaved),
   // Got it on an add-on's alert (round six: its Home cards reach phones). Online, as the command is: the add-on hears
   // that someone has seen it, and stops raising it higher, only once HandsFreeOS has it.
   'addon_alert.acknowledge': command(
@@ -448,6 +490,26 @@ export const PHONE_COMMANDS = {
   ),
   'onboarding_setup.save': command(ONLINE, OnboardingSetupSaveInput, OnboardingSetupSaveOutput),
   'organization.create': command(ONLINE, OrganizationCreateInput, OrganizationCreateOutput),
+  // Social Outreach (decision 44): Waiting for you's OK waits 30 minutes, then asks Still send?; a skip, Not for me,
+  // a need cleared, a request left and the day started or stopped wait as long as it takes; the rest need signal,
+  // asking the computer among them (decision 43): an ask is for now, and the computer may be on.
+  'outreach.ask.cancel': command(ONLINE, AskCancelInput, AskChangedOutput),
+  'outreach.ask.make': command(ONLINE, AskMakeInput, AskMakeOutput),
+  'outreach.ask.reply': command(ONLINE, AskReplyInput, AskChangedOutput),
+  'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
+  'outreach.day.start': command(ANYTIME, DayInput, DayOutput),
+  'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
+  'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),
+  'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
+  'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
+  'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
+  'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),
+  'outreach.post.skip': command(ANYTIME, PostSkipInput, PostSkipOutput),
+  'outreach.profile.contact': command(ONLINE, ProfileContactInput, ProfileSaveOutput),
+  'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
+  'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
+  'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),
+  'outreach.wheels.end': command(ONLINE, WheelsEndInput, WheelsEndOutput),
   // The setup's payments stop: Stripe's or Square's own sign-in starts from it, in the phone's browser.
   'payment_connection.connect': command(
     ONLINE,

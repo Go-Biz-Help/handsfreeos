@@ -482,6 +482,150 @@ describe('once it does', () => {
     await inStep();
   });
 
+  it('keeps a person’s own rows to their phone alone, and only those it keeps (20261027001800)', async () => {
+    const notes = `addon_${ADDON}.notes`;
+    await rows(
+      admin$,
+      sql.raw(`create table ${notes} (
+        id uuid primary key default gen_random_uuid(),
+        workspace_id uuid not null references app.workspaces (id) on delete cascade,
+        user_id uuid,
+        state text not null,
+        body text not null,
+        updated_at timestamptz not null default now())`),
+    );
+    await rows(
+      admin$,
+      sql`select private.addon_table_policies(${notes}::regclass, ${USE}, ${USE}, ${USE}, null)`,
+    );
+    const note = (who: TestUser | null, state: string, body: string) =>
+      one(
+        rows<{ id: string }>(
+          admin$,
+          sql.raw(`insert into ${notes} (workspace_id, user_id, state, body)
+            values ('${ws}', ${who ? `'${who.id}'` : 'null'}, '${state}', '${body}') returning id`),
+        ),
+      );
+    const agents = await note(agent, 'waiting', 'Call the lender');
+    const owners = await note(owner, 'waiting', 'Sign the listing');
+    const done = await note(agent, 'done', 'Order the appraisal');
+    const nobodys = await note(null, 'waiting', 'Nobody’s');
+
+    // No row of a person's own is ever written open to the business, not even for a moment on the first copy.
+    const guard = `fx_no_open_${letters(8)}`;
+    await rows(
+      admin$,
+      sql.raw(`create function public.${guard}() returns trigger language plpgsql as $f$
+        begin
+          if new.addon_id = '${ADDON}' and new.source = 'notes' and new.seal_open then
+            raise exception 'a person''s own row was written open';
+          end if;
+          return new;
+        end $f$`),
+    );
+    await rows(
+      admin$,
+      sql.raw(`create trigger ${guard} after insert or update on app.addon_phone_rows
+        for each row execute function public.${guard}()`),
+    );
+    try {
+      await rows(
+        admin$,
+        sql`select private.addon_phone_own_table(${notes}::regclass, 'user_id',
+              array['user_id', 'state', 'body'], 'state', array['waiting'])`,
+      );
+      const kept = () =>
+        rows<{ id: string; seal_open: boolean; seal_viewer_ids: string[]; record_id: null }>(
+          admin$,
+          sql`select id, seal_open, seal_viewer_ids, record_id from app.addon_phone_rows
+              where workspace_id = ${ws} and addon_id = ${ADDON} and source = 'notes' order by id`,
+        );
+      expect(await kept()).toEqual(
+        [
+          { id: `notes:${agents}`, seal_open: false, seal_viewer_ids: [agent.id], record_id: null },
+          { id: `notes:${owners}`, seal_open: false, seal_viewer_ids: [owner.id], record_id: null },
+        ].sort((a, b) => (a.id < b.id ? -1 : 1)),
+      );
+      // Registering it again the usual way keeps whose each is and what it keeps.
+      await rows(
+        admin$,
+        sql`select private.addon_phone_table(${notes}::regclass, null, array['user_id', 'state', 'body'])`,
+      );
+      const [registered] = await rows(
+        admin$,
+        sql`select owner_column, keep_column, keep_values from app.addon_phone_tables
+            where addon_id = ${ADDON} and source = 'notes'`,
+      );
+      expect(registered).toEqual({
+        owner_column: 'user_id',
+        keep_column: 'state',
+        keep_values: ['waiting'],
+      });
+      expect((await kept()).map((r) => r.id).sort()).toEqual(
+        [`notes:${agents}`, `notes:${owners}`].sort(),
+      );
+      expect((await kept()).map((r) => r.id)).not.toContain(`notes:${done}`);
+      expect((await kept()).map((r) => r.id)).not.toContain(`notes:${nobodys}`);
+
+      // Row security: each reads their own, the owner of the business included, and nobody another's.
+      const read = (u: TestUser) =>
+        as(u)((tx) =>
+          rows<{ id: string }>(
+            tx,
+            sql`select id from app.addon_phone_rows where workspace_id = ${ws} and source = 'notes'`,
+          ),
+        );
+      expect((await read(agent)).map((r) => r.id)).toEqual([`notes:${agents}`]);
+      expect((await read(owner)).map((r) => r.id)).toEqual([`notes:${owners}`]);
+      expect(await read(member)).toEqual([]);
+
+      // Done, it leaves; waiting again, it's back; given to someone else, it goes to them.
+      await rows(admin$, sql.raw(`update ${notes} set state = 'done' where id = '${agents}'`));
+      expect((await kept()).map((r) => r.id)).toEqual([`notes:${owners}`]);
+      await rows(admin$, sql.raw(`update ${notes} set state = 'waiting' where id = '${agents}'`));
+      await rows(
+        admin$,
+        sql.raw(`update ${notes} set user_id = '${member.id}' where id = '${agents}'`),
+      );
+      expect((await kept()).find((r) => r.id === `notes:${agents}`)?.seal_viewer_ids).toEqual([
+        member.id,
+      ]);
+      await inStep();
+    } finally {
+      await rows(admin$, sql.raw(`drop trigger ${guard} on app.addon_phone_rows`));
+      await rows(admin$, sql.raw(`drop function public.${guard}()`));
+    }
+  });
+
+  it('lets nobody signed in run the helpers that write or list phone rows (20261027001800)', async () => {
+    const forged = JSON.stringify([
+      {
+        id: crypto.randomUUID(),
+        workspace_id: ws,
+        user_id: agent.id,
+        state: 'waiting',
+        body: 'forged',
+      },
+    ]);
+    const calls = [
+      sql`select private.addon_phone_upsert(${ADDON}, 'notes', null, 'team', ${forged}::jsonb)`,
+      sql`select * from private.addon_phone_own_seal(${ws}, ${ADDON}, ${agent.id})`,
+      sql`select * from private.addon_phone_seal(${ws}, ${ADDON}, ${deal}, 'team')`,
+      sql`select private.addon_phone_reseal(${deal})`,
+      sql`select private.addon_phone_settings_row(${ws}, ${ADDON})`,
+      sql`select * from private.addon_phone_table_mismatches(${ws})`,
+      sql`select * from private.addon_phone_mismatches(${ws})`,
+      sql`select private.addon_phone_kept(t, '{}'::jsonb) from app.addon_phone_tables t limit 1`,
+    ];
+    for (const who of [stranger, agent, owner]) {
+      for (const call of calls) {
+        const refused = await expectPgError(() => as(who)((tx) => rows(tx, call)));
+        expect(refused.code).toBe('42501');
+      }
+    }
+    await inStep();
+  });
+
   it('keeps only the settings an add-on names, open to its key (20261022000800)', async () => {
     await worker()((tx) =>
       rows(

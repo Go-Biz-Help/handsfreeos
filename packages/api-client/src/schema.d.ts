@@ -6328,7 +6328,7 @@ export interface paths {
         put?: never;
         /**
          * Put a group post aside: it comes off the person’s list for today and isn’t suggested again.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.post.skipped.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.post.skipped. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_post_skip"];
         delete?: never;
@@ -6448,7 +6448,7 @@ export interface paths {
         put?: never;
         /**
          * The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them and messages to someone who needs them, which wait to be OK’d one at a time. The extension sends them. On training wheels, each counts toward coming off them.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_outreach_send_approve"];
         delete?: never;
@@ -6508,7 +6508,7 @@ export interface paths {
         put?: never;
         /**
          * The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.send.skipped.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.skipped. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_send_skip"];
         delete?: never;
@@ -34094,6 +34094,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    partial?: boolean;
                     sends?: {
                         /** Format: uuid */
                         sendId: string;

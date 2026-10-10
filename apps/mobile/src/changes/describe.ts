@@ -1,6 +1,12 @@
 import { channelWord, isSocialChannel, SOCIAL_CHANNEL_NAMES } from '@hfos/core';
 
 import {
+  describeOutreach,
+  loadOutreachNames,
+  NO_OUTREACH_NAMES,
+  type OutreachNames,
+} from './describe-outreach';
+import {
   describeRealestate,
   loadRealestateNames,
   NO_REALESTATE_NAMES,
@@ -55,6 +61,8 @@ export interface NameBook {
   task(id: string | null | undefined): { title: string; personId: string | null } | null;
   /** Real Estate's deals and the rows its changes point at (round six). */
   readonly realestate?: RealestateNames;
+  /** Who Social Outreach's messages are to (decision 44). */
+  readonly outreach?: OutreachNames;
 }
 
 type Input = Record<string, unknown>;
@@ -183,6 +191,17 @@ export function describe(
       icon: re.icon,
       about: re.deal ? { key: `deal:${re.deal.id}`, name: re.deal.name } : null,
       heldUntil: re.heldUntil,
+    };
+  // Social Outreach's changes (decision 44): OK'd and skipped messages, the day pressed.
+  const outreach = describeOutreach(row.name, input, names.outreach ?? NO_OUTREACH_NAMES);
+  if (outreach)
+    return {
+      title: outreach.title,
+      part: outreach.part,
+      quote: outreach.quote,
+      icon: outreach.icon,
+      about: null,
+      heldUntil: outreach.heldUntil,
     };
   switch (row.name) {
     case 'activity.log': {
@@ -569,7 +588,21 @@ export async function loadNames(runner: SqlRunner, rows: readonly OutboxRow[]): 
     runner,
     rows.map((r) => parse(r.input)),
   );
-  return bookOf({ people, leads, stages, companies, conversations, tags, tasks, realestate });
+  const outreach = await loadOutreachNames(
+    runner,
+    rows.map((r) => parse(r.input)),
+  );
+  return bookOf({
+    people,
+    leads,
+    stages,
+    companies,
+    conversations,
+    tags,
+    tasks,
+    realestate,
+    outreach,
+  });
 }
 
 export function bookOf(found: {
@@ -581,6 +614,7 @@ export function bookOf(found: {
   tags?: readonly { id: string; name: string }[];
   tasks?: readonly { id: string; title: string | null; person_id: string | null }[];
   realestate?: RealestateNames;
+  outreach?: OutreachNames;
 }): NameBook {
   const byId = <T extends { id: string }>(list: readonly T[] | undefined) =>
     new Map((list ?? []).map((r) => [r.id, r]));
@@ -592,6 +626,7 @@ export function bookOf(found: {
   const tasks = byId(found.tasks);
   return {
     ...(found.realestate ? { realestate: found.realestate } : {}),
+    ...(found.outreach ? { outreach: found.outreach } : {}),
     person: (id) => (id ? (found.people?.get(id) ?? null) : null),
     company: (id) => (id ? (companies.get(id)?.name ?? null) : null),
     lead: (id) => {

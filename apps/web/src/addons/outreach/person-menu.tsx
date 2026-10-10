@@ -6,6 +6,7 @@
  * first (./same-name.tsx), so the person says "It's them" rather than making a second; with none it adds them at once
  * (`outreach.profile.contact`, Facebook as the source).
  */
+import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import { Ban, CalendarCheck, MoreHorizontal, UserPlus, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -20,6 +21,8 @@ import {
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { SameNameDialog, sameNamesFor, type SameName } from './same-name';
 import { useAct } from './use-act';
+
+const P = OUTREACH_WORDS.person;
 
 /** Who the menu is for. A list that doesn't say leaves `personId` or `demoBooked` out. */
 export interface MenuPerson {
@@ -57,7 +60,7 @@ export function PersonMenu({
         setSame(null);
         return saved;
       },
-      personId ? `${who.name} is tied to them in Contacts now.` : `${who.name} is in Contacts now.`,
+      personId ? P.tied(who.name) : P.added(who.name),
     );
   // Customers with the same name, not saved with a Facebook profile yet: the person says whether it's them.
   const addToContacts = () =>
@@ -72,11 +75,7 @@ export function PersonMenu({
           body: { workspaceId, profileId, personId: null },
         }),
       );
-      toast.success(
-        saved.addedPerson
-          ? `${who.name} is in Contacts now.`
-          : `${who.name} was in Contacts already.`,
-      );
+      toast.success(saved.addedPerson ? P.added(who.name) : P.already(who.name));
     });
   const demo = (booked: boolean) =>
     void act(
@@ -87,7 +86,7 @@ export function PersonMenu({
             body: { workspaceId, profileId, booked },
           }),
         ),
-      booked ? `Marked: ${who.name} booked a demo.` : 'Unmarked.',
+      booked ? P.demoMarked(who.name) : P.demoUnmarked,
     );
   const noPitch = () =>
     void act(
@@ -98,7 +97,7 @@ export function PersonMenu({
             body: { workspaceId, profileId, dontPitch: true },
           }),
         ),
-      `${who.name} is on Don’t pitch. Nobody here sends them outreach.`,
+      P.dontPitchDone(who.name),
     );
   return (
     <>
@@ -107,7 +106,7 @@ export function PersonMenu({
           <Button
             variant="ghost"
             size="icon"
-            aria-label={`More for ${who.name}`}
+            aria-label={P.menu(who.name)}
             className="h-7 w-7"
             loading={busy !== null}
             data-testid="person-menu"
@@ -123,23 +122,23 @@ export function PersonMenu({
                 data-testid="person-in-contacts"
               >
                 <UserRound className="h-4 w-4" strokeWidth={1.5} />
-                In Contacts
+                {P.inContacts}
               </Link>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem onSelect={addToContacts} data-testid="person-add-contact">
               <UserPlus className="h-4 w-4" strokeWidth={1.5} />
-              Add to Contacts
+              {P.addToContacts}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={() => demo(!who.demoBooked)} data-testid="person-demo-mark">
             <CalendarCheck className="h-4 w-4" strokeWidth={1.5} />
-            {who.demoBooked ? 'Not a demo after all' : 'Demo booked'}
+            {who.demoBooked ? P.notDemo : P.demoBooked}
           </DropdownMenuItem>
           {dontPitch ? (
             <DropdownMenuItem danger onSelect={noPitch} data-testid="person-dont-pitch">
               <Ban className="h-4 w-4" strokeWidth={1.5} />
-              Don’t pitch
+              {P.dontPitch}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>

@@ -1,5 +1,6 @@
 import type * as React from 'react';
 
+import { OutreachMore } from './outreach/more';
 import { RealestateMore } from './realestate/more';
 
 /**
@@ -18,4 +19,5 @@ export interface PhoneAddon {
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
   { addonId: 'realestate', permission: 'realestate.use', More: RealestateMore },
+  { addonId: 'outreach', permission: 'outreach.use', More: OutreachMore },
 ];

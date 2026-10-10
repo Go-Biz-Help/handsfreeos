@@ -174,11 +174,49 @@ export const outreachAddon = defineAddon({
     'waiting_pushes',
     'warnings',
   ],
+  // What phones keep with no signal (decision 44, owner answer 19b): each person's messages waiting for their OK,
+  // theirs alone, so OK, change, skip and Approve all work on the phone with none. Its migration registers the same
+  // (20261027001800, `private.addon_phone_own_table`).
+  offline: {
+    permission: 'outreach.use',
+    tables: [
+      {
+        table: 'sends',
+        owner: 'user_id',
+        keep: { column: 'state', values: ['waiting'] },
+        columns: [
+          'user_id',
+          'profile_id',
+          'kind',
+          'thread_key',
+          'text',
+          'state',
+          'handed_over',
+          'needs_you',
+          'name',
+          'profile_url',
+          'created_at',
+          'updated_at',
+        ],
+      },
+    ],
+  },
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
     // A customer's Facebook profile and the chats saved with them.
     slots: [{ slot: 'person.panels', permission: 'outreach.use' }],
+    // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
+    // links (`?view=waiting`, `live`, `today`) open the phone's screens; and a playbook. The activity and friends stay
+    // on the web, and their links open it.
+    phone: [
+      {
+        path: '',
+        query: ['view', 'for', 'show', 'tag', 'q'],
+        web: { view: ['activity', 'friends'] },
+      },
+      { path: 'playbooks/:playbookId' },
+    ],
   },
   ai: {
     directory:

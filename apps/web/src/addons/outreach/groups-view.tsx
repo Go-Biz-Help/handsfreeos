@@ -7,12 +7,13 @@
  */
 import {
   ASK_LINK_MOST,
+  ASK_WORDS,
   ASK_WORDS_MOST,
-  askAgainWords,
-  askWaitingWords,
+  askedWords,
 } from '@hfos/core/addons/outreach/asks';
 import { GROUP_VIEWS, GROUPS_PAGE, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { brought, resultWords } from '@hfos/core/addons/outreach/results';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -31,24 +32,7 @@ import { dayWords, Pager, SearchBox } from './friends-view';
 import type { Asks, Group, Groups } from './types';
 import { useAct } from './use-act';
 
-const EMPTY: Record<GroupView, { readonly title: string; readonly body: string }> = {
-  work: {
-    title: 'No groups to work yet',
-    body: 'Press Save my groups, and your computer saves the groups you’re in from Facebook. Or Find groups with a playbook’s words. Groups that match a playbook’s words to search for groups show here.',
-  },
-  maybe: {
-    title: 'No maybes',
-    body: 'Groups that match a little, or that are just big, show here.',
-  },
-  skip: {
-    title: 'Nothing to skip',
-    body: 'Groups that match none of your playbooks, or match who to skip, show here.',
-  },
-  all: {
-    title: 'No groups saved yet',
-    body: 'Press Save my groups, and your computer saves the groups you’re in from Facebook. Or Find groups with a playbook’s words.',
-  },
-};
+const EMPTY = W.groupsEmpty;
 
 const VERDICT_BADGE = { work: 'ok', maybe: 'gray', skip: 'danger' } as const;
 
@@ -147,9 +131,7 @@ export function GroupsView({
           ) : (
             <Card data-testid="groups-empty">
               {search ? (
-                <EmptyState title="No groups like that here">
-                  Check the spelling and look again.
-                </EmptyState>
+                <EmptyState title={W.groupsNoMatch.title}>{W.groupsNoMatch.body}</EmptyState>
               ) : (
                 <EmptyState title={EMPTY[show].title}>{EMPTY[show].body}</EmptyState>
               )}
@@ -204,17 +186,15 @@ function GroupAsks({
   const lastSearch = latestAsk(asks, 'group_search');
   return (
     <Card className="mb-4 p-4" data-testid="groups-asks">
-      <h3 className="text-[15px] font-semibold">From Facebook</h3>
-      <p className="mt-0.5 text-[12.5px] text-text-3">
-        Your computer opens Facebook in a window of its own and saves what it reads here.
-      </p>
+      <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
       <ComputerNote asks={asks} className="mt-3" />
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         <AskButton
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'groups' }}
-          label="Save my groups"
+          label={ASK_WORDS.saveGroups}
           testId="ask-groups"
         />
         <div className="grid content-start gap-1.5">
@@ -224,8 +204,8 @@ function GroupAsks({
             data-testid="group-search-form"
           >
             <Input
-              aria-label="Words to search for"
-              placeholder="Words to search for"
+              aria-label={ASK_WORDS.searchFor}
+              placeholder={ASK_WORDS.searchFor}
               value={words}
               maxLength={ASK_WORDS_MOST}
               onChange={(e) => setWords(e.target.value)}
@@ -234,7 +214,7 @@ function GroupAsks({
               workspaceId={workspaceId}
               asks={asks}
               ask={{ kind: 'group_search', words: words.trim() }}
-              label="Find groups"
+              label={ASK_WORDS.findGroups}
               disabled={words.trim().length < 2}
               showLine={false}
               testId="ask-group-search"
@@ -247,14 +227,14 @@ function GroupAsks({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'members' }}
-          label="Save members of my best groups"
+          label={ASK_WORDS.saveMembers}
           testId="ask-members"
         />
         <AskButton
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'posts' }}
-          label="Find posts"
+          label={ASK_WORDS.findPosts}
           testId="ask-posts"
         />
       </div>
@@ -283,11 +263,7 @@ function SaveGroupByLink({ workspaceId, asks }: { workspaceId: string; asks: Ask
             body: { workspaceId, ask: { kind: 'members', url: url.trim() } },
           }),
         );
-        toast.success(
-          made.fresh
-            ? `Asked. ${askWaitingWords(asks.computer, asks.timezone, Date.now())}`
-            : askAgainWords('members'),
-        );
+        toast.success(askedWords(made, asks, Date.now()));
         setMadeId(made.ask.askId);
         setUrl('');
       } catch (e) {
@@ -345,13 +321,13 @@ function GroupRow({
 }) {
   const facts = [
     g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : null,
-    g.members !== null ? `${g.members.toLocaleString()} members` : null,
-    g.joined ? 'You’re in it' : g.joined === false ? 'Not joined' : null,
+    g.members !== null ? W.groupMembers(g.members) : null,
+    g.joined ? W.joined : g.joined === false ? W.notJoined : null,
     g.seenAt ? `Seen ${dayWords(g.seenAt)}` : null,
   ].filter(Boolean);
   const saved = g.people
     ? [
-        `${g.people.toLocaleString()} ${g.people === 1 ? 'person' : 'people'} saved`,
+        W.peopleSaved(g.people),
         g.runsGroup ? `${g.runsGroup.toLocaleString()} who run it` : null,
         g.requests
           ? `${g.requests.toLocaleString()} ${g.requests === 1 ? 'request' : 'requests'} sent`
@@ -398,7 +374,7 @@ function GroupRow({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'members', groupIds: [g.groupId] }}
-          label="Save its members"
+          label={ASK_WORDS.saveItsMembers}
           variant="ghost"
           testId="ask-group-members"
         />

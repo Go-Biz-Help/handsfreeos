@@ -7,18 +7,21 @@
  * that says why the buttons wait. The rules and words are core's (packages/core/src/addons/outreach/asks.ts).
  */
 import {
-  AskInput,
-  askAgainWords,
+  askedWords,
   askOpen,
   askRepliesFor,
-  askTarget,
   askWaitingWords,
   ASK_KINDS,
   ASK_REPLIES,
   ASK_SHOWN_STATES,
+  ASK_TONES,
   ASK_TYPING_WORDS,
-  onFacebook,
-  type AskKind,
+  ASK_WORDS,
+  cantAskWhy,
+  computerNoteWords,
+  latestAsk,
+  targetOf,
+  type AskInput,
   type AskShownState,
 } from '@hfos/core/addons/outreach/asks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
@@ -30,39 +33,10 @@ import { cn } from '@/lib/utils';
 import type { Ask, Asks } from './types';
 import { useAct } from './use-act';
 
-const TONES: Record<AskShownState, BadgeVariant> = {
-  waiting: 'accent',
-  working: 'ok',
-  stuck: 'pending',
-  typing: 'pending',
-  done: 'ok',
-  failed: 'danger',
-  lost: 'danger',
-  cancelled: 'gray',
-  expired: 'gray',
-};
+const TONES: Record<AskShownState, BadgeVariant> = ASK_TONES;
 
-/** What an ask is about, worked out as core does, so a button finds its own ask: '' when it can't be had. */
-export function targetOf(ask: AskInput): string {
-  const parsed = AskInput.safeParse(ask);
-  return parsed.success ? askTarget(parsed.data) : '';
-}
-
-/** The newest ask of a kind (and about the same thing, when given): the lists come newest first. */
-export function latestAsk(asks: Asks | null, kind: AskKind, target?: string): Ask | null {
-  return (
-    asks?.asks.find((a) => a.kind === kind && (target === undefined || a.target === target)) ?? null
-  );
-}
-
-/** Why a button can't ask now, in words: null when it can. */
-export function cantAskWhy(asks: Asks, kind: AskKind): string | null {
-  if (!asks.computer)
-    return 'Install HandsFreeOS Social in Chrome on your computer and sign in, and these buttons work.';
-  if (asks.warnedToday && onFacebook(kind))
-    return 'Facebook warned you today, so your computer does nothing more on Facebook until tomorrow.';
-  return null;
-}
+/** Finding a button's ask, and why it can't ask: core's, the phone's too. */
+export { cantAskWhy, latestAsk, targetOf };
 
 /**
  * A button that asks the computer, with the line of its latest ask under it. Disabled while one like it is open (its
@@ -102,11 +76,7 @@ export function AskButton({
       const made = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.ask.make', { body: { workspaceId, ask } }),
       );
-      toast.success(
-        made.fresh
-          ? `Asked. ${askWaitingWords(asks.computer, asks.timezone, Date.now())}`
-          : askAgainWords(kind),
-      );
+      toast.success(askedWords(made, asks, Date.now()));
       onAsked?.(made.ask);
     });
   return (
@@ -118,7 +88,7 @@ export function AskButton({
           onClick={press}
           loading={busy === `ask:${kind}`}
           disabled={disabled || busy !== null || open || why !== null}
-          title={why ?? (open ? 'Your computer is on it. Stop it below to ask again.' : undefined)}
+          title={why ?? (open ? ASK_WORDS.onIt : undefined)}
           data-testid={testId}
         >
           {label}
@@ -169,7 +139,7 @@ export function AskLine({
             body: { workspaceId, askId: ask.askId },
           }),
         ),
-      'Stopped.',
+      ASK_WORDS.stopped,
     );
   return (
     <div
@@ -209,7 +179,7 @@ export function AskLine({
         </p>
       ) : null}
       {ask.state === 'stuck' && ask.reply ? (
-        <p className="mt-1.5 text-text-3">You said {ASK_REPLIES[ask.reply]}.</p>
+        <p className="mt-1.5 text-text-3">{ASK_WORDS.youSaid(ask.reply)}</p>
       ) : null}
       {open ? (
         <div className="mt-2 flex flex-wrap gap-2">
@@ -234,7 +204,7 @@ export function AskLine({
             disabled={busy !== null}
             data-testid="ask-stop"
           >
-            Stop
+            {ASK_WORDS.stop}
           </Button>
         </div>
       ) : null}
@@ -244,15 +214,7 @@ export function AskLine({
 
 /** Why the buttons wait, once for a tab: no computer, it's signed out or offline, or Facebook warned them today. */
 export function ComputerNote({ asks, className }: { asks: Asks; className?: string }) {
-  const c = asks.computer;
-  const now = Date.parse(asks.now);
-  const words = !c
-    ? 'Install HandsFreeOS Social in Chrome on your computer and sign in, and these buttons work.'
-    : asks.warnedToday
-      ? 'Facebook warned you today, so your computer does nothing more on Facebook until tomorrow. Bringing in your file still works.'
-      : c.signedOut || !c.online
-        ? askWaitingWords(c, asks.timezone, now)
-        : null;
+  const words = computerNoteWords(asks);
   if (!words) return null;
   return (
     <p

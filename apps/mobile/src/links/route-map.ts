@@ -225,7 +225,8 @@ function screenHref(
 
 /**
  * An add-on's page (`a/<id>/…`): the screen for it when the add-on declares the phone draws it (`ui.phone`) and this
- * build has it, the web naming that screen while the build doesn't, and the web for the rest (its settings, say).
+ * build has it, the web naming that screen while the build doesn't, and the web for the rest (its settings, say). A
+ * query value the add-on lists under `web` (a tab with too much to look through on a phone) opens the web too.
  */
 function addonTarget(
   businessId: string,
@@ -238,6 +239,11 @@ function addonTarget(
   for (const declared of manifest?.ui?.phone ?? []) {
     const params = matchParts(segments(declared.path), page, query);
     if (!params) continue;
+    // A tab of the page the add-on leaves to the web (Social Outreach's `?view=activity`) opens there.
+    const webOnly = Object.entries(declared.web ?? {}).some(
+      ([key, values]) => query[key] !== undefined && values.includes(query[key]),
+    );
+    if (webOnly) return { kind: 'web', path: pathAndQuery, businessId };
     const route = `a/${addonId}${declared.path ? `/${declared.path}` : ''}`;
     const href = screenHref(businessId, phonePathOf(route, params), declared.query, query);
     if (!ADDON_SCREENS.has(route))

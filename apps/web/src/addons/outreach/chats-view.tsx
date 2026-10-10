@@ -6,7 +6,7 @@
  * and a name narrow it. Which, the tag, the name and the page are in the address (./address.ts), so the page asks
  * HandsFreeOS for them. Who goes in Contacts is the business's setting, on the Add-ons page.
  */
-import { READ_CHATS_WORDS } from '@hfos/core/addons/outreach/asks';
+import { ASK_WORDS, READ_CHATS_WORDS } from '@hfos/core/addons/outreach/asks';
 import {
   CHAT_VIEW_KEYS,
   CHAT_VIEWS,
@@ -15,6 +15,7 @@ import {
   type ChatView,
 } from '@hfos/core/addons/outreach/chat-read';
 import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useTransition } from 'react';
@@ -32,26 +33,8 @@ import { PersonMenu } from './person-menu';
 import type { Asks, Chat, Chats } from './types';
 
 /** How Read my chats goes, under its button and in the empty lists. */
-const READ_WORDS = READ_CHATS_WORDS;
 
-const EMPTY: Record<ChatView, { readonly title: string; readonly body: string }> = {
-  prospects: {
-    title: 'No likely prospects yet',
-    body: 'Press Read my chats, or bring in your Facebook file on the Friends tab. HandsFreeOS reads each chat’s latest messages and shows here the people who look like they fit your playbooks.',
-  },
-  tagged: {
-    title: 'Nobody tagged yet',
-    body: 'Chats get your playbooks’ tags when the messages show they fit. Add tags to a playbook to have them used.',
-  },
-  read: {
-    title: 'No chats read yet',
-    body: `Press Read my chats, or bring in your Facebook file on the Friends tab, and each chat is read for you. ${READ_WORDS}`,
-  },
-  waiting: {
-    title: 'Every chat is read',
-    body: 'Chats wait here while they’re being read, or when they couldn’t be.',
-  },
-};
+const EMPTY = W.chatsEmpty;
 
 export function ChatsView({
   workspaceId,
@@ -121,10 +104,10 @@ export function ChatsView({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'chats' }}
-          label="Read my chats"
+          label={ASK_WORDS.readChats}
           testId="ask-chats"
         />
-        <p className="mt-2 text-[12.5px] text-text-3">{READ_WORDS}</p>
+        <p className="mt-2 text-[12.5px] text-text-3">{READ_CHATS_WORDS}</p>
       </Card>
       {chats.tags.length ? (
         <div
@@ -189,9 +172,7 @@ export function ChatsView({
           ) : (
             <Card data-testid="chats-empty">
               {search || tag ? (
-                <EmptyState title="No chats like that here">
-                  Check the spelling, or clear the tag and look again.
-                </EmptyState>
+                <EmptyState title={W.chatsNoMatch.title}>{W.chatsNoMatch.body}</EmptyState>
               ) : (
                 <EmptyState title={EMPTY[show].title}>{EMPTY[show].body}</EmptyState>
               )}
@@ -267,7 +248,7 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {c.prospect ? <Badge variant="ok">Likely prospect</Badge> : null}
-          {c.personId ? <Badge variant="gray">In Contacts</Badge> : null}
+          {c.personId ? <Badge variant="gray">{W.inContacts}</Badge> : null}
           {c.readState === 'waiting' ? <Badge variant="pending">Being read</Badge> : null}
           {c.readState === 'failed' ? <Badge variant="danger">Couldn’t read</Badge> : null}
           {c.onCard ? <Badge variant="gray">On their card</Badge> : null}

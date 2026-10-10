@@ -1,0 +1,475 @@
+/**
+ * Social Outreach's words that the web and the phone both say and core doesn't say already, once, so the two never
+ * drift (docs/outreach.md, decision 44). Each screen reuses core's own words first: Waiting for you's
+ * (./waiting-words.ts), the live view's (./live.ts), the settings' (./automation.ts), Today's (./today.ts), the
+ * groups' (./groups.ts), the chats' (./chat-read.ts) and the playbooks' (./playbooks.ts). Some are only the phone's
+ * so far (its More row, what needs signal, and what waits there to be sent).
+ *
+ * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
+ */
+import { clockWords } from './live';
+import type { PushMode } from './automation';
+import { READ_CHATS_WORDS } from './asks';
+import type { ChatView } from './chat-read';
+import type { GroupView } from './groups';
+
+/** An empty list's title and what fills it. */
+interface Empty {
+  readonly title: string;
+  readonly body: string;
+}
+const SAVE_GROUPS_FIRST =
+  'Press Save my groups, and your computer saves the groups you’re in from Facebook. Or Find groups with a playbook’s words.';
+
+/** One of the person's computers: the one that works, another open one, or one signed out (the web's list too). */
+const COMPUTER_STATES = {
+  working: 'Working for you',
+  standingBy: 'Standing by',
+  signedOut: 'Signed out',
+} as const;
+
+const SENDING_OFF = 'The extension doesn’t work on its own for you: you do everything.';
+const ASK_TO_SEND = 'Ask an owner of this business if you’d like it to.';
+
+const JOINED = 'You’re in it';
+const TEAM_NONE = 'Nobody uses Social Outreach here yet';
+const LIST_TODAY = 'Your list for today';
+const TODAY_EMPTY = 'Nothing on your list for today';
+
+const days = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const paceMessage = (n: number) =>
+  n === 0
+    ? 'First message the day they accept'
+    : `First message ${days(n, 'day', 'days')} after they accept`;
+const paceFollowUp = (n: number) => `Follow up after ${days(n, 'quiet day', 'quiet days')}`;
+
+const things = (n: number, one: string, many: string) =>
+  n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`;
+
+export const OUTREACH_WORDS = {
+  // ---- More, and the add-on's first screen ----
+  title: 'Social Outreach',
+  /** The More row's line, from the messages the phone keeps. */
+  waitingMore: (messages: number) =>
+    messages > 0
+      ? `${things(messages, 'message waits', 'messages wait')} for your OK`
+      : 'No messages wait for your OK',
+  rows: {
+    waiting: 'Waiting for you',
+    live: 'Live',
+    today: 'Today',
+    groups: 'Groups',
+    chats: 'Chats',
+    playbooks: 'Playbooks',
+    settings: 'Settings',
+    activity: 'Activity',
+    friends: 'Friends',
+  },
+  rowDetails: {
+    live: 'What your extension is doing, and Start my day',
+    today: LIST_TODAY,
+    groups: 'Groups to work, and why',
+    chats: 'Your Facebook chats, read by the AI',
+    playbooks: 'Who you’re looking for, and how you sound',
+    settings: 'What the extension does, and when',
+  },
+  /** A tab the phone leaves to the web. */
+  onTheWeb: 'On the web',
+  webOnlyTitle: (what: string) => `${what} is on the web`,
+  webOnlyBody: 'This tab has a lot to look through, so it stays on the web. Open it there.',
+  openOnTheWeb: 'Open on the web',
+
+  // ---- Signal ----
+  /** A screen that needs HandsFreeOS, with no signal. */
+  needsSignal: (screen: string) => `${screen} needs signal. Try again when you’re back online.`,
+  /** Under Waiting for you with no signal. */
+  waitingOffline:
+    'With no signal you see the messages waiting for your OK, and OK, change or skip them. Steps it needs you for and friend requests show when you’re back online.',
+  /** Under something pressed with no signal. */
+  queued: 'It goes when you’re back online.',
+  /** The answer on screen is the last one asked: "As of 2:14 PM". */
+  asOf: (at: number, timeZone: string) => `As of ${clockWords(at, timeZone)}`,
+  tryAgain: 'Try again',
+
+  // ---- Waiting for you ----
+  emptyTitle: 'Nothing waits for you',
+  emptyBody:
+    'When the extension writes a message for your OK, hands you a reply, or can’t do a step, it shows here, and on its icon on your computer.',
+  repliesNote: 'They need you, so each waits for an OK of its own: Approve all leaves them.',
+  handedOver: 'Handed over',
+  ok: 'OK',
+  change: 'Change',
+  skip: 'Skip',
+  /** The sheet for changing a message before the OK. */
+  changeTitle: (name: string) => `Message to ${name}`,
+  changeHelp: 'Change it if you like; your changes teach the AI.',
+  okChanged: 'OK and send',
+  okd: 'OK’d. The extension sends it in Messenger, at a person’s pace.',
+  okdAll: (n: number) =>
+    `OK’d ${things(n, 'message', 'messages')}. The extension sends them in Messenger, at a person’s pace.`,
+  skipped: 'Skipped. They’re off your list for today.',
+  /** A press with no signal: it waits on the phone. */
+  okdQueued:
+    'OK’d. It goes to HandsFreeOS when you’re back online. If that takes over 30 minutes, the phone asks you first.',
+  skippedQueued: 'Skipped. It goes to HandsFreeOS when you’re back online.',
+  copy: 'Copy',
+  copied: 'Copied. Paste it into Messenger.',
+  openInMessenger: 'Open in Messenger',
+  openOnFacebook: 'Open on Facebook',
+  leaveIt: 'Leave it',
+  left: (name: string) => `Left. ${name} is off this list until they ask again.`,
+  asked: (when: string, mutual: number | null) =>
+    `Asked ${when}${mutual ? ` · ${mutual.toLocaleString('en-US')} mutual` : ''}`,
+  hearTitle: 'How you hear of it',
+  hearOfIt: (pushes: PushMode) =>
+    `${
+      pushes === 'each'
+        ? 'Your phone and the extension tell you of each new message and step as it comes.'
+        : 'Your phone and the extension tell you of new messages and steps in one go, at most every 2 hours in your working hours.'
+    } A reply handed over to you comes at once. Friend requests don’t: Facebook tells you of those.`,
+  changeInSettings: 'Change it in Settings',
+
+  // ---- The live view ----
+  rightNow: 'Right now',
+  startDay: 'Start my day',
+  stopDay: 'Stop for today',
+  started: (computerOpen: boolean) =>
+    computerOpen
+      ? 'Your day has started. Your computer starts within seconds.'
+      : 'Your day has started. Your computer begins as soon as Chrome is open.',
+  stopped: 'Stopped for today.',
+  startQueued: 'Your day starts when you’re back online.',
+  stopQueued: 'Your day stops when you’re back online.',
+  noComputer:
+    'Install the extension and sign in on your computer, and you’ll see here what it’s doing.',
+  onComputer: (name: string, seen: string) => `On ${name} · seen ${seen}`,
+  nextStep: (when: string) => `Next step: ${when}`,
+  otherOpen: (name: string) => `${name} is open: open the panel there to work from it.`,
+  computerStates: COMPUTER_STATES,
+  /** Another of their computers, which stands by while one works. */
+  otherComputer: (name: string, signedOut: boolean, seen: string) =>
+    `${name} · ${signedOut ? COMPUTER_STATES.signedOut : COMPUTER_STATES.standingBy} · seen ${seen}`,
+  /** The note when the extension doesn't work on its own for them, in parts so the web can link Settings. */
+  sendingOffNote: SENDING_OFF,
+  changeThatIn: 'Change that in',
+  askToSend: ASK_TO_SEND,
+  sendingOff: (canSend: boolean) =>
+    `${SENDING_OFF} ${canSend ? 'Change that in Settings.' : ASK_TO_SEND}`,
+  todaySoFar: 'Today so far',
+  countOf: (done: number, most: number) =>
+    `${done.toLocaleString('en-US')} of ${most.toLocaleString('en-US')}`,
+  waitingLink: (n: number) => `Waiting for you: ${n.toLocaleString('en-US')}`,
+  todaySteps: 'Today’s steps',
+  noSteps: 'Nothing yet today.',
+  team: 'Your team',
+  teamNoneTitle: TEAM_NONE,
+  teamNone: `${TEAM_NONE}.`,
+  teamComputer: (name: string | null, seen: string | null) =>
+    name ? `${name}${seen ? ` · ${seen}` : ''}` : 'No computer yet',
+  teamWaiting: (n: number) => (n ? `${n.toLocaleString('en-US')} waiting` : 'Nothing waiting'),
+  warned: 'Facebook warned them',
+  renameOnTheWeb: 'Rename a computer on the web.',
+
+  // ---- Today ----
+  todayEmpty: `${TODAY_EMPTY}.`,
+  todayEmptyTitle: TODAY_EMPTY,
+  todayEmptyBody:
+    'On the Groups tab, Save my groups and Save members of my best groups, and Find posts; on the Chats tab, Read my chats. People who fit your playbooks, new friends to say hi to, chats to follow up and posts worth a comment show here.',
+  listTitle: LIST_TODAY,
+  todayComputerOnly:
+    'Drafting a message, copying an opener and the AI’s drafts are on your computer, beside Facebook.',
+  doneOnItsOwn: 'Done on its own',
+  notForMe: 'Not for me',
+  notForMeDone: 'Put aside. It won’t be on your list again.',
+  wheelsTitle: 'On training wheels',
+  wheelsNone: 'Nobody is on training wheels.',
+  endNow: 'End now',
+  wheelsEnded: (name: string) => `Training wheels ended for ${name}.`,
+  sentWaiting: 'I’d send this. Change it if you like; your changes teach the AI.',
+  sentOkd: 'OK’d: the extension sends it soon.',
+
+  // ---- Someone kept as a profile: the person menu, on Today, Friends, Chats and Waiting for you ----
+  person: {
+    menu: (name: string) => `More for ${name}`,
+    addToContacts: 'Add to Contacts',
+    inContacts: 'In Contacts',
+    demoBooked: 'Demo booked',
+    notDemo: 'Not a demo after all',
+    dontPitch: 'Don’t pitch',
+    /** The phone's menu with no signal. */
+    needsSignal:
+      'Adding to Contacts, Demo booked and Don’t pitch need signal. Try again when you’re back online.',
+    added: (name: string) => `${name} is in Contacts now.`,
+    already: (name: string) => `${name} was in Contacts already.`,
+    tied: (name: string) => `${name} is tied to them in Contacts now.`,
+    demoMarked: (name: string) => `Marked: ${name} booked a demo.`,
+    demoUnmarked: 'Unmarked.',
+    dontPitchDone: (name: string) => `${name} is on Don’t pitch. Nobody here sends them outreach.`,
+    /** "Is this one of these?", before someone goes in Contacts with a name Contacts already has. */
+    sameTitle: (name: string) => `Is ${name} one of these?`,
+    sameAbout:
+      'Contacts has someone with the same name. Tie them together, or add them as someone new.',
+    itsThem: 'It’s them',
+    addAsNew: 'Add as new',
+    /** What tells two customers with one name apart: their email or phone, where they came from, and when. */
+    sameDetail: (p: {
+      readonly email: string | null;
+      readonly phone: string | null;
+      readonly source: string | null;
+      readonly createdAt: string;
+    }) =>
+      [
+        p.email,
+        p.phone,
+        p.source,
+        `added ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+  },
+
+  // ---- Groups and chats ----
+  search: 'Search by name',
+  more: 'Show more',
+  /** The Groups tab with none to show, by which groups. */
+  groupsEmpty: {
+    work: {
+      title: 'No groups to work yet',
+      body: `${SAVE_GROUPS_FIRST} Groups that match a playbook’s words to search for groups show here.`,
+    },
+    maybe: {
+      title: 'No maybes',
+      body: 'Groups that match a little, or that are just big, show here.',
+    },
+    skip: {
+      title: 'Nothing to skip',
+      body: 'Groups that match none of your playbooks, or match who to skip, show here.',
+    },
+    all: { title: 'No groups saved yet', body: SAVE_GROUPS_FIRST },
+  } satisfies Record<GroupView, Empty>,
+  groupsNoMatch: { title: 'No groups like that here', body: 'Check the spelling and look again.' },
+  groupMembers: (n: number) => things(n, 'member', 'members'),
+  joined: JOINED,
+  notJoined: 'Not joined',
+  peopleSaved: (n: number) => `${things(n, 'person', 'people')} saved`,
+  groupLine: (members: number | null, people: number, joined: boolean | null) =>
+    [
+      members !== null ? things(members, 'member', 'members') : null,
+      people ? `${things(people, 'person', 'people')} saved` : null,
+      joined ? JOINED : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  /** The Chats tab with none to show, by which chats. */
+  chatsEmpty: {
+    prospects: {
+      title: 'No likely prospects yet',
+      body: 'Press Read my chats, or bring in your Facebook file on the Friends tab. HandsFreeOS reads each chat’s latest messages and shows here the people who look like they fit your playbooks.',
+    },
+    tagged: {
+      title: 'Nobody tagged yet',
+      body: 'Chats get your playbooks’ tags when the messages show they fit. Add tags to a playbook to have them used.',
+    },
+    read: {
+      title: 'No chats read yet',
+      body: `Press Read my chats, or bring in your Facebook file on the Friends tab, and each chat is read for you. ${READ_CHATS_WORDS}`,
+    },
+    waiting: {
+      title: 'Every chat is read',
+      body: 'Chats wait here while they’re being read, or when they couldn’t be.',
+    },
+  } satisfies Record<ChatView, Empty>,
+  chatsNoMatch: {
+    title: 'No chats like that here',
+    body: 'Check the spelling, or clear the tag and look again.',
+  },
+  allTags: 'All tags',
+  inContacts: 'In Contacts',
+  openCustomer: 'Open in Customers',
+  nextStepLabel: 'Next step',
+
+  // ---- Playbooks ----
+  playbooksEmpty: 'No playbooks yet.',
+  /** A link to a playbook this business doesn't have (another business's, or an old one). */
+  playbookMissing: 'This playbook isn’t in this business. Pick one from Playbooks.',
+  inUse: 'In use',
+  archived: 'Archived',
+  newPlaybook: 'New playbook',
+  blank: 'Start blank',
+  fromTemplate: (name: string) => `Start from ${name}`,
+  archive: 'Archive',
+  bringBack: 'Bring back',
+  archivedDone: 'Archived. It’s off the extension’s list.',
+  backDone: 'Back in use.',
+  readOnly: 'An owner or admin of this business writes the playbooks.',
+  aiOnTheWeb: 'AI help (Improve, Suggest more) is on the web.',
+  saved: 'Saved.',
+  savedForEveryone: 'Saved for everyone.',
+  name: 'Name',
+  empty: 'Nothing yet.',
+  oneALine: 'One a line.',
+  question: 'Question',
+  answers: 'Answers',
+  addQuestion: 'Add a question',
+  addAnswer: 'Add an answer',
+  remove: 'Take out',
+  leadsTo: 'Then',
+  addsTag: 'Adds the tag',
+  theySay: 'They say',
+  noTag: 'No tag',
+  /** How fast, for the steps it takes: null for a step it doesn't (a first message, a follow-up). */
+  pace: (messageAfterDays: number | null, followUpAfterDays: number | null) => {
+    const said = [
+      messageAfterDays === null ? null : paceMessage(messageAfterDays),
+      followUpAfterDays === null ? null : paceFollowUp(followUpAfterDays),
+    ].filter(Boolean);
+    return said.length ? `${said.join('. ')}.` : '';
+  },
+  messageAfter: 'First message, days after they accept',
+  followUpAfter: 'Follow up after this many quiet days',
+  playbookSections: {
+    goal: 'Goal',
+    offer: 'The offer and its link',
+    audience: 'Who it’s for',
+    signs: 'Signs they fit',
+    skip: 'Who to skip',
+    area: 'Where they are',
+    groupWords: 'Words to search for groups',
+    steps: 'Steps it takes',
+    pace: 'How fast',
+    tone: 'How it sounds',
+    samples: 'Sample messages',
+    openers: 'How first messages open',
+    questions: 'The conversation',
+    avoid: 'Words to avoid',
+    disclaimer: 'Disclaimer',
+    tags: 'Tags',
+  },
+  offerLabel: 'What you offer',
+  linkLabel: 'Its link',
+  openerStyles: 'Styles the AI opens with',
+  ownOpeners: 'Your own openers, sent as written',
+  /** Someone changed the playbook since the phone loaded it: the section is put on the newer one. */
+  changedSince: 'Someone changed this playbook meanwhile. Your change went on top of theirs.',
+
+  // ---- Settings ----
+  settingsIntro:
+    'Everything the browser extension does is set here. It follows a change within a few seconds on every computer you’re signed in on.',
+  mySettings: 'My settings',
+  settingsFor: 'Settings for',
+  settingsOf: (name: string) => `Settings for ${name}`,
+  notSetYet: ' (not set yet)',
+  changedBy: (name: string) => `Changed by ${name}.`,
+  sections: {
+    onItsOwn: 'What it does on its own',
+    replies: 'Replies',
+    along: 'Along the way',
+    extension: 'The extension',
+    pushes: 'Your phone and the extension',
+    when: 'When',
+    allowed: 'What people may pick',
+    limits: 'Daily limits for each person',
+    defaults: 'Where a new person starts',
+    business: 'Business settings',
+    contacts: 'Who from Facebook chats goes in Contacts',
+    cancelAfter: 'Suggest cancelling friend requests after',
+    morning: 'Morning push',
+    weekly: 'Weekly report by email',
+  },
+  abouts: {
+    onItsOwn:
+      'It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook.',
+    repliesOff: 'Replies go out only while it writes messages: pick what it does on its own first.',
+    replies:
+      'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.',
+    extension:
+      'What it does while you use Facebook yourself, on every computer you’re signed in on.',
+    pushes: 'How you hear about messages and steps waiting for you.',
+    pushesAlways: 'A reply handed over to you always comes at once.',
+    when: (timeZone: string) =>
+      `On your business’s clock (${timeZone}), at random times spread over the hours.`,
+    allowed:
+      'Doing everything themselves, and every reply waiting, are always allowed. Someone whose choice you stop allowing steps back to the nearest one you do.',
+    limits:
+      'Up to the starting limits, which keep a Facebook account safe. Halved for a week after a warning, and on training wheels.',
+    defaults: 'Until they save their own.',
+    contacts:
+      'Each chat brought in from Facebook is read for a summary and your playbooks’ tags, and shows on the Chats tab. This says who also goes in Contacts.',
+    cancelAfter:
+      'Requests nobody has answered by then show under Tidy up on the Friends tab, for you to tick.',
+    morning:
+      'Each person who used the extension lately hears how many are on their list for today, in your business’s time zone.',
+    weekly:
+      'Each person who used the extension that week gets their friend requests, replies and demos, their best group and their best opener, on Monday at the morning push’s hour (8 AM when that’s off).',
+    notOwner:
+      'An owner or admin of this business sets the choices you may pick and your daily limits.',
+  },
+  ticks: {
+    warmUp: [
+      'Like one of their posts a day before each friend request',
+      'Facebook trusts a request more after a like.',
+    ],
+    confirmRequests: [
+      'Confirm friend requests from people who fit a playbook',
+      'The rest wait for you.',
+    ],
+    collect: [
+      'Once a day, first: check friend requests, save group members, find posts and read my chats',
+      'These fill the list it works from.',
+    ],
+    noting: [
+      'Note my steps on Facebook',
+      'Friend requests, likes, comments and messages you send yourself count toward your day.',
+    ],
+    readChats: [
+      'Read chats as I open them',
+      'A chat you open in Messenger goes to the AI to read, for the Chats tab.',
+    ],
+    markPosts: [
+      'Look for posts as I scroll a group',
+      'Posts worth a comment go on your list for today.',
+    ],
+  } as const,
+  notAllowed: (choices: readonly string[]) =>
+    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that under Business settings.`,
+  from: 'From',
+  to: 'to',
+  usual: 'The usual choice.',
+  weeks: (n: number) => (n === 1 ? '1 week' : `${n} weeks`),
+  off: 'Off',
+  save: 'Save',
+  savedFollows: 'Saved. The extension follows it in a few seconds.',
+} as const;
+
+/** A customer Add to Contacts offers first, from `outreach.lookup`'s `sameName`. */
+export interface SameNamePerson {
+  readonly personId: string;
+  readonly name: string;
+  readonly detail: string;
+}
+
+/**
+ * The customers in Contacts with someone's name, to offer before Add to Contacts makes a second (the web's and the
+ * phone's person menu). For someone kept as a profile, only those not saved with a Facebook profile yet: one who is has
+ * a profile of their own, so is someone else.
+ */
+export function sameNamePeople(
+  found: {
+    readonly sameName: readonly {
+      readonly people: readonly (Parameters<typeof OUTREACH_WORDS.person.sameDetail>[0] & {
+        readonly personId: string;
+        readonly name: string;
+        readonly hasProfile: boolean;
+      })[];
+    }[];
+  },
+  { withoutProfile }: { readonly withoutProfile: boolean },
+): SameNamePerson[] {
+  return (found.sameName[0]?.people ?? [])
+    .filter((p) => !withoutProfile || !p.hasProfile)
+    .map((p) => ({
+      personId: p.personId,
+      name: p.name,
+      detail: OUTREACH_WORDS.person.sameDetail(p),
+    }));
+}

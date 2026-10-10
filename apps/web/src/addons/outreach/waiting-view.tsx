@@ -31,6 +31,7 @@ import {
   type NeedClear,
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { Check, CheckCheck, Copy, ExternalLink, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -92,30 +93,21 @@ export function WaitingView({ workspaceId, waiting }: { workspaceId: string; wai
           ))
         ) : (
           <Card className="p-0">
-            <EmptyState title="Nothing waits for you">
-              When the extension writes a message for your OK, hands you a reply, or can’t do a
-              step, it shows here, and on its icon on your computer.
-            </EmptyState>
+            <EmptyState title={W.emptyTitle}>{W.emptyBody}</EmptyState>
           </Card>
         )}
       </div>
       <div className="space-y-4">
         <Card className="p-4">
-          <h3 className="text-[15px] font-semibold">How you hear of it</h3>
-          <p className="mt-1.5 text-[13px] text-text-2">
-            {waiting.pushes === 'each'
-              ? 'Your phone and the extension tell you of each new message and step as it comes.'
-              : 'Your phone and the extension tell you of new messages and steps in one go, at most every 2 hours in your working hours.'}{' '}
-            A reply handed over to you comes at once. Friend requests don’t: Facebook tells you of
-            those.
-          </p>
+          <h3 className="text-[15px] font-semibold">{W.hearTitle}</h3>
+          <p className="mt-1.5 text-[13px] text-text-2">{W.hearOfIt(waiting.pushes)}</p>
           <p className="mt-2 text-[13px]">
             <Link
               className="font-medium text-accent-text underline-offset-2 hover:underline"
               href={outreachHref(workspaceId, { view: 'settings' })}
               data-testid="waiting-settings"
             >
-              Change it in Settings
+              {W.changeInSettings}
             </Link>
           </p>
         </Card>
@@ -150,9 +142,7 @@ function Group({
         </p>
       ) : null}
       {kind === 'reply' ? (
-        <p className="px-5 pt-1.5 text-[12.5px] text-text-2">
-          They need you, so each waits for an OK of its own: Approve all leaves them.
-        </p>
+        <p className="px-5 pt-1.5 text-[12.5px] text-text-2">{W.repliesNote}</p>
       ) : null}
       <ul className="mt-2">
         {items.map((item) => (
@@ -216,16 +206,15 @@ function ApproveAll({ workspaceId, waiting }: { workspaceId: string; waiting: Wa
       size="sm"
       disabled={busy !== null}
       onClick={() =>
-        void act(
-          'all',
-          async () =>
-            unwrap(
-              await apiBrowser().POST('/v1/commands/outreach.send.approve', {
-                body: { workspaceId },
-              }),
-            ),
-          'OK’d. The extension sends them in Messenger, at a person’s pace.',
-        )
+        void act('all', async () => {
+          // The number the server OK'd: more may have come in since the page loaded.
+          const out = unwrap(
+            await apiBrowser().POST('/v1/commands/outreach.send.approve', {
+              body: { workspaceId },
+            }),
+          );
+          toast.success(W.okdAll(out.approved.length));
+        })
       }
       data-testid="waiting-approve-all"
     >
@@ -253,7 +242,7 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
         ) : (
           <span className="text-[14px] font-medium">{send.name}</span>
         )}
-        {item.kind === 'reply' ? <Badge variant="pending">Handed over</Badge> : null}
+        {item.kind === 'reply' ? <Badge variant="pending">{W.handedOver}</Badge> : null}
         <PersonMenu workspaceId={workspaceId} who={send} />
       </div>
       <Drafted workspaceId={workspaceId} name={send.name} send={send} />
@@ -317,10 +306,10 @@ function NeedRow({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void copyText(need.text ?? '', 'Copied. Paste it into Messenger.')}
+            onClick={() => void copyText(need.text ?? '', W.copied)}
           >
             <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Copy
+            {W.copy}
           </Button>
         </div>
       ) : null}
@@ -333,7 +322,7 @@ function NeedRow({
             className={buttonClassName({ variant: 'ghost', size: 'sm' })}
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {messenger ? 'Open in Messenger' : 'Open on Facebook'}
+            {messenger ? W.openInMessenger : W.openOnFacebook}
           </a>
         ) : null}
         <Button
@@ -384,8 +373,7 @@ function RequestRow({
           {request.name}
         </a>
         <span className="text-[12.5px] text-text-3">
-          Asked {when(request.since, timeZone)}
-          {request.mutualFriends ? ` · ${request.mutualFriends.toLocaleString()} mutual` : ''}
+          {W.asked(when(request.since, timeZone), request.mutualFriends)}
         </span>
         <PersonMenu workspaceId={workspaceId} who={request} />
       </div>
@@ -400,7 +388,7 @@ function RequestRow({
           className={buttonClassName({ variant: 'ghost', size: 'sm' })}
         >
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Open on Facebook
+          {W.openOnFacebook}
         </a>
         <Button
           variant="ghost"
@@ -415,13 +403,13 @@ function RequestRow({
                     body: { workspaceId, profileId: request.profileId },
                   }),
                 ),
-              `Left. ${request.name} is off this list until they ask again.`,
+              W.left(request.name),
             )
           }
           data-testid="waiting-request-leave"
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Leave it
+          {W.leaveIt}
         </Button>
       </div>
     </div>

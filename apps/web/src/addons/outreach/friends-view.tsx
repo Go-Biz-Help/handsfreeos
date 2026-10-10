@@ -8,7 +8,12 @@
  * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in from
  * the side (./download-card.tsx), adds since when they've been friends and the latest message.
  */
-import { ASK_TIDY_MOST, askOpen, TIDY_PACE_WORDS } from '@hfos/core/addons/outreach/asks';
+import {
+  ASK_TIDY_MOST,
+  ASK_WORDS,
+  askOpen,
+  TIDY_PACE_WORDS,
+} from '@hfos/core/addons/outreach/asks';
 import { FIT_LEVELS, type FitLevel } from '@hfos/core/addons/outreach/fit';
 import {
   DONT_PITCH_TAG,
@@ -240,10 +245,8 @@ export function FriendsView({
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="friends-asks">
-        <h3 className="text-[15px] font-semibold">From Facebook</h3>
-        <p className="mt-0.5 text-[12.5px] text-text-3">
-          Your computer opens Facebook in a window of its own and saves what it reads here.
-        </p>
+        <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
+        <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
         <ComputerNote asks={asks} className="mt-3" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <AskButton

@@ -20,6 +20,7 @@ import {
   rateWords,
   type OpenerResult,
 } from '@hfos/core/addons/outreach/openers';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -53,16 +54,14 @@ export function PlaybooksView({
         <h2 className="text-lg font-semibold tracking-tight">Playbooks</h2>
         {canManage ? (
           <Button onClick={() => setChoosing(true)} data-testid="playbook-new">
-            New playbook
+            {W.newPlaybook}
           </Button>
         ) : null}
       </div>
       {inUse.length === 0 ? (
         <Card className="p-6 text-center text-[13.5px] text-text-2">
-          No playbooks yet.{' '}
-          {canManage
-            ? 'Start one from the CRM-demo template, or a blank one.'
-            : 'An owner or admin writes them.'}
+          {W.playbooksEmpty}{' '}
+          {canManage ? 'Start one from the CRM-demo template, or a blank one.' : W.readOnly}
         </Card>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -75,7 +74,7 @@ export function PlaybooksView({
       {archived.length ? (
         <details className="mt-6">
           <summary className="cursor-pointer text-[13.5px] text-text-2">
-            Archived ({archived.length})
+            {W.archived} ({archived.length})
           </summary>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {archived.map((p) => (
@@ -118,7 +117,7 @@ function PlaybookCard({
             body: { workspaceId, playbookId: p.id, archived },
           }),
         ),
-      archived ? `${p.name} is archived.` : `${p.name} is back.`,
+      archived ? W.archivedDone : W.backDone,
     );
   return (
     <Card className="p-5" data-testid={`playbook-${p.name}`}>
@@ -158,7 +157,7 @@ function PlaybookCard({
               disabled={busy !== null}
               onClick={() => void archive(false)}
             >
-              Bring it back
+              {W.bringBack}
             </button>
           ) : (
             <>
@@ -175,7 +174,7 @@ function PlaybookCard({
                 disabled={busy !== null}
                 onClick={() => void archive(true)}
               >
-                Archive
+                {W.archive}
               </button>
             </>
           )}
@@ -266,7 +265,7 @@ function TemplateDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        title="New playbook"
+        title={W.newPlaybook}
         description="Start from a template and make it yours, or start blank. It asks you a step at a time."
         className="w-[min(520px,calc(100vw-32px))]"
       >

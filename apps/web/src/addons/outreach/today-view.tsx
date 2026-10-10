@@ -37,6 +37,7 @@ import {
   oneByOneWords,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { CalendarCheck, Check, CheckCheck, Copy, Loader2, Send, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -93,14 +94,13 @@ export function TodayView({
   ).length;
   const approving = useAct();
   const approveAll = () =>
-    approving.act(
-      'all',
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
-        ),
-      'OK’d. The extension sends them in Messenger, at a person’s pace.',
-    );
+    approving.act('all', async () => {
+      // The number the server OK'd: Today lists only today's, and more may have come in since.
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
+      );
+      toast.success(W.okdAll(out.approved.length));
+    });
   const limits = [
     ['friend_request', today.limits.friend_request],
     ['first_message', today.limits.first_message],
@@ -131,7 +131,7 @@ export function TodayView({
         {today.items.length ? (
           <Card className="p-0" data-testid="today-list">
             <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
-              <h3 className="text-[15px] font-semibold">Your list for today</h3>
+              <h3 className="text-[15px] font-semibold">{W.listTitle}</h3>
               {waiting > 1 ? (
                 <Button
                   size="sm"
@@ -162,24 +162,18 @@ export function TodayView({
           </Card>
         ) : (
           <Card data-testid="today-empty">
-            <EmptyState title="Nothing on your list yet">
-              On the Groups tab, Save my groups and Save members of my best groups, and Find posts;
-              on the Chats tab, Read my chats. People who fit your playbooks, new friends to say hi
-              to, chats to follow up and posts worth a comment show here.
-            </EmptyState>
+            <EmptyState title={W.todayEmptyTitle}>{W.todayEmptyBody}</EmptyState>
           </Card>
         )}
       </div>
       <aside className="space-y-4">
         <Card className="p-4" data-testid="today-limits">
-          <h3 className="text-[15px] font-semibold">Today so far</h3>
+          <h3 className="text-[15px] font-semibold">{W.todaySoFar}</h3>
           <ul className="mt-2 space-y-1 text-[13px]">
             {limits.map(([step, { done, most }]) => (
               <li key={step} className="flex justify-between gap-3">
                 <span className="text-text-2">{DAILY_WORDS[step].label}</span>
-                <span className="tabular-nums">
-                  {done.toLocaleString()} of {most.toLocaleString()}
-                </span>
+                <span className="tabular-nums">{W.countOf(done, most)}</span>
               </li>
             ))}
           </ul>
@@ -273,7 +267,7 @@ function TodayRow({
         <span className="flex items-center gap-1.5">
           {auto ? (
             <Badge variant="ok" data-testid="today-auto">
-              Done on its own
+              {W.doneOnItsOwn}
             </Badge>
           ) : null}
           <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
@@ -330,7 +324,7 @@ export function Drafted({
   if (send.state === 'approved')
     return (
       <div className="mt-2" data-testid="today-send-approved">
-        <p className="text-[12.5px] text-text-3">OK’d: the extension sends it soon.</p>
+        <p className="text-[12.5px] text-text-3">{W.sentOkd}</p>
         <p className="mt-1 whitespace-pre-wrap rounded-md bg-card-2 px-3 py-2 text-[13px]">
           {send.text}
         </p>
@@ -339,9 +333,7 @@ export function Drafted({
   const alone = oneByOneWords(send);
   return (
     <div className="mt-2 space-y-1.5" data-testid="today-send">
-      <p className="text-[12.5px] text-text-3">
-        I’d send this. Change it if you like; your changes teach the AI.
-      </p>
+      <p className="text-[12.5px] text-text-3">{W.sentWaiting}</p>
       {alone ? (
         <p className="text-[12.5px] text-warning-text" data-testid="today-send-alone">
           {alone}
@@ -366,7 +358,7 @@ export function Drafted({
                     body: { workspaceId, sends: [{ sendId: send.sendId, text }] },
                   }),
                 ),
-              'OK’d. The extension sends it in Messenger.',
+              W.okd,
             )
           }
           data-testid="today-send-ok"
@@ -405,7 +397,7 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
   const { busy, act } = useAct();
   return (
     <Card className="p-4" data-testid="today-wheels-team">
-      <h3 className="text-[15px] font-semibold">On training wheels</h3>
+      <h3 className="text-[15px] font-semibold">{W.wheelsTitle}</h3>
       <p className="mt-1.5 text-[13px] text-text-2">
         Their messages wait for their OK and their daily limits are half, for 7 days and 25 messages
         OK’d. End them early for someone you trust.
@@ -435,13 +427,13 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
                         body: { workspaceId, userId: p.userId },
                       }),
                     ),
-                  `Training wheels ended for ${p.name}.`,
+                  W.wheelsEnded(p.name),
                 )
               }
               data-testid="today-wheels-end"
             >
               <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
-              End now
+              {W.endNow}
             </Button>
           </li>
         ))}
@@ -492,7 +484,7 @@ function Drafts({
             body: { workspaceId, postId },
           }),
         ),
-      'Put aside. It won’t be suggested again.',
+      W.notForMeDone,
     );
   const ask = async () => {
     setBusy(true);
@@ -637,7 +629,7 @@ function Drafts({
           data-testid="today-skip"
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Not for me
+          {W.notForMe}
         </Button>
       ) : null}
     </div>

@@ -12,7 +12,7 @@
  *   half an hour, then stops.
  * - **A Facebook warning that day** refuses every ask but bringing in the file from the downloads.
  *
- * Browser-safe: the web, the extension, the worker and later the phone read these words and shapes.
+ * Browser-safe: the web, the phone, the extension and the worker read these words and shapes.
  */
 import { z } from 'zod';
 import { clipLine, isOffline, offlineWords } from './live';
@@ -582,3 +582,93 @@ export function askStuckPushWords(
 
 /** The runner's line while an ask goes first. */
 export const ASK_FIRST_WORDS = 'Doing what you asked from HandsFreeOS first. It carries on after.';
+
+// ------------------------------------------------------------------------------------------------- the buttons' words
+
+/** Each state's badge colour, the same on the web and the phone. */
+export const ASK_TONES: Record<AskShownState, 'accent' | 'ok' | 'pending' | 'danger' | 'gray'> = {
+  waiting: 'accent',
+  working: 'ok',
+  stuck: 'pending',
+  typing: 'pending',
+  done: 'ok',
+  failed: 'danger',
+  lost: 'danger',
+  cancelled: 'gray',
+  expired: 'gray',
+};
+
+/** The buttons and the lines under them, the same on the web and the phone. */
+export const ASK_WORDS = {
+  fromFacebook: 'From Facebook',
+  fromFacebookNote:
+    'Your computer opens Facebook in a window of its own and saves what it reads here.',
+  saveGroups: 'Save my groups',
+  findGroups: 'Find groups',
+  searchFor: 'Words to search for',
+  saveMembers: 'Save members of my best groups',
+  findPosts: 'Find posts',
+  saveItsMembers: 'Save its members',
+  readChats: 'Read my chats',
+  askedTitle: 'Asked of your computer',
+  askedNone:
+    'Nothing asked today. Buttons like Save my groups and Read my chats ask your computer to do things on Facebook for you.',
+  onIt: 'Your computer is on it. Stop it below to ask again.',
+  stop: 'Stop',
+  stopped: ASK_STOPPED_LINE,
+  youSaid: (reply: AskReply) => `You said ${ASK_REPLIES[reply]}.`,
+} as const;
+
+export const NO_COMPUTER_ASK_WORDS =
+  'Install HandsFreeOS Social in Chrome on your computer and sign in, and these buttons work.';
+export const WARNED_ASK_WORDS =
+  'Facebook warned you today, so your computer does nothing more on Facebook until tomorrow.';
+
+/** Why a button can't ask now, in words: null when it can. */
+export function cantAskWhy(
+  asks: Pick<AsksOutput, 'computer' | 'warnedToday'>,
+  kind: AskKind,
+): string | null {
+  if (!asks.computer) return NO_COMPUTER_ASK_WORDS;
+  if (asks.warnedToday && onFacebook(kind)) return WARNED_ASK_WORDS;
+  return null;
+}
+
+/** Why the buttons wait, once for a tab: no computer, it's signed out or offline, or Facebook warned them today. */
+export function computerNoteWords(
+  asks: Pick<AsksOutput, 'computer' | 'warnedToday' | 'timezone' | 'now'>,
+): string | null {
+  const c = asks.computer;
+  if (!c) return NO_COMPUTER_ASK_WORDS;
+  if (asks.warnedToday) return `${WARNED_ASK_WORDS} Bringing in your file still works.`;
+  if (c.signedOut || !c.online) return askWaitingWords(c, asks.timezone, Date.parse(asks.now));
+  return null;
+}
+
+/** What a press says once HandsFreeOS has it: asked, and when the computer does it; or that one like it is open. */
+export function askedWords(
+  made: { readonly fresh: boolean; readonly ask: { readonly kind: AskKind } },
+  asks: Pick<AsksOutput, 'computer' | 'timezone'>,
+  now: number,
+): string {
+  return made.fresh
+    ? `Asked. ${askWaitingWords(asks.computer, asks.timezone, now)}`
+    : askAgainWords(made.ask.kind);
+}
+
+/** What a button's ask is about, worked out as `outreach.ask.make` does, so it finds its own ask: '' when it can't be. */
+export function targetOf(ask: AskInput): string {
+  const parsed = AskInput.safeParse(ask);
+  return parsed.success ? askTarget(parsed.data) : '';
+}
+
+/** The newest ask of a kind (and about the same thing, when given): `outreach.asks` lists them newest first. */
+export function latestAsk<A extends { readonly kind: AskKind; readonly target: string }>(
+  asks: { readonly asks: readonly A[] } | null,
+  kind: AskKind,
+  target?: string,
+): A | null {
+  return (
+    asks?.asks.find((a) => a.kind === kind && (target === undefined || a.target === target)) ?? null
+  );
+}

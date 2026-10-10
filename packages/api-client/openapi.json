@@ -78928,7 +78928,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires outreach.use. Emits outreach.post.skipped.",
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.post.skipped. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -80092,7 +80092,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -80126,6 +80126,10 @@
                         "sendId"
                       ]
                     }
+                  },
+                  "partial": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -80214,7 +80218,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires outreach.use. Emits outreach.send.skipped.",
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.send.skipped. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {

@@ -640,6 +640,9 @@ export const sends = addonOutreach.table(
     handedOver: boolean('handed_over').notNull().default(false),
     /** Why a reply needs the person (`replyNeedsYou`): it waits for an OK of its own too. */
     needsYou: text('needs_you'),
+    /** Who it's to and their profile's link, kept by triggers from `profiles` for phones (20261027001800). */
+    name: text('name'),
+    profileUrl: text('profile_url'),
     approvedAt: ts('approved_at'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),

@@ -6,6 +6,7 @@ import {
   outreachSettings,
   type ContactsFromChats,
 } from '@hfos/core/addons/outreach/chat-read';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,7 +36,7 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
     return (
       <p className="text-[13px] text-text-2">
         Who from your Facebook chats goes in Contacts: {CONTACTS_FROM_CHATS_WORDS[saved]}. Friend
-        requests are suggested for cancelling after {weeksWords(now.cancelRequestsAfterWeeks)}. The
+        requests are suggested for cancelling after {W.weeks(now.cancelRequestsAfterWeeks)}. The
         morning push{' '}
         {now.morningPushHour === null ? 'is off' : `comes at ${hourWords(now.morningPushHour)}`},
         and the weekly report {now.weeklyReport ? 'comes by email on Mondays' : 'is off'}. An owner
@@ -45,11 +46,8 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
   return (
     <div className="space-y-3" data-testid="outreach-settings">
       <div>
-        <h3 className="text-[14px] font-semibold">Who from Facebook chats goes in Contacts</h3>
-        <p className="text-[13px] text-text-2">
-          Each chat brought in from Facebook is read for a summary and your playbooks’ tags, and
-          shows on the Chats tab. This says who also goes in Contacts.
-        </p>
+        <h3 className="text-[14px] font-semibold">{W.sections.contacts}</h3>
+        <p className="text-[13px] text-text-2">{W.abouts.contacts}</p>
       </div>
       <div role="radiogroup" aria-label="Who goes in Contacts" className="flex flex-col gap-2">
         {CONTACTS_FROM_CHATS.map((k) => (
@@ -58,17 +56,14 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
             selected={pick === k}
             onSelect={() => setPick(k)}
             title={CONTACTS_FROM_CHATS_WORDS[k]}
-            description={k === 'tagged' ? 'The usual choice.' : undefined}
+            description={k === 'tagged' ? W.usual : undefined}
             testId={`outreach-contacts-${k}`}
           />
         ))}
       </div>
       <label className="block">
-        <span className="text-[14px] font-semibold">Suggest cancelling friend requests after</span>
-        <span className="block text-[13px] text-text-2">
-          Requests nobody has answered by then show under Tidy up on the Friends tab, for you to
-          tick.
-        </span>
+        <span className="text-[14px] font-semibold">{W.sections.cancelAfter}</span>
+        <span className="block text-[13px] text-text-2">{W.abouts.cancelAfter}</span>
         <select
           className="mt-1.5 h-8 rounded-control border border-border-strong bg-card px-2 text-[13px]"
           value={weeks}
@@ -77,17 +72,14 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
         >
           {WEEKS.map((w) => (
             <option key={w} value={w}>
-              {weeksWords(w)}
+              {W.weeks(w)}
             </option>
           ))}
         </select>
       </label>
       <label className="block">
-        <span className="text-[14px] font-semibold">Morning push</span>
-        <span className="block text-[13px] text-text-2">
-          Each person who used the extension lately hears how many are on their list for today, in
-          your business’s time zone. Replies the extension spots are pushed as they come.
-        </span>
+        <span className="text-[14px] font-semibold">{W.sections.morning}</span>
+        <span className="block text-[13px] text-text-2">{W.abouts.morning}</span>
         <select
           className="mt-1.5 h-8 rounded-control border border-border-strong bg-card px-2 text-[13px]"
           value={hour === null ? 'off' : String(hour)}
@@ -102,21 +94,17 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
                 {hourWords(h)}
               </option>
             ))}
-          <option value="off">Off</option>
+          <option value="off">{W.off}</option>
         </select>
       </label>
       <div>
         <Checkbox
-          label={<span className="text-[14px] font-semibold">Weekly report by email</span>}
+          label={<span className="text-[14px] font-semibold">{W.sections.weekly}</span>}
           checked={weekly}
           onChange={(e) => setWeekly(e.target.checked)}
           data-testid="outreach-weekly-report"
         />
-        <span className="mt-0.5 block pl-7 text-[13px] text-text-2">
-          Each person who used the extension that week gets their friend requests, replies and
-          demos, their best group and their best opener, on Monday at the morning push’s hour (8 AM
-          when that’s off).
-        </span>
+        <span className="mt-0.5 block pl-7 text-[13px] text-text-2">{W.abouts.weekly}</span>
       </div>
       <Button
         size="sm"
@@ -138,15 +126,13 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
                 morningPushHour: hour,
                 weeklyReport: weekly,
               }),
-            'Saved.',
+            W.saved,
           )
         }
         data-testid="outreach-settings-save"
       >
-        Save
+        {W.save}
       </Button>
     </div>
   );
 }
-
-const weeksWords = (weeks: number) => (weeks === 1 ? '1 week' : `${weeks} weeks`);

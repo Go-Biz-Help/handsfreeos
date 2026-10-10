@@ -23,6 +23,7 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -36,6 +37,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskLine } from './asks';
+import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import type { Asks, Live, LiveTeam } from './types';
 import { useAct } from './use-act';
 
@@ -155,16 +157,12 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
             ? await apiBrowser().POST('/v1/commands/outreach.day.start', { body: { workspaceId } })
             : await apiBrowser().POST('/v1/commands/outreach.day.stop', { body: { workspaceId } }),
         ),
-      kind === 'stop'
-        ? 'Stopped for today.'
-        : offline || !computer
-          ? 'Your day has started. Your computer begins as soon as Chrome is open.'
-          : 'Your day has started. Your computer starts within seconds.',
+      kind === 'stop' ? W.stopped : W.started(!offline && computer !== null),
     );
   return (
     <Card className="p-4" data-testid="live-now">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[15px] font-semibold">Right now</h3>
+        <h3 className="text-[15px] font-semibold">{W.rightNow}</h3>
         <StateChip state={state} testId="live-state" />
       </div>
       {computer ? (
@@ -176,16 +174,16 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           ) : null}
           {status?.nextAt && state === 'waiting' ? (
             <p className="mt-1 text-[13px] text-text-2" data-testid="live-next">
-              Next step: {seenWords(status.nextAt, tz, now)}
+              {W.nextStep(seenWords(status.nextAt, tz, now))}
             </p>
           ) : null}
           <p className="mt-1 text-[12.5px] text-text-3" data-testid="live-computer">
-            On {computer.name} · seen {seenWords(computer.lastSeenAt, tz, now)}
+            {W.onComputer(computer.name, seenWords(computer.lastSeenAt, tz, now))}
           </p>
         </>
       ) : (
         <p className="mt-2 text-[13px] text-text-2" data-testid="live-no-computer">
-          Install the extension and sign in on your computer, and you’ll see here what it’s doing.
+          {W.noComputer}
         </p>
       )}
       {offline && computer ? (
@@ -195,7 +193,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           className="mt-3 rounded-menu bg-warning-soft p-2.5 text-[12.5px] text-warning-text"
         >
           {offlineWords(computer.lastSeenAt, tz, now)}
-          {open ? ` ${open.name} is open: open the panel there to work from it.` : null}
+          {open ? ` ${W.otherOpen(open.name)}` : null}
         </p>
       ) : null}
       {live.warning ? (
@@ -212,20 +210,20 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           className="mt-3 rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
           data-testid="live-sending-off"
         >
-          The extension doesn’t work on its own for you: you do everything.{' '}
+          {W.sendingOffNote}{' '}
           {live.canSend ? (
             <>
-              Change that in{' '}
+              {W.changeThatIn}{' '}
               <Link
                 className="font-medium text-accent-text underline-offset-2 hover:underline"
                 href={outreachHref(workspaceId, { view: 'settings' })}
               >
-                Settings
+                {W.rows.settings}
               </Link>
               .
             </>
           ) : (
-            'Ask an owner of this business if you’d like it to.'
+            W.askToSend
           )}
         </p>
       ) : null}
@@ -236,7 +234,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           disabled={busy !== null || sendingOff || started || live.day.why === 'warning'}
           data-testid="live-start"
         >
-          Start my day
+          {W.startDay}
         </Button>
         <Button
           variant="secondary"
@@ -245,7 +243,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           disabled={busy !== null || stopped}
           data-testid="live-stop"
         >
-          Stop for today
+          {W.stopDay}
         </Button>
       </div>
       {said ? (
@@ -261,7 +259,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
 function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
   return (
     <Card className="p-4" data-testid="live-asks">
-      <h3 className="text-[15px] font-semibold">Asked of your computer</h3>
+      <h3 className="text-[15px] font-semibold">{ASK_WORDS.askedTitle}</h3>
       {asks.asks.length ? (
         <ul className="mt-3 grid gap-2">
           {asks.asks.map((a) => (
@@ -272,8 +270,7 @@ function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
         </ul>
       ) : (
         <p className="mt-2 text-[13px] text-text-2" data-testid="live-asks-empty">
-          Nothing asked today. The buttons on the Friends, Groups, Chats and Today tabs ask your
-          computer to do things on Facebook for you.
+          {ASK_WORDS.askedNone}
         </p>
       )}
     </Card>
@@ -283,7 +280,7 @@ function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
 function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) {
   return (
     <Card className="p-4" data-testid="live-counts">
-      <h3 className="text-[15px] font-semibold">Today so far</h3>
+      <h3 className="text-[15px] font-semibold">{W.todaySoFar}</h3>
       <ul className="mt-3 space-y-1.5">
         {DAILY_STEPS.map((step) => {
           const { done, most } = live.limits[step];
@@ -301,7 +298,7 @@ function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) 
                   full ? 'font-semibold text-warning-text' : 'text-text-2',
                 )}
               >
-                {done} of {most}
+                {W.countOf(done, most)}
               </span>
             </li>
           );
@@ -313,7 +310,7 @@ function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) 
             className="font-medium text-accent-text underline-offset-2 hover:underline"
             href={outreachHref(workspaceId, { view: 'waiting' })}
           >
-            Waiting for you: {live.waiting.toLocaleString()}
+            {W.waitingLink(live.waiting)}
           </Link>
         </p>
       ) : null}
@@ -324,7 +321,7 @@ function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) 
 function StepsCard({ live }: { live: Live }) {
   return (
     <Card className="p-4" data-testid="live-steps">
-      <h3 className="text-[15px] font-semibold">Today’s steps</h3>
+      <h3 className="text-[15px] font-semibold">{W.todaySteps}</h3>
       {live.steps.length ? (
         <ol className="mt-3 space-y-1.5">
           {live.steps.map((step, i) => (
@@ -344,7 +341,7 @@ function StepsCard({ live }: { live: Live }) {
           ))}
         </ol>
       ) : (
-        <p className="mt-2 text-[13px] text-text-2">Nothing yet today.</p>
+        <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
       )}
     </Card>
   );
@@ -411,10 +408,10 @@ function ComputersCard({
                   <div className="truncate text-[13.5px] font-medium">{c.name}</div>
                   <div className="text-[12px] text-text-3">
                     {c.state === 'signed_out'
-                      ? 'Signed out'
+                      ? W.computerStates.signedOut
                       : c.working
-                        ? 'Working for you'
-                        : 'Standing by'}{' '}
+                        ? W.computerStates.working
+                        : W.computerStates.standingBy}{' '}
                     · seen {seenWords(c.lastSeenAt, live.timezone, now)}
                   </div>
                 </div>
@@ -440,7 +437,7 @@ function ComputersCard({
 function TeamCard({ team, now }: { team: LiveTeam; now: number }) {
   return (
     <Card className="p-4" data-testid="live-team">
-      <h3 className="text-[15px] font-semibold">Your team</h3>
+      <h3 className="text-[15px] font-semibold">{W.team}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
         How each person’s extension is doing today. What it says and who it reaches stay theirs.
       </p>
@@ -474,16 +471,17 @@ function TeamCard({ team, now }: { team: LiveTeam; now: number }) {
                     <td className="py-2 pr-3 font-medium">
                       {p.name}
                       {p.warned ? (
-                        <span className="ml-1.5 text-[12px] text-danger-text">Warned</span>
+                        <span className="ml-1.5 text-[12px] text-danger-text">{W.warned}</span>
                       ) : null}
                     </td>
                     <td className="py-2 pr-3">
                       <StateChip state={state} />
                     </td>
                     <td className="py-2 pr-3 text-text-2">
-                      {p.computer
-                        ? `${p.computer.name} · ${seenWords(p.computer.lastSeenAt, team.timezone, now)}`
-                        : 'None yet'}
+                      {W.teamComputer(
+                        p.computer?.name ?? null,
+                        p.computer ? seenWords(p.computer.lastSeenAt, team.timezone, now) : null,
+                      )}
                     </td>
                     <td className="py-2 pr-3 text-text-2">
                       {DAILY_STEPS.filter((s) => p.limits[s].most > 0)
@@ -500,7 +498,7 @@ function TeamCard({ team, now }: { team: LiveTeam; now: number }) {
           </table>
         </div>
       ) : (
-        <EmptyState title="Nobody uses Social Outreach yet" dashed className="mt-3" />
+        <EmptyState title={W.teamNoneTitle} dashed className="mt-3" />
       )}
     </Card>
   );

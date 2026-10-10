@@ -44,13 +44,15 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
 export const SENDS_MOST = 100;
 export const SEND_WHY_MOST = 300;
 
-const words = z
+/** A message's words, as the person OKs them: the phone checks a change with it before it waits there. */
+export const SendText = z
   .string()
   .trim()
   .min(1, { error: 'Write something to send.' })
   .max(MESSAGE_MOST, {
     error: `Keep a message under ${MESSAGE_MOST.toLocaleString()} characters.`,
   });
+const words = SendText;
 
 export const Send = z.object({
   sendId: z.uuid(),
@@ -98,6 +100,11 @@ export const SendApproveInput = z.object({
     .array(z.object({ sendId: z.uuid(), text: words.optional() }))
     .max(SENDS_MOST)
     .optional(),
+  /**
+   * OK those named that still wait and pass over the rest, rather than refusing: the phone's Approve all, made from
+   * what it showed, perhaps with no signal, while some were OK'd or skipped elsewhere meanwhile (decision 44).
+   */
+  partial: z.boolean().default(false),
 });
 export type SendApproveInput = z.input<typeof SendApproveInput>;
 export const SendApproveOutput = z.object({

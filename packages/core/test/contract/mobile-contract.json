@@ -106,6 +106,39 @@
         "required": ["workspaceId", "alertId"]
       }
     },
+    "addon.save_settings": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "addonId": {
+            "type": "string",
+            "pattern": "^[a-z]{2,16}$"
+          },
+          "settings": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "flags": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          }
+        },
+        "required": ["workspaceId", "addonId"]
+      }
+    },
     "ai_setup.finish": {
       "offline": "online",
       "input": {
@@ -6594,6 +6627,378 @@
         "required": ["businessName"]
       }
     },
+    "outreach.ask.cancel": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "askId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "askId"]
+      }
+    },
+    "outreach.ask.make": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ask": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "file_request"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "file_download"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "file_backup"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "file_in"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "requests"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "friends"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "groups"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "chats"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "group_search"
+                  },
+                  "words": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                  }
+                },
+                "required": ["kind", "words"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "members"
+                  },
+                  "groupIds": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "posts"
+                  },
+                  "groupIds": {
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "cancel"
+                  },
+                  "profileIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": ["kind", "profileIds"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "unfriend"
+                  },
+                  "profileIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": ["kind", "profileIds"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "lookup"
+                  },
+                  "draft": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["opener", "follow_up", "reply", "comment"]
+                      },
+                      "profileId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "chatId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "postId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["kind"]
+                  }
+                },
+                "required": ["kind", "draft"]
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "ask"]
+      }
+    },
+    "outreach.ask.reply": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "askId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reply": {
+            "type": "string",
+            "enum": ["carry_on", "skip"]
+          }
+        },
+        "required": ["workspaceId", "askId", "reply"]
+      }
+    },
+    "outreach.automation.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "settings": {
+            "type": "object",
+            "properties": {
+              "sending": {
+                "type": "string",
+                "enum": ["off", "steps", "approve_all", "everything"]
+              },
+              "replies": {
+                "default": "draft",
+                "type": "string",
+                "enum": ["draft", "simple", "everything"]
+              },
+              "warmUp": {
+                "type": "boolean"
+              },
+              "confirmRequests": {
+                "type": "boolean"
+              },
+              "collect": {
+                "default": true,
+                "type": "boolean"
+              },
+              "hours": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 23
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24
+                  },
+                  "days": {
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    }
+                  }
+                },
+                "required": ["start", "end", "days"]
+              },
+              "noting": {
+                "default": true,
+                "type": "boolean"
+              },
+              "readChats": {
+                "default": true,
+                "type": "boolean"
+              },
+              "markPosts": {
+                "default": true,
+                "type": "boolean"
+              },
+              "pushes": {
+                "default": "bundled",
+                "type": "string",
+                "enum": ["bundled", "each"]
+              }
+            },
+            "required": ["sending", "warmUp", "confirmRequests", "hours"]
+          }
+        },
+        "required": ["workspaceId", "settings"]
+      }
+    },
     "outreach.day.start": {
       "offline": "anytime",
       "input": {
@@ -6628,6 +7033,135 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.demo.mark": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook"]
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{1,30}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "username": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9.]{1,100}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+              }
+            },
+            "required": ["id", "username", "url"]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "booked": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "booked"]
+      }
+    },
+    "outreach.friend.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook"]
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{1,30}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "username": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9.]{1,100}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+              }
+            },
+            "required": ["id", "username", "url"]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "keep": {
+            "type": "boolean"
+          },
+          "dontPitch": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.need.clear": {
       "offline": "anytime",
       "input": {
@@ -6649,6 +7183,378 @@
         "required": ["workspaceId", "needId", "how"]
       }
     },
+    "outreach.playbook.archive": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playbookId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "playbookId", "archived"]
+      }
+    },
+    "outreach.playbook.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playbookId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["crm_demos"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "details": {
+            "type": "object",
+            "properties": {
+              "goal": {
+                "type": "string",
+                "enum": [
+                  "demo",
+                  "consult",
+                  "estimate",
+                  "appointment",
+                  "call",
+                  "sale",
+                  "recruit",
+                  "partner",
+                  "community"
+                ]
+              },
+              "offer": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "link": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "audience": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "signs": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "skip": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "area": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "platforms": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["facebook"]
+                }
+              },
+              "groupWords": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["connect", "engage", "message", "follow_up", "answer", "post"]
+                }
+              },
+              "pace": {
+                "type": "object",
+                "properties": {
+                  "messageAfterDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 14
+                  },
+                  "followUpAfterDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": ["messageAfterDays", "followUpAfterDays"]
+              },
+              "tone": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "samples": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              },
+              "openerStyles": {
+                "default": [],
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "ownOpeners": {
+                "default": [],
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 600
+                }
+              },
+              "questions": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^q[0-9]{1,3}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "answers": {
+                      "maxItems": 6,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "tag": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "next": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["continue", "offer", "later", "stop"]
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^q[0-9]{1,3}$"
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["label", "tag", "next"]
+                      }
+                    }
+                  },
+                  "required": ["id", "text", "answers"]
+                }
+              },
+              "avoid": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "disclaimer": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "tags": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                }
+              }
+            },
+            "required": [
+              "goal",
+              "offer",
+              "link",
+              "audience",
+              "signs",
+              "skip",
+              "area",
+              "platforms",
+              "groupWords",
+              "steps",
+              "pace",
+              "tone",
+              "samples",
+              "questions",
+              "avoid",
+              "disclaimer",
+              "tags"
+            ]
+          }
+        },
+        "required": ["workspaceId", "name", "details"]
+      }
+    },
+    "outreach.post.skip": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "outreach.profile.contact": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "profileId"]
+      }
+    },
     "outreach.request.set_aside": {
       "offline": "anytime",
       "input": {
@@ -6664,6 +7570,78 @@
           }
         },
         "required": ["workspaceId", "profileId"]
+      }
+    },
+    "outreach.send.approve": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sends": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sendId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": ["sendId"]
+            }
+          },
+          "partial": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.send.skip": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sendId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "sendId"]
+      }
+    },
+    "outreach.wheels.end": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "userId"]
       }
     },
     "payment_connection.connect": {
@@ -11522,6 +12500,22 @@
         "properties": {}
       }
     },
+    "addon.settings": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "addonId": {
+            "type": "string",
+            "pattern": "^[a-z]{2,16}$"
+          }
+        },
+        "required": ["workspaceId", "addonId"]
+      }
+    },
     "ai_setup.get": {
       "input": {
         "type": "object",
@@ -11894,6 +12888,283 @@
       }
     },
     "onboarding_setup.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.asks": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kinds": {
+            "maxItems": 14,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "file_request",
+                "file_download",
+                "file_backup",
+                "file_in",
+                "requests",
+                "friends",
+                "groups",
+                "group_search",
+                "members",
+                "posts",
+                "chats",
+                "cancel",
+                "unfriend",
+                "lookup"
+              ]
+            }
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.automation": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.automation.people": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.chats": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view": {
+            "default": "prospects",
+            "type": "string",
+            "enum": ["prospects", "tagged", "read", "waiting"]
+          },
+          "tag": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.groups": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook"]
+          },
+          "view": {
+            "default": "work",
+            "type": "string",
+            "enum": ["work", "maybe", "skip", "all"]
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.live": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.live.team": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.lookup": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook"]
+          },
+          "profiles": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{1,30}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "username": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9.]{1,100}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["id", "username"]
+            }
+          },
+          "threads": {
+            "default": [],
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,64}$"
+            }
+          },
+          "names": {
+            "default": [],
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.playbook.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.today": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.waiting": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.wheels": {
       "input": {
         "type": "object",
         "properties": {
