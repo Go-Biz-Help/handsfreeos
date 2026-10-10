@@ -4,7 +4,7 @@
  * download, as the AI read them: a short summary, the playbooks' tags that fit, whether they look like a prospect
  * and a next step. The likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag
  * and a name narrow it. Which, the tag, the name and the page are in the address (./address.ts), so the page asks
- * HandsFreeOS for them. Who goes in Contacts is the business's setting, on the Add-ons page.
+ * HandsFreeOS for them. Who goes in Contacts is the business's setting, in Social Outreach → Settings → Business settings.
  */
 import { ASK_WORDS, READ_CHATS_WORDS } from '@hfos/core/addons/outreach/asks';
 import {
@@ -187,13 +187,13 @@ export function ChatsView({
               the tags there too.{' '}
               {canManage ? (
                 <Link
-                  href={`/app/w/${workspaceId}/add-ons?addon=outreach`}
+                  href={outreachHref(workspaceId, { view: 'settings' })}
                   className="text-accent-text hover:underline"
                 >
-                  Change it in Add-ons
+                  {W.addonsPage.changeContacts}
                 </Link>
               ) : (
-                'An owner or admin can change this in Add-ons.'
+                W.addonsPage.contactsNotOwner
               )}
             </p>
           </Card>

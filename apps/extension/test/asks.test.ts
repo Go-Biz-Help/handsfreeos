@@ -340,17 +340,29 @@ describe('the jobs an ask does', () => {
     const end = await runAsk({ kind: 'groups' }, job);
     expect(opened).toEqual([YOUR_GROUPS]);
     expect(asked.filter((a) => a === 'hfos-scroll-page')).toHaveLength(2);
-    const saved = sent.filter((a) => a.type === 'hfos-save-groups');
+    const saved = sent.filter((a) => a.type === 'hfos-save-groups') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-groups' }
+    >[];
     expect(saved.length).toBeGreaterThan(0);
+    // From the person's own list, each is saved as one they're in: the setup's groups step lists those.
+    expect(saved.every((s) => s.input.groups.every((g) => g.joined === true))).toBe(true);
     expect(end.line).toMatch(
       /^Saved \d+ groups?\. The Groups tab says which fit your playbooks\.$/,
     );
 
     const search = fakeTab(() => 'groups-joined.html');
+    const before = sent.length;
     await runAsk(
       { kind: 'group_search', words: 'dog groomers austin' },
       jobWith(search.tab, hfos).job,
     );
+    // A search's groups may be any: whether they're in each is left unsaid.
+    const found = sent.slice(before).filter((a) => a.type === 'hfos-save-groups') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-groups' }
+    >[];
+    expect(found.flatMap((s) => s.input.groups).some((g) => 'joined' in g)).toBe(false);
     expect(search.opened).toEqual([groupSearch('dog groomers austin')]);
     expect(search.opened[0]).toBe(
       'https://www.facebook.com/search/groups/?q=dog%20groomers%20austin',

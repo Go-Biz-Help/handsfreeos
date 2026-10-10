@@ -22,7 +22,9 @@ const PACE_MS = [4_000, 9_000] as const;
 /** Opens the list (the person's groups, or a search's), reads it as it scrolls, and saves the groups on it. */
 export async function saveGroups(job: Job, words: string | null): Promise<JobEnd> {
   job.progress(words ? `Searching Facebook for “${words}”…` : 'Opening your groups…');
-  await job.tab.open(words ? groupSearch(words) : YOUR_GROUPS);
+  // On the person's own list each group is saved as one they're in (`isOwnGroupsPage`), so the setup counts it.
+  const opened = words ? groupSearch(words) : YOUR_GROUPS;
+  await job.tab.open(opened);
   const groups = new Map<string, GroupLink>();
   let page = await readIn(job.tab);
   for (let screen = 0; ; screen++) {
@@ -45,7 +47,7 @@ export async function saveGroups(job: Job, words: string | null): Promise<JobEnd
   const all = [...groups.values()];
   let saved = 0;
   for (let i = 0; i < all.length; i += GROUPS_SAVE_MOST) {
-    const built = groupsSave(all.slice(i, i + GROUPS_SAVE_MOST), job.businessId);
+    const built = groupsSave(all.slice(i, i + GROUPS_SAVE_MOST), job.businessId, opened);
     if (!built.ok) continue;
     saved += valueOf(await job.hfos({ type: 'hfos-save-groups', input: built.input })).saved;
   }

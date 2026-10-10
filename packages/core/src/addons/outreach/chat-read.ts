@@ -18,7 +18,7 @@ export type ChatReadState = (typeof CHAT_READ_STATES)[number];
 /** Who goes in Contacts once their chat is read (decision 3): everyone, the tagged, or only likely prospects. */
 export const CONTACTS_FROM_CHATS = ['everyone', 'tagged', 'prospects'] as const;
 export type ContactsFromChats = (typeof CONTACTS_FROM_CHATS)[number];
-/** The setting's choices, as the Add-ons page and the Chats tab say them. */
+/** The setting's choices, as Business settings and the Chats tab say them. */
 export const CONTACTS_FROM_CHATS_WORDS: Record<ContactsFromChats, string> = {
   everyone: 'Everyone whose chat is read',
   tagged: 'Anyone given one of your tags, or who looks like a prospect',
@@ -28,7 +28,11 @@ export const CONTACTS_FROM_CHATS_WORDS: Record<ContactsFromChats, string> = {
 /** The hour of the morning push to start, in the business's time zone (decision 22; ./alerts.ts). */
 export const MORNING_PUSH_HOUR = 8;
 
-/** Social Outreach's settings for a business (Add-ons → Social Outreach), checked on every save. */
+/** Refusing a link to the extension's zip that isn't a whole web address starting https://. */
+export const EXTENSION_LINK_WORDS =
+  'That isn’t a whole link starting https://. Paste the https link to the extension’s zip.';
+
+/** Social Outreach's settings for a business (Social Outreach → Settings → Business settings), checked on every save. */
 export const OutreachSettingsSchema = z.object({
   /** Who from the chats brought in goes in Contacts. The tagged, unless the business says otherwise. */
   contactsFromChats: z.enum(CONTACTS_FROM_CHATS).default('tagged'),
@@ -40,13 +44,51 @@ export const OutreachSettingsSchema = z.object({
   weeklyReport: z.boolean().default(true),
   /** What each person may pick for the extension, their daily limits and where a new person starts (./automation.ts). */
   rules: BusinessRules.default(NO_RULES),
+  /**
+   * Where the team downloads the extension's zip, a build loaded by hand (./setup.ts); null until an owner or admin
+   * gives it. Never a file in the repo: wherever the team keeps it. Checked on every save, so a link that isn't https,
+   * or has no real host, is refused with these words.
+   */
+  extensionLink: z
+    .url({ protocol: /^https$/, hostname: z.regexes.domain, error: EXTENSION_LINK_WORDS })
+    .max(500, { error: 'That link is too long. Give a shorter link to the extension’s zip.' })
+    .nullable()
+    .default(null),
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 
 /** The settings saved, or the defaults where they aren't. */
 export function outreachSettings(saved: unknown): OutreachSettings {
   const parsed = OutreachSettingsSchema.safeParse(saved ?? {});
-  return parsed.success ? parsed.data : OutreachSettingsSchema.parse({});
+  if (parsed.success) return parsed.data;
+  // A link that no longer passes reads as none, and leaves the business's other settings as saved.
+  if (saved && typeof saved === 'object' && 'extensionLink' in saved) {
+    const { extensionLink: _, ...rest } = saved as Record<string, unknown>;
+    const again = OutreachSettingsSchema.safeParse(rest);
+    if (again.success) return again.data;
+  }
+  return OutreachSettingsSchema.parse({});
+}
+
+/**
+ * The business's settings to save from a screen that changes some of them (the web's Settings tab and setup, the
+ * phone's Business settings): what's kept as `outreachSettings` reads it, so a stored link that stopped passing goes
+ * rather than refusing the whole save, with the screen's changes on top.
+ */
+export function settingsToSave(
+  saved: unknown,
+  changes: Partial<OutreachSettings>,
+): OutreachSettings {
+  return { ...outreachSettings(saved), ...changes };
+}
+
+/**
+ * Why a link to the extension's zip would be refused, in the save's own words, before it's sent (the web's and the
+ * phone's box); null when it passes, or when it's empty, which takes the link off.
+ */
+export function extensionLinkProblem(link: string): string | null {
+  const checked = OutreachSettingsSchema.shape.extensionLink.safeParse(link.trim() || null);
+  return checked.success ? null : (checked.error.issues[0]?.message ?? EXTENSION_LINK_WORDS);
 }
 
 /** Whether a chat, once read, puts the person in Contacts under the business's setting. */

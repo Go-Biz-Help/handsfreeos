@@ -20,6 +20,7 @@ import {
   askRepliesFor,
 } from '@hfos/core/addons/outreach/asks';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import {
   approveAllCount,
   approveAllWords,
@@ -297,7 +298,11 @@ function groupView(kind: WaitingKind, list: Waiting): Child[] {
   const items = list.items.filter((item) => item.kind === kind);
   const count = list.kinds[kind].count;
   if (!count) return [];
-  const web = kept ? `${config.webUrl}/app/w/${kept.businessId}/a/outreach` : null;
+  const businessId = kept?.businessId;
+  const web = businessId
+    ? (view: OutreachTab, more?: Record<string, string>) =>
+        `${config.webUrl}${outreachPath(businessId, view, more)}`
+    : null;
   // The same number as the web's: more may wait than are listed.
   const okAll = kind === 'message' ? approveAllCount(list.items, list.kinds.message.count) : 0;
   return [
@@ -331,14 +336,14 @@ function groupView(kind: WaitingKind, list: Waiting): Child[] {
           'p',
           { class: 'muted' },
           `${moreWords(kind, count - items.length)} `,
-          web ? hfosLink('See them all', `${web}?view=waiting`) : null,
+          web ? hfosLink('See them all', web('waiting')) : null,
         )
       : null,
     kind === 'request' && web
       ? h(
           'p',
           { class: 'muted' },
-          hfosLink('All your requests', `${web}?view=friends&show=requests`),
+          hfosLink('All your requests', web('friends', { show: 'requests' })),
         )
       : null,
   ];
@@ -359,7 +364,7 @@ function draw(): void {
         ? h(
             'span',
             { class: 'see-all' },
-            hfosLink('See all', `${config.webUrl}/app/w/${businessId}/a/outreach?view=waiting`),
+            hfosLink('See all', `${config.webUrl}${outreachPath(businessId, 'waiting')}`),
           )
         : null,
     ),

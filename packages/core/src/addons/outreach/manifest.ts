@@ -112,6 +112,7 @@ export const outreachAddon = defineAddon({
       'outreach.ask.replied',
       'outreach.ask.cancelled',
       'outreach.ask.ended',
+      'outreach.setup.saved',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
@@ -144,7 +145,7 @@ export const outreachAddon = defineAddon({
     'outreach.waiting_push',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
-  // morning push, and the weekly report: Add-ons → Social Outreach.
+  // morning push, and the weekly report: Social Outreach → Settings → Business settings.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
@@ -169,6 +170,7 @@ export const outreachAddon = defineAddon({
     'profiles',
     'replies',
     'sends',
+    'setup',
     'threads',
     'touches',
     'waiting_pushes',

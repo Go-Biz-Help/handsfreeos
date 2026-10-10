@@ -275,16 +275,32 @@ export function groupDetailFacts(detail: string | null): {
   };
 }
 
-/** The groups a page lists (yours, or search results), to save with how much the page said about each. */
+/** Facebook's pages of the groups the person is in: /groups/joins and /groups/your_groups. */
+const OWN_GROUPS_PAGES = new Set(['joins', 'your_groups']);
+
+/** Whether the page is Facebook's list of the groups the person is in, where every group listed is one of theirs. */
+export function isOwnGroupsPage(href: string): boolean {
+  const url = facebookUrl(href);
+  const parts = url ? pathParts(url).map((part) => part.toLowerCase()) : [];
+  return parts.length === 2 && parts[0] === 'groups' && OWN_GROUPS_PAGES.has(parts[1]!);
+}
+
+/**
+ * The groups a page lists (yours, or search results), to save with how much the page said about each. On the
+ * person's own list (`href`, `isOwnGroupsPage`) each is saved as one they're in, so HandsFreeOS counts it as theirs;
+ * anywhere else, whether they're in it is left unsaid.
+ */
 export function groupsSave(
   groups: readonly GroupLink[],
   workspaceId: string,
+  href = '',
 ): Built<GroupsSaveInput> {
+  const own = isOwnGroupsPage(href);
   const kept = groups.flatMap((link) => {
     const group = groupRef({ ...link.group, name: link.name });
     if (!group) return [];
     const detail = link.detail ? clip(link.detail, DETAIL_MOST) : null;
-    return [{ group, detail, ...groupDetailFacts(link.detail) }];
+    return [{ group, detail, ...groupDetailFacts(link.detail), ...(own ? { joined: true } : {}) }];
   });
   if (!kept.length) return { ok: false, why: 'There are no groups on the page to save.' };
   return {

@@ -12,6 +12,7 @@ import {
   groupSave,
   groupsSave,
   isAdminsPage,
+  isOwnGroupsPage,
   listOnPage,
   nameKey,
   outreachBusinesses,
@@ -300,6 +301,20 @@ describe('groups', () => {
         members: 840,
       },
     ]);
+  });
+
+  it('saves the groups on the person’s own list as ones they’re in, and nowhere else', () => {
+    expect(isOwnGroupsPage('https://www.facebook.com/groups/joins/')).toBe(true);
+    expect(isOwnGroupsPage('https://www.facebook.com/groups/joins/?nav_source=tab')).toBe(true);
+    expect(isOwnGroupsPage('https://www.facebook.com/groups/your_groups')).toBe(true);
+    expect(isOwnGroupsPage('https://www.facebook.com/groups/discover/')).toBe(false);
+    expect(isOwnGroupsPage('https://www.facebook.com/groups/feed/')).toBe(false);
+    expect(isOwnGroupsPage('https://www.facebook.com/search/groups/?q=austin')).toBe(false);
+    const listed = [{ name: 'Austin Small Business Owners', group, detail: null }];
+    const own = groupsSave(listed, WS, 'https://www.facebook.com/groups/joins/');
+    expect(own.ok && own.input.groups[0]?.joined).toBe(true);
+    const found = groupsSave(listed, WS, 'https://www.facebook.com/search/groups/?q=austin');
+    expect(found.ok && 'joined' in found.input.groups[0]!).toBe(false);
   });
 
   it('marks everyone on the admins page as running the group, and says so only on the last part', () => {

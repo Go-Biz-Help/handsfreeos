@@ -1,5 +1,7 @@
 import { ASK_KINDS_FOR } from '@hfos/core/addons/outreach/asks';
+import { outreachSetupPath } from '@hfos/core/addons/outreach/setup';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { readOutreachAddress } from '@/addons/outreach/address';
 import { addonPage } from '@/addons/gate';
 import { OutreachHome } from '@/addons/outreach/home';
@@ -23,7 +25,8 @@ function searchWordsOf(list: PlaybookList | null): string {
  * anyone's for owners and admins (`?view=settings&for=`). It
  * opens through the gate: "not available here" while the add-on is off, and not found for someone without
  * `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's activity
- * (`?who=everyone`); anyone else asking for that sees their own.
+ * (`?who=everyone`); anyone else asking for that sees their own. Someone who never saved their own settings and never
+ * started Social Outreach's setup is sent there from the bare page (`./setup`).
  */
 export default async function OutreachPage({
   params,
@@ -33,7 +36,10 @@ export default async function OutreachPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
-  const shown = readOutreachAddress(await searchParams);
+  const sp = await searchParams;
+  const shown = readOutreachAddress(sp);
+  // The bare page, as the side menu opens it: a first-timer is sent to the setup. A tab's own link never is.
+  const bare = Object.keys(sp).length === 0;
   return addonPage(workspaceId, 'outreach', 'outreach.use', async () => {
     const { api } = await apiServer();
     const workspace = api
@@ -279,7 +285,14 @@ export default async function OutreachPage({
       );
     }
     // Everyone's steps only once it's known they may see them.
-    const [got, own] = await Promise.all([workspace, shown.everyone ? null : activityOf(false)]);
+    const [got, own, setup] = await Promise.all([
+      workspace,
+      shown.everyone ? null : activityOf(false),
+      bare
+        ? api.POST('/v1/queries/outreach.setup', { body: { workspaceId } }).then(unwrapPage)
+        : null,
+    ]);
+    if (setup?.firstTime) redirect(outreachSetupPath(workspaceId));
     const canManage = got.workspace.permissions.includes('outreach.manage');
     const activity = own ?? (await activityOf(canManage));
     return (

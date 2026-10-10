@@ -20,10 +20,13 @@ import {
 import {
   CONTACTS_FROM_CHATS,
   CONTACTS_FROM_CHATS_WORDS,
+  extensionLinkProblem,
   outreachSettings,
+  settingsToSave,
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
@@ -55,6 +58,7 @@ import { NeedsSignal, Note, Part, useOutreachAnswer, useOutreachContext } from '
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const failed = (e: unknown) => (e instanceof ChangeError ? e.message : errorMessage(e));
+const L = SETUP_WORDS.link;
 
 /** The business's Social Outreach settings an owner or admin changes here. */
 export interface BusinessDraft {
@@ -141,9 +145,10 @@ export function SettingsScreen({ whose }: { whose?: string }) {
           return failed(e);
         }
       }}
-      onSaveBusiness={async (draft) => {
+      onSaveBusiness={async (changes, said) => {
         try {
-          // What's kept now, so a setting this screen doesn't show stays as it is.
+          // What's kept now, so a setting this screen doesn't show stays as it is; read as it's checked, so a stored
+          // link that stopped passing doesn't refuse the save.
           const kept =
             unwrap(
               await api.POST('/v1/queries/addon.settings', {
@@ -153,9 +158,9 @@ export function SettingsScreen({ whose }: { whose?: string }) {
           await change('addon.save_settings', {
             workspaceId: ws,
             addonId: 'outreach',
-            settings: { ...kept, ...draft },
+            settings: settingsToSave(kept, changes),
           });
-          toast.show(W.savedForEveryone);
+          toast.show(said ?? W.savedForEveryone);
           business.reload();
           automation.reload();
           return null;
@@ -191,7 +196,8 @@ export function SettingsBody({
   onRetry: () => void;
   onWhose: (userId: string) => void;
   onSaveMine: (settings: AutomationSettings) => Promise<string | null>;
-  onSaveBusiness: (draft: BusinessDraft) => Promise<string | null>;
+  /** Saves some of the business's settings, the others kept as they are. */
+  onSaveBusiness: (changes: Partial<OutreachSettings>, said?: string) => Promise<string | null>;
 }) {
   if (!automation)
     return (
@@ -241,7 +247,19 @@ export function SettingsBody({
             saved={businessDraftOf(business)}
             timezone={automation.timezone}
             online={online}
-            onSave={onSaveBusiness}
+            onSave={(draft) => onSaveBusiness(draft)}
+          />
+        </Part>
+      ) : null}
+      {manages && business ? (
+        <Part title={L.title} about={L.about} testID="settings-extension-link">
+          <ExtensionLink
+            key={outreachSettings(business).extensionLink ?? ''}
+            saved={outreachSettings(business).extensionLink ?? ''}
+            online={online}
+            onSave={(extensionLink) =>
+              onSaveBusiness({ extensionLink }, extensionLink ? L.saved : L.removed)
+            }
           />
         </Part>
       ) : !manages ? (
@@ -711,6 +729,59 @@ function BusinessSettings({
         disabled={!online || same(draft, saved)}
         onSave={() => onSave(draft)}
         testID="settings-business-save"
+      />
+    </Card>
+  );
+}
+
+/**
+ * Where the team downloads the extension (`extensionLink`, decision 45), as the web's Business settings box: checked as
+ * the save checks it, so a link that won't pass says why before anything is sent. Empty takes the link off.
+ */
+function ExtensionLink({
+  saved,
+  online,
+  onSave,
+}: {
+  saved: string;
+  online: boolean;
+  onSave: (link: string | null) => Promise<string | null>;
+}) {
+  const [link, setLink] = React.useState(saved);
+  const [problem, setProblem] = React.useState<string | null>(null);
+  return (
+    <Card className="gap-2 px-4 py-4">
+      <Text className="text-[14px] font-medium">{L.label}</Text>
+      <Input
+        value={link}
+        placeholder="https://"
+        keyboardType="url"
+        autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={500}
+        invalid={!!problem}
+        onChangeText={(t) => {
+          setLink(t);
+          setProblem(null);
+        }}
+        testID="settings-extension-link-input"
+      />
+      {problem ? (
+        <Text className="text-[13.5px] text-danger" testID="settings-extension-link-problem">
+          {problem}
+        </Text>
+      ) : null}
+      <SaveButton
+        disabled={!online || link.trim() === saved}
+        onSave={async () => {
+          const wrong = extensionLinkProblem(link);
+          if (wrong) {
+            setProblem(wrong);
+            return null;
+          }
+          return onSave(link.trim() || null);
+        }}
+        testID="settings-extension-link-save"
       />
     </Card>
   );

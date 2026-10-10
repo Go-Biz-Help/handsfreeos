@@ -5,9 +5,10 @@
  * (src/hfos/looked.ts); that script is never answered, and only the extension's own pages are. Its alarm wakes the
  * runner that works on Facebook on its own, once the person turns that on (src/auto/run.ts). It does what the person
  * asks of this computer from HandsFreeOS (src/asks/run.ts). It follows the person's settings in HandsFreeOS from the
- * moment they sign in (src/hfos/follow.ts). Every minute while someone is signed in it tells HandsFreeOS how things
- * stand on this computer, and hears from it about the person's day (src/hfos/live.ts). It keeps the number of things
- * waiting for the person on its icon, and Chrome's pop-ups about them (src/hfos/waiting.ts).
+ * moment they sign in (src/hfos/follow.ts), and sends a first-timer to HandsFreeOS's setup (src/hfos/setup.ts). Every
+ * minute while someone is signed in it tells HandsFreeOS how things stand on this computer, and hears from it about
+ * the person's day (src/hfos/live.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
+ * pop-ups about them (src/hfos/waiting.ts).
  */
 import { answerAsk, askSoon, askTabId, heardAsk, recoverAsk, signInChanged } from './asks/run';
 import { AUTO_ALARM, answerAuto, runnerTabId, tick, wake } from './auto/run';
@@ -33,6 +34,7 @@ import {
   trackWindows,
   waitingSoon,
 } from './hfos/waiting';
+import { firstRun } from './hfos/setup';
 import { TAB_NOTES } from './messages';
 
 chrome.sidePanel
@@ -52,17 +54,19 @@ const OWN_STEPS = new Set(['hfos-noted', 'hfos-answered']);
 
 /**
  * Loads the settings when asked, and listens for changes to them and to the person's day; a wake from the live
- * channel has the runner look. The minute's beat goes while someone is signed in.
+ * channel has the runner look. Then tells HandsFreeOS it's signed in, and at a sign-in (`signedIn`) opens its setup
+ * for a first-timer (src/hfos/setup.ts). The minute's beat goes while someone is signed in.
  */
-async function followNow(load = false): Promise<void> {
+async function followNow(load = false, signedIn = false): Promise<void> {
   try {
-    if (load) await loadSettings();
+    const found = load ? await loadSettings() : null;
     await follow(
       () => void tick(),
       (payload) => void heard(payload),
       (payload) => void heardWaiting(payload),
       (payload) => void heardAsk(payload),
     );
+    await firstRun(found, signedIn);
   } catch {
     // Signed out, or offline: the runner's next step looks again.
   }
@@ -110,7 +114,7 @@ chrome.runtime.onMessage.addListener(
       if (!SIGN_INS.has(ask.type)) return;
       // An ask under way for whoever was signed in here before stops.
       void signInChanged();
-      void followNow(true);
+      void followNow(true, ask.type !== 'hfos-sign-out');
       // Signed in, out or to another business: the icon's number and the pop-ups are theirs now.
       waitingSoon();
       // Signing in here makes this the computer that works, and asks waiting for it start.

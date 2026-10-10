@@ -17,6 +17,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   and the latest message with each person; a chat from it goes onto the customer's card from the Chats tab.
  * - The groups tab scores the groups the extension saved, and Today waits for a group's admins before it suggests
  *   anyone from it.
+ * - A first-timer is sent to the setup, which remembers where they got to, ticks when the extension signs in, and can
+ *   be done again from Settings.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -30,6 +32,12 @@ async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   await expect(card.getByTestId('addon-testing')).toBeVisible();
   await page.getByTestId('addon-install-outreach').click();
   await expect(card.getByTestId('addon-state')).toHaveText('On', { timeout: 90_000 });
+  // A first-timer is sent to the setup; leaving it for later lets the page open as it was.
+  await page.goto(`/app/w/${workspaceId}/a/outreach`);
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/setup(\\?.*)?$`));
+  await expect(page.getByTestId('outreach-setup')).toHaveAttribute('data-screen', 'playbooks');
+  await page.getByTestId('outreach-setup-later').click();
+  await expect(page.getByTestId('outreach-home')).toBeVisible();
 }
 
 test('an owner builds a playbook a step at a time, with answers that tag people and lead on, and changes it from its summary', async ({
@@ -554,4 +562,70 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
   await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
   await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 20');
+});
+
+test('a first-timer is sent to the setup, which remembers where they got to and ticks when the extension signs in', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-setup');
+  const workspaceId = await createBusiness(page, { name: 'Maple Lane Plumbing' });
+  await turnOnOutreach(page, email, workspaceId);
+  const setup = page.getByTestId('outreach-setup');
+
+  // Carry on from the banner: the playbooks, where a template opens the builder and comes back here.
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 5 done');
+  await page.getByTestId('outreach-setup-carry-on').click();
+  await expect(setup).toHaveAttribute('data-screen', 'playbooks');
+  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 5 · Playbooks');
+  await expect(page.getByTestId('outreach-setup-template-crm_demos')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/a/outreach/playbooks/new?template=crm_demos&from=setup`,
+  );
+  await page.getByTestId('outreach-setup-next').click();
+
+  // The team's rules, kept as they are; then their own settings.
+  await expect(setup).toHaveAttribute('data-screen', 'rules');
+  await expect(page.getByTestId('outreach-rules-save')).toHaveText('Keep these and carry on');
+  await page.getByTestId('outreach-rules-save').click();
+  await expect(setup).toHaveAttribute('data-screen', 'settings');
+  await page.getByTestId('outreach-setup-my-sending-steps').click();
+  await page.getByTestId('outreach-setup-next').click();
+
+  // The extension: no link yet, so the owner pastes one; then it waits until the extension signs in.
+  await expect(setup).toHaveAttribute('data-screen', 'extension');
+  await page
+    .getByTestId('outreach-extension-link-input')
+    .fill('http://files.example.test/social.zip');
+  await page.getByTestId('outreach-extension-link-save').click();
+  await expect(page.getByTestId('outreach-extension-link')).toContainText('starting https://');
+  await page
+    .getByTestId('outreach-extension-link-input')
+    .fill('https://files.example.test/social.zip');
+  await page.getByTestId('outreach-extension-link-save').click();
+  await expect(page.getByTestId('outreach-setup-download')).toHaveAttribute(
+    'href',
+    'https://files.example.test/social.zip',
+  );
+  await expect(page.getByTestId('outreach-setup-waiting')).toBeVisible();
+  const { token } = await signInOwner(email);
+  await api(token, 'commands', 'outreach.setup.save', { workspaceId, extension: true });
+  await expect(page.getByTestId('outreach-setup-signed-in')).toBeVisible({ timeout: 15_000 });
+
+  // Left for later: Today says how far they got, and Carry on opens where they left off.
+  await page.getByTestId('outreach-setup-later').click();
+  await page.getByTestId('outreach-tab-today').click();
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText('3 of 5 done');
+  await page.getByTestId('outreach-setup-carry-on').click();
+  await expect(setup).toHaveAttribute('data-screen', 'extension');
+  await page.getByTestId('outreach-setup-next').click();
+  await expect(setup).toHaveAttribute('data-screen', 'groups');
+  await page.getByTestId('outreach-setup-next').click();
+  await expect(page.getByTestId('outreach-setup-done')).toContainText('Extension: last checked in');
+
+  // Finished: no banner, and Set up again on Settings opens the first step.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  await expect(page.getByTestId('outreach-setup-banner')).toHaveCount(0);
+  await page.getByTestId('outreach-setup-again-open').click();
+  await expect(setup).toHaveAttribute('data-screen', 'playbooks');
 });

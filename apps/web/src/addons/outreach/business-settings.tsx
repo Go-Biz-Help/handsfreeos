@@ -4,6 +4,7 @@ import {
   CONTACTS_FROM_CHATS,
   CONTACTS_FROM_CHATS_WORDS,
   outreachSettings,
+  settingsToSave,
   type ContactsFromChats,
 } from '@hfos/core/addons/outreach/chat-read';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -18,13 +19,14 @@ import { useAct } from './use-act';
 const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 /**
- * On the Add-ons page: who from the chats brought in from Facebook goes in Contacts once the AI has read them
+ * In Social Outreach → Settings → Business settings, for owners and admins (the Add-ons page links there,
+ * settings-link.tsx): who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), and how long a sent friend request waits before it's suggested for cancelling
  * (decision 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), and
  * whether each person gets the weekly report by email (decision 34). Anyone already in Contacts gets the tags whatever
  * it says.
  */
-export default function OutreachSettings({ settings, saveSettings }: AddonSettingsProps) {
+export default function OutreachBusinessSettings({ settings, saveSettings }: AddonSettingsProps) {
   const now = outreachSettings(settings);
   const saved = now.contactsFromChats;
   const [pick, setPick] = useState<ContactsFromChats>(saved);
@@ -119,13 +121,15 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
           void act(
             'save',
             () =>
-              saveSettings({
-                ...settings,
-                contactsFromChats: pick,
-                cancelRequestsAfterWeeks: weeks,
-                morningPushHour: hour,
-                weeklyReport: weekly,
-              }),
+              saveSettings(
+                // What's kept, read as it's checked, so a stored link that stopped passing doesn't refuse the save.
+                settingsToSave(settings, {
+                  contactsFromChats: pick,
+                  cancelRequestsAfterWeeks: weeks,
+                  morningPushHour: hour,
+                  weeklyReport: weekly,
+                }),
+              ),
             W.saved,
           )
         }

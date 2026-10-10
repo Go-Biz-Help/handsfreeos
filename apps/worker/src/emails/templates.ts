@@ -1943,7 +1943,7 @@ export function outreachWeeklyEmail(input: {
         ]
       : []),
   ];
-  const footer = `From Social Outreach at ${input.business}. An owner or admin can turn this email off in Add-ons → Social Outreach; you can turn off all add-on emails in Settings → Account.`;
+  const footer = `From Social Outreach at ${input.business}. An owner or admin can turn this email off in Social Outreach → Settings → Business settings; you can turn off all add-on emails in Settings → Account.`;
   const opening = `Your last 7 days on Facebook for ${input.business}.`;
   const text = [
     opening,

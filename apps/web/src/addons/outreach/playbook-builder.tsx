@@ -323,6 +323,7 @@ export function PlaybookBuilder({
   businessTags,
   bookingPages,
   brandedOrigin,
+  doneHref,
 }: {
   workspaceId: string;
   /** The playbook to change; null for a new one. */
@@ -335,10 +336,12 @@ export function PlaybookBuilder({
   bookingPages: readonly { readonly name: string; readonly path: string }[];
   /** The business's own domain, when one is serving its public pages. */
   brandedOrigin: string | null;
+  /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
+  doneHref?: string;
 }) {
   const router = useRouter();
   const origin = usePublicOrigin(brandedOrigin);
-  const home = outreachHref(workspaceId, { view: 'playbooks' });
+  const home = doneHref ?? outreachHref(workspaceId, { view: 'playbooks' });
   const [start] = useState<Draft>(() =>
     playbook
       ? fromDetails(playbook.name, playbook.details as PlaybookDetails)

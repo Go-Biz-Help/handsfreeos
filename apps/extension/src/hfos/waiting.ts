@@ -28,6 +28,7 @@ import {
   type WaitingKinds,
 } from '@hfos/core/addons/outreach/waiting-words';
 import type { WorkingHours } from '@hfos/core/addons/outreach/automation';
+import { outreachPath } from '@hfos/core/addons/outreach/setup';
 import { config } from './config';
 import { keptFor, samePlace } from './live';
 import {
@@ -381,7 +382,7 @@ async function openPage(): Promise<void> {
   const place = await savingTo().catch(() => null);
   if (!config.webUrl) return;
   const url = place
-    ? `${config.webUrl}/app/w/${place.businessId}/a/outreach?view=waiting`
+    ? `${config.webUrl}${outreachPath(place.businessId, 'waiting')}`
     : config.webUrl;
   await chrome.tabs.create({ url }).catch(() => undefined);
 }

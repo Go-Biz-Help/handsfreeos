@@ -25,6 +25,7 @@ import { GroupsView } from './groups-view';
 import { LiveView } from './live-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-view';
+import { SetupBanner } from './setup-view';
 import { TodayView } from './today-view';
 import { WaitingView } from './waiting-view';
 import type {
@@ -160,6 +161,7 @@ export function OutreachHome({
           );
         })}
       </nav>
+      <SetupBanner workspaceId={workspaceId} />
       {shown.view === 'activity' ? (
         <ActivityView
           workspaceId={workspaceId}

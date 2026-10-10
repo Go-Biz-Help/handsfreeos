@@ -6517,6 +6517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person finished a step of the Social Outreach setup (it never moves back), finished it, left it for later, hid its reminder, or the extension said it’s signed in.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.setup.saved.
+         */
+        post: operations["command_outreach_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.touch.save": {
         parameters: {
             query?: never;
@@ -16371,6 +16391,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_sends"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own Social Outreach setup: their steps, how far they got, whether the extension signed in, whether they saved their settings, the playbooks in use, their groups saved, and where to download the extension.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_setup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34263,6 +34303,69 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         sendId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {boolean} */
+                    extension?: true;
+                    /** @enum {boolean} */
+                    finished?: true;
+                    /** @enum {boolean} */
+                    hideBanner?: true;
+                    /** @enum {string} */
+                    reached?: "playbooks" | "rules" | "settings" | "extension" | "groups";
+                    /** @enum {boolean} */
+                    started?: true;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        banner: boolean;
+                        canManage: boolean;
+                        extensionAt: string | null;
+                        extensionLink: string | null;
+                        finishedAt: string | null;
+                        firstTime: boolean;
+                        groups: {
+                            business: number;
+                            latest: {
+                                /** Format: uuid */
+                                groupId: string;
+                                name: string | null;
+                                /** @enum {string} */
+                                verdict: "work" | "maybe" | "skip";
+                            }[];
+                            mine: number;
+                        };
+                        playbooks: {
+                            name: string;
+                            template: string | null;
+                        }[];
+                        reached: ("playbooks" | "rules" | "settings" | "extension" | "groups") | null;
+                        settingsSaved: boolean;
+                        startedAt: string | null;
+                        steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -61287,6 +61390,59 @@ export interface operations {
                             ok: number;
                             on: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        banner: boolean;
+                        canManage: boolean;
+                        extensionAt: string | null;
+                        extensionLink: string | null;
+                        finishedAt: string | null;
+                        firstTime: boolean;
+                        groups: {
+                            business: number;
+                            latest: {
+                                /** Format: uuid */
+                                groupId: string;
+                                name: string | null;
+                                /** @enum {string} */
+                                verdict: "work" | "maybe" | "skip";
+                            }[];
+                            mine: number;
+                        };
+                        playbooks: {
+                            name: string;
+                            template: string | null;
+                        }[];
+                        reached: ("playbooks" | "rules" | "settings" | "extension" | "groups") | null;
+                        settingsSaved: boolean;
+                        startedAt: string | null;
+                        steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
                     };
                 };
             };

@@ -7,7 +7,9 @@
  *   waits, and their working hours (`outreach.automation.save`). Only the choices the business allows show.
  * - **Someone else's:** owners and admins pick a person to see or change theirs; the person sees who did.
  * - **Business settings:** owners and admins set the choices people may pick, daily limits under the starting ones,
- *   where a new person starts, and the business's other Social Outreach settings (`addon.save_settings`).
+ *   where a new person starts, where the team downloads the extension (./extension-link.tsx), and the business's
+ *   other Social Outreach settings (`addon.save_settings`).
+ * - **Set up again** opens Social Outreach's setup at its first step (./setup-view.tsx).
  */
 import {
   BusinessRules,
@@ -26,18 +28,21 @@ import {
   type ReplyMode,
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
+import { settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
-import OutreachSettings from './settings';
+import { ExtensionLinkForm } from './extension-link';
+import OutreachBusinessSettings from './business-settings';
 import type { Automation, AutomationPeople } from './types';
 import { useAct } from './use-act';
 
@@ -267,14 +272,23 @@ function MySettings({ workspaceId, me }: { workspaceId: string; me: Automation }
   );
 }
 
-function RulesForm({
+/**
+ * The business's rules for everyone's choices. In the setup (`carryOn`), its button moves on: saving first when
+ * anything changed, else keeping them as they are.
+ */
+export function RulesForm({
   workspaceId,
   settings,
   timezone,
+  carryOn,
+  carryingOn = false,
 }: {
   workspaceId: string;
   settings: Readonly<Record<string, unknown>>;
   timezone: string;
+  carryOn?: () => void;
+  /** The setup is saving where they got to and moving on: pressing again would save twice. */
+  carryingOn?: boolean;
 }) {
   const kept = BusinessRules.safeParse(settings.rules ?? {});
   const now = kept.success ? kept.data : BusinessRules.parse({});
@@ -349,23 +363,31 @@ function RulesForm({
         />
       </Part>
       <Button
-        size="sm"
-        disabled={same(rules, now) || busy !== null}
-        onClick={() =>
+        size={carryOn ? 'lg' : 'sm'}
+        disabled={(!carryOn && same(rules, now)) || busy !== null || carryingOn}
+        loading={busy === 'rules'}
+        onClick={() => {
+          if (carryOn && same(rules, now)) return carryOn();
           void act(
             'rules',
             async () =>
               unwrap(
                 await apiBrowser().POST('/v1/commands/addon.save_settings', {
-                  body: { workspaceId, addonId: 'outreach', settings: { ...settings, rules } },
+                  body: {
+                    workspaceId,
+                    addonId: 'outreach',
+                    settings: settingsToSave(settings, { rules }),
+                  },
                 }),
               ),
             W.savedForEveryone,
-          )
-        }
+          ).then((ok) => {
+            if (ok) carryOn?.();
+          });
+        }}
         data-testid="outreach-rules-save"
       >
-        {W.save}
+        {carryOn ? (same(rules, now) ? SETUP_WORDS.keepRules : SETUP_WORDS.saveRules) : W.save}
       </Button>
     </div>
   );
@@ -414,6 +436,23 @@ export function SettingsView({
           </select>
         </label>
       ) : null}
+      {mine ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3"
+          data-testid="outreach-setup-again"
+        >
+          <p className="min-w-0 flex-1 text-[13px] text-text-2">
+            {business ? SETUP_WORDS.againAboutManage : SETUP_WORDS.againAbout}
+          </p>
+          <ButtonLink
+            size="sm"
+            href={outreachSetupPath(workspaceId, { again: true })}
+            data-testid="outreach-setup-again-open"
+          >
+            {SETUP_WORDS.again}
+          </ButtonLink>
+        </div>
+      ) : null}
       <Section title={mine ? W.mySettings : W.settingsOf(me.name)}>
         <MySettings
           // Saved somewhere else: the form starts again from what's kept.
@@ -431,7 +470,13 @@ export function SettingsView({
             timezone={me.timezone}
           />
           <hr className="border-border" />
-          <OutreachSettings
+          <ExtensionLinkForm
+            key={String(business.extensionLink ?? '')}
+            workspaceId={workspaceId}
+            settings={business}
+          />
+          <hr className="border-border" />
+          <OutreachBusinessSettings
             workspaceId={workspaceId}
             settings={business}
             mySettings={{}}

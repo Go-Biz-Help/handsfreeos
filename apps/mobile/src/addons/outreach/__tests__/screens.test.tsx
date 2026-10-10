@@ -8,7 +8,7 @@ import { openWebPath } from '@/home/open';
 
 import { LiveBody, pressShown } from '../live';
 import { OutreachMoreRow } from '../more';
-import { OutreachHomeRows, WebOnlyBody } from '../page';
+import { isSetUp, OutreachHomeRows, WebOnlyBody } from '../page';
 import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
 import { businessDraftOf, SettingsBody } from '../settings';
 import { id, ME, TZ, WS } from './mocks';
@@ -75,6 +75,22 @@ describe('Social Outreach in More and its first screen', () => {
         'friends',
       ].map((v) => `/app/w/${WS}/a/outreach?view=${v}`),
     );
+  });
+
+  it('says to set Social Outreach up on a computer until it’s set up', async () => {
+    const { rerender } = await render(
+      <OutreachHomeRows workspaceId={WS} messages={0} setUp={false} />,
+    );
+    expect(screen.getByText(/^Set up Social Outreach on a computer/)).toBeTruthy();
+    await rerender(<OutreachHomeRows workspaceId={WS} messages={0} />);
+    expect(screen.queryByTestId('outreach-set-up-on-computer')).toBeNull();
+  });
+
+  it('counts the setup as done only once it’s finished, whether the web’s line was hidden or not', () => {
+    expect(isSetUp({ finishedAt: null })).toBe(false);
+    expect(isSetUp({ finishedAt: '2026-10-10T15:00:00.000Z' })).toBe(true);
+    // No answer yet (no signal): the line waits rather than showing to someone set up.
+    expect(isSetUp(null)).toBe(true);
   });
 
   it('says a tab left to the web is there, and opens it', async () => {
@@ -421,6 +437,41 @@ describe('Social Outreach’s settings on the phone', () => {
       weeklyReport: false,
       morningPushHour: 7,
     });
+  });
+
+  it('sets where the team gets the extension, checked as the save checks it', async () => {
+    const p = props();
+    await render(
+      <SettingsBody
+        automation={AUTOMATION}
+        {...p}
+        manages
+        business={{ contactsFromChats: 'tagged', extensionLink: 'http://old.example.test/x.zip' }}
+      />,
+    );
+    expect(screen.getByText('Where your team gets the extension')).toBeTruthy();
+    // A stored link that stopped passing reads as none.
+    expect(screen.getByTestId('settings-extension-link-input').props.value).toBe('');
+    await fireEvent.changeText(
+      screen.getByTestId('settings-extension-link-input'),
+      'http://files.example.test/social.zip',
+    );
+    await fireEvent.press(screen.getByTestId('settings-extension-link-save'));
+    expect(
+      screen.getByText(
+        'That isn’t a whole link starting https://. Paste the https link to the extension’s zip.',
+      ),
+    ).toBeTruthy();
+    expect(p.onSaveBusiness).not.toHaveBeenCalled();
+    await fireEvent.changeText(
+      screen.getByTestId('settings-extension-link-input'),
+      ' https://files.example.test/social.zip ',
+    );
+    await fireEvent.press(screen.getByTestId('settings-extension-link-save'));
+    expect(p.onSaveBusiness).toHaveBeenCalledWith(
+      { extensionLink: 'https://files.example.test/social.zip' },
+      'Saved. Everyone’s setup shows the link.',
+    );
   });
 
   it('can’t save with no signal', async () => {

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.19.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
+**This is a test build (0.20.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
 in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
 now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
 
@@ -11,7 +11,7 @@ Signed in, it notes the friend requests, likes, comments and messages you send y
 each person in, and your answers to friend requests. In the Facebook tab in front of you it reads Facebook's
 warnings, and, as your settings say, the chats you open and the posts in a group as you scroll. It works your list
 for today on its own, as far as you let it. And it does what you ask of it from Social Outreach's Friends, Groups,
-Chats and Today tabs: getting your Facebook file and bringing it in, saving your friend requests, friends list,
+Chats and Today tabs (and the phone's Groups and Chats screens): getting your Facebook file and bringing it in, saving your friend requests, friends list,
 groups and their members, finding groups and posts, reading your chats for the AI, cancelling old friend requests and
 unfriending the people you tick, and looking someone up before the AI drafts to them. It stops for the day on any
 Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live. Its icon shows how many things
@@ -69,6 +69,17 @@ It shows what's going on and leaves the rest to HandsFreeOS:
 - **Waiting for you** (`src/panel/waiting.ts`), below.
 - **Open HandsFreeOS**, at the foot, opens Social Outreach's Live tab for the business, and **Page read wrong?**,
   folded away, holds **Copy page outline** and **Save page outline** (below, "When it reads a page wrong").
+
+**The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.
+Whenever someone is signed in, it tells HandsFreeOS so (`outreach.setup.save` with `extension`): at each sign-in or
+business picked, and otherwise at most every 6 hours (`hfos.setupReported`; a refusal waits the same, and only a lost
+connection is tried again sooner), so the setup's install step ticks by itself, also for a build updated over an old
+sign-in. Signing in, or picking another business, opens HandsFreeOS's setup in a new tab when HandsFreeOS's answer to
+that report says the person is a first-timer there (never saved their own settings and never started the setup), once
+per person and business on this computer (`hfos.setupOpened`), and never two tabs for two sign-ins at once
+(`src/hfos/setup.ts`). **Save my groups**, asked from the Groups tab or the setup's groups step, saves each group on
+Facebook's page of your own groups (facebook.com/groups/joins/) as one you're in (`src/jobs/groups.ts`), which is
+what the setup's groups step lists.
 
 Opening the panel, or coming back to it, makes this the computer that works for you (below, "What it tells
 HandsFreeOS"). Nothing is saved from it: the people you reach are kept by noting, and Add to Contacts, Demo booked,
@@ -179,8 +190,8 @@ The extension's own windows and tabs are never read this way: they're its work, 
 
 ## Your settings
 
-Everything the extension does is set in HandsFreeOS, on Social Outreach's **Settings** tab, on the web (decision 37
-in docs/outreach.md); it keeps nothing of its own. Signing in loads them, and a change made there reaches it within a
+Everything the extension does is set in HandsFreeOS, on Social Outreach's **Settings** tab, on the web or in the
+phone app (decision 37 in docs/outreach.md); it keeps nothing of its own. Signing in loads them, and a change made there reaches it within a
 few seconds while Chrome is open: the background listens on the same live channel the web app does and asks
 HandsFreeOS again when anyone's choices or the business's change (`src/hfos/follow.ts`). It writes what the Facebook
 tabs read (noting, reading chats as you open them, looking for posts as you scroll) into its storage from them. When it can't listen, each step the runner takes loads them again. Owners and admins can change yours;
@@ -297,6 +308,18 @@ daily limits are halved, and for 2 friend requests are off your list. A red note
 the web.
 
 ## Load it in Chrome
+
+People on a business's team follow the setup in HandsFreeOS (Social Outreach sends a first-timer there; Settings →
+Set up again, or the Carry on line on any tab, opens it), which has the download link and these steps in plain
+words. To hand out a build, zip the **contents** of `dist/chrome` so `manifest.json` is at the zip's top (into `dist/`, which git ignores, never into the repo), put the zip wherever the team downloads files
+(a shared drive, a release page), and paste its https link under Social Outreach → Settings → Business settings →
+**Where your team gets the extension** (on the web or the phone). A newer build goes the same way: people unzip it
+over the same folder and press the reload arrow. Once everyone has the bare-bones build (0.19.0, settings part 4, or
+newer), set the API's `MIN_EXTENSION_VERSION` to it, so an older build that still saves from its panel is refused
+with an ask to update; `outreach.profile.save` and `outreach.chat.save` can then be retired (docs/outreach.md, "Not
+yet").
+
+To load your own build:
 
 1. Build it: `pnpm --filter @hfos/extension build`. It lands in `apps/extension/dist/chrome`. To sign in, the build
    needs HandsFreeOS's publishable Supabase key in `HFOS_SUPABASE_PUBLISHABLE_KEY` (see "Where it signs in" below);
@@ -438,6 +461,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), the runner (`run.ts`), the once-a-day jobs (`daily.ts`), and taking turns with asks (`turns.ts`)   |
 | `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                   |
 | `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                        |
+| `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                   |
 | `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                       |
 | `src/hfos/waiting.ts`                       | Waiting for you: the number on the icon and Chrome's pop-ups                                                                                           |
 | `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                              |
@@ -447,5 +471,5 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Next
 
-Onboarding for Social Outreach (decision 36), then tidying on its own and joining groups (decisions 29 and 31)
-(docs/outreach.md, decisions 26 to 36). Safari on Mac follows in Phase 2.
+Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest of decisions 26 to 35); Social
+Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac follows in Phase 2.

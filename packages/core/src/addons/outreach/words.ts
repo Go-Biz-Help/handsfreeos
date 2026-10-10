@@ -430,6 +430,17 @@ export const OUTREACH_WORDS = {
       'Posts worth a comment go on your list for today.',
     ],
   } as const,
+  /** On the Add-ons page, which points to Social Outreach's own Settings tab. */
+  addonsPage: {
+    about:
+      'Who from Facebook chats goes in Contacts, when friend requests are suggested for cancelling, the morning push, the weekly report, the choices people may pick, daily limits and where your team gets the extension.',
+    open: 'Open Social Outreach settings',
+    notOwner:
+      'Owners and admins change these under Social Outreach → Settings → Business settings.',
+    /** On the Chats tab, beside who goes in Contacts. */
+    changeContacts: 'Change it in Settings',
+    contactsNotOwner: 'An owner or admin can change this in Settings → Business settings.',
+  },
   notAllowed: (choices: readonly string[]) =>
     `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that under Business settings.`,
   from: 'From',

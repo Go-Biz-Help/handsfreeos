@@ -15,6 +15,7 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import { settingsSummary } from '@hfos/core/addons/outreach/automation';
 import { REPORTED_STATES, standDownWords } from '@hfos/core/addons/outreach/live';
+import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import { AUTO_STATE_KEY, isState } from '../auto/plan';
 import { ASK_KEY, type KeptAsk } from '../hfos/asks';
 import { SETTINGS_KEY } from '../hfos/follow';
@@ -56,8 +57,8 @@ async function readAsk(): Promise<void> {
 const clock = (at: number) =>
   new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
-const hfosUrl = (now: AutoStatus, view: string) =>
-  now.businessId ? `${now.webUrl}/app/w/${now.businessId}/a/outreach?view=${view}` : null;
+const hfosUrl = (now: AutoStatus, view: OutreachTab) =>
+  now.businessId ? `${now.webUrl}${outreachPath(now.businessId, view)}` : null;
 
 async function act(type: 'hfos-auto-start' | 'hfos-auto-stop'): Promise<void> {
   const answer = await ask({ type });

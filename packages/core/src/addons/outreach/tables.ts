@@ -37,6 +37,7 @@ import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
 import type { SendState } from './sends';
 import type { NeedState, NeedStep } from './waiting-words';
+import type { SetupStep } from './setup';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -826,6 +827,31 @@ export const asks = addonOutreach.table(
   ],
 );
 
+/**
+ * Where one person got to in Social Outreach's setup (./setup.ts, decisions 36 and 45). The extension signing in
+ * makes a row too, so `startedAt`, not the row, says they started; their own settings saved do too (`settingsAt`).
+ */
+export const setup = addonOutreach.table(
+  'setup',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reached: text('reached').$type<SetupStep>(),
+    startedAt: ts('started_at'),
+    finishedAt: ts('finished_at'),
+    bannerHiddenAt: ts('banner_hidden_at'),
+    extensionAt: ts('extension_at'),
+    /** The last time they saved their own settings: an owner or admin saving them for them never sets it. */
+    settingsAt: ts('settings_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -849,6 +875,7 @@ export const OUTREACH_TABLES = {
   profiles,
   replies,
   sends,
+  setup,
   threads,
   touches,
   waitingPushes,

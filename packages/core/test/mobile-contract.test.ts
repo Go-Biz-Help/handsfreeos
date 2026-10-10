@@ -221,6 +221,8 @@ const QUERIES = [
   'outreach.asks',
   // Add to Contacts' customers with the same name, offered first.
   'outreach.lookup',
+  // Whether the person has set Social Outreach up: until then the phone says to do it on a computer (decision 45).
+  'outreach.setup',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

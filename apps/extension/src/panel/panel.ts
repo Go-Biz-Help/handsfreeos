@@ -6,6 +6,7 @@
  * tuning the readers when the extension gets a page wrong. Opening it, or coming back to it, makes this the person's
  * computer that works (src/hfos/live.ts).
  */
+import { outreachPath } from '@hfos/core/addons/outreach/setup';
 import type { PageKind } from '../facebook/types';
 import { facebookUrl } from '../facebook/urls';
 import type { Account } from '../hfos/messages';
@@ -32,8 +33,7 @@ function say(text: string): void {
 function linkTo(account: Account | null): void {
   const businessId = account?.signedIn ? account.businessId : null;
   openLink.hidden = !businessId;
-  if (account && businessId)
-    openLink.href = `${account.webUrl}/app/w/${businessId}/a/outreach?view=live`;
+  if (account && businessId) openLink.href = `${account.webUrl}${outreachPath(businessId, 'live')}`;
 }
 
 /** The tab beside the panel, when it's showing Facebook. Other sites' addresses aren't visible to the extension. */

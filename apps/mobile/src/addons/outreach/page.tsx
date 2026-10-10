@@ -1,3 +1,4 @@
+import { SETUP_WORDS, type SetupOutput } from '@hfos/core/addons/outreach/setup';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 
@@ -19,13 +20,16 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { openWebPath } from '@/home/open';
+import { api, unwrap } from '@/lib/api';
 
 import { ChatsScreen } from './chats';
 import { useOutreachWaiting } from './copy';
 import { GroupsScreen } from './groups';
 import {
+  Note,
   openOutreach,
   outreachPath,
+  useOutreachAnswer,
   useOutreachContext,
   type OutreachTab,
   type WebTab,
@@ -40,7 +44,8 @@ import { WaitingScreen } from './waiting';
  * Social Outreach's page on the phone (decision 44), by its address's `?view=`, as the web's: Waiting for you, the live
  * view, Today, Groups, Chats, Playbooks and Settings are the phone's own screens. Activity and Friends have a lot to
  * look through, so they stay on the web: a link to them opens there (the manifest's `ui.phone` `web`), and this says
- * so if one is opened here anyway. With no `?view=`, the add-on's own first screen: a row for each.
+ * so if one is opened here anyway. With no `?view=`, the add-on's own first screen: a row for each, and, until the
+ * person has set Social Outreach up (decision 45, the web's setup), a line saying to do that on a computer.
  */
 
 const PHONE_TABS: readonly OutreachTab[] = [
@@ -89,28 +94,56 @@ export function OutreachPage({
   }
 }
 
-/** The add-on's first screen: a row for each of its tabs, and what waits for the person, from the phone's copy. */
+/**
+ * The add-on's first screen: a row for each of its tabs, and what waits for the person, from the phone's copy. It points
+ * to the setup until the person has finished it (`finishedAt` in HandsFreeOS's answer, with signal), whether or not the
+ * web's "Finish setting up" line was hidden.
+ */
 export function OutreachHome() {
   const ctx = useOutreachContext();
   const waiting = useOutreachWaiting(ctx.workspaceId, ctx.userId);
+  const setup = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.setup', { body: { workspaceId: ctx.workspaceId } }),
+      ),
+    `setup:${ctx.workspaceId}`,
+    W.title,
+  );
   return (
     <OutreachHomeRows
       workspaceId={ctx.workspaceId}
       messages={waiting.kinds.message.count + waiting.kinds.reply.count}
+      setUp={isSetUp(setup.data)}
     />
   );
 }
 
+/**
+ * Whether the person has set Social Outreach up, for the phone's line (decision 45): only once they finished the
+ * setup. Hiding the web's "Finish setting up" line doesn't count. With no answer yet, the line waits.
+ */
+export const isSetUp = (setup: Pick<SetupOutput, 'finishedAt'> | null): boolean =>
+  setup === null || setup.finishedAt !== null;
+
 export function OutreachHomeRows({
   workspaceId,
   messages,
+  setUp = true,
 }: {
   workspaceId: string;
   messages: number;
+  /** False until the person has set Social Outreach up: the screen says to do that on a computer. */
+  setUp?: boolean;
 }) {
   const open = (tab: OutreachTab | WebTab) => () => openOutreach(workspaceId, tab);
   return (
     <Screen title={W.title} leading="back" testID="outreach-home">
+      {setUp ? null : (
+        <Card className="px-4 py-3.5" testID="outreach-set-up-on-computer">
+          <Note>{SETUP_WORDS.onPhone}</Note>
+        </Card>
+      )}
       <List>
         <ListRow
           icon={Inbox}

@@ -13131,6 +13131,18 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.setup": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.today": {
       "input": {
         "type": "object",

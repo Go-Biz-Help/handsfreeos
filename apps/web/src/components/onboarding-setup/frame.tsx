@@ -64,6 +64,7 @@ export function SetupCard({
   banner,
   footer,
   summary,
+  testId = 'onboarding-setup',
   children,
 }: {
   screen: string;
@@ -76,6 +77,8 @@ export function SetupCard({
   footer: ReactNode;
   /** The summary beside the question, in plain sentences; none on the last screen, which is the summary. */
   summary: readonly string[] | null;
+  /** Its test ids' start: the main onboarding's, unless another setup uses the card (Social Outreach's). */
+  testId?: string;
   children: ReactNode;
 }) {
   return (
@@ -84,7 +87,7 @@ export function SetupCard({
         'grid w-full grid-cols-1 overflow-hidden rounded-dialog',
         summary && 'md:grid-cols-[minmax(0,1fr)_320px]',
       )}
-      data-testid="onboarding-setup"
+      data-testid={testId}
       data-screen={screen}
     >
       <div className="flex min-w-0 scroll-mt-20 flex-col gap-[22px] p-5 sm:p-8">
@@ -92,7 +95,7 @@ export function SetupCard({
         <div className="flex flex-col gap-1.5">
           <div
             className="text-xs font-medium uppercase tracking-[0.04em] text-text-3"
-            data-testid="onboarding-setup-counter"
+            data-testid={`${testId}-counter`}
           >
             {counter}
           </div>
@@ -106,7 +109,7 @@ export function SetupCard({
         <aside
           className="flex flex-col gap-3 border-t border-border bg-card-2 p-5 md:border-l md:border-t-0 md:px-[26px] md:py-8"
           aria-label={ONBOARDING_SETUP_WORDS.summary}
-          data-testid="onboarding-setup-summary"
+          data-testid={`${testId}-summary`}
         >
           <div className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
             <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
