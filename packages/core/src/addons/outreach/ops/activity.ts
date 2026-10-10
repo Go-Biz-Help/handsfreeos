@@ -9,11 +9,9 @@ import { rows } from '@hfos/db/client';
 import { addDays, localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
 import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
-import { requireHuman } from '../../../kernel/actor';
-import { scopeCan } from '../../../kernel/execute';
+import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import type { CommandContext } from '../../../kernel/types';
-import type { Permission } from '../../../permissions';
+import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   ACTIVITY_GROUPS,
@@ -28,6 +26,7 @@ import {
   type TouchStep,
 } from '../activity';
 import { dailyLimitsNow, DONT_PITCH_TAG } from '../limits';
+import { byResults } from '../results';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
 import { groups, threads, touches } from '../tables';
@@ -37,6 +36,7 @@ import {
   keepFriendStates,
   keptProfile,
   once,
+  seesEveryone,
   type Profile,
   type ProfileKey,
 } from './common';
@@ -316,7 +316,7 @@ type Counts = {
   readonly today_like: number;
 };
 
-type Listed = {
+export type Listed = {
   readonly profile_id: string;
   readonly person_id: string | null;
   readonly name: string;
@@ -334,7 +334,153 @@ type Listed = {
   readonly warmed: boolean;
   readonly started: boolean;
   readonly replied: boolean;
+  readonly demo: boolean;
 };
+
+/**
+ * Everyone reached since `from`, or who wrote back or booked a demo since: the last of each step to them (ever), the
+ * group they were found in (the first step's that said, else the profile's), when they first wrote back, and what
+ * of it was since `from`. The person's own steps, or everyone's.
+ */
+export async function reachedPeople(
+  ctx: QueryContext | CommandContext,
+  {
+    from,
+    me,
+    everyone,
+  }: { readonly from: string; readonly me: string; readonly everyone: boolean },
+): Promise<Listed[]> {
+  const ws = ctx.scope.workspaceId!;
+  const whose = (column: string) => (everyone ? sql`true` : sql`${sql.raw(column)} = ${me}`);
+  return rows<Listed>(
+    ctx.tx,
+    sql`with mine as (
+          select t.profile_id, t.kind, t.step, t.group_id, t.thread_key, t.at
+          from addon_outreach.touches t
+          where t.workspace_id = ${ws} and ${whose('t.user_id')}
+        ),
+        reached as (
+          select m.profile_id,
+            max(m.at) filter (where m.kind = 'friend_request') as requested_at,
+            max(m.at) filter (where m.kind = 'like') as liked_at,
+            max(m.at) filter (where m.kind = 'comment') as commented_at,
+            max(m.at) filter (where m.kind = 'message') as messaged_at,
+            min(m.at) as first_at,
+            max(m.at) as touched_at,
+            (array_agg(m.group_id order by m.at) filter (where m.group_id is not null))[1] as group_id,
+            bool_or(m.at >= ${from}::timestamptz) as recent,
+            bool_or(m.at >= ${from}::timestamptz and m.kind = 'friend_request') as requested,
+            bool_or(m.at >= ${from}::timestamptz and m.kind in ('like', 'comment')) as warmed,
+            bool_or(m.at >= ${from}::timestamptz and m.step = 'first_message') as started
+          from mine m
+          group by m.profile_id
+        ),
+        -- When they first wrote back: the first-saved time of a message from them after one from us, in a chat
+        -- with them saved here (by its customer, or the chat a message went in); a reply the extension saw
+        -- (decision 22); or a chat read in Messenger or brought in whose last message is theirs.
+        wrote as (
+          select p.id as profile_id, r.at
+          from reached e
+          join addon_outreach.profiles p on p.id = e.profile_id
+          join addon_outreach.threads c on c.workspace_id = p.workspace_id and c.platform = p.platform
+            and ${whose('c.owner_user_id')}
+            and (c.person_id = p.person_id
+              or c.thread_key in (select m.thread_key from mine m where m.profile_id = p.id))
+          cross join lateral (
+            select min((x.m ->> 'savedAt')::timestamptz) as at
+            from jsonb_array_elements(c.messages) with ordinality as x(m, i)
+            where x.m ->> 'from' = 'them'
+              and x.i > (select min(y.i) from jsonb_array_elements(c.messages) with ordinality as y(m, i)
+                         where y.m ->> 'from' = 'me')
+          ) r
+          where r.at is not null
+          union all
+          select r.profile_id, r.seen_at
+          from addon_outreach.replies r
+          join reached e on e.profile_id = r.profile_id
+          where r.workspace_id = ${ws} and ${whose('r.user_id')}
+          union all
+          select c.profile_id, c.last_at
+          from addon_outreach.file_chats c
+          join reached e on e.profile_id = c.profile_id
+          where c.workspace_id = ${ws} and ${whose('c.user_id')}
+            and not c.last_from_me and c.last_at > e.first_at
+        ),
+        replies as (
+          select w.profile_id, min(w.at) as replied_at from wrote w group by w.profile_id
+        ),
+        -- A demo booked (decision 24), through the demo link or marked, and not taken back.
+        booked as (
+          select d.profile_id, max(d.at) as demo_at
+          from addon_outreach.demos d
+          join reached e on e.profile_id = d.profile_id
+          where d.workspace_id = ${ws} and d.undone_at is null and ${whose('d.user_id')}
+          group by d.profile_id
+        )
+        select e.profile_id, p.person_id,
+          coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
+          g.id as group_id, g.name as group_name, g.url as group_url,
+          e.requested_at, e.liked_at, e.commented_at, e.messaged_at, r.replied_at,
+          greatest(e.touched_at, r.replied_at) as last_at,
+          e.requested, e.warmed, e.started,
+          coalesce(r.replied_at >= ${from}::timestamptz, false) as replied,
+          coalesce(b.demo_at >= ${from}::timestamptz, false) as demo
+        from reached e
+        join addon_outreach.profiles p on p.id = e.profile_id
+        left join app.people pp on pp.id = p.person_id
+        left join replies r on r.profile_id = e.profile_id
+        left join booked b on b.profile_id = e.profile_id
+        left join addon_outreach.groups g on g.id = coalesce(e.group_id, p.group_id)
+        where e.recent or r.replied_at >= ${from}::timestamptz or b.demo_at >= ${from}::timestamptz
+        order by last_at desc, e.profile_id`,
+  );
+}
+
+/** The people reached, by the group they were found in (./results.ts): how many, and what came of it. */
+export function resultsByGroup(
+  listed: readonly Listed[],
+): Map<string, ActivityOutput['groups'][number]> {
+  const byGroup = new Map<string, ActivityOutput['groups'][number]>();
+  for (const l of listed) {
+    if (!l.group_id) continue;
+    const g = byGroup.get(l.group_id) ?? {
+      groupId: l.group_id,
+      name: l.group_name,
+      url: l.group_url ?? '',
+      people: 0,
+      friendRequests: 0,
+      warmedUp: 0,
+      chatsStarted: 0,
+      replies: 0,
+      demos: 0,
+    };
+    byGroup.set(l.group_id, {
+      ...g,
+      people: g.people + 1,
+      friendRequests: g.friendRequests + Number(l.requested),
+      warmedUp: g.warmedUp + Number(l.warmed),
+      chatsStarted: g.chatsStarted + Number(l.started),
+      replies: g.replies + Number(l.replied),
+      demos: g.demos + Number(l.demo),
+    });
+  }
+  return byGroup;
+}
+
+/** Where a stretch of `days` days ending today starts: midnight in the business's time zone. */
+export async function periodStart(
+  ctx: QueryContext | CommandContext,
+  days: number,
+  timezone?: string,
+): Promise<string> {
+  const tz = timezone ?? (await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!));
+  return new Date(
+    startOfLocalDay(addDays(localDateOf(Date.now(), tz), 1 - days), tz),
+  ).toISOString();
+}
+
+/** From the beginning: what a group has brought ever. */
+export const EVER = new Date(0).toISOString();
 
 const iso = (at: Date | string) => new Date(at).toISOString();
 const isoOrNull = (at: Date | string | null) => (at === null ? null : iso(at));
@@ -351,20 +497,21 @@ export const activity = defineAddonQuery(outreachAddon, {
   input: ActivityInput,
   output: ActivityOutput,
   permission: 'outreach.use',
+  // The worker asks on a person's behalf for the weekly report (../results.ts).
+  actors: ['human', 'system'],
   scope: inWorkspace,
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
+    const me = userIdOf(ctx.actor);
+    if (!me) throw HfosError.forbidden('Only a person has outreach of their own.');
     const ws = ctx.scope.workspaceId!;
-    if (input.everyone && !scopeCan(ctx.scope, 'outreach.manage' as Permission))
+    if (input.everyone && !(await seesEveryone(ctx, me)))
       throw HfosError.forbidden(
         'Only owners and admins (Run Social Outreach) see the whole team’s outreach. Yours is under You.',
         'outreach_activity_everyone',
       );
     const timezone = await workspaceTimezone(ctx.tx, ws);
     const today = localDateOf(Date.now(), timezone);
-    const from = new Date(
-      startOfLocalDay(addDays(today, 1 - ACTIVITY_PERIODS[input.period].days), timezone),
-    ).toISOString();
+    const from = await periodStart(ctx, ACTIVITY_PERIODS[input.period].days, timezone);
     const todayFrom = new Date(startOfLocalDay(today, timezone)).toISOString();
     const whose = input.everyone ? sql`true` : sql`t.user_id = ${me}`;
     const warning = await warningOf(ctx, me, new Date(todayFrom));
@@ -387,88 +534,7 @@ export const activity = defineAddonQuery(outreachAddon, {
           where t.workspace_id = ${ws} and t.at >= ${from}::timestamptz and ${whose}`,
     );
 
-    // Everyone reached in the stretch, or who wrote back in it: the last of each step to them (ever), and the group
-    // they were found in (the first step's that said, else the profile's).
-    const listed = await rows<Listed>(
-      ctx.tx,
-      sql`with mine as (
-            select t.profile_id, t.kind, t.step, t.group_id, t.thread_key, t.at
-            from addon_outreach.touches t
-            where t.workspace_id = ${ws} and ${whose}
-          ),
-          reached as (
-            select m.profile_id,
-              max(m.at) filter (where m.kind = 'friend_request') as requested_at,
-              max(m.at) filter (where m.kind = 'like') as liked_at,
-              max(m.at) filter (where m.kind = 'comment') as commented_at,
-              max(m.at) filter (where m.kind = 'message') as messaged_at,
-              max(m.at) as touched_at,
-              (array_agg(m.group_id order by m.at) filter (where m.group_id is not null))[1] as group_id,
-              bool_or(m.at >= ${from}::timestamptz) as recent,
-              bool_or(m.at >= ${from}::timestamptz and m.kind = 'friend_request') as requested,
-              bool_or(m.at >= ${from}::timestamptz and m.kind in ('like', 'comment')) as warmed,
-              bool_or(m.at >= ${from}::timestamptz and m.step = 'first_message') as started
-            from mine m
-            group by m.profile_id
-          ),
-          -- When they first wrote back: the first-saved time of a message from them after one from us, in a chat
-          -- with them saved here (by its customer, or the chat a message went in).
-          replies as (
-            select p.id as profile_id, min(r.at) as replied_at
-            from reached e
-            join addon_outreach.profiles p on p.id = e.profile_id
-            join addon_outreach.threads c on c.workspace_id = p.workspace_id and c.platform = p.platform
-              and ${input.everyone ? sql`true` : sql`c.owner_user_id = ${me}`}
-              and (c.person_id = p.person_id
-                or c.thread_key in (select m.thread_key from mine m where m.profile_id = p.id))
-            cross join lateral (
-              select min((x.m ->> 'savedAt')::timestamptz) as at
-              from jsonb_array_elements(c.messages) with ordinality as x(m, i)
-              where x.m ->> 'from' = 'them'
-                and x.i > (select min(y.i) from jsonb_array_elements(c.messages) with ordinality as y(m, i)
-                           where y.m ->> 'from' = 'me')
-            ) r
-            where r.at is not null
-            group by p.id
-          )
-          select e.profile_id, p.person_id,
-            coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
-            g.id as group_id, g.name as group_name, g.url as group_url,
-            e.requested_at, e.liked_at, e.commented_at, e.messaged_at, r.replied_at,
-            greatest(e.touched_at, r.replied_at) as last_at,
-            e.requested, e.warmed, e.started,
-            coalesce(r.replied_at >= ${from}::timestamptz, false) as replied
-          from reached e
-          join addon_outreach.profiles p on p.id = e.profile_id
-          left join app.people pp on pp.id = p.person_id
-          left join replies r on r.profile_id = e.profile_id
-          left join addon_outreach.groups g on g.id = coalesce(e.group_id, p.group_id)
-          where e.recent or r.replied_at >= ${from}::timestamptz
-          order by last_at desc, e.profile_id`,
-    );
-
-    const byGroup = new Map<string, ActivityOutput['groups'][number]>();
-    for (const l of listed) {
-      if (!l.group_id) continue;
-      const g = byGroup.get(l.group_id) ?? {
-        groupId: l.group_id,
-        name: l.group_name,
-        url: l.group_url ?? '',
-        people: 0,
-        friendRequests: 0,
-        warmedUp: 0,
-        chatsStarted: 0,
-        replies: 0,
-      };
-      byGroup.set(l.group_id, {
-        ...g,
-        people: g.people + 1,
-        friendRequests: g.friendRequests + Number(l.requested),
-        warmedUp: g.warmedUp + Number(l.warmed),
-        chatsStarted: g.chatsStarted + Number(l.started),
-        replies: g.replies + Number(l.replied),
-      });
-    }
+    const listed = await reachedPeople(ctx, { from, me, everyone: input.everyone });
     const c = counts!;
     return {
       from,
@@ -482,6 +548,7 @@ export const activity = defineAddonQuery(outreachAddon, {
         chatsStarted: c.chats_started,
         followUps: c.follow_ups,
         replies: listed.filter((l) => l.replied).length,
+        demos: listed.filter((l) => l.demo).length,
       },
       today: {
         friend_request: c.today_friend_request,
@@ -492,8 +559,11 @@ export const activity = defineAddonQuery(outreachAddon, {
       },
       limits: dailyLimitsNow(slowsNow(warning)),
       warning,
-      groups: [...byGroup.values()]
-        .sort((a, b) => b.people - a.people || (a.name ?? '').localeCompare(b.name ?? ''))
+      groups: [...resultsByGroup(listed).values()]
+        .sort(
+          (a, b) =>
+            byResults(a, b) || b.people - a.people || (a.name ?? '').localeCompare(b.name ?? ''),
+        )
         .slice(0, ACTIVITY_GROUPS),
       people: listed.slice(0, ACTIVITY_PEOPLE).map((l) => ({
         profileId: l.profile_id,

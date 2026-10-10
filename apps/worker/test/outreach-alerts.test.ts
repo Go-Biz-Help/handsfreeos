@@ -6,6 +6,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { demoRef } from '@hfos/core/addons/outreach/demos';
+import { nextWeekly } from '@hfos/core/addons/outreach/results';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import { pushDeviceRegister } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -22,7 +23,9 @@ import {
 import { outreachBusiness, runAs } from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
 import { MORNING_JOB } from '../src/addons/outreach/alerts';
+import { WEEKLY_JOB } from '../src/addons/outreach/weekly';
 import { processJobs } from '../src/jobs';
+import type { MailMessage } from '../src/mailer';
 import { processOnce } from '../src/outbox';
 import { testServices, type TestServices } from './helpers';
 
@@ -164,6 +167,73 @@ describe('phone alerts', () => {
           where workspace_id = ${ws} and kind = ${MORNING_JOB} and status = 'pending'`,
     );
     expect(new Date(next!.run_at).getTime()).toBeGreaterThan(Date.now() + 20 * 3_600_000);
+  }, 60_000);
+});
+
+describe('the weekly report', () => {
+  it('emails each person their week on Monday, with their best group and opener, then next Monday’s', async () => {
+    const s = testServices();
+    const ws = await outreachBusiness(owner, 'Outreach Weekly Worker Co');
+    await rows(admin(), sql`update app.workspaces set timezone = 'UTC' where id = ${ws}`);
+    const group = {
+      id: '5550001111',
+      slug: null,
+      url: 'https://www.facebook.com/groups/5550001111/',
+      name: 'Austin Small Business Owners',
+    };
+    const note = (input: Record<string, unknown>, at = Date.now() - 10 * MIN) =>
+      runAs(owner, ws, 'outreach.touch.save', input, new Date(at));
+    await note({ kind: 'friend_request', profile: fb('rowan.b'), name: 'Rowan Blake', group });
+    await note({ kind: 'message', profile: fb('rowan.b'), name: 'Rowan Blake', threadKey: '3001' });
+    await note({ kind: 'friend_request', profile: fb('quinn.h'), name: 'Quinn Harper', group });
+    await runAs(owner, ws, 'outreach.replies.note', {
+      seen: [{ name: 'Rowan Blake', threadKey: '3001' }],
+    });
+    await runAs(owner, ws, 'outreach.demo.mark', {
+      profile: fb('quinn.h'),
+      name: 'Quinn Harper',
+      booked: true,
+    });
+    await drain(s, ws);
+    // Armed with the morning push, for Monday at its hour.
+    const [armed] = await rows<{ id: string; run_at: Date }>(
+      admin(),
+      sql`select id, run_at from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = ${WEEKLY_JOB} and status = 'pending'`,
+    );
+    const monday = nextWeekly(Date.now(), 'UTC', 8).getTime();
+    expect(new Date(armed!.run_at).getTime()).toBe(monday);
+
+    // On Monday morning, the owner hears of their week.
+    const sent: MailMessage[] = [];
+    await rows(admin(), sql`update app.scheduled_jobs set run_at = now() where id = ${armed!.id}`);
+    const runner = `vitest-weekly-${randomUUID().slice(0, 8)}`;
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set locked_at = now(), locked_by = ${runner} where id = ${armed!.id}`,
+    );
+    await processJobs({
+      ...s,
+      mailer: { send: async (m) => (sent.push(m), { messageId: 'weekly' }) },
+      jobs,
+      workerId: runner,
+      batchSize: 10,
+      reservedOnly: true,
+      clock: () => monday,
+    });
+    expect(sent.map((m) => [m.to, m.subject])).toEqual([
+      [owner.email, 'Your week on Facebook: 2 friend requests, 1 reply, 1 demo'],
+    ]);
+    expect(sent[0]!.text).toContain(
+      'Best group: Austin Small Business Owners, 1 wrote back · 1 demo booked.',
+    );
+    expect(sent[0]!.text).toContain(`/app/w/${ws}/a/outreach?view=activity`);
+    const [next] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = ${WEEKLY_JOB} and status = 'pending'`,
+    );
+    expect(new Date(next!.run_at).getTime()).toBe(monday + 7 * 24 * 3_600_000);
   }, 60_000);
 });
 

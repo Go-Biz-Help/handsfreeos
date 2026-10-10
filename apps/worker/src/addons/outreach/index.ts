@@ -17,13 +17,27 @@ import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
+import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 
-/** What the extension sends also arms the morning push, for a business that had the add-on on before it existed. */
+/**
+ * What the extension sends also arms the morning push and the weekly report, for a business that had the add-on on
+ * before they existed.
+ */
 const andMorning =
   (subscriber: AddonSubscriber): AddonSubscriber =>
   async (ctx) => {
     await subscriber(ctx);
     await armMorning(ctx);
+    await armWeekly(ctx);
+  };
+
+/** The weekly report moves with the settings, and is armed whenever the morning push is (./weekly.ts). */
+const andWeekly =
+  (subscriber: AddonSubscriber): AddonSubscriber =>
+  async (ctx) => {
+    await subscriber(ctx);
+    const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+    if (p['addonId'] === undefined || p['addonId'] === ctx.manifest.id) await armWeekly(ctx);
   };
 
 export const outreachAddonWorker: AddonWorkerModule = {
@@ -47,23 +61,27 @@ export const outreachAddonWorker: AddonWorkerModule = {
     },
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
-  // checked by it (./posts.ts); a reply seen pushed to the person's phone, and the morning push moved with the
-  // settings (./alerts.ts); a booking through a demo link counted (./demos.ts).
+  // checked by it (./posts.ts); a reply seen pushed to the person's phone, and the morning push and weekly report
+  // moved with the settings (./alerts.ts, ./weekly.ts); a booking through a demo link counted (./demos.ts).
   subscribers: {
     'outreach.download.saved': andMorning(downloadSaved),
     'outreach.chats.collected': andMorning(downloadSaved),
     'outreach.posts.saved': andMorning(postsSaved),
-    'outreach.reply.seen': replySeen,
-    'addon.settings_saved': settingsSaved,
+    'outreach.reply.seen': andWeekly(replySeen),
+    'addon.settings_saved': andWeekly(settingsSaved),
     'appointment.booked': appointmentBooked,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [MORNING_JOB]: morningJob,
+    [WEEKLY_JOB]: weeklyJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
   actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
-  // The morning push, from now: nothing that came due while it was off runs late.
-  onEnable: (ctx) => armMorning(ctx),
+  // The morning push and weekly report, from now: nothing that came due while it was off runs late.
+  onEnable: async (ctx) => {
+    await armMorning(ctx);
+    await armWeekly(ctx);
+  },
 };

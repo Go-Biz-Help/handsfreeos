@@ -26,6 +26,8 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
+import type { GroupResults } from '../results';
+import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
 import { inWorkspace } from './common';
 import { playbooksInUse } from './friends';
@@ -173,6 +175,7 @@ export const today = defineAddonQuery(outreachAddon, {
         intro: string[];
         mutual_friends: number | null;
         lines: string[];
+        group_id: string;
         group_name: string | null;
         group_detail: string | null;
         group_members: number | null;
@@ -182,7 +185,7 @@ export const today = defineAddonQuery(outreachAddon, {
       }>(
         ctx.tx,
         sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
-              g.name as group_name, g.detail as group_detail, g.members as group_members,
+              gp.group_id, g.name as group_name, g.detail as group_detail, g.members as group_members,
               g.privacy as group_privacy, p.warm_up_missed_at,
               (select max(t.at) from addon_outreach.touches t
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
@@ -218,7 +221,27 @@ export const today = defineAddonQuery(outreachAddon, {
         });
         return fit.level === 'skip' || fit.level === 'unknown' ? [] : [{ p, fit }];
       });
-      fitted.sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
+      // Someone from a group whose people wrote back or booked demos comes ahead of others who fit as well (9a).
+      const results = found.length
+        ? resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }))
+        : new Map<string, GroupResults>();
+      const lift = (groupId: string) => {
+        const r = results.get(groupId);
+        return !r ? 0 : r.demos ? 2 : r.replies ? 1 : 0;
+      };
+      fitted.sort(
+        (a, b) =>
+          b.fit.score + lift(b.p.group_id) - (a.fit.score + lift(a.p.group_id)) ||
+          a.p.name.localeCompare(b.p.name),
+      );
+      const fromResults = (groupId: string) => {
+        const r = results.get(groupId);
+        return r?.demos
+          ? ['Their group has brought demos']
+          : r?.replies
+            ? ['People from their group write back']
+            : [];
+      };
       const likedBy = (p: (typeof found)[number]) =>
         p.liked_at === null ? null : new Date(p.liked_at).getTime();
       const warmed = settings.warmUp
@@ -239,6 +262,7 @@ export const today = defineAddonQuery(outreachAddon, {
             profileUrl: p.url,
             why: [
               ...fit.reasons,
+              ...fromResults(p.group_id),
               ...(settings.warmUp && likedBy(p) !== null ? ['You liked a post of theirs'] : []),
             ],
             playbookName: fit.playbookName,

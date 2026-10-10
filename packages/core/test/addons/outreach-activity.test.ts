@@ -7,7 +7,8 @@
  * - A message starts a chat, follows one up on a later day, or neither; answering them is neither.
  * - A step that waited to send keeps its moment, however long it waited.
  * - The panel counts the person's own steps, or the whole team's for owners and admins, over a stretch of days, by
- *   group and by person, with replies from saved chats; and their own day so far for the daily limits.
+ *   group and by person, with replies from saved chats or seen by the extension and demos booked; and their own day
+ *   so far for the daily limits. The groups that bring demos and replies come first, there and on the Groups tab.
  * - None of it runs while the add-on is off.
  */
 import { rows, sql } from '@hfos/db/client';
@@ -282,6 +283,7 @@ describe('the activity panel', () => {
         chatsStarted: 1,
         followUps: 0,
         replies: 1,
+        demos: 0,
       },
       today: { friend_request: 2, first_message: 1, follow_up: 0, comment: 0, like: 1 },
       morePeople: 0,
@@ -299,6 +301,7 @@ describe('the activity panel', () => {
         warmedUp: 1,
         chatsStarted: 0,
         replies: 1,
+        demos: 0,
       },
       {
         groupId: expect.any(String),
@@ -309,6 +312,7 @@ describe('the activity panel', () => {
         warmedUp: 0,
         chatsStarted: 0,
         replies: 0,
+        demos: 0,
       },
     ]);
     // Drew wrote back today, so they're listed, with the steps from two days ago; and they're a customer now.
@@ -349,6 +353,7 @@ describe('the activity panel', () => {
       chatsStarted: 2,
       followUps: 0,
       replies: 1,
+      demos: 0,
     });
     expect(week.groups[0]).toMatchObject({ people: 2, friendRequests: 2, chatsStarted: 1 });
   });
@@ -370,6 +375,50 @@ describe('the activity panel', () => {
     expect(mine.numbers).toMatchObject({ people: 1, friendRequests: 1, comments: 1, replies: 0 });
     expect(mine.today).toMatchObject({ friend_request: 1, comment: 1 });
     expect(await refused(panel(member, { everyone: true }))).toBe('outreach_activity_everyone');
+  });
+
+  it('counts replies the extension saw and demos booked, and puts the groups that bring them first', async () => {
+    // Blake wrote back, as the extension saw in Messenger; Cameron, from the Hill Country group, booked a demo.
+    await runAs(
+      owner,
+      ws,
+      'outreach.replies.note',
+      { seen: [{ name: blake.name, threadKey: '7000000002' }] },
+      new Date(Date.now() + 5 * 60_000),
+    );
+    await runAs(owner, ws, 'outreach.demo.mark', {
+      platform: 'facebook',
+      ...cameron,
+      booked: true,
+    });
+    const today = await panel(owner);
+    expect(today.numbers).toMatchObject({ replies: 2, demos: 1 });
+    expect(today.groups.map((g: { name: string }) => g.name)).toEqual([
+      'Hill Country Contractors',
+      'Austin Small Business Owners',
+    ]);
+    expect(today.groups[0]).toMatchObject({ people: 1, replies: 0, demos: 1 });
+
+    // The Groups tab: what each has brought ever, the ones that brought demos and replies first.
+    const groups = await runAs(owner, ws, 'outreach.groups', { view: 'all' });
+    expect(
+      groups.groups.map((g: { name: string; replies: number; demos: number }) => [
+        g.name,
+        g.replies,
+        g.demos,
+      ]),
+    ).toEqual([
+      ['Hill Country Contractors', 0, 1],
+      ['Austin Small Business Owners', 1, 0],
+    ]);
+
+    // A demo taken back no longer counts.
+    await runAs(owner, ws, 'outreach.demo.mark', {
+      platform: 'facebook',
+      ...cameron,
+      booked: false,
+    });
+    expect((await panel(owner)).numbers.demos).toBe(0);
   });
 });
 

@@ -214,6 +214,9 @@ export const GroupsOutput = z.object({
       adminsRead: z.boolean(),
       /** Friend requests the business sent to people found there. */
       requests: n,
+      /** Of everyone the business reached from it, ever, how many wrote back and booked a demo (./results.ts). */
+      replies: n,
+      demos: n,
       seenAt: z.iso.datetime().nullable(),
     }),
   ),

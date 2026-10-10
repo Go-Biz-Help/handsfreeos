@@ -15787,7 +15787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, and whether the person is in it. The best first.
+         * The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups"];
@@ -15827,7 +15827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo. Everyone’s for owners and admins.
+         * Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo, ever or in the last week or month. Everyone’s for owners and admins.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_openers"];
@@ -58536,6 +58536,7 @@ export interface operations {
                         from: string;
                         groups: {
                             chatsStarted: number;
+                            demos: number;
                             friendRequests: number;
                             /** Format: uuid */
                             groupId: string;
@@ -58556,6 +58557,7 @@ export interface operations {
                         numbers: {
                             chatsStarted: number;
                             comments: number;
+                            demos: number;
                             followUps: number;
                             friendRequests: number;
                             likes: number;
@@ -58944,6 +58946,7 @@ export interface operations {
                         };
                         groups: {
                             adminsRead: boolean;
+                            demos: number;
                             detail: string | null;
                             /** Format: uuid */
                             groupId: string;
@@ -58954,6 +58957,7 @@ export interface operations {
                             playbookName: string | null;
                             privacy: ("public" | "private") | null;
                             reasons: string[];
+                            replies: number;
                             requests: number;
                             runsGroup: number;
                             seenAt: string | null;
@@ -59074,6 +59078,11 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     everyone?: boolean;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    period?: "all" | "week" | "month";
                     /** Format: uuid */
                     workspaceId: string;
                 };

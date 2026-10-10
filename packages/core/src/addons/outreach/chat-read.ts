@@ -35,6 +35,8 @@ export const OutreachSettingsSchema = z.object({
   cancelRequestsAfterWeeks: z.number().int().min(1).max(12).default(CANCEL_AFTER_WEEKS),
   /** The hour each person hears what's on their list for today (decision 22); null sends none. */
   morningPushHour: z.number().int().min(0).max(23).nullable().default(MORNING_PUSH_HOUR),
+  /** Whether each person gets the weekly report by email, Monday at the morning push's hour (./results.ts). */
+  weeklyReport: z.boolean().default(true),
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 

@@ -6,6 +6,7 @@
  * anyone from it. Which, the name and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
  */
 import { GROUP_VIEWS, GROUPS_PAGE, type GroupView } from '@hfos/core/addons/outreach/groups';
+import { brought, resultWords } from '@hfos/core/addons/outreach/results';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -106,7 +107,7 @@ export function GroupsView({
               <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
                 <h3 className="text-[15px] font-semibold">{GROUP_VIEWS[show]}</h3>
                 <span className="text-[12.5px] text-text-3">
-                  The best fit first
+                  Bringing demos and replies first, then the best fit
                   {groups.pages > 1
                     ? ` · ${first.toLocaleString()}–${(first + groups.groups.length - 1).toLocaleString()} of ${groups.total.toLocaleString()}`
                     : ''}
@@ -134,6 +135,15 @@ export function GroupsView({
           )}
         </div>
         <aside className="space-y-4">
+          <Card className="p-4">
+            <h3 className="text-[15px] font-semibold">The groups that bring results</h3>
+            <p className="mt-1.5 text-[13px] text-text-2">
+              Groups whose people wrote back or booked a demo come first, and the extension works
+              them more: most of the groups it goes through each day are those, and the rest are
+              others, so a new group gets its chance. Today puts people from them ahead of others
+              who fit as well.
+            </p>
+          </Card>
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">How groups are scored</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
@@ -191,6 +201,11 @@ function GroupRow({ group: g }: { group: Group }) {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          {brought(g) ? (
+            <Badge variant="ok" data-testid="group-results">
+              {resultWords(g)}
+            </Badge>
+          ) : null}
           <Badge variant={VERDICT_BADGE[g.verdict]}>{GROUP_VIEWS[g.verdict]}</Badge>
           {g.people && !g.adminsRead ? <Badge variant="pending">Admins not read</Badge> : null}
         </div>

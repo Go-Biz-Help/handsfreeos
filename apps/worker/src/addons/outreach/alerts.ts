@@ -17,7 +17,7 @@ import {
   nextMorning,
   replyPushWords,
 } from '@hfos/core/addons/outreach/alerts';
-import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { today } from '@hfos/core/addons/outreach/ops/today';
 import type { TodayOutput } from '@hfos/core/addons/outreach/today';
 import { executeQuery, localDateOf, workspaceMessaging } from '@hfos/core/server';
@@ -33,8 +33,10 @@ const HOUR = 3_600_000;
 /** A morning push that runs this late (the worker was down) waits for the next morning. */
 const MORNING_LATE_MS = 3 * HOUR;
 
-/** The business's hour for the morning push, and its time zone. */
-async function morningOf(ctx: AddonScopeContext): Promise<{ hour: number | null; tz: string }> {
+/** Social Outreach's settings for the business, and its name and time zone. */
+export async function businessOf(
+  ctx: AddonScopeContext,
+): Promise<{ settings: OutreachSettings; name: string; tz: string }> {
   return asWorker(ctx.db, ctx.scope, async (tx) => {
     const [installed] = await rows<{ settings: unknown }>(
       tx,
@@ -43,10 +45,17 @@ async function morningOf(ctx: AddonScopeContext): Promise<{ hour: number | null;
     );
     const m = await workspaceMessaging(tx, ctx.scope.workspaceId);
     return {
-      hour: outreachSettings(installed?.settings).morningPushHour,
+      settings: outreachSettings(installed?.settings),
+      name: m.name,
       tz: m.timezone || 'UTC',
     };
   });
+}
+
+/** The business's hour for the morning push, and its time zone. */
+async function morningOf(ctx: AddonScopeContext): Promise<{ hour: number | null; tz: string }> {
+  const { settings, tz } = await businessOf(ctx);
+  return { hour: settings.morningPushHour, tz };
 }
 
 /** Queues the next morning push, or moves it sooner; nothing when the business turned it off. */

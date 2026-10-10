@@ -22,7 +22,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 const { readChats } = await import('../src/jobs/chats');
 const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS } =
   await import('../src/jobs/people');
-const { findPosts } = await import('../src/jobs/posts');
+const { findPosts, groupsToWork } = await import('../src/jobs/posts');
 const { runDaily } = await import('../src/auto/daily');
 
 const FB = 'https://www.facebook.com';
@@ -101,6 +101,8 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
   joined: true,
   people: 0,
   adminsRead: false,
+  replies: 0,
+  demos: 0,
   ...more,
 });
 
@@ -193,6 +195,32 @@ describe('saving group members', () => {
       `${FB}/groups/222/members/`,
       `${FB}/groups/444/members/`,
       `${FB}/groups/111/members/`,
+    ]);
+  });
+});
+
+describe('which groups it works', () => {
+  it('works the groups whose people wrote back and booked demos most, and tries others too', async () => {
+    const work = [
+      group('fresh1'),
+      group('replied', { replies: 3 }),
+      group('fresh2'),
+      group('booked', { replies: 1, demos: 1 }),
+      group('notin', { joined: false, demos: 4 }),
+    ];
+    const maybe = [group('maybebooked', { demos: 2 }), group('maybefresh')];
+    const hfos = (async (ask: HfosAsk) => ({
+      ok: true,
+      value: { groups: ask.type === 'hfos-groups' && ask.input.view === 'maybe' ? maybe : work },
+    })) as unknown as Hfos;
+    const { job } = jobWith(fakeTab(() => 'group-feed.html').tab, hfos);
+    const picked = await groupsToWork(job, 5);
+    expect(typeof picked === 'string' ? picked : picked.map((g) => g.name)).toEqual([
+      'Group maybebooked',
+      'Group booked',
+      'Group replied',
+      'Group fresh1',
+      'Group fresh2',
     ]);
   });
 });

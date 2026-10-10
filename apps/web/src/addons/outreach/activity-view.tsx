@@ -37,6 +37,7 @@ const NUMBERS: readonly { readonly key: keyof Numbers; readonly label: string }[
   { key: 'chatsStarted', label: 'Chats started' },
   { key: 'followUps', label: 'Follow-ups' },
   { key: 'replies', label: 'Wrote back' },
+  { key: 'demos', label: 'Demos booked' },
 ];
 
 /** How far someone has come, a step at a time. */
@@ -159,7 +160,7 @@ export function ActivityView({
 function NumbersRow({ numbers }: { numbers: Numbers }) {
   return (
     <div
-      className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7"
+      className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8"
       data-testid="activity-numbers"
     >
       {NUMBERS.map((n) => (
@@ -179,10 +180,13 @@ function GroupsCard({ groups }: { groups: readonly Group[] }) {
     <Card className="overflow-x-auto p-0" data-testid="activity-groups">
       <div className="px-5 pt-4">
         <h3 className="text-[15px] font-semibold">By group</h3>
-        <p className="text-[12.5px] text-text-3">Where the people reached were found.</p>
+        <p className="text-[12.5px] text-text-3">
+          Where the people reached were found, and what came of it. The groups that bring demos and
+          replies come first, and the extension works them more.
+        </p>
       </div>
       {groups.length ? (
-        <table className="mt-2 w-full min-w-[600px] text-left text-[13.5px]">
+        <table className="mt-2 w-full min-w-[680px] text-left text-[13.5px]">
           <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-text-3">
             <tr>
               <th className="px-5 py-2.5 font-semibold">Group</th>
@@ -190,7 +194,8 @@ function GroupsCard({ groups }: { groups: readonly Group[] }) {
               <th className="px-3 py-2.5 text-right font-semibold">Friend requests</th>
               <th className="px-3 py-2.5 text-right font-semibold">Liked or commented</th>
               <th className="px-3 py-2.5 text-right font-semibold">Chats started</th>
-              <th className="px-5 py-2.5 text-right font-semibold">Wrote back</th>
+              <th className="px-3 py-2.5 text-right font-semibold">Wrote back</th>
+              <th className="px-5 py-2.5 text-right font-semibold">Demos</th>
             </tr>
           </thead>
           <tbody>
@@ -214,7 +219,8 @@ function GroupsCard({ groups }: { groups: readonly Group[] }) {
                 <td className="px-3 py-2.5 text-right tabular-nums">{g.friendRequests}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{g.warmedUp}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{g.chatsStarted}</td>
-                <td className="px-5 py-2.5 text-right tabular-nums">{g.replies}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{g.replies}</td>
+                <td className="px-5 py-2.5 text-right tabular-nums">{g.demos}</td>
               </tr>
             ))}
           </tbody>
