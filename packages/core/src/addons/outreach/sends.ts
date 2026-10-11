@@ -44,13 +44,15 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
 export const SENDS_MOST = 100;
 export const SEND_WHY_MOST = 300;
 
-const words = z
+/** A message's words, as the person OKs them: the phone checks a change with it before it waits there. */
+export const SendText = z
   .string()
   .trim()
   .min(1, { error: 'Write something to send.' })
   .max(MESSAGE_MOST, {
     error: `Keep a message under ${MESSAGE_MOST.toLocaleString()} characters.`,
   });
+const words = SendText;
 
 export const Send = z.object({
   sendId: z.uuid(),
@@ -65,6 +67,10 @@ export const Send = z.object({
   state: z.enum(SEND_STATE_KEYS),
   why: z.string().nullable(),
   opener: DraftOpener.nullable(),
+  /** A reply handed over to the person (`handedOver`): it waits for an OK of its own, never Approve all. */
+  handedOver: z.boolean(),
+  /** Why a reply needs the person (`replyNeedsYou`): it waits for an OK of its own too. */
+  needsYou: z.string().nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Send = z.output<typeof Send>;
@@ -84,13 +90,21 @@ export const SendQueueInput = z.object({
 export type SendQueueInput = z.input<typeof SendQueueInput>;
 export const SendQueueOutput = Send;
 
-/** The person OKs messages, as they are or changed; with no ids, every one waiting (Approve all). */
+/**
+ * The person OKs messages, as they are or changed; with no ids, every one waiting (Approve all) but those that wait for
+ * an OK of their own (`oneByOne` in ./waiting-words.ts): a reply handed over, or one to someone who needs the person.
+ */
 export const SendApproveInput = z.object({
   workspaceId: z.uuid(),
   sends: z
     .array(z.object({ sendId: z.uuid(), text: words.optional() }))
     .max(SENDS_MOST)
     .optional(),
+  /**
+   * OK those named that still wait and pass over the rest, rather than refusing: the phone's Approve all, made from
+   * what it showed, perhaps with no signal, while some were OK'd or skipped elsewhere meanwhile (decision 44).
+   */
+  partial: z.boolean().default(false),
 });
 export type SendApproveInput = z.input<typeof SendApproveInput>;
 export const SendApproveOutput = z.object({
@@ -165,16 +179,8 @@ export const handedOver = (o: {
   readonly goes: boolean;
 }) => o.kind === 'reply' && !o.goes && !o.wheels && o.sending !== 'off' && o.replies !== 'draft';
 
-/** The push for a reply handed over: "Dana Reyes needs you". */
-export function handOverPushWords(
-  name: string,
-  why: string | null,
-): { title: string; body: string } {
-  return {
-    title: `${name} needs you`,
-    body: `Their reply waits for your OK in Today${why ? `: ${why}` : ': it isn’t a simple one'}.`,
-  };
-}
+/** The push for a reply handed over, kept with Waiting for you's words (./waiting-words.ts). */
+export { handOverPushWords } from './waiting-words';
 
 /** Whether the person changed the AI's words before the OK: spaces and line breaks don't count. */
 export const changed = (drafted: string, text: string) =>

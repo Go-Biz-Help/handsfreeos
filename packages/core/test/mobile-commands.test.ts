@@ -3,7 +3,7 @@
  * - **A command runs once.** A repeat of a phone command, even two at once, gets the first answer back and runs
  *   nothing again; the same id with another change is refused; a final refusal is kept and given back, while a
  *   "Still send?" or a retry is never kept; a command run inside another never touches a receipt; the web's
- *   commands have none; and a stored answer keeps no secret.
+ *   commands have none, nor does a heartbeat that keeps none (`receipt: false`); and a stored answer keeps no secret.
  * - **The moment rules:** a text written 45 minutes ago waits for "Still send?" and the OK sends it once; an
  *   online-only change that waited stays refused; events and notes say when things were really done.
  * - **Newest wins, one detail at a time:** the phone's email change goes through while the web's later number stays,
@@ -417,6 +417,28 @@ describe('command receipts', () => {
       .from(commandReceipts)
       .where(eq(commandReceipts.userId, sam.id));
     expect(after).toHaveLength(before.length);
+  });
+
+  it('writes no receipt for a command that keeps none, and runs it each time it’s sent', async () => {
+    let ran = 0;
+    const beat = defineCommand({
+      name: 'test.beat',
+      description: 'Says it’s there; a repeat does no harm.',
+      risk: 0,
+      input: z.object({ workspaceId: z.uuid() }),
+      output: z.object({ ran: z.number() }),
+      permission: 'records.write',
+      scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+      emits: [],
+      offline: 'anytime',
+      receipt: false,
+      handler: async () => ({ ran: ++ran }),
+    });
+    const commandId = randomUUID();
+    const first = await phone(beat, { workspaceId: wsId }, dale, { commandId });
+    const again = await phone(beat, { workspaceId: wsId }, dale, { commandId });
+    expect([first.output.ran, again.output.ran]).toEqual([1, 2]);
+    expect(await receiptsOf(dale, commandId)).toEqual([]);
   });
 
   it('keeps no secret in a stored answer', async () => {

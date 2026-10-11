@@ -1,7 +1,8 @@
 /**
  * What a look-up before a draft reads off a page (docs/outreach.md, decision 21), as lines for the AI: what someone's
- * profile or business page says about itself, and its latest posts, cut short. The panel's look-up
- * (src/panel/lookup.ts) and the runner's, before a message it drafts on its own (src/auto/run.ts), both use it.
+ * profile or business page says about itself, and its latest posts, cut short. The look-up asked from Today in
+ * HandsFreeOS (src/jobs/lookup.ts) and the runner's, before a message it drafts on its own (src/auto/run.ts), both
+ * use it.
  */
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { ReadResult } from './types';

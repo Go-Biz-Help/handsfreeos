@@ -7,14 +7,15 @@
  */
 import type { ChatPage, ChatSummary } from '../facebook/types';
 import type { ChatsCollected } from '../hfos/messages';
+import { CHATS_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { chatCollect } from '../hfos/saves';
-import { counted } from '../panel/dom';
+import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Hfos, type Job, type JobEnd } from './job';
 
 /** Messenger's list of chats. */
 export const MESSENGER = 'https://www.facebook.com/messages/';
 /** Between chats, a steady pace like a person's: a few seconds, never the same twice. */
-const PACE_MS = [7_000, 14_000] as const;
+const PACE_MS = [CHATS_PACE_SECONDS[0] * 1000, CHATS_PACE_SECONDS[1] * 1000] as const;
 /** While Facebook draws a chat just opened, and more of the list just scrolled to. */
 const OPEN_MS = 3_500;
 const SCROLL_MS = 2_500;
@@ -117,8 +118,9 @@ export async function readChats(
   const { tab } = job;
   let read = 0;
   job.progress('Opening Messenger…');
-  const first = await readIn(tab);
-  if (first.kind !== 'chats' && first.kind !== 'chat') await tab.open(MESSENGER);
+  // A tab not opened yet has nothing to read: Messenger first.
+  const first = await readIn(tab).catch(() => null);
+  if (!first || (first.kind !== 'chats' && first.kind !== 'chat')) await tab.open(MESSENGER);
   const tried = new Set<string>();
   let emptyScrolls = 0;
   while (!job.stopped() && read < options.most) {

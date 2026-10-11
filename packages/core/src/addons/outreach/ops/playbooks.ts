@@ -3,7 +3,7 @@
  * (`outreach.manage`) write them. A playbook is archived rather than deleted, and can come back.
  */
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -11,24 +11,17 @@ import { isUniqueViolation } from '../../../kernel/pg-errors';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import {
-  PLAYBOOK_LIMITS,
-  PLAYBOOK_TEMPLATE_KEYS,
-  PlaybookDetails,
+  Playbook as PlaybookOut,
+  PlaybookArchiveInput,
+  PlaybookListInput,
+  PlaybookListOutput,
+  PlaybookSaveInput,
   renumberQuestions,
+  type PlaybookDetails,
   upgradePlaybookDetails,
 } from '../playbooks';
 import { playbooks } from '../tables';
 import { inWorkspace, type Ctx } from './common';
-
-const PlaybookOut = z.object({
-  id: z.uuid(),
-  name: z.string(),
-  template: z.string().nullable(),
-  details: PlaybookDetails,
-  archivedAt: z.iso.datetime().nullable(),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-});
 
 const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookOut> => ({
   id: p.id,
@@ -40,12 +33,6 @@ const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookO
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
 });
-
-const name = z
-  .string()
-  .trim()
-  .min(1, 'Give the playbook a name.')
-  .max(PLAYBOOK_LIMITS.name, `Keep the name under ${PLAYBOOK_LIMITS.name} characters.`);
 
 async function loadPlaybook(ctx: Ctx, playbookId: string) {
   const [p] = await ctx.tx
@@ -78,8 +65,8 @@ export const playbookList = defineAddonQuery(outreachAddon, {
   name: 'outreach.playbook.list',
   description:
     'The business’s playbooks for social outreach, the ones in use first, then any archived.',
-  input: z.object({ workspaceId: z.uuid() }),
-  output: z.object({ playbooks: z.array(PlaybookOut) }),
+  input: PlaybookListInput,
+  output: PlaybookListOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
   async handler(ctx) {
@@ -101,15 +88,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
   description:
     'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds and the tags to use.',
   risk: 1,
-  input: z.object({
-    workspaceId: z.uuid(),
-    /** The playbook to change. Left out: a new one. */
-    playbookId: z.uuid().optional(),
-    name,
-    /** For a new one, the template it started from. */
-    template: z.enum(PLAYBOOK_TEMPLATE_KEYS).nullable().optional(),
-    details: PlaybookDetails,
-  }),
+  input: PlaybookSaveInput,
   output: PlaybookOut,
   permission: 'outreach.manage',
   scope: inWorkspace,
@@ -156,7 +135,7 @@ export const playbookArchive = defineAddonCommand(outreachAddon, {
   name: 'outreach.playbook.archive',
   description: 'Put a playbook away, or bring an archived one back.',
   risk: 1,
-  input: z.object({ workspaceId: z.uuid(), playbookId: z.uuid(), archived: z.boolean() }),
+  input: PlaybookArchiveInput,
   output: PlaybookOut,
   permission: 'outreach.manage',
   scope: inWorkspace,

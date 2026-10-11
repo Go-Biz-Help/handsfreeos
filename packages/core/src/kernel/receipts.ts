@@ -6,7 +6,9 @@
  * or input is refused. The answer is stored before the transaction ends (the database refuses to commit a receipt
  * without one); a final refusal is stored on its own afterwards, since the command's transaction rolled back.
  * Refusals a person can answer ("Still send?", quiet hours) and ones worth retrying are never stored, or they would
- * come back forever. Commands run inside another command never read or write receipts.
+ * come back forever. Commands run inside another command never read or write receipts, and neither does a command
+ * that says it keeps none (`receipt: false`: Social Outreach's heartbeat and how an ask is going, where a repeat does
+ * no harm and a lost answer is asked again with the next call).
  *
  * The phone syncs its person's receipts, so a stored answer never keeps a secret: credential-looking keys go at
  * any depth, and each command's `shownOnce` keys (a one-time OAuth state) too. A repeat whose stored answer can no
@@ -51,14 +53,18 @@ export const inputHashOf = (rawInput: unknown): string =>
     .update(canonicalJson(rawInput ?? null))
     .digest('hex');
 
-/** A person's command that carries the app's id has a receipt; nothing else does. */
+/**
+ * A person's command that carries the app's id has a receipt, unless the command says it keeps none
+ * (`receipt: false`: `outreach.live.beat` and `outreach.ask.progress`, where a repeat does no harm and a lost answer
+ * is asked again with the next call); nothing else does.
+ */
 export function receiptClaim(
   cmd: CommandDef,
   rawInput: unknown,
   actor: HumanActor,
   meta: RequestMeta,
 ): ReceiptClaim | null {
-  if (!meta.commandId) return null;
+  if (!meta.commandId || cmd.receipt === false) return null;
   return {
     userId: actor.userId,
     commandId: meta.commandId,

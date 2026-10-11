@@ -456,3 +456,45 @@ export const PLAYBOOK_SUGGESTIONS = {
   tags: ['Prospect', 'Interested', 'Not interested', 'Not a fit', 'Friend or family', 'Customer'],
   answers: ['Yes', 'No', 'Not sure', 'Not really', 'Not now'],
 } as const;
+
+// ---- The operations' shapes (./ops/playbooks.ts), here so the phone can name them ----
+
+/** A playbook as the operations give it. */
+export const Playbook = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  template: z.string().nullable(),
+  details: PlaybookDetails,
+  archivedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type Playbook = z.output<typeof Playbook>;
+
+export const PlaybookListInput = z.object({ workspaceId: z.uuid() });
+export const PlaybookListOutput = z.object({ playbooks: z.array(Playbook) });
+export type PlaybookListOutput = z.output<typeof PlaybookListOutput>;
+
+const playbookName = z
+  .string()
+  .trim()
+  .min(1, 'Give the playbook a name.')
+  .max(PLAYBOOK_LIMITS.name, `Keep the name under ${PLAYBOOK_LIMITS.name} characters.`);
+
+export const PlaybookSaveInput = z.object({
+  workspaceId: z.uuid(),
+  /** The playbook to change. Left out: a new one. */
+  playbookId: z.uuid().optional(),
+  name: playbookName,
+  /** For a new one, the template it started from. */
+  template: z.enum(PLAYBOOK_TEMPLATE_KEYS).nullable().optional(),
+  details: PlaybookDetails,
+});
+export type PlaybookSaveInput = z.input<typeof PlaybookSaveInput>;
+
+export const PlaybookArchiveInput = z.object({
+  workspaceId: z.uuid(),
+  playbookId: z.uuid(),
+  archived: z.boolean(),
+});
+export type PlaybookArchiveInput = z.input<typeof PlaybookArchiveInput>;

@@ -10,8 +10,18 @@
  * Browser-safe and pure.
  */
 
-/** Every synced column reads as text, an integer or nothing. */
-export type Cell = string | number | null | undefined;
+import {
+  cellJson,
+  cellMs,
+  cellObject,
+  cellText,
+  rowKey,
+  type Cell,
+  type SyncedPhoneRow,
+} from '../../phone-rows';
+
+/** Every synced column reads as text, an integer or nothing; and an add-on's row, as any add-on's phone rows read. */
+export type { Cell, SyncedPhoneRow };
 
 /** A deal record (`custom_records` of the deal kind). */
 export interface SyncedDealRecord {
@@ -22,14 +32,6 @@ export interface SyncedDealRecord {
   readonly owner_user_id: Cell;
   readonly team_user_ids: Cell;
   readonly updated_at: Cell;
-}
-
-/** One of Real Estate's rows (`addon_phone_rows`): `id` is `<source>:<the row's key>`, `data` its columns as JSON. */
-export interface SyncedPhoneRow {
-  readonly id: Cell;
-  readonly source: Cell;
-  readonly record_id: Cell;
-  readonly data: Cell;
 }
 
 /** A link (`relationships`), with its kind's `addon_id`, `addon_key` and `position`. */
@@ -112,43 +114,18 @@ export interface RealestateSource {
 
 // ---------- reading cells ----------
 
-export const text = (v: unknown): string | null => {
-  if (v === null || v === undefined) return null;
-  const s = String(v);
-  return s === '' ? null : s;
-};
-/** A time as milliseconds: PowerSync's "2026-10-03 14:31:03.785Z", Postgres's "…+00", or JSON's "…T…+00:00". */
-export const ms = (v: unknown): number | null => {
-  const s = text(v);
-  if (!s) return null;
-  const t = Date.parse(s.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
-  return Number.isNaN(t) ? null : t;
-};
+// Core's, for every add-on's phone rows (../../phone-rows.ts).
+export const text = cellText;
+export const ms = cellMs;
 export const iso = (t: number) => new Date(t).toISOString();
-const json = (v: Cell): unknown => {
-  const s = text(v);
-  if (!s) return null;
-  try {
-    return JSON.parse(s) as unknown;
-  } catch {
-    return null;
-  }
-};
-const obj = (v: Cell): Record<string, unknown> => {
-  const parsed = json(v);
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
-    : {};
-};
+const json = cellJson;
+const obj = cellObject;
 const ids = (v: Cell): string[] => {
   const parsed = json(v);
   return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
 };
 /** The row's own key, after `<source>:`. */
-const keyOf = (id: Cell) => {
-  const s = text(id) ?? '';
-  return s.slice(s.indexOf(':') + 1);
-};
+const keyOf = rowKey;
 /** Postgres's `a || ' ' || b`, trimmed: nothing when either is missing. */
 const joined = (a: Cell, b: Cell) => {
   if (a === null || a === undefined || b === null || b === undefined) return null;

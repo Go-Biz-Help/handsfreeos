@@ -2,14 +2,17 @@
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
  * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
- * and demos, 20261027001200 for the extension on its own, and 20261027001300 for the messages it sends): the Drizzle mirror its server code reads and writes
- * through.
+ * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
+ * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
+ * steps it needs the person for, and the bundled push, and 20261027001700 for asking the extension): the Drizzle mirror
+ * its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  date,
   foreignKey,
   integer,
   jsonb,
@@ -22,15 +25,19 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
+import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
+import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
 import type { SendState } from './sends';
+import type { NeedState, NeedStep } from './waiting-words';
+import type { SetupStep } from './setup';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -201,6 +208,8 @@ export const friends = addonOutreach.table(
     since: ts('since').notNull(),
     seenAt: ts('seen_at').notNull(),
     keep: boolean('keep').notNull().default(false),
+    /** When the person set a request they got aside (Waiting for you's Leave it): it counts while it's since `since`. */
+    setAsideAt: ts('set_aside_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -628,6 +637,13 @@ export const sends = addonOutreach.table(
     opener: jsonb('opener').$type<DraftOpener>(),
     state: text('state').notNull().default('waiting').$type<SendState>(),
     why: text('why'),
+    /** A reply handed over to the person (Replies (b) or (c)): it waits for an OK of its own, never Approve all. */
+    handedOver: boolean('handed_over').notNull().default(false),
+    /** Why a reply needs the person (`replyNeedsYou`): it waits for an OK of its own too. */
+    needsYou: text('needs_you'),
+    /** Who it's to and their profile's link, kept by triggers from `profiles` for phones (20261027001800). */
+    name: text('name'),
+    profileUrl: text('profile_url'),
     approvedAt: ts('approved_at'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -642,9 +658,206 @@ export const sends = addonOutreach.table(
   ],
 );
 
+/** Each place the extension runs for a person (./live.ts): only the most recently used one works. */
+export const computers = addonOutreach.table(
+  'computers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    installId: uuid('install_id').notNull(),
+    name: text('name').notNull(),
+    version: text('version'),
+    lastSeenAt: ts('last_seen_at').notNull(),
+    activeAt: ts('active_at'),
+    state: text('state').notNull().default('idle').$type<ReportedState>(),
+    line: text('line'),
+    lineAt: ts('line_at'),
+    nextAt: ts('next_at'),
+    toldAt: ts('told_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.installId)],
+);
+
+/** The person's day: started or stopped, why, from where and when (./live.ts). */
+export const days = addonOutreach.table(
+  'days',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    state: text('state').notNull().$type<DayState>(),
+    why: text('why').$type<DayWhy>(),
+    via: text('via').notNull().$type<DayVia>(),
+    changedAt: ts('changed_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
+/** The feed of the extension's steps, and the day's starts, stops and warnings (./live.ts). */
+export const liveSteps = addonOutreach.table(
+  'live_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    computerId: uuid('computer_id'),
+    clientId: uuid('client_id').notNull().defaultRandom(),
+    at: ts('at').notNull(),
+    kind: text('kind').notNull().$type<StepKind>(),
+    line: text('line').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.clientId),
+    foreignKey({
+      columns: [t.workspaceId, t.computerId],
+      foreignColumns: [computers.workspaceId, computers.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * A step the extension couldn't do and handed to the person (./waiting.ts): open until they did it, let it go, or the
+ * step was noted. One open a person, step and profile or post.
+ */
+export const needs = addonOutreach.table(
+  'needs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    step: text('step').notNull().$type<NeedStep>(),
+    profileId: uuid('profile_id').notNull(),
+    postId: uuid('post_id'),
+    sendId: uuid('send_id'),
+    name: text('name').notNull(),
+    url: text('url'),
+    why: text('why').notNull(),
+    state: text('state').notNull().default('open').$type<NeedState>(),
+    seenAt: ts('seen_at').notNull(),
+    clearedAt: ts('cleared_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.postId],
+      foreignColumns: [posts.workspaceId, posts.id],
+    }).onDelete('cascade'),
+    // The database sets only send_id to null (`on delete set null (send_id)`), as the other column-list keys here.
+    foreignKey({
+      columns: [t.workspaceId, t.sendId],
+      foreignColumns: [sends.workspaceId, sends.id],
+    }).onDelete('set null'),
+  ],
+);
+
+/** When each person last got the bundled push about what waits for them (decision 40). */
+export const waitingPushes = addonOutreach.table(
+  'waiting_pushes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    pushedAt: ts('pushed_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
+/** What a person asked their computer to do from HandsFreeOS (./asks.ts): who took it, how it's going, how it ended. */
+export const asks = addonOutreach.table(
+  'asks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull().$type<AskKind>(),
+    target: text('target').notNull().default(''),
+    task: jsonb('task')
+      .notNull()
+      .default(sql`'{}'::jsonb`)
+      .$type<AskTask>(),
+    about: text('about'),
+    via: text('via').notNull().$type<AskVia>(),
+    state: text('state').notNull().default('waiting').$type<AskState>(),
+    line: text('line'),
+    result: jsonb('result').$type<AskResult>(),
+    reply: text('reply').$type<AskReply>(),
+    computerId: uuid('computer_id'),
+    askedAt: ts('asked_at').notNull(),
+    startedAt: ts('started_at'),
+    endedAt: ts('ended_at'),
+    toldAt: ts('told_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    // The database sets only computer_id to null (`on delete set null (computer_id)`).
+    foreignKey({
+      columns: [t.workspaceId, t.computerId],
+      foreignColumns: [computers.workspaceId, computers.id],
+    }).onDelete('set null'),
+  ],
+);
+
+/**
+ * Where one person got to in Social Outreach's setup (./setup.ts, decisions 36 and 45). The extension signing in
+ * makes a row too, so `startedAt`, not the row, says they started; their own settings saved do too (`settingsAt`).
+ */
+export const setup = addonOutreach.table(
+  'setup',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reached: text('reached').$type<SetupStep>(),
+    startedAt: ts('started_at'),
+    finishedAt: ts('finished_at'),
+    bannerHiddenAt: ts('banner_hidden_at'),
+    extensionAt: ts('extension_at'),
+    /** The last time they saved their own settings: an owner or admin saving them for them never sets it. */
+    settingsAt: ts('settings_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
+  asks,
   automation,
+  computers,
+  days,
   fileChats,
   filePeople,
   friendEnds,
@@ -654,13 +867,17 @@ export const OUTREACH_TABLES = {
   myGroups,
   imports,
   demos,
+  liveSteps,
+  needs,
   openerUses,
   playbooks,
   posts,
   profiles,
   replies,
   sends,
+  setup,
   threads,
   touches,
+  waitingPushes,
   warnings,
 } as const;

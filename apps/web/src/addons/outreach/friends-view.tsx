@@ -8,6 +8,12 @@
  * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in from
  * the side (./download-card.tsx), adds since when they've been friends and the latest message.
  */
+import {
+  ASK_TIDY_MOST,
+  ASK_WORDS,
+  askOpen,
+  TIDY_PACE_WORDS,
+} from '@hfos/core/addons/outreach/asks';
 import { FIT_LEVELS, type FitLevel } from '@hfos/core/addons/outreach/fit';
 import {
   DONT_PITCH_TAG,
@@ -17,6 +23,7 @@ import {
   FRIENDS_PAGE,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
+import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -28,10 +35,14 @@ import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
+import { AskButton, AskLine, ComputerNote, latestAsk } from './asks';
 import { DownloadCard } from './download-card';
-import type { Friend, Friends, Tidy } from './types';
+import { FileAsksCard } from './file-asks';
+import { PersonMenu } from './person-menu';
+import type { Asks, Friend, Friends, Tidy } from './types';
 import { useAct } from './use-act';
 
 type Counts = Friends['counts'];
@@ -57,19 +68,19 @@ const ORDER: Record<FriendView, string> = {
 const EMPTY: Record<FriendView, { readonly title: string; readonly body: string }> = {
   friends: {
     title: 'No friends saved yet',
-    body: 'Open your friends list on Facebook with HandsFreeOS Social, scroll to the end, and press Save my friends in its panel.',
+    body: 'Press Save my friends list, and your computer reads your friends list on Facebook and saves it here. Or bring in your Facebook file.',
   },
   requests: {
     title: 'No friend requests waiting',
-    body: 'Open your friend requests on Facebook with HandsFreeOS Social and press Save these requests. They show here in order of how they fit your playbooks.',
+    body: 'Press Check my friend requests, and your computer saves the ones waiting on Facebook. They show here in order of how they fit your playbooks.',
   },
   sent: {
     title: 'No requests waiting on an answer',
-    body: 'The friend requests you send, noted by HandsFreeOS Social, show here until they’re answered, the oldest first. For ones you sent before, open View sent requests on Facebook and press Save these sent requests.',
+    body: 'The friend requests you send, noted by HandsFreeOS Social, show here until they’re answered, the oldest first. Ones you sent before come in with your Facebook file.',
   },
   keep: {
     title: 'Nobody on your Keep list',
-    body: 'Turn on Keep for the friends you’ll never unfriend, here or in the extension’s panel on their profile.',
+    body: 'Turn on Keep for the friends you’ll never unfriend.',
   },
   dont_pitch: {
     title: 'Nobody on the Don’t pitch list',
@@ -150,6 +161,7 @@ export function FriendsView({
   tidy,
   show,
   search,
+  asks,
 }: {
   workspaceId: string;
   businessName: string;
@@ -157,7 +169,11 @@ export function FriendsView({
   tidy: Tidy;
   show: FriendView;
   search: string;
+  /** What the person asked their computer to do on this tab. */
+  asks: Asks;
 }) {
+  // An ask's progress and end: what it saved shows once it ends.
+  useLiveRefresh(['outreach_ask'], 800);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // The list and name last asked for, ahead of the address while it loads: a name typed as another list opens is
@@ -228,6 +244,27 @@ export function FriendsView({
         </div>
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
+      <Card className="mb-4 p-4" data-testid="friends-asks">
+        <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
+        <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
+        <ComputerNote asks={asks} className="mt-3" />
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <AskButton
+            workspaceId={workspaceId}
+            asks={asks}
+            ask={{ kind: 'requests' }}
+            label="Check my friend requests"
+            testId="ask-requests"
+          />
+          <AskButton
+            workspaceId={workspaceId}
+            asks={asks}
+            ask={{ kind: 'friends' }}
+            label="Save my friends list"
+            testId="ask-friends"
+          />
+        </div>
+      </Card>
       <div
         className={cn(
           'grid gap-4 transition-opacity lg:grid-cols-[minmax(0,1fr)_300px]',
@@ -284,10 +321,11 @@ export function FriendsView({
               )}
             </Card>
           )}
+          <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
         </div>
         <aside className="space-y-4">
           <CapCard counts={friends.counts} cap={friends.cap} />
-          <TidyCard tidy={tidy} />
+          <FileAsksCard workspaceId={workspaceId} asks={asks} />
           <DownloadCard workspaceId={workspaceId} download={friends.download} />
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Yours, and the business’s</h3>
@@ -480,6 +518,8 @@ function FriendRow({
             />
             Don’t pitch
           </span>
+          {/* Add to Contacts and Demo booked; Don't pitch has its switch here. */}
+          <PersonMenu workspaceId={workspaceId} who={f} dontPitch={false} />
         </div>
       </div>
       {f.fit || state || mutual ? (
@@ -518,8 +558,8 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
     <Card className="p-4" data-testid="friends-cap">
       <h3 className="text-[15px] font-semibold">Your friends</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
-        Facebook allows {cap.toLocaleString()}. Saved from your friends list with the extension, or
-        from Facebook’s download file.
+        Facebook allows {cap.toLocaleString()}. Saved by Save my friends list, or from Facebook’s
+        download file.
       </p>
       <div className="mt-3 flex items-baseline justify-between gap-2 text-[13px]">
         <span>Friends</span>
@@ -548,54 +588,202 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
   );
 }
 
+/** "Mar 3, 2026". */
+const dateWords = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+const TIDY = {
+  cancel: {
+    step: 'cancel_request',
+    list: 'cancel',
+    title: 'Old friend requests',
+    button: 'Cancel the ticked requests',
+    done: 'requests cancelled',
+  },
+  unfriend: {
+    step: 'unfriend',
+    list: 'unfriend',
+    title: 'Friends to unfriend',
+    button: 'Unfriend the ticked',
+    done: 'unfriended',
+  },
+} as const;
+
 /**
- * What the extension can tidy up for the person (decisions 10, 12 and 17): old requests nobody answered, and friends
- * suggested for unfriending. They tick them in the extension's panel, which presses the buttons on Facebook.
+ * Tidying up the person's friends (decisions 10, 12 and 17): old requests nobody answered, and friends suggested for
+ * unfriending. They tick the ones to go, and their computer presses Cancel request or Unfriend on each profile,
+ * slowly, in a tab they can see, stopping at today's limit and on any warning from Facebook.
  */
-function TidyCard({ tidy }: { tidy: Tidy }) {
-  const rows = [
-    {
-      key: 'cancel',
-      label: `Requests waiting over ${tidy.cancelAfterWeeks === 1 ? 'a week' : `${tidy.cancelAfterWeeks} weeks`}`,
-      count: tidy.totals.cancel_request,
-      done: tidy.limits.cancel_request,
-    },
-    {
-      key: 'unfriend',
-      label: 'Friends to unfriend',
-      count: tidy.needsFile ? null : tidy.totals.unfriend,
-      done: tidy.limits.unfriend,
-    },
-  ];
+function TidyCard({ workspaceId, tidy, asks }: { workspaceId: string; tidy: Tidy; asks: Asks }) {
+  const warnedToday = tidy.warning?.today === true || asks.warnedToday;
   return (
-    <Card className="p-4" data-testid="friends-tidy">
+    <Card className="mt-4 p-4" data-testid="friends-tidy">
       <h3 className="text-[15px] font-semibold">Tidy up</h3>
-      <p className="mt-0.5 text-[12.5px] text-text-3">
-        Open the extension’s panel on Facebook and tick the ones to go under Tidy up your friends.
-        It presses Cancel request or Unfriend on each profile for you, slowly, in a tab you can see.
-      </p>
-      <ul className="mt-3 space-y-1.5 text-[13px]">
-        {rows.map((r) => (
-          <li key={r.key} className="flex items-baseline justify-between gap-2">
-            <span>{r.label}</span>
-            <span className="tabular-nums text-text-2">
-              {r.count === null ? 'needs your file' : r.count.toLocaleString()}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 text-[12.5px] text-text-3">
-        Today: {tidy.limits.cancel_request.done.toLocaleString()} of{' '}
-        {tidy.limits.cancel_request.most.toLocaleString()} requests cancelled,{' '}
-        {tidy.limits.unfriend.done.toLocaleString()} of {tidy.limits.unfriend.most.toLocaleString()}{' '}
-        unfriended.
-      </p>
-      {tidy.needsFile ? (
-        <p className="mt-2 text-[12.5px] text-text-3">
-          Unfriending suggestions need your Facebook file, which says when you last talked to each
-          friend.
+      <p className="mt-0.5 text-[12.5px] text-text-3">Tick the ones to go. {TIDY_PACE_WORDS}</p>
+      {tidy.warning ? (
+        <p
+          role="alert"
+          className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
+          data-testid="tidy-warning"
+        >
+          {warningNote(tidy.warning)}
         </p>
       ) : null}
+      <div className="mt-3 grid gap-5">
+        <TidyList
+          workspaceId={workspaceId}
+          tidy={tidy}
+          asks={asks}
+          kind="cancel"
+          warned={warnedToday}
+        />
+        <TidyList
+          workspaceId={workspaceId}
+          tidy={tidy}
+          asks={asks}
+          kind="unfriend"
+          warned={warnedToday}
+        />
+      </div>
     </Card>
+  );
+}
+
+function TidyList({
+  workspaceId,
+  tidy,
+  asks,
+  kind,
+  warned,
+}: {
+  workspaceId: string;
+  tidy: Tidy;
+  asks: Asks;
+  kind: keyof typeof TIDY;
+  warned: boolean;
+}) {
+  const words = TIDY[kind];
+  const people = tidy[words.list].slice(0, ASK_TIDY_MOST);
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  const { done, most } = tidy.limits[words.step];
+  const room = Math.max(0, most - done);
+  const latest = latestAsk(asks, kind);
+  const open = latest !== null && askOpen(latest.state);
+  // Only the ones still listed count: someone done since drops off the list, and out of the ticks.
+  const picked = people.filter((p) => ticked.has(p.profileId)).map((p) => p.profileId);
+  const all = people.length > 0 && picked.length === people.length;
+  // No more than today's limit leaves: the rest stay ticked for tomorrow.
+  const sending = room > 0 ? picked.slice(0, room) : picked;
+  const tick = (id: string, on: boolean) =>
+    setTicked((was) => {
+      const next = new Set(was);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  return (
+    <section data-testid={`tidy-${kind}`}>
+      <h4 className="text-[13.5px] font-semibold">
+        {words.title} · {tidy.totals[words.step].toLocaleString()}
+      </h4>
+      <p className="mt-0.5 text-[12.5px] text-text-3">
+        {kind === 'cancel'
+          ? `Sent more than ${tidy.cancelAfterWeeks === 1 ? 'a week' : `${tidy.cancelAfterWeeks} weeks`} ago and not answered. Facebook pauses your requests when too many wait.`
+          : `No contact either way in six months, friends for longer, and not in Contacts, a prospect, kept or on Don’t pitch. You have ${tidy.friends.toLocaleString()} of ${tidy.cap.toLocaleString()} friends.`}
+      </p>
+      {kind === 'unfriend' && tidy.needsFile ? (
+        <p className="mt-2 text-[12.5px] text-text-2" data-testid="tidy-needs-file">
+          Bring in your Facebook file first (Let the extension get your file, beside this): it says
+          when you last talked to each friend.
+        </p>
+      ) : !people.length ? (
+        <p className="mt-2 text-[12.5px] text-text-2">Nobody right now.</p>
+      ) : (
+        <>
+          <ul className="mt-2 grid gap-1">
+            {people.map((p) => (
+              <li key={p.profileId} className="text-[13px]">
+                <label className="flex items-baseline gap-2">
+                  <input
+                    type="checkbox"
+                    checked={ticked.has(p.profileId)}
+                    disabled={open}
+                    onChange={(e) => tick(p.profileId, e.target.checked)}
+                    data-testid="tidy-tick"
+                  />
+                  <span className="min-w-0">
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium hover:underline"
+                    >
+                      {p.name}
+                    </a>
+                    <span className="text-text-3">
+                      {' · '}
+                      {kind === 'cancel'
+                        ? `sent ${dateWords(p.since)}`
+                        : p.lastContact
+                          ? `last contact ${dateWords(p.lastContact)}`
+                          : 'no contact on record'}
+                      {p.fit === 'good' ? ' · fits a playbook' : ''}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {tidy.totals[words.step] > people.length ? (
+            <p className="mt-1 text-[12.5px] text-text-3">
+              The first {people.length} shown. Do these, and the next ones show.
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap items-start gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={open}
+              onClick={() => setTicked(all ? new Set() : new Set(people.map((p) => p.profileId)))}
+              data-testid={`tidy-${kind}-all`}
+            >
+              {all ? 'Untick all' : 'Tick all'}
+            </Button>
+            {picked.length ? (
+              <AskButton
+                workspaceId={workspaceId}
+                asks={asks}
+                ask={{ kind, profileIds: sending }}
+                label={`${words.button} (${sending.length})`}
+                variant="primary"
+                disabled={room <= 0 || warned}
+                showLine={false}
+                testId={`ask-${kind}`}
+                onAsked={() =>
+                  setTicked((was) => {
+                    // The ones over today's limit stay ticked for tomorrow.
+                    const next = new Set(was);
+                    for (const id of sending) next.delete(id);
+                    return next;
+                  })
+                }
+              />
+            ) : (
+              <Button size="sm" variant="primary" disabled data-testid={`ask-${kind}`}>
+                {words.button}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+      <p className="mt-2 text-[12.5px] text-text-3">
+        {room > 0
+          ? `Today: ${done.toLocaleString()} of ${most.toLocaleString()} ${words.done}.`
+          : `That’s today’s limit of ${most.toLocaleString()}. Carry on tomorrow.`}
+      </p>
+      {latest ? (
+        <AskLine workspaceId={workspaceId} asks={asks} ask={latest} className="mt-2" />
+      ) : null}
+    </section>
   );
 }

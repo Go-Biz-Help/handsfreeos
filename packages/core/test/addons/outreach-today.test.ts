@@ -241,4 +241,23 @@ describe('the list for today', () => {
     );
     expect(bo.why).toContain('Their group has brought demos');
   });
+
+  it('says who’s in Contacts, and whose demo the person marked, for the web’s menu on each', async () => {
+    // A first message's: a friend request is only ever suggested to someone not in Contacts yet.
+    const first = (await list()).items.find(
+      (i: { kind: string; profileId: string | null; personId: string | null }) =>
+        i.kind !== 'friend_request' && i.profileId && !i.personId,
+    );
+    expect(first).toMatchObject({ personId: null, demoBooked: false });
+    const added = await runAs(owner, ws, 'outreach.profile.contact', {
+      profileId: first.profileId,
+    });
+    const again = () =>
+      list().then((l) =>
+        l.items.find((i: { profileId: string | null }) => i.profileId === first.profileId),
+      );
+    expect(await again()).toMatchObject({ personId: added.personId, demoBooked: false });
+    await runAs(owner, ws, 'outreach.demo.mark', { profileId: first.profileId, booked: true });
+    expect(await again()).toMatchObject({ demoBooked: true });
+  });
 });

@@ -99,11 +99,29 @@ export const outreachAddon = defineAddon({
       'outreach.send.skipped',
       'outreach.send.done',
       'outreach.wheels.ended',
+      'outreach.live.changed',
+      'outreach.day.started',
+      'outreach.day.stopped',
+      'outreach.computer.renamed',
+      'outreach.need.noted',
+      'outreach.need.cleared',
+      'outreach.request.set_aside',
+      'outreach.ask.made',
+      'outreach.ask.started',
+      'outreach.ask.progressed',
+      'outreach.ask.replied',
+      'outreach.ask.cancelled',
+      'outreach.ask.ended',
+      'outreach.setup.saved',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
     // A reply seen, or one handed over to the person (decision 27), pushes to their phone, and a change to the settings
     // moves the morning push (./alerts.ts) and the weekly report (./weekly.ts); a booking through a demo link counts as a demo (./demos.ts).
+    // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's pruning
+    // armed (decision 41, ./live.ts). A message waiting for the person's OK, and a step the extension needs them for,
+    // reach their phone as their pushes setting says (decision 40, ./waiting.ts). An ask that first needs the person
+    // pushes to them at once (decision 43, ./asks.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -112,15 +130,29 @@ export const outreachAddon = defineAddon({
       'outreach.send.queued',
       'addon.settings_saved',
       'appointment.booked',
+      'outreach.warning.seen',
+      'outreach.live.changed',
+      'outreach.need.noted',
+      'outreach.ask.progressed',
     ],
   },
-  jobs: ['outreach.read_chats', 'outreach.check_posts', 'outreach.morning', 'outreach.weekly'],
+  jobs: [
+    'outreach.read_chats',
+    'outreach.check_posts',
+    'outreach.morning',
+    'outreach.weekly',
+    'outreach.live_prune',
+    'outreach.waiting_push',
+  ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
-  // morning push, and the weekly report: Add-ons → Social Outreach.
+  // morning push, and the weekly report: Social Outreach → Settings → Business settings.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
+    'asks',
     'automation',
+    'computers',
+    'days',
     'demos',
     'file_chats',
     'file_people',
@@ -129,22 +161,64 @@ export const outreachAddon = defineAddon({
     'group_people',
     'groups',
     'imports',
+    'live_steps',
     'my_groups',
+    'needs',
     'opener_uses',
     'playbooks',
     'posts',
     'profiles',
     'replies',
     'sends',
+    'setup',
     'threads',
     'touches',
+    'waiting_pushes',
     'warnings',
   ],
+  // What phones keep with no signal (decision 44, owner answer 19b): each person's messages waiting for their OK,
+  // theirs alone, so OK, change, skip and Approve all work on the phone with none. Its migration registers the same
+  // (20261027001800, `private.addon_phone_own_table`).
+  offline: {
+    permission: 'outreach.use',
+    tables: [
+      {
+        table: 'sends',
+        owner: 'user_id',
+        keep: { column: 'state', values: ['waiting'] },
+        columns: [
+          'user_id',
+          'profile_id',
+          'kind',
+          'thread_key',
+          'text',
+          'state',
+          'handed_over',
+          'needs_you',
+          'name',
+          'profile_url',
+          'created_at',
+          'updated_at',
+        ],
+      },
+    ],
+  },
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
     // A customer's Facebook profile and the chats saved with them.
     slots: [{ slot: 'person.panels', permission: 'outreach.use' }],
+    // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
+    // links (`?view=waiting`, `live`, `today`) open the phone's screens; and a playbook. The activity and friends stay
+    // on the web, and their links open it.
+    phone: [
+      {
+        path: '',
+        query: ['view', 'for', 'show', 'tag', 'q'],
+        web: { view: ['activity', 'friends'] },
+      },
+      { path: 'playbooks/:playbookId' },
+    ],
   },
   ai: {
     directory:

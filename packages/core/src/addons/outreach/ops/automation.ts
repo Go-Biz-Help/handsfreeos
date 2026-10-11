@@ -42,7 +42,7 @@ import {
 import { outreachSettings } from '../chat-read';
 import { dailyLimitsNow } from '../limits';
 import { outreachAddon } from '../manifest';
-import { automation, profiles } from '../tables';
+import { automation, profiles, setup } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
 type Row = typeof automation.$inferSelect;
@@ -110,6 +110,21 @@ export async function automationOf(
     saved: row !== undefined,
     wheels: stateOf(row, rules, now),
     rules,
+  };
+}
+
+/** Everyone's choices and training wheels in the business at once, for the team's live view (./live.ts). */
+export async function everyoneAutomation(ctx: Ctx, now = Date.now()) {
+  const [rules, kept] = await Promise.all([
+    rulesOf(ctx),
+    ctx.tx.select().from(automation).where(eq(automation.workspaceId, ctx.scope.workspaceId!)),
+  ]);
+  return {
+    rules,
+    of(userId: string): { settings: AutomationSettings; wheels: WheelsState } {
+      const row = kept.find((k) => k.userId === userId);
+      return { settings: settingsOf(row, rules), wheels: stateOf(row, rules, now) };
+    },
   };
 }
 
@@ -274,6 +289,15 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       .values({ workspaceId: ws, userId: whose, ...values })
       .onConflictDoUpdate({ target: [automation.workspaceId, automation.userId], set: values })
       .returning();
+    // Their own save counts as having chosen, for good (../setup.ts): an owner's or admin's later save doesn't undo it.
+    if (whose === me)
+      await ctx.tx
+        .insert(setup)
+        .values({ workspaceId: ws, userId: me, settingsAt: at, updatedAt: at })
+        .onConflictDoUpdate({
+          target: [setup.workspaceId, setup.userId],
+          set: { settingsAt: at, updatedAt: at },
+        });
     await ctx.emit({
       type: 'outreach.automation.saved',
       entityType: 'outreach_automation',

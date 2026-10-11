@@ -33,8 +33,8 @@ export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   chats: 'Read my chats',
 };
 
-/** Find posts' sends, each post once a day. */
-function postSender(job: Job): (page: ReadResult) => Promise<number> {
+/** Find posts' sends, each post once a run: also for Find posts asked from HandsFreeOS (../asks/run.ts). */
+export function postSender(job: Job): (page: ReadResult) => Promise<number> {
   const sent = new Set<string>();
   return async (page) => {
     const built = postsSave(page, job.businessId, 'find');

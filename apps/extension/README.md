@@ -3,19 +3,20 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the tenth test build (0.10.0).** It reads the Facebook page you have open and shows what it found in
-Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
-chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
-yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
-puts the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people
-to keep and the ones nobody pitches. It reads your Messenger chats for the AI, saves groups and their members with how
-each group fits, finds posts in your groups worth a comment, and gives you a list for the day with the AI's drafts
-to copy, after looking the person up on Facebook. It gets your Facebook download file for you and brings it in, and
-cancels old friend requests and unfriends the people you tick. It spots who wrote back so your phone can tell you,
-takes turns with your playbook's openers, and gives you a demo link for each person. It stops for the day on any
-Facebook warning. It never
-sends anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages,
-in Messenger's chat list, in your groups' feeds and on the profiles you ticked, once you ask it to.
+**This is a test build (0.20.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
+in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
+now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
+
+Signed in, it notes the friend requests, likes, comments and messages you send yourself, with the group you found
+each person in, and your answers to friend requests. In the Facebook tab in front of you it reads Facebook's
+warnings, and, as your settings say, the chats you open and the posts in a group as you scroll. It works your list
+for today on its own, as far as you let it. And it does what you ask of it from Social Outreach's Friends, Groups,
+Chats and Today tabs (and the phone's Groups and Chats screens): getting your Facebook file and bringing it in, saving your friend requests, friends list,
+groups and their members, finding groups and posts, reading your chats for the AI, cancelling old friend requests and
+unfriending the people you tick, and looking someone up before the AI drafts to them. It stops for the day on any
+Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live. Its icon shows how many things
+wait for you, and Chrome's pop-ups tell you of new ones, as your phone does. It never sends a message you haven't
+OK'd, and never clicks, scrolls or changes a page but for what you asked or let it do.
 
 ## What it reads
 
@@ -32,10 +33,8 @@ in Messenger's chat list, in your groups' feeds and on the profiles you ticked, 
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
 
-Facebook loads lists as you scroll, so the extension only sees what's on the page. With **Read when the page
-changes** on, the panel reads again as Facebook adds to the page, and when you reload it or go somewhere new;
-otherwise press **Read this page**. A group's People tab shows only a few of each list, admins and moderators too:
-its **See all** pages are read the same way.
+Facebook loads lists as you scroll, so a reader only sees what's on the page; the jobs scroll for more. A group's
+People tab shows only a few of each list, admins and moderators too: its **See all** pages are read the same way.
 
 Facebook draws some pages two ways, and both are read. Since 2026 a profile can have its name, bio and details at the
 top instead of an Intro card, a group's People tab has a row of faces above its tabs (left out: the lists below say
@@ -51,32 +50,40 @@ intro and the same two in its **Respond** menu; its address has their number and
 answer is noted with both. A chat open in a small window over another page is known by its messages, labelled as the
 conversation, and is with whoever its header links to.
 
-## Signing in and saving
+## The panel
 
-The panel signs in the way the phone app does: an emailed 6-digit code, or a password, for an account that already
-exists (new accounts start on the web). It then saves to one business, picked at the top of the panel when there are
-several. Only businesses where Social Outreach is on and the person has **Use Social Outreach** are listed; with none,
-the panel still reads pages and says there's nowhere to save.
+Press the extension's button on any page and Chrome's side panel opens beside it (`src/panel/`, `public/panel.html`).
+It shows what's going on and leaves the rest to HandsFreeOS:
 
-| Page      | What it adds                                                                                                                                                                                                                                                                           |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A profile | **Save to HandsFreeOS**: adds them to Contacts (source Facebook) with their intro and where you stand, or brings a saved one up to date. Customers with the same name are offered first: **It’s them** links the profile to one                                                        |
-| A chat    | **Save this chat**: the messages on the page join what was saved before, the latest 100 kept, each with the day it was sent spelled out ("Today" becomes the date)                                                                                                                     |
-| Lists     | **In HandsFreeOS** beside each person saved there, and **Saved** beside each chat you've saved                                                                                                                                                                                         |
-| Friends   | **Save my friends**, **Save these requests** or **Save these sent requests**: everyone loaded on the page, 500 at a time, for the Friends tab in Social Outreach, but no request already answered. Nobody is added to Contacts                                                         |
-| Groups    | **Save these groups** on your groups or a search for groups, each shown with how it fits your playbooks (Work these, Maybe or Skip, and why). On a group, **Save this group**; on its People tab, **Save this group and 40 people**, admins and moderators kept as such, 500 at a time |
-| Admins    | On a group's **Admins and moderators** page (People, then **See all** beside them): **Save 3 admins and moderators**. Everyone there runs the group; Today suggests the group's members only once this page is saved                                                                   |
+- **Signing in** (`src/panel/account.ts`), the way the phone app does: an emailed 6-digit code, or a password, for an
+  account that already exists (new accounts start on the web). It then works for one business, picked at the top
+  when there are several. Only businesses where Social Outreach is on and you have **Use Social Outreach** are listed;
+  with none it says there's nowhere to work, and if Social Outreach is turned off it says so and the business leaves
+  the list.
+- **Right now** (`src/panel/status.ts`): what it's doing (working, waiting for the next step, stopped, standing by)
+  with its line and when; the next step; why it isn't working when it isn't (another computer works for you, noting is
+  off, you do everything yourself); Facebook's warning that day; a warning when your own steps today go past a daily
+  limit (`pastLimitWords`, from `outreach.activity`: the limits count, they don't stop); your settings in one line, the
+  hours and training wheels in it, with **Change in HandsFreeOS**; **Start my day** and **Stop for today**, with HandsFreeOS's words when it refuses one; and anything
+  you asked of it from HandsFreeOS while it goes, with **Carry on**, **Skip** and **Stop**.
+- **Waiting for you** (`src/panel/waiting.ts`), below.
+- **Open HandsFreeOS**, at the foot, opens Social Outreach's Live tab for the business, and **Page read wrong?**,
+  folded away, holds **Copy page outline** and **Save page outline** (below, "When it reads a page wrong").
 
-Saved people link to their page in HandsFreeOS, where a **Social** card shows their profile and chats. Each save says
-what it did in the line under **Read this page**. If Social Outreach is turned off while the panel is open, the next
-save or look-up says so and the business leaves the list.
+**The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.
+Whenever someone is signed in, it tells HandsFreeOS so (`outreach.setup.save` with `extension`): at each sign-in or
+business picked, and otherwise at most every 6 hours (`hfos.setupReported`; a refusal waits the same, and only a lost
+connection is tried again sooner), so the setup's install step ticks by itself, also for a build updated over an old
+sign-in. Signing in, or picking another business, opens HandsFreeOS's setup in a new tab when HandsFreeOS's answer to
+that report says the person is a first-timer there (never saved their own settings and never started the setup), once
+per person and business on this computer (`hfos.setupOpened`), and never two tabs for two sign-ins at once
+(`src/hfos/setup.ts`). **Save my groups**, asked from the Groups tab or the setup's groups step, saves each group on
+Facebook's page of your own groups (facebook.com/groups/joins/) as one you're in (`src/jobs/groups.ts`), which is
+what the setup's groups step lists.
 
-On a profile, **Don't pitch** puts them on the business's list: nobody there sends them outreach, and a step you take
-with them isn't counted (it shows as **Not saved**, with why). Customers tagged **Friend or family** in Contacts count
-too. Only whoever added someone, or an owner or admin, takes them off. For a friend, **Keep** means they're never
-suggested for unfriending. Lists mark both. Your requests are put in order of how they fit the playbooks in use, the
-best first, with why: the words a playbook puts in quotes found in their profile, its area, mutual friends, and the
-group they were found in (`packages/core/src/addons/outreach/fit.ts`).
+Opening the panel, or coming back to it, makes this the computer that works for you (below, "What it tells
+HandsFreeOS"). Nothing is saved from it: the people you reach are kept by noting, and Add to Contacts, Demo booked,
+Keep and Don't pitch are on the web.
 
 ## What it notes
 
@@ -102,10 +109,10 @@ Left out: other reactions than Like, steps to yourself, and a step it can't tie 
 card with several people. Popups and Facebook's other layouts may slip past; tell us what it missed, with an outline.
 Answers to requests aren't outreach, so they don't count toward the daily limits.
 
-**Today on Facebook**, in the panel, shows today's steps against the daily limits, the people reached and who wrote
-back, and the last few steps noted, with **See all** opening the activity on the Social Outreach page. **Note my
-steps on Facebook**, in your settings in HandsFreeOS, turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
-up to 200, and go in order when it's back.
+Social Outreach's Live and Activity tabs show today's steps against the daily limits and who wrote back. **Note my
+steps on Facebook**, in your settings in HandsFreeOS, turns noting off and on; it starts on. When HandsFreeOS can't
+be reached, steps wait in the extension, up to 200, and go in order when it's back. Steps in the extension's own
+windows and tabs are its own, never noted as yours.
 
 **Who wrote back** (decision 22): while noting is on, each Facebook tab looks at the chats on the page as it changes,
 at most every 10 seconds and not in the 20 seconds after you send one: Messenger's list (a line that doesn't start
@@ -114,71 +121,87 @@ at most every 10 seconds and not in the 20 seconds after you send one: Messenger
 only chats from the last two days and each at most every 3 minutes (`src/hfos/replies.ts`). HandsFreeOS counts one
 only when it answers a message of yours it noted, and tells your phone unless you had that tab in front of you.
 
-## Your chats, for the AI
+## What you can ask it from HandsFreeOS
 
-Facebook's file can take hours to be ready, so the panel reads your chats in Messenger too. With **Read chats I
-open** on (it starts on), each one-to-one chat you open with the panel beside it has its latest messages sent for the
-AI to read; it's one of your settings in HandsFreeOS. **Read my chats**, on a Messenger page, opens your chats one at a time from the list, 7 to 14 seconds
-apart, and scrolls the list for more: up to 150 a run, skipping any read in the last day that hasn't changed, and
-stopping at once on any Facebook warning. **Stop** ends it. Group chats are left out. Each chat's latest 20 messages
-join what the file brought in, one chat per person, and the Chats tab on the web shows what the AI made of them, with
-**Open in Messenger** (`src/panel/chats.ts`, `outreach.chats.collect`).
+The buttons on Social Outreach's Friends, Groups, Chats and Today tabs ask your computer to do something on Facebook
+(an ask, `outreach.ask.make`; decision 43 in docs/outreach.md). The computer that works for you hears of it within
+seconds on the live channel (`src/hfos/follow.ts`), or with its next beat's answer, takes it (`outreach.ask.take`,
+the oldest first), does it with the jobs in `src/jobs/`, and says how it's going and how it ended, which the web
+shows under the button and on the Live tab, and the panel under **Right now** (`src/asks/run.ts`,
+`src/hfos/asks.ts`).
 
-## Posts worth a comment
+| Button, and where                                                                          | What it does                                                                                                                                                                                                                                     | Where it works, and its pace                                                 |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Ask Facebook** (Friends, Let the extension get your file)                                | In Accounts Center's Export your information: keeps only Messages, Friends and Followers, sets All time, JSON and Lower quality, and starts the export; stops if Facebook is making one already                                                  | A tab you can see; you type your password there                              |
+| **Download my file** (the same)                                                            | Once Facebook has emailed you, presses Download beside the file                                                                                                                                                                                  | The same                                                                     |
+| **Get my chat backup** (the same)                                                          | From ⋯ beside Chats, Privacy & safety, End-to-end encrypted chats, Message storage: downloads the backup from all time without media, for chats newer than the file has                                                                          | The same; you type your PIN there                                            |
+| **Bring them in** (the same)                                                               | Finds Facebook's zips in Chrome's downloads, however they were downloaded, reads them and sends names, dates and each one-to-one chat's latest 20 messages, as the Friends tab's card does (`src/jobs/file-in.ts`)                               | The offscreen page (`src/offscreen.ts`); needs **Allow access to file URLs** |
+| **Check my friend requests** (Friends)                                                     | Saves the friend requests you've got, a few screens of them (`src/jobs/people.ts`)                                                                                                                                                               | A window of its own, 4 to 9 seconds a screen                                 |
+| **Save my friends list** (Friends)                                                         | Scrolls your friends list to the end and saves it, 500 at a time                                                                                                                                                                                 | The same, up to 150 screens                                                  |
+| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`) | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day  |
+| **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                         | A window of its own, 4 to 9 seconds a screen, 8 screens                      |
+| **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                          | A window of its own                                                          |
+| **Find posts** (Groups)                                                                    | Your Work these groups (or Maybe, with none), up to 5, each feed scrolled a screen at a time; the posts worth a look go to the AI, and the good ones on Today (`src/jobs/posts.ts`)                                                              | The same, 6 to 12 seconds a screen, 8 screens a group                        |
+| **Read my chats** (Chats)                                                                  | Opens your chats in Messenger one at a time from the list and scrolls it for more, skipping any read in the last day that hasn't changed; group chats are left out (`src/jobs/chats.ts`)                                                         | The same, 7 to 14 seconds a chat, up to 150                                  |
+| **Draft a message**, **Draft a comment** (Today, while it's online)                        | Opens their profile, reads their intro and latest posts and the business page their intro links to, then has the AI draft with those lines; the drafts come back on the ask (`src/jobs/lookup.ts`)                                               | A window of its own, closed after                                            |
 
-**Posts worth a comment** finds posts in your groups where a comment from you could help (decisions 18 to 20 in
-docs/outreach.md). With **Look for posts as I scroll** on (it starts on; it's one of your settings in HandsFreeOS), each read of a group's feed sends the posts
-that say your playbooks' signs or ask for help, with who wrote them, and the AI checks each one; the panel marks them
-**Good to comment** or **AI checking**, with why. **Find posts** goes through the groups you're in that are marked
-Work these (or Maybe, with none), up to 5 a run, in a tab you can see: it scrolls each feed a screen at a time, 6 to
-12 seconds apart, 8 screens a group, and stops at once on any Facebook warning. **Stop** ends it. The good ones go on
-your list for today (`src/panel/posts.ts`, `outreach.posts.save`). Groups whose people wrote back or booked a demo
-take 3 of the 5 places, from Work these or Maybe, the best first; the rest go to others, so a new group gets its
-chance (decision 34, `@hfos/core/addons/outreach/results`). Saving group members picks from the same groups.
+- **One at a time, never beside the runner.** Asks take turns with the runner on Facebook (`src/auto/turns.ts`): the
+  runner waits ("Doing what you asked from HandsFreeOS first") and carries on after. Asks go outside your working
+  hours and after Stop for today too, since you're asking now.
+- **How it's going:** a new state goes to HandsFreeOS at once, and a new line alone at most every 20 seconds
+  (`lineDue`), with no receipt kept. How it ended goes with its own id and moment; with no connection it waits
+  (`hfos.ask.ends`, at most 20) and goes with the next beat. The ask under way is kept in `hfos.ask` for the panel;
+  one left there when the extension starts again (Chrome closed mid-way) is ended as lost.
+- **Steps it hands to you:** a step it can't find on Facebook's download pages or a profile it hands to you: the tab
+  comes to the front, Chrome pops up, your phone hears "Your computer needs you", and it waits for **Carry on** (or
+  **Skip**, for someone ticked) from the panel, Waiting for you, or the web, asking HandsFreeOS for your answer every
+  20 seconds. Half an hour with no answer stops it. While Facebook asks for your password or PIN, it waits for you to
+  type it there; it never types one.
+- **Stops:** **Stop**, in the panel or the app; Stop for today, pressed in the panel, the app or the phone; another of
+  your computers working now; or Facebook's warning that day, seen here in any tab or on another of your computers,
+  which ends any ask on Facebook before it starts, or at its next page while it goes (all but **Bring them in**,
+  which doesn't open Facebook); or signing in, signing out or picking another business here (`signInChanged`), and it
+  checks before each call to HandsFreeOS that you're still the one signed in, to the same business, so nothing of
+  yours goes as anyone else's: its end waits until you're back. A stopped ask ends with why and how far it got
+  ("Stopped: you pressed Stop for today. Requests cancelled: 2 people.").
+- **Only Facebook's pages:** the extension's own tab opens only https addresses on www.facebook.com,
+  web.facebook.com and accountscenter.facebook.com (`workUrl` in `src/facebook/urls.ts`, checked in `src/tab.ts`), so
+  a bad link kept in HandsFreeOS or read off a page is refused with plain words and never opened.
+- **Done or not:** an ask is **Done** only when its job did what was asked. Stopped, warned, or unable to (nothing to
+  save, HandsFreeOS refusing a save, a page that didn't load) it ends as failed, with the job's words.
+- **What it keeps:** `hfos.ask` and `hfos.ask.ends` above, and `hfos.facebookFile`: when you asked Facebook for your
+  file, and which zips were brought in. The offscreen page (the `offscreen` permission) is opened only to read the
+  zips and closed once they're in.
 
-## Your list for today
+## Reading as you go
 
-Under **Today on Facebook**, **Your list for today** (`outreach.today`) is what to do next, worked out from what
-HandsFreeOS knows each time it's asked:
+In the Facebook tab in front of you, panel open or not, the content script looks at the page as it settles, every
+10 seconds at most (`src/facebook/looking.ts`), and the background notes what it found (`src/hfos/looked.ts`):
 
-- **Confirm their request**: friend requests you got from people who fit a playbook well.
-- **Like a post first**: with that choice on (On its own, below), people you'll ask tomorrow; their request comes a
-  day after the like.
-- **Send a friend request**: people saved from your groups who fit a playbook, best first, as many as today's limit
-  has left. Never anyone who runs a group, is on Don't pitch or tagged Friend or family, is in Contacts, or has had a
-  request from the business, and only from groups whose admins and moderators are saved.
-- **Say hi**: friends who accepted your request a day or more ago and haven't had a message.
-- **Follow up**: likely prospects whose chat ends with your message, a few quiet days ago.
-- **Reply**: likely prospects who wrote last, lately.
-- **Comment on a post**: posts the AI called good, from the last week, as many as today's comment limit has left.
-  **Not for me** puts one aside for good.
+- **Facebook's warnings**, always (below).
+- **A chat you open**, while noting and **Read chats as I open them** are on (both start on): its latest messages go
+  for the AI to read when there's something new, one chat per person, joining what the file brought in.
+- **A group's posts as you scroll**, while noting and **Look for posts as I scroll a group** are on: the posts that
+  say your playbooks' signs or ask for help go for the AI to check, each at most every half hour, and the good ones go
+  on your list for today. Groups whose people wrote back or booked a demo take 3 of the 5 places Find posts works
+  (decision 34, `@hfos/core/addons/outreach/results`).
 
-Each opens their profile, chat or post on Facebook. A message has **Draft a message** and a post **Draft a comment**:
-first the extension looks them up, opening their profile in a tab out of view, reading their intro and latest posts,
-and the business page their intro links to, then closing it (`src/panel/lookup.ts`, decision 21). Then the AI writes
-three messages or two comments to pick from, in the playbook's tone, mentioning only what's really there and never
-with its words to avoid, and **Copy** puts one on the clipboard to paste and send yourself. A first message opens the
-way the playbook's next opener says (shown above the drafts), or is the business's own opener with their first name
-in; copying one notes which it was, for the **Which openers work** card (decision 23). **Copy demo link** copies
-your own link to the playbook's booking page for them: a booking through it counts as your demo by itself (decision
-24). On a profile, **Demo booked** marks one they booked some other way. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
-it off the list. The Today tab on the web shows the same list.
+The extension's own windows and tabs are never read this way: they're its work, not yours.
 
 ## Your settings
 
-Everything the extension does is set in HandsFreeOS, on Social Outreach's **Settings** tab, on the web (decision 37
-in docs/outreach.md); it keeps nothing of its own. Signing in loads them, and a change made there reaches it within a
+Everything the extension does is set in HandsFreeOS, on Social Outreach's **Settings** tab, on the web or in the
+phone app (decision 37 in docs/outreach.md); it keeps nothing of its own. Signing in loads them, and a change made there reaches it within a
 few seconds while Chrome is open: the background listens on the same live channel the web app does and asks
 HandsFreeOS again when anyone's choices or the business's change (`src/hfos/follow.ts`). It writes what the Facebook
-tabs and the panel read (noting, reading chats as you open them, looking for posts as you scroll) into its storage
-from them. When it can't listen, each step the runner takes loads them again. Owners and admins can change yours;
+tabs read (noting, reading chats as you open them, looking for posts as you scroll) into its storage from them. When it can't listen, each step the runner takes loads them again. Owners and admins can change yours;
 your settings then say who did.
 
 ## On its own
 
-**On its own**, under **Today on Facebook**, lets the extension do some of your list for today by itself (decisions 26
+**On its own** lets the extension do some of your list for today by itself (decisions 26
 to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's **Settings** tab in HandsFreeOS
-(decision 37, `outreach.automation`); the panel shows them in a few lines with **Change in HandsFreeOS**:
+(decision 37, `outreach.automation`); the panel shows them in a line with **Change in HandsFreeOS**:
 
 - **What it does on its own:** nothing (**You do everything**, to start), friend requests, likes and comments on
   their own with each message waiting for one tap, the same with the day's messages ready to **Approve all**, or
@@ -196,7 +219,8 @@ job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/j
 you've got (Friend requests, loading a few screens of them); the admins and moderators of up to 3 of your Work these
 groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; and Read
-my chats, up to 60 a day. The panel lists what each found today. They only read and save, as the panel's buttons do.
+my chats, up to 60 a day. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
+do.
 
 In your hours it goes down the list at random times spread over the day, in this order: requests to confirm, posts to
 like, friend requests, then comments. **Start my day** starts it now and goes a minute or few apart, hours or not;
@@ -207,65 +231,106 @@ the AI's first comment draft into the post's own box and sends it, then checks i
 extension's own. Anything not as expected is passed over for the day, with why in the panel's line. It keeps your
 daily limits (the list never holds more than they have room for), stops for the day on any Facebook warning, and works
 only while Chrome is open, you're signed in and noting is on (`src/auto/run.ts`, `src/auto/plan.ts`,
-`src/facebook/auto.ts`, `src/panel/auto.ts`). On the list, in the panel and on the web, what it does says **Done on its
-own**, and your phone's morning push leaves those out.
+`src/facebook/auto.ts`, `src/panel/status.ts`). On Today in HandsFreeOS what it does says **Done on its own**, and
+your phone's morning push leaves those out. What you ask of it from HandsFreeOS goes first: the runner waits for it
+and carries on after.
 
-## Tidying up your friends
+## What it tells HandsFreeOS
 
-**Tidy up your friends**, under your list for today, lists the friend requests you sent that nobody answered after
-the business's wait (3 weeks to start; Add-ons → Social Outreach), and, once your Facebook file is in, friends to
-unfriend: never kept, not in Contacts, not on Don't pitch, with no likely-prospect chat, friends for over six months
-and with no message either way in six months (`outreach.friends.tidy`). Tick who, then **Cancel the ticked
-requests** or **Unfriend the ticked** (decision 17 in docs/outreach.md).
+Signed in, the extension tells HandsFreeOS how things stand on your computer, so Social Outreach's **Live** tab on the
+web and the phone shows it as it happens (decision 41 in docs/outreach.md, `src/hfos/live.ts`):
 
-It opens each profile in a tab you can see, checks it's the one you ticked and where you stand, presses **Cancel
-request** (or **Friends**, **Unfriend** and **Confirm**), and checks the profile says **Add friend** after before
-noting it (`outreach.friend.end`). One person every 20 to 40 seconds, up to 30 cancelled and 20 unfriended a day.
-A step it can't find, it hands to you: press it, then **Carry on**, or **Skip** them. **Stop** ends it
-(`src/panel/tidy.ts`, `src/facebook/tidy.ts`).
+- **This computer.** Each install makes an id once and keeps it in its storage (`hfos.computer`), with a plain name,
+  "Chrome on Windows" or "Chrome on Mac", that you can rename on the Live tab. Only the computer you used last works:
+  opening or coming back to the panel, a step of your own on Facebook, signing in, or Start my day or Stop for today
+  pressed there makes it the one. On the others the runner stands by, and the panel says which computer works and
+  how to work from this one instead. Nothing hands over by itself.
+- **The beat** (`outreach.live.beat`): every minute while Chrome is open and you're signed in (the `hfos-beat` alarm),
+  and a couple of seconds after the runner's state changes, a step is taken or you use the computer. It sends what the
+  runner is doing (working, waiting for the next step, stopped, paused, standing by), its line and when the next step
+  is, and the steps it took since (`hfos.live.steps`, each with its own id, kept until HandsFreeOS has it). A line alone
+  goes at most every 20 seconds, and a line longer than 300 characters is cut short, so a beat is never refused for its
+  wording. A beat that changes nothing keeps no record and tells nobody. With no beat for 3
+  minutes the Live tab says your computer is offline and when it was last seen. Signing out sends a last beat that says
+  so.
+- **Your day:** **Start my day** and **Stop for today** in the panel are kept in HandsFreeOS (`outreach.day.start`,
+  `outreach.day.stop`), and pressed in the app they reach this computer within seconds over the live channel; the
+  answer to each beat says where the day stands (`hfos.live`). Offline, a press here waits (`hfos.live.press`), keeps
+  its moment and goes with the next beat; a newer press wins. HandsFreeOS refuses Start my day after a Facebook warning
+  that day, or while you do everything yourself, and the panel says why; Stop for today always stops here. A warning
+  seen here is never undone here. A press here updates the answer kept at once. When a beat's answer says the day
+  stopped or another computer works now, a once-a-day job under way ends at its next page, and the runner looks again
+  as soon as the step under way is done.
+- **Whose:** every line, waiting press and answer kept says whose it is (you and the business), so none goes as
+  someone else's or to another business after signing in as someone else.
+
+## Waiting for you: the number and the pop-ups
+
+**Waiting for you**, in the panel, is the same list as the Waiting for you tab in HandsFreeOS (decisions 40 and
+42 in docs/outreach.md, `outreach.waiting`): something you asked of your computer that needs you (**Carry on**,
+**Skip**, **Stop**), replies handed over to you, messages waiting for your OK (with **Approve
+all**, which leaves a reply handed over or one to someone who needs you, each to OK on its own), steps the extension
+couldn't do and hands to you (**I did it** or **Let it go**), and friend requests to decide (**Leave it**). The
+background keeps it (`src/hfos/waiting.ts`), and the panel draws it (`src/panel/waiting.ts`):
+
+- **The number on its icon** is everything waiting (`chrome.action.setBadgeText`, "99+" past 99). It's asked again a
+  moment after a change of yours heard on the live channel (a message drafted, OK'd or sent, a step noted or handed
+  over, a request answered), one HandsFreeOS made itself (a download brought in), or a change to your pushes, hours
+  or training wheels by anyone (an owner may change yours); after you act on one in the panel, after signing in, and
+  every 10 minutes with nothing heard (the `hfos-beat` alarm). Signed out, or with Social Outreach turned off or out
+  of your reach, there's none; with no connection, the last number stays.
+- **Chrome's pop-ups** (the `notifications` permission) follow your **pushes** setting, as your phone does: one for
+  what's new at most every 2 hours in your working hours (to start), or one for each, with more than 3 at once going as
+  one. A reply handed over pops up at once either way, and isn't told again in the bundled one; friend requests never
+  pop up. Only the computer that works shows them (src/hfos/live.ts); the first look after signing in tells of what's
+  there, replies too, in one pop-up at most. A click opens the side panel in the window you last used (kept in the
+  session's storage, so a click that wakes the background still knows it); **Open in HandsFreeOS**, or a click Chrome
+  won't open the panel for, opens Waiting for you on the web.
+- **The panel's list** shows only while it's for who's signed in and the business they save to, so picking another
+  business never shows, or acts on, the last one's. **Approve all** names the same number as the web's. **I did it**
+  on a step the extension couldn't do again since says so, and the step stays.
+- **Steps it hands to you:** when the runner can't find a button or the box, Facebook shows a different page, or
+  Facebook doesn't take a step, it hands the step to you (`outreach.need.note`, from the same waiting list as the
+  steps it notes, so it keeps its moment offline), and still tries again another day. A message that didn't go is
+  handed over by HandsFreeOS itself. The step noted later, however it was done, takes it off.
+- **What it keeps:** the last list (`hfos.waitingFor`) and what a pop-up told of (`hfos.waitingFor.told`), each saying
+  whose it is (you and the business). `hfos.waiting` is the steps waiting to be sent (src/hfos/noting.ts), not this;
+  Today's count of them leaves out the steps handed to you.
 
 ## Facebook's warnings
 
-Any warning the panel sees on a page ("You’re temporarily blocked", "going too fast", a security check) is noted in HandsFreeOS once a day
-(`src/panel/warnings.ts`, `outreach.warning.note`, decision 25). The extension then stops for the day: no more chats
-read, nobody cancelled or unfriended, nothing done on its own. The runner notes the warnings it sees itself, the same
-way (`src/hfos/warned.ts`). For 7 days your daily limits are halved, and for 2 friend requests are off your
-list. A red note says so under **Today on Facebook**, and on the web's Today tab and activity panel.
-
-## Getting your Facebook file
-
-**Your Facebook file**, in the panel, gets Facebook's own copy of your friends, requests and chats for the Friends
-tab in Social Outreach (decision 16 in docs/outreach.md). Each button opens the page in a tab you can see and presses
-Facebook's buttons there, one step at a time:
-
-| Button             | What it does                                                                                                                                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ask Facebook       | In Accounts Center's Export your information: keeps only Messages, Friends and Followers, sets All time, JSON and Lower quality, and starts the export; stops if Facebook is making one already |
-| Download my file   | Once Facebook has emailed you, presses Download beside the file                                                                                                                                 |
-| Get my chat backup | From ⋯ beside Chats, Privacy & safety, End-to-end encrypted chats, Message storage: downloads the backup from all time without media, for chats newer than the download has                     |
-
-Facebook asks for your password before it hands over the file, and your PIN for the chat backup: you type them in
-the tab, and the panel carries on once they're in. When it can't find a step (Facebook draws these pages differently
-for different accounts), it says which button to press; press it yourself, then **Carry on**. **Stop** ends it.
-
-The zips Facebook gives you show under **Files in your downloads**, however they were downloaded. The first time,
-Chrome needs your OK to let the extension open them: **Open the extension's settings** goes to its card, where you
-turn on **Allow access to file URLs**. Then **Read** opens them where they are, shows what's in them, and **Bring them
-in** sends HandsFreeOS names and dates, plus each one-to-one chat's latest 20 messages for the AI to read (the Chats
-tab on the web), as the Friends tab's card does.
+Any warning it sees ("You’re temporarily blocked", "going too fast", a security check), in the tab in front of you or
+one it works in, is noted in HandsFreeOS once a day for the same words (`src/hfos/looked.ts`, `outreach.warning.note`,
+decision 25). The extension then stops for the day: nothing done on its own, and no ask on Facebook (bringing in
+your file still works). It keeps the day's warnings itself (`hfos.warned`, `src/hfos/warned.ts`), so it stops even
+when HandsFreeOS can't be reached, and a warning seen on another of your computers stops it too. For 7 days your
+daily limits are halved, and for 2 friend requests are off your list. A red note says so under **Right now**, and on
+the web.
 
 ## Load it in Chrome
 
+People on a business's team follow the setup in HandsFreeOS (Social Outreach sends a first-timer there; Settings →
+Set up again, or the Carry on line on any tab, opens it), which has the download link and these steps in plain
+words. To hand out a build, zip the **contents** of `dist/chrome` so `manifest.json` is at the zip's top (into `dist/`, which git ignores, never into the repo), put the zip wherever the team downloads files
+(a shared drive, a release page), and paste its https link under Social Outreach → Settings → Business settings →
+**Where your team gets the extension** (on the web or the phone). A newer build goes the same way: people unzip it
+over the same folder and press the reload arrow. Once everyone has the bare-bones build (0.19.0, settings part 4, or
+newer), set the API's `MIN_EXTENSION_VERSION` to it, so an older build that still saves from its panel is refused
+with an ask to update; `outreach.profile.save` and `outreach.chat.save` can then be retired (docs/outreach.md, "Not
+yet").
+
+To load your own build:
+
 1. Build it: `pnpm --filter @hfos/extension build`. It lands in `apps/extension/dist/chrome`. To sign in, the build
    needs HandsFreeOS's publishable Supabase key in `HFOS_SUPABASE_PUBLISHABLE_KEY` (see "Where it signs in" below);
-   without it the panel reads pages and doesn't sign in.
+   without it the extension can't sign in.
 2. Open `chrome://extensions`, turn on **Developer mode**, press **Load unpacked** and pick that folder.
 3. Pin it from the puzzle-piece menu, open facebook.com, and press its button: the side panel opens beside the page.
 4. To bring in your Facebook file from your downloads, press **Details** on its card and turn on **Allow access to
    file URLs**.
 
 After a rebuild, press the reload arrow on the extension's card. A Facebook tab that was open before the extension was
-loaded gets the reader the first time the panel asks.
+loaded gets the reader when it's next reloaded, or the first time the extension asks it to read.
 
 `node scripts/build.mjs --watch` rebuilds on every change.
 
@@ -288,9 +353,9 @@ build after it signs in to the API on port 4000.
 
 ## When it reads a page wrong
 
-**Copy page outline** and **Save page outline**, at the foot of the panel, give the page's structure as plain text:
-tags, roles, Facebook's own words and labels, and the shape of every link. Everything a person wrote becomes
-`[2 words]`, and the people, groups and chats that links lead to become `{1}`, `{2}`…, the same number each time the
+**Copy page outline** and **Save page outline**, under **Page read wrong?** at the foot of the panel, give the
+page's structure as plain text: tags, roles, Facebook's own words and labels, and the shape of every link.
+Everything a person wrote becomes `[2 words]`, and the people, groups and chats that links lead to become `{1}`, `{2}`…, the same number each time the
 same one comes up. With the reader's counts at the top, that's enough to see what Facebook changed and fix the reader.
 
 ## Rules worth knowing before changing anything
@@ -305,28 +370,31 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   so a reader never counts on what sits directly inside or beside an element: it goes by what comes before or after
   it on the page (`isBefore`, `elementsAfter`). `test/boxes.test.ts` reads every test page again with a bare box around
   each element and expects the same.
-- **Reading only when asked, and noticing only the person.** The content script reads when the panel asks, and while
-  the panel watches its tab it says when the page has changed, so the panel can ask again. Besides that it only
-  listens for the person's own clicks and Enter presses (`isTrusted`, never the page's), works out from the page
+- **Reading only when asked, and noticing only the person.** The content script reads when the background asks (a
+  job, the runner), and in the tab in front of the person it looks at the page as it settles for Facebook's warnings
+  and, as the switches say, the chat open and a group's posts (`lookFor`); never in the extension's own work tabs.
+  Besides that it only listens for the person's own clicks and Enter presses (`isTrusted`, never the page's), works out from the page
   around them whether one was a step and who to (`src/facebook/actions.ts`), and tells the background. It never reads
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rules. What it does on its
   own keeps the owner's decisions: off by default, the daily limits, and a stop for the day on any Facebook warning.
 - **Scrolling groups only when asked, slowly.** **Find posts** (`src/jobs/posts.ts`) only scrolls a group's own
   feed (`scrollFeed`, `groupFeedPage`), a screen at a time, 6 to 12 seconds apart: it opens nothing and presses
   nothing. Once a day, on its own, it also scrolls your friend requests and a group's members the same way
-  (`scrollList`, `peopleListPage`, `src/jobs/people.ts`), 4 to 9 seconds apart. The look-up before drafting (`src/panel/lookup.ts`) only opens and reads two pages in a tab out of view,
-  then closes it; it does neither on a day Facebook warned you.
+  (`scrollList`, `peopleListPage`, `src/jobs/people.ts`), 4 to 9 seconds apart, and your friends list and groups
+  when asked (`scrollPage`, only on those pages). The look-up before drafting (`src/jobs/lookup.ts`) only opens and
+  reads two pages in a window of its own, then closes it; none of these go on a day Facebook warned you.
 - **Opening chats only when asked, slowly.** **Read my chats** (`src/jobs/chats.ts`) clicks the chat links in
   Messenger's own list and scrolls that list (`src/facebook/browse.ts`), nothing else: never a button, never a box to
   type in. One chat every 7 to 14 seconds, at most 150 a run (60 once a day on its own), and it stops at once on a
   Facebook warning.
 - **Pressing only on the download pages, only when asked.** `src/facebook/fetch.ts` presses Facebook's buttons only
-  on Accounts Center's download pages and the chats (`fetchPage`), only for a job the person started in the panel,
+  on Accounts Center's download pages and the chats (`fetchPage`), only for an ask the person made in HandsFreeOS,
   and only what's in the box on top, never behind it. It never types: a password or PIN box on the page makes it
   wait for the person. Each step lists the words it may go by, the likeliest first, and one it can't find is handed
   to the person rather than guessed. `test/fetch.test.ts` walks a made-up Accounts Center, and again with bare boxes.
 - **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/facebook/tidy.ts`) press only
-  on a profile (`tidyPage`) the person ticked in the panel, after checking it's them (`sameProfile`) and where things
+  on a profile (`tidyPage`) the person ticked on the Friends tab, and only those still on its lists, after checking
+  it's them (`sameProfile`) and where things
   stand. The first press is a button under their name, never a link or the Friends tab (`buttonsOnly`); Unfriend and
   Confirm are pressed only in Facebook's box on top (`inBox`). It re-reads the profile after and hands anything else
   to the person. `test/tidy.test.ts` walks a made-up profile's menu and box, and again with bare boxes.
@@ -344,10 +412,14 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   whether the AI found it simple, which with **Replies** (b) lets it go by itself; HandsFreeOS decides
   (`goesAsItIs`), and holds back any reply to someone who needs the person.
   `test/auto.test.ts` walks a made-up profile, post, chat and chat window.
-- **A warning stops the day.** The panel keeps the day's warnings itself (`hfos.warned`), so reading chats and tidying
-  refuse to start, or stop, even when HandsFreeOS can't be reached.
-- **Saving only when pressed; steps noted as they happen.** Reading a page asks HandsFreeOS which people and chats on
-  it are saved (the add-on's `outreach.lookup`), and nothing is saved until the person presses a button. The four
+- **A warning stops the day.** The extension keeps the day's warnings itself (`hfos.warned`), so the runner and the
+  asks on Facebook refuse to start, or stop, even when HandsFreeOS can't be reached.
+- **Asks one at a time, from HandsFreeOS only.** Only the computer that works takes one, and only the person's own;
+  an ask and a step of the runner's never go at once (`inTurn`). Its line goes at most every 20 seconds, its end
+  keeps its moment and command id, and a step handed over waits half an hour at most. The panel's buttons only answer
+  the ask under way; they never start one.
+- **Saving only when asked in HandsFreeOS; steps noted as they happen.** Nothing is saved until the person asks for it
+  in HandsFreeOS, or lets the extension work on its own, but for what the two switches send as they go. The four
   steps are the exception, noted with `outreach.touch.save` as they're taken, and adding nobody to Contacts. Both go
   through the add-on's commands like any other client: `x-hfos-client: extension`, its version in
   `x-hfos-app-version`, and a command id and moment on every save, so the API can hold old builds to
@@ -362,12 +434,13 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   names. `test/actions.test.ts` takes each step on the hand-written pages, and again with bare boxes around everything.
 - **The background worker holds the sign-in.** It keeps the Supabase session in the extension's own storage and
   makes every call to HandsFreeOS (`src/hfos/session.ts`); the panel asks it (`src/hfos/messages.ts`), and it
-  answers only the extension's own pages. One holder means panels in two windows never refresh the sign-in at once.
+  answers only the extension's own pages. The offscreen page answers only the extension's messages meant for it.
+  One holder means panels in two windows never refresh the sign-in at once.
 - **Cut to fit before sending.** `src/hfos/saves.ts` builds each save from the read, cut to what the commands take
-  (`packages/core/src/addons/outreach/limits.ts`, which has no zod so the panel stays small), and keeps a chat's save
+  (`packages/core/src/addons/outreach/limits.ts`, which has no zod so the extension stays small), and keeps a chat's save
   under the API's 256 KB limit by sending the newest messages that fit.
-- **Each reader checks itself.** When a page should have something and the reader finds none, the panel says so and
-  asks for the outline (`src/facebook/page.ts`).
+- **Each reader checks itself.** When a page should have something and the reader finds none, it says so and asks for
+  the outline (`src/facebook/page.ts`).
 - **An outline never holds what a person wrote.** `test/outline.test.ts` checks that no name, message or id survives.
 - **No remote code.** Everything ships in the bundle; the stores forbid downloading code.
 - **No real Facebook pages in the repo.** The pages in `test/fixtures` are written by hand to look like Facebook's.
@@ -375,26 +448,28 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                    | What it is                                                                                                                                               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps                                  |
-| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete                                  |
-| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day and its list, `chats.ts` reading chats |
-| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                     |
-| `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                  |
-| `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`../tab.ts`)                                                       |
-| `src/panel/warnings.ts` | Facebook's warnings: noted once a day, and the extension stopping for the day                                                                            |
-| `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                              |
-| `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                           |
-| `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                 |
-| `src/hfos/follow.ts`    | Your settings from HandsFreeOS: loaded at sign-in and each step, and followed live                                                                       |
-| `src/jobs/`             | The jobs that go page by page: Find posts, Read my chats, and once a day checking friend requests and saving group members (`src/auto/daily.ts`)         |
-| `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                            |
-| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, follows your settings, and wakes the runner                |
-| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
-| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
+| Path                                        | What it is                                                                                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/facebook/`                             | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps, what to look at as you go     |
+| `src/content.ts`                            | The script in each Facebook tab: reads the page when asked, looks at the tab in front of you as it settles, and notices your steps                     |
+| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Right now with Start, Stop and an ask under way, `waiting.ts` Waiting for you                     |
+| `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                    |
+| `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                        |
+| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats               |
+| `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                             |
+| `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                    |
+| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), the runner (`run.ts`), the once-a-day jobs (`daily.ts`), and taking turns with asks (`turns.ts`)   |
+| `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                   |
+| `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                        |
+| `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                   |
+| `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                       |
+| `src/hfos/waiting.ts`                       | Waiting for you: the number on the icon and Chrome's pop-ups                                                                                           |
+| `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                              |
+| `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks |
+| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                  |
+| `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                 |
 
 ## Next
 
-Onboarding for Social Outreach (decision 36), then tidying on its own and joining groups (decisions 29 and 31)
-(docs/outreach.md, decisions 26 to 36). Safari on Mac follows in Phase 2.
+Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest of decisions 26 to 35); Social
+Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac follows in Phase 2.

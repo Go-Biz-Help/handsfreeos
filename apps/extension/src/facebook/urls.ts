@@ -165,6 +165,24 @@ export function facebookUrl(href: string, base: string = FACEBOOK): URL | null {
   return HOSTS.has(url.hostname.toLowerCase()) ? url : null;
 }
 
+/** The only places the extension's own tab may go: Facebook's pages, and its Accounts Center for the file. */
+const WORK_HOSTS = new Set(['www.facebook.com', 'web.facebook.com', 'accountscenter.facebook.com']);
+
+/**
+ * An address the extension's own tab may open, made whole, or null: https, on Facebook or its Accounts Center, with
+ * nothing else in the host (no name, password or port), so a bad link kept or read never takes the tab elsewhere.
+ */
+export function workUrl(href: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
+  return WORK_HOSTS.has(url.hostname.toLowerCase()) ? url.href : null;
+}
+
 /** The path's parts, decoded. */
 export function pathParts(url: URL): string[] {
   return url.pathname

@@ -6,6 +6,7 @@
 import type { AddonServerModule } from '../server';
 import { outreachAddon } from './manifest';
 import { activityCommands, activityQueries } from './ops/activity';
+import { askCommands, askQueries } from './ops/asks';
 import { alertCommands } from './ops/alerts';
 import { automationCommands, automationQueries } from './ops/automation';
 import { chatCommands, chatQueries } from './ops/chats';
@@ -13,13 +14,16 @@ import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { groupCommands, groupQueries } from './ops/groups';
+import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
+import { setupCommands, setupQueries } from './ops/setup';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { postCommands } from './ops/posts';
 import { todayQueries } from './ops/today';
+import { waitingCommands, waitingQueries } from './ops/waiting';
 
 export const outreachAddonServer: AddonServerModule = {
   manifest: outreachAddon,
@@ -38,6 +42,10 @@ export const outreachAddonServer: AddonServerModule = {
     ...demoCommands,
     ...automationCommands,
     ...sendCommands,
+    ...liveCommands,
+    ...waitingCommands,
+    ...askCommands,
+    ...setupCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -51,5 +59,9 @@ export const outreachAddonServer: AddonServerModule = {
     ...openerQueries,
     ...automationQueries,
     ...sendQueries,
+    ...liveQueries,
+    ...waitingQueries,
+    ...askQueries,
+    ...setupQueries,
   ],
 };

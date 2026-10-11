@@ -6387,6 +6387,11 @@ export const addonPhoneTables = app.table(
     columns: text('columns').array().notNull(),
     reach: text('reach').$type<'team' | 'all'>().notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** A person's own rows (20261027001800): the column naming whose each is; each goes to their phone alone. */
+    ownerColumn: text('owner_column'),
+    /** Phones keep only rows whose `keepColumn` is one of `keepValues` ('state' in 'waiting'). */
+    keepColumn: text('keep_column'),
+    keepValues: text('keep_values').array(),
   },
   (t) => [primaryKey({ columns: [t.addonId, t.source] })],
 );

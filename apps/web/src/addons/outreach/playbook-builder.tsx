@@ -28,6 +28,7 @@ import {
   type PlaybookStep,
   type PlaybookTemplateKey,
 } from '@hfos/core/addons/outreach/playbooks';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   ArrowDown,
   ArrowLeft,
@@ -322,6 +323,7 @@ export function PlaybookBuilder({
   businessTags,
   bookingPages,
   brandedOrigin,
+  doneHref,
 }: {
   workspaceId: string;
   /** The playbook to change; null for a new one. */
@@ -334,10 +336,12 @@ export function PlaybookBuilder({
   bookingPages: readonly { readonly name: string; readonly path: string }[];
   /** The business's own domain, when one is serving its public pages. */
   brandedOrigin: string | null;
+  /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
+  doneHref?: string;
 }) {
   const router = useRouter();
   const origin = usePublicOrigin(brandedOrigin);
-  const home = outreachHref(workspaceId, { view: 'playbooks' });
+  const home = doneHref ?? outreachHref(workspaceId, { view: 'playbooks' });
   const [start] = useState<Draft>(() =>
     playbook
       ? fromDetails(playbook.name, playbook.details as PlaybookDetails)
@@ -568,7 +572,7 @@ export function PlaybookBuilder({
         <div className="space-y-5">
           <div>
             <Field
-              label="What you offer"
+              label={W.offerLabel}
               htmlFor="pb-offer"
               hint="In your words, like “A 20-minute demo”."
               error={issueAt('offer')}
@@ -699,7 +703,7 @@ export function PlaybookBuilder({
           <ListField
             id="pb-groups"
             {...typed('groupWords')}
-            label="Words to search for groups"
+            label={W.playbookSections.groupWords}
             hint="Like “small business owners”, or your town’s name with what they do."
             items={draft.groupWords}
             onChange={(v) => set('groupWords', v)}
@@ -863,7 +867,7 @@ export function PlaybookBuilder({
           <ListField
             id="pb-avoid"
             {...typed('avoid')}
-            label="Words to avoid"
+            label={W.playbookSections.avoid}
             items={draft.avoid}
             onChange={(v) => set('avoid', v)}
             suggestions={[{ label: 'Ideas', options: PLAYBOOK_SUGGESTIONS.avoid }]}
@@ -895,7 +899,7 @@ export function PlaybookBuilder({
             <ListField
               id="pb-opener-styles"
               {...typed('openerStyles')}
-              label="Styles the AI opens with"
+              label={W.openerStyles}
               hint="Two or three different ones, so you can see which works. Each is how a first message starts."
               placeholder="Like “Ask about something real on their profile”"
               items={draft.openerStyles}
@@ -933,7 +937,7 @@ export function PlaybookBuilder({
     case 'review':
       body = (
         <div className="space-y-5">
-          <Field label="Name" htmlFor="pb-name" hint="Only your team sees it." error={nameIssue}>
+          <Field label={W.name} htmlFor="pb-name" hint="Only your team sees it." error={nameIssue}>
             <Input
               id="pb-name"
               value={draft.name}
@@ -1121,7 +1125,7 @@ function Conversation({
           data-testid="question-add"
         >
           <Plus className="h-4 w-4" />
-          Add a question
+          {W.addQuestion}
         </Button>
       ) : (
         <p className="text-[13px] text-text-3">
@@ -1233,9 +1237,9 @@ function QuestionCard({
       ) : (
         <div className="mt-2 space-y-4 sm:space-y-2">
           <div className={cn(ANSWER_ROW, 'hidden text-[12px] text-text-3 sm:grid')} aria-hidden>
-            <span>They say</span>
-            <span>Adds the tag</span>
-            <span>Then</span>
+            <span>{W.theySay}</span>
+            <span>{W.addsTag}</span>
+            <span>{W.leadsTo}</span>
           </div>
           {q.answers.map((a, j) => {
             const wrong =
@@ -1269,7 +1273,7 @@ function QuestionCard({
                     value={tag}
                     onChange={(e) => setAnswer(j, { ...a, tag: e.target.value || null })}
                   >
-                    <option value="">No tag</option>
+                    <option value="">{W.noTag}</option>
                     {tags.map((t) => (
                       <option key={t} value={t}>
                         {t}
@@ -1306,7 +1310,7 @@ function QuestionCard({
             data-testid={`question-${n}-add-answer`}
           >
             <Plus className="h-3.5 w-3.5" />
-            Add an answer
+            {W.addAnswer}
           </Button>
           <Picks
             className="mt-0"
@@ -1398,20 +1402,14 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
     case 'steps': {
       const steps = PLAYBOOK_STEP_KEYS.filter((s) => d.steps.includes(s));
       if (!steps.length) return <Missing>No steps picked</Missing>;
-      const pace = [
-        steps.includes('message')
-          ? d.pace.messageAfterDays === 0
-            ? 'First message the day they accept'
-            : `First message ${plural(d.pace.messageAfterDays, 'day')} after they accept`
-          : null,
-        steps.includes('follow_up')
-          ? `Follow up after ${plural(d.pace.followUpAfterDays, 'quiet day')}`
-          : null,
-      ].filter(Boolean);
+      const pace = W.pace(
+        steps.includes('message') ? d.pace.messageAfterDays : null,
+        steps.includes('follow_up') ? d.pace.followUpAfterDays : null,
+      );
       return (
         <>
           {steps.map((s) => PLAYBOOK_STEPS[s].label).join(' → ')}
-          {pace.length ? <div className="text-[13px] text-text-2">{pace.join('. ')}.</div> : null}
+          {pace ? <div className="text-[13px] text-text-2">{pace}</div> : null}
         </>
       );
     }

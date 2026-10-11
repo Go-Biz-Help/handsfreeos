@@ -153,10 +153,13 @@ describe('Real Estate Agent’s tables', () => {
       record_column: string | null;
       columns: string[];
       reach: string;
+      owner_column: string | null;
+      keep_column: string | null;
+      keep_values: string[] | null;
     }>(
       admin(),
-      sql`select source, key_column, record_column, columns, reach from app.addon_phone_tables
-          where addon_id = 'realestate' order by source collate "C"`,
+      sql`select source, key_column, record_column, columns, reach, owner_column, keep_column, keep_values
+          from app.addon_phone_tables where addon_id = 'realestate' order by source collate "C"`,
     );
     expect(registered).toEqual(
       [...((realestateAddon.offline?.tables ?? []) as readonly AddonOfflineTable[])]
@@ -167,6 +170,9 @@ describe('Real Estate Agent’s tables', () => {
           record_column: t.record ?? null,
           columns: [...t.columns],
           reach: t.reach ?? 'team',
+          owner_column: t.owner ?? null,
+          keep_column: t.keep?.column ?? null,
+          keep_values: t.keep ? [...t.keep.values] : null,
         })),
     );
   });

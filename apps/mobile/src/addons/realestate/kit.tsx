@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { errorMessage } from '@/lib/api';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 
@@ -156,61 +155,5 @@ export function SignalButton({
   );
 }
 
-export interface LiveAnswer<T> {
-  readonly data: T | null;
-  readonly loading: boolean;
-  /** What went wrong, or that it needs signal; null while it's fine. */
-  readonly error: string | null;
-  reload(): void;
-}
-
-/**
- * One answer from HandsFreeOS for what the phone doesn't keep (a summary deal's documents, a CMA's comps from the
- * feed): asked when `key` changes, on `reload`, and again when signal comes back. `load` null asks nothing.
- */
-export function useLiveAnswer<T>(
-  load: (() => Promise<T>) | null,
-  key: string,
-  offlineWords: string,
-): LiveAnswer<T> {
-  const { online } = useNetwork();
-  const [answer, setAnswer] = React.useState<{ key: string; value: T } | null>(null);
-  const [loading, setLoading] = React.useState(load !== null);
-  const [error, setError] = React.useState<string | null>(null);
-  const [round, setRound] = React.useState(0);
-  const latest = React.useRef(load);
-  latest.current = load;
-  const asks = load !== null;
-
-  React.useEffect(() => {
-    const ask = latest.current;
-    if (!ask) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    ask()
-      .then((value) => {
-        if (!cancelled) setAnswer({ key, value });
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(online ? errorMessage(e) : offlineWords);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [asks, key, online, round, offlineWords]);
-
-  const value = asks && answer && answer.key === key ? answer.value : null;
-  return {
-    data: value,
-    loading: loading && value === null,
-    error,
-    reload: React.useCallback(() => setRound((r) => r + 1), []),
-  };
-}
+/** One answer from HandsFreeOS for what the phone doesn't keep: shared with Social Outreach, in `@/lib/live-answer`. */
+export { useLiveAnswer, type LiveAnswer } from '@/lib/live-answer';

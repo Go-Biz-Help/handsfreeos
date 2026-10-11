@@ -1,0 +1,253 @@
+import { ASK_WORDS, READ_CHATS_WORDS, type AsksOutput } from '@hfos/core/addons/outreach/asks';
+import {
+  CHAT_VIEW_KEYS,
+  CHAT_VIEWS,
+  type ChatsOutput,
+  type ChatView,
+} from '@hfos/core/addons/outreach/chat-read';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import * as React from 'react';
+import { ScrollView, View } from 'react-native';
+
+import { ExternalLink, UserRound } from '@/components/icons';
+import { Screen } from '@/components/shell/screen';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
+import { Text } from '@/components/ui/text';
+import { openWebPath } from '@/home/open';
+import { api, unwrap } from '@/lib/api';
+
+import {
+  AskButton,
+  ComputerNote,
+  useAskActions,
+  useAsks,
+  useDoneReload,
+  type AskActions,
+} from './asks';
+import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+
+/**
+ * Chats on the phone (decision 44): the person's Facebook chats the AI read, likely prospects first, with each one's
+ * summary, tags and next step; by tag, searched by name, Show more for the next page. Each opens in Messenger, and in
+ * Customers once it went in Contacts. **Read my chats** asks the person's computer to read them (decision 43,
+ * ./asks.tsx). It needs signal.
+ */
+
+export const chatViewOf = (show: string | undefined): ChatView =>
+  CHAT_VIEW_KEYS.find((k) => k === show) ?? 'prospects';
+
+export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?: string }) {
+  const ctx = useOutreachContext();
+  const ws = ctx.workspaceId;
+  const [view, setView] = React.useState<ChatView>(chatViewOf(show));
+  const [theTag, setTag] = React.useState(tag ?? '');
+  const [search, setSearch] = React.useState(q ?? '');
+  const [asked, setAsked] = React.useState(q ?? '');
+  const [pages, setPages] = React.useState(1);
+  React.useEffect(() => {
+    const t = setTimeout(() => setAsked(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+  React.useEffect(() => setPages(1), [view, asked, theTag]);
+  const answer = useOutreachAnswer(
+    async () => {
+      const all: ChatsOutput[] = [];
+      for (let page = 1; page <= pages; page++)
+        all.push(
+          unwrap(
+            await api.POST('/v1/queries/outreach.chats', {
+              body: {
+                workspaceId: ws,
+                view,
+                page,
+                ...(asked ? { search: asked } : {}),
+                ...(theTag ? { tag: theTag } : {}),
+              },
+            }),
+          ),
+        );
+      const last = all[all.length - 1]!;
+      return { ...last, chats: all.flatMap((a) => a.chats) };
+    },
+    `chats:${ws}:${view}:${theTag}:${asked}:${pages}`,
+    W.rows.chats,
+  );
+  const asks = useAsks('chats', W.rows.chats);
+  const actions = useAskActions(asks.data, asks.reload);
+  useDoneReload(asks.data, answer.reload);
+  return (
+    <ChatsBody
+      view={view}
+      onView={setView}
+      tag={theTag}
+      onTag={setTag}
+      search={search}
+      onSearch={setSearch}
+      chats={answer.data}
+      error={answer.error}
+      onRetry={answer.reload}
+      onMore={() => setPages((p) => p + 1)}
+      onCustomer={(personId) => openWebPath(`/app/w/${ws}/customers/people/${personId}`)}
+      asks={asks.data}
+      actions={actions}
+    />
+  );
+}
+
+export function ChatsBody({
+  view,
+  onView,
+  tag,
+  onTag,
+  search,
+  onSearch,
+  chats,
+  error,
+  onRetry,
+  onMore,
+  onCustomer,
+  asks = null,
+  actions,
+}: {
+  view: ChatView;
+  onView: (v: ChatView) => void;
+  tag: string;
+  onTag: (t: string) => void;
+  search: string;
+  onSearch: (s: string) => void;
+  chats: ChatsOutput | null;
+  error: string | null;
+  onRetry: () => void;
+  onMore: () => void;
+  onCustomer: (personId: string) => void;
+  /** What the person asked their computer here, with signal; the button shows once it's known. */
+  asks?: AsksOutput | null;
+  actions?: AskActions;
+}) {
+  const empty = search.trim() || tag ? W.chatsNoMatch : W.chatsEmpty[view];
+  return (
+    <Screen title={W.rows.chats} leading="back" testID="outreach-chats">
+      {asks && actions ? (
+        <Card className="gap-2 px-4 py-3.5" testID="chats-asks">
+          <ComputerNote asks={asks} />
+          <AskButton
+            asks={asks}
+            actions={actions}
+            ask={{ kind: 'chats' }}
+            label={ASK_WORDS.readChats}
+            testID="ask-chats"
+          />
+          <Note>{READ_CHATS_WORDS}</Note>
+        </Card>
+      ) : null}
+      <Segmented
+        value={view}
+        onChange={onView}
+        label={W.rows.chats}
+        options={CHAT_VIEW_KEYS.map((k) => ({
+          value: k,
+          label: CHAT_VIEWS[k],
+          testID: `chats-view-${k}`,
+        }))}
+      />
+      <Input
+        value={search}
+        onChangeText={onSearch}
+        placeholder={W.search}
+        autoCorrect={false}
+        testID="chats-search"
+      />
+      {chats?.tags.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View className="flex-row gap-1.5">
+            <Button
+              size="sm"
+              variant={tag ? 'ghost' : 'secondary'}
+              onPress={() => onTag('')}
+              testID="chats-tag-all"
+            >
+              {W.allTags}
+            </Button>
+            {chats.tags.map((t) => (
+              <Button
+                key={t.name}
+                size="sm"
+                variant={tag === t.name ? 'secondary' : 'ghost'}
+                onPress={() => onTag(t.name)}
+                testID="chats-tag"
+              >
+                {`${t.name} ${t.count}`}
+              </Button>
+            ))}
+          </View>
+        </ScrollView>
+      ) : null}
+      {chats ? (
+        chats.chats.length ? (
+          <>
+            {chats.chats.map((c) => {
+              const link = messengerChatUrl(c.threadKey);
+              return (
+                <Card key={c.chatId} className="gap-1.5 px-4 py-3.5" testID="chats-item">
+                  <View className="flex-row flex-wrap items-center gap-2">
+                    <Text className="text-[15px] font-semibold">{c.name}</Text>
+                    {c.personId ? (
+                      <Badge variant="accent">
+                        <Text>{W.inContacts}</Text>
+                      </Badge>
+                    ) : null}
+                  </View>
+                  {c.summary ? (
+                    <Text className="text-[14px] leading-[20px]">{c.summary}</Text>
+                  ) : null}
+                  {c.tags.length ? <Note>{c.tags.join(' · ')}</Note> : null}
+                  {c.nextStep ? <Note>{`${W.nextStepLabel}: ${c.nextStep}`}</Note> : null}
+                  <View className="flex-row flex-wrap gap-2">
+                    {link ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={ExternalLink}
+                        onPress={() => openOutside(link)}
+                      >
+                        {W.openInMessenger}
+                      </Button>
+                    ) : null}
+                    {c.personId ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={UserRound}
+                        onPress={() => onCustomer(c.personId!)}
+                        testID="chats-customer"
+                      >
+                        {W.openCustomer}
+                      </Button>
+                    ) : null}
+                  </View>
+                </Card>
+              );
+            })}
+            {chats.page < chats.pages ? (
+              <Button variant="secondary" onPress={onMore} testID="chats-more">
+                {W.more}
+              </Button>
+            ) : null}
+          </>
+        ) : (
+          <Card className="gap-1.5 px-5 py-6" testID="chats-empty">
+            <Text className="text-[16px] font-semibold">{empty.title}</Text>
+            <Note>{empty.body}</Note>
+          </Card>
+        )
+      ) : error ? (
+        <NeedsSignal words={error} onRetry={onRetry} testID="chats-needs-signal" />
+      ) : null}
+    </Screen>
+  );
+}

@@ -3,19 +3,24 @@
  * them. Each save finds or adds the customer, so saving the same page twice changes nothing but what's new on it; and
  * a look-up tells the extension which of the people and chats on a page are saved already.
  */
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { rows } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
-import { fullName, requirePerson, userRef } from '../../../crm/records';
+import { fmtMonthDay, fmtTime, localDayOf } from '../../../calendar/when';
+import { personCreate } from '../../../commands/person.create';
+import { fullName, requirePerson, userRef, workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
+import { splitName } from '../../../inbox/contact';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
+import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
 import { DONT_PITCH_TAG, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
 import {
+  ChatKeepInput,
   ChatSaveInput,
   ChatSaveOutput,
   joinMessages,
@@ -25,8 +30,8 @@ import {
   ProfileSaveOutput,
   type SavedMessage,
 } from '../saves';
-import { profiles, threads } from '../tables';
-import { inWorkspace, keepFriendStates, once, saveProfile } from './common';
+import { fileChats, profiles, threads } from '../tables';
+import { inWorkspace, keepFriendStates, once, saveProfile, sourceFor } from './common';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
@@ -194,6 +199,184 @@ export const chatSave = defineAddonCommand(outreachAddon, {
         added: joined.added,
         kept: joined.messages.length,
       };
+    });
+  },
+});
+
+/** A chat brought in, on a card: its number from its link, or one of its own while it has none (download only). */
+const keptKey = (chat: { id: string; threadKey: string | null }) =>
+  chat.threadKey ?? `file.${chat.id}`;
+
+/** When a message was sent, on the business's clock, as a card shows it: "Oct 9, 2026, 2:10 PM". */
+function sentWords(iso: string, timeZone: string): string | null {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return null;
+  const day = localDayOf(at, timeZone);
+  return `${fmtMonthDay(day)}, ${day.slice(0, 4)}, ${fmtTime(at, timeZone)}`;
+}
+
+export const chatKeep = defineAddonCommand(outreachAddon, {
+  name: 'outreach.chat.keep',
+  description:
+    'Save to their card: copy a chat brought in from Messenger or Facebook’s file onto the customer’s Social card, adding the messages it hadn’t saved before. Finds the customer from the chat or its profile, or takes the one picked, or adds them when asked.',
+  risk: 1,
+  input: ChatKeepInput,
+  output: ChatSaveOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.chat.saved', 'outreach.profile.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    return once(async () => {
+      // Each person's chats are their own: only theirs can go on a card.
+      const [chat] = await ctx.tx
+        .select()
+        .from(fileChats)
+        .where(
+          and(
+            eq(fileChats.workspaceId, ws),
+            eq(fileChats.id, input.chatId),
+            eq(fileChats.userId, me),
+          ),
+        )
+        .for('update');
+      if (!chat)
+        throw HfosError.notFound(
+          'That chat isn’t on your Chats tab anymore. Refresh the page and try again.',
+        );
+      const network = PLATFORMS[chat.platform];
+      if (!chat.recent.length)
+        throw HfosError.rule(
+          'outreach_chat_nothing_to_keep',
+          422,
+          `There are no messages from your chat with ${chat.name} here yet. Press Read my chats on the Chats tab, then save it again.`,
+        );
+      const [profile] = chat.profileId
+        ? await ctx.tx.select().from(profiles).where(eq(profiles.id, chat.profileId))
+        : [];
+      // Saved before: by its number, or by its own key while it had none.
+      const keys = [...new Set([keptKey(chat), `file.${chat.id}`])];
+      const [had] = await ctx.tx
+        .select()
+        .from(threads)
+        .where(
+          and(
+            eq(threads.workspaceId, ws),
+            eq(threads.platform, chat.platform),
+            eq(threads.ownerUserId, me),
+            or(...keys.map((k) => eq(threads.threadKey, k))),
+          ),
+        )
+        .orderBy(desc(threads.lastSavedAt))
+        .limit(1);
+
+      const known = input.personId ?? chat.personId ?? profile?.personId ?? had?.personId ?? null;
+      if (!known && !input.add)
+        throw HfosError.rule(
+          'outreach_chat_who',
+          409,
+          `${chat.name} isn’t in Contacts yet. Pick who they are, or add them as someone new.`,
+        );
+      let person: { personId: string; personName: string; addedPerson: boolean };
+      if (profile) {
+        const saved = await saveProfile(ctx, {
+          platform: chat.platform,
+          profile: { id: profile.platformId, username: profile.username, url: profile.url },
+          name: profile.name,
+          facts: null,
+          ...(known ? { personId: known } : {}),
+        });
+        person = saved;
+        if (saved.addedPerson)
+          await ctx.emit({
+            type: 'outreach.profile.saved',
+            entityType: 'person',
+            entityId: saved.personId,
+            payload: { platform: chat.platform, profileId: saved.profileId, addedPerson: true },
+          });
+      } else if (known) {
+        const p = await requirePerson(ctx.tx, ws, known);
+        person = {
+          personId: p.id,
+          personName: fullName(p.firstName, p.lastName),
+          addedPerson: false,
+        };
+      } else {
+        const { firstName, lastName } = splitName(chat.name);
+        const added = await executeCommandWithin(ctx, personCreate, {
+          workspaceId: ws,
+          firstName: firstName.slice(0, 80),
+          lastName: lastName.slice(0, 80),
+          source: sourceFor(chat.platform),
+          ignoreDuplicates: true,
+        });
+        person = { personId: added.output.personId, personName: chat.name, addedPerson: true };
+      }
+
+      // Each message keeps when it was sent, so the activity counts a reply on its own day.
+      const timeZone = await workspaceTimezone(ctx.tx, ws);
+      const read = chat.recent.map((m) => ({
+        from: m.fromMe ? ('me' as const) : ('them' as const),
+        sender: null,
+        text: m.text,
+        when: sentWords(m.at, timeZone),
+      }));
+      const joined = joinMessages(had?.messages ?? [], read, (i) => chat.recent[i]!.at);
+      const facts = {
+        personId: person.personId,
+        threadKey: keptKey(chat),
+        url: chat.threadKey
+          ? `https://www.facebook.com/messages/t/${encodeURIComponent(chat.threadKey)}`
+          : (profile?.url ?? 'https://www.facebook.com/messages/'),
+        name: chat.name,
+        messages: joined.messages,
+        lastSavedBy: me,
+        lastSavedAt: at,
+      };
+      let threadId: string;
+      if (had) {
+        await ctx.tx
+          .update(threads)
+          .set({ ...facts, savedMessages: sql`${threads.savedMessages} + ${joined.added}` })
+          .where(eq(threads.id, had.id));
+        threadId = had.id;
+      } else {
+        const [row] = await ctx.tx
+          .insert(threads)
+          .values({
+            ...facts,
+            workspaceId: ws,
+            platform: chat.platform,
+            ownerUserId: me,
+            savedMessages: joined.added,
+          })
+          .returning({ id: threads.id });
+        threadId = row!.id;
+      }
+      // The Chats tab shows them in Contacts now.
+      if (chat.personId !== person.personId)
+        await ctx.tx
+          .update(fileChats)
+          .set({ personId: person.personId })
+          .where(eq(fileChats.id, chat.id));
+
+      if (joined.added > 0) {
+        const newest = joined.messages.at(-1)!;
+        await addonTimelineLine(ctx, outreachAddon, {
+          personId: person.personId,
+          words: `saved ${joined.added} ${network} ${joined.added === 1 ? 'message' : 'messages'}`,
+          body: `${await whoSent(ctx, newest, person.personName)}: ${clip(newest.text, 280)}`,
+        });
+      }
+      await ctx.emit({
+        type: 'outreach.chat.saved',
+        entityType: 'person',
+        entityId: person.personId,
+        payload: { platform: chat.platform, threadId, added: joined.added },
+      });
+      return { ...person, threadId, added: joined.added, kept: joined.messages.length };
     });
   },
 });
@@ -452,5 +635,5 @@ export const personSocial = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const saveCommands = [profileSave, chatSave] as const;
+export const saveCommands = [profileSave, chatSave, chatKeep] as const;
 export const saveQueries = [lookup, personSocial] as const;

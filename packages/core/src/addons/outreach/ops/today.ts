@@ -10,9 +10,9 @@ import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
 import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds, messageKinds } from '../automation';
 import { demoLink, demoRef } from '../demos';
-import { bestFit } from '../fit';
+import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import { bestGroupFit } from '../groups';
-import { dailyLimitsNow, DONT_PITCH_TAG } from '../limits';
+import { dailyLimitsNow, DONT_PITCH_TAG, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
   DEFAULT_PACE,
@@ -29,21 +29,100 @@ import { POST_FRESH_DAYS } from '../posts';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
-import { inWorkspace } from './common';
+import { inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
+
+const NONE_DONE: Record<DailyStep, number> = {
+  friend_request: 0,
+  first_message: 0,
+  follow_up: 0,
+  comment: 0,
+  like: 0,
+};
+
+/**
+ * Each person's steps since the start of today that count against the daily limits, as Today counts them; the live
+ * view (./live.ts) counts with it too, so the two never disagree.
+ */
+export async function dayCounts(
+  ctx: Ctx,
+  userIds: readonly string[],
+  todayFrom: Date,
+): Promise<Map<string, Record<DailyStep, number>>> {
+  const counted = new Map(userIds.map((id) => [id, { ...NONE_DONE }]));
+  if (!userIds.length) return counted;
+  const found = await rows<{ user_id: string } & Record<DailyStep, number>>(
+    ctx.tx,
+    sql`select user_id, count(*) filter (where kind = 'friend_request')::int as friend_request,
+          count(*) filter (where step = 'first_message')::int as first_message,
+          count(*) filter (where step = 'follow_up')::int as follow_up,
+          count(*) filter (where kind = 'comment')::int as comment,
+          count(*) filter (where kind = 'like')::int as "like"
+        from addon_outreach.touches
+        where workspace_id = ${ctx.scope.workspaceId!}
+          and user_id = any (${`{${userIds.join(',')}}`}::uuid[])
+          and at >= ${todayFrom.toISOString()}::timestamptz
+        group by user_id`,
+  );
+  for (const { user_id, ...done } of found) counted.set(user_id, done);
+  return counted;
+}
 /** The most people from groups weighed for requests at once. */
 const CANDIDATES_MOST = 500;
 
 /** A profile that's never pitched: on Don't pitch, or a customer tagged Friend or family. */
-const pitchable = (p: string) => sql`not ${sql.raw(p)}.dont_pitch and not exists (
+export const pitchable = (p: string) => sql`not ${sql.raw(p)}.dont_pitch and not exists (
   select 1 from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
   where rt.record_type = 'person' and rt.record_id = ${sql.raw(p)}.person_id
     and lower(tg.name::text) = lower(${DONT_PITCH_TAG}))`;
+
+/** A friend request the person got, as Today and Waiting for you weigh it. */
+export type RequestGot = {
+  readonly id: string;
+  readonly name: string;
+  readonly url: string;
+  readonly intro: string[];
+  readonly mutual_friends: number | null;
+  readonly group_name: string | null;
+};
+
+/** How a request the person got fits the playbooks in use. */
+export const requestFit = (playbooks: readonly FitPlaybook[], p: RequestGot): Fit =>
+  bestFit(playbooks, { lines: p.intro, mutualFriends: p.mutual_friends, groupName: p.group_name });
+
+/**
+ * The requests the person got that Today lists as **Confirm their request** (decision 30): with a playbook in use,
+ * from people who are pitched and fit one well, the best first, as many as Today lists of a kind; the rest of the good
+ * fits on a later day. Waiting for you (./waiting.ts) lists the requests lately that aren't good fits for this, as the
+ * person's to decide.
+ */
+export async function requestsToConfirm(
+  ctx: Ctx,
+  me: string,
+  playbooks: readonly FitPlaybook[],
+): Promise<{ readonly p: RequestGot; readonly fit: Fit }[]> {
+  if (!playbooks.length) return [];
+  const asked = await rows<RequestGot>(
+    ctx.tx,
+    sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
+        from addon_outreach.friends f
+        join addon_outreach.profiles p on p.id = f.profile_id
+        left join addon_outreach.groups g on g.id = p.group_id
+        where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
+          and f.state = 'request_received' and ${pitchable('p')}
+        order by f.since desc limit ${CANDIDATES_MOST}`,
+  );
+  return asked
+    .map((p) => ({ p, fit: requestFit(playbooks, p) }))
+    .filter(({ fit }) => fit.level === 'good')
+    .sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name))
+    .slice(0, TODAY_MOST);
+}
 
 export const today = defineAddonQuery(outreachAddon, {
   name: 'outreach.today',
@@ -63,26 +142,11 @@ export const today = defineAddonQuery(outreachAddon, {
     const todayStart = await startOfToday(ctx, now);
     const todayFrom = todayStart.toISOString();
     const warning = await warningOf(ctx, me, todayStart, now);
-    const [done] = await rows<{
-      friend_request: number;
-      first_message: number;
-      follow_up: number;
-      comment: number;
-      like: number;
-    }>(
-      ctx.tx,
-      sql`select count(*) filter (where kind = 'friend_request')::int as friend_request,
-            count(*) filter (where step = 'first_message')::int as first_message,
-            count(*) filter (where step = 'follow_up')::int as follow_up,
-            count(*) filter (where kind = 'comment')::int as comment,
-            count(*) filter (where kind = 'like')::int as "like"
-          from addon_outreach.touches
-          where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
-    );
+    const done = (await dayCounts(ctx, [me], todayStart)).get(me)!;
     const { settings, wheels, rules } = await automationOf(ctx, me, now);
     // The business's own, halved after a warning from Facebook, and on training wheels.
     const limits = todayLimits(
-      done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 },
+      done,
       dailyLimitsNow(slowsNow(warning, now) || wheels.on, rules.dailyLimits),
     );
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
@@ -114,6 +178,8 @@ export const today = defineAddonQuery(outreachAddon, {
       playbookName: null,
       demoLink: null,
       send: null,
+      personId: null,
+      demoBooked: false,
       ...more,
     });
     // The demo link for a message (decision 24): the first playbook in use with a link, by name.
@@ -123,48 +189,19 @@ export const today = defineAddonQuery(outreachAddon, {
     const demoFor = (profileId: string | null) =>
       linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
 
-    // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30).
-    if (playbooks.length) {
-      const asked = await rows<{
-        id: string;
-        name: string;
-        url: string;
-        intro: string[];
-        mutual_friends: number | null;
-        group_name: string | null;
-      }>(
-        ctx.tx,
-        sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
-            from addon_outreach.friends f
-            join addon_outreach.profiles p on p.id = f.profile_id
-            left join addon_outreach.groups g on g.id = p.group_id
-            where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'request_received'
-              and ${pitchable('p')}
-            order by f.since desc limit ${CANDIDATES_MOST}`,
+    // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30). The rest lately are
+    // theirs to decide, in Waiting for you.
+    for (const { p, fit } of await requestsToConfirm(ctx, me, playbooks))
+      items.push(
+        item({
+          kind: 'confirm',
+          name: p.name,
+          profileId: p.id,
+          profileUrl: p.url,
+          why: ['Asked to be your friend', ...fit.reasons],
+          playbookName: fit.playbookName,
+        }),
       );
-      const good = asked
-        .map((p) => ({
-          p,
-          fit: bestFit(playbooks, {
-            lines: p.intro,
-            mutualFriends: p.mutual_friends,
-            groupName: p.group_name,
-          }),
-        }))
-        .filter(({ fit }) => fit.level === 'good')
-        .sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
-      for (const { p, fit } of good.slice(0, TODAY_MOST))
-        items.push(
-          item({
-            kind: 'confirm',
-            name: p.name,
-            profileId: p.id,
-            profileUrl: p.url,
-            why: ['Asked to be your friend', ...fit.reasons],
-            playbookName: fit.playbookName,
-          }),
-        );
-    }
 
     // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
     // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's.
@@ -475,11 +512,29 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list.
     const drafted = await sendsToday(ctx, me, todayFrom);
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each.
+    const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
+    const known = profileIds.length
+      ? await rows<{ id: string; person_id: string | null; marked: boolean }>(
+          ctx.tx,
+          sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
+                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked
+              from addon_outreach.profiles p
+              where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
+        )
+      : [];
+    const knownOf = new Map(known.map((k) => [k.id, k]));
     const listedItems = items
       .filter((i) => !drafted.off(i.profileId, i.kind))
       .map((i) => {
         const send = drafted.open(i.profileId, i.kind);
-        return send ? { ...i, send } : i;
+        const k = i.profileId ? knownOf.get(i.profileId) : undefined;
+        return {
+          ...i,
+          personId: k?.person_id ?? null,
+          demoBooked: k?.marked ?? false,
+          ...(send ? { send } : {}),
+        };
       });
     return {
       limits,

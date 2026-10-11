@@ -107,6 +107,46 @@ describe('manifestIssues', () => {
     ]);
   });
 
+  it('checks the tabs a phone page leaves to the web', () => {
+    expect(
+      broken({ ui: { phone: [{ path: '', query: ['view'], web: { view: ['activity'] } }] } }),
+    ).toEqual([]);
+    expect(
+      broken({
+        ui: { phone: [{ path: '', query: ['view'], web: { show: ['all'], view: [] } }] },
+      }).map((i) => i.message),
+    ).toEqual([
+      'phone page "" leaves "show" to the web, but doesn\'t read it',
+      'phone page "" leaves "view" to the web with no values',
+    ]);
+  });
+
+  it('checks a table kept as each person’s own, and the rows it keeps', () => {
+    const offline = (t: Record<string, unknown>) =>
+      broken({
+        tables: ['notes'],
+        offline: {
+          permission: 'fxprop.read',
+          tables: [{ table: 'notes', columns: ['user_id', 'state', 'body'], ...t }],
+        },
+      }).map((i) => i.message);
+    expect(offline({ owner: 'user_id', keep: { column: 'state', values: ['open'] } })).toEqual([]);
+    expect(
+      offline({
+        owner: 'author_id',
+        record: 'record_id',
+        reach: 'all',
+        keep: { column: 'kind', values: [] },
+      }),
+    ).toEqual([
+      'offline table "notes" is each person\'s own by "author_id", which it doesn\'t keep',
+      'offline table "notes" is a person\'s own or follows a record, not both',
+      'offline table "notes" is a person\'s own, so it reaches only them',
+      'offline table "notes" keeps rows by "kind", which it doesn\'t keep',
+      'offline table "notes" keeps rows by "kind" but names no values',
+    ]);
+  });
+
   it('refuses a capability or record kind whose permission the add-on does not declare', () => {
     const messages = broken({
       capabilities: [

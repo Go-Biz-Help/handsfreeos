@@ -7,8 +7,8 @@
  * their best opener. An owner or admin also gets the team's when more than one person did outreach. It comes back the
  * next Monday, and it's armed whenever the morning push is.
  *
- * An owner or admin can turn it off (Add-ons → Social Outreach); each person can turn off add-on emails
- * (Settings → Account).
+ * An owner or admin can turn it off (Social Outreach → Settings → Business settings); each person can turn off
+ * add-on emails (Settings → Account).
  */
 import type { OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { activity } from '@hfos/core/addons/outreach/ops/activity';

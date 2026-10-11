@@ -1,16 +1,14 @@
 /**
- * What the panel sends HandsFreeOS when the person presses Save, what it asks to learn which people and chats on a
- * page are saved already, and what the background sends for each step the person takes on Facebook and each friend
- * request they answer: the Social Outreach add-on's commands and look-up (packages/core/src/addons/outreach), built
- * from what the page showed and cut to what they take. Plain functions, so the tests check them.
+ * What the background sends HandsFreeOS for each step the person takes on Facebook and each friend request they
+ * answer, and what the jobs save (friends and requests, groups and their members, posts, chats for the AI): the Social
+ * Outreach add-on's commands (packages/core/src/addons/outreach), built from what the page showed and cut to what
+ * they take. Plain functions, so the tests check them.
  */
 import {
   FRIENDS_SAVE_MOST,
   GROUP_ID,
   GROUP_SLUG,
   INTRO_LINE_MOST,
-  INTRO_LINES,
-  KEPT_MESSAGES,
   MESSAGE_MOST,
   NAME_MOST,
   PROFILE_ID,
@@ -24,23 +22,13 @@ import { POST_TEXT_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/post
 import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../facebook/friends';
 import { runsGroup } from '../facebook/people';
-import type {
-  ChatPage,
-  GroupLink,
-  Person,
-  ProfilePage,
-  ProfileRef,
-  ReadResult,
-} from '../facebook/types';
+import type { ChatPage, GroupLink, Person, ProfileRef, ReadResult } from '../facebook/types';
 import { facebookUrl, pathParts, profileKey } from '../facebook/urls';
 import { parseCount } from '../facebook/vocabulary';
 import type {
   Business,
-  ChatInput,
   ChatsCollectInput,
-  DemoMarkInput,
   FriendNoteInput,
-  FriendSetInput,
   FriendsSaveInput,
   GroupSaveInput,
   GroupsSaveInput,
@@ -49,14 +37,7 @@ import type {
   ProfileInput,
   TouchInput,
 } from './messages';
-import { instantOf, resolveWhen } from './when';
-
-type ChatMessage = ChatInput['messages'][number];
-
-/** Kept well under the API's 256 KB a request, which a hundred long messages in some alphabets would pass. */
-export const MOST_BYTES = 200 * 1024;
-
-const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
+import { instantOf } from './when';
 
 /** At most `most` characters, ending in "…" when cut, and never cut through an emoji. */
 function cut(text: string, most: number): string {
@@ -85,90 +66,6 @@ const mutual = (count: number | null) => (count !== null && count <= 100_000 ? c
 
 export type Built<T> =
   { readonly ok: true; readonly input: T } | { readonly ok: false; readonly why: string };
-
-/** The profile on the page, to save. `personId` is a customer the person said it is. */
-export function profileSave(
-  page: ProfilePage,
-  workspaceId: string,
-  personId?: string,
-): Built<ProfileInput> {
-  if (page.friendship === 'self') return { ok: false, why: 'This is your own profile.' };
-  const name = page.name ? clip(page.name, NAME_MOST) : '';
-  if (!page.profile || !name)
-    return {
-      ok: false,
-      why: 'Couldn’t find this profile’s name and link on the page. Reload it and read it again.',
-    };
-  return {
-    ok: true,
-    input: {
-      workspaceId,
-      platform: 'facebook',
-      profile: ref(page.profile),
-      name,
-      intro: page.intro
-        .map((line) => clip(line, INTRO_LINE_MOST))
-        .filter(Boolean)
-        .slice(0, INTRO_LINES),
-      friendship: page.friendship,
-      mutualFriends: mutual(page.mutualFriends),
-      ...(personId ? { personId } : {}),
-    },
-  };
-}
-
-/**
- * The chat on the page, to save: the latest messages it keeps, with Facebook's times made to last (./when.ts), as
- * many as fit in one request. Who it's with comes from the profile it links to, or `personId`, a customer the person
- * said it is; with neither, HandsFreeOS saves it to whoever it was saved with before, or says it can't tell.
- */
-export function chatSave(
-  chat: ChatPage,
-  workspaceId: string,
-  now: Date,
-  personId?: string,
-): Built<ChatInput> & { readonly left?: number } {
-  if (!chat.thread || !THREAD_KEY.test(chat.thread.id))
-    return {
-      ok: false,
-      why: 'Couldn’t find this chat’s own link. Open it from your chats and try again.',
-    };
-  const name = chat.name ? clip(chat.name, NAME_MOST) : '';
-  if (!name)
-    return { ok: false, why: 'Couldn’t find who this chat is with. Reload it and read it again.' };
-  const messages: ChatMessage[] = chat.messages.flatMap((m) => {
-    const text = clipText(m.text, MESSAGE_MOST);
-    if (!text) return [];
-    const sender = m.sender ? clip(m.sender, NAME_MOST) : '';
-    return [
-      {
-        from: m.from,
-        sender: sender || null,
-        text,
-        when: m.when ? clip(resolveWhen(m.when, now), WHEN_MOST) || null : null,
-      },
-    ];
-  });
-  if (!messages.length) return { ok: false, why: 'There are no messages on the page to save yet.' };
-  const input: ChatInput = {
-    workspaceId,
-    platform: 'facebook',
-    thread: { id: chat.thread.id, encrypted: chat.thread.encrypted, url: chat.thread.url },
-    name,
-    profile: chat.profile ? ref(chat.profile) : null,
-    messages: [],
-    ...(personId ? { personId } : {}),
-  };
-  // The newest first, while they fit.
-  let room = MOST_BYTES - bytes(input);
-  const kept: ChatMessage[] = [];
-  for (const message of messages.slice(-KEPT_MESSAGES).reverse()) {
-    room -= bytes(message) + 1;
-    if (room < 0) break;
-    kept.unshift(message);
-  }
-  return { ok: true, input: { ...input, messages: kept }, left: messages.length - kept.length };
-}
 
 type Collected = ChatsCollectInput['chats'][number];
 
@@ -348,69 +245,8 @@ export function friendsSave(
   return { ok: true, input: parts };
 }
 
-/**
- * Keep or Don't pitch for someone: by the profile HandsFreeOS keeps (`profileId`, from the look-up), or by their
- * profile on the page and their name when it keeps none yet.
- */
-export function friendSet(
-  to: { readonly profile: ProfileRef; readonly name: string },
-  workspaceId: string,
-  change: Pick<FriendSetInput, 'keep' | 'dontPitch'>,
-  profileId?: string,
-): Built<FriendSetInput> {
-  const base = { workspaceId, platform: 'facebook' as const, ...change };
-  if (profileId) return { ok: true, input: { ...base, profileId } };
-  const who = whom(to);
-  return who ? { ok: true, input: { ...base, ...who } } : { ok: false, why: NOT_WHOSE };
-}
-
-/** Marking that someone booked a demo some other way than the demo link, or taking it back (decision 24). */
-export function demoMark(
-  to: { readonly profile: ProfileRef; readonly name: string },
-  workspaceId: string,
-  booked: boolean,
-): Built<DemoMarkInput> {
-  const who = whom(to);
-  return who
-    ? { ok: true, input: { workspaceId, platform: 'facebook', ...who, booked } }
-    : { ok: false, why: NOT_WHOSE };
-}
-
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */
 export const nameKey = (name: string) => name.replace(/\s+/g, ' ').trim().toLowerCase();
-
-/** The people, chats and name a page is about: what to ask HandsFreeOS about. */
-export interface OnPage {
-  readonly profiles: readonly ProfileRef[];
-  readonly threads: readonly string[];
-  /** The one person the page is about, when it's a profile or a chat: their name, to find who else has it. */
-  readonly name: string | null;
-}
-
-export function onPage(result: ReadResult): OnPage {
-  const profiles = new Map<string, ProfileRef>();
-  const add = (profile: ProfileRef | null | undefined) => {
-    if (profile && !profiles.has(profileKey(profile))) profiles.set(profileKey(profile), profile);
-  };
-  add(result.profile?.friendship === 'self' ? null : result.profile?.profile);
-  add(result.chat?.profile);
-  for (const person of result.people ?? []) add(person.profile);
-  for (const post of result.posts ?? []) add(post.author?.profile);
-  const threads = new Set<string>();
-  if (result.chat?.thread && THREAD_KEY.test(result.chat.thread.id))
-    threads.add(result.chat.thread.id);
-  for (const chat of result.chats ?? [])
-    if (THREAD_KEY.test(chat.thread.id)) threads.add(chat.thread.id);
-  const name =
-    result.profile && result.profile.friendship !== 'self'
-      ? result.profile.name
-      : (result.chat?.name ?? null);
-  return {
-    profiles: [...profiles.values()],
-    threads: [...threads],
-    name: name ? clip(name, NAME_MOST) || null : null,
-  };
-}
 
 /** The workspaces from `account.me` the extension can save to: Social Outreach on, and the person may use it. */
 export function outreachBusinesses(workspaces: Me['workspaces']): Business[] {
@@ -439,16 +275,32 @@ export function groupDetailFacts(detail: string | null): {
   };
 }
 
-/** The groups a page lists (yours, or search results), to save with how much the page said about each. */
+/** Facebook's pages of the groups the person is in: /groups/joins and /groups/your_groups. */
+const OWN_GROUPS_PAGES = new Set(['joins', 'your_groups']);
+
+/** Whether the page is Facebook's list of the groups the person is in, where every group listed is one of theirs. */
+export function isOwnGroupsPage(href: string): boolean {
+  const url = facebookUrl(href);
+  const parts = url ? pathParts(url).map((part) => part.toLowerCase()) : [];
+  return parts.length === 2 && parts[0] === 'groups' && OWN_GROUPS_PAGES.has(parts[1]!);
+}
+
+/**
+ * The groups a page lists (yours, or search results), to save with how much the page said about each. On the
+ * person's own list (`href`, `isOwnGroupsPage`) each is saved as one they're in, so HandsFreeOS counts it as theirs;
+ * anywhere else, whether they're in it is left unsaid.
+ */
 export function groupsSave(
   groups: readonly GroupLink[],
   workspaceId: string,
+  href = '',
 ): Built<GroupsSaveInput> {
+  const own = isOwnGroupsPage(href);
   const kept = groups.flatMap((link) => {
     const group = groupRef({ ...link.group, name: link.name });
     if (!group) return [];
     const detail = link.detail ? clip(link.detail, DETAIL_MOST) : null;
-    return [{ group, detail, ...groupDetailFacts(link.detail) }];
+    return [{ group, detail, ...groupDetailFacts(link.detail), ...(own ? { joined: true } : {}) }];
   });
   if (!kept.length) return { ok: false, why: 'There are no groups on the page to save.' };
   return {

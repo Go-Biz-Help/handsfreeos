@@ -24,8 +24,18 @@
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
  * chats, one job a go, a few minutes apart.
+ *
+ * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
+ * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
+ * recently used computer works; on any other it stands by and says why.
+ *
+ * It takes turns on Facebook with what the person asks of the extension from HandsFreeOS (../asks/run.ts, decision
+ * 43), through ./turns.ts: an ask goes first, and the runner carries on after.
  */
 import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
+import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
+import { standDownWords } from '@hfos/core/addons/outreach/live';
+import { pastLimitWords } from '@hfos/core/addons/outreach/limits';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { AUTO_PLANS, MESSAGE_PATH, sameRef, type AutoJob } from '../facebook/auto';
 import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
@@ -45,17 +55,29 @@ import type {
 } from '../hfos/messages';
 import { config } from '../hfos/config';
 import { follow, loadSettings } from '../hfos/follow';
-import { isNoting, takeNote } from '../hfos/noting';
+import {
+  beatSoon,
+  dayChange,
+  feed,
+  keptFor,
+  liveNow,
+  onWake,
+  pressDay,
+  pressWaiting,
+} from '../hfos/live';
+import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
 import { DAILY_DOING, DAILY_NAMES, runDaily } from './daily';
+import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
   freshState,
   gapAfter,
   IDLE_MS,
   isState,
+  needOf,
   nextDaily,
   nextStart,
   workKey,
@@ -80,11 +102,20 @@ const KEEP_WINDOW_MS = 5 * 60_000;
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, or nobody has picked a business, it looks again this often. */
 const LOOK_AGAIN_MS = 30 * 60_000;
+/** While an ask the person made goes first, the runner looks again after this. */
+const ASK_FIRST_MS = 2 * 60_000;
 
 const tab = new WorkTab('window');
+/** The runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
+export const runnerTabId = (): number | null => tab.tabId;
 let busy = false;
-/** Stop for today was pressed: a once-a-day job under way ends at its next page. */
+/**
+ * Stop for today was pressed (here, in the app or on the phone), or another computer works now: a once-a-day job
+ * under way ends at its next page.
+ */
 let stopAsked = false;
+/** A beat's answer asked it to end what it was doing while a go was under way: one more go once that ends. */
+let haltAgain = false;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -109,11 +140,14 @@ function setState(change: Partial<AutoState>): Promise<AutoState> {
     return next;
   });
   writing = write.catch(() => undefined);
+  // HandsFreeOS hears what changed within a couple of seconds (../hfos/live.ts).
+  beatSoon();
   return write;
 }
 
+/** A new line for the person; one that needs them says so (`needs`), and the next line clears it. */
 const say = (line: string, more: Partial<AutoState> = {}) =>
-  setState({ line, lineAt: Date.now(), ...more });
+  setState({ line, lineAt: Date.now(), needs: false, ...more });
 
 /** Goes next at `when`, or not at all. */
 async function goAt(when: number | null): Promise<void> {
@@ -129,10 +163,14 @@ async function closeWindow(): Promise<void> {
 
 // ------------------------------------------------------------------------------------------------- Facebook
 
-/** What a step came to: done, or passed over and why; or a reason to stop for the day. */
+/**
+ * What a step came to: done, or passed over and why, with `need` when it's one the person can do themselves (a button
+ * or box it couldn't find, a different page, Facebook not taking it: handed to them, decision 42); or a reason to stop
+ * for the day.
+ */
 type Outcome =
   | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string }
+  | { readonly done: false; readonly line: string; readonly need?: true }
   | { readonly stop: string };
 
 async function read(): Promise<ReadResult> {
@@ -220,7 +258,9 @@ async function openProfile(
   if (stop) return { outcome: { stop } };
   const shown = page.profile?.profile ?? null;
   if (!page.profile || !shown || !samePerson(shown, page.profile.name, want, item.name))
-    return { outcome: { done: false, line: `${item.name}: Facebook showed a different page` } };
+    return {
+      outcome: { done: false, line: `${item.name}: Facebook showed a different page`, need: true },
+    };
   const noted = {
     id: want.id ?? shown.id,
     username: want.username ?? shown.username,
@@ -241,14 +281,18 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (friendship !== plan.before)
     return { done: false, line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}` };
   if (!(await pressPath(plan.path)))
-    return { done: false, line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”` };
+    return {
+      done: false,
+      line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”`,
+      need: true,
+    };
   await sure(plan.then);
   await pause(SETTLE_MS);
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   if (page.profile?.friendship !== plan.after)
-    return { done: false, line: `${item.name}: Facebook didn’t take it` };
+    return { done: false, line: `${item.name}: Facebook didn’t take it`, need: true };
   const to = { name: page.profile.name ?? item.name, profile: opened.noted };
   if (job === 'confirm') {
     await takeNote({
@@ -338,9 +382,17 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
   const wrote = await tab.ask({ type: 'hfos-comment', text });
   if (!wrote.ok) throw new Error(wrote.error);
   if (wrote.result === 'none')
-    return { done: false, line: `${item.name}’s post: couldn’t find the box to comment in` };
+    return {
+      done: false,
+      line: `${item.name}’s post: couldn’t find the box to comment in`,
+      need: true,
+    };
   if (wrote.result !== 'done')
-    return { done: false, line: `${item.name}’s post: Facebook didn’t take the comment` };
+    return {
+      done: false,
+      line: `${item.name}’s post: Facebook didn’t take the comment`,
+      need: true,
+    };
   await pause(SETTLE_MS);
   const after = await warnedOn(await read(), businessId);
   if (after) return { stop: after };
@@ -602,6 +654,8 @@ async function automationOf(businessId: string) {
 
 /** One go: works out where things stand, does the next step when it's time, and sets when to go next. */
 async function go(): Promise<void> {
+  // A stop asked for before this go is in the day it reads below; one asked for from here on ends a job under way.
+  stopAsked = false;
   const to = await savingTo();
   if (!to) {
     await goAt(null);
@@ -616,10 +670,26 @@ async function go(): Promise<void> {
     stopAsked = false;
     state = await setState(freshState(day, state.tabId));
   }
+  // HandsFreeOS keeps the day, pressed anywhere, and says whether this computer is the one that works (decision 41).
+  // With no word from it ever, this goes on as it did before.
+  const live = await liveNow(to);
+  if (live) {
+    const change = dayChange(state, live.day, await pressWaiting(to));
+    if (change) {
+      stopAsked = change.stopped != null;
+      state = await setState(change);
+    }
+  }
   await tab.adopt(state.tabId);
   if (settings.sending === 'off') {
     await goAt(null);
     return closeWindow();
+  }
+  // Another computer of theirs works: this one stands by, and says why, until the person uses it again.
+  if (live && !live.working) {
+    await closeWindow();
+    await say(standDownWords(live.workingName));
+    return goAt(null);
   }
   const random = Math.random();
   const tomorrow = () => nextStart(settings.hours, timezone, at, random);
@@ -642,6 +712,7 @@ async function go(): Promise<void> {
     await closeWindow();
     await say(
       'Turn on “Note my steps on Facebook” in Social Outreach → Settings in HandsFreeOS: the extension works on its own only while it notes.',
+      { needs: true },
     );
     return goAt(at + LOOK_AGAIN_MS);
   }
@@ -652,15 +723,22 @@ async function go(): Promise<void> {
     return goAt(tomorrow());
   }
 
+  // What the person asked from HandsFreeOS goes first (../asks/run.ts): the runner looks again in a couple of minutes.
+  if (askInLine()) {
+    await say(ASK_FIRST_WORDS);
+    return goAt(at + ASK_FIRST_MS);
+  }
+
   const daily = settings.collect ? nextDaily(state) : null;
   if (daily) {
-    const end = await collect(daily, to.businessId);
+    const end = await inTurn('runner', () => collect(daily, to.businessId));
     if (end.warned) {
       await closeWindow();
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
     await say(`${DAILY_NAMES[daily]}: ${end.line}`);
+    void feed('job', `${DAILY_NAMES[daily]}: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -691,7 +769,7 @@ async function go(): Promise<void> {
   await say(doing(work), { working: true });
   let outcome: Outcome;
   try {
-    outcome = await doWork(work, to.businessId);
+    outcome = await inTurn('runner', () => doWork(work, to.businessId));
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;
@@ -715,6 +793,12 @@ async function go(): Promise<void> {
     return goAt(tomorrow());
   }
   await say(outcome.line);
+  // One the person can do themselves goes to their Waiting for you; done another day, or by them, it clears.
+  const need =
+    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+  if (need) void noteNeed(need);
+  // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
+  void feed(outcome.done ? 'done' : 'passed', outcome.line);
   // Stop for today, pressed while that step went.
   if (state.stopped) {
     await closeWindow();
@@ -746,12 +830,29 @@ export async function tick(): Promise<void> {
           : String(error);
     console.error('HandsFreeOS Social couldn’t work on its own', error);
     await setState({ working: false }).catch(() => undefined);
-    await say(`Stopped for now: ${words} It tries again in a few minutes.`).catch(() => undefined);
+    await say(`Stopped for now: ${words} It tries again in a few minutes.`, { needs: true }).catch(
+      () => undefined,
+    );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
     busy = false;
+    // The day stopped, or another computer took over, while that go went: it looks again now, and stops or stands
+    // by, rather than at the next step's time.
+    if (haltAgain) {
+      haltAgain = false;
+      void tick();
+    }
   }
 }
+
+// A beat's answer that moves the day, or which computer works, has it look again. One that ends what it's doing
+// (stopped in the app or in the panel, or another computer works now) ends a once-a-day job under way at its next page, and has it
+// look again as soon as the step under way is done.
+onWake((halt) => {
+  if (halt) stopAsked = true;
+  if (!busy) return void tick();
+  if (halt) haltAgain = true;
+});
 
 /** Makes sure it's going: when the background starts, there's an alarm unless it has stopped for good. */
 export async function wake(): Promise<void> {
@@ -761,30 +862,60 @@ export async function wake(): Promise<void> {
 
 // ------------------------------------------------------------------------------------------------- the panel
 
+/**
+ * The warning when the person's own steps today go past a daily limit: the limits count, they don't
+ * stop, so the panel says so where the steps happen. Null within them, or when HandsFreeOS can't say.
+ */
+async function pastLimitOf(businessId: string): Promise<string | null> {
+  try {
+    const day = await call(
+      api().POST('/v1/queries/outreach.activity', {
+        body: { workspaceId: businessId, period: 'today' },
+      }),
+      businessId,
+    );
+    return pastLimitWords(day.today, day.limits);
+  } catch {
+    return null;
+  }
+}
+
 async function status(): Promise<AutoStatus> {
   const noting = await isNoting();
   const to = await savingTo();
   const state = await stateNow();
   const webUrl = config.webUrl;
-  if (!to) return { automation: null, trouble: null, businessId: null, noting, state, webUrl };
+  const warned = (await warnedNow())?.words ?? null;
+  const none = {
+    automation: null,
+    trouble: null,
+    live: null,
+    pastLimit: null,
+    warned,
+    noting,
+    state,
+    webUrl,
+  };
+  if (!to) return { ...none, businessId: null };
+  const kept = await keptFor(to);
+  const live = kept ? { working: kept.working, workingName: kept.workingName } : null;
+  const pastLimit = pastLimitOf(to.businessId);
   try {
     return {
+      ...none,
       automation: await automationOf(to.businessId),
-      trouble: null,
       businessId: to.businessId,
-      noting,
-      state,
-      webUrl,
+      live,
+      pastLimit: await pastLimit,
     };
   } catch (error) {
     if (!(error instanceof Refused)) throw error;
     return {
-      automation: null,
+      ...none,
       trouble: error.problem.message,
       businessId: to.businessId,
-      noting,
-      state,
-      webUrl,
+      live,
+      pastLimit: await pastLimit,
     };
   }
 }
@@ -815,17 +946,26 @@ export function answerAuto(
           api().POST('/v1/commands/outreach.send.skip', { body: ask.input }),
           ask.input.workspaceId,
         );
-      case 'hfos-auto-start':
+      // Kept in HandsFreeOS, with this computer's id, which makes it the one that works. A start refused there (a
+      // warning today, or nothing to do on its own) changes nothing here and the panel says why; a stop stops here
+      // whatever HandsFreeOS says. With no connection, it waits to be sent and the day goes as pressed here meanwhile.
+      case 'hfos-auto-start': {
+        const pressed = await pressDay('start');
+        if (pressed.kind === 'refused') throw new Refused(pressed.problem);
         stopAsked = false;
         await setState({ started: true, stopped: null });
         void tick();
         break;
-      case 'hfos-auto-stop':
+      }
+      case 'hfos-auto-stop': {
+        await pressDay('stop');
         stopAsked = true;
-        await setState({ started: false, stopped: 'person' });
+        const { stopped } = await stateNow();
+        await setState({ started: false, stopped: stopped === 'warning' ? 'warning' : 'person' });
         await say('Stopped for today. It starts again in your next working hours.');
         void tick();
         break;
+      }
     }
     return status();
   });

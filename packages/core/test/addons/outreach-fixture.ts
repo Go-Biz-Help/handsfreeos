@@ -12,9 +12,11 @@ import {
   executeCommand,
   executeQuery,
   organizationCreate,
+  queries,
   type CommandDef,
   type HumanActor,
   type QueryDef,
+  type RequestMeta,
 } from '../../src/server';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,6 +66,7 @@ const op = (name: string) =>
     ...(outreachAddonServer.commands ?? []),
     ...(outreachAddonServer.queries ?? []),
     ...commands,
+    ...queries,
   ].find((x) => x.name === name)!;
 
 /**
@@ -87,6 +90,23 @@ export function runAs(
         correlationId: randomUUID(),
         channel: 'extension',
       });
+}
+
+/**
+ * Runs one of the add-on's commands as `u` in `ws` with the request's details as given: the web (`channel: 'web'`,
+ * no id), or the extension with its own clock (`sentAt`).
+ */
+export function runWith(
+  u: TestUser,
+  ws: string,
+  name: string,
+  input: Record<string, unknown>,
+  meta: Partial<RequestMeta> & Pick<RequestMeta, 'channel'>,
+): Promise<Any> {
+  return executeCommand(api(), op(name) as CommandDef, { workspaceId: ws, ...input }, human(u), {
+    correlationId: randomUUID(),
+    ...meta,
+  }).then((r) => r.output);
 }
 
 /** A refusal's rule (or its code), or "went through". */

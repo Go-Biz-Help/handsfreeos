@@ -2,8 +2,8 @@
   "name": "@hfos/extension",
   "private": true,
   "type": "module",
-  "version": "0.16.0",
-  "description": "The browser extension that works beside a person on Facebook (README.md). It reads the page you have open, saves the people and chats you pick to HandsFreeOS through the Social Outreach add-on, and counts the friend requests, likes, comments and messages you send.",
+  "version": "0.20.0",
+  "description": "The browser extension that works on Facebook for a person, as they set it in HandsFreeOS's Social Outreach add-on (README.md): it notes their steps, works their list on its own, does what they ask of it from HandsFreeOS, and shows what waits for them.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "lint": "eslint . --config ../../eslint.config.js",

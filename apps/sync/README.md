@@ -56,6 +56,12 @@ pnpm sync:stop               # removes it, its storage and its replication slot
   - An agency owner keeping 12 businesses offline: **62 buckets, 61 parameter results**, 13,220 operations in under a second.
   - A member who may see 2,000 documents: **5 buckets, 4 parameter results**; their own bucket holds 4,003 operations.
   - An agency owner reaches the limits at about **199 businesses kept offline at once**: (1,000 − 1) ÷ 5.
+- **Each add-on phones keep adds buckets.** `records_v1`'s `addon_use` lookup gives a row per add-on key a person
+  holds in the business, and its open and sealed arms are a bucket each: up to 2 more per business for each add-on
+  with `offline` they hold (Real Estate's, and Social Outreach's since 20261027001800), which the figures above,
+  measured before them, leave out. Someone holding both in every business they keep offline reaches the limits
+  sooner than "about 199 businesses": measure again with `sync-limits.test.ts`, and after a change like this run
+  `.github/workflows/sync.yml` on the branch with `workflow_dispatch`.
 - **Every change to `sync-config.yaml`, even a comment, makes PowerSync copy everything again.** Batch changes.
   - A change to what a stream sends is a new stream version (`business_v2`) beside the old one, so phones on old builds keep working.
   - A published table may only grow compatible columns.
@@ -136,6 +142,14 @@ see-every permission>`. Turning the add-on off takes its permissions away, so th
   `private.addon_phone_table(table, record column, columns, reach)` installs from the add-on's migration: only the
   columns it names (never one that looks like a secret), with its record's seals. Changing what a phone keeps of an
   add-on is a migration, never a change here.
+- **A person's own rows** (Social Outreach's messages waiting for their OK, 20261027001800): a table registered with
+  `private.addon_phone_own_table(table, owner column, columns, keep column, keep values)` is copied with no record,
+  sealed to the person its owner column names (`seal_viewer_ids` = that person, never `seal_open`, from the very first
+  copy), and only its rows whose keep column is one of the keep values (`state` = `waiting`): a row OK'd, skipped or
+  sent leaves, and one naming nobody is never copied. They ride `records_v1`'s sealed arm as they are, so no stream
+  changed and nothing was copied again. Row security agrees: a row of `addon_phone_rows` with no record that isn't
+  open reads only to the people it's sealed to. Calling `private.addon_phone_table(...)` again for such a table keeps
+  its owner and keep columns.
 - **Windows**: a record leaves phones when its add-on narrows `sync_window` (`private.record_phone_window`; Real
   Estate keeps open deals and those ended in the last 90 days).
 - **Links** (`relationships`, and `relationship_types` with the add-on's key; 20261022000700): a deal's client, its

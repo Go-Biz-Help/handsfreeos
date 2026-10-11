@@ -7,14 +7,17 @@
  * good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
  * likes, requests and comments itself in the person's working hours. Each opens on Facebook, and a message or a comment comes with the AI's
  * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
- * notes it, which takes it off the list and counts it against today's limits. The extension's panel looks the person
- * up on Facebook before drafting (decision 21); here, the drafts come from what HandsFreeOS knows. A first message's
+ * notes it, which takes it off the list and counts it against today's limits. While the person's computer is online,
+ * Draft asks it to look the person up on Facebook first (decision 21, a `lookup` ask: ./asks.tsx), and the drafts come
+ * back on the ask; offline, or with **Draft from what HandsFreeOS knows**, they come from what HandsFreeOS knows. Each
+ * person kept as a profile has a menu with Add to Contacts, Demo booked and Don't pitch (./person-menu.tsx). A first message's
  * drafts open the way the playbook's next opener says, and copying one notes which it was, for the results card
  * (decision 23). Anyone on the list for a message has the person's own demo link to copy (decision 24).
  *
  * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
- * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting; the
- * extension then sends them in Messenger. While the person's training wheels are on, it says what's left before they
+ * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting but a
+ * reply handed over or one to someone who needs the person, which wait for an OK of their own (`oneByOne`, decision
+ * 42); the extension then sends them in Messenger. The same messages are in Waiting for you (./waiting-view.tsx). While the person's training wheels are on, it says what's left before they
  * come off; owners and admins see who's on them and can end them early.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
@@ -27,6 +30,14 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import {
+  approveAllWords,
+  messengerChatUrl,
+  oneByOne,
+  oneByOneWords,
+} from '@hfos/core/addons/outreach/waiting-words';
+import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { CalendarCheck, Check, CheckCheck, Copy, Loader2, Send, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -39,8 +50,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
-import type { TodayItem, TodayList, WheelsList } from './types';
+import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { PersonMenu } from './person-menu';
+import type { Asks, TodayItem, TodayList, WheelsList } from './types';
 import { useAct } from './use-act';
 
 const KIND_BADGE = {
@@ -56,32 +70,37 @@ const KIND_BADGE = {
 /** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
 function openUrl(item: TodayItem): string | null {
   if (item.postUrl) return item.postUrl;
-  if (item.threadKey)
-    return `https://www.facebook.com/messages/t/${encodeURIComponent(item.threadKey)}`;
-  return item.profileUrl;
+  return messengerChatUrl(item.threadKey) ?? item.profileUrl;
 }
 
 export function TodayView({
   workspaceId,
   today,
   wheels,
+  asks,
 }: {
   workspaceId: string;
   today: TodayList;
   /** Who's on training wheels: for owners and admins, else null. */
   wheels: WheelsList | null;
+  /** The look-ups and group members asked of the person's computer from here. */
+  asks: Asks;
 }) {
-  const waiting = today.items.filter((i) => i.send?.state === 'waiting').length;
+  // A look-up's drafts, and a group's members saved, show once its ask ends.
+  useLiveRefresh(['outreach_ask'], 800);
+  // Approve all leaves those that wait for an OK of their own: a reply handed over, or one to someone who needs them.
+  const waiting = today.items.filter(
+    (i) => i.send?.state === 'waiting' && !oneByOne(i.send),
+  ).length;
   const approving = useAct();
   const approveAll = () =>
-    approving.act(
-      'all',
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
-        ),
-      'OK’d. The extension sends them in Messenger, at a person’s pace.',
-    );
+    approving.act('all', async () => {
+      // The number the server OK'd: Today lists only today's, and more may have come in since.
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
+      );
+      toast.success(W.okdAll(out.approved.length));
+    });
   const limits = [
     ['friend_request', today.limits.friend_request],
     ['first_message', today.limits.first_message],
@@ -112,7 +131,7 @@ export function TodayView({
         {today.items.length ? (
           <Card className="p-0" data-testid="today-list">
             <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
-              <h3 className="text-[15px] font-semibold">Your list for today</h3>
+              <h3 className="text-[15px] font-semibold">{W.listTitle}</h3>
               {waiting > 1 ? (
                 <Button
                   size="sm"
@@ -121,7 +140,7 @@ export function TodayView({
                   data-testid="today-approve-all"
                 >
                   <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Approve all {waiting.toLocaleString()} messages
+                  {approveAllWords(waiting)}
                 </Button>
               ) : (
                 <span className="text-[12.5px] text-text-3">
@@ -136,30 +155,25 @@ export function TodayView({
                   workspaceId={workspaceId}
                   item={item}
                   auto={today.auto.includes(item.kind)}
+                  asks={asks}
                 />
               ))}
             </ul>
           </Card>
         ) : (
           <Card data-testid="today-empty">
-            <EmptyState title="Nothing on your list yet">
-              Save groups and their members with the extension, read your chats in Messenger, and
-              find posts in your groups. People who fit your playbooks, new friends to say hi to,
-              chats to follow up and posts worth a comment show here.
-            </EmptyState>
+            <EmptyState title={W.todayEmptyTitle}>{W.todayEmptyBody}</EmptyState>
           </Card>
         )}
       </div>
       <aside className="space-y-4">
         <Card className="p-4" data-testid="today-limits">
-          <h3 className="text-[15px] font-semibold">Today so far</h3>
+          <h3 className="text-[15px] font-semibold">{W.todaySoFar}</h3>
           <ul className="mt-2 space-y-1 text-[13px]">
             {limits.map(([step, { done, most }]) => (
               <li key={step} className="flex justify-between gap-3">
                 <span className="text-text-2">{DAILY_WORDS[step].label}</span>
-                <span className="tabular-nums">
-                  {done.toLocaleString()} of {most.toLocaleString()}
-                </span>
+                <span className="tabular-nums">{W.countOf(done, most)}</span>
               </li>
             ))}
           </ul>
@@ -185,19 +199,27 @@ export function TodayView({
             <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
               Their members are suggested once each group’s admins and moderators are saved, so
-              nobody who runs a group is approached. Open the list and save it with the extension.
+              nobody who runs a group is approached. Save its members, and your computer reads who
+              runs it first.
             </p>
-            <ul className="mt-2 space-y-1 text-[13px]">
+            <ul className="mt-3 grid gap-3 text-[13px]">
               {today.readAdmins.map((g) => (
-                <li key={g.groupId}>
+                <li key={g.groupId} className="grid gap-1.5">
                   <a
-                    href={`${g.url.replace(/\/?$/, '/')}members/admins`}
+                    href={g.url}
                     target="_blank"
                     rel="noreferrer"
                     className="text-accent-text hover:underline"
                   >
                     {g.name ?? 'A group'}
                   </a>
+                  <AskButton
+                    workspaceId={workspaceId}
+                    asks={asks}
+                    ask={{ kind: 'members', groupIds: [g.groupId] }}
+                    label="Save its members"
+                    testId="today-ask-members"
+                  />
                 </li>
               ))}
             </ul>
@@ -212,11 +234,13 @@ function TodayRow({
   workspaceId,
   item,
   auto,
+  asks,
 }: {
   workspaceId: string;
   item: TodayItem;
   /** The extension does it on its own for you. */
   auto: boolean;
+  asks: Asks;
 }) {
   const url = openUrl(item);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
@@ -243,10 +267,11 @@ function TodayRow({
         <span className="flex items-center gap-1.5">
           {auto ? (
             <Badge variant="ok" data-testid="today-auto">
-              Done on its own
+              {W.doneOnItsOwn}
             </Badge>
           ) : null}
           <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
+          <PersonMenu workspaceId={workspaceId} who={item} />
         </span>
       </div>
       {item.post ? (
@@ -263,44 +288,61 @@ function TodayRow({
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
       ) : null}
       {item.send ? (
-        <Drafted workspaceId={workspaceId} item={item} send={item.send} />
+        <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
       ) : draftKind ? (
-        <Drafts workspaceId={workspaceId} item={item} kind={draftKind} />
+        <Drafts workspaceId={workspaceId} item={item} kind={draftKind} asks={asks} />
       ) : null}
     </li>
   );
 }
 
-/** A message the extension drafted to send: to change, send or skip while it waits; else it goes soon. */
-function Drafted({
+/** What Drafted needs of a message the extension drafted: Today's and Waiting for you's both have it. */
+export interface DraftedSend {
+  readonly sendId: string;
+  readonly state: 'waiting' | 'approved' | (string & {});
+  readonly text: string;
+  readonly handedOver: boolean;
+  readonly needsYou: string | null;
+}
+
+/**
+ * A message the extension drafted to send: to change, send or skip while it waits, with why it waits for an OK of its
+ * own when it does; else it goes soon. Today and Waiting for you both show it.
+ */
+export function Drafted({
   workspaceId,
-  item,
+  name,
   send,
 }: {
   workspaceId: string;
-  item: TodayItem;
-  send: NonNullable<TodayItem['send']>;
+  /** Who it's to. */
+  name: string;
+  send: DraftedSend;
 }) {
   const [text, setText] = useState(send.text);
   const { busy, act } = useAct();
   if (send.state === 'approved')
     return (
       <div className="mt-2" data-testid="today-send-approved">
-        <p className="text-[12.5px] text-text-3">OK’d: the extension sends it soon.</p>
+        <p className="text-[12.5px] text-text-3">{W.sentOkd}</p>
         <p className="mt-1 whitespace-pre-wrap rounded-md bg-card-2 px-3 py-2 text-[13px]">
           {send.text}
         </p>
       </div>
     );
+  const alone = oneByOneWords(send);
   return (
     <div className="mt-2 space-y-1.5" data-testid="today-send">
-      <p className="text-[12.5px] text-text-3">
-        I’d send this. Change it if you like; your changes teach the AI.
-      </p>
+      <p className="text-[12.5px] text-text-3">{W.sentWaiting}</p>
+      {alone ? (
+        <p className="text-[12.5px] text-warning-text" data-testid="today-send-alone">
+          {alone}
+        </p>
+      ) : null}
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        aria-label={`Message to ${item.name}`}
+        aria-label={`Message to ${name}`}
         rows={3}
       />
       <div className="flex flex-wrap gap-1.5">
@@ -316,7 +358,7 @@ function Drafted({
                     body: { workspaceId, sends: [{ sendId: send.sendId, text }] },
                   }),
                 ),
-              'OK’d. The extension sends it in Messenger.',
+              W.okd,
             )
           }
           data-testid="today-send-ok"
@@ -337,7 +379,7 @@ function Drafted({
                     body: { workspaceId, sendId: send.sendId },
                   }),
                 ),
-              `Skipped. ${item.name} is off your list for today.`,
+              `Skipped. ${name} is off your list for today.`,
             )
           }
           data-testid="today-send-skip"
@@ -355,7 +397,7 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
   const { busy, act } = useAct();
   return (
     <Card className="p-4" data-testid="today-wheels-team">
-      <h3 className="text-[15px] font-semibold">On training wheels</h3>
+      <h3 className="text-[15px] font-semibold">{W.wheelsTitle}</h3>
       <p className="mt-1.5 text-[13px] text-text-2">
         Their messages wait for their OK and their daily limits are half, for 7 days and 25 messages
         OK’d. End them early for someone you trust.
@@ -385,13 +427,13 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
                         body: { workspaceId, userId: p.userId },
                       }),
                     ),
-                  `Training wheels ended for ${p.name}.`,
+                  W.wheelsEnded(p.name),
                 )
               }
               data-testid="today-wheels-end"
             >
               <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
-              End now
+              {W.endNow}
             </Button>
           </li>
         ))}
@@ -405,15 +447,33 @@ function Drafts({
   workspaceId,
   item,
   kind,
+  asks,
 }: {
   workspaceId: string;
   item: TodayItem;
   kind: DraftKind;
+  asks: Asks;
 }) {
   const [busy, setBusy] = useState(false);
-  const [drafts, setDrafts] = useState<readonly string[]>([]);
+  const [drafted, setDrafted] = useState<readonly string[]>([]);
   /** The opener the drafts were written with, for a first message. */
-  const [opener, setOpener] = useState<DraftOpener | null>(null);
+  const [draftedOpener, setOpener] = useState<DraftOpener | null>(null);
+  // Looked up on Facebook first, while the computer is online and Facebook didn't warn them today.
+  const lookup = {
+    kind: 'lookup' as const,
+    draft: { kind, profileId: item.profileId, chatId: item.chatId, postId: item.postId },
+  };
+  const looked = latestAsk(asks, 'lookup', targetOf(lookup));
+  const online =
+    asks.computer !== null &&
+    asks.computer.online &&
+    !asks.computer.signedOut &&
+    !(asks.warnedToday && onFacebook('lookup'));
+  // Drafts asked for here come first; else the look-up's, once it's done.
+  const fromLookup = !drafted.length && looked?.state === 'done' ? looked.result : null;
+  const drafts = fromLookup?.drafts ?? drafted;
+  const opener = fromLookup ? fromLookup.opener : draftedOpener;
+  const lookingUp = looked !== null && askOpen(looked.state);
   const skipping = useAct();
   const skip = (postId: string) =>
     skipping.act(
@@ -424,7 +484,7 @@ function Drafts({
             body: { workspaceId, postId },
           }),
         ),
-      'Put aside. It won’t be suggested again.',
+      W.notForMeDone,
     );
   const ask = async () => {
     setBusy(true);
@@ -437,7 +497,7 @@ function Drafts({
         },
       );
       if (!out.drafts.length) toast.message('The AI had nothing to suggest. Try again.');
-      setDrafts(out.drafts);
+      setDrafted(out.drafts);
       setOpener(out.opener);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -462,6 +522,18 @@ function Drafts({
   };
   return (
     <div className="mt-2">
+      {!online && drafted.length ? (
+        <p className="mb-1 text-[12px] text-text-3" data-testid="today-drafts-offline">
+          {asks.computer
+            ? 'Your computer is offline, so these are from what HandsFreeOS knows.'
+            : 'These are from what HandsFreeOS knows.'}
+        </p>
+      ) : null}
+      {fromLookup && looked?.line ? (
+        <p className="mb-1 text-[12px] text-text-3" data-testid="today-looked-up">
+          {looked.line}
+        </p>
+      ) : null}
       {drafts.length && opener ? (
         <p className="mb-1 text-[12px] text-text-3" data-testid="today-opener">
           Opens with {OPENER_KINDS[opener.kind].toLowerCase()}: “{openerShort(opener.text, 70)}”
@@ -487,11 +559,33 @@ function Drafts({
           ))}
         </ul>
       ) : null}
+      {looked && (lookingUp || looked.state !== 'done') ? (
+        <AskLine workspaceId={workspaceId} asks={asks} ask={looked} className="mt-1.5" />
+      ) : null}
+      {online ? (
+        <div className="mt-1.5 inline-flex">
+          <AskButton
+            workspaceId={workspaceId}
+            asks={asks}
+            ask={lookup}
+            label={
+              drafts.length
+                ? 'Look up and draft again'
+                : kind === 'comment'
+                  ? 'Draft a comment'
+                  : 'Draft a message'
+            }
+            showLine={false}
+            onAsked={() => setDrafted([])}
+            testId="today-draft-lookup"
+          />
+        </div>
+      ) : null}
       <Button
-        variant="secondary"
+        variant={online ? 'ghost' : 'secondary'}
         size="sm"
-        className="mt-1.5"
-        disabled={busy}
+        className={online ? 'ml-1.5 mt-1.5' : 'mt-1.5'}
+        disabled={busy || lookingUp}
         onClick={() => void ask()}
         data-testid="today-draft"
       >
@@ -500,7 +594,13 @@ function Drafts({
         ) : (
           <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
         )}
-        {drafts.length ? 'Draft again' : kind === 'comment' ? 'Draft a comment' : 'Draft a message'}
+        {online
+          ? 'Draft from what HandsFreeOS knows'
+          : drafts.length
+            ? 'Draft again'
+            : kind === 'comment'
+              ? 'Draft a comment'
+              : 'Draft a message'}
       </Button>
       {item.demoLink ? (
         <Button
@@ -529,7 +629,7 @@ function Drafts({
           data-testid="today-skip"
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Not for me
+          {W.notForMe}
         </Button>
       ) : null}
     </div>

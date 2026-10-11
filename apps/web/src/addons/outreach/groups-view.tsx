@@ -5,37 +5,34 @@
  * each and who runs it; and whether its admins and moderators are read, which Today waits for before it suggests
  * anyone from it. Which, the name and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
  */
+import {
+  ASK_LINK_MOST,
+  ASK_WORDS,
+  ASK_WORDS_MOST,
+  askedWords,
+} from '@hfos/core/addons/outreach/asks';
 import { GROUP_VIEWS, GROUPS_PAGE, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { brought, resultWords } from '@hfos/core/addons/outreach/results';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GROUP_VIEW_KEYS, outreachHref } from './address';
+import { AskButton, AskLine, cantAskWhy, ComputerNote, latestAsk, targetOf } from './asks';
 import { dayWords, Pager, SearchBox } from './friends-view';
-import type { Group, Groups } from './types';
+import type { Asks, Group, Groups } from './types';
+import { useAct } from './use-act';
 
-const EMPTY: Record<GroupView, { readonly title: string; readonly body: string }> = {
-  work: {
-    title: 'No groups to work yet',
-    body: 'Open your groups or search for groups on Facebook with the extension’s panel and press Save these groups. Groups that match a playbook’s words to search for groups show here.',
-  },
-  maybe: {
-    title: 'No maybes',
-    body: 'Groups that match a little, or that are just big, show here.',
-  },
-  skip: {
-    title: 'Nothing to skip',
-    body: 'Groups that match none of your playbooks, or match who to skip, show here.',
-  },
-  all: {
-    title: 'No groups saved yet',
-    body: 'Open your groups or search for groups on Facebook with the extension’s panel and press Save these groups.',
-  },
-};
+const EMPTY = W.groupsEmpty;
 
 const VERDICT_BADGE = { work: 'ok', maybe: 'gray', skip: 'danger' } as const;
 
@@ -44,12 +41,20 @@ export function GroupsView({
   groups,
   show,
   search,
+  asks,
+  searchWords,
 }: {
   workspaceId: string;
   groups: Groups;
   show: GroupView;
   search: string;
+  /** What the person asked their computer to do on this tab. */
+  asks: Asks;
+  /** Find groups' box starts with these: the first playbook in use's words to search for groups. */
+  searchWords: string;
 }) {
+  // An ask's progress and end: the groups it saved show once it ends.
+  useLiveRefresh(['outreach_ask'], 800);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // What was last asked for, ahead of the address while it loads (as the Friends tab).
@@ -94,6 +99,7 @@ export function GroupsView({
         </div>
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
+      <GroupAsks workspaceId={workspaceId} asks={asks} searchWords={searchWords} />
       <div
         className={cn(
           'grid gap-4 transition-opacity lg:grid-cols-[minmax(0,1fr)_300px]',
@@ -115,7 +121,7 @@ export function GroupsView({
               </div>
               <ul className="mt-2">
                 {groups.groups.map((g) => (
-                  <GroupRow key={g.groupId} group={g} />
+                  <GroupRow key={g.groupId} workspaceId={workspaceId} asks={asks} group={g} />
                 ))}
               </ul>
               {groups.pages > 1 ? (
@@ -125,9 +131,7 @@ export function GroupsView({
           ) : (
             <Card data-testid="groups-empty">
               {search ? (
-                <EmptyState title="No groups like that here">
-                  Check the spelling and look again.
-                </EmptyState>
+                <EmptyState title={W.groupsNoMatch.title}>{W.groupsNoMatch.body}</EmptyState>
               ) : (
                 <EmptyState title={EMPTY[show].title}>{EMPTY[show].body}</EmptyState>
               )}
@@ -155,9 +159,8 @@ export function GroupsView({
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">People who run a group are left alone</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
-              Today suggests a group’s members only after its admins and moderators are saved. Open
-              the group’s People tab, then Admins and moderators, See all, and save that page with
-              the extension.
+              Today suggests a group’s members only after its admins and moderators are saved. Save
+              its members does both: your computer reads who runs the group first.
             </p>
           </Card>
         </aside>
@@ -166,16 +169,165 @@ export function GroupsView({
   );
 }
 
-function GroupRow({ group: g }: { group: Group }) {
+/**
+ * What the person can ask their computer to do with groups: save the ones they're in, find more with a playbook's
+ * words, save a group from its link, save the members of the best ones, and find posts worth a comment.
+ */
+function GroupAsks({
+  workspaceId,
+  asks,
+  searchWords,
+}: {
+  workspaceId: string;
+  asks: Asks;
+  searchWords: string;
+}) {
+  const [words, setWords] = useState(searchWords);
+  const lastSearch = latestAsk(asks, 'group_search');
+  return (
+    <Card className="mb-4 p-4" data-testid="groups-asks">
+      <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
+      <ComputerNote asks={asks} className="mt-3" />
+      <div className="mt-3 grid gap-4 md:grid-cols-2">
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'groups' }}
+          label={ASK_WORDS.saveGroups}
+          testId="ask-groups"
+        />
+        <div className="grid content-start gap-1.5">
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => e.preventDefault()}
+            data-testid="group-search-form"
+          >
+            <Input
+              aria-label={ASK_WORDS.searchFor}
+              placeholder={ASK_WORDS.searchFor}
+              value={words}
+              maxLength={ASK_WORDS_MOST}
+              onChange={(e) => setWords(e.target.value)}
+            />
+            <AskButton
+              workspaceId={workspaceId}
+              asks={asks}
+              ask={{ kind: 'group_search', words: words.trim() }}
+              label={ASK_WORDS.findGroups}
+              disabled={words.trim().length < 2}
+              showLine={false}
+              testId="ask-group-search"
+            />
+          </form>
+          {lastSearch ? <AskLine workspaceId={workspaceId} asks={asks} ask={lastSearch} /> : null}
+        </div>
+        <SaveGroupByLink workspaceId={workspaceId} asks={asks} />
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'members' }}
+          label={ASK_WORDS.saveMembers}
+          testId="ask-members"
+        />
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'posts' }}
+          label={ASK_WORDS.findPosts}
+          testId="ask-posts"
+        />
+      </div>
+    </Card>
+  );
+}
+
+/** Save a group from a link the person pasted: its members, its admins first. The refusal's words show under the box. */
+function SaveGroupByLink({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
+  const { busy, act } = useAct();
+  const [url, setUrl] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  // The ask the last paste made: a group already saved is kept by its id, not by the link.
+  const [madeId, setMadeId] = useState<string | null>(null);
+  const asked = url.trim() ? latestAsk(asks, 'members', targetOf({ kind: 'members', url })) : null;
+  const made = madeId ? (asks.asks.find((a) => a.askId === madeId) ?? null) : null;
+  const lastLink = asks.asks.find((a) => a.kind === 'members' && a.target.startsWith('link:'));
+  const shown = asked ?? made ?? lastLink ?? null;
+  const why = cantAskWhy(asks, 'members');
+  const save = () =>
+    void act('link', async () => {
+      setProblem(null);
+      try {
+        const made = unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.ask.make', {
+            body: { workspaceId, ask: { kind: 'members', url: url.trim() } },
+          }),
+        );
+        toast.success(askedWords(made, asks, Date.now()));
+        setMadeId(made.ask.askId);
+        setUrl('');
+      } catch (e) {
+        setProblem(errorMessage(e));
+        throw e;
+      }
+    });
+  return (
+    <div className="grid content-start gap-1.5">
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+        data-testid="group-link-form"
+      >
+        <Input
+          aria-label="Paste a group’s link"
+          placeholder="Paste a group’s link"
+          value={url}
+          maxLength={ASK_LINK_MOST}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="secondary"
+          loading={busy === 'link'}
+          disabled={busy !== null || !url.trim() || why !== null}
+          title={why ?? undefined}
+          data-testid="ask-group-link"
+        >
+          Save a group
+        </Button>
+      </form>
+      {problem ? (
+        <p className="text-[12.5px] text-danger-text" role="alert" data-testid="group-link-problem">
+          {problem}
+        </p>
+      ) : null}
+      {shown ? <AskLine workspaceId={workspaceId} asks={asks} ask={shown} /> : null}
+    </div>
+  );
+}
+
+function GroupRow({
+  workspaceId,
+  asks,
+  group: g,
+}: {
+  workspaceId: string;
+  asks: Asks;
+  group: Group;
+}) {
   const facts = [
     g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : null,
-    g.members !== null ? `${g.members.toLocaleString()} members` : null,
-    g.joined ? 'You’re in it' : g.joined === false ? 'Not joined' : null,
+    g.members !== null ? W.groupMembers(g.members) : null,
+    g.joined ? W.joined : g.joined === false ? W.notJoined : null,
     g.seenAt ? `Seen ${dayWords(g.seenAt)}` : null,
   ].filter(Boolean);
   const saved = g.people
     ? [
-        `${g.people.toLocaleString()} ${g.people === 1 ? 'person' : 'people'} saved`,
+        W.peopleSaved(g.people),
         g.runsGroup ? `${g.runsGroup.toLocaleString()} who run it` : null,
         g.requests
           ? `${g.requests.toLocaleString()} ${g.requests === 1 ? 'request' : 'requests'} sent`
@@ -217,6 +369,16 @@ function GroupRow({ group: g }: { group: Group }) {
         </p>
       ) : null}
       {saved ? <p className="mt-1 text-[12.5px] text-text-3">{saved}</p> : null}
+      <div className="mt-2">
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'members', groupIds: [g.groupId] }}
+          label={ASK_WORDS.saveItsMembers}
+          variant="ghost"
+          testId="ask-group-members"
+        />
+      </div>
     </li>
   );
 }

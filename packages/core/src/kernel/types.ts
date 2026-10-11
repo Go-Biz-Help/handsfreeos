@@ -312,6 +312,13 @@ export interface CommandDef<I extends z.ZodType = z.ZodType, O extends z.ZodType
    * like a credential.
    */
   readonly shownOnce?: readonly string[];
+  /**
+   * false for a command whose repeat does no harm and whose lost answer is asked again with the next call (Social
+   * Outreach's heartbeat, `outreach.live.beat`, and how an ask is going, `outreach.ask.progress`): the app's or the
+   * extension's command id isn't claimed, so it leaves no receipt, and none reaches the person's phone. Its handler
+   * must be safe to run twice.
+   */
+  readonly receipt?: false;
   /** The add-on it belongs to (0108), set by defineAddonCommand. Absent for core's own. */
   readonly addon?: AddonRef;
   /** How it may be offered to the AI (0108). */

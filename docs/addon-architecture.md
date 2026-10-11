@@ -107,7 +107,9 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   names) and one of its own pages. Phones keep the cards through `records_v1` (round six, below). The push opens the add-on's screen on a phone that
   has it and the web until then:
   an add-on names the pages the phone draws in its manifest (`ui.phone`), and the phone's build lists the screens it
-  has (`apps/mobile/src/links/addon-screens.ts`), so no link changes when a screen arrives. Turning the add-on off
+  has (`apps/mobile/src/links/addon-screens.ts`), so no link changes when a screen arrives. A page's `web` names
+  values of its query that stay on the web (Social Outreach's `{ view: ['activity', 'friends'] }`): a link with one
+  opens the web whatever the build has. Turning the add-on off
   clears its alerts (`no_alerts_showing`); purging deletes them (`no_alerts_left`).
 - **What phones keep of an add-on** (Real Estate round six, 20261022000100). An add-on that works with no signal says
   so in its manifest's `offline`: the permission whose holders' phones keep it, and each of its tables with the
@@ -115,7 +117,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   reach (`team`: the record's owner and team; `all`: also whoever sees every record of the kind, for summary rows).
   Its migration says the same with `private.addon_phone_addon(...)` and `private.addon_phone_table(...)`, which
   installs triggers that copy just those columns into `app.addon_phone_rows` with the record's seals, and a test
-  holds the two equal. Its private records, and the tasks, files, appointments, portal threads and Home cards on
+  holds the two equal. A table of each person's own (Social Outreach's messages waiting, 20261027001800) says
+  `owner` (the column naming whose each row is) and, to keep only some rows, `keep` (`{ column: 'state', values:
+['waiting'] }`); its migration calls `private.addon_phone_own_table(...)` instead, and each row then reaches its
+  person's phone alone, never open, and leaves once it's no longer kept. Its private records, and the tasks, files, appointments, portal threads and Home cards on
   them, and the links between them (a deal's client and home, 20261022000700), reach the same people through the
   same stream (`apps/sync/README.md`, `records_v1`). Settings a page rests on (Real Estate's closed days) go too when
   `offline.settings` names them and the migration calls `private.addon_phone_settings(...)`: just those keys, as one

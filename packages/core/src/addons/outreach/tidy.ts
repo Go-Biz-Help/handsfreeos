@@ -2,8 +2,9 @@
  * Tidying the person's own friends (docs/outreach.md, decisions 10, 12, 15 and 17): sent friend requests nobody
  * answered in the business's wait (3 weeks to start), and friends to unfriend to make room under Facebook's cap: no
  * contact either way in 6 months, friends for longer than that, not in Contacts, not a prospect, not on Keep and not on
- * Don't pitch. The person ticks the ones to go in the extension's panel, and the extension presses Cancel request or
- * Unfriend on each one's profile for them, slowly, in a tab they can see, within a daily limit.
+ * Don't pitch. The person ticks the ones to go on the web's Friends tab, which asks their computer (./asks.ts), and the
+ * extension presses Cancel request or Unfriend on each one's profile for them, slowly, in a tab they can see, within a
+ * daily limit.
  *
  * And Facebook's warnings (decision 25): the extension notes each one it sees, which halves the person's daily limits
  * for a week, leaves friend requests off Today's list for two days, and stops what it does for them for the day.
@@ -29,7 +30,7 @@ export {
   type TidyKind,
 } from './limits';
 
-/** What each is called: in the panel, on the Friends tab, and in the counts. */
+/** What each is called: on the Friends tab, and in the counts. */
 export const TIDY_WORDS: Readonly<
   Record<TidyKind, { readonly label: string; readonly button: string; readonly many: string }>
 > = {

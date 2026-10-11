@@ -131,6 +131,21 @@ export const ChatSaveOutput = z.object({
   kept: z.number().int(),
 });
 
+/**
+ * Save to their card: a chat brought in (Read my chats, read as it was opened, or Facebook's file) copied onto the
+ * customer's Social card, from the Chats tab or a reply waiting for the person. Nothing is read on Facebook for it.
+ */
+export const ChatKeepInput = z.object({
+  workspaceId: z.uuid(),
+  /** The chat on the Chats tab. */
+  chatId: z.uuid(),
+  /** A customer already in Contacts the person said this is. */
+  personId: z.uuid().optional(),
+  /** Nobody in Contacts is them: add them as someone new. */
+  add: z.boolean().default(false),
+});
+export type ChatKeepInput = z.input<typeof ChatKeepInput>;
+
 export const OutreachLookupInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
@@ -227,12 +242,13 @@ function same(a: ChatMessage, b: ChatMessage): boolean {
  * A chat read again, joined to what was saved before. The page shows a stretch of the chat (the newest as it opens,
  * older ones as you scroll up), so the stretch read is placed where it overlaps the saved one the most, the latest
  * such place when two overlap as much; with no overlap it's taken as newer. Messages in both keep their first
- * saving, and learn who sent them when only the new read says. Only the most recent `keep` are kept.
+ * saving, and learn who sent them when only the new read says. Only the most recent `keep` are kept. `savedAt` is
+ * when the new ones were saved, or, for messages whose own time is known (a chat kept from the Chats tab), each one's.
  */
 export function joinMessages(
   saved: readonly SavedMessage[],
   read: readonly ChatMessage[],
-  savedAt: string,
+  savedAt: string | ((index: number) => string),
   keep: number = KEPT_MESSAGES,
 ): { readonly messages: SavedMessage[]; readonly added: number } {
   // `at` is where read[0] falls in saved: negative when the read starts before what's saved.
@@ -259,7 +275,12 @@ export function joinMessages(
           : old,
       );
     else if (old) joined.push(old);
-    else if (now) joined.push({ ...now, savedAt, isNew: true });
+    else if (now)
+      joined.push({
+        ...now,
+        savedAt: typeof savedAt === 'string' ? savedAt : savedAt(p - at),
+        isNew: true,
+      });
   }
   const kept = joined.slice(-keep);
   return {

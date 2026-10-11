@@ -17,7 +17,8 @@ import {
 } from '../demos';
 import { outreachAddon } from '../manifest';
 import { demos, profiles } from '../tables';
-import { inWorkspace, keptProfile, once } from './common';
+import { inWorkspace, once } from './common';
+import { profileToSet } from './friends';
 
 export const demoMark = defineAddonCommand(outreachAddon, {
   name: 'outreach.demo.mark',
@@ -34,12 +35,7 @@ export const demoMark = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     return once(async () => {
-      const profile = await keptProfile(
-        ctx,
-        { platform: input.platform, profile: input.profile, name: input.name },
-        me,
-        at,
-      );
+      const profile = await profileToSet(ctx, input, me, at);
       // Taken back, a mark is kept and no longer counted; marked again, it counts from now.
       if (input.booked)
         await ctx.tx

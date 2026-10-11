@@ -17,6 +17,9 @@ import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
+import { askProgressed } from './asks';
+import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
+import { needNoted, sendWaits, WAITING_PUSH_JOB, waitingPushJob } from './waiting';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 
 /**
@@ -38,6 +41,14 @@ const andWeekly =
     await subscriber(ctx);
     const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
     if (p['addonId'] === undefined || p['addonId'] === ctx.manifest.id) await armWeekly(ctx);
+  };
+
+/** Two subscribers to one event, one after the other. */
+const both =
+  (first: AddonSubscriber, second: AddonSubscriber): AddonSubscriber =>
+  async (ctx) => {
+    await first(ctx);
+    await second(ctx);
   };
 
 export const outreachAddonWorker: AddonWorkerModule = {
@@ -68,21 +79,33 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.chats.collected': andMorning(downloadSaved),
     'outreach.posts.saved': andMorning(postsSaved),
     'outreach.reply.seen': andWeekly(replySeen),
-    'outreach.send.queued': handOver,
+    // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
+    // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
+    'outreach.send.queued': both(handOver, sendWaits),
+    'outreach.need.noted': needNoted,
     'addon.settings_saved': andWeekly(settingsSaved),
     'appointment.booked': appointmentBooked,
+    // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
+    // pruning armed (./live.ts).
+    'outreach.warning.seen': warningSeen,
+    'outreach.live.changed': liveChanged,
+    // Something the person asked of their computer needs them: their phone hears it at once (./asks.ts).
+    'outreach.ask.progressed': askProgressed,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [MORNING_JOB]: morningJob,
     [WEEKLY_JOB]: weeklyJob,
+    [LIVE_PRUNE_JOB]: livePruneJob,
+    [WAITING_PUSH_JOB]: waitingPushJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
   actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
-  // The morning push and weekly report, from now: nothing that came due while it was off runs late.
+  // The morning push, weekly report and the feed's pruning, from now: nothing that came due while it was off runs late.
   onEnable: async (ctx) => {
     await armMorning(ctx);
     await armWeekly(ctx);
+    await armPrune(ctx);
   },
 };

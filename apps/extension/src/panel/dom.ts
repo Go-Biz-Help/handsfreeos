@@ -2,6 +2,7 @@
  * The side panel's drawing helpers. Everything a page or HandsFreeOS said goes in as text, never as HTML.
  */
 import { facebookUrl } from '../facebook/urls';
+import { counted } from '../words';
 
 export type Child = Node | string | null | undefined | false;
 
@@ -53,10 +54,7 @@ export function clip(text: string, length: number): string {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
 
-/** "1 comment", "6 comments"; "1 person", "6 people" with the plural given. */
-export function counted(count: number, thing: string, things = `${thing}s`): string {
-  return `${count.toLocaleString()} ${count === 1 ? thing : things}`;
-}
+export { counted } from '../words';
 
 /** How long ago, in words: "just now", "5 minutes ago", "on Oct 3". */
 export function ago(iso: string): string {

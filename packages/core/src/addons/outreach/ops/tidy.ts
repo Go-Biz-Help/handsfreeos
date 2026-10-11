@@ -38,6 +38,7 @@ import {
 } from '../tidy';
 import { slowerFor, wheelsBackOn } from './automation';
 import { inWorkspace, keepFriendStates, keptProfile, once, type Ctx } from './common';
+import { warnDay } from './day';
 import { playbooksInUse } from './friends';
 
 const DAY = 86_400_000;
@@ -282,7 +283,7 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
 export const warningNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.warning.note',
   description:
-    'Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, and stops the extension for them for the day.',
+    'Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.',
   risk: 1,
   input: WarningNoteInput,
   output: WarningNoteOutput,
@@ -321,11 +322,14 @@ export const warningNote = defineAddonCommand(outreachAddon, {
     });
     // Training wheels go back on for 7 days, for anyone who ever had them.
     await wheelsBackOn(ctx, me);
+    // The day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs follows it.
+    await warnDay(ctx, me, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
     await ctx.emit({
       type: 'outreach.warning.seen',
       entityType: 'workspace',
       entityId: ws,
-      payload: { platform: input.platform },
+      // Whose it is, for the push to their phone (the worker's alerts.ts).
+      payload: { platform: input.platform, userId: me },
     });
     return { repeated: false, warning: stateOf(at, words, todayFrom) };
   },

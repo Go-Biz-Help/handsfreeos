@@ -4,14 +4,16 @@
  * - **A reply** the extension saw (`outreach.reply.seen`) is pushed to the person at once, unless they were looking
  *   at it: "Dana Reyes wrote back".
  * - **A reply handed over** (`outreach.send.queued`, decision 27): with Replies (b) or (c), a reply that waits for the
- *   person after all, because it isn't simple or they need the person, is pushed at once: "Dana Reyes needs you".
+ *   person after all, because it isn't simple or they need the person, is pushed at once, whatever their pushes
+ *   setting says (./waiting.ts), and opens Waiting for you: "Dana Reyes needs you".
  * - **The morning push** (`outreach.morning`, one job per business): at the business's hour, each person who noted a
  *   step lately and has something on their list for today hears how much, worked out as their list is
  *   (`outreach.today`, asked on their behalf). It comes back the next morning. A change to the hour moves it; it's
  *   armed when the add-on comes on, and whenever the extension sends something, so a business that had the add-on
  *   on before the push existed gets it too.
  *
- * Both go to the person alone, on their add-ons switch, and open Today (`pushAddonNotice`).
+ * Each goes to the person alone, on their add-ons switch, and opens Today, or Waiting for you for a reply handed over
+ * (`pushAddonNotice`).
  */
 import {
   MORNING_ACTIVE_DAYS,
@@ -29,6 +31,7 @@ import type { JobResult } from '../../jobs';
 import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
 import type { AddonEventContext, AddonJobContext, AddonScopeContext } from '../types';
+import { WAITING_HREF } from './waiting';
 
 export const MORNING_JOB = 'outreach.morning';
 const TODAY_HREF = '/a/outreach?view=today';
@@ -142,7 +145,7 @@ export async function handOver(ctx: AddonEventContext): Promise<void> {
       userIds: [userId],
       permission: 'outreach.use',
       ...handOverPushWords(profile.name, p.why ?? null),
-      href: TODAY_HREF,
+      href: WAITING_HREF,
       // The same chat's "wrote back" gives way to it.
       collapseKey: `reply-${profileId}`,
       personId: profile.person_id,

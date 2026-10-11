@@ -206,6 +206,14 @@ export interface AddonOfflineTable {
   readonly columns: readonly string[];
   /** `team` (the default): only the people on the record. `all`: also whoever sees every record of its kind. */
   readonly reach?: 'team' | 'all';
+  /**
+   * A person's own rows (Social Outreach's messages waiting, 20261027001800): the column naming whose each row is, one
+   * of `columns`. Each row goes to that person's phone alone, never open; a row naming nobody isn't kept. Not with
+   * `record`, nor with `reach: 'all'`. The migration registers it with `private.addon_phone_own_table()`.
+   */
+  readonly owner?: string;
+  /** Only rows whose `column` (one of `columns`) is one of `values` are kept (`state` in `waiting`); the rest leave. */
+  readonly keep?: { readonly column: string; readonly values: readonly string[] };
 }
 
 /**
@@ -217,6 +225,11 @@ export interface AddonPhonePage {
   readonly path: string;
   /** The query parameters the screen reads too (`duty`), kept on its address. */
   readonly query?: readonly string[];
+  /**
+   * Values of its query parameters whose page stays on the web (`{ view: ['activity'] }`): a link with one opens the
+   * web, as for a page the phone doesn't draw. Each key is one of `query`.
+   */
+  readonly web?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -686,6 +699,11 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     for (const q of page.query ?? [])
       if (!/^[a-z][A-Za-z0-9_]{0,39}$/.test(q))
         say(`phone page "${page.path}" reads "${q}", which isn't a query key`);
+    for (const [q, values] of Object.entries(page.web ?? {})) {
+      if (!(page.query ?? []).includes(q))
+        say(`phone page "${page.path}" leaves "${q}" to the web, but doesn't read it`);
+      if (!values.length) say(`phone page "${page.path}" leaves "${q}" to the web with no values`);
+    }
   }
   const portalShapes = new Set<string>();
   for (const page of m.ui?.portal ?? []) {
@@ -739,6 +757,22 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       unique(`offline table "${t.table}" column`, t.columns);
       if (t.record !== undefined && !/^[a-z][a-z0-9_]{0,62}$/.test(t.record))
         say(`offline table "${t.table}" record "${t.record}" isn't a column name`);
+      if (t.owner !== undefined) {
+        if (!t.columns.includes(t.owner))
+          say(
+            `offline table "${t.table}" is each person's own by "${t.owner}", which it doesn't keep`,
+          );
+        if (t.record !== undefined)
+          say(`offline table "${t.table}" is a person's own or follows a record, not both`);
+        if (t.reach === 'all')
+          say(`offline table "${t.table}" is a person's own, so it reaches only them`);
+      }
+      if (t.keep) {
+        if (!t.columns.includes(t.keep.column))
+          say(`offline table "${t.table}" keeps rows by "${t.keep.column}", which it doesn't keep`);
+        if (!t.keep.values.length)
+          say(`offline table "${t.table}" keeps rows by "${t.keep.column}" but names no values`);
+      }
     }
     unique(
       'offline table',

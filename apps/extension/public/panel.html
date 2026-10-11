@@ -12,50 +12,32 @@
       <div>
         <h1>HandsFreeOS Social</h1>
         <p class="sub">
-          Test build. It reads the Facebook page you have open, saves the people, chats and friends
-          you pick to HandsFreeOS, and counts the friend requests, likes, comments and messages you
-          send. It never sends anything on Facebook. It only presses buttons there when you ask: to
-          get your Facebook file, to open your chats one by one for the AI to read, to scroll your
-          groups for posts worth a comment, and to cancel old requests or unfriend the people you
-          tick. Before the AI drafts to someone, it opens their profile and business page out of
-          view to read them.
+          Test build. It works on Facebook for you, as you set it in HandsFreeOS: what it does on
+          its own, and what you ask of it there. It stops for the day on any Facebook warning.
         </p>
       </div>
     </header>
 
     <div id="account" class="account"></div>
 
-    <section id="today" class="today" hidden></section>
-    <section id="on-its-own" class="fbfile on-its-own" hidden></section>
-    <section id="tidy" class="fbfile" hidden></section>
-    <section id="posts" class="fbfile" hidden></section>
-
-    <section id="chats" class="fbfile" hidden></section>
-    <section id="fbfile" class="fbfile"></section>
-
-    <div id="page" class="page"></div>
-
-    <div class="actions">
-      <button id="read" type="button" class="primary">Read this page</button>
-      <label class="auto"
-        ><input id="auto" type="checkbox" checked /> Read when the page changes</label
-      >
-    </div>
-
-    <p id="status" class="status" role="status"></p>
-
-    <main id="results"></main>
+    <section id="now" class="today now" hidden></section>
+    <section id="waiting" class="today waiting" hidden></section>
 
     <footer>
-      <h2>Page got read wrong?</h2>
-      <p>
-        Copy or save the page outline and send it to us. It keeps the page's layout and Facebook's
-        own words, and hides names, messages and posts. Look it over before you send it.
-      </p>
-      <div class="actions">
-        <button id="copy-outline" type="button">Copy page outline</button>
-        <button id="save-outline" type="button">Save page outline</button>
-      </div>
+      <p><a id="open-hfos" target="_blank" rel="noreferrer" hidden>Open HandsFreeOS</a></p>
+      <details>
+        <summary>Page read wrong?</summary>
+        <p>
+          Copy or save the outline of the Facebook page beside this panel and send it to us. It
+          keeps the page's layout and Facebook's own words, and hides names, messages and posts.
+          Look it over before you send it.
+        </p>
+        <div class="actions">
+          <button id="copy-outline" type="button">Copy page outline</button>
+          <button id="save-outline" type="button">Save page outline</button>
+        </div>
+        <p id="outline-said" class="status" role="status"></p>
+      </details>
     </footer>
 
     <script src="panel.js"></script>

@@ -186,6 +186,8 @@ export const postSkip = defineAddonCommand(outreachAddon, {
   output: PostSkipOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
+  // It reaches nobody, so Not for me pressed on the phone with no signal waits as long as it takes (decision 44).
+  offline: 'anytime',
   emits: ['outreach.post.skipped'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

@@ -7,7 +7,7 @@
 import { groupsToWork as pickGroups } from '@hfos/core/addons/outreach/results';
 import type { ReadResult } from '../facebook/types';
 import type { GroupsList } from '../hfos/messages';
-import { counted } from '../panel/dom';
+import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 
 /** The most groups one Find posts goes through, and screens it scrolls in each. */
@@ -36,7 +36,7 @@ export async function groupsToWork(job: Job, most: number): Promise<WorkGroup[] 
   const these = pickGroups(work!, maybe!, most);
   return these.length
     ? these
-    : 'You’re not in any of the groups marked Work these or Maybe yet. Join one, open it with this panel beside it, then try again.';
+    : 'You’re not in any of the groups marked Work these or Maybe yet. Join one on Facebook, then ask for Save your groups on the Groups tab in HandsFreeOS.';
 }
 
 /**

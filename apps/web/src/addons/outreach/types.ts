@@ -23,3 +23,21 @@ export type Openers = Ok<'/v1/queries/outreach.openers'>;
 /** Someone's choices for the extension, inside the business's rules (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
 export type AutomationPeople = Ok<'/v1/queries/outreach.automation.people'>;
+/** The person's extension right now, their day and today's steps (packages/core/src/addons/outreach/live.ts). */
+export type Live = Ok<'/v1/queries/outreach.live'>;
+/** Each person's status for owners and admins: never their lines, feed or messages. */
+export type LiveTeam = Ok<'/v1/queries/outreach.live.team'>;
+/**
+ * Everything waiting for the person: replies handed over, messages to OK, steps the extension needs them for, and
+ * friend requests to decide (packages/core/src/addons/outreach/waiting.ts).
+ */
+export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
+export type WaitingItem = Waiting['items'][number];
+/**
+ * What the person asked their computer to do from HandsFreeOS, today's and the open ones, with the computer that does
+ * them (packages/core/src/addons/outreach/asks.ts).
+ */
+export type Asks = Ok<'/v1/queries/outreach.asks'>;
+export type Ask = Asks['asks'][number];
+/** The person's own Social Outreach setup (packages/core/src/addons/outreach/setup.ts). */
+export type Setup = Ok<'/v1/queries/outreach.setup'>;

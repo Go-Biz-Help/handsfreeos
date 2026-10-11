@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Builds the Chrome extension into dist/chrome: its three scripts bundled by esbuild, the panel's page and styles,
- * the icons, and manifest.json with the version from package.json. Load dist/chrome with "Load unpacked" on
- * chrome://extensions (README.md).
+ * Builds the Chrome extension into dist/chrome: its four scripts bundled by esbuild, the panel's page and styles, the
+ * offscreen page that reads Facebook's file, the icons, and manifest.json with the version from package.json. Load
+ * dist/chrome with "Load unpacked" on chrome://extensions (README.md).
  *
  *   node scripts/build.mjs           build once
  *   node scripts/build.mjs --watch   build, then again on every change
@@ -79,7 +79,7 @@ const manifest = {
   version,
   // The stores take 132 characters at most.
   description:
-    'Works beside you on Facebook: saves the people, chats and friends you pick to HandsFreeOS, and counts your outreach. A test build.',
+    'Works on Facebook for you, as you set it in HandsFreeOS: notes your steps, works your list, and does what you ask there. Test build.',
   minimum_chrome_version: '116',
   icons: ICONS,
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },
@@ -87,8 +87,17 @@ const manifest = {
   background: { service_worker: 'background.js' },
   // The side panel, its setting and the sign-in, loading the reader into Facebook tabs opened before the extension
   // was, finding the zips Facebook gave the person among Chrome's downloads, and waking the runner that works on its
-  // own at its times (src/auto/run.ts).
-  permissions: ['sidePanel', 'storage', 'scripting', 'downloads', 'alarms'],
+  // own at its times (src/auto/run.ts); Chrome's pop-ups about what waits for the person (src/hfos/waiting.ts); and the
+  // offscreen page that reads the zips when the person asks for their file to be brought in (src/jobs/file-in.ts).
+  permissions: [
+    'sidePanel',
+    'storage',
+    'scripting',
+    'downloads',
+    'alarms',
+    'notifications',
+    'offscreen',
+  ],
   host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...HFOS, ...FILES],
   content_scripts: [
     { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },
@@ -102,6 +111,7 @@ const options = {
     content: 'src/content.ts',
     background: 'src/background.ts',
     panel: 'src/panel/panel.ts',
+    offscreen: 'src/offscreen.ts',
   },
   outdir: out,
   bundle: true,
