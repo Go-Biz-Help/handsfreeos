@@ -1,11 +1,12 @@
 /**
  * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend, a message to a friend
- * who fits to reconnect with (decision 46), a follow-up, a reply, or a comment on a group post, written by the AI in
- * the playbook's tone from what's known about the person (what the AI made of them when it checked them too), the chat
- * or post so far, and what the extension looked up on their profile and business page just before (decision 21). Core holds
- * what the model is asked and checks what it answers (packages/core/src/addons/outreach/today.ts). Nothing is saved
- * or sent here: the person copies the one they like, or the extension hands it to `outreach.send.queue`. For a reply,
- * the AI also says whether it's simple (decision 27), never for someone who needs the person (`replyNeedsYou`).
+ * who fits to reconnect with (decision 46), a pitch with their demo link (decision 47), a follow-up, a reply, or a
+ * comment on a group post, written by the AI in the playbook's tone from what's known about the person (what the AI
+ * made of them when it checked them too), the chat or post so far, and what the extension looked up on their profile
+ * and business page just before (decision 21). Core holds what the model is asked and checks what it answers
+ * (packages/core/src/addons/outreach/today.ts). Nothing is saved or sent here: the person copies the one they like, or
+ * the extension hands it to `outreach.send.queue`. For a reply, the AI also says whether it's simple (decision 27),
+ * never for someone who needs the person (`replyNeedsYou`).
  */
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
@@ -180,8 +181,13 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
       const theirs = [...(found.chat?.recent ?? [])].reverse().find((m) => !m.fromMe)?.text ?? null;
+      const drafts = checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]);
       return {
-        drafts: checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]),
+        // A pitch always carries their demo link (decision 47): one the AI left out goes on the end.
+        drafts:
+          input.kind === 'pitch' && link
+            ? drafts.map((d) => (d.includes(link) ? d : `${d}\n\n${link}`))
+            : drafts,
         opener: drafted,
         simple: input.kind === 'reply' && value.simple && theirs !== null && !replyNeedsYou(theirs),
       };

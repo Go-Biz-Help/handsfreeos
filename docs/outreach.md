@@ -15,8 +15,8 @@ file's dates, chats read by the AI from the file or live in Messenger, groups, t
 Facebook's warnings, comments on group posts, looking people up before drafting, phone alerts, which openers work, the
 demo link, the extension working on its own (the first part), its settings in HandsFreeOS, its live status with
 Start my day and Stop for today in the app, Waiting for you, the bare-bones extension, with what needs the browser
-asked of it from the app, the whole add-on on the phone, the setup, Social Outreach's onboarding, in HandsFreeOS, and
-the good fits among friends and chats (growth part 1):
+asked of it from the app, the whole add-on on the phone, the setup, Social Outreach's onboarding, in HandsFreeOS, the
+good fits among friends and chats (growth part 1), and stages with the moment to pitch (growth part 2):
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -47,6 +47,20 @@ the good fits among friends and chats (growth part 1):
   first, then those who might fit, with the AI's why and first step, and its card says how far it has come ("312 of
   1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. Nobody
   goes in Contacts.
+- **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
+  phone's `pipeline.tsx`): the **Pipeline** tab, after Today, on the web and the phone, has everyone the person
+  reached (a step noted, a chat with words, a good fit or might fit from the checks, a demo, or a mark) by where they
+  stand, worked out each time (`outreach.stages`): booked, not a fit, pitched, ready to pitch, talking (they wrote),
+  friends, warming up (a like, a comment or a friend request), or found; **All in play** lists the ready first, then
+  talking, pitched, friends, warming up, found and booked, each with why, the AI's next step and the latest either
+  way. The AI's read of a chat now also says whether it's time to offer (`pitch`: ready, not yet, or not interested,
+  with why in a line), from the playbook's offer and its conversation's questions. Ready, they go on Today as
+  **Pitch**: drafts that answer where the chat left off and offer it with the person's demo link, which the worker
+  adds when the AI left it out; copying one, or a pitch the extension sends, moves them on to pitched. A "no" marks
+  them not a fit (the AI's mark, undone by its next read that says otherwise), and "Not interested ends outreach for
+  good" (the plan): nothing on Today reaches them again but a reply they're owed. The person marks someone **Ready to
+  pitch**, **Pitched**, **Not a fit** or **Back in play** on the Pipeline (`outreach.stage.mark`); their own mark is
+  never undone by the AI.
 - **Facebook's download file** (the Friends tab's **Bring in your Facebook file**): the person picks the zips
   Facebook gives them, the "Download your information" file and the chat backup that holds the newer chats, and their
   browser reads them. Names and dates are sent: their friends and since when, the requests they sent and got,
@@ -88,7 +102,10 @@ the good fits among friends and chats (growth part 1):
   person got from people who fit a playbook well come first, as **Confirm their request** (decision 30). **Reconnect**
   (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither side has written
   for a month (`RECONNECT_QUIET_DAYS`), with the AI's why, who they are and a first step, sharing the first messages'
-  limit with Say hi; its drafts pick things up again without a pitch, from what the AI found. A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
+  limit with Say hi; its drafts pick things up again without a pitch, from what the AI found. **Pitch** (decision 47):
+  people whose chat the AI read as ready for the offer, or the person marked ready, until a pitch goes, they're
+  booked or not a fit, or the person writes to them again; counted against the follow-ups, and in place of a reply or
+  follow-up to them. A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
   about the person and the chat so far, to copy and send on Facebook (the worker's `outreach.today.draft` action,
   against the daily AI limit; first looked up on Facebook while their computer is online, below). HandsFreeOS never
   sends: the extension notes the step, which takes it off the list. Each person kept as a profile has a menu, here
@@ -218,7 +235,7 @@ the good fits among friends and chats (growth part 1):
   an ask go; Chrome closing mid-way ends it as lost; half an hour with no answer stops it. Asks are kept a week.
 - **On the phone** (decision 44, `apps/mobile/src/addons/outreach/`, `words.ts`, `views/waiting.ts`): one item
   under More, **Social Outreach**, saying how many messages wait for the person's OK, opens the add-on's own screen:
-  **Waiting for you**, **Live**, **Today**, **Groups**, **Chats**, **Playbooks** and **Settings**, at the web's own
+  **Waiting for you**, **Live**, **Today**, **Pipeline**, **Groups**, **Chats**, **Playbooks** and **Settings**, at the web's own
   addresses (`/a/outreach?view=…`, `/a/outreach/playbooks/<id>`), so every link and push opens there. Waiting for you
   works with no signal: each person's messages waiting for their OK reach their phone alone (`addon_phone_rows`,
   source `sends`, sealed to the person by `private.addon_phone_own_table`, 20261027001800) and leave it once OK'd,
@@ -335,6 +352,7 @@ the good fits among friends and chats (growth part 1):
 | Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                                                                           |
 | The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                                                                       |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                  |
+| Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                            |
 | Asking the extension                                     | `asks.ts`, `ops/asks.ts`, `apps/web/src/addons/outreach/asks.tsx`, `apps/worker/src/addons/outreach/asks.ts`, `supabase/migrations/20261027001700_outreach_asks.sql`                                    |
 | Its jobs                                                 | `apps/extension/src/asks/run.ts`, `src/hfos/asks.ts`, `src/jobs/`, `src/offscreen.ts`                                                                                                                   |
@@ -367,6 +385,8 @@ Operations, all through the kernel:
 | `outreach.checks.next`                                | `outreach.use`    | Who the person's computer checks next for a good fit, in order, no more than today has room for                                                                                                                                                                                                                                     |
 | `outreach.check.look`                                 | `outreach.use`    | What someone's profile and business page said as the computer read it, for the AI; or that Facebook showed someone else                                                                                                                                                                                                             |
 | `outreach.check.save`                                 | the worker        | What the AI made of them: good, might fit or not, the playbook, why, who they are and a first step; the lines go                                                                                                                                                                                                                    |
+| `outreach.stages`                                     | `outreach.use`    | The Pipeline: everyone the person reached by where they stand, counted by stage, one stage or all in play, by name                                                                                                                                                                                                                  |
+| `outreach.stage.mark`                                 | `outreach.use`    | Ready to pitch, pitched, not a fit, or back in play, for someone the person reached                                                                                                                                                                                                                                                 |
 | `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in                                                                                                                                                                                                                                    |
 | `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read                                                                                                                                                                                                                                   |
 | `outreach.groups.save`                                | `outreach.use`    | The groups a page lists, with what it said about each, up to 100 at a time                                                                                                                                                                                                                                                          |
@@ -633,7 +653,8 @@ These are settled too:
 47. **Stages, and the moment to pitch.** Each person reached has a stage, worked out from what HandsFreeOS knows:
     found, warming up, friends, talking, ready to pitch, pitched, booked, or not a fit. The AI's read of a chat says
     when the playbook's questions are answered well enough to pitch; Today then offers **Pitch**, with drafts that
-    carry the demo link. Growth part 2.
+    carry the demo link. Growth part 2. Built: a Pipeline tab on the web and the phone, Pitch on Today, and "Not
+    interested ends outreach for good" with Back in play.
 48. **Groups: theirs first, then new ones.** The AI checks the groups the person is in, from their About page and
     recent posts, for whether the playbook's people are there and post. Today works the groups they're in first. When
     the groups that fit have fewer people left to reach than a week of friend requests, or the person presses **Find
@@ -931,6 +952,16 @@ The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) g
   worker reads them as `service_actor`. The day's count is the looks since the business's midnight. Today's
   **Reconnect** takes only `good` ones, never anyone not pitched, and never someone written to either way in the last
   month or on the list already; it counts against the first messages, as Say hi does.
+- **A stage is worked out, never kept** (`ops/stages.ts`, `staged`): from the steps noted, friends, the latest chat,
+  replies seen, the checks, demos and the marks in `stages`, in this order: booked, not a fit, pitched, ready, talking,
+  friends, warming up, found. `stages` keeps only what can't be worked out, one row a person and profile: a mark
+  (`ready` or `lost`, by the person or the AI, with when and why) and when the pitch went. The person's mark wins over
+  the AI's; the AI's not a fit goes with its next read that isn't a no; **Back in play** clears the mark and the pitch.
+  Row security keeps each person to their own rows (`stages_own`). **Not a fit ends outreach** (`inPlay` in
+  `ops/common.ts`): Today's confirms, friend requests, likes, first messages, reconnects, pitches, follow-ups and
+  comments leave them out; a reply they're owed stays. A pitch shows until it goes (`pitched_at`: a pitch the extension
+  sent, `outreach.send.done`, or one copied on the web, which marks it), or the person writes to them after the chat's
+  latest message or the mark.
 - **Fit reads only what can be checked** (`fit.ts`): the words a playbook puts in quotes in its signs and who to skip,
   the places in its area, mutual friends, and the group someone was found in. A skip word makes them a skip whatever
   else fits, and with no playbook only mutual friends and groups count. The Friends tab sorts the requests saved with

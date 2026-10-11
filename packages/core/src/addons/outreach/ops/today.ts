@@ -30,7 +30,7 @@ import { RECONNECT_QUIET_DAYS } from '../checks';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
-import { inWorkspace, pitchable, type Ctx } from './common';
+import { inPlay, inWorkspace, pitchable, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -111,7 +111,7 @@ export async function requestsToConfirm(
         join addon_outreach.profiles p on p.id = f.profile_id
         left join addon_outreach.groups g on g.id = p.group_id
         where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-          and f.state = 'request_received' and ${pitchable('p')}
+          and f.state = 'request_received' and ${pitchable('p')} and ${inPlay(me, 'p')}
         order by f.since desc limit ${CANDIDATES_MOST}`,
   );
   return asked
@@ -124,7 +124,7 @@ export async function requestsToConfirm(
 export const today = defineAddonQuery(outreachAddon, {
   name: 'outreach.today',
   description:
-    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.',
+    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit is reached but with a reply.',
   input: TodayInput,
   output: TodayOutput,
   permission: 'outreach.use',
@@ -231,7 +231,7 @@ export const today = defineAddonQuery(outreachAddon, {
             join addon_outreach.groups g on g.id = gp.group_id
             join addon_outreach.profiles p on p.id = gp.profile_id
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
-              and p.person_id is null and ${pitchable('p')}
+              and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
@@ -336,7 +336,7 @@ export const today = defineAddonQuery(outreachAddon, {
             where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
               and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
                 and ${ago(pace.messageAfterDays)}::timestamptz
-              and ${pitchable('p')}
+              and ${pitchable('p')} and ${inPlay(me, 'p')}
               and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
                 and t.user_id = ${me} and t.kind = 'friend_request')
               and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
@@ -358,6 +358,60 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
+    // Pitch (decision 47): people whose chat the AI read as ready for the offer, or the person marked ready, until a
+    // pitch goes, they're booked or not a fit, or the person writes to them again. They count against the follow-ups.
+    const pitchLeft = leftToday(limits, 'pitch');
+    if (pitchLeft) {
+      const ready = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        chat_id: string | null;
+        thread_key: string | null;
+        summary: string | null;
+        next_step: string | null;
+        pitch_why: string | null;
+        marked: boolean;
+      }>(
+        ctx.tx,
+        sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step, c.pitch_why,
+              coalesce(s.mark = 'ready', false) as marked
+            from addon_outreach.profiles p
+            left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
+            left join lateral (
+              select c.id, c.thread_key, c.summary, c.next_step, c.pitch, c.pitch_why, c.last_at
+              from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}
+              order by c.last_at desc limit 1
+            ) c on true
+            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
+              and (c.pitch = 'ready' or s.mark = 'ready')
+              and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
+              and not exists (select 1 from addon_outreach.demos d
+                where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null)
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                  and t.at > greatest(c.last_at, s.marked_at))
+            order by greatest(c.last_at, s.marked_at) desc nulls last, p.id
+            limit ${pitchLeft}`,
+      );
+      for (const p of ready)
+        items.push(
+          item({
+            kind: 'pitch',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            chatId: p.chat_id,
+            threadKey: p.thread_key,
+            why: [p.marked ? 'You marked them ready' : (p.pitch_why ?? 'Ready for your offer')],
+            summary: p.summary,
+            nextStep: p.next_step,
+            demoLink: demoFor(p.id),
+          }),
+        );
+    }
+    const pitching = new Set(items.filter((i) => i.kind === 'pitch').map((i) => i.profileId));
+
     // Follow-ups and replies: likely prospects in the person's chats.
     const chats = await rows<{
       id: string;
@@ -375,7 +429,7 @@ export const today = defineAddonQuery(outreachAddon, {
             c.next_step
           from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
           where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
-            and (p.id is null or ${pitchable('p')})
+            and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.followUpAfterDays)}::timestamptz)
               or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz))
@@ -384,9 +438,11 @@ export const today = defineAddonQuery(outreachAddon, {
                 and t.at > c.last_at)
           order by c.last_at desc limit ${TODAY_MOST * 2}`,
     );
-    let followUps = leftToday(limits, 'follow_up');
+    let followUps = leftToday(limits, 'follow_up') - pitching.size;
     let replies = TODAY_MOST;
     for (const c of chats) {
+      // Someone to pitch is on the list for that: the pitch answers where the chat left off.
+      if (c.profile_id && pitching.has(c.profile_id)) continue;
       const kind = c.last_from_me ? 'follow_up' : 'reply';
       if (kind === 'follow_up' ? followUps-- <= 0 : replies-- <= 0) continue;
       items.push(
@@ -475,7 +531,7 @@ export const today = defineAddonQuery(outreachAddon, {
               where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
             ) c on true
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good'
-              and p.friendship <> 'self' and ${pitchable('p')}
+              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')}
               and (c.last_at is null or c.last_at < ${quiet}::timestamptz)
               and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
                 and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)
@@ -526,7 +582,7 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
             where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
               and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
-              and p.friendship <> 'self' and ${pitchable('p')}
+              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t

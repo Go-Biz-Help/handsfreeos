@@ -21,6 +21,7 @@ import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
 import { setupCommands, setupQueries } from './ops/setup';
+import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { postCommands } from './ops/posts';
 import { todayQueries } from './ops/today';
@@ -48,6 +49,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...askCommands,
     ...setupCommands,
     ...checkCommands,
+    ...stageCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -66,5 +68,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...askQueries,
     ...setupQueries,
     ...checkQueries,
+    ...stageQueries,
   ],
 };

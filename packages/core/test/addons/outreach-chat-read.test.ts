@@ -55,7 +55,15 @@ describe('what the AI is asked, and what it may answer', () => {
         },
         ['Owner', 'Unhappy with CRM'],
       ),
-    ).toEqual({ summary: 'A shop owner.', tags: ['Owner'], prospect: true, nextStep: null });
+    ).toEqual({
+      summary: 'A shop owner.',
+      tags: ['Owner'],
+      prospect: true,
+      nextStep: null,
+      // An answer without the pitch read is not yet (decision 47).
+      pitch: 'not_yet',
+      pitchWhy: null,
+    });
   });
 
   it('puts the tagged in Contacts unless the business says otherwise', () => {

@@ -2,7 +2,7 @@
 /**
  * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, what it's doing right now
  * with Start my day and Stop for today (Live), everything waiting for the person (Waiting for you, with how many on its
- * tab), the person's list for today,
+ * tab), the person's list for today, everyone they reached by where they stand (Pipeline),
  * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, the business's playbooks, and
  * every setting the extension follows, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
@@ -13,6 +13,7 @@ import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
+import type { StageView } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shell/page-header';
@@ -23,6 +24,7 @@ import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
 import { LiveView } from './live-view';
+import { PipelineView } from './pipeline-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-view';
 import { SetupBanner } from './setup-view';
@@ -39,6 +41,7 @@ import type {
   Live,
   LiveTeam,
   Openers,
+  Pipeline,
   PlaybookList,
   Tidy,
   TodayList,
@@ -60,6 +63,12 @@ export type OutreachShown =
       readonly today: TodayList;
       readonly wheels: WheelsList | null;
       readonly asks: Asks;
+    }
+  | {
+      readonly view: 'pipeline';
+      readonly pipeline: Pipeline;
+      readonly show: StageView;
+      readonly search: string;
     }
   | {
       readonly view: 'groups';
@@ -102,6 +111,7 @@ const TABS = (
     'live',
     'waiting',
     'today',
+    'pipeline',
     'groups',
     'friends',
     'chats',
@@ -180,6 +190,13 @@ export function OutreachHome({
           today={shown.today}
           wheels={shown.wheels}
           asks={shown.asks}
+        />
+      ) : shown.view === 'pipeline' ? (
+        <PipelineView
+          workspaceId={workspaceId}
+          pipeline={shown.pipeline}
+          show={shown.show}
+          search={shown.search}
         />
       ) : shown.view === 'groups' ? (
         <GroupsView

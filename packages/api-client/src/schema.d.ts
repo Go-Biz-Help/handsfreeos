@@ -6557,6 +6557,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.stage.mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked.
+         */
+        post: operations["command_outreach_stage_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.touch.save": {
         parameters: {
             query?: never;
@@ -16457,6 +16477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s pipeline: everyone they reached on Facebook by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_stages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.today": {
         parameters: {
             query?: never;
@@ -16467,7 +16507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.
+         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit is reached but with a reply.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
@@ -32433,7 +32473,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "follow_up" | "reply" | "comment";
+                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -32694,7 +32734,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "follow_up" | "reply" | "comment";
+                                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -34301,7 +34341,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "follow_up" | "reply";
+                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -34335,7 +34375,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "follow_up" | "reply";
+                        kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -34450,6 +34490,44 @@ export interface operations {
                         settingsSaved: boolean;
                         startedAt: string | null;
                         steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_stage_mark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mark: "ready" | "pitched" | "lost" | "open";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        /** @enum {string} */
+                        stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "lost";
                     };
                 };
             };
@@ -61505,7 +61583,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "follow_up" | "reply";
+                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -61591,6 +61669,71 @@ export interface operations {
             };
         };
     };
+    query_outreach_stages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 1 */
+                    page?: number;
+                    search?: string;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    view?: "all" | "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "lost";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            all: number;
+                            booked: number;
+                            found: number;
+                            friends: number;
+                            lost: number;
+                            pitched: number;
+                            ready: number;
+                            talking: number;
+                            warming: number;
+                        };
+                        page: number;
+                        pages: number;
+                        people: {
+                            demoBooked: boolean;
+                            lastAt: string | null;
+                            marked: boolean;
+                            name: string;
+                            nextStep: string | null;
+                            personId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            /** @enum {string} */
+                            stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "lost";
+                            threadKey: string | null;
+                            url: string;
+                            why: string[];
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_today: {
         parameters: {
             query?: never;
@@ -61619,14 +61762,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "follow_up" | "reply" | "comment")[];
+                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment")[];
                         hasPlaybook: boolean;
                         items: {
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "follow_up" | "reply" | "comment";
+                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment";
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
@@ -61672,7 +61815,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "follow_up" | "reply")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "follow_up" | "reply")[];
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;
@@ -61784,7 +61927,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -61816,7 +61959,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {

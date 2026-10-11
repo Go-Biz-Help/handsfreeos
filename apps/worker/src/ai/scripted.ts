@@ -1620,7 +1620,8 @@ export const LISTING_RULES: readonly ScriptRule[] = [
 
 /**
  * Social Outreach's read of a Facebook chat: the tags whose words are in it, a prospect when they ask about a demo
- * or the price, and a summary that's only a count, so tests can tell it apart.
+ * or the price, ready for the offer when they ask how to start and a no when they say so, and a summary that's only a
+ * count, so tests can tell it apart.
  */
 function scriptedChatRead(message: string) {
   const block = (name: string) =>
@@ -1635,11 +1636,24 @@ function scriptedChatRead(message: string) {
     .split('\n')
     .filter((t) => t && t !== '(none)' && theirs.includes(t.toLowerCase()));
   const prospect = /\b(demo|price|how much)\b/.test(theirs);
+  // Ready for the offer once they ask how to start; a no for now when they say so (decision 47).
+  const pitch = /\b(sign me up|how do i start|book)\b/.test(theirs)
+    ? 'ready'
+    : /\b(not interested|no thanks|stop)\b/.test(theirs)
+      ? 'not_interested'
+      : 'not_yet';
   return {
     summary: `A chat of ${chat.split('\n').length} messages.`,
     tags,
     prospect,
     nextStep: prospect ? 'Offer a demo' : null,
+    pitch,
+    pitchWhy:
+      pitch === 'ready'
+        ? 'Asked how to start'
+        : pitch === 'not_interested'
+          ? 'Said no thanks'
+          : null,
   };
 }
 

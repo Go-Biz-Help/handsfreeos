@@ -329,6 +329,7 @@ import {
   SendSkipInput,
   SendSkipOutput,
 } from '@hfos/core/addons/outreach/sends';
+import { StageMarkInput, StageMarkOutput } from '@hfos/core/addons/outreach/stages';
 import {
   NeedClearInput,
   NeedClearOutput,
@@ -509,6 +510,8 @@ export const PHONE_COMMANDS = {
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
   'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),
+  // Where someone stands, on the Pipeline screen (decision 47): with signal, as the person menu's marks are.
+  'outreach.stage.mark': command(ONLINE, StageMarkInput, StageMarkOutput),
   'outreach.wheels.end': command(ONLINE, WheelsEndInput, WheelsEndOutput),
   // The setup's payments stop: Stripe's or Square's own sign-in starts from it, in the phone's browser.
   'payment_connection.connect': command(

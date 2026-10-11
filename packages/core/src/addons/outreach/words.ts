@@ -58,6 +58,7 @@ export const OUTREACH_WORDS = {
     waiting: 'Waiting for you',
     live: 'Live',
     today: 'Today',
+    pipeline: 'Pipeline',
     groups: 'Groups',
     chats: 'Chats',
     playbooks: 'Playbooks',
@@ -68,6 +69,7 @@ export const OUTREACH_WORDS = {
   rowDetails: {
     live: 'What your extension is doing, and Start my day',
     today: LIST_TODAY,
+    pipeline: 'Everyone you reached, by where they stand',
     groups: 'Groups to work, and why',
     chats: 'Your Facebook chats, read by the AI',
     playbooks: 'Who you’re looking for, and how you sound',

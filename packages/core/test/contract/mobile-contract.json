@@ -6853,7 +6853,7 @@
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "enum": ["opener", "reconnect", "follow_up", "reply", "comment"]
+                        "enum": ["opener", "reconnect", "pitch", "follow_up", "reply", "comment"]
                       },
                       "profileId": {
                         "default": null,
@@ -7635,6 +7635,40 @@
           }
         },
         "required": ["workspaceId", "sendId"]
+      }
+    },
+    "outreach.stage.mark": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mark": {
+            "type": "string",
+            "enum": ["ready", "pitched", "lost", "open"]
+          },
+          "why": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "profileId", "mark"]
       }
     },
     "outreach.wheels.end": {
@@ -13149,6 +13183,43 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.stages": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view": {
+            "default": "all",
+            "type": "string",
+            "enum": [
+              "all",
+              "found",
+              "warming",
+              "friends",
+              "talking",
+              "ready",
+              "pitched",
+              "booked",
+              "lost"
+            ]
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
           }
         },
         "required": ["workspaceId"]

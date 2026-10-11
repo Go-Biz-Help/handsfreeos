@@ -10,6 +10,7 @@ import {
   MessagesSquare,
   Radar,
   Settings2,
+  SquareKanban,
   UserPlus,
   Users,
 } from '@/components/icons';
@@ -35,6 +36,7 @@ import {
   type WebTab,
 } from './kit';
 import { LiveScreen } from './live';
+import { PipelineScreen } from './pipeline';
 import { PlaybooksScreen } from './playbooks';
 import { SettingsScreen } from './settings';
 import { TodayScreen } from './today';
@@ -42,7 +44,7 @@ import { WaitingScreen } from './waiting';
 
 /**
  * Social Outreach's page on the phone (decision 44), by its address's `?view=`, as the web's: Waiting for you, the live
- * view, Today, Groups, Chats, Playbooks and Settings are the phone's own screens. Activity and Friends have a lot to
+ * view, Today, the Pipeline (decision 47), Groups, Chats, Playbooks and Settings are the phone's own screens. Activity and Friends have a lot to
  * look through, so they stay on the web: a link to them opens there (the manifest's `ui.phone` `web`), and this says
  * so if one is opened here anyway. With no `?view=`, the add-on's own first screen: a row for each, and, until the
  * person has set Social Outreach up (decision 45, the web's setup), a line saying to do that on a computer.
@@ -52,6 +54,7 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'waiting',
   'live',
   'today',
+  'pipeline',
   'groups',
   'chats',
   'playbooks',
@@ -81,6 +84,8 @@ export function OutreachPage({
       return <LiveScreen />;
     case 'today':
       return <TodayScreen />;
+    case 'pipeline':
+      return <PipelineScreen show={show} q={q} />;
     case 'groups':
       return <GroupsScreen show={show} q={q} />;
     case 'chats':
@@ -172,6 +177,13 @@ export function OutreachHomeRows({
           detail={W.rowDetails.today}
           onPress={open('today')}
           testID="outreach-row-today"
+        />
+        <ListRow
+          icon={SquareKanban}
+          label={W.rows.pipeline}
+          detail={W.rowDetails.pipeline}
+          onPress={open('pipeline')}
+          testID="outreach-row-pipeline"
         />
         <ListRow
           icon={Users}

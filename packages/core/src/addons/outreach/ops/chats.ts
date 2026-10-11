@@ -36,6 +36,7 @@ import { outreachAddon } from '../manifest';
 import { PLATFORMS } from '../playbooks';
 import { fileChats, profiles } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor } from './common';
+import { noteChatRead } from './stages';
 
 const DAY = 86_400_000;
 /** Facebook's own start: no message is older. */
@@ -146,10 +147,15 @@ export const chatRead = defineAddonCommand(outreachAddon, {
         tags: read.tags,
         prospect: read.prospect,
         nextStep: read.nextStep,
+        pitch: read.pitch,
+        pitchWhy: read.pitchWhy,
         readAt: at,
         personId,
       })
       .where(eq(fileChats.id, chat.id));
+    // Whether it's time to offer, for their stage (decision 47): a no marks them not a fit.
+    if (chat.profileId)
+      await noteChatRead(ctx, chat.userId, chat.profileId, read.pitch, read.pitchWhy, at);
 
     if (personId) {
       const tagIds = await tagIdsFor(ctx, read.tags);

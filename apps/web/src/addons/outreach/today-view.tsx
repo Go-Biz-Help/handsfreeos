@@ -4,7 +4,8 @@
  * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): requests they got from people who
  * fit to confirm (decision 30), a post to like before a friend request (decision 33), friend requests to people from
  * the business's groups who fit a playbook, a first message to new friends, friends the AI found a good fit to
- * reconnect with (decision 46), follow-ups and replies, and comments on good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
+ * reconnect with (decision 46), people ready for the offer to pitch (decision 47; copying a pitch marks it pitched),
+ * follow-ups and replies, and comments on good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
  * likes, requests and comments itself in the person's working hours. Each opens on Facebook, and a message or a comment comes with the AI's
  * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
  * notes it, which takes it off the list and counts it against today's limits. While the person's computer is online,
@@ -63,6 +64,7 @@ const KIND_BADGE = {
   friend_request: 'accent',
   opener: 'ok',
   reconnect: 'ok',
+  pitch: 'accent',
   follow_up: 'gray',
   reply: 'pending',
   comment: 'accent',
@@ -506,7 +508,10 @@ function Drafts({
       setBusy(false);
     }
   };
-  /** Copying a first message notes which opener it was; that it couldn't is no reason to stop them. */
+  /**
+   * Copying a first message notes which opener it was, and copying a pitch moves them on to pitched (decision 47);
+   * that it couldn't is no reason to stop them.
+   */
   const copy = async (text: string) => {
     await copyText(
       text,
@@ -514,6 +519,12 @@ function Drafts({
         ? 'Copied. Paste it as a comment on the post.'
         : 'Copied. Paste it in Messenger.',
     );
+    if (kind === 'pitch' && item.profileId)
+      await apiBrowser()
+        .POST('/v1/commands/outreach.stage.mark', {
+          body: { workspaceId, profileId: item.profileId, mark: 'pitched' },
+        })
+        .catch(() => undefined);
     if (!opener || !item.profileId) return;
     await apiBrowser()
       .POST('/v1/commands/outreach.opener.use', {

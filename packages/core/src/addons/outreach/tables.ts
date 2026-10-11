@@ -4,8 +4,9 @@
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
- * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, and 20261027002000 for
- * the fits among friends and chats): the Drizzle mirror its server code reads and writes through.
+ * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
+ * the fits among friends and chats, and 20261027002100 for stages): the Drizzle mirror its server code reads and
+ * writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -29,6 +30,7 @@ import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './
 import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
+import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -312,6 +314,9 @@ export const fileChats = addonOutreach.table(
       .default(sql`'{}'`),
     prospect: boolean('prospect'),
     nextStep: text('next_step'),
+    /** The AI's read of whether it's time to offer (decision 47), with why. */
+    pitch: text('pitch').$type<PitchRead>(),
+    pitchWhy: text('pitch_why'),
     readAt: ts('read_at'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
     /** The chat's number from its link, once it's been read in Messenger. */
@@ -894,6 +899,37 @@ export const checks = addonOutreach.table(
   ],
 );
 
+/**
+ * What a person or the AI said about where someone stands beyond what's worked out (decision 47): ready to pitch or not
+ * a fit, and when the pitch went. Each person's own.
+ */
+export const stages = addonOutreach.table(
+  'stages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    mark: text('mark').$type<'ready' | 'lost'>(),
+    markedBy: text('marked_by').$type<'person' | 'ai'>(),
+    why: text('why'),
+    markedAt: ts('marked_at'),
+    pitchedAt: ts('pitched_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -919,6 +955,7 @@ export const OUTREACH_TABLES = {
   replies,
   sends,
   setup,
+  stages,
   threads,
   touches,
   waitingPushes,

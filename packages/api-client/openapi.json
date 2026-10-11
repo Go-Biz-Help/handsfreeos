@@ -79856,6 +79856,7 @@
                     "enum": [
                       "opener",
                       "reconnect",
+                      "pitch",
                       "follow_up",
                       "reply"
                     ]
@@ -79958,6 +79959,7 @@
                       "enum": [
                         "opener",
                         "reconnect",
+                        "pitch",
                         "follow_up",
                         "reply"
                       ]
@@ -81459,6 +81461,7 @@
                                 "enum": [
                                   "opener",
                                   "reconnect",
+                                  "pitch",
                                   "follow_up",
                                   "reply",
                                   "comment"
@@ -82194,6 +82197,7 @@
                                           "enum": [
                                             "opener",
                                             "reconnect",
+                                            "pitch",
                                             "follow_up",
                                             "reply",
                                             "comment"
@@ -83474,6 +83478,102 @@
                   "required": [
                     "checkId",
                     "verdict"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.stage.mark": {
+      "post": {
+        "operationId": "command_outreach_stage_mark",
+        "summary": "Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.stage.marked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "mark": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "pitched",
+                      "lost",
+                      "open"
+                    ]
+                  },
+                  "why": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "mark"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stage": {
+                      "type": "string",
+                      "enum": [
+                        "found",
+                        "warming",
+                        "friends",
+                        "talking",
+                        "ready",
+                        "pitched",
+                        "booked",
+                        "lost"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "stage"
                   ],
                   "additionalProperties": false
                 }
@@ -161458,7 +161558,7 @@
     "/v1/queries/outreach.today": {
       "post": {
         "operationId": "query_outreach_today",
-        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.",
+        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit is reached but with a reply.",
         "tags": [
           "queries"
         ],
@@ -161624,6 +161724,7 @@
                               "friend_request",
                               "opener",
                               "reconnect",
+                              "pitch",
                               "follow_up",
                               "reply",
                               "comment"
@@ -161893,6 +161994,7 @@
                           "friend_request",
                           "opener",
                           "reconnect",
+                          "pitch",
                           "follow_up",
                           "reply",
                           "comment"
@@ -161906,6 +162008,7 @@
                         "enum": [
                           "opener",
                           "reconnect",
+                          "pitch",
                           "follow_up",
                           "reply"
                         ]
@@ -163002,6 +163105,7 @@
                             "enum": [
                               "opener",
                               "reconnect",
+                              "pitch",
                               "follow_up",
                               "reply"
                             ]
@@ -164502,6 +164606,7 @@
                                     "enum": [
                                       "opener",
                                       "reconnect",
+                                      "pitch",
                                       "follow_up",
                                       "reply"
                                     ]
@@ -164660,6 +164765,7 @@
                                     "enum": [
                                       "opener",
                                       "reconnect",
+                                      "pitch",
                                       "follow_up",
                                       "reply"
                                     ]
@@ -165749,6 +165855,254 @@
                     "people",
                     "today",
                     "perDay"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.stages": {
+      "post": {
+        "operationId": "query_outreach_stages",
+        "summary": "The person’s pipeline: everyone they reached on Facebook by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "view": {
+                    "default": "all",
+                    "type": "string",
+                    "enum": [
+                      "all",
+                      "found",
+                      "warming",
+                      "friends",
+                      "talking",
+                      "ready",
+                      "pitched",
+                      "booked",
+                      "lost"
+                    ]
+                  },
+                  "search": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "page": {
+                    "default": 1,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "all": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "found": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "warming": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "friends": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "talking": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "ready": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "pitched": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "booked": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "lost": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "all",
+                        "found",
+                        "warming",
+                        "friends",
+                        "talking",
+                        "ready",
+                        "pitched",
+                        "booked",
+                        "lost"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "stage": {
+                            "type": "string",
+                            "enum": [
+                              "found",
+                              "warming",
+                              "friends",
+                              "talking",
+                              "ready",
+                              "pitched",
+                              "booked",
+                              "lost"
+                            ]
+                          },
+                          "why": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "nextStep": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "threadKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "marked": {
+                            "type": "boolean"
+                          },
+                          "demoBooked": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "profileId",
+                          "personId",
+                          "name",
+                          "url",
+                          "stage",
+                          "why",
+                          "nextStep",
+                          "lastAt",
+                          "threadKey",
+                          "marked",
+                          "demoBooked"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "counts",
+                    "people",
+                    "page",
+                    "pages",
+                    "total"
                   ],
                   "additionalProperties": false
                 }

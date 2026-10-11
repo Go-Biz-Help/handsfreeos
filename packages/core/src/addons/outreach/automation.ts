@@ -200,6 +200,7 @@ export function autoKinds(settings: AutomationSettings): TodayKind[] {
 export const MESSAGE_KINDS = [
   'opener',
   'reconnect',
+  'pitch',
   'follow_up',
   'reply',
 ] as const satisfies readonly TodayKind[];

@@ -14,6 +14,8 @@
  *   had a message yet.
  * - **Reconnect** (decision 46): friends and people they've chatted with whom the AI found a good fit (./checks.ts),
  *   when neither side has written for a month. They count against the first messages.
+ * - **Pitch** (decision 47): people whose chat the AI read as ready for the offer, or the person marked ready, until a
+ *   pitch goes or the person writes to them again. They count against the follow-ups.
  * - **Follow up**: likely prospects whose chat's last message was the person's, a few quiet days ago (the pace).
  * - **Reply**: likely prospects who wrote last, lately, and haven't been answered.
  * - **Comment on a post**: posts in the business's groups the AI checked as good (./posts.ts, decisions 18 to 20),
@@ -43,6 +45,7 @@ export const TODAY_KINDS = {
   friend_request: 'Send a friend request',
   opener: 'Say hi',
   reconnect: 'Reconnect',
+  pitch: 'Pitch',
   follow_up: 'Follow up',
   reply: 'Reply',
   comment: 'Comment on a post',
@@ -57,6 +60,7 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   friend_request: 'friend_request',
   opener: 'first_message',
   reconnect: 'first_message',
+  pitch: 'follow_up',
   follow_up: 'follow_up',
   reply: null,
   comment: 'comment',
@@ -176,13 +180,21 @@ export const TODAY_POST_MOST = 280;
 // ---- Drafts ----
 
 /** The kinds a draft is for: a friend request on Facebook carries no words. */
-export const DRAFT_KINDS = ['opener', 'reconnect', 'follow_up', 'reply', 'comment'] as const;
+export const DRAFT_KINDS = [
+  'opener',
+  'reconnect',
+  'pitch',
+  'follow_up',
+  'reply',
+  'comment',
+] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
 export const DRAFTS_MOST = 3;
 /** How many drafts each kind gets: two for a comment (decision 20). */
 export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   opener: DRAFTS_MOST,
   reconnect: DRAFTS_MOST,
+  pitch: DRAFTS_MOST,
   follow_up: DRAFTS_MOST,
   reply: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
@@ -234,6 +246,8 @@ const TASK: Record<DraftKind, string> = {
     'They just accepted the owner’s friend request. Write a first message that says hi and starts a conversation. Don’t pitch yet.',
   reconnect:
     'They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch yet.',
+  pitch:
+    'They’ve shown they need what the business offers and seem open to it. Write a short, friendly message that answers where the chat left off, then offers it plainly in the playbook’s words, with the link to book. No pressure, no hype, at most one question.',
   follow_up:
     'The owner wrote last and they haven’t answered for a few days. Write a short, friendly follow-up that picks up where the chat left off.',
   reply:
@@ -289,6 +303,9 @@ export function todayDraftPrompt(input: {
     input.post?.group ? `<group>${quoteData(input.post.group)}</group>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
     TASK[input.kind],
+    input.kind === 'pitch' && p?.link
+      ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
+      : null,
     input.opener?.kind === 'style'
       ? `Open every draft this way: ${quoteData(input.opener.text)}`
       : null,

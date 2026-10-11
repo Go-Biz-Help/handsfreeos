@@ -133,6 +133,8 @@ const ONLINE_COMMANDS = [
   'outreach.profile.contact',
   'outreach.demo.mark',
   'outreach.friend.set',
+  // Where someone stands, from the Pipeline screen (decision 47).
+  'outreach.stage.mark',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -223,6 +225,8 @@ const QUERIES = [
   'outreach.lookup',
   // Whether the person has set Social Outreach up: until then the phone says to do it on a computer (decision 45).
   'outreach.setup',
+  // The Pipeline screen: everyone the person reached, by where they stand (decision 47).
+  'outreach.stages',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */
