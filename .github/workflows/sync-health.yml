@@ -48,11 +48,13 @@ jobs:
         id: app
         if: steps.check.outputs.ready == 'true'
         run: |
+          # The list goes to node on stdin, as in deploy.yml: as an argument, past 128 KB it stops node starting
+          # ("Argument list too long"), which failed every run from 4 October 2026.
           machines=$(flyctl machine list --app handsfreeos-sync --json 2>/dev/null || echo '[]')
-          deployed=$(node -e '
-            const machines = JSON.parse(process.argv[1] || "[]");
+          deployed=$(printf '%s' "$machines" | node -e '
+            const machines = JSON.parse(require("fs").readFileSync(0, "utf8") || "[]");
             console.log(machines.some((m) => m.config?.metadata?.fly_process_group === "app"));
-          ' "$machines")
+          ')
           if [ "$deployed" != "true" ]; then
             echo "::notice::handsfreeos-sync isn't deployed yet, so nothing was checked."
           fi
