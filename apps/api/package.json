@@ -7,7 +7,7 @@
     "build": "tsup",
     "start": "node dist/server.js",
     "lint": "eslint . --config ../../eslint.config.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit",
     "test": "vitest run",
     "openapi:export": "tsx scripts/export-openapi.ts"
   },
