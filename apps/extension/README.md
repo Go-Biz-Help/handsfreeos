@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.24.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
+**This is a test build (0.25.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
 in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
 now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
 

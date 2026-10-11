@@ -19,6 +19,7 @@ import { clipLine, isOffline, offlineWords } from './live';
 import { JOINS_PER_DAY } from './group-checks';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
+import { appVersionAtLeast } from '../../mobile';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
 export const ASK_KINDS = {
@@ -348,6 +349,8 @@ export const AsksOutput = z.object({
       online: z.boolean(),
       signedOut: z.boolean(),
       lastSeenAt: moment,
+      /** Its build of the extension, as it last said: one too old for a kind of ask can't be asked it. */
+      version: z.string().nullable(),
     })
     .nullable(),
   /** Whether Facebook warned them today: nothing but bringing in the file can be asked. */
@@ -651,12 +654,34 @@ export const NO_COMPUTER_ASK_WORDS =
 export const WARNED_ASK_WORDS =
   'Facebook warned you today, so your computer does nothing more on Facebook until tomorrow.';
 
+/**
+ * The first build of the extension that does each kind of ask (the rest every build here does): one before it can't,
+ * so it isn't asked to. An older build left such an ask hanging at "Starting…".
+ */
+export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
+  checks: '0.21.0',
+  group_checks: '0.22.0',
+  join: '0.22.0',
+  post: '0.24.0',
+};
+
+/** Whether a build of the extension is too old for a kind of ask. One that didn't say its version is. */
+export const tooOldFor = (version: string | null, kind: AskKind): boolean => {
+  const since = ASK_KIND_SINCE[kind];
+  return since !== undefined && !appVersionAtLeast(version, since);
+};
+
+/** What a computer whose extension is too old for an ask says: how to update it. */
+export const tooOldWords = (computer: { readonly name: string; readonly version: string | null }) =>
+  `HandsFreeOS Social on ${computer.name} is an older build${computer.version ? ` (${computer.version})` : ''} that can’t do this yet. Download the newest one (the link is in Social Outreach’s setup, under Install the extension), unzip it over the old folder, and press Reload on Chrome’s Extensions page. Then ask again.`;
+
 /** Why a button can't ask now, in words: null when it can. */
 export function cantAskWhy(
   asks: Pick<AsksOutput, 'computer' | 'warnedToday'>,
   kind: AskKind,
 ): string | null {
   if (!asks.computer) return NO_COMPUTER_ASK_WORDS;
+  if (tooOldFor(asks.computer.version, kind)) return tooOldWords(asks.computer);
   if (asks.warnedToday && onFacebook(kind)) return WARNED_ASK_WORDS;
   return null;
 }

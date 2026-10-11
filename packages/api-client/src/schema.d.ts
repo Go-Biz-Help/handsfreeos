@@ -61157,6 +61157,7 @@ export interface operations {
                             name: string;
                             online: boolean;
                             signedOut: boolean;
+                            version: string | null;
                         } | null;
                         /** Format: date-time */
                         now: string;
@@ -61757,6 +61758,8 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        /** @default 0 */
+                        saved: number;
                     };
                 };
             };

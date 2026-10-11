@@ -13,6 +13,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { RequestMeta } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
+  ASK_KIND_KEYS,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
   ASK_STOPPED_EARLY_LINE,
@@ -41,6 +42,8 @@ import {
   OPEN_ASK_STATES,
   ProfileContactInput,
   TIDY_ASK_KINDS,
+  tooOldFor,
+  tooOldWords,
   type AskAsked,
   type AskGroup,
   type AskTask,
@@ -246,12 +249,15 @@ export const askMake = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const now = at.getTime();
     const ask = input.ask as AskAsked;
-    if (!(await myComputers(ctx, me)).length)
+    const working = workingOf(await myComputers(ctx, me));
+    if (!working)
       throw HfosError.rule(
         'outreach_no_computer',
         409,
         'No computer has the extension signed in yet, so there’s nothing to do this. Install HandsFreeOS Social in Chrome on your computer and sign in, then ask again.',
       );
+    if (tooOldFor(working.version, ask.kind))
+      throw HfosError.rule('outreach_extension_too_old', 409, tooOldWords(working));
     if (onFacebook(ask.kind) && (await warnedToday(ctx, me, now)))
       throw HfosError.rule(
         'outreach_warned_today',
@@ -372,6 +378,23 @@ export const askTake = defineAddonCommand(outreachAddon, {
             )})`,
           ),
         )
+        .returning({ id: asks.id, kind: asks.kind });
+      for (const e of ended)
+        await ctx.emit({
+          type: 'outreach.ask.ended',
+          entityType: 'outreach_ask',
+          entityId: e.id,
+          payload: { userId: me, kind: e.kind, state: 'failed' },
+        });
+    }
+
+    // What this build can't do yet ends now, saying how to update it, rather than hanging at its start.
+    const beyond = ASK_KIND_KEYS.filter((k) => tooOldFor(here.version, k));
+    if (beyond.length) {
+      const ended = await ctx.tx
+        .update(asks)
+        .set({ state: 'failed', line: tooOldWords(here), endedAt: at, updatedAt: new Date() })
+        .where(and(mine, takeable(now), inArray(asks.kind, beyond)))
         .returning({ id: asks.id, kind: asks.kind });
       for (const e of ended)
         await ctx.emit({
@@ -634,6 +657,7 @@ export const asksList = defineAddonQuery(outreachAddon, {
             online: !isOffline(working.lastSeenAt, now),
             signedOut: working.state === 'signed_out',
             lastSeenAt: working.lastSeenAt.toISOString(),
+            version: working.version,
           }
         : null,
       warnedToday: warned !== null,

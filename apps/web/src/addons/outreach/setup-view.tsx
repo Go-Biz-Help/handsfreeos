@@ -119,6 +119,7 @@ export function SetupView({
     'outreach_automation',
     'outreach_playbook',
     'outreach_ask',
+    'outreach_group',
     'addon',
     'workspace',
   ]);

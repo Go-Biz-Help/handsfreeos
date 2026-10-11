@@ -90,6 +90,8 @@ export const GroupsToCheckOutput = z.object({
       joined: z.boolean().nullable(),
     }),
   ),
+  /** Whether the business has any groups saved at all (at least this many): none says to save them first. */
+  saved: z.number().int().min(0).default(0),
 });
 export type GroupsToCheckOutput = z.output<typeof GroupsToCheckOutput>;
 
