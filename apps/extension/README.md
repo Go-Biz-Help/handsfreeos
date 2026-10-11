@@ -129,7 +129,9 @@ The buttons on Social Outreach's Friends, Groups, Chats and Today tabs ask your 
 seconds on the live channel (`src/hfos/follow.ts`), or with its next beat's answer, takes it (`outreach.ask.take`,
 the oldest first), does it with the jobs in `src/jobs/`, and says how it's going and how it ended, which the web
 shows under the button and on the Live tab, and the panel under **Right now** (`src/asks/run.ts`,
-`src/hfos/asks.ts`).
+`src/hfos/asks.ts`). A kind of ask newer than the build on the computer (`ASK_KIND_SINCE`: checking friends 0.21.0,
+checking and joining groups 0.22.0, putting a helpful post up 0.24.0) isn't asked of it: the button says to update
+the build, and how. A build that's handed a kind it doesn't know ends it saying so, and goes on to the next ask.
 
 | Button, and where                                                                          | What it does                                                                                                                                                                                                                                                                                            | Where it works, and its pace                                                       |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -292,7 +294,7 @@ web and the phone shows it as it happens (decision 41 in docs/outreach.md, `src/
 
 **Waiting for you**, in the panel, is the same list as the Waiting for you tab in HandsFreeOS (decisions 40 and
 42 in docs/outreach.md, `outreach.waiting`): something you asked of your computer that needs you (**Carry on**,
-**Skip**, **Stop**), replies handed over to you, messages waiting for your OK (with **Approve
+**Skip**, **Stop**), replies handed over to you, messages waiting for your OK, each under the chat so far (with **Approve
 all**, which leaves a reply handed over or one to someone who needs you, each to OK on its own), steps the extension
 couldn't do and hands to you (**I did it** or **Let it go**), and friend requests to decide (**Leave it**). The
 background keeps it (`src/hfos/waiting.ts`), and the panel draws it (`src/panel/waiting.ts`):
@@ -338,7 +340,9 @@ Set up again, or the Carry on line on any tab, opens it), which has the download
 words. To hand out a build, zip the **contents** of `dist/chrome` so `manifest.json` is at the zip's top (into `dist/`, which git ignores, never into the repo), put the zip wherever the team downloads files
 (a shared drive, a release page), and paste its https link under Social Outreach → Settings → Business settings →
 **Where your team gets the extension** (on the web or the phone). A newer build goes the same way: people unzip it
-over the same folder and press the reload arrow. Once everyone has the bare-bones build (0.19.0, settings part 4, or
+over the same folder and press the reload arrow. When a business starts Social Outreach fresh, the extension
+forgets what it kept on the computer for it (chats read, steps not yet sent, the setup opened) the next time it loads
+its settings (`forgetOnFreshStart`). Once everyone has the bare-bones build (0.19.0, settings part 4, or
 newer), set the API's `MIN_EXTENSION_VERSION` to it, so an older build that still saves from its panel is refused
 with an ask to update; `outreach.profile.save` and `outreach.chat.save` can then be retired (docs/outreach.md, "Not
 yet").
@@ -431,8 +435,11 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   script doesn't notice them; the runner notes each one itself, marked `auto`. It sends a message only once
   HandsFreeOS says it's OK'd (`outreach.send.*`, `workLeft`): it drafts it with the AI after looking the person up in
   its own window, queues it, and sends what's OK'd in their chat in Messenger, or the chat window their profile's
-  **Message** opens, typing only into that chat's box and leaving one with writing in it alone (`writeMessage`). A
-  message it couldn't send is reported as not sent, with why, and never tried again that day. A reply's draft says
+  **Message** opens, typing only into that chat's box and leaving one with writing in it alone (`writeMessage`). When
+  the person sends a few short texts (their voice, on to start), each part between blank lines goes as its own text, a
+  few seconds apart, as long as typing it takes (`messageParts`, `partPauseMs`); once one has gone the message counts
+  as sent, and its line says if a later one didn't. A message it couldn't send is reported as not sent, with why, and
+  never tried again that day. A reply's draft says
   whether the AI found it simple, which with **Replies** (b) lets it go by itself; HandsFreeOS decides
   (`goesAsItIs`), and holds back any reply to someone who needs the person.
   `test/auto.test.ts` walks a made-up profile, post, chat and chat window.

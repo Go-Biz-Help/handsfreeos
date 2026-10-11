@@ -312,6 +312,15 @@ What each step does to what it owns:
 | reinstall | migrated       | shown again     | shown again           | untouched    | migrated | kept                     |
 | purge     | deleted        | names kept only | deleted               | untouched    | deleted  | lines kept, details gone |
 
+**Starting fresh** (`addon.start_fresh`): an owner deletes all of an installed add-on's data and it comes back
+empty, in one step, the moves they'd make on the Add-ons page one after another. Like deleting its data, only an
+owner may (`addons.purge`, risk 4, typing its name), and not while the business holds its data. The command
+uninstalls it and marks the installation (`fresh_by`, `fresh_at`, through `private.addon_start_fresh`); the worker,
+once it's uninstalled, deletes its data, and once that's done installs it again as a new generation at this
+version, as the owner, and clears the mark. The sweep picks up a start left part way. An add-on offers it on its own
+screens (Social Outreach does on its Settings tab); its outside pieces (a browser extension) watch its
+`installed_at` to forget what they kept.
+
 **An add-on whose code is gone** (retired: taken out of HandsFreeOS while a business still has it) can still leave:
 `addon.uninstall` and `addon.purge` work without its code, and the worker does both by its id. Nothing turns it on
 or off again, and it goes by its id, which is also the name an owner types to delete its data.
@@ -378,7 +387,7 @@ them, and each week's winner becomes Coming soon. Real Estate Agent was already 
 - Turning it off **stops its work and nothing goes out late**: its jobs are cancelled, and when it's back on its
   `onEnable` arms them again from now. Items that came due while it was off wait for a person.
 - **Owners and admins** install, turn off and uninstall (`addons.manage`, customizable); **only owners** delete
-  data (`addons.purge`, typing the add-on's name).
+  data (`addons.purge`, typing the add-on's name), and start one fresh (`addon.start_fresh`, the same).
 - The AI **asks only for sensitive steps**: look-ups and risk 0–1 changes run on their own, risk 2–3 wait for the
   person's OK, risk 4 is never offered.
 - **Voting on what's next**: one vote per business, on as many planned add-ons as it likes, cast by owners and
