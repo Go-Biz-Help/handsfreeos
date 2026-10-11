@@ -70,6 +70,7 @@ import { bringIn } from '../jobs/file-in';
 import { saveGroups } from '../jobs/groups';
 import { checkGroups } from '../jobs/groups-check';
 import { joinGroups } from '../jobs/join';
+import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { lookupAndDraft } from '../jobs/lookup';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
@@ -294,6 +295,8 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
       return checkGroups(job, GROUP_CHECKS_ASKED);
     case 'join':
       return joinGroups(job, task.groupIds);
+    case 'post':
+      return postHelpful(job, task.helpfulId);
     case 'cancel':
       return tidy(job, 'cancel_request', task.profileIds);
     case 'unfriend':

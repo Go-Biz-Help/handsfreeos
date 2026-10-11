@@ -17,7 +17,7 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.9.0',
+  version: '0.10.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace.
@@ -119,6 +119,12 @@ export const outreachAddon = defineAddon({
       'outreach.group.looked',
       'outreach.group.checked',
       'outreach.join.noted',
+      'outreach.helpful.asked',
+      'outreach.helpful.drafted',
+      'outreach.helpful.oked',
+      'outreach.helpful.skipped',
+      'outreach.helpful.posted',
+      'outreach.helpful.engaged',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -130,7 +136,8 @@ export const outreachAddon = defineAddon({
     // armed (decision 41, ./live.ts). A message waiting for the person's OK, and a step the extension needs them for,
     // reach their phone as their pushes setting says (decision 40, ./waiting.ts). An ask that first needs the person
     // pushes to them at once (decision 43, ./asks.ts). A post asking for what the business offers pushes to the person
-    // who found it at once (decision 49, ./posts.ts).
+    // who found it at once (decision 49, ./posts.ts). A helpful post asked for is written by the AI (decision 50,
+    // ./helpful.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -138,6 +145,7 @@ export const outreachAddon = defineAddon({
       'outreach.post.checked',
       'outreach.check.looked',
       'outreach.group.looked',
+      'outreach.helpful.asked',
       'outreach.reply.seen',
       'outreach.send.queued',
       'addon.settings_saved',
@@ -153,6 +161,7 @@ export const outreachAddon = defineAddon({
     'outreach.check_posts',
     'outreach.check_people',
     'outreach.check_groups',
+    'outreach.draft_helpful',
     'outreach.morning',
     'outreach.weekly',
     'outreach.live_prune',
@@ -169,12 +178,14 @@ export const outreachAddon = defineAddon({
     'computers',
     'days',
     'demos',
+    'engagements',
     'file_chats',
     'file_people',
     'friend_ends',
     'friends',
     'group_people',
     'groups',
+    'helpful',
     'imports',
     'joins',
     'live_steps',

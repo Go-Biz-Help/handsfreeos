@@ -92,6 +92,15 @@ export type JoinsNextInput = Body<'/v1/queries/outreach.joins.next'>;
 export type JoinsNext = Ok<'/v1/queries/outreach.joins.next'>;
 export type JoinNoteInput = Body<'/v1/commands/outreach.join.note'>;
 export type JoinNoted = Ok<'/v1/commands/outreach.join.note'>;
+/** Helpful posts (decision 50): today's asked for, the one to put up and those to read, and how each went. */
+export type HelpfulAskInput = Body<'/v1/commands/outreach.helpful.ask'>;
+export type HelpfulAsked = Ok<'/v1/commands/outreach.helpful.ask'>;
+export type HelpfulNextInput = Body<'/v1/queries/outreach.helpful.next'>;
+export type HelpfulNext = Ok<'/v1/queries/outreach.helpful.next'>;
+export type HelpfulPostedInput = Body<'/v1/commands/outreach.helpful.posted'>;
+export type HelpfulPosted = Ok<'/v1/commands/outreach.helpful.posted'>;
+export type HelpfulEngagedInput = Body<'/v1/commands/outreach.helpful.engaged'>;
+export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
 export type { JoinAnswerInput, JoinAnswerOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -200,6 +209,10 @@ export type HfosAsk =
   | { readonly type: 'hfos-group-look'; readonly input: GroupLookInput }
   | { readonly type: 'hfos-joins-next'; readonly input: JoinsNextInput }
   | { readonly type: 'hfos-join-note'; readonly input: JoinNoteInput }
+  | { readonly type: 'hfos-helpful-ask'; readonly input: HelpfulAskInput }
+  | { readonly type: 'hfos-helpful-next'; readonly input: HelpfulNextInput }
+  | { readonly type: 'hfos-helpful-posted'; readonly input: HelpfulPostedInput }
+  | { readonly type: 'hfos-helpful-engaged'; readonly input: HelpfulEngagedInput }
   | {
       readonly type: 'hfos-join-answers';
       readonly workspaceId: string;
@@ -249,6 +262,10 @@ export interface HfosValues {
   readonly 'hfos-group-look': GroupLooked;
   readonly 'hfos-joins-next': JoinsNext;
   readonly 'hfos-join-note': JoinNoted;
+  readonly 'hfos-helpful-ask': HelpfulAsked;
+  readonly 'hfos-helpful-next': HelpfulNext;
+  readonly 'hfos-helpful-posted': HelpfulPosted;
+  readonly 'hfos-helpful-engaged': HelpfulEngaged;
   readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;

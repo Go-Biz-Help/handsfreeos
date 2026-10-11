@@ -54,8 +54,9 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
-import type { Asks, TodayItem, TodayList, WheelsList } from './types';
+import type { Asks, HelpfulList, TodayItem, TodayList, WheelsList } from './types';
 import { useAct } from './use-act';
 
 const KIND_BADGE = {
@@ -68,6 +69,7 @@ const KIND_BADGE = {
   follow_up: 'gray',
   reply: 'pending',
   comment: 'accent',
+  warm_lead: 'ok',
 } as const;
 
 /** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
@@ -79,11 +81,14 @@ function openUrl(item: TodayItem): string | null {
 export function TodayView({
   workspaceId,
   today,
+  helpful,
   wheels,
   asks,
 }: {
   workspaceId: string;
   today: TodayList;
+  /** Today's helpful post, and those up lately (decision 50). */
+  helpful: HelpfulList;
   /** Who's on training wheels: for owners and admins, else null. */
   wheels: WheelsList | null;
   /** The look-ups and group members asked of the person's computer from here. */
@@ -131,6 +136,7 @@ export function TodayView({
             {wheelsWords(today.wheels)}
           </p>
         ) : null}
+        <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
         {today.items.length ? (
           <Card className="p-0" data-testid="today-list">
             <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
@@ -520,7 +526,7 @@ function Drafts({
   const copy = async (text: string) => {
     await copyText(
       text,
-      kind === 'comment'
+      kind === 'comment' || kind === 'warm_lead'
         ? 'Copied. Paste it as a comment on the post.'
         : 'Copied. Paste it in Messenger.',
     );
@@ -588,7 +594,7 @@ function Drafts({
             label={
               drafts.length
                 ? 'Look up and draft again'
-                : kind === 'comment'
+                : kind === 'comment' || kind === 'warm_lead'
                   ? 'Draft a comment'
                   : 'Draft a message'
             }
@@ -615,7 +621,7 @@ function Drafts({
           ? 'Draft from what HandsFreeOS knows'
           : drafts.length
             ? 'Draft again'
-            : kind === 'comment'
+            : kind === 'comment' || kind === 'warm_lead'
               ? 'Draft a comment'
               : 'Draft a message'}
       </Button>

@@ -123,6 +123,7 @@ describe('the once-a-day jobs, in order', () => {
       'posts',
       'chats',
       'checks',
+      'helpful',
     ]);
     const fresh = freshState('2026-10-10');
     expect(nextDaily(fresh)).toBe('requests');
@@ -144,6 +145,7 @@ describe('the once-a-day jobs, in order', () => {
           posts: '',
           chats: '',
           checks: '',
+          helpful: '',
         },
       }),
     ).toBeNull();

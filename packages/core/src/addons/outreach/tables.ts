@@ -27,7 +27,8 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
-import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
+import type { MessageKind, PostingMode, PushMode, ReplyMode, SendingMode } from './automation';
+import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
@@ -627,6 +628,7 @@ export const automation = addonOutreach.table(
     /** It finds and asks to join good groups when people left to reach run low (decision 48). */
     joinGroups: boolean('join_groups').notNull().default(true),
     watchPosts: boolean('watch_posts').notNull().default(true),
+    posting: text('posting').notNull().default('after_ok').$type<PostingMode>(),
     hoursStart: smallint('hours_start').notNull().default(9),
     hoursEnd: smallint('hours_end').notNull().default(17),
     days: smallint('days')
@@ -986,6 +988,74 @@ export const joins = addonOutreach.table(
   ],
 );
 
+/**
+ * The helpful posts the AI drafts for a person to put up in their groups (decision 50): the group, what it's about,
+ * the words, and where it stands. Each person's own.
+ */
+export const helpful = addonOutreach.table(
+  'helpful',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull(),
+    playbookId: uuid('playbook_id'),
+    state: text('state').notNull().$type<HelpfulState>(),
+    /** The person's posting choice when it was drafted. */
+    how: text('how').notNull().$type<PostingMode>(),
+    topic: text('topic'),
+    body: text('body'),
+    postUrl: text('post_url'),
+    whyNot: text('why_not'),
+    askedAt: ts('asked_at').notNull(),
+    draftedAt: ts('drafted_at'),
+    approvedAt: ts('approved_at'),
+    postedAt: ts('posted_at'),
+    endedAt: ts('ended_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Who reacted to or commented on one of the person's helpful posts: warm leads (decision 50). Each person's own. */
+export const engagements = addonOutreach.table(
+  'engagements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    helpfulId: uuid('helpful_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<EngagementKind>(),
+    comment: text('comment'),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.helpfulId, t.profileId, t.kind),
+    foreignKey({
+      columns: [t.workspaceId, t.helpfulId],
+      foreignColumns: [helpful.workspaceId, helpful.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -993,12 +1063,14 @@ export const OUTREACH_TABLES = {
   checks,
   computers,
   days,
+  engagements,
   fileChats,
   filePeople,
   friendEnds,
   friends,
   groupPeople,
   groups,
+  helpful,
   myGroups,
   imports,
   joins,

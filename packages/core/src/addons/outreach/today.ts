@@ -49,6 +49,7 @@ export const TODAY_KINDS = {
   follow_up: 'Follow up',
   reply: 'Reply',
   comment: 'Comment on a post',
+  warm_lead: 'Answer their comment',
 } as const;
 export type TodayKind = keyof typeof TODAY_KINDS;
 export const TODAY_KIND_KEYS = Object.keys(TODAY_KINDS) as [TodayKind, ...TodayKind[]];
@@ -64,6 +65,7 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   follow_up: 'follow_up',
   reply: null,
   comment: 'comment',
+  warm_lead: 'comment',
 };
 
 /** The pace when no playbook says: a first message a day after they accept, a follow-up after 3 quiet days. */
@@ -189,6 +191,7 @@ export const DRAFT_KINDS = [
   'follow_up',
   'reply',
   'comment',
+  'warm_lead',
 ] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
 export const DRAFTS_MOST = 3;
@@ -200,6 +203,7 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   follow_up: DRAFTS_MOST,
   reply: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
+  warm_lead: COMMENT_DRAFTS,
 };
 export const DRAFT_MOST_CHARS = 600;
 /** What the extension looked up about them just before (decision 21): lines from their profile and business page. */
@@ -256,6 +260,8 @@ const TASK: Record<DraftKind, string> = {
     'They wrote last. Write the owner’s reply to their last message, moving the conversation along.',
   comment:
     'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
+  warm_lead:
+    'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
 };
 
 const chatLines = (recent: readonly DownloadMessage[]) =>

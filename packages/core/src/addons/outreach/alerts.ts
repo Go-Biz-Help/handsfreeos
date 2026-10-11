@@ -91,6 +91,7 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   follow_up: ['follow-up', 'follow-ups'],
   reply: ['reply', 'replies'],
   comment: ['post to comment on', 'posts to comment on'],
+  warm_lead: ['comment to answer', 'comments to answer'],
 };
 
 /** The morning push: "6 on your list for today", and what they are. Null with nothing on the list. */

@@ -1762,6 +1762,22 @@ function scriptedGroupCheck(message: string) {
   };
 }
 
+/**
+ * Social Outreach's helpful post (decision 50): not allowed when the group's rules say "Only admins post", else a tip
+ * about following up, its topic and why.
+ */
+function scriptedHelpful(message: string) {
+  const rules = /<rules>\n([\s\S]*?)\n<\/rules>/.exec(message)?.[1] ?? '';
+  if (/only admins post/i.test(rules))
+    return { allowed: false, topic: 'Follow-ups', text: '', why: 'Only admins post in this group' };
+  return {
+    allowed: true,
+    topic: 'Following up on quotes',
+    text: 'One habit that won me more jobs this year: I follow up on every quote two days later with a short, friendly note.\n\nHow do you all keep track of who to follow up with?',
+    why: 'People here ask how to win more jobs',
+  };
+}
+
 /** Social Outreach's answers to a group's questions (decision 31): one per question, saying which it answers. */
 function scriptedJoinAnswers(message: string) {
   const questions = (/<questions>\n([\s\S]*?)\n<\/questions>/.exec(message)?.[1] ?? '')
@@ -1783,6 +1799,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedGroupCheck(message),
   },
   { when: /Answer the group’s questions\.$/, json: (message) => scriptedJoinAnswers(message) },
+  { when: /Write one helpful post for this group\.$/, json: (message) => scriptedHelpful(message) },
   {
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),

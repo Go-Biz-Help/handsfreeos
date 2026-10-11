@@ -79394,6 +79394,15 @@
                         "default": true,
                         "type": "boolean"
                       },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": [
+                          "copy",
+                          "after_ok",
+                          "own"
+                        ]
+                      },
                       "hours": {
                         "type": "object",
                         "properties": {
@@ -79508,6 +79517,15 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "posting": {
+                          "default": "after_ok",
+                          "type": "string",
+                          "enum": [
+                            "copy",
+                            "after_ok",
+                            "own"
+                          ]
+                        },
                         "hours": {
                           "type": "object",
                           "properties": {
@@ -79568,6 +79586,7 @@
                         "collect",
                         "joinGroups",
                         "watchPosts",
+                        "posting",
                         "hours",
                         "noting",
                         "readChats",
@@ -79665,6 +79684,17 @@
                             ]
                           }
                         },
+                        "postingAllowed": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "copy",
+                              "after_ok",
+                              "own"
+                            ]
+                          }
+                        },
                         "dailyLimits": {
                           "type": "object",
                           "properties": {
@@ -79700,6 +79730,7 @@
                       "required": [
                         "sendingAllowed",
                         "repliesAllowed",
+                        "postingAllowed",
                         "dailyLimits"
                       ],
                       "additionalProperties": false
@@ -81384,6 +81415,26 @@
                           "kind": {
                             "type": "string",
                             "enum": [
+                              "post"
+                            ]
+                          },
+                          "helpfulId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "helpfulId"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
                               "group_search"
                             ]
                           },
@@ -81521,7 +81572,8 @@
                                   "pitch",
                                   "follow_up",
                                   "reply",
-                                  "comment"
+                                  "comment",
+                                  "warm_lead"
                                 ]
                               },
                               "profileId": {
@@ -81618,6 +81670,7 @@
                             "checks",
                             "group_checks",
                             "join",
+                            "post",
                             "cancel",
                             "unfriend",
                             "lookup"
@@ -81896,6 +81949,7 @@
                                 "checks",
                                 "group_checks",
                                 "join",
+                                "post",
                                 "cancel",
                                 "unfriend",
                                 "lookup"
@@ -82081,6 +82135,27 @@
                                   "required": [
                                     "kind",
                                     "groupIds"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "post"
+                                      ]
+                                    },
+                                    "helpfulId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "helpfulId"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -82307,7 +82382,8 @@
                                             "pitch",
                                             "follow_up",
                                             "reply",
-                                            "comment"
+                                            "comment",
+                                            "warm_lead"
                                           ]
                                         },
                                         "profileId": {
@@ -82724,6 +82800,7 @@
                             "checks",
                             "group_checks",
                             "join",
+                            "post",
                             "cancel",
                             "unfriend",
                             "lookup"
@@ -82983,6 +83060,7 @@
                             "checks",
                             "group_checks",
                             "join",
+                            "post",
                             "cancel",
                             "unfriend",
                             "lookup"
@@ -83908,6 +83986,565 @@
                   "required": [
                     "groupId",
                     "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.helpful.ask": {
+      "post": {
+        "operationId": "command_outreach_helpful_ask",
+        "summary": "Ask the AI for today’s helpful post: one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules. One a day; asking again answers today’s.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.helpful.asked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "groupId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "helpfulId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "groupName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fresh": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "helpfulId",
+                    "groupName",
+                    "fresh"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.helpful.ok": {
+      "post": {
+        "operationId": "command_outreach_helpful_ok",
+        "summary": "OK a helpful post for the person’s computer to put up in its group, as written or as they changed it. Their computer posts it when asked (an ask of kind post).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.helpful.oked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "helpfulId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "helpfulId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "helpfulId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "draft",
+                        "approved",
+                        "posted",
+                        "skipped",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "helpfulId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.helpful.skip": {
+      "post": {
+        "operationId": "command_outreach_helpful_skip",
+        "summary": "Put a helpful post aside: it isn’t posted. The day’s slot is free for another.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.helpful.skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "helpfulId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "helpfulId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "helpfulId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "draft",
+                        "approved",
+                        "posted",
+                        "skipped",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "helpfulId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.helpful.posted": {
+      "post": {
+        "operationId": "command_outreach_helpful_posted",
+        "summary": "A helpful post went up in its group (the extension posted it, or the person says they did), with its link once known; or the extension couldn’t post it, with why.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.helpful.posted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "helpfulId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "posted": {
+                    "type": "boolean"
+                  },
+                  "url": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "pattern": "^https:\\/\\/"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "why": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "helpfulId",
+                  "posted"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "helpfulId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "draft",
+                        "approved",
+                        "posted",
+                        "skipped",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "helpfulId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.helpful.engaged": {
+      "post": {
+        "operationId": "command_outreach_helpful_engaged",
+        "summary": "Who reacted to or commented on one of the person’s helpful posts, as the extension read it: each kept as a profile from the group, a warm lead for Today. Nobody goes in Contacts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.helpful.engaged.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "helpfulId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "url": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "pattern": "^https:\\/\\/"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "comments": {
+                    "default": [],
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "profile": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,30}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "username": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500,
+                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "comment": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "when": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "profile",
+                        "name"
+                      ]
+                    }
+                  },
+                  "reactions": {
+                    "default": [],
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "profile": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,30}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "username": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500,
+                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "comment": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "when": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "profile",
+                        "name"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "helpfulId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "helpfulId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "added": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "helpfulId",
+                    "added"
                   ],
                   "additionalProperties": false
                 }
@@ -162195,7 +162832,8 @@
                               "pitch",
                               "follow_up",
                               "reply",
-                              "comment"
+                              "comment",
+                              "warm_lead"
                             ]
                           },
                           "name": {
@@ -162469,7 +163107,8 @@
                           "pitch",
                           "follow_up",
                           "reply",
-                          "comment"
+                          "comment",
+                          "warm_lead"
                         ]
                       }
                     },
@@ -163112,6 +163751,15 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "posting": {
+                          "default": "after_ok",
+                          "type": "string",
+                          "enum": [
+                            "copy",
+                            "after_ok",
+                            "own"
+                          ]
+                        },
                         "hours": {
                           "type": "object",
                           "properties": {
@@ -163172,6 +163820,7 @@
                         "collect",
                         "joinGroups",
                         "watchPosts",
+                        "posting",
                         "hours",
                         "noting",
                         "readChats",
@@ -163269,6 +163918,17 @@
                             ]
                           }
                         },
+                        "postingAllowed": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "copy",
+                              "after_ok",
+                              "own"
+                            ]
+                          }
+                        },
                         "dailyLimits": {
                           "type": "object",
                           "properties": {
@@ -163304,6 +163964,7 @@
                       "required": [
                         "sendingAllowed",
                         "repliesAllowed",
+                        "postingAllowed",
                         "dailyLimits"
                       ],
                       "additionalProperties": false
@@ -164875,6 +165536,7 @@
                                       "checks",
                                       "group_checks",
                                       "join",
+                                      "post",
                                       "cancel",
                                       "unfriend",
                                       "lookup"
@@ -165716,7 +166378,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "kinds": {
-                    "maxItems": 17,
+                    "maxItems": 18,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -165735,6 +166397,7 @@
                         "checks",
                         "group_checks",
                         "join",
+                        "post",
                         "cancel",
                         "unfriend",
                         "lookup"
@@ -165834,6 +166497,7 @@
                               "checks",
                               "group_checks",
                               "join",
+                              "post",
                               "cancel",
                               "unfriend",
                               "lookup"
@@ -166826,6 +167490,325 @@
                     "prospects",
                     "words",
                     "onItsOwn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.helpful": {
+      "post": {
+        "operationId": "query_outreach_helpful",
+        "summary": "The person’s helpful posts: today’s (being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "helpfulId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "groupId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "groupName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "groupUrl": {
+                            "type": "string"
+                          },
+                          "playbookName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "drafting",
+                              "draft",
+                              "approved",
+                              "posted",
+                              "skipped",
+                              "failed"
+                            ]
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "copy",
+                              "after_ok",
+                              "own"
+                            ]
+                          },
+                          "topic": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "text": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "whyNot": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "askedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "postedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "comments": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "reactions": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "helpfulId",
+                          "groupId",
+                          "groupName",
+                          "groupUrl",
+                          "playbookName",
+                          "state",
+                          "how",
+                          "topic",
+                          "text",
+                          "postUrl",
+                          "whyNot",
+                          "askedAt",
+                          "postedAt",
+                          "comments",
+                          "reactions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "today": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "perDay": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "posting": {
+                      "type": "string",
+                      "enum": [
+                        "copy",
+                        "after_ok",
+                        "own"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "posts",
+                    "today",
+                    "perDay",
+                    "posting"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.helpful.next": {
+      "post": {
+        "operationId": "query_outreach_helpful_next",
+        "summary": "For the person’s computer: the helpful post to put up (the one OK’d that an ask names, else a draft it posts on its own), and the posts up in the last fortnight to read for who engaged.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "helpfulId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "post": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "helpfulId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "groupName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "groupUrl": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "helpfulId",
+                            "groupName",
+                            "groupUrl",
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "read": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "helpfulId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "groupName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "groupUrl": {
+                            "type": "string"
+                          },
+                          "postUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "helpfulId",
+                          "groupName",
+                          "groupUrl",
+                          "postUrl",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "post",
+                    "read"
                   ],
                   "additionalProperties": false
                 }

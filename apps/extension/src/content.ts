@@ -35,6 +35,7 @@ import {
 } from './facebook/actions';
 import { likeLatest, writeComment, writeMessage } from './facebook/auto';
 import { answerJoin, pressJoin } from './facebook/join';
+import { readComments, readReactions, writeGroupPost } from './facebook/compose';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './facebook/browse';
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { LOOK_EVERY_MS, lookFor } from './facebook/looking';
@@ -56,6 +57,8 @@ import {
   type BrowseAsk,
   type FetchAnswer,
   type FetchAsk,
+  type GroupPostAnswer,
+  type GroupPostAsk,
   type JoinAnswer,
   type JoinAsk,
   type TabNote,
@@ -124,6 +127,21 @@ async function joinStep(ask: JoinAsk): Promise<JoinAnswer> {
   return { ok: true, result: await answerJoin(document, ask.answers) };
 }
 
+/** A helpful post (src/facebook/compose.ts): put it up on the group's page, or read who engaged on the person's own. */
+async function groupPostStep(ask: GroupPostAsk): Promise<GroupPostAnswer> {
+  const kind = classifyUrl(location.href).kind;
+  if (ask.type === 'hfos-group-post') {
+    if (kind !== 'group') return { ok: false, error: 'Facebook didn’t open the group.' };
+    return { ok: true, result: await writeGroupPost(document, ask.text) };
+  }
+  if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
+  return {
+    ok: true,
+    comments: readComments(document, location.href),
+    reactions: await readReactions(document, location.href),
+  };
+}
+
 const here = globalThis as { hfosSocialListening?: boolean };
 
 /** Whether a change adds or takes away writing or a link: not a spinner, a picture or a moving progress bar. */
@@ -144,13 +162,17 @@ if (!here.hfosSocialListening) {
   here.hfosSocialListening = true;
   chrome.runtime.onMessage.addListener(
     (
-      ask: Ask | FetchAsk | BrowseAsk | AutoAsk | JoinAsk,
+      ask: Ask | FetchAsk | BrowseAsk | AutoAsk | JoinAsk | GroupPostAsk,
       sender,
       respond: (answer: Answer) => void,
     ) => {
       if (sender.id !== chrome.runtime.id) return false;
       if (ask.type === 'hfos-join' || ask.type === 'hfos-join-answer') {
         void joinStep(ask).then(respond as (answer: JoinAnswer) => void);
+        return true;
+      }
+      if (ask.type === 'hfos-group-post' || ask.type === 'hfos-engaged') {
+        void groupPostStep(ask).then(respond as (answer: GroupPostAnswer) => void);
         return true;
       }
       if (

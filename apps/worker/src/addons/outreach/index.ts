@@ -24,6 +24,7 @@ import {
   joinAnswer,
 } from './groups';
 import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
+import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askProgressed } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
@@ -92,6 +93,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.check.looked': andMorning(checkLooked),
     // A group's About page, rules and posts, read off Facebook, wait for the AI's check of it (./groups.ts).
     'outreach.group.looked': groupLooked,
+    // A helpful post asked for is written by the AI (./helpful.ts, decision 50).
+    'outreach.helpful.asked': helpfulAsked,
     'outreach.reply.seen': andWeekly(replySeen),
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
@@ -111,6 +114,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [CHECK_POSTS_JOB]: checkPostsJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,
+    [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
     [MORNING_JOB]: morningJob,
     [WEEKLY_JOB]: weeklyJob,
     [LIVE_PRUNE_JOB]: livePruneJob,

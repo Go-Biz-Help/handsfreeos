@@ -44,6 +44,7 @@ import type {
   Pipeline,
   PlaybookList,
   Tidy,
+  HelpfulList,
   TodayList,
   Waiting,
   WheelsList,
@@ -61,6 +62,7 @@ export type OutreachShown =
   | {
       readonly view: 'today';
       readonly today: TodayList;
+      readonly helpful: HelpfulList;
       readonly wheels: WheelsList | null;
       readonly asks: Asks;
     }
@@ -188,6 +190,7 @@ export function OutreachHome({
         <TodayView
           workspaceId={workspaceId}
           today={shown.today}
+          helpful={shown.helpful}
           wheels={shown.wheels}
           asks={shown.asks}
         />

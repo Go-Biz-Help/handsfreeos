@@ -27,6 +27,7 @@ import {
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
 import { RECONNECT_QUIET_DAYS } from '../checks';
+import { WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
@@ -202,10 +203,116 @@ export const today = defineAddonQuery(outreachAddon, {
         }),
       );
 
+    // Warm leads (decision 50): people who reacted to or commented on the person's helpful posts lately. A comment
+    // waits for an answer; someone not a friend yet goes first for a like back, then a friend request, as anyone does.
+    const warm = await rows<{
+      id: string;
+      name: string;
+      url: string;
+      friendship: string;
+      kind: 'comment' | 'reaction';
+      comment: string | null;
+      post_url: string | null;
+      group_name: string | null;
+      playbook_name: string | null;
+      liked_at: Date | string | null;
+      warm_up_missed_at: Date | string | null;
+      reached: boolean;
+      answered: boolean;
+    }>(
+      ctx.tx,
+      sql`select distinct on (e.profile_id, e.kind) p.id, p.name, p.url, p.friendship, e.kind, e.comment,
+            h.post_url, g.name as group_name, pb.name as playbook_name, p.warm_up_missed_at,
+            (select max(t.at) from addon_outreach.touches t
+              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
+                and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
+            (exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.kind = 'friend_request')
+              or exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me})) as reached,
+            exists (select 1 from addon_outreach.touches t
+              where t.user_id = ${me} and t.kind = 'comment' and h.post_url is not null
+                and t.post_url = h.post_url and t.at >= e.seen_at) as answered
+          from addon_outreach.engagements e
+          join addon_outreach.profiles p on p.id = e.profile_id
+          join addon_outreach.helpful h on h.id = e.helpful_id
+          join addon_outreach.groups g on g.id = h.group_id
+          left join addon_outreach.playbooks pb on pb.id = h.playbook_id
+          where e.workspace_id = ${ws} and e.user_id = ${me}
+            and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz
+            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')}
+            and not exists (select 1 from addon_outreach.group_people x
+              where x.profile_id = p.id and x.runs_group)
+          order by e.profile_id, e.kind, e.seen_at desc`,
+    );
+    const did = (w: (typeof warm)[number]) =>
+      `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${w.group_name ? ` in ${w.group_name}` : ''}`;
+    const answers = warm
+      .filter((w) => w.kind === 'comment' && w.comment && !w.answered)
+      .slice(0, leftToday(limits, 'warm_lead'));
+    for (const w of answers)
+      items.push(
+        item({
+          kind: 'warm_lead',
+          name: w.name,
+          profileId: w.id,
+          profileUrl: w.url,
+          postUrl: w.post_url,
+          post:
+            w.comment!.length > TODAY_POST_MOST
+              ? `${w.comment!.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
+              : w.comment,
+          why: [did(w)],
+          playbookName: w.playbook_name,
+        }),
+      );
+    // Each person once, the comment over the reaction (comments come first).
+    const once = new Map<string, (typeof warm)[number]>();
+    for (const w of warm) if (!once.has(w.id)) once.set(w.id, w);
+    const toFriend = [...once.values()].filter(
+      (w) => !w.reached && !['friends', 'request_sent', 'request_received'].includes(w.friendship),
+    );
+    const warmIds = new Set(toFriend.map((w) => w.id));
+    let warmRequests = 0;
+    let warmLikes = 0;
+    if (!requestsOff)
+      for (const w of toFriend) {
+        const liked = w.liked_at === null ? null : new Date(w.liked_at).getTime();
+        const ready =
+          !settings.warmUp ||
+          w.warm_up_missed_at !== null ||
+          (liked !== null && liked <= now - WARM_UP_WAIT_HOURS * HOUR);
+        if (ready && warmRequests < leftToday(limits, 'friend_request')) {
+          warmRequests++;
+          items.push(
+            item({
+              kind: 'friend_request',
+              name: w.name,
+              profileId: w.id,
+              profileUrl: w.url,
+              why: [did(w), ...(liked !== null ? ['You liked a post of theirs back'] : [])],
+              playbookName: w.playbook_name,
+            }),
+          );
+        } else if (!ready && liked === null && warmLikes < leftToday(limits, 'warm_up')) {
+          warmLikes++;
+          items.push(
+            item({
+              kind: 'warm_up',
+              name: w.name,
+              profileId: w.id,
+              profileUrl: w.url,
+              why: [did(w), 'Like one of theirs back: their friend request comes a day after'],
+              playbookName: w.playbook_name,
+            }),
+          );
+        }
+      }
+
     // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
     // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's.
-    const requestsLeft = leftToday(limits, 'friend_request');
-    const likesLeft = leftToday(limits, 'warm_up');
+    const requestsLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
+    const likesLeft = Math.max(0, leftToday(limits, 'warm_up') - warmLikes);
     if (playbooks.length && !requestsOff && (requestsLeft || (settings.warmUp && likesLeft))) {
       const found = await rows<{
         id: string;
@@ -251,6 +358,8 @@ export const today = defineAddonQuery(outreachAddon, {
             limit ${CANDIDATES_MOST}`,
       );
       const fitted = found.flatMap((p) => {
+        // A warm lead is on the list already, ahead of these.
+        if (warmIds.has(p.id)) return [];
         // The AI's read of the group goes over its name (decision 48).
         const group = groupFitOf(playbooks, {
           name: p.group_name,
@@ -327,7 +436,7 @@ export const today = defineAddonQuery(outreachAddon, {
         const waiting = fitted.filter(
           ({ p }) => likedBy(p) !== null && p.warm_up_missed_at === null,
         );
-        const wanted = Math.max(0, limits.friend_request.most - waiting.length);
+        const wanted = Math.max(0, limits.friend_request.most - waiting.length - warmLikes);
         const cold = fitted.filter(({ p }) => likedBy(p) === null && p.warm_up_missed_at === null);
         for (const { p, fit } of cold.slice(0, Math.min(likesLeft, wanted)))
           items.push(
@@ -577,7 +686,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Comments: posts in the groups the AI checked as good, from the last week: those asking for what the business
     // offers first (decision 49), then the newest.
-    const commentsLeft = leftToday(limits, 'comment');
+    const commentsLeft = Math.max(0, leftToday(limits, 'comment') - answers.length);
     if (commentsLeft) {
       const good = await rows<{
         id: string;

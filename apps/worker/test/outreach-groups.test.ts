@@ -1,7 +1,9 @@
 /**
  * Social Outreach's groups in the worker (decision 48): a group's About page, rules and posts are checked by the AI
  * (the stand-in model here) for whether the business's people are there, and the posts let go; and a group's join
- * questions are answered by it from the playbook, one answer each, through the worker's actions route.
+ * questions are answered by it from the playbook, one answer each, through the worker's actions route; and a helpful
+ * post asked for is written by it for one of the person's groups, or put aside when the group's rules don't allow it
+ * (decision 50).
  */
 import { randomUUID } from 'node:crypto';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
@@ -197,5 +199,45 @@ describe('answering a group’s questions', () => {
       payload: { workspaceId: ws, input: { groupId: randomUUID(), questions: ['Why?'] } },
     });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('writing a helpful post', () => {
+  it('writes one for a group the person is in, or puts it aside when its rules don’t allow it', async () => {
+    await runAs(owner, ws, 'outreach.groups.save', {
+      groups: [{ group: group('600000001', 'Texas Contractors Network'), joined: true }],
+    });
+    const asked = await runAs(owner, ws, 'outreach.helpful.ask', {});
+    expect(asked).toMatchObject({ groupName: 'Texas Contractors Network', fresh: true });
+    await drain();
+    const kept = () =>
+      rows<{ state: string; topic: string | null; body: string | null; why_not: string | null }>(
+        admin(),
+        sql`select state, topic, body, why_not from addon_outreach.helpful
+            where workspace_id = ${ws} order by asked_at`,
+      );
+    expect(await kept()).toEqual([
+      {
+        state: 'draft',
+        topic: 'Following up on quotes',
+        body: expect.stringMatching(/^One habit that won me more jobs/),
+        why_not: null,
+      },
+    ]);
+    // Put aside, and the next asked for a group whose rules say only admins post.
+    await runAs(owner, ws, 'outreach.helpful.skip', { helpfulId: asked.helpfulId });
+    await rows(
+      admin(),
+      sql`update addon_outreach.groups set rules = '{"Only admins post: members comment."}'
+          where workspace_id = ${ws} and platform_id = '600000001'`,
+    );
+    await runAs(owner, ws, 'outreach.helpful.ask', {});
+    await drain();
+    expect((await kept())[1]).toEqual({
+      state: 'skipped',
+      topic: 'Follow-ups',
+      body: null,
+      why_not: 'Only admins post in this group',
+    });
   });
 });

@@ -5,8 +5,9 @@
  * saves the members of their good groups, finds posts in those groups, reads their chats, and checks their friends for
  * good fits (decision 46), each in the window it works in, at a person's pace (src/jobs/). Those fill the list it
  * then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the AI, and
- * friends to reconnect with. Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
- * only while the person lets it join on its own. They run while the person lets it work on its own and leaves **Once
+ * friends to reconnect with. Last, it asks for today's helpful post and reads who engaged with those up lately
+ * (decision 50). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
+ * only while the person lets it join on its own; and on the person's own posts, See who reacted to this. They run while the person lets it work on its own and leaves **Once
  * a day** ticked.
  */
 import type { ReadResult } from '../facebook/types';
@@ -15,6 +16,7 @@ import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
 import { chatMemory, readChats } from '../jobs/chats';
 import { checkFriends } from '../jobs/checks';
 import { checkGroups } from '../jobs/groups-check';
+import { helpfulDaily } from '../jobs/helpful';
 import { joinGroups } from '../jobs/join';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
@@ -34,6 +36,7 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   posts: 'Finding posts in your groups…',
   chats: 'Reading your chats for the AI…',
   checks: 'Checking your friends for good fits…',
+  helpful: 'Asking for today’s helpful post, and reading who engaged…',
 };
 
 /** The job's name, for the panel's list of what it did today. */
@@ -45,6 +48,7 @@ export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   posts: 'Find posts',
   chats: 'Read my chats',
   checks: 'Check my friends',
+  helpful: 'Helpful posts',
 };
 
 /**
@@ -94,5 +98,7 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
       });
     case 'checks':
       return checkFriends(job, CHECKS_PER_DAY);
+    case 'helpful':
+      return helpfulDaily(job);
   }
 }

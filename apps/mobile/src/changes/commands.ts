@@ -331,6 +331,14 @@ import {
 } from '@hfos/core/addons/outreach/sends';
 import { StageMarkInput, StageMarkOutput } from '@hfos/core/addons/outreach/stages';
 import {
+  HelpfulAskInput,
+  HelpfulAskOutput,
+  HelpfulChangeOutput,
+  HelpfulOkInput,
+  HelpfulPostedInput,
+  HelpfulSkipInput,
+} from '@hfos/core/addons/outreach/helpful';
+import {
   NeedClearInput,
   NeedClearOutput,
   RequestSetAsideInput,
@@ -502,6 +510,10 @@ export const PHONE_COMMANDS = {
   'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
   'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),
   'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
+  'outreach.helpful.ask': command(ONLINE, HelpfulAskInput, HelpfulAskOutput),
+  'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
+  'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
+  'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
   'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),

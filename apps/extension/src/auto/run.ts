@@ -24,7 +24,8 @@
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
  * chats, one job a go, a few minutes apart. Then, in the working hours, every hour or two, it looks at the newest
- * posts at the top of their best groups (decision 49), between the day's steps.
+ * posts at the top of their best groups (decision 49), between the day's steps; and when the person lets it post on
+ * its own, it puts up today's helpful post once the AI has written it (decision 50).
  *
  * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
  * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
@@ -72,12 +73,15 @@ import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
 import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork, watchPosts } from '../jobs/posts';
+import { postHelpful } from '../jobs/helpful';
 import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
 import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
   freshState,
   gapAfter,
+  HELPFUL_AGAIN_MS,
+  helpfulDue,
   IDLE_MS,
   isState,
   needOf,
@@ -771,6 +775,40 @@ async function go(): Promise<void> {
     return goAt(
       Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
     );
+  }
+
+  // Today's helpful post, when the person lets it post on its own (decision 50): once the AI has written it.
+  if (
+    settings.posting === 'own' &&
+    inHours &&
+    (!settings.collect || state.daily?.helpful !== undefined) &&
+    helpfulDue(state, at)
+  ) {
+    await say('Looking for today’s helpful post…', { working: true });
+    let end: Awaited<ReturnType<typeof postHelpful>>;
+    try {
+      end = await inTurn('runner', () => postHelpful(jobFor(to.businessId), null));
+    } catch (error) {
+      if (error instanceof Refused) throw error;
+      end = { line: error instanceof Error ? error.message : String(error), warned: false };
+    } finally {
+      await setState({ working: false, tabId: tab.tabId });
+    }
+    // Up, or it couldn't go: done for today. None written yet: it looks again in a while.
+    const settled = end.posted === true || end.failed === true;
+    await setState({ helpfulUp: settled, helpfulAt: Date.now() + HELPFUL_AGAIN_MS });
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    if (settled) {
+      await say(`Helpful post: ${end.line}`);
+      void feed(end.posted ? 'done' : 'passed', `Helpful post: ${end.line}`);
+      return goAt(
+        Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+      );
+    }
   }
 
   // In the working hours, every hour or two, the newest posts at the top of the best groups (decision 49).

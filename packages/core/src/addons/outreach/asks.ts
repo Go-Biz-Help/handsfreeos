@@ -36,6 +36,7 @@ export const ASK_KINDS = {
   checks: 'Check your friends for good fits',
   group_checks: 'Check your groups for your people',
   join: 'Ask to join good groups',
+  post: 'Put up your helpful post',
   cancel: 'Cancel old friend requests',
   unfriend: 'Unfriend the ones you ticked',
   lookup: 'Look someone up before drafting',
@@ -69,7 +70,7 @@ export const ASK_KINDS_FOR = {
   ],
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
   chats: ['chats'],
-  today: ['lookup', 'members'],
+  today: ['lookup', 'members', 'post'],
 } as const satisfies Record<string, readonly AskKind[]>;
 
 export const ASK_STATES = {
@@ -225,6 +226,8 @@ export const AskInput = z.discriminatedUnion('kind', [
   plain('group_checks'),
   /** The groups to ask to join; with none, the best not joined yet, found first when there are none. */
   z.object({ kind: z.literal('join'), groupIds: groupIds.max(JOINS_PER_DAY).optional() }),
+  /** A helpful post the person OK'd (decision 50), for their computer to put up in its group. */
+  z.object({ kind: z.literal('post'), helpfulId: z.uuid() }),
   z.object({ kind: z.literal('group_search'), words }),
   z
     .object({
@@ -268,6 +271,7 @@ export const AskTask = z.discriminatedUnion('kind', [
   plain('checks'),
   plain('group_checks'),
   z.object({ kind: z.literal('join'), groupIds: z.array(z.uuid()).nullable() }),
+  z.object({ kind: z.literal('post'), helpfulId: z.uuid() }),
   z.object({ kind: z.literal('group_search'), words: z.string() }),
   /** Null groups: the computer picks the best ones to work, as the runner does. */
   z.object({ kind: z.literal('members'), groups: z.array(AskGroup).nullable() }),
@@ -476,6 +480,8 @@ export function askTarget(ask: AskAsked): string {
       return ask.words.toLowerCase().replace(/\s+/g, ' ');
     case 'join':
       return ask.groupIds ? `groups:${[...new Set(ask.groupIds)].sort().join(',')}` : 'best';
+    case 'post':
+      return `helpful:${ask.helpfulId}`;
     case 'members':
     case 'posts': {
       if (ask.groupIds) return `groups:${[...new Set(ask.groupIds)].sort().join(',')}`;
@@ -528,6 +534,7 @@ export function askAbout(
       return 'good groups';
     }
     case 'lookup':
+    case 'post':
       return named.name ? clip(named.name) : null;
     default:
       return null;

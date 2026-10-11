@@ -142,9 +142,10 @@ export default async function OutreachPage({
       );
     }
     if (shown.view === 'today') {
-      const [got, today, asks] = await Promise.all([
+      const [got, today, helpful, asks] = await Promise.all([
         workspace,
         api.POST('/v1/queries/outreach.today', { body: { workspaceId } }).then(unwrapPage),
+        api.POST('/v1/queries/outreach.helpful', { body: { workspaceId } }).then(unwrapPage),
         asksOf('today'),
       ]);
       const canManage = got.workspace.permissions.includes('outreach.manage');
@@ -158,7 +159,7 @@ export default async function OutreachPage({
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
           canManage={canManage}
-          shown={{ view: 'today', today, wheels, asks }}
+          shown={{ view: 'today', today, helpful, wheels, asks }}
         />
       );
     }

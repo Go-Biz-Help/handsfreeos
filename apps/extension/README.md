@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.23.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
+**This is a test build (0.24.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
 in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
 now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
 
@@ -141,7 +141,8 @@ shows under the button and on the Live tab, and the panel under **Right now** (`
 | **Save my friends list** (Friends)                                                         | Scrolls your friends list to the end and saves it, 500 at a time                                                                                                                                                                                                                                        | The same, up to 150 screens                                                        |
 | **Check my friends** (Friends)                                                             | Asks HandsFreeOS who's next (friends you've chatted with first), opens each profile, checks it's them, reads their intro, latest posts and the business page it links to, and sends those lines for the AI (`src/jobs/checks.ts`, decision 46)                                                          | A window of its own, one person every 15 to 30 seconds, up to 40 a day             |
 | **Check my groups** (Groups)                                                               | Asks HandsFreeOS which groups are next (yours first, then ones that fit by name), opens each, reads its latest posts, then its About tab (what it's for and its rules), and sends them for the AI (`src/jobs/groups-check.ts`, decision 48)                                                             | A window of its own, one group every 8 to 16 seconds, up to 8 (4 a day on its own) |
-| **Find and join more groups**, **Ask to join** (Groups)                                    | Asks HandsFreeOS which groups to join (with none, searches with your playbook's words and checks the best 3 first), presses **Join group**, writes in the AI's answers to its questions, ticks that you agree to the rules, submits, and notes how it went (`src/jobs/join.ts`, `src/facebook/join.ts`) | A tab you can see, one group every 20 to 40 seconds, up to 3 a day                 |
+| **Find and join more groups**, **Ask to join** (Groups)                                    | Asks HandsFreeOS which groups to join (with none, searches with your playbook's words and checks the best 3 first), presses **Join group**, writes in the AI's answers to its questions, ticks that you agree to the rules, submits, and notes how it went (`src/jobs/join.ts`, `src/facebook/join.ts`) | A window of its own, one group every 20 to 40 seconds, up to 3 a day               |
+| **OK, post it** (Today, a helpful post)                                                    | Opens the group, presses **Write something…**, types the post you OK'd into the box Facebook opens, presses **Post**, finds it at the top of the newest posts for its link, and notes it (`src/jobs/helpful.ts`, `src/facebook/compose.ts`, decision 50)                                                | A window of its own, one post                                                      |
 | **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`)                                                        | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day        |
 | **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                                                                                | A window of its own, 4 to 9 seconds a screen, 8 screens                            |
 | **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                                                                                 | A window of its own                                                                |
@@ -217,6 +218,9 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
 - **Join good groups when my groups run low** (on to start): with less than a week of people left to reach in your
   groups, it finds groups with your playbook's words and asks to join up to 3 good ones a day, the AI answering their
   questions from your playbook (decision 48).
+- **Helpful posts** (after your OK, to start): once a day the AI writes a post that helps the people in one of your
+  groups. You copy it and post it yourself, the extension posts it after your OK on Today, or on its own in your
+  hours (decision 50); your business may allow only some of these.
 - **Look for new posts asking for what I offer, every hour or two** (on to start): in your hours, it looks at the
   newest posts in your best groups; one asking for what you offer pushes to your phone and tops your list (decision
   49).
@@ -232,13 +236,15 @@ groups); while **Join good groups when my groups run low** is on and your groups
 to reach, asks to join up to 3 good groups (the only thing it presses here); the admins and moderators of up to 3 of your Work these
 groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
-my chats, up to 60 a day; and Check my friends, the day's 40. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
+my chats, up to 60 a day; Check my friends, the day's 40; and, last, it asks for today's helpful post and reads who
+commented on and reacted to yours up in the last fortnight (`helpfulDaily` in `src/jobs/helpful.ts`): each a warm
+lead on your list. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
 do, but for asking to join.
 
 Then, in your hours, every hour or two at random, it opens up to 5 of your best groups sorted by new posts, reads two
 screens of each and sends them for the AI (`watchPosts` in `src/jobs/posts.ts`), between the day's steps. One the AI
 calls strong, someone asking now for what you offer, pushes to your phone and goes first on your list, and it
-comments on it first.
+comments on it first. When you let it post on its own, it puts up today's helpful post once the AI has written it.
 
 In your hours it goes down the list at random times spread over the day, in this order: requests to confirm, posts to
 like, friend requests, then comments. **Start my day** starts it now and goes a minute or few apart, hours or not;

@@ -59,6 +59,7 @@ const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSetti
           collect: row.collect,
           joinGroups: row.joinGroups,
           watchPosts: row.watchPosts,
+          posting: row.posting,
           hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
           noting: row.noting,
           readChats: row.readChats,
@@ -226,6 +227,7 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
     rules: {
       sendingAllowed: rules.sendingAllowed,
       repliesAllowed: rules.repliesAllowed,
+      postingAllowed: rules.postingAllowed,
       dailyLimits: rules.dailyLimits,
     },
   };
@@ -277,6 +279,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       collect: s.collect,
       joinGroups: s.joinGroups,
       watchPosts: s.watchPosts,
+      posting: s.posting,
       hoursStart: s.hours.start,
       hoursEnd: s.hours.end,
       days: dayList(s.hours.days),

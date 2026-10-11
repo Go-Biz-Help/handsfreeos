@@ -70,6 +70,18 @@ export const PUSH_MODES = {
 export type PushMode = keyof typeof PUSH_MODES;
 export const PUSH_MODE_KEYS = Object.keys(PUSH_MODES) as [PushMode, ...PushMode[]];
 
+/**
+ * Who puts up a helpful post the AI drafted (decision 50): the person, copying it; the extension, after their OK (the
+ * default); or the extension on its own. In this order, safest first: a choice the business stops allowing steps back.
+ */
+export const POSTING_MODES = {
+  copy: 'I copy it and post it myself',
+  after_ok: 'The extension posts it after my OK',
+  own: 'The extension posts it on its own',
+} as const;
+export type PostingMode = keyof typeof POSTING_MODES;
+export const POSTING_MODE_KEYS = Object.keys(POSTING_MODES) as [PostingMode, ...PostingMode[]];
+
 /** 0 is Sunday. */
 export const WEEKDAY_WORDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -108,6 +120,8 @@ export const AutomationSettings = z.object({
    * the business offers is answered fast (decision 49). On when left out.
    */
   watchPosts: z.boolean().default(true),
+  /** Who puts up a helpful post (decision 50): after their OK when left out. */
+  posting: z.enum(POSTING_MODE_KEYS).default('after_ok'),
   hours: WorkingHours,
   /** The extension notes the person's own steps on Facebook (decision 8). */
   noting: z.boolean().default(true),
@@ -128,6 +142,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   collect: true,
   joinGroups: true,
   watchPosts: true,
+  posting: 'after_ok',
   hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
   noting: true,
   readChats: true,
@@ -161,6 +176,11 @@ export const BusinessRules = z.object({
     .array(z.enum(REPLY_MODE_KEYS))
     .default([...REPLY_MODE_KEYS])
     .transform((modes) => REPLY_MODE_KEYS.filter((m) => m === 'draft' || modes.includes(m))),
+  /** Copying it themselves is always allowed. */
+  postingAllowed: z
+    .array(z.enum(POSTING_MODE_KEYS))
+    .default([...POSTING_MODE_KEYS])
+    .transform((modes) => POSTING_MODE_KEYS.filter((m) => m === 'copy' || modes.includes(m))),
   dailyLimits: BusinessLimits.default({}),
   defaults: AutomationSettings.default(AUTOMATION_DEFAULTS),
 });
@@ -182,6 +202,7 @@ export function withinRules(
     ...settings,
     sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, settings.sending),
     replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, settings.replies),
+    posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, settings.posting),
   };
 }
 
@@ -190,6 +211,7 @@ export function notAllowedWords(settings: AutomationSettings, rules: BusinessRul
   const off = [
     rules.sendingAllowed.includes(settings.sending) ? null : `“${SENDING_MODES[settings.sending]}”`,
     rules.repliesAllowed.includes(settings.replies) ? null : `“${REPLY_MODES[settings.replies]}”`,
+    rules.postingAllowed.includes(settings.posting) ? null : `“${POSTING_MODES[settings.posting]}”`,
   ].filter(Boolean);
   return off.length
     ? `Your business doesn’t allow ${off.join(' or ')}. Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.`
@@ -327,6 +349,7 @@ export const AutomationOutput = z.object({
   rules: z.object({
     sendingAllowed: z.array(z.enum(SENDING_MODE_KEYS)),
     repliesAllowed: z.array(z.enum(REPLY_MODE_KEYS)),
+    postingAllowed: z.array(z.enum(POSTING_MODE_KEYS)),
     dailyLimits: BusinessLimits,
   }),
 });

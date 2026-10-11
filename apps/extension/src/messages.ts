@@ -6,6 +6,7 @@
 import type { Answered, Seen, Step } from './facebook/actions';
 import type { AutoResult } from './facebook/auto';
 import type { FetchStep, StepResult } from './facebook/fetch';
+import type { Engaged, PostResult } from './facebook/compose';
 import type { JoinStep } from './facebook/join';
 import type { ReplySighting } from './facebook/replies';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
@@ -71,6 +72,18 @@ export type JoinAsk =
 export type JoinAnswer =
   | { readonly ok: true; readonly step: JoinStep }
   | { readonly ok: true; readonly result: 'done' | 'not_sent' | 'none' }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Helpful posts (src/facebook/compose.ts, decision 50): on a group's page, put one up; on the person's own post, read
+ * who commented and reacted.
+ */
+export type GroupPostAsk =
+  { readonly type: 'hfos-group-post'; readonly text: string } | { readonly type: 'hfos-engaged' };
+
+export type GroupPostAnswer =
+  | { readonly ok: true; readonly result: PostResult }
+  | { readonly ok: true; readonly comments: Engaged[]; readonly reactions: Engaged[] }
   | { readonly ok: false; readonly error: string };
 
 export type AutoAnswer =

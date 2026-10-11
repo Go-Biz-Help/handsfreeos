@@ -371,6 +371,7 @@ export const OUTREACH_WORDS = {
   sections: {
     onItsOwn: 'What it does on its own',
     replies: 'Replies',
+    posting: 'Helpful posts',
     along: 'Along the way',
     extension: 'The extension',
     pushes: 'Your phone and the extension',
@@ -388,6 +389,8 @@ export const OUTREACH_WORDS = {
     onItsOwn:
       'It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook.',
     repliesOff: 'Replies go out only while it writes messages: pick what it does on its own first.',
+    posting:
+      'Once a day the AI writes a post that helps the people in one of your groups, after reading its rules: never selling, never the same group twice in a week. Who puts it up?',
     replies:
       'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.',
     extension:

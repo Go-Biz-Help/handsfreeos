@@ -6237,6 +6237,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.helpful.ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI for today’s helpful post: one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules. One a day; asking again answers today’s.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.helpful.asked.
+         */
+        post: operations["command_outreach_helpful_ask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.helpful.engaged": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who reacted to or commented on one of the person’s helpful posts, as the extension read it: each kept as a profile from the group, a warm lead for Today. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.helpful.engaged.
+         */
+        post: operations["command_outreach_helpful_engaged"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.helpful.ok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OK a helpful post for the person’s computer to put up in its group, as written or as they changed it. Their computer posts it when asked (an ask of kind post).
+         * @description Risk level 1. Requires outreach.use. Emits outreach.helpful.oked.
+         */
+        post: operations["command_outreach_helpful_ok"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.helpful.posted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A helpful post went up in its group (the extension posted it, or the person says they did), with its link once known; or the extension couldn’t post it, with why.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.helpful.posted.
+         */
+        post: operations["command_outreach_helpful_posted"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.helpful.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a helpful post aside: it isn’t posted. The day’s slot is free for another.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.helpful.skipped.
+         */
+        post: operations["command_outreach_helpful_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.join.note": {
         parameters: {
             query?: never;
@@ -16371,6 +16471,46 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.helpful": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s helpful posts: today’s (being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_helpful"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.helpful.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For the person’s computer: the helpful post to put up (the one OK’d that an ask names, else a draft it posts on its own), and the posts up in the last fortnight to read for who engaged.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_helpful_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32409,7 +32549,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32535,6 +32675,11 @@ export interface operations {
                         /** @enum {string} */
                         kind: "join";
                     } | {
+                        /** Format: uuid */
+                        helpfulId: string;
+                        /** @enum {string} */
+                        kind: "post";
+                    } | {
                         /** @enum {string} */
                         kind: "group_search";
                         words: string;
@@ -32560,7 +32705,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment";
+                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -32591,7 +32736,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32693,7 +32838,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32757,7 +32902,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -32792,6 +32937,11 @@ export interface operations {
                                 groupIds: string[] | null;
                                 /** @enum {string} */
                                 kind: "join";
+                            } | {
+                                /** Format: uuid */
+                                helpfulId: string;
+                                /** @enum {string} */
+                                kind: "post";
                             } | {
                                 /** @enum {string} */
                                 kind: "group_search";
@@ -32828,7 +32978,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment";
+                                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -32869,6 +33019,11 @@ export interface operations {
                         markPosts?: boolean;
                         /** @default true */
                         noting?: boolean;
+                        /**
+                         * @default after_ok
+                         * @enum {string}
+                         */
+                        posting?: "copy" | "after_ok" | "own";
                         /**
                          * @default bundled
                          * @enum {string}
@@ -32912,6 +33067,7 @@ export interface operations {
                                 friend_request?: number;
                                 like?: number;
                             };
+                            postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
                         };
@@ -32931,6 +33087,11 @@ export interface operations {
                             markPosts: boolean;
                             /** @default true */
                             noting: boolean;
+                            /**
+                             * @default after_ok
+                             * @enum {string}
+                             */
+                            posting: "copy" | "after_ok" | "own";
                             /**
                              * @default bundled
                              * @enum {string}
@@ -33743,6 +33904,209 @@ export interface operations {
                 content: {
                     "application/json": {
                         saved: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_helpful_ask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    groupId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fresh: boolean;
+                        groupName: string | null;
+                        /** Format: uuid */
+                        helpfulId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_helpful_engaged: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    comments?: {
+                        /** @default null */
+                        comment?: string | null;
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    helpfulId: string;
+                    /** @default [] */
+                    reactions?: {
+                        /** @default null */
+                        comment?: string | null;
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** @default null */
+                    url?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        /** Format: uuid */
+                        helpfulId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_helpful_ok: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    helpfulId: string;
+                    text?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        helpfulId: string;
+                        /** @enum {string} */
+                        state: "drafting" | "draft" | "approved" | "posted" | "skipped" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_helpful_posted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    helpfulId: string;
+                    posted: boolean;
+                    /** @default null */
+                    url?: string | null;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        helpfulId: string;
+                        /** @enum {string} */
+                        state: "drafting" | "draft" | "approved" | "posted" | "skipped" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_helpful_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    helpfulId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        helpfulId: string;
+                        /** @enum {string} */
+                        state: "drafting" | "draft" | "approved" | "posted" | "skipped" | "failed";
                     };
                 };
             };
@@ -60695,7 +61059,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -60718,7 +61082,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -60796,6 +61160,7 @@ export interface operations {
                                 friend_request?: number;
                                 like?: number;
                             };
+                            postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
                         };
@@ -60815,6 +61180,11 @@ export interface operations {
                             markPosts: boolean;
                             /** @default true */
                             noting: boolean;
+                            /**
+                             * @default after_ok
+                             * @enum {string}
+                             */
+                            posting: "copy" | "after_ok" | "own";
                             /**
                              * @default bundled
                              * @enum {string}
@@ -61326,6 +61696,105 @@ export interface operations {
                             joined: boolean | null;
                             name: string | null;
                             url: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_helpful: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        perDay: number;
+                        /** @enum {string} */
+                        posting: "copy" | "after_ok" | "own";
+                        posts: {
+                            /** Format: date-time */
+                            askedAt: string;
+                            comments: number;
+                            /** Format: uuid */
+                            groupId: string;
+                            groupName: string | null;
+                            groupUrl: string;
+                            /** Format: uuid */
+                            helpfulId: string;
+                            /** @enum {string} */
+                            how: "copy" | "after_ok" | "own";
+                            playbookName: string | null;
+                            postedAt: string | null;
+                            postUrl: string | null;
+                            reactions: number;
+                            /** @enum {string} */
+                            state: "drafting" | "draft" | "approved" | "posted" | "skipped" | "failed";
+                            text: string | null;
+                            topic: string | null;
+                            whyNot: string | null;
+                        }[];
+                        today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_helpful_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    helpfulId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: {
+                            groupName: string | null;
+                            groupUrl: string;
+                            /** Format: uuid */
+                            helpfulId: string;
+                            text: string;
+                        } | null;
+                        read: {
+                            groupName: string | null;
+                            groupUrl: string;
+                            /** Format: uuid */
+                            helpfulId: string;
+                            postUrl: string | null;
+                            text: string;
                         }[];
                     };
                 };
@@ -62059,7 +62528,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment")[];
+                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead")[];
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -62067,7 +62536,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment";
+                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
@@ -62185,7 +62654,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "cancel" | "unfriend" | "lookup";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
                                 line: string | null;
                                 reply: ("carry_on" | "skip") | null;
                                 result: {

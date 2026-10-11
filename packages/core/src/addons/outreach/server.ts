@@ -15,6 +15,7 @@ import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
+import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
@@ -52,6 +53,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...checkCommands,
     ...stageCommands,
     ...groupCheckCommands,
+    ...helpfulCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -72,5 +74,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...checkQueries,
     ...stageQueries,
     ...groupCheckQueries,
+    ...helpfulQueries,
   ],
 };

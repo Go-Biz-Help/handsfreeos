@@ -73,6 +73,19 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           )
         : [];
       const profileId = input.profileId ?? chat?.profile_id ?? post?.profile_id ?? null;
+      // A warm lead (decision 50): their latest comment on one of the person's own helpful posts, and that post.
+      const [engaged] =
+        input.kind === 'warm_lead' && profileId
+          ? await rows<{ comment: string; body: string | null; group: string | null }>(
+              tx,
+              sql`select e.comment, h.body, g.name as group from addon_outreach.engagements e
+                  join addon_outreach.helpful h on h.id = e.helpful_id
+                  join addon_outreach.groups g on g.id = h.group_id
+                  where e.workspace_id = ${ws} and e.user_id = ${ctx.userId} and e.profile_id = ${profileId}
+                    and e.kind = 'comment' and e.comment is not null
+                  order by e.seen_at desc limit 1`,
+            )
+          : [];
       const [profile] = profileId
         ? await rows<{
             name: string;
@@ -107,11 +120,22 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                   and verdict in ('good', 'maybe')`,
           )
         : [];
-      return { business, chat, post, profile, lines: lines[0]?.lines ?? [], playbooks, check };
+      return {
+        business,
+        chat,
+        post,
+        engaged,
+        profile,
+        lines: lines[0]?.lines ?? [],
+        playbooks,
+        check,
+      };
     });
     const name = found.profile?.name ?? found.chat?.name;
     if (input.kind === 'comment' && !found.post)
       throw HfosError.notFound('That post isn’t on your list anymore. Reload Today.');
+    if (input.kind === 'warm_lead' && !found.engaged)
+      throw HfosError.notFound('Their comment isn’t on your list anymore. Reload Today.');
     if (!name) throw HfosError.notFound('That person isn’t on your list anymore. Reload Today.');
     const facts = [
       ...found.lines,
@@ -169,7 +193,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               facts,
               recent: found.chat?.recent ?? [],
               playbook: playbook ? { name: playbook.name, ...playbook.details, link } : null,
-              post: found.post ? { text: found.post.body, group: found.post.group } : null,
+              post: found.engaged
+                ? {
+                    text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
+                    group: found.engaged.group,
+                  }
+                : found.post
+                  ? { text: found.post.body, group: found.post.group }
+                  : null,
               lookup: input.lookup,
               opener,
             }),

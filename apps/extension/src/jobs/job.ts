@@ -17,6 +17,8 @@ import type {
   BrowseAsk,
   FetchAnswer,
   FetchAsk,
+  GroupPostAnswer,
+  GroupPostAsk,
   JoinAnswer,
   JoinAsk,
 } from '../messages';
@@ -33,6 +35,7 @@ export interface JobTab {
   ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   ask(message: FetchAsk): Promise<FetchAnswer>;
   ask(message: JoinAsk): Promise<JoinAnswer>;
+  ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */

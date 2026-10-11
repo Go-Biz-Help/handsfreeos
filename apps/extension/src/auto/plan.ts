@@ -34,6 +34,7 @@ export const DAILY_JOBS = [
   'posts',
   'chats',
   'checks',
+  'helpful',
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
 
@@ -64,6 +65,12 @@ export interface AutoState {
   readonly daily?: Readonly<Partial<Record<DailyJob, string>>>;
   /** When it next looks at the newest posts in the groups (decision 49). Missing in a state kept by 0.22: due now. */
   readonly watchAt?: number | null;
+  /**
+   * Today's helpful post, when the person lets it post on its own (decision 50): when it next looks for one written,
+   * and whether it's up. Missing in a state kept by 0.23.
+   */
+  readonly helpfulAt?: number | null;
+  readonly helpfulUp?: boolean;
   /** What it's doing, or last did, in words for the person, and when. */
   readonly line: string | null;
   readonly lineAt: number | null;
@@ -89,6 +96,8 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     done: {},
     daily: {},
     watchAt: null,
+    helpfulAt: null,
+    helpfulUp: false,
     line: null,
     lineAt: null,
     nextAt: null,
@@ -118,6 +127,15 @@ export function nextWatch(now: number, random: number): number {
   const [least, most] = WATCH_EVERY_MINUTES;
   return now + Math.round((least + random * (most - least)) * 60_000);
 }
+
+/** How long after a look finds no helpful post written yet it looks again. */
+export const HELPFUL_AGAIN_MS = 30 * 60_000;
+
+/** Whether to look for today's helpful post to put up on its own: not up yet, and due. */
+export const helpfulDue = (
+  state: Pick<AutoState, 'helpfulAt' | 'helpfulUp'>,
+  now: number,
+): boolean => !state.helpfulUp && (state.helpfulAt ?? 0) <= now;
 
 /** Whether it's time to look at the newest posts again. */
 export const watchDue = (state: Pick<AutoState, 'watchAt'>, now: number): boolean =>

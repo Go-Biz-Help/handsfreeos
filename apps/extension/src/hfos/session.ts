@@ -441,6 +441,26 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.join.note', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-helpful-ask':
+      return call(
+        api().POST('/v1/commands/outreach.helpful.ask', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-next':
+      return call(
+        api().POST('/v1/queries/outreach.helpful.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-posted':
+      return call(
+        api().POST('/v1/commands/outreach.helpful.posted', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-engaged':
+      return call(
+        api().POST('/v1/commands/outreach.helpful.engaged', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-join-answers':
       return call(
         workerPost<JoinAnswerOutput>('/v1/addons/outreach/actions/outreach.join.answer', {
