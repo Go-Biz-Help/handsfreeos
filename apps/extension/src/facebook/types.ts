@@ -101,6 +101,14 @@ export interface GroupPage {
   readonly members: number | null;
   /** Whether the page shows you as a member ("Joined") or offers "Join group". */
   readonly joined: boolean | null;
+  /** Asked to join, and waiting for the admins: the page offers to cancel the request. */
+  readonly asked?: boolean;
+}
+
+/** A group's About tab: what it says it's for, and its rules from the admins (./groups.ts). */
+export interface GroupAbout {
+  readonly about: readonly string[];
+  readonly rules: readonly string[];
 }
 
 export interface Post {
@@ -161,6 +169,8 @@ export interface ReadResult {
   /** On a profile, the pages its lines link to: the business they own or work at (./profile.ts). */
   readonly pages?: readonly Named[];
   readonly group?: GroupPage;
+  /** On a group's About tab: what it's for, and its rules (decision 48). */
+  readonly about?: GroupAbout;
   readonly chat?: ChatPage;
   readonly people?: readonly Person[];
   readonly groups?: readonly GroupLink[];

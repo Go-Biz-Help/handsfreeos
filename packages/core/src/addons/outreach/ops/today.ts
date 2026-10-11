@@ -11,7 +11,7 @@ import { defineAddonQuery } from '../../server';
 import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds, messageKinds } from '../automation';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
-import { bestGroupFit } from '../groups';
+import type { GroupCheckState } from '../group-checks';
 import { dailyLimitsNow, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
@@ -32,6 +32,7 @@ import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
 import { inPlay, inWorkspace, pitchable, type Ctx } from './common';
 import { playbooksInUse } from './friends';
+import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
@@ -217,13 +218,19 @@ export const today = defineAddonQuery(outreachAddon, {
         group_detail: string | null;
         group_members: number | null;
         group_privacy: 'public' | 'private' | null;
+        check_state: GroupCheckState | null;
+        check_why: string[];
+        check_playbook_id: string | null;
+        in_group: boolean;
         liked_at: Date | string | null;
         warm_up_missed_at: Date | string | null;
       }>(
         ctx.tx,
         sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
               gp.group_id, g.name as group_name, g.detail as group_detail, g.members as group_members,
-              g.privacy as group_privacy, p.warm_up_missed_at,
+              g.privacy as group_privacy, p.warm_up_missed_at, g.check_state, g.check_why, g.check_playbook_id,
+              exists (select 1 from addon_outreach.my_groups m
+                where m.group_id = g.id and m.user_id = ${me} and m.joined) as in_group,
               (select max(t.at) from addon_outreach.touches t
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
                   and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
@@ -243,12 +250,17 @@ export const today = defineAddonQuery(outreachAddon, {
             limit ${CANDIDATES_MOST}`,
       );
       const fitted = found.flatMap((p) => {
-        const group = bestGroupFit(playbooks, {
+        // The AI's read of the group goes over its name (decision 48).
+        const group = groupFitOf(playbooks, {
           name: p.group_name,
           detail: p.group_detail,
           members: p.group_members,
           privacy: p.group_privacy,
-          joined: null,
+          joined: p.in_group,
+          check_state: p.check_state,
+          check_why: p.check_why,
+          check_playbook_id: p.check_playbook_id,
+          check_playbook: null,
         });
         if (group.verdict === 'skip') return [];
         const fit = bestFit(playbooks, {
@@ -258,18 +270,22 @@ export const today = defineAddonQuery(outreachAddon, {
         });
         return fit.level === 'skip' || fit.level === 'unknown' ? [] : [{ p, fit }];
       });
-      // Someone from a group whose people wrote back or booked demos comes ahead of others who fit as well (9a).
+      // Someone from a group whose people wrote back or booked demos comes ahead of others who fit as well (9a);
+      // and the person's own groups, and those the AI says their people are in, before the rest (decision 48).
       const results = found.length
         ? resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }))
         : new Map<string, GroupResults>();
-      const lift = (groupId: string) => {
-        const r = results.get(groupId);
-        return !r ? 0 : r.demos ? 2 : r.replies ? 1 : 0;
+      const lift = (p: (typeof found)[number]) => {
+        const r = results.get(p.group_id);
+        return (
+          (!r ? 0 : r.demos ? 2 : r.replies ? 1 : 0) +
+          (p.in_group ? 1 : 0) +
+          (p.check_state === 'good' ? 1 : 0)
+        );
       };
       fitted.sort(
         (a, b) =>
-          b.fit.score + lift(b.p.group_id) - (a.fit.score + lift(a.p.group_id)) ||
-          a.p.name.localeCompare(b.p.name),
+          b.fit.score + lift(b.p) - (a.fit.score + lift(a.p)) || a.p.name.localeCompare(b.p.name),
       );
       const fromResults = (groupId: string) => {
         const r = results.get(groupId);

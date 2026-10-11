@@ -7,7 +7,7 @@ import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
 import { inTopBar, tabsIn } from './dom';
 import { friendListOf, listBeside, readListBeside, withRequests } from './friends';
-import { readGroupLinks, readGroupPage } from './groups';
+import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
 import { readPeople, readPeopleAnywhere } from './people';
 import { readPosts } from './posts';
@@ -97,9 +97,15 @@ export function readPage(
         people: readPeople(main, base, { sections: true, after: tabsIn(main) }),
       };
       break;
-    case 'group':
-      found = { group: readGroupPage(main, address), posts: readPosts(main, base) };
+    case 'group': {
+      const url = facebookUrl(href);
+      // Its About tab says what it's for and its rules; any other shows its posts.
+      found =
+        url && pathParts(url)[2]?.toLowerCase() === 'about'
+          ? { group: readGroupPage(main, address), about: readGroupAbout(main) }
+          : { group: readGroupPage(main, address), posts: readPosts(main, base) };
       break;
+    }
     case 'groups':
       found = { groups: readGroupsAnywhere(doc, main, base) };
       break;

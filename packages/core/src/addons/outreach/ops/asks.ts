@@ -186,6 +186,21 @@ async function taskOf(
     }
     case 'group_search':
       return { task: { kind: 'group_search', words: ask.words }, target, about: askAbout(ask) };
+    case 'join': {
+      if (!ask.groupIds)
+        return { task: { kind: 'join', groupIds: null }, target, about: askAbout(ask) };
+      const ids = [...new Set(ask.groupIds)];
+      const found = await groupsForAsk(ctx, sql`g.id = any (${`{${ids.join(',')}}`}::uuid[])`);
+      if (found.length < ids.length)
+        throw HfosError.notFound(
+          'That group isn’t saved in Social Outreach any more. Refresh the Groups tab.',
+        );
+      return {
+        task: { kind: 'join', groupIds: ids },
+        target,
+        about: askAbout(ask, { groups: ids.map((id) => found.find((g) => g.id === id)!.name) }),
+      };
+    }
     case 'cancel':
     case 'unfriend':
       return {

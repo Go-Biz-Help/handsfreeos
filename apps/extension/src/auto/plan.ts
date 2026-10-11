@@ -5,9 +5,10 @@
  * (packages/core/src/addons/outreach/sends.ts) come around those: the ones OK'd go first, then it drafts the rest,
  * which wait for the person or go as they are; with Approve all, it drafts them all before anything else, so they're
  * ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
- * a person's pace, a minute or few apart. Before any of it, once a day, it checks the person's friend requests, saves
- * their groups' members, finds posts, reads their chats (decision 32) and checks their friends for good fits
- * (decision 46), which fill that list.
+ * a person's pace, a minute or few apart. Before any of it, once a day, it checks the person's friend requests, checks
+ * their groups for their people and joins good ones when people left to reach run low (decision 48), saves their
+ * groups' members, finds posts, reads their chats (decision 32) and checks their friends for good fits (decision 46),
+ * which fill that list.
  */
 import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automation';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
@@ -23,7 +24,15 @@ export type AutoKind = (typeof AUTO_KINDS)[number];
 export type DoneKind = AutoKind | 'drafted' | 'sent';
 
 /** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
-export const DAILY_JOBS = ['requests', 'members', 'posts', 'chats', 'checks'] as const;
+export const DAILY_JOBS = [
+  'requests',
+  'group_checks',
+  'join',
+  'members',
+  'posts',
+  'chats',
+  'checks',
+] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
 
 /** The shortest and longest wait between two steps in the working hours. */

@@ -289,6 +289,9 @@ export const OUTREACH_WORDS = {
   inContacts: 'In Contacts',
   openCustomer: 'Open in Customers',
   nextStepLabel: 'Next step',
+  /** On a group: people there who fit and haven't been reached (decision 48). */
+  leftToReach: (n: number) =>
+    `${n.toLocaleString('en-US')} ${n === 1 ? 'person' : 'people'} who fit left to reach`,
 
   // ---- Playbooks ----
   playbooksEmpty: 'No playbooks yet.',
@@ -417,7 +420,11 @@ export const OUTREACH_WORDS = {
     ],
     collect: [
       'Once a day, first: check friend requests, save group members, find posts and read my chats',
-      'These fill the list it works from.',
+      'These fill the list it works from. It checks your friends and groups for good fits too.',
+    ],
+    joinGroups: [
+      'Join good groups when my groups run low',
+      'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
     ],
     noting: [
       'Note my steps on Facebook',

@@ -1,9 +1,12 @@
 'use client';
 /**
  * Social Outreach's Groups tab (docs/outreach.md, the plan's Phase 1 step 4): the Facebook groups the extension saved,
- * scored against the business's playbooks as Work these, Maybe or Skip, with why; how many people were saved from
- * each and who runs it; and whether its admins and moderators are read, which Today waits for before it suggests
- * anyone from it. Which, the name and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
+ * scored against the business's playbooks as Work these, Maybe or Skip, with why (the AI's read of a group over its
+ * name's, decision 48); how many people were saved from each, who runs it, and how many who fit are left to reach;
+ * whether its admins and moderators are read, which Today waits for before it suggests anyone from it; and the
+ * person's ask to join it. **Check my groups** has the AI read the groups' About pages and posts, and **Find and join
+ * more groups** asks to join good ones; a card says how many people the groups have left to reach, in days of friend
+ * requests. Which, the name and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
  */
 import {
   ASK_LINK_MOST,
@@ -11,6 +14,12 @@ import {
   ASK_WORDS_MOST,
   askedWords,
 } from '@hfos/core/addons/outreach/asks';
+import {
+  GROUP_CHECK_STATES,
+  GROUP_CHECK_WORDS,
+  JOIN_STATES,
+  prospectsWords,
+} from '@hfos/core/addons/outreach/group-checks';
 import { GROUP_VIEWS, GROUPS_PAGE, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { brought, resultWords } from '@hfos/core/addons/outreach/results';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -139,6 +148,7 @@ export function GroupsView({
           )}
         </div>
         <aside className="space-y-4">
+          <ProspectsCard workspaceId={workspaceId} groups={groups} asks={asks} />
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">The groups that bring results</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
@@ -151,9 +161,11 @@ export function GroupsView({
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">How groups are scored</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
-              A group is worth working when its name has one of a playbook’s words to search for
-              groups, its area, or a sign you’re looking for. Big groups and ones you’re in count a
-              little more; a name with someone to skip makes it a skip.
+              Once the AI has read a group’s About page and posts, what it says decides: your people
+              there makes it one to work, none a skip. Until then, a group is worth working when its
+              name has one of a playbook’s words to search for groups, its area, or a sign you’re
+              looking for. Big groups and ones you’re in count a little more; a name with someone to
+              skip makes it a skip.
             </p>
           </Card>
           <Card className="p-4">
@@ -166,6 +178,50 @@ export function GroupsView({
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * How many people the groups have left to reach, in days of friend requests (decision 48), and the asks that find
+ * more: Check my groups, and Find and join more groups.
+ */
+function ProspectsCard({
+  workspaceId,
+  groups,
+  asks,
+}: {
+  workspaceId: string;
+  groups: Groups;
+  asks: Asks;
+}) {
+  return (
+    <Card
+      className={cn('p-4', groups.prospects.low && 'border-warning')}
+      data-testid="groups-prospects"
+    >
+      <h3 className="text-[15px] font-semibold">{GROUP_CHECK_WORDS.prospectsTitle}</h3>
+      <p className="mt-1.5 text-[13px] text-text-2" data-testid="groups-prospects-words">
+        {prospectsWords(groups.prospects, groups.joinsOnItsOwn)}
+      </p>
+      <div className="mt-3 grid gap-3">
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'group_checks' }}
+          label={GROUP_CHECK_WORDS.checkButton}
+          testId="ask-group-checks"
+        />
+        <p className="-mt-1.5 text-[12.5px] text-text-3">{GROUP_CHECK_WORDS.checkNote}</p>
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'join' }}
+          label={GROUP_CHECK_WORDS.joinButton}
+          testId="ask-join"
+        />
+        <p className="-mt-1.5 text-[12.5px] text-text-3">{GROUP_CHECK_WORDS.joinNote}</p>
+      </div>
+    </Card>
   );
 }
 
@@ -360,8 +416,24 @@ function GroupRow({
           ) : null}
           <Badge variant={VERDICT_BADGE[g.verdict]}>{GROUP_VIEWS[g.verdict]}</Badge>
           {g.people && !g.adminsRead ? <Badge variant="pending">Admins not read</Badge> : null}
+          {g.join ? (
+            <Badge
+              variant={g.join.state === 'failed' ? 'danger' : 'accent'}
+              data-testid="group-join"
+            >
+              {JOIN_STATES[g.join.state]}
+            </Badge>
+          ) : null}
         </div>
       </div>
+      {g.check && g.check.state !== 'waiting' ? (
+        <p className="mt-1.5 text-[12.5px] text-text" data-testid="group-check">
+          <span className="font-medium">{GROUP_CHECK_STATES[g.check.state]}</span>
+          {g.check.who ? ` · ${g.check.who}` : ''}
+        </p>
+      ) : g.check ? (
+        <p className="mt-1.5 text-[12.5px] text-text-3">{GROUP_CHECK_STATES.waiting}</p>
+      ) : null}
       {g.reasons.length ? (
         <p className="mt-1.5 text-[12.5px] text-text-2" data-testid="group-reasons">
           {g.reasons.join(' · ')}
@@ -369,7 +441,12 @@ function GroupRow({
         </p>
       ) : null}
       {saved ? <p className="mt-1 text-[12.5px] text-text-3">{saved}</p> : null}
-      <div className="mt-2">
+      {g.left ? (
+        <p className="mt-1 text-[12.5px] text-text-2" data-testid="group-left">
+          {W.leftToReach(g.left)}
+        </p>
+      ) : null}
+      <div className="mt-2 flex flex-wrap gap-2">
         <AskButton
           workspaceId={workspaceId}
           asks={asks}
@@ -378,6 +455,16 @@ function GroupRow({
           variant="ghost"
           testId="ask-group-members"
         />
+        {g.joined !== true && g.verdict !== 'skip' && (!g.join || g.join.state === 'failed') ? (
+          <AskButton
+            workspaceId={workspaceId}
+            asks={asks}
+            ask={{ kind: 'join', groupIds: [g.groupId] }}
+            label={GROUP_CHECK_WORDS.joinOne}
+            variant="ghost"
+            testId="ask-group-join"
+          />
+        ) : null}
       </div>
     </li>
   );

@@ -6750,6 +6750,35 @@
                 "properties": {
                   "kind": {
                     "type": "string",
+                    "const": "group_checks"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "join"
+                  },
+                  "groupIds": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
                     "const": "group_search"
                   },
                   "words": {
@@ -6956,6 +6985,10 @@
                 "type": "boolean"
               },
               "collect": {
+                "default": true,
+                "type": "boolean"
+              },
+              "joinGroups": {
                 "default": true,
                 "type": "boolean"
               },
@@ -12952,7 +12985,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 15,
+            "maxItems": 17,
             "type": "array",
             "items": {
               "type": "string",
@@ -12969,6 +13002,8 @@
                 "posts",
                 "chats",
                 "checks",
+                "group_checks",
+                "join",
                 "cancel",
                 "unfriend",
                 "lookup"

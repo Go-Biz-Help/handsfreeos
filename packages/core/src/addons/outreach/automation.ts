@@ -22,7 +22,9 @@
  *   was liked; a profile with no post to like goes without.
  * - **Confirm requests that fit** (decision 30): requests they got from people who fit a playbook well are confirmed.
  * - **Once a day** (decision 32): checking friend requests, saving group members, Find posts and Read my chats, at the
- *   start of the working day, while it works on its own.
+ *   start of the working day, while it works on its own; and checking friends and groups (decisions 46 and 48).
+ * - **Join groups** (decision 48): when people left to reach in the groups run low, finding groups and asking to join
+ *   up to 3 good ones a day, with the AI answering their questions.
  *
  * - **Where they're set** (decisions 37 to 40): in HandsFreeOS, on Social Outreach's Settings tab, on the web and the
  *   phone; never in the extension, which loads them when the person signs in and follows each change within seconds.
@@ -96,6 +98,11 @@ export const AutomationSettings = z.object({
   confirmRequests: z.boolean(),
   /** The once-a-day jobs (decision 32): they fill the list it works from. On when left out, as 0.11 of the extension does. */
   collect: z.boolean().default(true),
+  /**
+   * When people left to reach in the groups run low, it finds groups and asks to join up to 3 good ones a day (decision
+   * 48), with the once-a-day jobs. On when left out.
+   */
+  joinGroups: z.boolean().default(true),
   hours: WorkingHours,
   /** The extension notes the person's own steps on Facebook (decision 8). */
   noting: z.boolean().default(true),
@@ -114,6 +121,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   warmUp: true,
   confirmRequests: true,
   collect: true,
+  joinGroups: true,
   hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
   noting: true,
   readChats: true,

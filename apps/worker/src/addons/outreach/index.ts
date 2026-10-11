@@ -16,6 +16,13 @@ import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
+import {
+  CHECK_GROUPS_JOB,
+  checkGroupsJob,
+  groupLooked,
+  JOIN_ANSWER_ACTION,
+  joinAnswer,
+} from './groups';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askProgressed } from './asks';
@@ -81,6 +88,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.posts.saved': andMorning(postsSaved),
     // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
     'outreach.check.looked': andMorning(checkLooked),
+    // A group's About page, rules and posts, read off Facebook, wait for the AI's check of it (./groups.ts).
+    'outreach.group.looked': groupLooked,
     'outreach.reply.seen': andWeekly(replySeen),
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
@@ -99,13 +108,19 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
+    [CHECK_GROUPS_JOB]: checkGroupsJob,
     [MORNING_JOB]: morningJob,
     [WEEKLY_JOB]: weeklyJob,
     [LIVE_PRUNE_JOB]: livePruneJob,
     [WAITING_PUSH_JOB]: waitingPushJob,
   },
-  // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
-  actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
+  // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
+  // group's questions when the extension asks to join it (./groups.ts).
+  actions: {
+    [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
+    [TODAY_DRAFT_ACTION]: todayDraft,
+    [JOIN_ANSWER_ACTION]: joinAnswer,
+  },
   // The morning push, weekly report and the feed's pruning, from now: nothing that came due while it was off runs late.
   onEnable: async (ctx) => {
     await armMorning(ctx);

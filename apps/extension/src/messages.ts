@@ -6,6 +6,7 @@
 import type { Answered, Seen, Step } from './facebook/actions';
 import type { AutoResult } from './facebook/auto';
 import type { FetchStep, StepResult } from './facebook/fetch';
+import type { JoinStep } from './facebook/join';
 import type { ReplySighting } from './facebook/replies';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { ProfileRef, ReadResult } from './facebook/types';
@@ -58,6 +59,19 @@ export type AutoAsk =
   | { readonly type: 'hfos-like-latest'; readonly profile: ProfileRef }
   | { readonly type: 'hfos-comment'; readonly text: string }
   | { readonly type: 'hfos-message'; readonly text: string };
+
+/**
+ * Asking to join a group (src/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what
+ * Facebook asks first; then answer its questions with the AI's answers and submit them.
+ */
+export type JoinAsk =
+  | { readonly type: 'hfos-join' }
+  | { readonly type: 'hfos-join-answer'; readonly answers: readonly string[] };
+
+export type JoinAnswer =
+  | { readonly ok: true; readonly step: JoinStep }
+  | { readonly ok: true; readonly result: 'done' | 'not_sent' | 'none' }
+  | { readonly ok: false; readonly error: string };
 
 export type AutoAnswer =
   | { readonly ok: true; readonly result: AutoResult; readonly postUrl?: string | null }

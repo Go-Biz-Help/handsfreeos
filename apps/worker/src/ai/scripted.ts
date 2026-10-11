@@ -1725,6 +1725,39 @@ function scriptedFitCheck(message: string) {
   };
 }
 
+/**
+ * Social Outreach's check of a group (decision 48): the business's people are there when its About page says
+ * "contractors", some when it says "business", else not; who posts is its first About line.
+ */
+function scriptedGroupCheck(message: string) {
+  const about = /<about>\n([\s\S]*?)\n<\/about>/.exec(message)?.[1] ?? '';
+  const playbook = /^Name: (.*)$/m.exec(message)?.[1] ?? null;
+  const fit = /\bcontractors?\b/i.test(about)
+    ? 'good'
+    : /\bbusiness\b/i.test(about)
+      ? 'maybe'
+      : 'not';
+  return {
+    fit,
+    playbook: fit === 'not' ? null : playbook && unquote(playbook),
+    why:
+      fit === 'good'
+        ? ['Contractors ask for help here']
+        : fit === 'maybe'
+          ? ['Some owners post']
+          : [],
+    who: fit === 'not' ? null : unquote(about.split('\n')[0] ?? '') || null,
+  };
+}
+
+/** Social Outreach's answers to a group's questions (decision 31): one per question, saying which it answers. */
+function scriptedJoinAnswers(message: string) {
+  const questions = (/<questions>\n([\s\S]*?)\n<\/questions>/.exec(message)?.[1] ?? '')
+    .split('\n')
+    .filter(Boolean);
+  return { answers: questions.map((_, i) => `Answer ${i + 1} from the playbook.`) };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
   {
@@ -1733,6 +1766,11 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
   { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
+  {
+    when: /Are the business’s people in this group\?$/,
+    json: (message) => scriptedGroupCheck(message),
+  },
+  { when: /Answer the group’s questions\.$/, json: (message) => scriptedJoinAnswers(message) },
   {
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),

@@ -1,16 +1,21 @@
 /**
  * The once-a-day jobs (docs/outreach.md, decision 32), which the runner that works on its own (./run.ts) does at the
  * start of the person's working day, or after **Start my day**, before going down their list: it checks their friend
- * requests, saves the members of their good groups, finds posts in those groups, reads their chats, and checks their
- * friends for good fits (decision 46), each in the window it works in, at a person's pace (src/jobs/). Those fill the
- * list it then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the
- * AI, and friends to reconnect with. Nothing is pressed or sent on
- * Facebook. They run while the person lets it work on its own and leaves **Once a day** ticked.
+ * requests, checks their groups for their people and joins good ones when people left to reach run low (decision 48),
+ * saves the members of their good groups, finds posts in those groups, reads their chats, and checks their friends for
+ * good fits (decision 46), each in the window it works in, at a person's pace (src/jobs/). Those fill the list it
+ * then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the AI, and
+ * friends to reconnect with. Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
+ * only while the person lets it join on its own. They run while the person lets it work on its own and leaves **Once
+ * a day** ticked.
  */
 import type { ReadResult } from '../facebook/types';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
+import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
 import { chatMemory, readChats } from '../jobs/chats';
 import { checkFriends } from '../jobs/checks';
+import { checkGroups } from '../jobs/groups-check';
+import { joinGroups } from '../jobs/join';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
@@ -23,6 +28,8 @@ export const DAILY_CHATS = 60;
 /** What it's doing, in words for the person. */
 export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   requests: 'Checking your friend requests…',
+  group_checks: 'Checking your groups for your people…',
+  join: 'Looking for good groups to join…',
   members: 'Saving your groups’ members…',
   posts: 'Finding posts in your groups…',
   chats: 'Reading your chats for the AI…',
@@ -32,6 +39,8 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
 /** The job's name, for the panel's list of what it did today. */
 export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   requests: 'Friend requests',
+  group_checks: 'Check my groups',
+  join: 'Join groups',
   members: 'Group members',
   posts: 'Find posts',
   chats: 'Read my chats',
@@ -58,6 +67,10 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
   switch (kind) {
     case 'requests':
       return checkRequests(job);
+    case 'group_checks':
+      return checkGroups(job, GROUP_CHECKS_DAILY);
+    case 'join':
+      return joinGroups(job, null, true);
     case 'members':
     case 'posts': {
       const groups = await groupsToWork(job, RUN_GROUPS);

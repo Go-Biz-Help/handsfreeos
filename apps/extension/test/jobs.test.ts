@@ -113,16 +113,38 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, then members, then posts, then chats, then friends, each once a day', () => {
-    expect(DAILY_JOBS).toEqual(['requests', 'members', 'posts', 'chats', 'checks']);
+  it('checks requests, then groups, joins, members, posts, chats and friends, each once a day', () => {
+    expect(DAILY_JOBS).toEqual([
+      'requests',
+      'group_checks',
+      'join',
+      'members',
+      'posts',
+      'chats',
+      'checks',
+    ]);
     const fresh = freshState('2026-10-10');
     expect(nextDaily(fresh)).toBe('requests');
-    expect(nextDaily({ daily: { requests: 'Saved 2.', members: 'Saved 9.' } })).toBe('posts');
+    expect(nextDaily({ daily: { requests: 'Saved 2.' } })).toBe('group_checks');
+    expect(
+      nextDaily({ daily: { requests: '', group_checks: '', join: '', members: 'Saved 9.' } }),
+    ).toBe('posts');
+    // A state kept by 0.21 hasn't done the groups' jobs yet today: they come next.
     expect(nextDaily({ daily: { requests: '', members: '', posts: '', chats: '' } })).toBe(
-      'checks',
+      'group_checks',
     );
     expect(
-      nextDaily({ daily: { requests: '', members: '', posts: '', chats: '', checks: '' } }),
+      nextDaily({
+        daily: {
+          requests: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          chats: '',
+          checks: '',
+        },
+      }),
     ).toBeNull();
     // A state kept by 0.11 has none: it starts from the first.
     expect(nextDaily({})).toBe('requests');

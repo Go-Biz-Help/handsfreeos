@@ -5,8 +5,8 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, and 20261027002100 for stages): the Drizzle mirror its server code reads and
- * writes through.
+ * the fits among friends and chats, 20261027002100 for stages, and 20261027002200 for checking and joining groups):
+ * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -30,6 +30,7 @@ import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './
 import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
+import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
@@ -92,6 +93,30 @@ export const groups = addonOutreach.table(
     /** When its full list of admins and moderators was read: only then are its members suggested. */
     adminsReadAt: ts('admins_read_at'),
     seenAt: ts('seen_at'),
+    /** What its About page and its rules say (decision 48), and when they were read. */
+    about: text('about')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    rules: text('rules')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    aboutAt: ts('about_at'),
+    /** A few of its posts, until the AI reads them. */
+    checkLines: text('check_lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    /** What the AI made of it: whether the business's people are there, why, who posts, and the playbook. */
+    checkState: text('check_state').$type<GroupCheckState>(),
+    checkWhy: text('check_why')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    checkWho: text('check_who'),
+    checkPlaybookId: uuid('check_playbook_id'),
+    checkedAt: ts('checked_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -597,7 +622,8 @@ export const automation = addonOutreach.table(
     warmUp: boolean('warm_up').notNull().default(true),
     confirmRequests: boolean('confirm_requests').notNull().default(true),
     collect: boolean('collect').notNull().default(true),
-    joinGroups: boolean('join_groups').notNull().default(false),
+    /** It finds and asks to join good groups when people left to reach run low (decision 48). */
+    joinGroups: boolean('join_groups').notNull().default(true),
     hoursStart: smallint('hours_start').notNull().default(9),
     hoursEnd: smallint('hours_end').notNull().default(17),
     days: smallint('days')
@@ -930,6 +956,33 @@ export const stages = addonOutreach.table(
   ],
 );
 
+/** Each person's asks to join a group (decision 31), with the AI's answers to its questions. Each person's own. */
+export const joins = addonOutreach.table(
+  'joins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull(),
+    state: text('state').notNull().$type<JoinState>(),
+    answers: jsonb('answers').notNull().default([]).$type<JoinAnswered[]>(),
+    why: text('why'),
+    askedAt: ts('asked_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.groupId),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -945,6 +998,7 @@ export const OUTREACH_TABLES = {
   groups,
   myGroups,
   imports,
+  joins,
   demos,
   liveSteps,
   needs,

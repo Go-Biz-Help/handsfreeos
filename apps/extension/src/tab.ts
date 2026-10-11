@@ -15,6 +15,8 @@ import type {
   BrowseAsk,
   FetchAnswer,
   FetchAsk,
+  JoinAnswer,
+  JoinAsk,
 } from './messages';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -118,21 +120,22 @@ export class WorkTab {
   /** Asks the tab's script, loading it first into a tab opened before the extension was. */
   async ask(message: FetchAsk): Promise<FetchAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
+  async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
-    message: FetchAsk | AutoAsk | BrowseAsk | Ask,
-  ): Promise<FetchAnswer | AutoAnswer | BrowseAnswer | Answer> {
+    message: FetchAsk | AutoAsk | JoinAsk | BrowseAsk | Ask,
+  ): Promise<FetchAnswer | AutoAnswer | JoinAnswer | BrowseAnswer | Answer> {
     if (this.id === null) return { ok: false, error: 'The Facebook tab was closed.' };
     const id = this.id;
     try {
       return (await chrome.tabs.sendMessage(id, message)) as
-        FetchAnswer | AutoAnswer | BrowseAnswer | Answer;
+        FetchAnswer | AutoAnswer | JoinAnswer | BrowseAnswer | Answer;
     } catch {
       try {
         await chrome.scripting.executeScript({ target: { tabId: id }, files: ['content.js'] });
         return (await chrome.tabs.sendMessage(id, message)) as
-          FetchAnswer | AutoAnswer | BrowseAnswer | Answer;
+          FetchAnswer | AutoAnswer | JoinAnswer | BrowseAnswer | Answer;
       } catch {
         return {
           ok: false,

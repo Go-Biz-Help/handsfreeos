@@ -4,6 +4,7 @@
  * sign-in and never refresh it twice at once. Both ends are the extension's own; Facebook's tabs never see these.
  */
 import type { paths } from '@hfos/api-client';
+import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { AutoState } from '../auto/plan';
 
@@ -82,6 +83,16 @@ export type ChecksNextInput = Body<'/v1/queries/outreach.checks.next'>;
 export type ChecksNext = Ok<'/v1/queries/outreach.checks.next'>;
 export type CheckLookInput = Body<'/v1/commands/outreach.check.look'>;
 export type CheckLooked = Ok<'/v1/commands/outreach.check.look'>;
+/** Groups to check and to join, what a group's About page said, and how an ask to join went (decision 48). */
+export type GroupsToCheckInput = Body<'/v1/queries/outreach.groups.to_check'>;
+export type GroupsToCheck = Ok<'/v1/queries/outreach.groups.to_check'>;
+export type GroupLookInput = Body<'/v1/commands/outreach.group.look'>;
+export type GroupLooked = Ok<'/v1/commands/outreach.group.look'>;
+export type JoinsNextInput = Body<'/v1/queries/outreach.joins.next'>;
+export type JoinsNext = Ok<'/v1/queries/outreach.joins.next'>;
+export type JoinNoteInput = Body<'/v1/commands/outreach.join.note'>;
+export type JoinNoted = Ok<'/v1/commands/outreach.join.note'>;
+export type { JoinAnswerInput, JoinAnswerOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -185,6 +196,15 @@ export type HfosAsk =
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
   | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
   | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
+  | { readonly type: 'hfos-groups-to-check'; readonly input: GroupsToCheckInput }
+  | { readonly type: 'hfos-group-look'; readonly input: GroupLookInput }
+  | { readonly type: 'hfos-joins-next'; readonly input: JoinsNextInput }
+  | { readonly type: 'hfos-join-note'; readonly input: JoinNoteInput }
+  | {
+      readonly type: 'hfos-join-answers';
+      readonly workspaceId: string;
+      readonly input: JoinAnswerInput;
+    }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -225,6 +245,11 @@ export interface HfosValues {
   readonly 'hfos-save-posts': PostsSaved;
   readonly 'hfos-checks-next': ChecksNext;
   readonly 'hfos-check-look': CheckLooked;
+  readonly 'hfos-groups-to-check': GroupsToCheck;
+  readonly 'hfos-group-look': GroupLooked;
+  readonly 'hfos-joins-next': JoinsNext;
+  readonly 'hfos-join-note': JoinNoted;
+  readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;

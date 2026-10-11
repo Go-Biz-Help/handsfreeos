@@ -14,7 +14,8 @@
  * the profiles of people they ticked, it presses Cancel request or Unfriend (src/facebook/tidy.ts). Once the person
  * lets the extension work on its own (src/auto/run.ts), it also presses Add friend, Confirm and Like on the profiles
  * of people on their list for today, and writes and sends the comment the AI drafted on a post on their list
- * (src/facebook/auto.ts), in the window the extension works in. It never sends a message.
+ * (src/facebook/auto.ts), in the window the extension works in; and on a good group it presses Join group and
+ * answers the group's questions with the AI's answers (src/facebook/join.ts, decision 48). It never sends a message.
  *
  * While noting is on, it also looks at the chats on the page as they change (Messenger's list, an open chat, a small
  * chat window) and tells the background of each whose last message is theirs, and whether the person was looking at
@@ -33,6 +34,7 @@ import {
   type Step,
 } from './facebook/actions';
 import { likeLatest, writeComment, writeMessage } from './facebook/auto';
+import { answerJoin, pressJoin } from './facebook/join';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './facebook/browse';
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { LOOK_EVERY_MS, lookFor } from './facebook/looking';
@@ -54,6 +56,8 @@ import {
   type BrowseAsk,
   type FetchAnswer,
   type FetchAsk,
+  type JoinAnswer,
+  type JoinAsk,
   type TabNote,
 } from './messages';
 
@@ -112,6 +116,14 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer> {
   return { ok: true, result: await writeComment(document, ask.text) };
 }
 
+/** Asking to join the group the tab shows (src/facebook/join.ts): Join group, then the AI's answers to its questions. */
+async function joinStep(ask: JoinAsk): Promise<JoinAnswer> {
+  if (classifyUrl(location.href).kind !== 'group')
+    return { ok: false, error: 'Facebook didn’t open the group.' };
+  if (ask.type === 'hfos-join') return { ok: true, step: await pressJoin(document) };
+  return { ok: true, result: await answerJoin(document, ask.answers) };
+}
+
 const here = globalThis as { hfosSocialListening?: boolean };
 
 /** Whether a change adds or takes away writing or a link: not a spinner, a picture or a moving progress bar. */
@@ -131,8 +143,16 @@ function matters(records: readonly MutationRecord[]): boolean {
 if (!here.hfosSocialListening) {
   here.hfosSocialListening = true;
   chrome.runtime.onMessage.addListener(
-    (ask: Ask | FetchAsk | BrowseAsk | AutoAsk, sender, respond: (answer: Answer) => void) => {
+    (
+      ask: Ask | FetchAsk | BrowseAsk | AutoAsk | JoinAsk,
+      sender,
+      respond: (answer: Answer) => void,
+    ) => {
       if (sender.id !== chrome.runtime.id) return false;
+      if (ask.type === 'hfos-join' || ask.type === 'hfos-join-answer') {
+        void joinStep(ask).then(respond as (answer: JoinAnswer) => void);
+        return true;
+      }
       if (
         ask.type === 'hfos-like-latest' ||
         ask.type === 'hfos-comment' ||
