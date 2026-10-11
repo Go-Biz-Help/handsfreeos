@@ -55,11 +55,11 @@ test('email: send from the workspace address, the reply lands in the thread, ans
   await signUpAndConfirm(page, 'email-owner');
   const workspaceId = await createBusiness(page, { name: BUSINESS });
 
-  // Every workspace starts with an address on the shared subdomain. Gmail waits on Google.
+  // Every workspace starts with an address on the shared subdomain. Gmail is coming soon.
   const shared = await sharedAddress(page, workspaceId);
   await expect(page.getByTestId('email-addresses')).toContainText('Default');
   await expect(page.getByTestId('connect-gmail')).toBeDisabled();
-  await expect(page.getByText('Waiting on Google’s review')).toBeVisible();
+  await expect(page.getByText('Coming soon', { exact: true })).toBeVisible();
   await expect(page.getByTestId('blocked-addresses')).toContainText('Nothing blocked.');
   // Mail from people not in Contacts goes to Other mail in the inbox now (M19), so the old list isn't here.
   await expect(page.getByTestId('unmatched-mail')).toHaveCount(0);
