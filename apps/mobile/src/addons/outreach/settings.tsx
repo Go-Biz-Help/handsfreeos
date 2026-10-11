@@ -30,6 +30,7 @@ import {
 } from '@hfos/core/addons/outreach/chat-read';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
+import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
@@ -48,7 +49,15 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+import { ChatBubbles } from './chat-bubbles';
 import { NeedsSignal, Note, Part, useOutreachAnswer, useOutreachContext } from './kit';
+
+const VOICE_KEYS = [
+  'shorthand',
+  'acronyms',
+  'emoji',
+  'split',
+] as const satisfies readonly (keyof Voice)[];
 
 /**
  * Social Outreach's settings on the phone (decision 44), as the web's Settings tab: the person's own (what the
@@ -512,6 +521,22 @@ export function ChoicesForm({
         ))}
       </Part>
       {notAllowed.length ? <Note>{W.notAllowed(notAllowed)}</Note> : null}
+      <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note}>
+        {VOICE_KEYS.map((k) => (
+          <Tick
+            key={k}
+            label={VOICE_WORDS[k]}
+            checked={value.voice[k]}
+            onChange={(on) => set({ voice: { ...value.voice, [k]: on } })}
+            testID={`${testID}-voice-${k}`}
+          />
+        ))}
+        <ChatBubbles
+          bubbles={voiceSample(value.voice).map((text) => ({ fromMe: true, text }))}
+          label="How a message from you might read"
+          testID={`${testID}-voice-sample`}
+        />
+      </Part>
       <Part title={W.sections.along}>
         {TICKS.along.map((k) => (
           <Tick

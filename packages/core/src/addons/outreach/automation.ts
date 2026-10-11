@@ -40,6 +40,7 @@ import { z } from 'zod';
 import { localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
 import { DAILY_LIMITS } from './limits';
 import type { TodayKind } from './today';
+import { Voice, VOICE_DEFAULTS } from './voice';
 
 export const SENDING_MODES = {
   off: 'You do everything',
@@ -131,6 +132,8 @@ export const AutomationSettings = z.object({
   markPosts: z.boolean().default(true),
   /** How the phone hears about messages waiting for their OK. */
   pushes: z.enum(PUSH_MODE_KEYS).default('bundled'),
+  /** How the AI writes for them (./voice.ts): plain words always, and their own short forms, acronyms and emoji. */
+  voice: Voice.default(VOICE_DEFAULTS),
 });
 export type AutomationSettings = z.output<typeof AutomationSettings>;
 
@@ -148,6 +151,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   readChats: true,
   markPosts: true,
   pushes: 'bundled',
+  voice: VOICE_DEFAULTS,
 };
 
 /** The daily limits a business can set, each at most the starting one (./limits.ts). */

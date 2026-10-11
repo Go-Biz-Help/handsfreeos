@@ -31,7 +31,7 @@ import {
   type SavedMessage,
 } from '../saves';
 import { fileChats, profiles, threads } from '../tables';
-import { inWorkspace, keepFriendStates, once, saveProfile, sourceFor } from './common';
+import { inWorkspace, keepFriendStates, neverTwins, once, saveProfile, sourceFor } from './common';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
@@ -448,6 +448,9 @@ export const lookup = defineAddonQuery(outreachAddon, {
             dont_pitch_by: string | null;
             dont_pitch_at: Date | string | null;
             tagged: boolean;
+            twin_dont_pitch: boolean | null;
+            twin_by: string | null;
+            twin_at: Date | string | null;
             demo: 'link' | 'marked' | null;
             intro: string[];
             mutual_friends: number | null;
@@ -459,6 +462,8 @@ export const lookup = defineAddonQuery(outreachAddon, {
                   exists (select 1 from app.record_tags rt join app.tags t on t.id = rt.tag_id
                           where rt.workspace_id = p.workspace_id and rt.record_type = 'person'
                             and rt.record_id = p.person_id and lower(t.name::text) = lower(${DONT_PITCH_TAG})) as tagged,
+                  tw.dont_pitch as twin_dont_pitch, coalesce(nullif(tu.full_name, ''), tu.email::text) as twin_by,
+                  tw.dont_pitch_at as twin_at,
                   (select d.how from addon_outreach.demos d
                     where d.workspace_id = p.workspace_id and d.user_id = ${me} and d.profile_id = p.id
                       and d.undone_at is null
@@ -467,6 +472,8 @@ export const lookup = defineAddonQuery(outreachAddon, {
                 from addon_outreach.profiles p
                 left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
                 left join app.users u on u.id = p.dont_pitch_by
+                left join lateral (${neverTwins('p')} order by twin.dont_pitch desc limit 1) tw on true
+                left join app.users tu on tu.id = tw.dont_pitch_by
                 left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.platform = ${input.platform}
                   and (${ids.length ? sql`p.platform_id in ${ids}` : sql`false`}
@@ -534,6 +541,7 @@ export const lookup = defineAddonQuery(outreachAddon, {
         username: m.username,
         state: m.state,
         keep: m.keep ?? false,
+        // Their own mark, else their twin's, kept under the same name (`neverTwins`).
         dontPitch:
           m.dont_pitch || m.tagged
             ? {
@@ -542,7 +550,13 @@ export const lookup = defineAddonQuery(outreachAddon, {
                   m.dont_pitch && m.dont_pitch_at ? new Date(m.dont_pitch_at).toISOString() : null,
                 tagged: m.tagged,
               }
-            : null,
+            : m.twin_dont_pitch !== null
+              ? {
+                  by: m.twin_dont_pitch ? m.twin_by : null,
+                  at: m.twin_dont_pitch && m.twin_at ? new Date(m.twin_at).toISOString() : null,
+                  tagged: !m.twin_dont_pitch,
+                }
+              : null,
         demo: m.demo,
         intro: m.intro,
         mutualFriends: m.mutual_friends,

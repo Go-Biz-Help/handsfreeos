@@ -646,6 +646,11 @@ export const automation = addonOutreach.table(
     readChats: boolean('read_chats').notNull().default(true),
     markPosts: boolean('mark_posts').notNull().default(true),
     pushes: text('pushes').notNull().default('bundled').$type<PushMode>(),
+    /** How the AI writes for them (../voice.ts). */
+    voiceShorthand: boolean('voice_shorthand').notNull().default(false),
+    voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
+    voiceEmoji: boolean('voice_emoji').notNull().default(false),
+    voiceSplit: boolean('voice_split').notNull().default(true),
     changedBy: uuid('changed_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

@@ -40,7 +40,9 @@ import {
   inWorkspace,
   keepFriendStates,
   keptProfile,
+  neverTwins,
   once,
+  pitchable,
   type Profile,
   type ProfileKey,
 } from './common';
@@ -355,6 +357,8 @@ type Listed = {
   readonly dont_pitch_by: string | null;
   readonly dont_pitch_at: Date | string | null;
   readonly tagged: boolean;
+  /** Kept twice, and the twin is never pitched (`neverTwins`). */
+  readonly twin: boolean;
   readonly mutual_friends: number | null;
   readonly intro: string[];
   readonly group_name: string | null;
@@ -371,8 +375,8 @@ type Listed = {
 /** Who each view shows, from a profile's row below. */
 const VIEW_WHERE: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
   friends: sql`l.state = 'friends'`,
-  // Friends and people chatted with whom the AI found a fit, never anyone not pitched.
-  fits: sql`l.verdict in ('good', 'maybe') and not (l.dont_pitch or l.tagged)`,
+  // Friends and people chatted with whom the AI found a fit, never anyone not pitched, nor their twin.
+  fits: sql`l.verdict in ('good', 'maybe') and not (l.dont_pitch or l.tagged or l.twin)`,
   requests: sql`l.state = 'request_received'`,
   sent: sql`l.state = 'request_sent'`,
   keep: sql`l.keep`,
@@ -498,7 +502,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       sql`select count(*)::int as fits from addon_outreach.checks ch
           join addon_outreach.profiles p on p.id = ch.profile_id
           where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
-            and not (p.dont_pitch or ${tagged})`,
+            and ${pitchable('p')}`,
     );
     const [mine] = await rows<{ friends: number; requests: number; sent: number; keep: number }>(
       ctx.tx,
@@ -518,7 +522,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         f.state, f.since, f.keep, p.dont_pitch,
         coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
-        ${tagged} as tagged, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
+        ${tagged} as tagged, exists (${neverTwins('p')}) as twin, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
         ch.verdict, cpb.name as check_playbook, ch.why as check_why, ch.about as check_about,
         ch.next_step as check_next_step, ch.checked_at
       from addon_outreach.profiles p

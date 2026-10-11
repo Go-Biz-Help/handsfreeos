@@ -44,11 +44,28 @@ export async function seesEveryone(ctx: Ctx, me: string): Promise<boolean> {
 export type Profile = typeof profiles.$inferSelect;
 type ProfileRow = typeof profiles.$inferInsert;
 
-/** A profile that's never pitched: on Don't pitch, or a customer tagged Friend or family. `p` is its alias. */
-export const pitchable = (p: string) => sql`not ${sql.raw(p)}.dont_pitch and not exists (
+/** A profile's name as two are compared: one space between words, no capitals. `p` is its alias. */
+const nameKeyOf = (p: string) =>
+  sql`lower(regexp_replace(btrim(${sql.raw(p)}.name), '[[:space:]]+', ' ', 'g'))`;
+
+/** A profile marked never pitched itself: on Don't pitch, or a customer tagged Friend or family. `p` is its alias. */
+export const markedNever = (p: string) => sql`(${sql.raw(p)}.dont_pitch or exists (
   select 1 from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
   where rt.record_type = 'person' and rt.record_id = ${sql.raw(p)}.person_id
-    and lower(tg.name::text) = lower(${DONT_PITCH_TAG}))`;
+    and lower(tg.name::text) = lower(${DONT_PITCH_TAG})))`;
+
+/**
+ * The other profiles kept under the same name on the same network that are marked never pitched, as `twin`. Facebook
+ * shows one person by number in one place and by username in another, so the same person can be kept twice, and Don't
+ * pitch on one covers the other. A stranger who shares the name is left alone too: the safe side. `p` is its alias.
+ */
+export const neverTwins = (p: string) => sql`select twin.* from addon_outreach.profiles twin
+  where twin.workspace_id = ${sql.raw(p)}.workspace_id and twin.platform = ${sql.raw(p)}.platform
+    and twin.id <> ${sql.raw(p)}.id and ${nameKeyOf('twin')} = ${nameKeyOf(p)} and ${markedNever('twin')}`;
+
+/** A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched. `p` is its alias. */
+export const pitchable = (p: string) =>
+  sql`not ${markedNever(p)} and not exists (${neverTwins(p)})`;
 
 /**
  * A profile still in play for the person `me` (decision 47): not marked not a fit, by them or by the AI's read of their
@@ -375,12 +392,33 @@ export async function taggedFriendOrFamily(
   return new Set(found.map((f) => f.personId));
 }
 
-/** Whether someone's never pitched, and why: put on the list here, or tagged Friend or family. Null when they may be. */
+/**
+ * Whether someone's never pitched, and why: put on the list here, or tagged Friend or family; or the same goes for
+ * their twin, kept under the same name (`neverTwins`). Null when they may be.
+ */
 export async function dontPitchOf(ctx: Ctx, profile: Profile): Promise<DontPitch | null> {
   const tagged =
     profile.personId !== null &&
     (await taggedFriendOrFamily(ctx, [profile.personId])).has(profile.personId);
-  if (!profile.dontPitch && !tagged) return null;
+  if (!profile.dontPitch && !tagged) {
+    const [twin] = await rows<{ dont_pitch: boolean; by: string | null; at: Date | string | null }>(
+      ctx.tx,
+      sql`select tw.dont_pitch, tw.dont_pitch_at as at,
+            coalesce(nullif(u.full_name, ''), u.email::text) as by
+          from addon_outreach.profiles p
+          cross join lateral (${neverTwins('p')} order by twin.dont_pitch desc limit 1) tw
+          left join app.users u on u.id = tw.dont_pitch_by
+          where p.id = ${profile.id}`,
+    );
+    if (!twin) return null;
+    return twin.dont_pitch
+      ? {
+          by: twin.by,
+          at: twin.at === null ? null : new Date(twin.at).toISOString(),
+          tagged: false,
+        }
+      : { by: null, at: null, tagged: true };
+  }
   const by =
     profile.dontPitch && profile.dontPitchBy
       ? ((await userRef(ctx.tx, profile.dontPitchBy))?.fullName ?? null)

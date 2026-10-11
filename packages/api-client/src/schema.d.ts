@@ -33038,6 +33038,24 @@ export interface operations {
                         replies?: "draft" | "simple" | "everything";
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
+                        /**
+                         * @default {
+                         *       "shorthand": false,
+                         *       "acronyms": false,
+                         *       "emoji": false,
+                         *       "split": true
+                         *     }
+                         */
+                        voice?: {
+                            /** @default false */
+                            acronyms?: boolean;
+                            /** @default false */
+                            emoji?: boolean;
+                            /** @default false */
+                            shorthand?: boolean;
+                            /** @default true */
+                            split?: boolean;
+                        };
                         warmUp: boolean;
                         /** @default true */
                         watchPosts?: boolean;
@@ -33106,6 +33124,24 @@ export interface operations {
                             replies: "draft" | "simple" | "everything";
                             /** @enum {string} */
                             sending: "off" | "steps" | "approve_all" | "everything";
+                            /**
+                             * @default {
+                             *       "shorthand": false,
+                             *       "acronyms": false,
+                             *       "emoji": false,
+                             *       "split": true
+                             *     }
+                             */
+                            voice: {
+                                /** @default false */
+                                acronyms: boolean;
+                                /** @default false */
+                                emoji: boolean;
+                                /** @default false */
+                                shorthand: boolean;
+                                /** @default true */
+                                split: boolean;
+                            };
                             warmUp: boolean;
                             /** @default true */
                             watchPosts: boolean;
@@ -61199,6 +61235,24 @@ export interface operations {
                             replies: "draft" | "simple" | "everything";
                             /** @enum {string} */
                             sending: "off" | "steps" | "approve_all" | "everything";
+                            /**
+                             * @default {
+                             *       "shorthand": false,
+                             *       "acronyms": false,
+                             *       "emoji": false,
+                             *       "split": true
+                             *     }
+                             */
+                            voice: {
+                                /** @default false */
+                                acronyms: boolean;
+                                /** @default false */
+                                emoji: boolean;
+                                /** @default false */
+                                shorthand: boolean;
+                                /** @default true */
+                                split: boolean;
+                            };
                             warmUp: boolean;
                             /** @default true */
                             watchPosts: boolean;

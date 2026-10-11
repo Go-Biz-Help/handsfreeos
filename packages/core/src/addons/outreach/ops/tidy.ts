@@ -12,14 +12,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
-import {
-  DONT_PITCH_TAG,
-  FRIENDS_CAP,
-  limitNow,
-  TIDY_LIMITS,
-  WARNING_SLOWER_DAYS,
-  type TidyKind,
-} from '../limits';
+import { FRIENDS_CAP, limitNow, TIDY_LIMITS, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
 import { outreachAddon } from '../manifest';
 import { friendEnds, warnings } from '../tables';
 import {
@@ -37,7 +30,7 @@ import {
   type WarningState,
 } from '../tidy';
 import { slowerFor, wheelsBackOn } from './automation';
-import { inWorkspace, keepFriendStates, keptProfile, once, type Ctx } from './common';
+import { inWorkspace, keepFriendStates, keptProfile, once, pitchable, type Ctx } from './common';
 import { warnDay } from './day';
 import { playbooksInUse } from './friends';
 
@@ -99,12 +92,6 @@ async function endsToday(ctx: Ctx, me: string, todayFrom: Date): Promise<Record<
   );
   return done ?? { cancel_request: 0, unfriend: 0 };
 }
-
-/** A profile that's never pitched, and so never unfriended: on Don't pitch, or a customer tagged Friend or family. */
-const neverPitched = sql`(p.dont_pitch or exists (
-  select 1 from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
-  where rt.record_type = 'person' and rt.record_id = p.person_id
-    and lower(tg.name::text) = lower(${DONT_PITCH_TAG})))`;
 
 type Found = {
   readonly id: string;
@@ -182,7 +169,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
                 from addon_outreach.friends f
                 join addon_outreach.profiles p on p.id = f.profile_id
                 where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
-                  and f.state = 'friends' and not f.keep and p.person_id is null and not ${neverPitched}
+                  and f.state = 'friends' and not f.keep and p.person_id is null and ${pitchable('p')}
                   and not exists (select 1 from addon_outreach.file_chats c
                     where c.profile_id = p.id and c.user_id = ${me} and c.prospect)
               ) l

@@ -39,6 +39,7 @@ import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { pastLimitWords } from '@hfos/core/addons/outreach/limits';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
 import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
 import type { FetchStep } from '../facebook/fetch';
@@ -530,8 +531,15 @@ async function sendDone(sendId: string, businessId: string, sent: boolean, why: 
   }
 }
 
-/** Sends a message OK'd (or let go as it is) in Messenger, and notes it as its own. */
-async function sendMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+/**
+ * Sends a message OK'd (or let go as it is) in Messenger, and notes it as its own: as a few short texts, a few seconds
+ * apart, when the person texts that way (@hfos/core/addons/outreach/voice), each part between blank lines its own.
+ */
+async function sendMessage(
+  item: TodayListItem,
+  businessId: string,
+  split: boolean,
+): Promise<Outcome> {
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;
@@ -545,10 +553,25 @@ async function sendMessage(item: TodayListItem, businessId: string): Promise<Out
   };
   const chat = await openChat(item, businessId);
   if ('outcome' in chat) return 'stop' in chat.outcome ? chat.outcome : failed(chat.outcome.line);
-  const wrote = await tab.ask({ type: 'hfos-message', text: send.text });
-  if (!wrote.ok) return failed(`${item.name}: ${wrote.error}`);
-  if (wrote.result === 'none') return failed(`${item.name}: couldn’t find the box to write in`);
-  if (wrote.result !== 'done') return failed(`${item.name}: Facebook didn’t take the message`);
+  const parts = messageParts(send.text, split);
+  // Once a text has gone, the message has: the rest is said, not tried again.
+  let partly: string | null = null;
+  for (const [i, part] of parts.entries()) {
+    // The next text a few seconds after, as long as typing it takes.
+    if (i > 0) await pause(partPauseMs(part, Math.random()));
+    const wrote = await tab.ask({ type: 'hfos-message', text: part });
+    const why = !wrote.ok
+      ? wrote.error
+      : wrote.result === 'none'
+        ? 'couldn’t find the box to write in'
+        : wrote.result !== 'done'
+          ? 'Facebook didn’t take the message'
+          : null;
+    if (why === null) continue;
+    if (i === 0) return failed(`${item.name}: ${why}`);
+    partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;
+    break;
+  }
   await takeNote({
     type: 'hfos-noted',
     step: {
@@ -566,7 +589,7 @@ async function sendMessage(item: TodayListItem, businessId: string): Promise<Out
   await pause(SETTLE_MS);
   const stop = await warnedOn(await read(), businessId);
   if (stop) return { stop };
-  return { done: true, line: `Sent ${item.name} a message` };
+  return { done: true, line: partly ?? `Sent ${item.name} a message` };
 }
 
 function doItem(item: TodayListItem, businessId: string): Promise<Outcome> {
@@ -600,9 +623,9 @@ const doing = (work: Work) =>
 const doneAs = (work: Work): DoneKind =>
   work.do === 'step' ? (work.item.kind as AutoKind) : work.do === 'draft' ? 'drafted' : 'sent';
 
-function doWork(work: Work, businessId: string): Promise<Outcome> {
+function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
   if (work.do === 'draft') return draftMessage(work.item, businessId);
-  if (work.do === 'send') return sendMessage(work.item, businessId);
+  if (work.do === 'send') return sendMessage(work.item, businessId, split);
   return doItem(work.item, businessId);
 }
 
@@ -856,7 +879,7 @@ async function go(): Promise<void> {
   await say(doing(work), { working: true });
   let outcome: Outcome;
   try {
-    outcome = await inTurn('runner', () => doWork(work, to.businessId));
+    outcome = await inTurn('runner', () => doWork(work, to.businessId, settings.voice.split));
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;

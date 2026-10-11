@@ -261,6 +261,34 @@ describe('stages and the pitch', () => {
     expect(await refused(mark(randomUUID(), 'ready'))).toBe('not_found');
   });
 
+  it('leaves out someone on Don’t pitch, though they were kept twice, by number and by name', async () => {
+    expect(await stageOf('Casey Moreno')).toBe('ready');
+    // The same Casey, kept again by number from the friends list, and put on Don't pitch there.
+    const twin = {
+      profile: {
+        id: '100004000000077',
+        username: null,
+        url: 'https://www.facebook.com/profile.php?id=100004000000077',
+      },
+      name: 'casey  moreno',
+    };
+    await runAs(owner, ws, 'outreach.friends.save', {
+      list: 'friends',
+      people: [{ ...twin, mutualFriends: null }],
+    });
+    await runAs(owner, ws, 'outreach.friend.set', { ...twin, dontPitch: true });
+    expect(await stageOf('Casey Moreno')).toBeUndefined();
+    expect((await today()).some((i) => i.name === 'Casey Moreno')).toBe(false);
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.touch.save', { kind: 'like', ...casey, postUrl: null }),
+      ),
+    ).toBe('outreach_dont_pitch');
+    // Off the list again, they're back.
+    await runAs(owner, ws, 'outreach.friend.set', { ...twin, dontPitch: false });
+    expect(await stageOf('Casey Moreno')).toBe('ready');
+  });
+
   it('keeps each person’s own: a teammate sees none of it', async () => {
     const seen = await asUser(api(), riley.claims, (tx) =>
       rows<{ n: number }>(
