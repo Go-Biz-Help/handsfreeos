@@ -1103,13 +1103,11 @@ function Mailboxes({
           <GoogleLogo />
           Connect Gmail
         </Button>
-        {publicEnv.gmailEnabled ? null : (
-          <Badge variant="pending">Waiting on Google’s review</Badge>
-        )}
+        {publicEnv.gmailEnabled ? null : <Badge variant="pending">Coming soon</Badge>}
       </div>
       {publicEnv.gmailEnabled ? null : (
         <p className="mt-2 text-xs text-text-3">
-          Gmail opens up once Google finishes its security review of HandsFreeOS.
+          Gmail is coming soon. Until then, connect Outlook or send from your workspace address.
         </p>
       )}
     </Section>

@@ -6073,12 +6073,12 @@ This does not turn on Connect Gmail. The **Connect Gmail** button stays greyed o
 
 #### Test Gmail while Google's review is pending
 
-The worker doesn't check whether Google has approved the app, but the web app keeps **Connect Gmail** greyed out, with the badge "Waiting on Google’s review", until it is built with `NEXT_PUBLIC_GMAIL_ENABLED=true`. The flag turns Connect Gmail on for every user; there is no per-person switch. To test before approval, turn the flag on for a short while. Only your test users can get past Google's sign-in, so do this only while no clients use HandsFreeOS.
+The worker doesn't check whether Google has approved the app, but the web app keeps **Connect Gmail** greyed out, with the badge "Coming soon", until it is built with `NEXT_PUBLIC_GMAIL_ENABLED=true`. The flag turns Connect Gmail on for every user; there is no per-person switch. To test before approval, turn the flag on for a short while. Only your test users can get past Google's sign-in, so do this only while no clients use HandsFreeOS.
 
 1. In Vercel, edit `NEXT_PUBLIC_GMAIL_ENABLED` and set it to `true` for **Production** (see "Environment variables" in "The web app on Vercel"). Enter `true` in lower case. Any other value, such as `True`, `1` or `yes`, leaves Gmail off.
 2. Redeploy with "Redeploy after a change" in "The web app on Vercel".
 
-   You should see the deployment finish as **Ready**, and **Settings** → **Email** show **Connect Gmail** without the "Waiting on Google’s review" badge.
+   You should see the deployment finish as **Ready**, and **Settings** → **Email** show **Connect Gmail** without the "Coming soon" badge.
 
 Then test with a test-user account:
 
@@ -6108,7 +6108,7 @@ To close Gmail again after the test:
 2. Click **Save**.
 3. Redeploy with "Redeploy after a change" in "The web app on Vercel".
 
-   You should see **Connect Gmail** greyed out again, with the "Waiting on Google’s review" badge.
+   You should see **Connect Gmail** greyed out again, with the "Coming soon" badge.
 
 A mailbox that is already connected keeps syncing, and its **Reconnect** button keeps working, because the flag only controls the **Connect Gmail** button.
 
@@ -6171,7 +6171,7 @@ After Google approves:
 2. Click **Save**.
 3. Redeploy with "Redeploy after a change" in "The web app on Vercel".
 
-   You should see **Connect Gmail** available in **Settings** → **Email** for every workspace, without the "Waiting on Google’s review" badge.
+   You should see **Connect Gmail** available in **Settings** → **Email** for every workspace, without the "Coming soon" badge.
 
 ### When a sign-in stops working
 
@@ -10768,7 +10768,7 @@ How the stand-in behaves:
 
   You should see a reply with a `providerMessageId`, and the email in the inbox within a few seconds. This address needs no login and only exists while the stand-in is active.
 
-- **Connect Gmail** stays disabled with the badge "Waiting on Google’s review", even locally. To try the Gmail stand-in, add `NEXT_PUBLIC_GMAIL_ENABLED=true` to `apps/web/.env.local` and restart `pnpm dev`. Its stand-in page fills in `owner@gmail.fake`.
+- **Connect Gmail** stays disabled with the badge "Coming soon", even locally. To try the Gmail stand-in, add `NEXT_PUBLIC_GMAIL_ENABLED=true` to `apps/web/.env.local` and restart `pnpm dev`. Its stand-in page fills in `owner@gmail.fake`.
 
 #### The push stand-in (phone notifications)
 
@@ -12071,7 +12071,7 @@ Google's restricted-scope review needs a demo video of Connect Gmail working, so
 
 6. Close Gmail again with the steps under "To close Gmail again after the test" in the same part.
 
-   You should see **Connect Gmail** greyed out again, with the "Waiting on Google’s review" badge.
+   You should see **Connect Gmail** greyed out again, with the "Coming soon" badge.
 
 7. Submit the app with "Restricted-scope verification and the CASA assessment" in the same section. Google's review takes weeks. The rest of this checklist does not wait for it.
 
