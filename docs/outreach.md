@@ -15,7 +15,8 @@ file's dates, chats read by the AI from the file or live in Messenger, groups, t
 Facebook's warnings, comments on group posts, looking people up before drafting, phone alerts, which openers work, the
 demo link, the extension working on its own (the first part), its settings in HandsFreeOS, its live status with
 Start my day and Stop for today in the app, Waiting for you, the bare-bones extension, with what needs the browser
-asked of it from the app, the whole add-on on the phone, and the setup, Social Outreach's onboarding, in HandsFreeOS:
+asked of it from the app, the whole add-on on the phone, the setup, Social Outreach's onboarding, in HandsFreeOS, and
+the good fits among friends and chats (growth part 1):
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -31,6 +32,21 @@ asked of it from the app, the whole add-on on the phone, and the setup, Social O
   lists, ask the person's computer to save the requests waiting and the friends list from Facebook's pages (below,
   **Asking the extension**); the requests they sent before come in with the download file. The extension notes
   Confirm and Delete as the person presses them; Keep and Don't pitch are set on the tab, and Don't pitch on Today too.
+- **Good fits among friends and chats** (decision 46, `checks.ts`, `ops/checks.ts`, the worker's `checks.ts`, the
+  extension's `src/jobs/checks.ts`): the Friends tab's **Check my friends** (an ask, `checks`), and the once-a-day
+  jobs after Read my chats, have the person's computer read the next of their friends and the people they've chatted
+  with, about 40 a day (`CHECKS_PER_DAY`, halved for a week after a warning), every 15 to 30 seconds, in a window of
+  its own: HandsFreeOS says who's next (`outreach.checks.next`: friends whose chat the AI read as a likely prospect,
+  then friends with any chat, others they've chatted with, friends found in a group, then the rest, the most mutual
+  friends first; never anyone on Don't pitch or tagged Friend or family), the extension opens each profile, checks
+  it's them, reads what it says about them and their latest posts, follows the link to the business they own or work
+  at and reads that too, and sends those lines (`outreach.check.look`), or that Facebook showed someone else. The AI
+  reads them with the person's own chat with them (the worker's `outreach.check_people`) and says whether they're a
+  good fit for a playbook, might fit, or not, why in up to three lines, who they are in one, and a natural first step
+  (`outreach.check.save`); the lines are let go once it has. The Friends tab's **Good fits** list has the good fits
+  first, then those who might fit, with the AI's why and first step, and its card says how far it has come ("312 of
+  1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. Nobody
+  goes in Contacts.
 - **Facebook's download file** (the Friends tab's **Bring in your Facebook file**): the person picks the zips
   Facebook gives them, the "Download your information" file and the chat backup that holds the newer chats, and their
   browser reads them. Names and dates are sent: their friends and since when, the requests they sent and got,
@@ -69,7 +85,10 @@ asked of it from the app, the whole add-on on the phone, and the setup, Social O
   replies owed; and comments on good group posts (below). With **Like a post first** on (decision 33, each person's
   own setting, on to start), someone's request waits until a day after one of their posts was liked, and the list has
   **Like a post first** for as many as a day's requests; a profile with no post to like goes without. Requests the
-  person got from people who fit a playbook well come first, as **Confirm their request** (decision 30). A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
+  person got from people who fit a playbook well come first, as **Confirm their request** (decision 30). **Reconnect**
+  (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither side has written
+  for a month (`RECONNECT_QUIET_DAYS`), with the AI's why, who they are and a first step, sharing the first messages'
+  limit with Say hi; its drafts pick things up again without a pitch, from what the AI found. A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
   about the person and the chat so far, to copy and send on Facebook (the worker's `outreach.today.draft` action,
   against the daily AI limit; first looked up on Facebook while their computer is online, below). HandsFreeOS never
   sends: the extension notes the step, which takes it off the list. Each person kept as a profile has a menu, here
@@ -186,9 +205,9 @@ asked of it from the app, the whole add-on on the phone, and the setup, Social O
   worker's `asks.ts`, the extension's `src/asks/run.ts` and `src/hfos/asks.ts`): what needs the browser is asked of
   the person's working computer from the app. The buttons on the Friends, Groups, Chats and Today tabs (and the
   phone's Groups and Chats screens) make an ask
-  (`outreach.ask.make`), one of fourteen kinds: the file's three steps and bringing it in, friend requests, the
+  (`outreach.ask.make`), one of fifteen kinds: the file's three steps and bringing it in, friend requests, the
   friends list, groups, a groups search, group members (the best groups, ones named, or a pasted link), Find posts,
-  Read my chats, cancelling and unfriending the ticked, and a look-up before drafting. Asking again while one like it
+  Read my chats, checking friends for good fits, cancelling and unfriending the ticked, and a look-up before drafting. Asking again while one like it
   is open answers that one. The computer that works hears of it on the live channel (or with its next beat), takes it
   (`outreach.ask.take`), does it with its jobs, one at a time and never beside a step of the runner's, says how it's
   going (`outreach.ask.progress`) and how it ended (`outreach.ask.end`, which waits in the extension with no
@@ -316,6 +335,7 @@ asked of it from the app, the whole add-on on the phone, and the setup, Social O
 | Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                                                                           |
 | The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                                                                       |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                  |
+| The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                            |
 | Asking the extension                                     | `asks.ts`, `ops/asks.ts`, `apps/web/src/addons/outreach/asks.tsx`, `apps/worker/src/addons/outreach/asks.ts`, `supabase/migrations/20261027001700_outreach_asks.sql`                                    |
 | Its jobs                                                 | `apps/extension/src/asks/run.ts`, `src/hfos/asks.ts`, `src/jobs/`, `src/offscreen.ts`                                                                                                                   |
 | Reading as the person goes, panel or not                 | `apps/extension/src/facebook/looking.ts`, `src/hfos/looked.ts`, `src/content.ts`                                                                                                                        |
@@ -343,7 +363,10 @@ Operations, all through the kernel:
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                                                                                                                                                                                                                                        |
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                                                                                                                                                                                                                                               |
 | `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                                                                                                                                                                                                                                                 |
-| `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit                                                                                                                                                                                                                                           |
+| `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit, the good fits with the AI's check; and how far checking has come                                                                                                                                                                         |
+| `outreach.checks.next`                                | `outreach.use`    | Who the person's computer checks next for a good fit, in order, no more than today has room for                                                                                                                                                                                                                                     |
+| `outreach.check.look`                                 | `outreach.use`    | What someone's profile and business page said as the computer read it, for the AI; or that Facebook showed someone else                                                                                                                                                                                                             |
+| `outreach.check.save`                                 | the worker        | What the AI made of them: good, might fit or not, the playbook, why, who they are and a first step; the lines go                                                                                                                                                                                                                    |
 | `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in                                                                                                                                                                                                                                    |
 | `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read                                                                                                                                                                                                                                   |
 | `outreach.groups.save`                                | `outreach.use`    | The groups a page lists, with what it said about each, up to 100 at a time                                                                                                                                                                                                                                                          |
@@ -594,6 +617,40 @@ showing what's going on and prompting, the app and the phone live too, and answe
     extension and sign in", then groups; the phone points to the computer. A first-timer signing in on the extension
     is sent there (21a). Built (settings part 6); the phone's Social Outreach screen says to set it up on a computer
     until it's done (`SETUP_WORDS.onPhone`).
+
+The owner asked on 11 Oct 2026 for Social Outreach to work the whole way people sell in Facebook groups: find the
+fits among the friends and chats they already have, start with the groups they're in and join more when those run
+dry, answer posts asking for what they offer quickly, write helpful posts and follow up with the people who engage
+with them, and know when someone is ready for the pitch. They answered the questions the same day ("build all of it").
+These are settled too:
+
+46. **Find the fits among the person's friends and chats.** The extension opens each friend's profile, and the
+    business page it links to, at a person's pace, about 40 a day; the AI reads what they say with the person's chat
+    with them, when there is one, and says whether they fit a playbook, why, what they do and a first step. Those who
+    fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts. Friends with a
+    chat go first, then friends from the groups, then the rest. It runs with the once-a-day jobs, and from the
+    Friends tab's **Check my friends**. Growth part 1. Built.
+47. **Stages, and the moment to pitch.** Each person reached has a stage, worked out from what HandsFreeOS knows:
+    found, warming up, friends, talking, ready to pitch, pitched, booked, or not a fit. The AI's read of a chat says
+    when the playbook's questions are answered well enough to pitch; Today then offers **Pitch**, with drafts that
+    carry the demo link. Growth part 2.
+48. **Groups: theirs first, then new ones.** The AI checks the groups the person is in, from their About page and
+    recent posts, for whether the playbook's people are there and post. Today works the groups they're in first. When
+    the groups that fit have fewer people left to reach than a week of friend requests, or the person presses **Find
+    more groups**, the extension finds groups and asks to join up to 3 a day, and the AI answers the join questions
+    from the playbook on its own (decision 31). Growth part 3.
+49. **Posts asking for what the business offers, fast.** In the person's working hours, the extension looks at the
+    top of their best groups every hour or two; a post the AI calls a strong fit pushes to their phone at once and
+    goes to the top of Today. Growth part 4.
+50. **Helpful posts in the groups, and the people who engage.** The AI drafts posts that help, from the playbook and
+    what people in each group ask about, after reading the group's rules: at most 1 a day (the plan's starting
+    limit), and never the same group twice in a week. Who posts it is a setting, per person, inside the business's
+    rules: the extension after the person's OK (the default), the person copying it, or the extension on its own.
+    Whoever reacts to or comments on one of the person's posts is a warm lead: Today has them to answer, like back and
+    friend. Growth part 5.
+
+The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) groups, theirs and new; (4) fast posts;
+(5) helpful posts and warm leads. Each is a part of its own, as decision 35 says.
 
 ## Rules worth knowing before changing anything
 
@@ -866,6 +923,14 @@ showing what's going on and prompting, the app and the phone live too, and answe
   removed, a request deleted). Newer news wins: something the extension saw after the file was made stays, and only
   moves its start earlier when it's the same; a deleted request stays deleted; Keep stays. Nobody is added to
   Contacts, and the same file again changes nothing.
+- **A check is the person's own, and what their pages said goes once it's read** (`checks`, decision 46). One row a
+  person and profile: the extension's look sets it waiting with the lines, and the AI's answer
+  (`outreach.check.save`, only for the look it read: `lookedAt`) keeps its verdict, playbook, why, who they are and a
+  first step, and empties the lines. A look that found someone else is `failed` at once, with no lines. Row security
+  keeps each person to their own rows, owners and admins included (`checks_own`), since the AI read their chats; the
+  worker reads them as `service_actor`. The day's count is the looks since the business's midnight. Today's
+  **Reconnect** takes only `good` ones, never anyone not pitched, and never someone written to either way in the last
+  month or on the list already; it counts against the first messages, as Say hi does.
 - **Fit reads only what can be checked** (`fit.ts`): the words a playbook puts in quotes in its signs and who to skip,
   the places in its area, mutual friends, and the group someone was found in. A skip word makes them a skip whatever
   else fits, and with no playbook only mutual friends and groups count. The Friends tab sorts the requests saved with
@@ -929,8 +994,8 @@ computer has that build or newer, raise the API's `MIN_EXTENSION_VERSION` to it 
 in Chrome"), and the two commands can be retired; Add to Contacts is `outreach.profile.contact` and Save to their card
 `outreach.chat.keep`.
 
-Next: the AI suggesting a conversation from the rest of the playbook
-comes with AI drafting. A profile saved after the file came in is matched to it when a newer file comes in. Then
-leads. Then the rest of decisions 26 to 35 (the onboarding, decision 36, is built), in the order above: tidying on
-its own and joining groups, then team sharing, the after-demo workflow, birthday notes and templates, then LinkedIn
-and Instagram.
+Next: decisions 46 to 50, in their order (the growth parts). Then the AI suggesting a conversation from the rest of
+the playbook, with AI drafting. A profile saved after the file came in is matched to it when a newer file comes in.
+Then leads. Then the rest of decisions 26 to 35 (the onboarding, decision 36, is built; joining groups comes with
+decision 48), in the order above: tidying on its own, then team sharing, the after-demo workflow, birthday notes and
+templates, then LinkedIn and Instagram.

@@ -86,6 +86,7 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   warm_up: ['post to like', 'posts to like'],
   friend_request: ['friend request', 'friend requests'],
   opener: ['new friend to say hi to', 'new friends to say hi to'],
+  reconnect: ['friend to reconnect with', 'friends to reconnect with'],
   follow_up: ['follow-up', 'follow-ups'],
   reply: ['reply', 'replies'],
   comment: ['post to comment on', 'posts to comment on'],

@@ -12,7 +12,7 @@ import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds, messageKinds } from
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import { bestGroupFit } from '../groups';
-import { dailyLimitsNow, DONT_PITCH_TAG, type DailyStep } from '../limits';
+import { dailyLimitsNow, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
   DEFAULT_PACE,
@@ -26,10 +26,11 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
+import { RECONNECT_QUIET_DAYS } from '../checks';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
-import { inWorkspace, type Ctx } from './common';
+import { inWorkspace, pitchable, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -75,11 +76,7 @@ export async function dayCounts(
 /** The most people from groups weighed for requests at once. */
 const CANDIDATES_MOST = 500;
 
-/** A profile that's never pitched: on Don't pitch, or a customer tagged Friend or family. */
-export const pitchable = (p: string) => sql`not ${sql.raw(p)}.dont_pitch and not exists (
-  select 1 from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
-  where rt.record_type = 'person' and rt.record_id = ${sql.raw(p)}.person_id
-    and lower(tg.name::text) = lower(${DONT_PITCH_TAG}))`;
+export { pitchable };
 
 /** A friend request the person got, as Today and Waiting for you weigh it. */
 export type RequestGot = {
@@ -127,7 +124,7 @@ export async function requestsToConfirm(
 export const today = defineAddonQuery(outreachAddon, {
   name: 'outreach.today',
   description:
-    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.',
+    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.',
   input: TodayInput,
   output: TodayOutput,
   permission: 'outreach.use',
@@ -446,6 +443,63 @@ export const today = defineAddonQuery(outreachAddon, {
           demoLink: demoFor(r.profile_id),
         }),
       );
+    }
+
+    // Reconnect (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither
+    // side has written for a month, and not on the list already. They share the first messages' limit with Say hi.
+    const reconnectLeft = Math.max(
+      0,
+      leftToday(limits, 'reconnect') - items.filter((i) => i.kind === 'opener').length,
+    );
+    if (reconnectLeft) {
+      const quiet = ago(RECONNECT_QUIET_DAYS);
+      const fits = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        why: string[];
+        about: string | null;
+        next_step: string | null;
+        playbook_name: string | null;
+        chat_id: string | null;
+        thread_key: string | null;
+      }>(
+        ctx.tx,
+        sql`select p.id, p.name, p.url, ch.why, ch.about, ch.next_step, pb.name as playbook_name,
+              c.id as chat_id, c.thread_key
+            from addon_outreach.checks ch
+            join addon_outreach.profiles p on p.id = ch.profile_id
+            left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+            left join lateral (
+              select c.id, c.thread_key, c.last_at from addon_outreach.file_chats c
+              where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
+            ) c on true
+            where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good'
+              and p.friendship <> 'self' and ${pitchable('p')}
+              and (c.last_at is null or c.last_at < ${quiet}::timestamptz)
+              and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)
+              and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
+                and r.user_id = ${me} and r.seen_at >= ${quiet}::timestamptz)
+            order by ch.checked_at desc, p.id limit ${reconnectLeft + items.length}`,
+      );
+      const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
+      for (const p of fits.filter((f) => !listedNow.has(f.id)).slice(0, reconnectLeft))
+        items.push(
+          item({
+            kind: 'reconnect',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            chatId: p.chat_id,
+            threadKey: p.thread_key,
+            why: p.why,
+            summary: p.about,
+            nextStep: p.next_step,
+            playbookName: p.playbook_name,
+            demoLink: demoFor(p.id),
+          }),
+        );
     }
 
     // Comments: posts in the groups the AI checked as good, from the last week, the newest first.

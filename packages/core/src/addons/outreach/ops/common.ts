@@ -44,6 +44,12 @@ export async function seesEveryone(ctx: Ctx, me: string): Promise<boolean> {
 export type Profile = typeof profiles.$inferSelect;
 type ProfileRow = typeof profiles.$inferInsert;
 
+/** A profile that's never pitched: on Don't pitch, or a customer tagged Friend or family. `p` is its alias. */
+export const pitchable = (p: string) => sql`not ${sql.raw(p)}.dont_pitch and not exists (
+  select 1 from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
+  where rt.record_type = 'person' and rt.record_id = ${sql.raw(p)}.person_id
+    and lower(tg.name::text) = lower(${DONT_PITCH_TAG}))`;
+
 export const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
   workspaceId: i.workspaceId,

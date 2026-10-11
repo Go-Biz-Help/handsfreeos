@@ -1,7 +1,7 @@
 /**
  * What Social Outreach's page shows, from its address: the tab (`?view=live`, `waiting`, `today`, `groups`, `friends`, `chats`,
  * `playbooks` or `settings`, else the activity); for settings, whose (`?for=` someone's id, for owners and admins); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
- * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or
+ * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=fits`, `requests`, `sent`, `keep` or
  * `dont_pitch`); for chats, which (`?show=tagged`, `read` or `waiting`) and a tag (`?tag=`); for both, a name
  * searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server and the tabs
  * build their links from it.
@@ -43,7 +43,10 @@ export interface OutreachAddress {
   readonly period: ActivityPeriod;
   /** The whole team's steps, asked for; the page shows them only to owners and admins. */
   readonly everyone: boolean;
-  /** Which friends: the person's own, their requests, the ones they sent, Keep, or the business's Don't pitch. */
+  /**
+   * Which friends: the person's own, the good fits among friends and chats, their requests, the ones they sent, Keep,
+   * or the business's Don't pitch.
+   */
   readonly show: FriendView;
   /** Which chats: likely prospects, the tagged, all read, or not read yet. */
   readonly chats: ChatView;

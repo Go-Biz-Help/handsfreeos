@@ -174,7 +174,7 @@ export const OUTREACH_WORDS = {
   todayEmpty: `${TODAY_EMPTY}.`,
   todayEmptyTitle: TODAY_EMPTY,
   todayEmptyBody:
-    'On the Groups tab, Save my groups and Save members of my best groups, and Find posts; on the Chats tab, Read my chats. People who fit your playbooks, new friends to say hi to, chats to follow up and posts worth a comment show here.',
+    'On the Groups tab, Save my groups and Save members of my best groups, and Find posts; on the Chats tab, Read my chats; on the Friends tab, Check my friends. People who fit your playbooks, new friends to say hi to, friends to reconnect with, chats to follow up and posts worth a comment show here.',
   listTitle: LIST_TODAY,
   todayComputerOnly:
     'Drafting a message, copying an opener and the AI’s drafts are on your computer, beside Facebook.',

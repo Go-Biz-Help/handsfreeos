@@ -39,6 +39,7 @@ import {
   type AskResult,
   type AskTaken,
 } from '@hfos/core/addons/outreach/asks';
+import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { postSender } from '../auto/daily';
 import { tick } from '../auto/run';
 import { inTurn, turnHeldBy } from '../auto/turns';
@@ -62,6 +63,7 @@ import { answer, answerWith, Refused, savingTo, type Place } from '../hfos/sessi
 import { POPUP_ID, popUp, waitingSoon } from '../hfos/waiting';
 import { WARNED_KEY, warnedNow } from '../hfos/warned';
 import { chatMemory, readChats } from '../jobs/chats';
+import { checkFriends } from '../jobs/checks';
 import { getFile } from '../jobs/file';
 import { bringIn } from '../jobs/file-in';
 import { saveGroups } from '../jobs/groups';
@@ -283,6 +285,8 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
     }
     case 'chats':
       return readChats(job, { most: ASK_CHATS, memory: chatMemory, again: 'Ask again to go on.' });
+    case 'checks':
+      return checkFriends(job, CHECKS_PER_DAY);
     case 'cancel':
       return tidy(job, 'cancel_request', task.profileIds);
     case 'unfriend':

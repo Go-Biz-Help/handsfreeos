@@ -79855,6 +79855,7 @@
                     "type": "string",
                     "enum": [
                       "opener",
+                      "reconnect",
                       "follow_up",
                       "reply"
                     ]
@@ -79956,6 +79957,7 @@
                       "type": "string",
                       "enum": [
                         "opener",
+                        "reconnect",
                         "follow_up",
                         "reply"
                       ]
@@ -81309,6 +81311,20 @@
                           "kind": {
                             "type": "string",
                             "enum": [
+                              "checks"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
                               "group_search"
                             ]
                           },
@@ -81442,6 +81458,7 @@
                                 "type": "string",
                                 "enum": [
                                   "opener",
+                                  "reconnect",
                                   "follow_up",
                                   "reply",
                                   "comment"
@@ -81538,6 +81555,7 @@
                             "members",
                             "posts",
                             "chats",
+                            "checks",
                             "cancel",
                             "unfriend",
                             "lookup"
@@ -81813,6 +81831,7 @@
                                 "members",
                                 "posts",
                                 "chats",
+                                "checks",
                                 "cancel",
                                 "unfriend",
                                 "lookup"
@@ -81932,6 +81951,21 @@
                                       "type": "string",
                                       "enum": [
                                         "chats"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "checks"
                                       ]
                                     }
                                   },
@@ -82159,6 +82193,7 @@
                                           "type": "string",
                                           "enum": [
                                             "opener",
+                                            "reconnect",
                                             "follow_up",
                                             "reply",
                                             "comment"
@@ -82575,6 +82610,7 @@
                             "members",
                             "posts",
                             "chats",
+                            "checks",
                             "cancel",
                             "unfriend",
                             "lookup"
@@ -82831,6 +82867,7 @@
                             "members",
                             "posts",
                             "chats",
+                            "checks",
                             "cancel",
                             "unfriend",
                             "lookup"
@@ -83353,6 +83390,90 @@
                     "playbooks",
                     "groups",
                     "extensionLink"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.check.look": {
+      "post": {
+        "operationId": "command_outreach_check_look",
+        "summary": "What someone the person knows on Facebook says on their profile and business page, as the person’s computer just read it, for the AI to see whether they fit a playbook; or that Facebook showed someone else. Kept only until the AI has read it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.check.looked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "lines": {
+                    "default": [],
+                    "maxItems": 24,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  },
+                  "missing": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "verdict": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "good",
+                        "maybe",
+                        "not",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "checkId",
+                    "verdict"
                   ],
                   "additionalProperties": false
                 }
@@ -160195,7 +160316,7 @@
     "/v1/queries/outreach.friends": {
       "post": {
         "operationId": "query_outreach_friends",
-        "summary": "The person’s own friends on a social network as the extension saved them, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.",
+        "summary": "The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.",
         "tags": [
           "queries"
         ],
@@ -160217,6 +160338,7 @@
                     "type": "string",
                     "enum": [
                       "friends",
+                      "fits",
                       "requests",
                       "sent",
                       "keep",
@@ -160257,6 +160379,11 @@
                           "minimum": 0,
                           "maximum": 9007199254740991
                         },
+                        "fits": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
                         "requests": {
                           "type": "integer",
                           "minimum": 0,
@@ -160280,6 +160407,7 @@
                       },
                       "required": [
                         "friends",
+                        "fits",
                         "requests",
                         "sent",
                         "keep",
@@ -160614,6 +160742,73 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "check": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "verdict": {
+                                    "type": "string",
+                                    "enum": [
+                                      "waiting",
+                                      "good",
+                                      "maybe",
+                                      "not",
+                                      "failed"
+                                    ]
+                                  },
+                                  "playbookName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "why": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "about": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "nextStep": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "checkedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "verdict",
+                                  "playbookName",
+                                  "why",
+                                  "about",
+                                  "nextStep",
+                                  "checkedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -160630,10 +160825,61 @@
                           "group",
                           "friendsSince",
                           "lastMessage",
-                          "fit"
+                          "fit",
+                          "check"
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "people": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "checked": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "good": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "maybe": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "today": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "perDay": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "waiting": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "people",
+                        "checked",
+                        "good",
+                        "maybe",
+                        "today",
+                        "perDay",
+                        "waiting"
+                      ],
+                      "additionalProperties": false
                     },
                     "page": {
                       "type": "integer",
@@ -160661,6 +160907,7 @@
                     "cap",
                     "download",
                     "people",
+                    "checks",
                     "page",
                     "pages",
                     "total",
@@ -161211,7 +161458,7 @@
     "/v1/queries/outreach.today": {
       "post": {
         "operationId": "query_outreach_today",
-        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.",
+        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.",
         "tags": [
           "queries"
         ],
@@ -161376,6 +161623,7 @@
                               "warm_up",
                               "friend_request",
                               "opener",
+                              "reconnect",
                               "follow_up",
                               "reply",
                               "comment"
@@ -161644,6 +161892,7 @@
                           "warm_up",
                           "friend_request",
                           "opener",
+                          "reconnect",
                           "follow_up",
                           "reply",
                           "comment"
@@ -161656,6 +161905,7 @@
                         "type": "string",
                         "enum": [
                           "opener",
+                          "reconnect",
                           "follow_up",
                           "reply"
                         ]
@@ -162751,6 +163001,7 @@
                             "type": "string",
                             "enum": [
                               "opener",
+                              "reconnect",
                               "follow_up",
                               "reply"
                             ]
@@ -164035,6 +164286,7 @@
                                       "members",
                                       "posts",
                                       "chats",
+                                      "checks",
                                       "cancel",
                                       "unfriend",
                                       "lookup"
@@ -164249,6 +164501,7 @@
                                     "type": "string",
                                     "enum": [
                                       "opener",
+                                      "reconnect",
                                       "follow_up",
                                       "reply"
                                     ]
@@ -164406,6 +164659,7 @@
                                     "type": "string",
                                     "enum": [
                                       "opener",
+                                      "reconnect",
                                       "follow_up",
                                       "reply"
                                     ]
@@ -164872,7 +165126,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "kinds": {
-                    "maxItems": 14,
+                    "maxItems": 15,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -164888,6 +165142,7 @@
                         "members",
                         "posts",
                         "chats",
+                        "checks",
                         "cancel",
                         "unfriend",
                         "lookup"
@@ -164984,6 +165239,7 @@
                               "members",
                               "posts",
                               "chats",
+                              "checks",
                               "cancel",
                               "unfriend",
                               "lookup"
@@ -165391,6 +165647,108 @@
                     "playbooks",
                     "groups",
                     "extensionLink"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.checks.next": {
+      "post": {
+        "operationId": "query_outreach_checks_next",
+        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "most": {
+                    "default": 40,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 40
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "enum": [
+                              "prospect",
+                              "chat",
+                              "chat_only",
+                              "group",
+                              "friend"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "profileId",
+                          "name",
+                          "url",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "today": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "perDay": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "today",
+                    "perDay"
                   ],
                   "additionalProperties": false
                 }

@@ -13,6 +13,7 @@ import { rows, sql } from '@hfos/db/client';
 import type { AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
 import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
+import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
@@ -72,12 +73,14 @@ export const outreachAddonWorker: AddonWorkerModule = {
     },
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
-  // checked by it (./posts.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
+  // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
   // moved with the settings (./alerts.ts, ./weekly.ts); a booking through a demo link counted (./demos.ts).
   subscribers: {
     'outreach.download.saved': andMorning(downloadSaved),
     'outreach.chats.collected': andMorning(downloadSaved),
     'outreach.posts.saved': andMorning(postsSaved),
+    // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
+    'outreach.check.looked': andMorning(checkLooked),
     'outreach.reply.seen': andWeekly(replySeen),
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
@@ -95,6 +98,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
+    [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [MORNING_JOB]: morningJob,
     [WEEKLY_JOB]: weeklyJob,
     [LIVE_PRUNE_JOB]: livePruneJob,

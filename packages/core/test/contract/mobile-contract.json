@@ -6740,6 +6740,16 @@
                 "properties": {
                   "kind": {
                     "type": "string",
+                    "const": "checks"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
                     "const": "group_search"
                   },
                   "words": {
@@ -6843,7 +6853,7 @@
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "enum": ["opener", "follow_up", "reply", "comment"]
+                        "enum": ["opener", "reconnect", "follow_up", "reply", "comment"]
                       },
                       "profileId": {
                         "default": null,
@@ -12908,7 +12918,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 14,
+            "maxItems": 15,
             "type": "array",
             "items": {
               "type": "string",
@@ -12924,6 +12934,7 @@
                 "members",
                 "posts",
                 "chats",
+                "checks",
                 "cancel",
                 "unfriend",
                 "lookup"

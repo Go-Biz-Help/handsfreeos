@@ -2,8 +2,9 @@
 /**
  * Social Outreach's Friends tab (docs/outreach.md, decisions 10 to 13): where the person's own Facebook stands with
  * people, as the browser extension saved and noted it (apps/extension/README.md). Their friends against Facebook's
- * cap, the friend requests they've got in order of how each fits the playbooks in use, the requests they sent that
- * nobody has answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list.
+ * cap, the good fits the AI found among their friends and chats (decision 46, **Check my friends**), the friend
+ * requests they've got in order of how each fits the playbooks in use, the requests they sent that nobody has
+ * answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list.
  * Which, a name searched for and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
  * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in from
  * the side (./download-card.tsx), adds since when they've been friends and the latest message.
@@ -14,6 +15,12 @@ import {
   askOpen,
   TIDY_PACE_WORDS,
 } from '@hfos/core/addons/outreach/asks';
+import {
+  CHECK_VERDICTS,
+  CHECKS_WORDS,
+  checksWords,
+  type CheckVerdict,
+} from '@hfos/core/addons/outreach/checks';
 import { FIT_LEVELS, type FitLevel } from '@hfos/core/addons/outreach/fit';
 import {
   DONT_PITCH_TAG,
@@ -50,6 +57,7 @@ type DontPitch = NonNullable<Friend['dontPitch']>;
 
 const COUNTED: Record<FriendView, keyof Counts> = {
   friends: 'friends',
+  fits: 'fits',
   requests: 'requests',
   sent: 'sent',
   keep: 'keep',
@@ -59,6 +67,7 @@ const COUNTED: Record<FriendView, keyof Counts> = {
 /** The order each list is in. */
 const ORDER: Record<FriendView, string> = {
   friends: 'By name',
+  fits: 'The good fits first',
   requests: 'The best fit first',
   sent: 'The oldest first',
   keep: 'By name',
@@ -69,6 +78,10 @@ const EMPTY: Record<FriendView, { readonly title: string; readonly body: string 
   friends: {
     title: 'No friends saved yet',
     body: 'Press Save my friends list, and your computer reads your friends list on Facebook and saves it here. Or bring in your Facebook file.',
+  },
+  fits: {
+    title: 'No good fits found yet',
+    body: 'Press Check my friends, and your computer reads your friends’ profiles a few at a time for the AI. The ones who fit your playbooks show here, with why and a first step.',
   },
   requests: {
     title: 'No friend requests waiting',
@@ -86,6 +99,14 @@ const EMPTY: Record<FriendView, { readonly title: string; readonly body: string 
     title: 'Nobody on the Don’t pitch list',
     body: `Turn on Don’t pitch for anyone nobody here should pitch, like family and close friends. Customers tagged ${DONT_PITCH_TAG} in Contacts count too.`,
   },
+};
+
+const CHECK_TONE: Record<CheckVerdict, BadgeVariant> = {
+  waiting: 'gray',
+  good: 'ok',
+  maybe: 'accent',
+  not: 'gray',
+  failed: 'gray',
 };
 
 const FIT_TONE: Record<FitLevel, BadgeVariant> = {
@@ -324,6 +345,7 @@ export function FriendsView({
           <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
         </div>
         <aside className="space-y-4">
+          <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} />
           <CapCard counts={friends.counts} cap={friends.cap} />
           <FileAsksCard workspaceId={workspaceId} asks={asks} />
           <DownloadCard workspaceId={workspaceId} download={friends.download} />
@@ -522,8 +544,14 @@ function FriendRow({
           <PersonMenu workspaceId={workspaceId} who={f} dontPitch={false} />
         </div>
       </div>
-      {f.fit || state || mutual ? (
+      {f.fit || f.check || state || mutual ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {f.check && (show === 'fits' || f.check.verdict === 'good') ? (
+            <Badge variant={CHECK_TONE[f.check.verdict]} data-testid="friend-check">
+              {CHECK_VERDICTS[f.check.verdict]}
+              {f.check.playbookName ? ` · ${f.check.playbookName}` : ''}
+            </Badge>
+          ) : null}
           {f.fit ? (
             <Badge variant={FIT_TONE[f.fit.level]} data-testid="friend-fit">
               {FIT_LEVELS[f.fit.level]}
@@ -541,6 +569,13 @@ function FriendRow({
           {f.fit.reasons.join(' · ')}
         </p>
       ) : null}
+      {f.check && show === 'fits' ? (
+        <div className="mt-1 text-[12.5px]" data-testid="friend-check-why">
+          {f.check.about ? <p className="text-text">{f.check.about}</p> : null}
+          {f.check.why.length ? <p className="text-text-2">{f.check.why.join(' · ')}</p> : null}
+          {f.check.nextStep ? <p className="text-text-2">First step: {f.check.nextStep}</p> : null}
+        </div>
+      ) : null}
       {show === 'requests' && f.intro.length ? (
         <p className="mt-1 text-[12.5px] text-text-3">{f.intro.join(' · ')}</p>
       ) : null}
@@ -548,6 +583,50 @@ function FriendRow({
         <p className="mt-1 text-[12.5px] text-text-3">{dontPitchWords(f.dontPitch)}</p>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Checking the person's friends and chats for good fits (decision 46): how far it has come, today's against the
+ * day's, and **Check my friends**, which asks their computer to read the next ones' profiles for the AI.
+ */
+function ChecksCard({
+  workspaceId,
+  friends,
+  asks,
+}: {
+  workspaceId: string;
+  friends: Friends;
+  asks: Asks;
+}) {
+  const words = checksWords(friends.checks);
+  const room = friends.checks.today < friends.checks.perDay;
+  return (
+    <Card className="p-4" data-testid="friends-checks">
+      <h3 className="text-[15px] font-semibold">{CHECKS_WORDS.title}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{CHECKS_WORDS.note}</p>
+      {friends.checks.people ? (
+        <>
+          <p className="mt-3 text-[13px] text-text-2" data-testid="friends-checks-progress">
+            {words.progress}
+          </p>
+          <p className="mt-0.5 text-[12.5px] text-text-3">{words.today}</p>
+        </>
+      ) : (
+        <p className="mt-3 text-[12.5px] text-text-2">{CHECKS_WORDS.none}</p>
+      )}
+      <div className="mt-3">
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'checks' }}
+          label={CHECKS_WORDS.button}
+          disabled={!room || !friends.checks.people}
+          testId="ask-checks"
+        />
+      </div>
+      <p className="mt-2 text-[12.5px] text-text-3">{CHECKS_WORDS.daily}</p>
+    </Card>
   );
 }
 

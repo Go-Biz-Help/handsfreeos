@@ -5,6 +5,7 @@
  * web draws the Friends tab, and the server checks them.
  */
 import { z } from 'zod';
+import { CheckShown, ChecksSummary } from './checks';
 import { DownloadCounts } from './download';
 import { FIT_LEVEL_KEYS } from './fit';
 import {
@@ -119,9 +120,10 @@ export const FriendSetOutput = z.object({
   dontPitch: DontPitch.nullable(),
 });
 
-/** What the Friends tab shows. */
+/** What the Friends tab shows: the good fits among friends and chats are decision 46's (./checks.ts). */
 export const FRIEND_VIEWS = {
   friends: 'Friends',
+  fits: 'Good fits',
   requests: 'Requests',
   sent: 'Sent',
   keep: 'Keep',
@@ -148,6 +150,8 @@ const count = z.number().int().min(0);
 export const FriendsOutput = z.object({
   counts: z.object({
     friends: count,
+    /** Friends and people chatted with whom the AI found a good fit, or might fit. */
+    fits: count,
     /** Friend requests you've got and not answered. */
     requests: count,
     /** Friend requests you sent that haven't been answered. */
@@ -190,8 +194,12 @@ export const FriendsOutput = z.object({
           reasons: z.array(z.string()),
         })
         .nullable(),
+      /** What the AI made of them, once the extension has checked them (decision 46). */
+      check: CheckShown.nullable(),
     }),
   ),
+  /** How far checking friends and chats for good fits has come. */
+  checks: ChecksSummary,
   /** The page these are, from 1, out of `pages`; there's always one, if empty. */
   page: count.min(1),
   pages: count.min(1),

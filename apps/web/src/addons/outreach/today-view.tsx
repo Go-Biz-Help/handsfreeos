@@ -3,8 +3,8 @@
  * Social Outreach's Today tab (docs/outreach.md, the plan's Phase 1 step 5): the person's short list for the day on
  * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): requests they got from people who
  * fit to confirm (decision 30), a post to like before a friend request (decision 33), friend requests to people from
- * the business's groups who fit a playbook, a first message to new friends, follow-ups and replies, and comments on
- * good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
+ * the business's groups who fit a playbook, a first message to new friends, friends the AI found a good fit to
+ * reconnect with (decision 46), follow-ups and replies, and comments on good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
  * likes, requests and comments itself in the person's working hours. Each opens on Facebook, and a message or a comment comes with the AI's
  * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
  * notes it, which takes it off the list and counts it against today's limits. While the person's computer is online,
@@ -62,6 +62,7 @@ const KIND_BADGE = {
   warm_up: 'gray',
   friend_request: 'accent',
   opener: 'ok',
+  reconnect: 'ok',
   follow_up: 'gray',
   reply: 'pending',
   comment: 'accent',

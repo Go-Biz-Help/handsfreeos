@@ -32,6 +32,7 @@ export const ASK_KINDS = {
   members: 'Save group members',
   posts: 'Find posts in your groups',
   chats: 'Read your chats for the AI',
+  checks: 'Check your friends for good fits',
   cancel: 'Cancel old friend requests',
   unfriend: 'Unfriend the ones you ticked',
   lookup: 'Look someone up before drafting',
@@ -55,6 +56,7 @@ export const ASK_KINDS_FOR = {
   friends: [
     'requests',
     'friends',
+    'checks',
     'file_request',
     'file_download',
     'file_backup',
@@ -216,6 +218,7 @@ export const AskInput = z.discriminatedUnion('kind', [
   plain('friends'),
   plain('groups'),
   plain('chats'),
+  plain('checks'),
   z.object({ kind: z.literal('group_search'), words }),
   z
     .object({
@@ -256,6 +259,7 @@ export const AskTask = z.discriminatedUnion('kind', [
   plain('friends'),
   plain('groups'),
   plain('chats'),
+  plain('checks'),
   z.object({ kind: z.literal('group_search'), words: z.string() }),
   /** Null groups: the computer picks the best ones to work, as the runner does. */
   z.object({ kind: z.literal('members'), groups: z.array(AskGroup).nullable() }),

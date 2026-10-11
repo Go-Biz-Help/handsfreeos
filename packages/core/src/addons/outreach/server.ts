@@ -10,6 +10,7 @@ import { askCommands, askQueries } from './ops/asks';
 import { alertCommands } from './ops/alerts';
 import { automationCommands, automationQueries } from './ops/automation';
 import { chatCommands, chatQueries } from './ops/chats';
+import { checkCommands, checkQueries } from './ops/checks';
 import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
@@ -46,6 +47,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...waitingCommands,
     ...askCommands,
     ...setupCommands,
+    ...checkCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -63,5 +65,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...waitingQueries,
     ...askQueries,
     ...setupQueries,
+    ...checkQueries,
   ],
 };

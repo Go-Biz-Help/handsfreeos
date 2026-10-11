@@ -199,6 +199,7 @@ export function autoKinds(settings: AutomationSettings): TodayKind[] {
 /** The kinds on the list that are messages: the extension drafts each, and sends it once it's OK'd (./sends.ts). */
 export const MESSAGE_KINDS = [
   'opener',
+  'reconnect',
   'follow_up',
   'reply',
 ] as const satisfies readonly TodayKind[];

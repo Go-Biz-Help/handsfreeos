@@ -15,6 +15,7 @@
 import { COMMENT_BOX, hasWriting, MESSAGE_BOX, REPLY_BOX, SEND, WRITING } from './actions';
 import { clean, inTopBar, isAfter, labelOf } from './dom';
 import { shown, type FetchStep } from './fetch';
+import { sameName } from './people';
 import { COMMENT, LIKE, postBoxes, readPost } from './posts';
 import type { TidyPlan } from './tidy';
 import type { ProfilePage, ProfileRef } from './types';
@@ -79,6 +80,20 @@ export function sameRef(a: ProfileRef | null, b: ProfileRef | null): boolean {
   if (a.id && b.id) return a.id === b.id;
   if (a.username && b.username) return a.username.toLowerCase() === b.username.toLowerCase();
   return a.url === b.url;
+}
+
+/**
+ * Whether the profile on the page is the one HandsFreeOS listed: by number, or by username, when both have one; else
+ * by name, as someone saved by number from a group may open at their username.
+ */
+export function samePerson(
+  shown: ProfileRef,
+  shownName: string | null,
+  want: ProfileRef,
+  name: string,
+): boolean {
+  if ((shown.id && want.id) || (shown.username && want.username)) return sameRef(shown, want);
+  return shownName !== null && sameName(shownName, name);
 }
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));

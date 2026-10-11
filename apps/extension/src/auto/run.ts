@@ -37,7 +37,7 @@ import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { pastLimitWords } from '@hfos/core/addons/outreach/limits';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
-import { AUTO_PLANS, MESSAGE_PATH, sameRef, type AutoJob } from '../facebook/auto';
+import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
 import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
 import type { FetchStep } from '../facebook/fetch';
 import { FRIENDSHIP_WORDS } from '../facebook/tidy';
@@ -228,15 +228,6 @@ const profileOf = (url: string | null): ProfileRef | null => {
     return null;
   }
 };
-
-/**
- * Whether the profile on the page is the one on the list: by number, or by username, when both have one; else by
- * name, as someone saved by number from a group may open at their username.
- */
-function samePerson(shown: ProfileRef, shownName: string | null, want: ProfileRef, name: string) {
-  if ((shown.id && want.id) || (shown.username && want.username)) return sameRef(shown, want);
-  return shownName !== null && sameName(shownName, name);
-}
 
 /**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against

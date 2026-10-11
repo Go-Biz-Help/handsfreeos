@@ -1,13 +1,16 @@
 /**
  * The once-a-day jobs (docs/outreach.md, decision 32), which the runner that works on its own (./run.ts) does at the
  * start of the person's working day, or after **Start my day**, before going down their list: it checks their friend
- * requests, saves the members of their good groups, finds posts in those groups, and reads their chats, each in the
- * window it works in, at a person's pace (src/jobs/). Those fill the list it then works from: requests to confirm,
- * people to send friend requests to, posts to comment on, and chats for the AI. Nothing is pressed or sent on
+ * requests, saves the members of their good groups, finds posts in those groups, reads their chats, and checks their
+ * friends for good fits (decision 46), each in the window it works in, at a person's pace (src/jobs/). Those fill the
+ * list it then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the
+ * AI, and friends to reconnect with. Nothing is pressed or sent on
  * Facebook. They run while the person lets it work on its own and leaves **Once a day** ticked.
  */
 import type { ReadResult } from '../facebook/types';
+import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { chatMemory, readChats } from '../jobs/chats';
+import { checkFriends } from '../jobs/checks';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
@@ -23,6 +26,7 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   members: 'Saving your groups’ members…',
   posts: 'Finding posts in your groups…',
   chats: 'Reading your chats for the AI…',
+  checks: 'Checking your friends for good fits…',
 };
 
 /** The job's name, for the panel's list of what it did today. */
@@ -31,6 +35,7 @@ export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   members: 'Group members',
   posts: 'Find posts',
   chats: 'Read my chats',
+  checks: 'Check my friends',
 };
 
 /** Find posts' sends, each post once a run: also for Find posts asked from HandsFreeOS (../asks/run.ts). */
@@ -68,5 +73,7 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
         memory: chatMemory,
         again: 'The rest wait for tomorrow.',
       });
+    case 'checks':
+      return checkFriends(job, CHECKS_PER_DAY);
   }
 }

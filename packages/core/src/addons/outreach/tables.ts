@@ -4,8 +4,8 @@
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
- * steps it needs the person for, and the bundled push, and 20261027001700 for asking the extension): the Drizzle mirror
- * its server code reads and writes through.
+ * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, and 20261027002000 for
+ * the fits among friends and chats): the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -28,6 +28,7 @@ import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
+import type { CheckVerdict } from './checks';
 import type { DemoHow } from './demos';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -852,10 +853,52 @@ export const setup = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
 
+/**
+ * The AI's read of someone the person already knows on Facebook (decision 46): a friend, or someone they've chatted
+ * with. What their pages said waits in `lines` until the AI reads it, then goes. Each person's own.
+ */
+export const checks = addonOutreach.table(
+  'checks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    lines: text('lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    verdict: text('verdict').notNull().default('waiting').$type<CheckVerdict>(),
+    /** The playbook they fit (let go when it goes). */
+    playbookId: uuid('playbook_id'),
+    why: text('why')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    about: text('about'),
+    nextStep: text('next_step'),
+    lookedAt: ts('looked_at').notNull(),
+    checkedAt: ts('checked_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
   automation,
+  checks,
   computers,
   days,
   fileChats,

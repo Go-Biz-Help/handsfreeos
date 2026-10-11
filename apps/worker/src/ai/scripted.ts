@@ -1694,6 +1694,23 @@ function scriptedPostCheck(message: string) {
   return { good, why: good ? 'Asking for a recommendation' : 'Nothing to answer' };
 }
 
+/**
+ * Social Outreach's check of someone the person knows (decision 46): a good fit for the first playbook when their pages
+ * say "Owner", might fit when they say "Manager", else not.
+ */
+function scriptedFitCheck(message: string) {
+  const pages = /<their_pages>\n?([\s\S]*?)\n?<\/their_pages>/.exec(message)?.[1] ?? '';
+  const playbook = /^Name: (.*)$/m.exec(message)?.[1] ?? null;
+  const fit = /\bowner\b/i.test(pages) ? 'good' : /\bmanager\b/i.test(pages) ? 'maybe' : 'not';
+  return {
+    fit,
+    playbook: fit === 'not' ? null : playbook && unquote(playbook),
+    why: fit === 'good' ? ['Owns a business'] : fit === 'maybe' ? ['Runs a team'] : [],
+    about: fit === 'not' ? null : unquote(pages.split('\n')[0] ?? '') || null,
+    nextStep: fit === 'good' ? 'Ask how business is going' : null,
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
   {
@@ -1701,6 +1718,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedPostCheck(message),
   },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
+  { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
   {
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),

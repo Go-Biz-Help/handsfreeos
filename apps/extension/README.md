@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.20.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
+**This is a test build (0.21.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
 in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
 now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
 
@@ -12,8 +12,9 @@ each person in, and your answers to friend requests. In the Facebook tab in fron
 warnings, and, as your settings say, the chats you open and the posts in a group as you scroll. It works your list
 for today on its own, as far as you let it. And it does what you ask of it from Social Outreach's Friends, Groups,
 Chats and Today tabs (and the phone's Groups and Chats screens): getting your Facebook file and bringing it in, saving your friend requests, friends list,
-groups and their members, finding groups and posts, reading your chats for the AI, cancelling old friend requests and
-unfriending the people you tick, and looking someone up before the AI drafts to them. It stops for the day on any
+groups and their members, finding groups and posts, reading your chats for the AI, checking your friends for good
+fits, cancelling old friend requests and unfriending the people you tick, and looking someone up before the AI drafts
+to them. It stops for the day on any
 Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live. Its icon shows how many things
 wait for you, and Chrome's pop-ups tell you of new ones, as your phone does. It never sends a message you haven't
 OK'd, and never clicks, scrolls or changes a page but for what you asked or let it do.
@@ -138,6 +139,7 @@ shows under the button and on the Live tab, and the panel under **Right now** (`
 | **Bring them in** (the same)                                                               | Finds Facebook's zips in Chrome's downloads, however they were downloaded, reads them and sends names, dates and each one-to-one chat's latest 20 messages, as the Friends tab's card does (`src/jobs/file-in.ts`)                               | The offscreen page (`src/offscreen.ts`); needs **Allow access to file URLs** |
 | **Check my friend requests** (Friends)                                                     | Saves the friend requests you've got, a few screens of them (`src/jobs/people.ts`)                                                                                                                                                               | A window of its own, 4 to 9 seconds a screen                                 |
 | **Save my friends list** (Friends)                                                         | Scrolls your friends list to the end and saves it, 500 at a time                                                                                                                                                                                 | The same, up to 150 screens                                                  |
+| **Check my friends** (Friends)                                                             | Asks HandsFreeOS who's next (friends you've chatted with first), opens each profile, checks it's them, reads their intro, latest posts and the business page it links to, and sends those lines for the AI (`src/jobs/checks.ts`, decision 46)   | A window of its own, one person every 15 to 30 seconds, up to 40 a day       |
 | **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`) | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day  |
 | **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                         | A window of its own, 4 to 9 seconds a screen, 8 screens                      |
 | **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                          | A window of its own                                                          |
@@ -210,16 +212,16 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   for people you'll ask tomorrow, and their request comes a day after the like. A profile with no post of theirs to
   like gets its request without one.
 - **Confirm friend requests from people who fit a playbook** (on to start): **Confirm their request** on your list.
-- **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts and
-  Read my chats, which fill your list (decision 32).
+- **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts, Read
+  my chats and checking your friends for good fits, which fill your list (decisions 32 and 46).
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
 
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests
 you've got (Friend requests, loading a few screens of them); the admins and moderators of up to 3 of your Work these
 groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
-don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; and Read
-my chats, up to 60 a day. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
+don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
+my chats, up to 60 a day; and Check my friends, the day's 40. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
 do.
 
 In your hours it goes down the list at random times spread over the day, in this order: requests to confirm, posts to
@@ -455,7 +457,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Right now with Start, Stop and an ask under way, `waiting.ts` Waiting for you                     |
 | `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                    |
 | `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                        |
-| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats               |
+| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks       |
 | `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                             |
 | `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                    |
 | `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), the runner (`run.ts`), the once-a-day jobs (`daily.ts`), and taking turns with asks (`turns.ts`)   |

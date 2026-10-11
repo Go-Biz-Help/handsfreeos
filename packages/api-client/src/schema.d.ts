@@ -5977,6 +5977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.check.look": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What someone the person knows on Facebook says on their profile and business page, as the person’s computer just read it, for the AI to see whether they fit a playbook; or that Facebook showed someone else. Kept only until the AI has read it.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.check.looked.
+         */
+        post: operations["command_outreach_check_look"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.rename": {
         parameters: {
             query?: never;
@@ -16197,6 +16217,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.checks.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_checks_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.friends": {
         parameters: {
             query?: never;
@@ -16207,7 +16247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own friends on a social network as the extension saved them, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.
+         * The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_friends"];
@@ -16427,7 +16467,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.
+         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
@@ -32249,7 +32289,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32366,6 +32406,9 @@ export interface operations {
                         kind: "chats";
                     } | {
                         /** @enum {string} */
+                        kind: "checks";
+                    } | {
+                        /** @enum {string} */
                         kind: "group_search";
                         words: string;
                     } | {
@@ -32390,7 +32433,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "follow_up" | "reply" | "comment";
+                            kind: "opener" | "reconnect" | "follow_up" | "reply" | "comment";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -32421,7 +32464,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32523,7 +32566,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32587,7 +32630,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -32612,6 +32655,9 @@ export interface operations {
                             } | {
                                 /** @enum {string} */
                                 kind: "chats";
+                            } | {
+                                /** @enum {string} */
+                                kind: "checks";
                             } | {
                                 /** @enum {string} */
                                 kind: "group_search";
@@ -32648,7 +32694,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "follow_up" | "reply" | "comment";
+                                    kind: "opener" | "reconnect" | "follow_up" | "reply" | "comment";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -32932,6 +32978,44 @@ export interface operations {
                     "application/json": {
                         saved: number;
                         waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_check_look: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    lines?: string[];
+                    /** @default false */
+                    missing?: boolean;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkId: string;
+                        /** @enum {string} */
+                        verdict: "waiting" | "good" | "maybe" | "not" | "failed";
                     };
                 };
             };
@@ -34217,7 +34301,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "follow_up" | "reply";
+                    kind: "opener" | "reconnect" | "follow_up" | "reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -34251,7 +34335,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "follow_up" | "reply";
+                        kind: "opener" | "reconnect" | "follow_up" | "reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -60346,7 +60430,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -60369,7 +60453,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -60605,6 +60689,46 @@ export interface operations {
             };
         };
     };
+    query_outreach_checks_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 40 */
+                    most?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            name: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            /** @enum {string} */
+                            reason: "prospect" | "chat" | "chat_only" | "group" | "friend";
+                            url: string;
+                        }[];
+                        perDay: number;
+                        today: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_friends: {
         parameters: {
             query?: never;
@@ -60622,7 +60746,7 @@ export interface operations {
                      * @default friends
                      * @enum {string}
                      */
-                    view?: "friends" | "requests" | "sent" | "keep" | "dont_pitch";
+                    view?: "friends" | "fits" | "requests" | "sent" | "keep" | "dont_pitch";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -60637,8 +60761,18 @@ export interface operations {
                 content: {
                     "application/json": {
                         cap: number;
+                        checks: {
+                            checked: number;
+                            good: number;
+                            maybe: number;
+                            people: number;
+                            perDay: number;
+                            today: number;
+                            waiting: number;
+                        };
                         counts: {
                             dontPitch: number;
+                            fits: number;
                             friends: number;
                             keep: number;
                             requests: number;
@@ -60666,6 +60800,15 @@ export interface operations {
                         page: number;
                         pages: number;
                         people: {
+                            check: {
+                                about: string | null;
+                                checkedAt: string | null;
+                                nextStep: string | null;
+                                playbookName: string | null;
+                                /** @enum {string} */
+                                verdict: "waiting" | "good" | "maybe" | "not" | "failed";
+                                why: string[];
+                            } | null;
                             dontPitch: {
                                 at: string | null;
                                 by: string | null;
@@ -61362,7 +61505,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "follow_up" | "reply";
+                            kind: "opener" | "reconnect" | "follow_up" | "reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -61476,14 +61619,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "follow_up" | "reply" | "comment")[];
+                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "follow_up" | "reply" | "comment")[];
                         hasPlaybook: boolean;
                         items: {
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "follow_up" | "reply" | "comment";
+                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "follow_up" | "reply" | "comment";
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
@@ -61529,7 +61672,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "follow_up" | "reply")[];
+                        messages: ("opener" | "reconnect" | "follow_up" | "reply")[];
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;
@@ -61601,7 +61744,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "cancel" | "unfriend" | "lookup";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "cancel" | "unfriend" | "lookup";
                                 line: string | null;
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
@@ -61641,7 +61784,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "follow_up" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -61673,7 +61816,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "follow_up" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {

@@ -12,6 +12,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import type { CheckVerdict } from '../checks';
 import { DownloadCounts } from '../download';
 import { bestFit, byFit, type FitPlaybook } from '../fit';
 import {
@@ -43,6 +44,7 @@ import {
   type Profile,
   type ProfileKey,
 } from './common';
+import { checksSummary } from './checks';
 import { clearNeeds } from './needs';
 
 /** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
@@ -357,20 +359,33 @@ type Listed = {
   readonly intro: string[];
   readonly group_name: string | null;
   readonly group_url: string | null;
+  /** What the AI made of them (decision 46), when the person's computer has checked them. */
+  readonly verdict: CheckVerdict | null;
+  readonly check_playbook: string | null;
+  readonly check_why: string[] | null;
+  readonly check_about: string | null;
+  readonly check_next_step: string | null;
+  readonly checked_at: Date | string | null;
 };
 
 /** Who each view shows, from a profile's row below. */
 const VIEW_WHERE: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
   friends: sql`l.state = 'friends'`,
+  // Friends and people chatted with whom the AI found a fit, never anyone not pitched.
+  fits: sql`l.verdict in ('good', 'maybe') and not (l.dont_pitch or l.tagged)`,
   requests: sql`l.state = 'request_received'`,
   sent: sql`l.state = 'request_sent'`,
   keep: sql`l.keep`,
   dont_pitch: sql`(l.dont_pitch or l.tagged)`,
 };
 
-/** Each view's order: by name, the newest request first (before fit), the oldest sent first, the latest marked first. */
+/**
+ * Each view's order: by name, the good fits before those who might fit and the latest checked first, the newest
+ * request first (before fit), the oldest sent first, the latest marked first.
+ */
 const VIEW_ORDER: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
   friends: sql`lower(l.name), l.profile_id`,
+  fits: sql`(l.verdict = 'good') desc, l.checked_at desc nulls last, l.profile_id`,
   requests: sql`l.since desc, l.profile_id`,
   sent: sql`l.since, l.profile_id`,
   keep: sql`lower(l.name), l.profile_id`,
@@ -466,7 +481,7 @@ async function latestDownload(ctx: QueryContext, me: string) {
 export const friendsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends',
   description:
-    'The person’s own friends on a social network as the extension saved them, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.',
+    'The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.',
   input: FriendsInput,
   output: FriendsOutput,
   permission: 'outreach.use',
@@ -478,6 +493,13 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       where rt.workspace_id = p.workspace_id and rt.record_type = 'person' and rt.record_id = p.person_id
         and lower(t.name::text) = lower(${DONT_PITCH_TAG}))`;
 
+    const [fits] = await rows<{ fits: number }>(
+      ctx.tx,
+      sql`select count(*)::int as fits from addon_outreach.checks ch
+          join addon_outreach.profiles p on p.id = ch.profile_id
+          where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
+            and not (p.dont_pitch or ${tagged})`,
+    );
     const [mine] = await rows<{ friends: number; requests: number; sent: number; keep: number }>(
       ctx.tx,
       sql`select count(*) filter (where state = 'friends')::int as friends,
@@ -496,9 +518,13 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         f.state, f.since, f.keep, p.dont_pitch,
         coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
-        ${tagged} as tagged, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url
+        ${tagged} as tagged, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
+        ch.verdict, cpb.name as check_playbook, ch.why as check_why, ch.about as check_about,
+        ch.next_step as check_next_step, ch.checked_at
       from addon_outreach.profiles p
       left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
+      left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+      left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
       left join app.people pp on pp.id = p.person_id
       left join app.users u on u.id = p.dont_pitch_by
       left join addon_outreach.groups g on g.id = p.group_id
@@ -554,6 +580,16 @@ export const friendsList = defineAddonQuery(outreachAddon, {
           playbookName: fit.playbookName,
           reasons: [...fit.reasons],
         },
+        check: l.verdict
+          ? {
+              verdict: l.verdict,
+              playbookName: l.check_playbook,
+              why: l.check_why ?? [],
+              about: l.check_about,
+              nextStep: l.check_next_step,
+              checkedAt: isoOrNull(l.checked_at),
+            }
+          : null,
       };
     };
 
@@ -580,6 +616,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
     return {
       counts: {
         friends: mine?.friends ?? 0,
+        fits: fits?.fits ?? 0,
         requests: mine?.requests ?? 0,
         sent: mine?.sent ?? 0,
         keep: mine?.keep ?? 0,
@@ -588,6 +625,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       cap: FRIENDS_CAP,
       download: await latestDownload(ctx, me),
       people,
+      checks: await checksSummary(ctx, me),
       page,
       pages,
       total,

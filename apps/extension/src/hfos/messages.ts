@@ -77,6 +77,11 @@ export type NeedClearInput = Body<'/v1/commands/outreach.need.clear'>;
 export type NeedCleared = Ok<'/v1/commands/outreach.need.clear'>;
 export type RequestSetAsideInput = Body<'/v1/commands/outreach.request.set_aside'>;
 export type RequestSetAside = Ok<'/v1/commands/outreach.request.set_aside'>;
+/** Who to check for a good fit next, and what their pages said (packages/core/src/addons/outreach/checks.ts). */
+export type ChecksNextInput = Body<'/v1/queries/outreach.checks.next'>;
+export type ChecksNext = Ok<'/v1/queries/outreach.checks.next'>;
+export type CheckLookInput = Body<'/v1/commands/outreach.check.look'>;
+export type CheckLooked = Ok<'/v1/commands/outreach.check.look'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -178,6 +183,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
+  | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
+  | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -216,6 +223,8 @@ export interface HfosValues {
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
+  readonly 'hfos-checks-next': ChecksNext;
+  readonly 'hfos-check-look': CheckLooked;
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;
