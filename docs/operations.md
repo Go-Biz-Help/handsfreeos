@@ -6069,16 +6069,16 @@ Don't reuse this client for `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPAB
 
    You should see `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the `NAME` column.
 
-This does not turn on Connect Gmail. The **Connect Gmail** button stays hidden in the web app until the web build has `NEXT_PUBLIC_GMAIL_ENABLED=true` (next part).
+This does not turn on Connect Gmail. The **Connect Gmail** button stays greyed out in the web app until the web build has `NEXT_PUBLIC_GMAIL_ENABLED=true` (next part).
 
 #### Test Gmail while Google's review is pending
 
-The worker doesn't check whether Google has approved the app, but the web app hides **Connect Gmail** until it is built with `NEXT_PUBLIC_GMAIL_ENABLED=true`. The flag turns Connect Gmail on for every user; there is no per-person switch. To test before approval, turn the flag on for a short while. Only your test users can get past Google's sign-in, so do this only while no clients use HandsFreeOS.
+The worker doesn't check whether Google has approved the app, but the web app keeps **Connect Gmail** greyed out, with the badge "Coming soon", until it is built with `NEXT_PUBLIC_GMAIL_ENABLED=true`. The flag turns Connect Gmail on for every user; there is no per-person switch. To test before approval, turn the flag on for a short while. Only your test users can get past Google's sign-in, so do this only while no clients use HandsFreeOS.
 
 1. In Vercel, edit `NEXT_PUBLIC_GMAIL_ENABLED` and set it to `true` for **Production** (see "Environment variables" in "The web app on Vercel"). Enter `true` in lower case. Any other value, such as `True`, `1` or `yes`, leaves Gmail off.
 2. Redeploy with "Redeploy after a change" in "The web app on Vercel".
 
-   You should see the deployment finish as **Ready**, and **Settings** → **Email** show **Connect Gmail** next to **Connect Outlook**.
+   You should see the deployment finish as **Ready**, and **Settings** → **Email** show **Connect Gmail** without the "Coming soon" badge.
 
 Then test with a test-user account:
 
@@ -6108,7 +6108,7 @@ To close Gmail again after the test:
 2. Click **Save**.
 3. Redeploy with "Redeploy after a change" in "The web app on Vercel".
 
-   You should see **Connect Gmail** gone from **Settings** → **Email** again.
+   You should see **Connect Gmail** greyed out again, with the "Coming soon" badge.
 
 A mailbox that is already connected keeps syncing, and its **Reconnect** button keeps working, because the flag only controls the **Connect Gmail** button.
 
@@ -6171,7 +6171,7 @@ After Google approves:
 2. Click **Save**.
 3. Redeploy with "Redeploy after a change" in "The web app on Vercel".
 
-   You should see **Connect Gmail** next to **Connect Outlook** in **Settings** → **Email** for every workspace.
+   You should see **Connect Gmail** available in **Settings** → **Email** for every workspace, without the "Coming soon" badge.
 
 ### When a sign-in stops working
 
@@ -6188,7 +6188,7 @@ What HandsFreeOS does:
 - The person who connected the mailbox gets one email from the worker's `MAIL_FROM` address, titled "Reconnect your Outlook mailbox" or "Reconnect your Gmail mailbox". It says HandsFreeOS lost access on that date, has a **Reconnect Outlook** or **Reconnect Gmail** button that opens **Settings** → **Email**, and ends with "Nothing was lost. Mail from the gap comes in once you reconnect." It is sent once per lapse, not repeatedly. If that person's account no longer exists, every owner and admin of the workspace gets it instead.
 - The mailbox disappears from the **From** choices in the **Inbox** until it is reconnected, so replies go from the workspace address. A reply that was already on its way fails with "Outlook isn’t connected anymore. Reconnect it in Settings → Email, or send from the workspace address." If the lapse is found during the send itself, the reply fails with "Outlook needs <account> to sign in again. Reconnect it in Settings → Email, then try again." (Gmail messages read the same with Gmail.)
 
-To fix it, the person (who must be an owner or admin) opens **Settings** → **Email**, clicks **Reconnect** next to the mailbox, and signs in with the same account. **Reconnect** works even while **Connect Gmail** is hidden. Reconnecting makes a fresh connection, retires the old one (its row leaves the list), and starts a check right away. The first check looks back 30 days from the reconnect (`MAILBOX_BACKFILL_DAYS` on the worker, 1 to 90), so mail from the gap comes in as long as the gap was shorter than that.
+To fix it, the person (who must be an owner or admin) opens **Settings** → **Email**, clicks **Reconnect** next to the mailbox, and signs in with the same account. **Reconnect** works even while **Connect Gmail** is greyed out. Reconnecting makes a fresh connection, retires the old one (its row leaves the list), and starts a check right away. The first check looks back 30 days from the reconnect (`MAILBOX_BACKFILL_DAYS` on the worker, 1 to 90), so mail from the gap comes in as long as the gap was shorter than that.
 
 Other problems look different:
 
@@ -10768,7 +10768,7 @@ How the stand-in behaves:
 
   You should see a reply with a `providerMessageId`, and the email in the inbox within a few seconds. This address needs no login and only exists while the stand-in is active.
 
-- **Connect Gmail** stays hidden, even locally. To try the Gmail stand-in, add `NEXT_PUBLIC_GMAIL_ENABLED=true` to `apps/web/.env.local` and restart `pnpm dev`. Its stand-in page fills in `owner@gmail.fake`.
+- **Connect Gmail** stays disabled with the badge "Coming soon", even locally. To try the Gmail stand-in, add `NEXT_PUBLIC_GMAIL_ENABLED=true` to `apps/web/.env.local` and restart `pnpm dev`. Its stand-in page fills in `owner@gmail.fake`.
 
 #### The push stand-in (phone notifications)
 
@@ -12071,7 +12071,7 @@ Google's restricted-scope review needs a demo video of Connect Gmail working, so
 
 6. Close Gmail again with the steps under "To close Gmail again after the test" in the same part.
 
-   You should see **Connect Gmail** gone from **Settings** → **Email** again.
+   You should see **Connect Gmail** greyed out again, with the "Coming soon" badge.
 
 7. Submit the app with "Restricted-scope verification and the CASA assessment" in the same section. Google's review takes weeks. The rest of this checklist does not wait for it.
 
@@ -12583,7 +12583,7 @@ The pages the worker shows during sign-in, and the messages back in **Settings**
 
 #### Gmail asks to reconnect every week
 
-This only happens if a Gmail mailbox was connected while the Google app was still in testing, for example after `NEXT_PUBLIC_GMAIL_ENABLED=true` was set for a test before Google approved. Otherwise, on the hosted stack before approval, **Connect Gmail** is hidden, so no Gmail mailbox exists to expire.
+This only happens if a Gmail mailbox was connected while the Google app was still in testing, for example after `NEXT_PUBLIC_GMAIL_ENABLED=true` was set for a test before Google approved. Otherwise, on the hosted stack before approval, **Connect Gmail** is greyed out, so no Gmail mailbox exists to expire.
 
 **Symptom.** Every week an email "Reconnect your Gmail mailbox" arrives, and the mailbox shows **Needs reconnecting**.
 
@@ -12591,10 +12591,10 @@ This only happens if a Gmail mailbox was connected while the Google app was stil
 
 **Fix.**
 
-1. In **Settings** → **Email**, click **Reconnect** on the mailbox and sign in again. **Reconnect** works even while **Connect Gmail** is hidden. Nothing is lost; mail from the gap comes in.
+1. In **Settings** → **Email**, click **Reconnect** on the mailbox and sign in again. **Reconnect** works even while **Connect Gmail** is greyed out. Nothing is lost; mail from the gap comes in.
 2. For good, finish Google's restricted-scope verification and CASA assessment, publish the app, then set `NEXT_PUBLIC_GMAIL_ENABLED=true` in Vercel and redeploy the web app ("Turn Gmail on for everyone" in "Connected mailboxes: Outlook and Gmail").
 
-**Connect Gmail** stays hidden until the web build has `NEXT_PUBLIC_GMAIL_ENABLED=true`, and that turns it on for every user. There is no per-person switch, so try Gmail on the hosted stack before Google approves only while no clients use HandsFreeOS (see "Test Gmail while Google's review is pending").
+**Connect Gmail** stays greyed out until the web build has `NEXT_PUBLIC_GMAIL_ENABLED=true`, and that turns it on for every user. There is no per-person switch, so try Gmail on the hosted stack before Google approves only while no clients use HandsFreeOS (see "Test Gmail while Google's review is pending").
 
 If a Gmail mailbox shows **Not syncing** with "Google refused the sign-in (<code>)", the Google client secret is wrong or was deleted. Make a new one in Google Cloud, save it in your password manager, and set it on the worker with "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail".
 

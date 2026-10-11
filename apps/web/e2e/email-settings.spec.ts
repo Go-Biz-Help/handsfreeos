@@ -23,7 +23,7 @@ test('mailboxes: connect Outlook, mail with a customer comes in, and a reply goe
   await expect(page).toHaveURL(/\/customers\/people\//);
 
   await page.goto(`/app/w/${workspaceId}/settings/email`);
-  await expect(page.getByTestId('connect-gmail')).toHaveCount(0);
+  await expect(page.getByTestId('connect-gmail')).toBeDisabled();
   await page.getByTestId('connect-outlook').click();
 
   // Microsoft's sign-in (on this development server, the worker's stand-in page).

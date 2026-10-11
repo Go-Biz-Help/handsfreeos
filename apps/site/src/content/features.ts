@@ -25,7 +25,7 @@ export const featureSections: readonly FeatureSection[] = [
       'Calls ring the cell phones you nominate. Calling a customer back from the app shows your business number, not your personal one.',
       'A missed call turns into a text back within a minute, if you want one.',
       'Voicemail arrives typed out, so you can read it between jobs instead of listening to it.',
-      'Email in the same thread as the texts, from a connected Outlook mailbox.',
+      'Email in the same thread as the texts, from a connected Outlook mailbox. Gmail is coming soon.',
       'Website chat on your own site, answered in the same inbox.',
       'Registration with the carriers, which US business texting requires, is part of setting you up.',
       'Anyone on the team can pick up a conversation, and you can see who is on it.',

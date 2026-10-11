@@ -345,8 +345,8 @@ function Features() {
  * page rather than only in the privacy policy. Google's OAuth verification reads this page to
  * decide whether the app's purpose explains the scopes it asks for, so each line here is meant to
  * map onto one: busy times to calendar.freebusy, appointments written back to
- * calendar.events.owned, and the mailbox scopes to the shared inbox. The mailbox card names Outlook
- * only: Connect Gmail is hidden in the app until Google's Gmail review, so add Gmail back here then.
+ * calendar.events.owned, and the mailbox scopes to the shared inbox. Gmail is marked coming soon:
+ * Connect Gmail stays greyed out in the app until Google's Gmail review.
  */
 function ConnectedAccounts() {
   const connections = [
@@ -357,7 +357,7 @@ function ConnectedAccounts() {
     },
     {
       icon: Icons.inbox,
-      title: 'Your Outlook mailbox',
+      title: 'Your Outlook mailbox, with Gmail coming soon',
       body: 'Email lands in the same thread as that customer’s texts and calls, and replies you write go out from your own address. One place to look, whichever way the customer got in touch.',
     },
     {

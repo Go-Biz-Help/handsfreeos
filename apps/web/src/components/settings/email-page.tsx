@@ -1092,23 +1092,24 @@ function Mailboxes({
           <MicrosoftLogo />
           Connect Outlook
         </Button>
-        {/*
-         * Hidden, not greyed out, until Google's restricted-scope review is done: Gmail is a feature
-         * for later. A Gmail mailbox already connected (a test user's) still lists above with Reconnect.
-         */}
-        {publicEnv.gmailEnabled ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={busy === 'google'}
-            onClick={() => void connect('google')}
-            data-testid="connect-gmail"
-          >
-            <GoogleLogo />
-            Connect Gmail
-          </Button>
-        ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!publicEnv.gmailEnabled}
+          loading={busy === 'google'}
+          onClick={() => void connect('google')}
+          data-testid="connect-gmail"
+        >
+          <GoogleLogo />
+          Connect Gmail
+        </Button>
+        {publicEnv.gmailEnabled ? null : <Badge variant="pending">Coming soon</Badge>}
       </div>
+      {publicEnv.gmailEnabled ? null : (
+        <p className="mt-2 text-xs text-text-3">
+          Gmail is coming soon. Until then, connect Outlook or send from your workspace address.
+        </p>
+      )}
     </Section>
   );
 }

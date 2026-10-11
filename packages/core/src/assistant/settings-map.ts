@@ -456,13 +456,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     onScreen: [
       'Sending address: the name customers see, and which address is the default',
       'Use your own domain: Add domain, Check now',
-      // Connect Gmail is hidden until Google's review (NEXT_PUBLIC_GMAIL_ENABLED); add it back here then.
-      'Connected mailboxes: Connect Outlook',
+      // Connect Gmail is greyed out as Coming soon until Google's review (NEXT_PUBLIC_GMAIL_ENABLED).
+      'Connected mailboxes: Connect Outlook, and Connect Gmail marked Coming soon',
       'Blocked addresses',
       'Mail from people not in Contacts',
     ],
     notHere: [
-      'connecting a Gmail mailbox: not yet, so connect Outlook or send from the workspace address',
+      'connecting a Gmail mailbox: coming soon, so connect Outlook or send from the workspace address',
     ],
     path: '/settings/email',
     permission: 'channels.manage',
