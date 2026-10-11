@@ -497,6 +497,8 @@ export const posts = addonOutreach.table(
     found: text('found').notNull().$type<PostFound>(),
     checkState: text('check_state').notNull().default('waiting').$type<PostCheck>(),
     checkWhy: text('check_why'),
+    /** The writer is asking, now, for what the business offers (decision 49): pushed, and first on Today. */
+    strong: boolean('strong').notNull().default(false),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),
@@ -624,6 +626,7 @@ export const automation = addonOutreach.table(
     collect: boolean('collect').notNull().default(true),
     /** It finds and asks to join good groups when people left to reach run low (decision 48). */
     joinGroups: boolean('join_groups').notNull().default(true),
+    watchPosts: boolean('watch_posts').notNull().default(true),
     hoursStart: smallint('hours_start').notNull().default(9),
     hoursEnd: smallint('hours_end').notNull().default(17),
     days: smallint('days')

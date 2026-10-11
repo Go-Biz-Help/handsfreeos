@@ -95,6 +95,8 @@ export const TodayItem = z.object({
   postUrl: z.string().nullable(),
   posted: z.string().nullable(),
   post: z.string().nullable(),
+  /** The post's writer is asking, now, for what the business offers (./posts.ts, decision 49): first on the list. */
+  asking: z.boolean(),
   /** Why it's on the list: "Owner at Pine Street Bakery", "Found in Austin Small Business Owners". */
   why: z.array(z.string()),
   /** The chat's summary and next step, when it's been read. */

@@ -47,11 +47,17 @@ export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   checks: 'Check my friends',
 };
 
-/** Find posts' sends, each post once a run: also for Find posts asked from HandsFreeOS (../asks/run.ts). */
-export function postSender(job: Job): (page: ReadResult) => Promise<number> {
+/**
+ * Find posts' sends, each post once a run: also for Find posts asked from HandsFreeOS (../asks/run.ts), and the look
+ * at the newest posts (`watch`, decision 49).
+ */
+export function postSender(
+  job: Job,
+  found: 'find' | 'watch' = 'find',
+): (page: ReadResult) => Promise<number> {
   const sent = new Set<string>();
   return async (page) => {
-    const built = postsSave(page, job.businessId, 'find');
+    const built = postsSave(page, job.businessId, found);
     if (!built.ok) return 0;
     const posts = built.input.posts.filter((post) => !sent.has(post.url));
     if (!posts.length) return 0;

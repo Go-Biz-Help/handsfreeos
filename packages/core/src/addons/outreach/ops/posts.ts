@@ -143,7 +143,7 @@ export const postsSave = defineAddonCommand(outreachAddon, {
 export const postCheck = defineAddonCommand(outreachAddon, {
   name: 'outreach.post.check',
   description:
-    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why; or that it couldn’t be read.',
+    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, and whether its writer is asking now for what the business offers; or that it couldn’t be read.',
   risk: 0,
   input: PostCheckInput,
   output: PostCheckOutput,
@@ -161,19 +161,23 @@ export const postCheck = defineAddonCommand(outreachAddon, {
       .for('update');
     if (!post) throw HfosError.notFound('That post isn’t kept anymore.');
     // Checked already: a second answer changes nothing.
-    if (post.checkState !== 'waiting') return { postId: post.id, check: post.checkState };
+    if (post.checkState !== 'waiting')
+      return { postId: post.id, check: post.checkState, strong: post.strong };
     const check: PostCheck = input.check ? (input.check.good ? 'good' : 'not') : 'failed';
+    // Strong only ever for a good post (decision 49).
+    const strong = check === 'good' && input.check?.strong === true;
     await ctx.tx
       .update(posts)
-      .set({ checkState: check, checkWhy: input.check?.why ?? null, checkedAt: at })
+      .set({ checkState: check, checkWhy: input.check?.why ?? null, strong, checkedAt: at })
       .where(eq(posts.id, post.id));
     await ctx.emit({
       type: 'outreach.post.checked',
       entityType: 'workspace',
       entityId: ws,
-      payload: { postId: post.id, check },
+      // The worker pushes a strong one to the person who found it, when it's fresh.
+      payload: { postId: post.id, check, strong, userId: post.userId },
     });
-    return { postId: post.id, check };
+    return { postId: post.id, check, strong };
   },
 });
 

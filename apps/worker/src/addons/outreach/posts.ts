@@ -7,25 +7,33 @@
  *   scrolls is checked once.
  * - Each check takes a batch, the newest first. At the day's AI limit the rest wait a few hours; an answer it can't
  *   use marks that post as failed rather than trying it forever.
+ * - A post the AI calls strong, its writer asking now for what the business offers (`outreach.post.checked`, decision
+ *   49), pushes to the person who found it at once when it's fresh: "Dana Reyes is asking for what you offer". Once a
+ *   post, on their add-ons switch, opening Today, where it's first.
  */
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import {
   checkedPostWhy,
+  freshPost,
+  type PostFound,
   POST_CHECK_SCHEMA,
   POST_CHECK_SYSTEM,
   PostCheckAnswer,
   postCheckPrompt,
   type PostCheckPlaybook,
+  strongPostPushWords,
 } from '@hfos/core/addons/outreach/posts';
 import { executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
+import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
 import type { AddonEventContext, AddonJobContext } from '../types';
 
 export const CHECK_POSTS_JOB = 'outreach.check_posts';
+const TODAY_HREF = '/a/outreach?view=today';
 /** How many posts one check takes. */
 export const CHECK_POSTS_BATCH = 20;
 const HOUR = 3_600_000;
@@ -88,7 +96,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
   });
 
   for (const post of found.posts.slice(0, CHECK_POSTS_BATCH)) {
-    let check: { good: boolean; why: string | null } | null;
+    let check: { good: boolean; strong: boolean; why: string | null } | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: POST_CHECK_SYSTEM,
@@ -108,7 +116,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
         maxTokens: 200,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      check = { good: value.good, why: checkedPostWhy(value.why) };
+      check = { good: value.good, strong: value.strong, why: checkedPostWhy(value.why) };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       // The day's limit or an empty balance: the rest wait a few hours. Not set up: they wait for the next save.
@@ -131,4 +139,42 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     );
   }
   if (found.posts.length > CHECK_POSTS_BATCH) return { rescheduleAt: new Date(ctx.now) };
+}
+
+/** `outreach.post.checked`: a strong post that's fresh pushes to the person who found it, once. */
+export async function postChecked(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as { postId?: string; check?: string; strong?: boolean };
+  if (p.check !== 'good' || !p.strong || !p.postId) return;
+  const postId = p.postId;
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    const [post] = await rows<{
+      user_id: string;
+      posted: string | null;
+      found: PostFound;
+      check_why: string | null;
+      name: string;
+      person_id: string | null;
+      group: string | null;
+      skipped: boolean;
+    }>(
+      tx,
+      sql`select po.user_id, po.posted, po.found, po.check_why, pr.name, pr.person_id, g.name as group,
+            po.skipped_at is not null as skipped
+          from addon_outreach.posts po
+          join addon_outreach.profiles pr on pr.id = po.profile_id
+          left join addon_outreach.groups g on g.id = po.group_id
+          where po.workspace_id = ${ctx.scope.workspaceId} and po.id = ${postId}`,
+    );
+    // Put aside already, or days old by the time anyone looked: Today has it, without a buzz.
+    if (!post || post.skipped || !freshPost(post)) return;
+    await pushAddonNotice(ctx, tx, {
+      key: `post:${postId}`,
+      userIds: [post.user_id],
+      permission: 'outreach.use',
+      ...strongPostPushWords(post.name, post.group, post.check_why),
+      href: TODAY_HREF,
+      collapseKey: `post-${postId}`,
+      personId: post.person_id,
+    });
+  });
 }

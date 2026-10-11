@@ -32884,6 +32884,8 @@ export interface operations {
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warmUp: boolean;
+                        /** @default true */
+                        watchPosts?: boolean;
                     };
                     /** Format: uuid */
                     userId?: string;
@@ -32944,6 +32946,8 @@ export interface operations {
                             /** @enum {string} */
                             sending: "off" | "steps" | "approve_all" | "everything";
                             warmUp: boolean;
+                            /** @default true */
+                            watchPosts: boolean;
                         };
                         timezone: string;
                         /** Format: uuid */
@@ -34203,7 +34207,7 @@ export interface operations {
                      * @default scroll
                      * @enum {string}
                      */
-                    found?: "scroll" | "find";
+                    found?: "scroll" | "find" | "watch";
                     group: {
                         id: string | null;
                         /** @default null */
@@ -60826,6 +60830,8 @@ export interface operations {
                             /** @enum {string} */
                             sending: "off" | "steps" | "approve_all" | "everything";
                             warmUp: boolean;
+                            /** @default true */
+                            watchPosts: boolean;
                         };
                         timezone: string;
                         /** Format: uuid */
@@ -62056,6 +62062,7 @@ export interface operations {
                         auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment")[];
                         hasPlaybook: boolean;
                         items: {
+                            asking: boolean;
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;

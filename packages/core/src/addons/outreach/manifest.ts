@@ -17,7 +17,7 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.8.0',
+  version: '0.9.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace.
@@ -129,11 +129,13 @@ export const outreachAddon = defineAddon({
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's pruning
     // armed (decision 41, ./live.ts). A message waiting for the person's OK, and a step the extension needs them for,
     // reach their phone as their pushes setting says (decision 40, ./waiting.ts). An ask that first needs the person
-    // pushes to them at once (decision 43, ./asks.ts).
+    // pushes to them at once (decision 43, ./asks.ts). A post asking for what the business offers pushes to the person
+    // who found it at once (decision 49, ./posts.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
       'outreach.posts.saved',
+      'outreach.post.checked',
       'outreach.check.looked',
       'outreach.group.looked',
       'outreach.reply.seen',

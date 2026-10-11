@@ -16,8 +16,8 @@ Facebook's warnings, comments on group posts, looking people up before drafting,
 demo link, the extension working on its own (the first part), its settings in HandsFreeOS, its live status with
 Start my day and Stop for today in the app, Waiting for you, the bare-bones extension, with what needs the browser
 asked of it from the app, the whole add-on on the phone, the setup, Social Outreach's onboarding, in HandsFreeOS, the
-good fits among friends and chats (growth part 1), stages with the moment to pitch (growth part 2), and groups,
-theirs first, then new ones (growth part 3):
+good fits among friends and chats (growth part 1), stages with the moment to pitch (growth part 2), groups,
+theirs first, then new ones (growth part 3), and posts asking for what the business offers, fast (growth part 4):
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -164,6 +164,19 @@ theirs first, then new ones (growth part 3):
   **Comment on a post**, with the post, a link to it and **Draft a comment** (two drafts), as many as today's
   comment limit has left; **Not for me** puts one aside for good. Commenting on it, which the extension notes, takes
   it off. Who wrote one is kept as a profile from the group, and nobody goes in Contacts.
+- **Posts asking for what the business offers, fast** (decision 49, `posts.ts`, the worker's `posts.ts`, the
+  extension's `src/jobs/posts.ts` and `src/auto/run.ts`): while the extension works on its own, in the person's
+  working hours, every 60 to 120 minutes at random (`WATCH_EVERY_MINUTES`; the first an hour or two after the
+  once-a-day Find posts), it opens the same groups Find posts works, up to 5, sorted by new posts
+  (`?sorting_setting=CHRONOLOGICAL`), reads two screens of each and sends them (`found`: `watch`), between the day's
+  steps and never beside an ask. The AI's check of every post now also says whether it's **strong**: the writer is
+  asking, now, for exactly what the business offers, ready to hire or buy; only a good post can be. A strong one
+  pushes to the person who found it at once (the worker's `outreach.post.checked`), once a post, when it's fresh:
+  posted within a day by what Facebook printed ("12m", "3h", "Yesterday"), or, with nothing that says, found by the
+  look (`freshPost`): "Dana Reyes is asking for what you offer", opening Today. On Today, the strong ones come first
+  (`asking`), before anything else, with **Asking for what you offer** on the web and a part of their own at the top
+  on the phone; the extension comments on them first too. It's each person's **Look for new posts asking for what I
+  offer, every hour or two** setting, on to start.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
   warn them that day, **Draft a message** or **Draft a comment** on Today asks it (a `lookup` ask): it opens the
   person's profile in a window of its own, reads their intro and latest two posts, follows the link in their lines to
@@ -364,6 +377,7 @@ theirs first, then new ones (growth part 3):
 | Tidying up friends, and Facebook's warnings              | `tidy.ts`, `ops/tidy.ts`, `supabase/migrations/20261027000900_outreach_tidy_and_warnings.sql`                                                                                                                                                |
 | The buttons pressed to cancel and unfriend               | `apps/extension/src/facebook/tidy.ts`, `src/jobs/tidy.ts`                                                                                                                                                                                    |
 | Posts worth a comment, and the AI's check of them        | `posts.ts`, `ops/posts.ts`, `supabase/migrations/20261027001000_outreach_group_posts.sql`                                                                                                                                                    |
+| Posts asking for the offer, fast (decision 49)           | `posts.ts`, `apps/worker/src/addons/outreach/posts.ts`, `apps/extension/src/jobs/posts.ts`, `src/auto/run.ts`, `supabase/migrations/20261027002300_outreach_fast_posts.sql`                                                                  |
 | Finding posts, and looking people up before drafting     | `apps/extension/src/jobs/posts.ts`, `src/jobs/lookup.ts`, `src/facebook/browse.ts`                                                                                                                                                           |
 | Replies, openers and demos                               | `alerts.ts`, `openers.ts`, `demos.ts` and their `ops/`, `supabase/migrations/20261027001100_outreach_replies_openers_demos.sql`                                                                                                              |
 | The pushes, and a booking through the demo link          | `apps/worker/src/addons/outreach/alerts.ts`, `demos.ts`; `apps/worker/src/addons/alerts.ts` (`pushAddonNotice`)                                                                                                                              |
@@ -429,7 +443,7 @@ Operations, all through the kernel:
 | `outreach.friend.end`                                 | `outreach.use`    | The extension cancelled a request or unfriended someone for the person                                                                                                                                                                                                                                                              |
 | `outreach.warning.note`                               | `outreach.use`    | Facebook warned the person: halves their limits for 7 days, friend requests off their list for 2                                                                                                                                                                                                                                    |
 | `outreach.posts.save`                                 | `outreach.use`    | Up to 30 posts from a group's feed: keeps those worth a look for the AI, and says how each stands                                                                                                                                                                                                                                   |
-| `outreach.post.check`                                 | the worker        | What the AI made of a kept post: good, not, or couldn't be read, with why                                                                                                                                                                                                                                                           |
+| `outreach.post.check`                                 | the worker        | What the AI made of a kept post: good, not, or couldn't be read, with why; and whether it's strong (decision 49)                                                                                                                                                                                                                    |
 | `outreach.post.skip`                                  | `outreach.use`    | The person put a post aside: off their list for good. Waits on a phone as long as it takes                                                                                                                                                                                                                                          |
 | `outreach.replies.note`                               | `outreach.use`    | Up to 20 chats the extension saw whose last message is theirs: each answering the person's is a reply                                                                                                                                                                                                                               |
 | `outreach.opener.use`                                 | `outreach.use`    | The person copied a first message: which opener it was drafted with                                                                                                                                                                                                                                                                 |
@@ -696,7 +710,8 @@ These are settled too:
     to start.
 49. **Posts asking for what the business offers, fast.** In the person's working hours, the extension looks at the
     top of their best groups every hour or two; a post the AI calls a strong fit pushes to their phone at once and
-    goes to the top of Today. Growth part 4.
+    goes to the top of Today. Growth part 4. Built: the look at the newest posts while the extension works on its
+    own, strong posts with a push when they're fresh, first on Today, and the setting, on to start.
 50. **Helpful posts in the groups, and the people who engage.** The AI drafts posts that help, from the playbook and
     what people in each group ask about, after reading the group's rules: at most 1 a day (the plan's starting
     limit), and never the same group twice in a week. Who posts it is a setting, per person, inside the business's
@@ -1007,6 +1022,13 @@ The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) g
   once-a-day job joins only while it's on and people left to reach are under a week of friend requests. People left
   count the way Today picks friend requests (found in a group that fits, fit a playbook, never reached, never running
   a group, on Don't pitch or in Contacts), up to 5,000.
+- **A strong post is pushed once, and only fresh** (decision 49). `posts.strong` is set by the AI's check alone
+  (`outreach.post.check`), and only for a good post; a second answer changes nothing. The push's key is the post's
+  (`post:<id>`), so a post seen again never buzzes twice, and it goes only to the person who found it, on their
+  add-ons switch. Fresh is by what Facebook printed (`postHoursAgo`: a day or less), or, with nothing that says, found
+  by the look; a post put aside isn't pushed. The look runs only in the working hours, with the setting on
+  (`automation.watch_posts`), and only while the extension works on its own; the state keeps when it's next
+  (`watchAt`), and a new day looks after the once-a-day jobs.
 - **Fit reads only what can be checked** (`fit.ts`): the words a playbook puts in quotes in its signs and who to skip,
   the places in its area, mutual friends, and the group someone was found in. A skip word makes them a skip whatever
   else fits, and with no playbook only mutual friends and groups count. The Friends tab sorts the requests saved with

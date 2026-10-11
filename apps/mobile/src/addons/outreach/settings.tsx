@@ -436,7 +436,7 @@ function Stepper({
 }
 
 const TICKS = {
-  along: ['warmUp', 'confirmRequests', 'collect', 'joinGroups'],
+  along: ['warmUp', 'confirmRequests', 'collect', 'joinGroups', 'watchPosts'],
   extension: ['noting', 'readChats', 'markPosts'],
 } as const;
 

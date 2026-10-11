@@ -170,6 +170,7 @@ export const today = defineAddonQuery(outreachAddon, {
       postUrl: null,
       posted: null,
       post: null,
+      asking: false,
       why: [],
       summary: null,
       nextStep: null,
@@ -574,7 +575,8 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
-    // Comments: posts in the groups the AI checked as good, from the last week, the newest first.
+    // Comments: posts in the groups the AI checked as good, from the last week: those asking for what the business
+    // offers first (decision 49), then the newest.
     const commentsLeft = leftToday(limits, 'comment');
     if (commentsLeft) {
       const good = await rows<{
@@ -588,9 +590,10 @@ export const today = defineAddonQuery(outreachAddon, {
         profile_url: string;
         group_name: string | null;
         playbook_name: string | null;
+        strong: boolean;
       }>(
         ctx.tx,
-        sql`select po.id, po.url, po.posted, po.body, po.check_why, p.id as profile_id, p.name,
+        sql`select po.id, po.url, po.posted, po.body, po.check_why, po.strong, p.id as profile_id, p.name,
               p.url as profile_url, g.name as group_name, pb.name as playbook_name
             from addon_outreach.posts po
             join addon_outreach.profiles p on p.id = po.profile_id
@@ -603,7 +606,7 @@ export const today = defineAddonQuery(outreachAddon, {
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t
                 where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)
-            order by po.seen_at desc limit ${commentsLeft}`,
+            order by po.strong desc, po.seen_at desc limit ${commentsLeft}`,
       );
       for (const po of good)
         items.push(
@@ -619,6 +622,7 @@ export const today = defineAddonQuery(outreachAddon, {
               po.body.length > TODAY_POST_MOST
                 ? `${po.body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
                 : po.body,
+            asking: po.strong,
             why: [
               ...(po.check_why ? [po.check_why] : []),
               ...(po.group_name ? [`In ${po.group_name}`] : []),
@@ -650,7 +654,8 @@ export const today = defineAddonQuery(outreachAddon, {
         )
       : [];
     const knownOf = new Map(known.map((k) => [k.id, k]));
-    const listedItems = items
+    // A post asking for what the business offers tops the list (decision 49): answered fast, before anything else.
+    const listedItems = [...items.filter((i) => i.asking), ...items.filter((i) => !i.asking)]
       .filter((i) => !drafted.off(i.profileId, i.kind))
       .map((i) => {
         const send = drafted.open(i.profileId, i.kind);

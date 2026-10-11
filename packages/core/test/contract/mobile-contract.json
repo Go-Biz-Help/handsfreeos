@@ -6992,6 +6992,10 @@
                 "default": true,
                 "type": "boolean"
               },
+              "watchPosts": {
+                "default": true,
+                "type": "boolean"
+              },
               "hours": {
                 "type": "object",
                 "properties": {

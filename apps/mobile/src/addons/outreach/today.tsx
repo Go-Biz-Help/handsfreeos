@@ -130,7 +130,9 @@ export function TodayBody({
         {error ? <NeedsSignal words={error} onRetry={onRetry} testID="today-needs-signal" /> : null}
       </Screen>
     );
-  const kinds = TODAY_KIND_KEYS.filter((k) => today.items.some((i) => i.kind === k));
+  const kinds = TODAY_KIND_KEYS.filter((k) => today.items.some((i) => i.kind === k && !i.asking));
+  // Posts asking for what the business offers come first, apart (decision 49).
+  const asking = today.items.filter((i) => i.asking);
   return (
     <Screen title={W.rows.today} leading="back" testID="outreach-today">
       {today.warning ? (
@@ -141,7 +143,25 @@ export function TodayBody({
         </Card>
       ) : null}
       {today.wheels.on ? <Note testID="today-wheels">{wheelsWords(today.wheels)}</Note> : null}
-      {kinds.length ? (
+      {asking.length ? (
+        <Part
+          title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}
+          about={W.askingAbout}
+          testID="today-asking"
+        >
+          {asking.map((item, i) => (
+            <ItemCard
+              key={`${item.postId ?? i}:${i}`}
+              item={item}
+              menu={menu}
+              onOk={onOk}
+              onSkip={onSkip}
+              onNotForMe={onNotForMe}
+            />
+          ))}
+        </Part>
+      ) : null}
+      {kinds.length || asking.length ? (
         kinds.map((kind) => (
           <KindPart
             key={kind}
@@ -208,7 +228,7 @@ function KindPart({
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
 }) {
-  const items = today.items.filter((i) => i.kind === kind);
+  const items = today.items.filter((i) => i.kind === kind && !i.asking);
   const auto = today.auto.includes(kind);
   return (
     <Part

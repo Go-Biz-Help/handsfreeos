@@ -151,6 +151,7 @@ export function ChoicesForm({
         {tick('confirmRequests')}
         {tick('collect')}
         {tick('joinGroups')}
+        {tick('watchPosts')}
       </Part>
       <Part title={W.sections.extension} about={W.abouts.extension}>
         {tick('noting')}

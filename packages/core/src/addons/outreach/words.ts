@@ -181,6 +181,9 @@ export const OUTREACH_WORDS = {
   todayComputerOnly:
     'Drafting a message, copying an opener and the AI’s drafts are on your computer, beside Facebook.',
   doneOnItsOwn: 'Done on its own',
+  /** A post asking for what the business offers (decision 49): first on Today, with a push. */
+  asking: 'Asking for what you offer',
+  askingAbout: 'Answer these first, while they’re fresh.',
   notForMe: 'Not for me',
   notForMeDone: 'Put aside. It won’t be on your list again.',
   wheelsTitle: 'On training wheels',
@@ -425,6 +428,10 @@ export const OUTREACH_WORDS = {
     joinGroups: [
       'Join good groups when my groups run low',
       'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
+    ],
+    watchPosts: [
+      'Look for new posts asking for what I offer, every hour or two',
+      'In your working hours, it looks at the newest posts in your best groups. When one asks for what you offer, your phone hears at once and it goes to the top of your list.',
     ],
     noting: [
       'Note my steps on Facebook',

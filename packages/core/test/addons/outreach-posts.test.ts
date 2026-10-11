@@ -2,14 +2,22 @@
  * Social Outreach: openers on group posts (docs/outreach.md, decisions 18 to 20). The posts in a group's feed worth a
  * comment (a playbook's signs, or asking for help) are kept, each person's own, with who wrote them, for the AI to
  * check; the rest aren't. The AI's answer marks them, and the good ones go on Today's list until the person comments,
- * which the extension notes, or puts the post aside.
+ * which the extension notes, or puts the post aside. One whose writer is asking now for what the business offers is
+ * strong (decision 49): first on Today, and pushed when it's fresh.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { asksForHelp, postCheckPrompt, postLook } from '../../src/addons/outreach/posts';
+import {
+  asksForHelp,
+  freshPost,
+  postCheckPrompt,
+  postHoursAgo,
+  postLook,
+  strongPostPushWords,
+} from '../../src/addons/outreach/posts';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
 import { executeCommand, type CommandDef } from '../../src/server';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
@@ -53,6 +61,24 @@ describe('which posts are worth a look', () => {
   });
 });
 
+describe('posts asking for what the business offers, fast', () => {
+  it('reads how long ago a post went up, and pushes only a fresh one', () => {
+    expect(
+      ['Just now', '12m', '3h', '2 hrs', '1d', 'Yesterday at 3:15 PM', '3w'].map(postHoursAgo),
+    ).toEqual([0, 0.2, 3, 2, 24, 24, 504]);
+    expect(postHoursAgo('September 28 at 4:05 PM')).toBeNull();
+    expect(freshPost({ posted: '5h', found: 'find' })).toBe(true);
+    expect(freshPost({ posted: '2d', found: 'watch' })).toBe(false);
+    // Facebook printed a date, or nothing: fresh only when the look at the newest found it.
+    expect(freshPost({ posted: null, found: 'watch' })).toBe(true);
+    expect(freshPost({ posted: 'Sep 28', found: 'scroll' })).toBe(false);
+    expect(strongPostPushWords('Dana Reyes', 'Austin Owners', 'Looking for a CRM now')).toEqual({
+      title: 'Dana Reyes is asking for what you offer',
+      body: 'In Austin Owners. Looking for a CRM now. Answer it first: it’s at the top of your list for today.',
+    });
+  });
+});
+
 describe('posts in a group’s feed', () => {
   let owner: TestUser;
   let ws: string;
@@ -82,14 +108,17 @@ describe('posts in a group’s feed', () => {
   const dog = post(3, 'sam.lee.1', 'Sam Lee', 'Look at my dog');
   const save = (posts: unknown[], found = 'scroll') =>
     runAs(owner, ws, 'outreach.posts.save', { group, posts, found });
-  const check = (postId: string, answer: { good: boolean; why: string | null } | null) =>
+  const check = (
+    postId: string,
+    answer: { good: boolean; strong?: boolean; why: string | null } | null,
+  ) =>
     executeCommand(
       worker(),
       outreachAddonServer.commands!.find((c) => c.name === 'outreach.post.check') as CommandDef,
       { workspaceId: ws, postId, check: answer },
       { type: 'system', workspaceId: ws, organizationId: org },
       { correlationId: randomUUID(), channel: 'test' },
-    ).then((r) => r.output as { check: string });
+    ).then((r) => r.output as { check: string; strong: boolean });
   const kept = () =>
     rows<{ id: string; url: string; check_state: string; found: string }>(
       admin(),
@@ -201,5 +230,28 @@ describe('posts in a group’s feed', () => {
     expect(await refused(runAs(other, ws, 'outreach.post.skip', { postId: first!.id }))).toBe(
       'not_found',
     );
+  });
+
+  it('keeps strong only for a good post, and puts it first on Today', async () => {
+    const asking = post(
+      4,
+      'lee.park.4',
+      'Lee Park',
+      'Looking for a CRM for my crew, who do you use?',
+    );
+    const rant = post(5, 'kim.ng.5', 'Kim Ng', 'Business owners, is your CRM doing nothing too?');
+    expect((await save([asking, rant], 'watch')).checking).toBe(2);
+    const found = (await kept()).filter((p) => p.url === asking.url || p.url === rant.url);
+    expect(found.map((p) => p.found)).toEqual(['watch', 'watch']);
+    expect(
+      await check(found[0]!.id, { good: true, strong: true, why: 'Looking for a CRM now' }),
+    ).toMatchObject({ check: 'good', strong: true });
+    expect(await check(found[1]!.id, { good: false, strong: true, why: 'A rant' })).toMatchObject({
+      check: 'not',
+      strong: false,
+    });
+    const [first, ...rest] = await comments();
+    expect(first).toMatchObject({ name: 'Lee Park', asking: true });
+    expect(rest.every((i) => !(i as { asking?: boolean }).asking)).toBe(true);
   });
 });

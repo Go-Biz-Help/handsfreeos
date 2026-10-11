@@ -23,7 +23,8 @@
  *
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
- * chats, one job a go, a few minutes apart.
+ * chats, one job a go, a few minutes apart. Then, in the working hours, every hour or two, it looks at the newest
+ * posts at the top of their best groups (decision 49), between the day's steps.
  *
  * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
  * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
@@ -69,7 +70,9 @@ import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
-import { DAILY_DOING, DAILY_NAMES, runDaily } from './daily';
+import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
+import { groupsToWork, watchPosts } from '../jobs/posts';
+import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
 import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
@@ -80,6 +83,8 @@ import {
   needOf,
   nextDaily,
   nextStart,
+  nextWatch,
+  watchDue,
   workKey,
   workLeft,
   type AutoKind,
@@ -629,7 +634,35 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
     await setState({ working: false, tabId: tab.tabId });
   }
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  await setState({
+    daily: { ...state.daily, [kind]: end.line },
+    // Find posts just read the groups: the newest posts wait an hour or two.
+    ...(kind === 'posts' ? { watchAt: nextWatch(Date.now(), Math.random()) } : {}),
+  });
+  return end;
+}
+
+/** The look at the newest posts in the best groups (decision 49), and when the next is. */
+async function watch(businessId: string): Promise<JobEnd> {
+  await say('Looking at the newest posts in your groups…', { working: true });
+  let end: JobEnd;
+  try {
+    const job = jobFor(businessId);
+    const groups = await groupsToWork(job, WATCH_GROUPS);
+    end =
+      typeof groups === 'string'
+        ? { line: groups, warned: false }
+        : await watchPosts(job, groups, postSender(job, 'watch'));
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = { line: error instanceof Error ? error.message : String(error), warned: false };
+  } finally {
+    await setState({
+      working: false,
+      tabId: tab.tabId,
+      watchAt: nextWatch(Date.now(), Math.random()),
+    });
+  }
   return end;
 }
 
@@ -740,6 +773,25 @@ async function go(): Promise<void> {
     );
   }
 
+  // In the working hours, every hour or two, the newest posts at the top of the best groups (decision 49).
+  if (settings.watchPosts && inHours && watchDue(state, at)) {
+    const end = await inTurn('runner', () => watch(to.businessId));
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    await say(`Newest posts: ${end.line}`);
+    void feed('job', `Newest posts: ${end.line}`);
+    if ((await stateNow()).stopped) {
+      await closeWindow();
+      return goAt(tomorrow());
+    }
+    return goAt(
+      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+    );
+  }
+
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', { body: { workspaceId: to.businessId } }),
     to.businessId,
@@ -753,7 +805,13 @@ async function go(): Promise<void> {
         ? 'Done for today. It looks again later for new requests to confirm.'
         : 'Nothing on your list for it to do yet.',
     );
-    return goAt(inHours ? Math.min(at + IDLE_MS, window!.to) : tomorrow());
+    // In the hours, it looks again within the hour, or when the newest posts are due, whichever is first.
+    const watchAt = settings.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
+    return goAt(
+      inHours
+        ? Math.min(at + IDLE_MS, window!.to, ...(watchAt !== null ? [Math.max(watchAt, at)] : []))
+        : tomorrow(),
+    );
   }
 
   const { item } = work;

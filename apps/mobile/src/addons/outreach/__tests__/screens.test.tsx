@@ -1,5 +1,6 @@
 import { AUTOMATION_DEFAULTS, type AutomationOutput } from '@hfos/core/addons/outreach/automation';
 import type { LiveOutput, LiveTeamOutput } from '@hfos/core/addons/outreach/live';
+import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
@@ -11,12 +12,13 @@ import { OutreachMoreRow } from '../more';
 import { isSetUp, OutreachHomeRows, WebOnlyBody } from '../page';
 import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
 import { businessDraftOf, SettingsBody } from '../settings';
+import { TodayBody } from '../today';
 import { id, ME, TZ, WS } from './mocks';
 
 /**
  * Social Outreach's other screens on the phone (decision 44): its one row in More, its first screen and the tabs left
- * to the web, the live view with Start my day and Stop for today, the settings, and a playbook changed a part at a
- * time on what's there now.
+ * to the web, the live view with Start my day and Stop for today, Today with posts asking for what the business
+ * offers first, the settings, and a playbook changed a part at a time on what's there now.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
@@ -135,6 +137,62 @@ const LIVE: LiveOutput = {
   warning: null,
   steps: [{ at: new Date(NOW - 60_000).toISOString(), kind: 'done', line: 'Liked a post' }],
 };
+
+const post = (n: number, name: string, asking: boolean): TodayItem => ({
+  kind: 'comment',
+  name,
+  profileId: id(40 + n),
+  profileUrl: `https://www.facebook.com/made.up.${n}`,
+  chatId: null,
+  threadKey: null,
+  postId: id(50 + n),
+  postUrl: `https://www.facebook.com/groups/1/posts/${n}/`,
+  posted: '20m',
+  post: asking ? 'Looking for a CRM for my crew, who do you use?' : 'Any tips for slow months?',
+  asking,
+  why: [],
+  summary: null,
+  nextStep: null,
+  playbookName: null,
+  demoLink: null,
+  send: null,
+  personId: null,
+  demoBooked: false,
+});
+
+describe('Today on the phone', () => {
+  it('puts posts asking for what the business offers first, apart from the other comments', async () => {
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [post(1, 'Lee Park', true), post(2, 'Kim Ng', false)],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+    };
+    await render(
+      <TodayBody
+        today={today}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const asking = screen.getByTestId('today-asking');
+    expect(within(asking).getByText('Asking for what you offer · 1')).toBeTruthy();
+    expect(within(asking).getByText('Lee Park')).toBeTruthy();
+    const comments = screen.getByTestId('today-comment');
+    expect(within(comments).getByText('Comment on a post · 1')).toBeTruthy();
+    expect(within(comments).queryByText('Lee Park')).toBeNull();
+  });
+});
 
 const liveHandlers = () => ({
   onRetry: jest.fn(),

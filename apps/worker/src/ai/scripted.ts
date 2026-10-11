@@ -1701,11 +1701,23 @@ function scriptedTodayDraft(message: string) {
   };
 }
 
-/** Social Outreach's check of a group post: good when it asks for a recommendation, and why says which way. */
+/**
+ * Social Outreach's check of a group post: good when it asks for a recommendation, strong when it's looking for a CRM
+ * (decision 49), and why says which way.
+ */
 function scriptedPostCheck(message: string) {
   const post = /<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '';
   const good = /\b(recommend|looking for|anyone)\b/i.test(post);
-  return { good, why: good ? 'Asking for a recommendation' : 'Nothing to answer' };
+  const strong = good && /\blooking for\b[^.?!]*\bcrm\b/i.test(post);
+  return {
+    good,
+    strong,
+    why: strong
+      ? 'Looking for a CRM now'
+      : good
+        ? 'Asking for a recommendation'
+        : 'Nothing to answer',
+  };
 }
 
 /**

@@ -78833,7 +78833,8 @@
                     "type": "string",
                     "enum": [
                       "scroll",
-                      "find"
+                      "find",
+                      "watch"
                     ]
                   }
                 },
@@ -79389,6 +79390,10 @@
                         "default": true,
                         "type": "boolean"
                       },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
                       "hours": {
                         "type": "object",
                         "properties": {
@@ -79499,6 +79504,10 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "watchPosts": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "hours": {
                           "type": "object",
                           "properties": {
@@ -79558,6 +79567,7 @@
                         "confirmRequests",
                         "collect",
                         "joinGroups",
+                        "watchPosts",
                         "hours",
                         "noting",
                         "readChats",
@@ -162257,6 +162267,9 @@
                               "null"
                             ]
                           },
+                          "asking": {
+                            "type": "boolean"
+                          },
                           "why": {
                             "type": "array",
                             "items": {
@@ -162358,6 +162371,7 @@
                           "postUrl",
                           "posted",
                           "post",
+                          "asking",
                           "why",
                           "summary",
                           "nextStep",
@@ -163094,6 +163108,10 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "watchPosts": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "hours": {
                           "type": "object",
                           "properties": {
@@ -163153,6 +163171,7 @@
                         "confirmRequests",
                         "collect",
                         "joinGroups",
+                        "watchPosts",
                         "hours",
                         "noting",
                         "readChats",

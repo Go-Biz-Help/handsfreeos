@@ -23,7 +23,7 @@ import {
   JOIN_ANSWER_ACTION,
   joinAnswer,
 } from './groups';
-import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
+import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askProgressed } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
@@ -86,6 +86,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.download.saved': andMorning(downloadSaved),
     'outreach.chats.collected': andMorning(downloadSaved),
     'outreach.posts.saved': andMorning(postsSaved),
+    // A post asking for what the business offers pushes to the person who found it at once (./posts.ts, decision 49).
+    'outreach.post.checked': postChecked,
     // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
     'outreach.check.looked': andMorning(checkLooked),
     // A group's About page, rules and posts, read off Facebook, wait for the AI's check of it (./groups.ts).

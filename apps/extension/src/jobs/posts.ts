@@ -3,7 +3,12 @@
  * these (or Maybe, when none are), scrolling each one's feed slowly, a screen at a time (src/facebook/browse.ts), and
  * sends the posts that say a playbook's signs or ask for help to HandsFreeOS, where the AI checks each one. The good
  * ones go on Today's list with comment drafts. Nothing is pressed or written on Facebook.
+ *
+ * **The look at the newest posts** (decision 49): every hour or two in the working hours, the runner (../auto/run.ts)
+ * opens the same groups sorted by new posts and reads the top of each, so a post asking for what the business offers
+ * reaches the person within the hour; the AI calls it strong, their phone hears at once, and it tops Today.
  */
+import { WATCH_SCREENS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork as pickGroups } from '@hfos/core/addons/outreach/results';
 import type { ReadResult } from '../facebook/types';
 import type { GroupsList } from '../hfos/messages';
@@ -70,6 +75,47 @@ export async function findPosts(
   }
   return {
     line: `${job.stopped() ? 'Stopped. ' : ''}Looked through ${counted(looked, 'group')}: ${counted(checking, 'post')} sent for the AI to check. The good ones go on your list for today.`,
+    warned: false,
+  };
+}
+
+/** A group's feed with the newest posts first, as Facebook's own New posts sort opens it. */
+export function newestUrl(url: string): string {
+  const address = new URL(url);
+  address.searchParams.set('sorting_setting', 'CHRONOLOGICAL');
+  return address.toString();
+}
+
+/**
+ * Looks at the newest posts at the top of each group, a screen or two, and sends them with `send` (found as
+ * `watch`): quick, so it fits between the day's steps.
+ */
+export async function watchPosts(
+  job: Job,
+  groups: readonly Pick<WorkGroup, 'name' | 'url'>[],
+  send: (page: ReadResult) => Promise<number>,
+): Promise<JobEnd> {
+  let checking = 0;
+  let looked = 0;
+  for (const [g, group] of groups.entries()) {
+    if (job.stopped()) break;
+    job.progress(`Looking at the newest posts in ${group.name ?? 'your group'}…`);
+    await job.tab.open(newestUrl(group.url));
+    for (let screen = 0; screen < WATCH_SCREENS && !job.stopped(); screen++) {
+      const page = await readIn(job.tab);
+      const warned = await warnedOn(job, page);
+      if (warned) return warned;
+      checking += await send(page);
+      if (screen === WATCH_SCREENS - 1) break;
+      const moved = await job.tab.ask({ type: 'hfos-scroll-feed' });
+      if (!moved.ok) break;
+      await pause(paced(PACE_MS));
+    }
+    looked++;
+    if (!job.stopped() && g < groups.length - 1) await pause(paced(GROUP_PACE_MS));
+  }
+  return {
+    line: `${job.stopped() ? 'Stopped. ' : ''}Looked at the newest posts in ${counted(looked, 'group')}: ${counted(checking, 'post')} sent for the AI to check. One asking for what you offer goes to your phone.`,
     warned: false,
   };
 }

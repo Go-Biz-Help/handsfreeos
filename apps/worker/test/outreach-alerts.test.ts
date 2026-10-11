@@ -1,8 +1,8 @@
 /**
  * Social Outreach's phone alerts and demo link in the worker (docs/outreach.md, decisions 22 and 24): a reply the
  * extension saw is pushed to the person, unless they were looking, and one handed over to them (decision 27); at the business's hour each person who used the
- * extension lately hears how much is on their list for today; and a booking through someone's demo link counts as a
- * demo by itself.
+ * extension lately hears how much is on their list for today; a post asking for what the business offers pushes at
+ * once when it's fresh (decision 49); and a booking through someone's demo link counts as a demo by itself.
  */
 import { randomUUID } from 'node:crypto';
 import { demoRef } from '@hfos/core/addons/outreach/demos';
@@ -25,6 +25,7 @@ import { addonJobs, withAddons } from '../src/addons/index';
 import { MORNING_JOB } from '../src/addons/outreach/alerts';
 import { LIVE_PRUNE_JOB } from '../src/addons/outreach/live';
 import { WEEKLY_JOB } from '../src/addons/outreach/weekly';
+import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import type { MailMessage } from '../src/mailer';
 import { processOnce } from '../src/outbox';
@@ -214,6 +215,68 @@ describe('phone alerts', () => {
     );
     expect(new Date(next!.run_at).getTime()).toBeGreaterThan(Date.now() + 20 * 3_600_000);
   }, 60_000);
+});
+
+describe('posts asking for what the business offers', () => {
+  it('pushes a fresh one to the person who found it, once, and puts it first on Today', async () => {
+    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const ws = await outreachBusiness(owner, 'Outreach Fast Posts Co');
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: crm.details,
+    });
+    const post = (n: number, when: string, text: string) => ({
+      url: `https://www.facebook.com/groups/523456789/posts/30000${n}/`,
+      author: fb(`made.up.fast.${n}`),
+      name: `Fast Person ${n}`,
+      when,
+      text,
+    });
+    const group = {
+      id: '523456789',
+      slug: null,
+      url: 'https://www.facebook.com/groups/523456789/',
+      name: 'Austin Small Business Owners',
+    };
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      found: 'watch',
+      posts: [
+        post(1, '12m', 'Can anyone recommend a good accountant?'),
+        post(2, '25m', 'Looking for a CRM for my crew, who do you use?'),
+        // Asking just as much, but days ago: on Today, without a buzz.
+        post(3, '4d', 'Looking for a CRM that does invoices too?'),
+      ],
+    });
+    await drain(s, ws);
+    expect(await pushes(ws)).toEqual([
+      {
+        title: 'Fast Person 2 is asking for what you offer',
+        body: 'In Austin Small Business Owners. Looking for a CRM now. Answer it first: it’s at the top of your list for today.',
+        path: `/app/w/${ws}/a/outreach?view=today`,
+        user_ids: [owner.id],
+      },
+    ]);
+    // The same post seen again changes nothing: one push a post.
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      found: 'watch',
+      posts: [post(2, '40m', 'Looking for a CRM for my crew, who do you use?')],
+    });
+    await drain(s, ws);
+    expect(await pushes(ws)).toHaveLength(1);
+    const list = await runAs(owner, ws, 'outreach.today', {});
+    expect(
+      list.items.map((i: { name: string; asking: boolean }) => [i.name, i.asking]).slice(0, 3),
+    ).toEqual([
+      // Both asking first, the one seen latest first; then the rest.
+      ['Fast Person 2', true],
+      ['Fast Person 3', true],
+      ['Fast Person 1', false],
+    ]);
+  });
 });
 
 describe('live status', () => {

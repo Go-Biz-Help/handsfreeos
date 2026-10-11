@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.22.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
+**This is a test build (0.23.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
 in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
 now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
 
@@ -217,6 +217,9 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
 - **Join good groups when my groups run low** (on to start): with less than a week of people left to reach in your
   groups, it finds groups with your playbook's words and asks to join up to 3 good ones a day, the AI answering their
   questions from your playbook (decision 48).
+- **Look for new posts asking for what I offer, every hour or two** (on to start): in your hours, it looks at the
+  newest posts in your best groups; one asking for what you offer pushes to your phone and tops your list (decision
+  49).
 - **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts, Read
   my chats and checking your friends for good fits, which fill your list, and checking your groups and joining good ones
   when they run low (decisions 32, 46 and 48).
@@ -231,6 +234,11 @@ groups (the ones with fewest saved first), read to the end, then a few screens o
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
 my chats, up to 60 a day; and Check my friends, the day's 40. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
 do, but for asking to join.
+
+Then, in your hours, every hour or two at random, it opens up to 5 of your best groups sorted by new posts, reads two
+screens of each and sends them for the AI (`watchPosts` in `src/jobs/posts.ts`), between the day's steps. One the AI
+calls strong, someone asking now for what you offer, pushes to your phone and goes first on your list, and it
+comments on it first.
 
 In your hours it goes down the list at random times spread over the day, in this order: requests to confirm, posts to
 like, friend requests, then comments. **Start my day** starts it now and goes a minute or few apart, hours or not;

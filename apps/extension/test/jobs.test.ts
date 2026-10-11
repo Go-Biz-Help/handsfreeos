@@ -22,7 +22,8 @@ vi.mock('../src/jobs/job', async (original) => ({
 const { readChats } = await import('../src/jobs/chats');
 const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS } =
   await import('../src/jobs/people');
-const { findPosts, groupsToWork } = await import('../src/jobs/posts');
+const { findPosts, groupsToWork, newestUrl, watchPosts } = await import('../src/jobs/posts');
+const { postSender } = await import('../src/auto/daily');
 const { runDaily } = await import('../src/auto/daily');
 
 const FB = 'https://www.facebook.com';
@@ -294,6 +295,37 @@ describe('finding posts', () => {
     expect(saves).toHaveLength(1);
     expect(saves[0]!.input.found).toBe('find');
     expect(end.line).toContain('2 posts sent for the AI to check');
+  });
+
+  it('looks at the newest posts at the top of each group, and sends them as found by the look', async () => {
+    const { tab, opened, asked } = fakeTab(() => 'group-feed.html', {
+      'hfos-scroll-feed': [true, true, true],
+    });
+    const { hfos, sent } = fakeHfos([group('texascontractors')]);
+    const { job } = jobWith(tab, hfos);
+    const end = await watchPosts(
+      job,
+      [group('texascontractors'), group('austinsmallbiz')],
+      postSender(job, 'watch'),
+    );
+    // New posts first, Facebook's own sort; two screens of each, never more.
+    expect(opened).toEqual([
+      `${FB}/groups/texascontractors/?sorting_setting=CHRONOLOGICAL`,
+      `${FB}/groups/austinsmallbiz/?sorting_setting=CHRONOLOGICAL`,
+    ]);
+    expect(asked.filter((a) => a === 'hfos-scroll-feed')).toHaveLength(2);
+    const saves = sent.filter((a) => a.type === 'hfos-save-posts') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-posts' }
+    >[];
+    // The made-up groups show the same posts: each is sent once a look.
+    expect(saves.map((s) => s.input.found)).toEqual(['watch']);
+    expect(end.line).toBe(
+      'Looked at the newest posts in 2 groups: 2 posts sent for the AI to check. One asking for what you offer goes to your phone.',
+    );
+    expect(newestUrl(`${FB}/groups/123/?ref=share`)).toBe(
+      `${FB}/groups/123/?ref=share&sorting_setting=CHRONOLOGICAL`,
+    );
   });
 
   it('says so when they’re in no good group', async () => {

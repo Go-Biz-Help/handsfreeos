@@ -268,6 +268,11 @@ function TodayRow({
           ) : null}
         </div>
         <span className="flex items-center gap-1.5">
+          {item.asking ? (
+            <Badge variant="pending" data-testid="today-asking">
+              {W.asking}
+            </Badge>
+          ) : null}
           {auto ? (
             <Badge variant="ok" data-testid="today-auto">
               {W.doneOnItsOwn}

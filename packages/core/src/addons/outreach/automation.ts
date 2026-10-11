@@ -103,6 +103,11 @@ export const AutomationSettings = z.object({
    * 48), with the once-a-day jobs. On when left out.
    */
   joinGroups: z.boolean().default(true),
+  /**
+   * In the working hours, it looks at the newest posts in the best groups every hour or two, so one asking for what
+   * the business offers is answered fast (decision 49). On when left out.
+   */
+  watchPosts: z.boolean().default(true),
   hours: WorkingHours,
   /** The extension notes the person's own steps on Facebook (decision 8). */
   noting: z.boolean().default(true),
@@ -122,6 +127,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   confirmRequests: true,
   collect: true,
   joinGroups: true,
+  watchPosts: true,
   hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
   noting: true,
   readChats: true,
