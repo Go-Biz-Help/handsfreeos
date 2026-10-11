@@ -104,6 +104,8 @@ export type OutreachShown =
       readonly mine: boolean;
       readonly people: AutomationPeople | null;
       readonly business: Readonly<Record<string, unknown>> | null;
+      /** An owner, who may erase everything and start fresh. */
+      readonly canStartFresh: boolean;
     };
 
 /** The tabs, in order; their names are the phone's rows, from core. */
@@ -237,6 +239,7 @@ export function OutreachHome({
           mine={shown.mine}
           people={shown.people}
           business={shown.business}
+          canStartFresh={shown.canStartFresh}
         />
       ) : (
         <PlaybooksView

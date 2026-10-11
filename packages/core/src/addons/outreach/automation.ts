@@ -340,6 +340,11 @@ export const AutomationOutput = z.object({
   settings: AutomationSettings,
   /** The business's time zone, which the working hours are on. */
   timezone: z.string(),
+  /**
+   * When Social Outreach was last installed here: starting it fresh moves it, and the extension then forgets what it
+   * kept on the computer from before (chats read, steps not yet sent, the setup opened).
+   */
+  startedAt: z.iso.datetime().nullable().default(null),
   /** Whether the person has saved their own yet: until then, these are the defaults. */
   saved: z.boolean(),
   /** Their training wheels. */

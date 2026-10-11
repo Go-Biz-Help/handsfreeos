@@ -829,6 +829,51 @@ describe('uninstalling, deleting its data, and installing again', () => {
     expect((await stateOf(wsB, 'fxsocial'))?.state).toBe('purged');
   });
 
+  it('starts an installed add-on fresh only for an owner who types its name: uninstalled now, and marked', async () => {
+    expect(
+      await refusal(
+        run(
+          cmds.startFresh,
+          { workspaceId: wsB, addonId: 'fxacct', confirmName: 'Accounting' },
+          human(adminUser),
+        ),
+      ),
+    ).toMatchObject({ code: 'forbidden' });
+    expect(
+      await refusal(
+        run(
+          cmds.startFresh,
+          { workspaceId: wsB, addonId: 'fxacct', confirmName: 'Acct' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject({ code: 'validation' });
+    // Deleted already: nothing to start fresh.
+    expect(
+      await refusal(
+        run(
+          cmds.startFresh,
+          { workspaceId: wsB, addonId: 'fxsocial', confirmName: 'Social Media Scheduler' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject({ rule: 'addon_not_installed' });
+    const before = (await stateOf(wsB, 'fxacct'))!;
+    const out = await run(
+      cmds.startFresh,
+      { workspaceId: wsB, addonId: 'fxacct', confirmName: ' accounting ' },
+      human(owner),
+    );
+    expect(out.moved.map((m) => m.to)).toEqual(['uninstalling']);
+    const [marked] = await rows<{ fresh_by: string | null; fresh: boolean }>(
+      admin(),
+      sql`select fresh_by, fresh_at is not null as fresh from app.addon_installations
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+    expect(marked).toEqual({ fresh_by: owner.id, fresh: true });
+    expect(before.state).toBe('enabled');
+  });
+
   it('installs again as a new generation, and a newer version keeps the old data for the worker to bring up', async () => {
     const again = await run(cmds.install, { workspaceId: wsB, addonId: 'fxsocial' }, human(owner));
     expect(again.moved).toEqual([

@@ -247,11 +247,17 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
     const u = named.find((n) => n.id === id);
     return u ? u.fullName || u.email : 'Someone';
   };
+  const [installed] = await rows<{ at: Date | string }>(
+    ctx.tx,
+    sql`select installed_at as at from app.addon_installations
+        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
+  );
   return {
     settings: settingsOf(row, rules),
     saved: row !== undefined,
     wheels: stateOf(row, rules, Date.now()),
     timezone: await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+    startedAt: installed ? new Date(installed.at).toISOString() : null,
     userId: whose,
     name: nameOf(whose),
     changedBy: row?.changedBy ? nameOf(row.changedBy) : null,

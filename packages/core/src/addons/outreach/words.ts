@@ -503,3 +503,21 @@ export function sameNamePeople(
       detail: OUTREACH_WORDS.person.sameDetail(p),
     }));
 }
+
+/**
+ * Starting Social Outreach fresh (docs/outreach.md, "Starting fresh"), on the Settings tab for owners: everything it
+ * keeps for the business erased, and it comes back empty for its setup (`addon.start_fresh`).
+ */
+export const START_FRESH_WORDS = {
+  title: 'Start fresh',
+  about:
+    'Erase everything in Social Outreach for the whole business and start again with its setup: everyone’s saved profiles and friends, chats, groups, playbooks, settings, messages waiting, and the steps noted. Customers in Contacts stay, with their history. This can’t be undone.',
+  button: 'Start fresh…',
+  confirmTitle: 'Erase everything in Social Outreach?',
+  confirmAbout:
+    'Social Outreach is uninstalled, all of its data is deleted, and it’s installed again, empty, in about a minute. Everyone’s computers forget what they kept for it too.',
+  typeName: 'Type Social Outreach to confirm',
+  yes: 'Erase everything and start fresh',
+  started:
+    'Starting fresh. Social Outreach comes back empty in about a minute, ready to set up again.',
+} as const;

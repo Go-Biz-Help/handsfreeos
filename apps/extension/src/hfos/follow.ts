@@ -65,6 +65,42 @@ async function apply(found: Automation): Promise<void> {
   });
 }
 
+/** When Social Outreach was last installed in each business, as last loaded: { "<businessId>": ISO }. */
+export const STARTED_KEY = 'hfos.started';
+
+/**
+ * What the extension keeps on the computer about a business's outreach: chats read, steps not yet sent, the day's
+ * runner, asks, what waits, and the setup opened. Forgotten when the business starts Social Outreach fresh.
+ */
+export const KEPT_FOR_BUSINESS = [
+  'hfos.chatsRead',
+  'hfos.waiting',
+  'hfos.groups',
+  'hfos.auto',
+  'hfos.replies',
+  'hfos.facebookFile',
+  'hfos.ask',
+  'hfos.ask.ends',
+  'hfos.waitingFor',
+  'hfos.waitingFor.told',
+  'hfos.setupOpened',
+  'hfos.setupReported',
+] as const;
+
+/**
+ * Forgets what's kept from before when the business started Social Outreach fresh since it was last loaded (its
+ * `startedAt` moved): nothing from before is sent again.
+ */
+export async function forgetOnFreshStart(businessId: string, startedAt: string | null) {
+  if (!startedAt) return;
+  const stored: unknown = (await chrome.storage.local.get(STARTED_KEY))[STARTED_KEY];
+  const known =
+    typeof stored === 'object' && stored !== null ? (stored as Record<string, string>) : {};
+  if (known[businessId] === startedAt) return;
+  if (known[businessId] !== undefined) await chrome.storage.local.remove([...KEPT_FOR_BUSINESS]);
+  await chrome.storage.local.set({ [STARTED_KEY]: { ...known, [businessId]: startedAt } });
+}
+
 /** The person's settings from HandsFreeOS, kept for the panel and the pages; null when nobody is signed in. */
 export async function loadSettings(businessId?: string): Promise<Automation | null> {
   const id = businessId ?? (await savingTo())?.businessId;
@@ -73,6 +109,7 @@ export async function loadSettings(businessId?: string): Promise<Automation | nu
     api().POST('/v1/queries/outreach.automation', { body: { workspaceId: id } }),
     id,
   );
+  await forgetOnFreshStart(id, found.startedAt);
   await apply(found);
   return found;
 }

@@ -397,6 +397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon.start_fresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an installed add-on fresh: permanently delete all of its data and install it again, empty, in one step. Core records it touched stay; history keeps its lines without the details.
+         * @description Risk level 4. Requires addons.purge. Emits addon.uninstall_started.
+         */
+        post: operations["command_addon_start_fresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon.uninstall": {
         parameters: {
             query?: never;
@@ -19814,6 +19834,45 @@ export interface operations {
             };
         };
     };
+    command_addon_start_fresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    confirmName: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_addon_uninstall: {
         parameters: {
             query?: never;
@@ -33146,6 +33205,8 @@ export interface operations {
                             /** @default true */
                             watchPosts: boolean;
                         };
+                        /** @default null */
+                        startedAt: string | null;
                         timezone: string;
                         /** Format: uuid */
                         userId: string;
@@ -61264,6 +61325,8 @@ export interface operations {
                             /** @default true */
                             watchPosts: boolean;
                         };
+                        /** @default null */
+                        startedAt: string | null;
                         timezone: string;
                         /** Format: uuid */
                         userId: string;

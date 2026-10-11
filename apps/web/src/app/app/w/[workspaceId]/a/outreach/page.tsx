@@ -98,6 +98,7 @@ export default async function OutreachPage({
             mine: !whose,
             people,
             business: business?.settings ?? null,
+            canStartFresh: got.workspace.permissions.includes('addons.purge'),
           }}
         />
       );

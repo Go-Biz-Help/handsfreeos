@@ -882,4 +882,86 @@ describe('thirteen add-ons (C)', () => {
       { event_type: 'addon.purged', name: 'fxseo' },
     ]);
   });
+
+  it('starts an add-on fresh: its data deleted, and installed again, empty, as a new generation', async () => {
+    const before = await installation(wsC, 'fxrent');
+    await rows(
+      admin(),
+      sql`update app.addon_installations set settings = '{"left": "over"}'::jsonb
+          where workspace_id = ${wsC} and addon_id = 'fxrent'`,
+    );
+    const since = new Date();
+    await run(
+      cmds.startFresh,
+      { workspaceId: wsC, addonId: 'fxrent', confirmName: 'Rent Collection' },
+      owner,
+    );
+    await drain(wsC);
+    await expectSettled(wsC, 'fxrent', 'enabled');
+    expect((await installation(wsC, 'fxrent'))!.generation).toBe(before!.generation + 1);
+    expect(
+      await one(
+        sql`select settings, fresh_by, fresh_at, installed_by from app.addon_installations
+            where workspace_id = ${wsC} and addon_id = 'fxrent'`,
+      ),
+    ).toEqual({ settings: {}, fresh_by: null, fresh_at: null, installed_by: owner.id });
+    // History has each move, as an owner would have made them on Settings → Add-ons.
+    expect(
+      (
+        await rows<{ event_type: string }>(
+          admin(),
+          sql`select event_type from app.events
+              where workspace_id = ${wsC} and payload ->> 'addonId' = 'fxrent' and created_at >= ${since.toISOString()}::timestamptz
+                and event_type like 'addon.%' order by created_at, event_type`,
+        )
+      ).map((e) => e.event_type),
+    ).toEqual([
+      'addon.uninstall_started',
+      'addon.uninstalled',
+      'addon.purge_started',
+      'addon.purged',
+      'addon.install_started',
+      'addon.installed',
+    ]);
+  });
+
+  it('carries on starting fresh after a lost job, with the hourly sweep', async () => {
+    await run(
+      cmds.startFresh,
+      { workspaceId: wsC, addonId: 'fxrent', confirmName: 'Rent Collection' },
+      owner,
+    );
+    // Uninstalled and proved, and the job that would delete its data lost.
+    const mark = await one<{ fresh_by: string; fresh_at: string }>(
+      sql`select fresh_by, fresh_at from app.addon_installations where workspace_id = ${wsC} and addon_id = 'fxrent'`,
+    );
+    await rows(
+      admin(),
+      sql`update app.addon_installations set fresh_by = null, fresh_at = null
+          where workspace_id = ${wsC} and addon_id = 'fxrent'`,
+    );
+    await drain(wsC);
+    await expectSettled(wsC, 'fxrent', 'uninstalled');
+    await rows(
+      admin(),
+      sql`update app.addon_installations set fresh_by = ${mark!.fresh_by}, fresh_at = ${mark!.fresh_at}
+          where workspace_id = ${wsC} and addon_id = 'fxrent'`,
+    );
+    expect(
+      await count(
+        sql`select count(*) as n from private.addon_installations_to_reconcile()
+            where workspace_id = ${wsC} and addon_id = 'fxrent'`,
+      ),
+    ).toBe(1);
+    const runner = `vitest-addons-${randomUUID().slice(0, 8)}`;
+    const [sweep] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.scheduled_jobs (kind, run_at, payload, locked_at, locked_by)
+          values ('addon.sweep', now(), '{}', now(), ${runner}) returning id`,
+    );
+    await processJobs({ ...s, jobs: W1.jobs, workerId: runner, batchSize: 5, reservedOnly: true });
+    await drain(wsC);
+    await expectSettled(wsC, 'fxrent', 'enabled');
+    await rows(admin(), sql`delete from app.scheduled_jobs where id = ${sweep!.id}`);
+  });
 });

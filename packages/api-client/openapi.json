@@ -52185,6 +52185,131 @@
         }
       }
     },
+    "/v1/commands/addon.start_fresh": {
+      "post": {
+        "operationId": "command_addon_start_fresh",
+        "summary": "Start an installed add-on fresh: permanently delete all of its data and install it again, empty, in one step. Core records it touched stay; history keeps its lines without the details.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 4. Requires addons.purge. Emits addon.uninstall_started.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "confirmName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId",
+                  "confirmName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "installing",
+                                  "enabled",
+                                  "disabled",
+                                  "uninstalling",
+                                  "uninstalled",
+                                  "purging",
+                                  "purged"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "from",
+                          "to",
+                          "generation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/addon.save_settings": {
       "post": {
         "operationId": "command_addon_save_settings",
@@ -79660,6 +79785,19 @@
                     "timezone": {
                       "type": "string"
                     },
+                    "startedAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "saved": {
                       "type": "boolean"
                     },
@@ -79801,6 +79939,7 @@
                   "required": [
                     "settings",
                     "timezone",
+                    "startedAt",
                     "saved",
                     "wheels",
                     "userId",
@@ -163983,6 +164122,19 @@
                     "timezone": {
                       "type": "string"
                     },
+                    "startedAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "saved": {
                       "type": "boolean"
                     },
@@ -164124,6 +164276,7 @@
                   "required": [
                     "settings",
                     "timezone",
+                    "startedAt",
                     "saved",
                     "wheels",
                     "userId",

@@ -47,6 +47,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { ChatBubbles } from './chat-bubbles';
 import { ExtensionLinkForm } from './extension-link';
+import { StartFresh } from './start-fresh';
 import OutreachBusinessSettings from './business-settings';
 import type { Automation, AutomationPeople } from './types';
 import { useAct } from './use-act';
@@ -463,8 +464,11 @@ export function SettingsView({
   mine,
   people,
   business,
+  canStartFresh = false,
 }: {
   workspaceId: string;
+  /** An owner, who may erase everything and start fresh (`addons.purge`). */
+  canStartFresh?: boolean;
   /** Whether they're the person's own. */
   mine: boolean;
   /** Whose settings are shown: the person's own, or someone else's for an owner or admin. */
@@ -563,6 +567,7 @@ export function SettingsView({
           </Link>
         </p>
       )}
+      {canStartFresh && mine ? <StartFresh workspaceId={workspaceId} /> : null}
     </div>
   );
 }

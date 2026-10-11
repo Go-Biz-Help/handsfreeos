@@ -432,6 +432,7 @@ export const {
   disable: addonDisable,
   uninstall: addonUninstall,
   purge: addonPurge,
+  startFresh: addonStartFresh,
   saveSettings: addonSaveSettings,
   saveMySettings: addonSaveMySettings,
   dismissSuggestion: addonDismissSuggestion,
@@ -1046,12 +1047,13 @@ export const commands: readonly CommandDef[] = [
   ...textingFeeCommands,
   // Facebook Messenger and Instagram: the Pages and accounts, their messages, and the ads that start them (20261025000100).
   ...socialCommands,
-  // Add-ons: installing, turning on and off, uninstalling, deleting their data, their settings (0108).
+  // Add-ons: installing, turning on and off, uninstalling, deleting their data, starting fresh, their settings (0108).
   addonInstall,
   addonEnable,
   addonDisable,
   addonUninstall,
   addonPurge,
+  addonStartFresh,
   addonSaveSettings,
   addonSaveMySettings,
   addonDismissSuggestion,
