@@ -200,7 +200,8 @@ const trouble = (key: string): Child => {
 
 /** The chat so far, above a message waiting for an OK: where it's going (@hfos/core/addons/outreach/sends). */
 function chatView(send: SendItem['send']): HTMLElement | null {
-  if (!send.recent.length) return null;
+  // None from a HandsFreeOS before the chat so far.
+  if (!send.recent?.length) return null;
   return h(
     'div',
     {},

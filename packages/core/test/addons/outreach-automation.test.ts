@@ -143,6 +143,13 @@ describe('the extension on its own', () => {
     expect((await runAs(owner, ws, 'outreach.automation', {})).settings.collect).toBe(true);
     await runAs(owner, ws, 'outreach.automation.save', { settings: steps });
     expect((await runAs(owner, ws, 'outreach.automation', {})).settings).toEqual(steps);
+    // Their voice, kept; a screen from before it saves without one, and theirs stays.
+    const voice = { shorthand: true, acronyms: true, emoji: false, split: false };
+    await runAs(owner, ws, 'outreach.automation.save', { settings: { ...steps, voice } });
+    const { voice: __, ...noVoice } = steps;
+    await runAs(owner, ws, 'outreach.automation.save', { settings: noVoice });
+    expect((await runAs(owner, ws, 'outreach.automation', {})).settings.voice).toEqual(voice);
+    await runAs(owner, ws, 'outreach.automation.save', { settings: steps });
     expect((await runAs(member, ws, 'outreach.automation', {})).saved).toBe(false);
     expect(
       await refused(

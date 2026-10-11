@@ -301,10 +301,14 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const rules = await rulesOf(ctx);
-    const refused = notAllowedWords(input.settings, rules);
-    if (refused) throw HfosError.rule('not_allowed', 403, refused);
-    const s = input.settings;
     const before = await rowOf(ctx, whose);
+    // A screen from before the voice sends none: the one kept stays.
+    const s: AutomationSettings = {
+      ...input.settings,
+      voice: input.settings.voice ?? settingsOf(before, rules).voice,
+    };
+    const refused = notAllowedWords(s, rules);
+    if (refused) throw HfosError.rule('not_allowed', 403, refused);
     // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once.
     const wheels = wheelsMatter(s) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
     const values = {

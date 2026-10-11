@@ -368,7 +368,8 @@ export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Someone else's, for an owner or admin; the person's own when left out. */
   userId: z.uuid().optional(),
-  settings: AutomationSettings,
+  /** The voice left out (a screen from before it) keeps the one kept. */
+  settings: AutomationSettings.extend({ voice: Voice.optional() }),
 });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
 

@@ -79579,12 +79579,6 @@
                         ]
                       },
                       "voice": {
-                        "default": {
-                          "shorthand": false,
-                          "acronyms": false,
-                          "emoji": false,
-                          "split": true
-                        },
                         "type": "object",
                         "properties": {
                           "shorthand": {

@@ -33097,14 +33097,6 @@ export interface operations {
                         replies?: "draft" | "simple" | "everything";
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
-                        /**
-                         * @default {
-                         *       "shorthand": false,
-                         *       "acronyms": false,
-                         *       "emoji": false,
-                         *       "split": true
-                         *     }
-                         */
                         voice?: {
                             /** @default false */
                             acronyms?: boolean;

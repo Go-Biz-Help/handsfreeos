@@ -879,7 +879,10 @@ async function go(): Promise<void> {
   await say(doing(work), { working: true });
   let outcome: Outcome;
   try {
-    outcome = await inTurn('runner', () => doWork(work, to.businessId, settings.voice.split));
+    // A few texts unless they said otherwise; one HandsFreeOS from before the voice says nothing of it.
+    outcome = await inTurn('runner', () =>
+      doWork(work, to.businessId, settings.voice?.split ?? true),
+    );
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;
