@@ -35,7 +35,9 @@ async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   // A first-timer is sent to the setup; leaving it for later lets the page open as it was.
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
   await expect(page).toHaveURL(new RegExp(`/a/outreach/setup(\\?.*)?$`));
-  await expect(page.getByTestId('outreach-setup')).toHaveAttribute('data-screen', 'playbooks');
+  // A page of its own, as the main app's onboarding is: the welcome first, with Finish later at the top.
+  await expect(page.getByTestId('outreach-setup-page')).toBeVisible();
+  await expect(page.getByTestId('outreach-setup')).toHaveAttribute('data-screen', 'welcome');
   await page.getByTestId('outreach-setup-later').click();
   await expect(page.getByTestId('outreach-home')).toBeVisible();
 }
@@ -586,6 +588,10 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   // Carry on from the banner: the playbooks, where a template opens the builder and comes back here.
   await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 5 done');
   await page.getByTestId('outreach-setup-carry-on').click();
+  // The welcome says what's ahead, then the first step.
+  await expect(setup).toHaveAttribute('data-screen', 'welcome');
+  await expect(page.getByTestId('outreach-setup-welcome')).toContainText('Your team’s rules');
+  await page.getByTestId('outreach-setup-start').click();
   await expect(setup).toHaveAttribute('data-screen', 'playbooks');
   await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 5 · Playbooks');
   await expect(page.getByTestId('outreach-setup-template-crm_demos')).toHaveAttribute(
@@ -628,6 +634,7 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   await expect(page.getByTestId('outreach-setup-banner')).toContainText('3 of 5 done');
   await page.getByTestId('outreach-setup-carry-on').click();
   await expect(setup).toHaveAttribute('data-screen', 'extension');
+  await expect(page.getByTestId('outreach-setup-resumed')).toBeVisible();
   await page.getByTestId('outreach-setup-next').click();
   await expect(setup).toHaveAttribute('data-screen', 'groups');
   await page.getByTestId('outreach-setup-next').click();

@@ -21,6 +21,7 @@ import {
   nextScreen,
   outreachPath,
   outreachSetupPath,
+  previousScreen,
   previousStep,
   readSetupStep,
   setupOpenAt,
@@ -61,7 +62,12 @@ describe('the setup’s steps', () => {
     expect(previousStep('settings', member)).toBe('playbooks');
     expect(previousStep('playbooks', member)).toBeNull();
     expect(previousStep('done', member)).toBe('groups');
+    // Back from the first step is the welcome, and there's none before it.
+    expect(previousScreen('playbooks', member)).toBe('welcome');
+    expect(previousScreen('settings', member)).toBe('playbooks');
+    expect(previousScreen('welcome', member)).toBeNull();
     expect(readSetupStep('extension')).toBe('extension');
+    expect(readSetupStep('welcome')).toBe('welcome');
     expect(readSetupStep('nope')).toBeNull();
   });
 
@@ -73,7 +79,9 @@ describe('the setup’s steps', () => {
       finishedAt: string | null = null,
       again = false,
     ) => setupOpenAt({ reached, finishedAt, steps }, asked, again);
-    expect(open(null, null)).toBe('playbooks');
+    // Nothing finished yet: the welcome, before the steps; asked for, it opens any time.
+    expect(open(null, null)).toBe('welcome');
+    expect(open('settings', 'welcome')).toBe('welcome');
     expect(open('playbooks', null, manager)).toBe('rules');
     expect(open('playbooks', null)).toBe('settings');
     expect(open('settings', null)).toBe('extension');

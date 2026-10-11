@@ -23,9 +23,9 @@ import { GROUP_VERDICT_KEYS } from './groups';
 /** The steps, in order. The team's rules come before the person's own, so a rule never quietly steps theirs back. */
 export const SETUP_STEPS = ['playbooks', 'rules', 'settings', 'extension', 'groups'] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number];
-/** A screen of the setup: one of the steps, or the end. */
-export type SetupScreen = SetupStep | 'done';
-const SETUP_SCREENS: readonly SetupScreen[] = [...SETUP_STEPS, 'done'];
+/** A screen of the setup: the welcome before the steps, one of the steps, or the end. */
+export type SetupScreen = 'welcome' | SetupStep | 'done';
+const SETUP_SCREENS: readonly SetupScreen[] = ['welcome', ...SETUP_STEPS, 'done'];
 
 const order = (s: SetupStep) => SETUP_STEPS.indexOf(s);
 
@@ -57,17 +57,27 @@ export function nextScreen(step: SetupStep, steps: readonly SetupStep[]): SetupS
   return steps.find((s) => order(s) > order(step)) ?? 'done';
 }
 
-/** The step before a screen, or null on the first. */
+/** The step before a screen, or null on the first and the welcome. */
 export function previousStep(screen: SetupScreen, steps: readonly SetupStep[]): SetupStep | null {
+  if (screen === 'welcome') return null;
   if (screen === 'done') return steps[steps.length - 1] ?? null;
   return [...steps].reverse().find((s) => order(s) < order(screen)) ?? null;
 }
 
+/** The screen Back goes to: the step before, or the welcome from the first step; null on the welcome. */
+export function previousScreen(
+  screen: SetupScreen,
+  steps: readonly SetupStep[],
+): SetupScreen | null {
+  if (screen === 'welcome') return null;
+  return previousStep(screen, steps) ?? 'welcome';
+}
+
 /**
- * Where the setup opens. Set up again (`again`) opens at the asked step or the first. Otherwise a step asked for opens
- * when it's one of theirs and not past the one they'd come back to (any once they've finished; the end only once
- * they have); else the end once finished; else the step after the furthest finished (the last, when that was the
- * last); else the first.
+ * Where the setup opens. The welcome when it's asked for, and when they've finished no step yet and none is asked
+ * for. Set up again (`again`) opens at the asked step or the first. Otherwise a step asked for opens when it's one of
+ * theirs and not past the one they'd come back to (any once they've finished; the end only once they have); else the
+ * end once finished; else the step after the furthest finished (the last, when that was the last); else the first.
  */
 export function setupOpenAt(
   got: {
@@ -80,10 +90,13 @@ export function setupOpenAt(
 ): SetupScreen {
   const first = got.steps[0] ?? 'playbooks';
   const want = readSetupStep(asked);
-  const theirs = want !== null && (want === 'done' || got.steps.includes(want));
+  if (want === 'welcome' || (want === null && !again && !got.reached && !got.finishedAt))
+    return 'welcome';
+  const theirs = want !== null && (want === 'done' || got.steps.includes(want as SetupStep));
   if (again) return theirs && want !== 'done' ? want : first;
   const comeBack: SetupScreen = got.reached ? nextScreen(got.reached, got.steps) : first;
-  const at = (s: SetupScreen) => (s === 'done' ? SETUP_STEPS.length : order(s));
+  const at = (s: SetupScreen) =>
+    s === 'done' ? SETUP_STEPS.length : s === 'welcome' ? -1 : order(s);
   if (theirs) {
     if (got.finishedAt) return want;
     if (want !== 'done' && at(want) <= at(comeBack)) return want;
@@ -232,7 +245,28 @@ export function whenWords(at: string, now = Date.now(), timeZone?: string): stri
 /** The setup's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
 export const SETUP_WORDS = {
   title: 'Set up Social Outreach',
+  /** Beside the brand at the top of the setup's page, as the main app's onboarding has it. */
+  settingUp: (business: string) => `Setting up Social Outreach for ${business}`,
   counter: (n: number, of: number, name: string) => `${n} of ${of} · ${name}`,
+  /** The screen before the steps, for someone who hasn't finished one yet. */
+  welcome: {
+    title: 'Let’s set up Social Outreach',
+    hint: 'Find customers on Facebook the way you would yourself: in the groups you’re in, with friend requests, likes, comments and messages that sound like you. The extension does the clicking in Chrome, and you stay in charge.',
+    steps: 'What you’ll do',
+    time: 'About 10 minutes. What you pick is kept as you go, so you can stop any time and carry on later.',
+    start: 'Let’s start',
+  },
+  /** Each step in a line, on the welcome. */
+  stepAbout: {
+    playbooks: 'Who you’re looking for, how you sound, and what you offer',
+    rules: 'What your team may do on its own, and how much a day',
+    settings: 'What the extension does for you, how the AI writes, and when',
+    extension: 'Put the extension in Chrome and sign in',
+    groups: 'Bring in the Facebook groups you’re in',
+  } satisfies Record<SetupStep, string>,
+  /** On the step they come back to, when they'd finished some before. */
+  resumed: 'Welcome back. Carry on where you left off.',
+  startOver: 'Start over',
   steps: {
     playbooks: {
       name: 'Playbooks',

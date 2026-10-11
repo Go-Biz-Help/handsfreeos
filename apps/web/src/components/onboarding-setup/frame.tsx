@@ -15,12 +15,18 @@ import { cn } from '@/lib/utils';
 export function SetupPage({
   business,
   email,
+  settingUp,
+  finishLater,
   children,
 }: {
   /** The business being set up, once it's made: its name, and Home for "Finish later". */
   business: { readonly name: string; readonly home: string } | null;
   /** Who's signed in, under the card. */
   email: string;
+  /** Another setup's own line at the top (Social Outreach's), in place of "Setting up <business>". */
+  settingUp?: string;
+  /** Another setup's own Finish later, in place of the link Home. */
+  finishLater?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -36,15 +42,17 @@ export function SetupPage({
         {business ? (
           <>
             <span className="hidden truncate text-[13px] text-text-2 sm:block">
-              {WIZARD_WORDS.settingUp(business.name)}
+              {settingUp ?? WIZARD_WORDS.settingUp(business.name)}
             </span>
-            <ButtonLink
-              href={`${business.home}?tour=1`}
-              variant="ghost"
-              data-testid="onboarding-setup-finish-later"
-            >
-              {WIZARD_WORDS.finishLater}
-            </ButtonLink>
+            {finishLater ?? (
+              <ButtonLink
+                href={`${business.home}?tour=1`}
+                variant="ghost"
+                data-testid="onboarding-setup-finish-later"
+              >
+                {WIZARD_WORDS.finishLater}
+              </ButtonLink>
+            )}
           </>
         ) : null}
       </header>

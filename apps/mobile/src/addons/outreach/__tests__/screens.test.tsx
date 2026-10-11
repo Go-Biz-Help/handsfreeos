@@ -472,6 +472,7 @@ describe('The live view on the phone', () => {
 const AUTOMATION: AutomationOutput = {
   settings: AUTOMATION_DEFAULTS,
   timezone: TZ,
+  startedAt: null,
   saved: false,
   wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   userId: ME,
