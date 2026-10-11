@@ -1,10 +1,12 @@
 /**
- * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend, a follow-up, a reply,
- * or a comment on a group post, written by the AI in the playbook's tone from what's known about the person, the chat
- * or post so far, and what the extension looked up on their profile and business page just before (decision 21). Core holds
- * what the model is asked and checks what it answers (packages/core/src/addons/outreach/today.ts). Nothing is saved
- * or sent here: the person copies the one they like, or the extension hands it to `outreach.send.queue`. For a reply,
- * the AI also says whether it's simple (decision 27), never for someone who needs the person (`replyNeedsYou`).
+ * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend, a message to a friend
+ * who fits to reconnect with (decision 46), a pitch with their demo link (decision 47), a follow-up, a reply, or a
+ * comment on a group post, written by the AI in the playbook's tone from what's known about the person (what the AI
+ * made of them when it checked them too), the chat or post so far, and what the extension looked up on their profile
+ * and business page just before (decision 21). Core holds what the model is asked and checks what it answers
+ * (packages/core/src/addons/outreach/today.ts). Nothing is saved or sent here: the person copies the one they like, or
+ * the extension hands it to `outreach.send.queue`. For a reply, the AI also says whether it's simple (decision 27),
+ * never for someone who needs the person (`replyNeedsYou`).
  */
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
@@ -71,6 +73,19 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           )
         : [];
       const profileId = input.profileId ?? chat?.profile_id ?? post?.profile_id ?? null;
+      // A warm lead (decision 50): their latest comment on one of the person's own helpful posts, and that post.
+      const [engaged] =
+        input.kind === 'warm_lead' && profileId
+          ? await rows<{ comment: string; body: string | null; group: string | null }>(
+              tx,
+              sql`select e.comment, h.body, g.name as group from addon_outreach.engagements e
+                  join addon_outreach.helpful h on h.id = e.helpful_id
+                  join addon_outreach.groups g on g.id = h.group_id
+                  where e.workspace_id = ${ws} and e.user_id = ${ctx.userId} and e.profile_id = ${profileId}
+                    and e.kind = 'comment' and e.comment is not null
+                  order by e.seen_at desc limit 1`,
+            )
+          : [];
       const [profile] = profileId
         ? await rows<{
             name: string;
@@ -96,16 +111,39 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         sql`select id, name, details from addon_outreach.playbooks
             where workspace_id = ${ws} and archived_at is null`,
       );
-      return { business, chat, post, profile, lines: lines[0]?.lines ?? [], playbooks };
+      // What the AI made of them when it checked them (decision 46): the person's own.
+      const [check] = profileId
+        ? await rows<{ about: string | null; why: string[]; next_step: string | null }>(
+            tx,
+            sql`select about, why, next_step from addon_outreach.checks
+                where workspace_id = ${ws} and profile_id = ${profileId} and user_id = ${ctx.userId}
+                  and verdict in ('good', 'maybe')`,
+          )
+        : [];
+      return {
+        business,
+        chat,
+        post,
+        engaged,
+        profile,
+        lines: lines[0]?.lines ?? [],
+        playbooks,
+        check,
+      };
     });
     const name = found.profile?.name ?? found.chat?.name;
     if (input.kind === 'comment' && !found.post)
       throw HfosError.notFound('That post isn’t on your list anymore. Reload Today.');
+    if (input.kind === 'warm_lead' && !found.engaged)
+      throw HfosError.notFound('Their comment isn’t on your list anymore. Reload Today.');
     if (!name) throw HfosError.notFound('That person isn’t on your list anymore. Reload Today.');
     const facts = [
       ...found.lines,
       ...(found.profile?.intro ?? []),
       ...(found.profile?.group ? [`Found in the group ${found.profile.group}`] : []),
+      ...(found.check?.about ? [found.check.about] : []),
+      ...(found.check?.why ?? []),
+      ...(found.check?.next_step ? [`A good first step: ${found.check.next_step}`] : []),
     ];
     const playbooks = found.playbooks.flatMap((p) => {
       const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
@@ -155,7 +193,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               facts,
               recent: found.chat?.recent ?? [],
               playbook: playbook ? { name: playbook.name, ...playbook.details, link } : null,
-              post: found.post ? { text: found.post.body, group: found.post.group } : null,
+              post: found.engaged
+                ? {
+                    text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
+                    group: found.engaged.group,
+                  }
+                : found.post
+                  ? { text: found.post.body, group: found.post.group }
+                  : null,
               lookup: input.lookup,
               opener,
             }),
@@ -167,8 +212,13 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
       const theirs = [...(found.chat?.recent ?? [])].reverse().find((m) => !m.fromMe)?.text ?? null;
+      const drafts = checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]);
       return {
-        drafts: checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]),
+        // A pitch always carries their demo link (decision 47): one the AI left out goes on the end.
+        drafts:
+          input.kind === 'pitch' && link
+            ? drafts.map((d) => (d.includes(link) ? d : `${d}\n\n${link}`))
+            : drafts,
         opener: drafted,
         simple: input.kind === 'reply' && value.simple && theirs !== null && !replyNeedsYou(theirs),
       };

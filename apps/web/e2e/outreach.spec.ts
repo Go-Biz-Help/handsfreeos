@@ -488,7 +488,17 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
   await expect(
     page.getByText('Sky Patel is in Contacts now, with your chat on their card.'),
   ).toBeVisible();
-  await expect(sky).toContainText('On their card');
+  // The AI may read the chat meanwhile, which moves it from Not read yet to All read: look wherever it is now.
+  await expect(async () => {
+    for (const show of ['read', 'waiting']) {
+      await page.goto(`/app/w/${workspaceId}/a/outreach?view=chats&show=${show}`);
+      await expect(
+        page.getByTestId('chats-list').or(page.getByTestId('chats-empty')),
+      ).toBeVisible();
+      if (await sky.count()) break;
+    }
+    await expect(sky).toContainText('On their card', { timeout: 2_000 });
+  }).toPass({ timeout: 45_000 });
   await sky.getByRole('link', { name: 'Sky Patel' }).click();
   await expect(page.getByTestId('outreach-panel')).toContainText('Made-up words');
 });

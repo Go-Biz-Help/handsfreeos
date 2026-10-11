@@ -90,11 +90,16 @@ const GROUP: GroupsOutput['groups'][number] = {
   replies: 0,
   demos: 0,
   seenAt: null,
+  check: null,
+  left: 0,
+  join: null,
 };
 
 const groupsOf = (groups: GroupsOutput['groups']): GroupsOutput => ({
   counts: { work: groups.length, maybe: 0, skip: 0, all: groups.length },
   groups,
+  prospects: { left: 0, perDay: 20, days: 0, low: true },
+  joinsOnItsOwn: true,
   page: 1,
   pages: 1,
   total: groups.length,

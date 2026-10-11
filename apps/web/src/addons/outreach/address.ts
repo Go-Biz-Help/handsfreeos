@@ -1,7 +1,8 @@
 /**
- * What Social Outreach's page shows, from its address: the tab (`?view=live`, `waiting`, `today`, `groups`, `friends`, `chats`,
- * `playbooks` or `settings`, else the activity); for settings, whose (`?for=` someone's id, for owners and admins); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
- * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or
+ * What Social Outreach's page shows, from its address: the tab (`?view=live`, `waiting`, `today`, `pipeline`, `groups`,
+ * `friends`, `chats`, `playbooks` or `settings`, else the activity); for the pipeline, which stage (`?show=ready`…, else
+ * everyone in play); for settings, whose (`?for=` someone's id, for owners and admins); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
+ * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=fits`, `requests`, `sent`, `keep` or
  * `dont_pitch`); for chats, which (`?show=tagged`, `read` or `waiting`) and a tag (`?tag=`); for both, a name
  * searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server and the tabs
  * build their links from it.
@@ -10,6 +11,7 @@ import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/out
 import { CHAT_VIEW_KEYS, type ChatView } from '@hfos/core/addons/outreach/chat-read';
 import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/friends';
 import { GROUP_VIEWS, type GroupView } from '@hfos/core/addons/outreach/groups';
+import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stages';
 
 export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
 
@@ -21,6 +23,7 @@ export type OutreachView =
   | 'live'
   | 'waiting'
   | 'today'
+  | 'pipeline'
   | 'groups'
   | 'friends'
   | 'chats'
@@ -30,6 +33,7 @@ const VIEWS: readonly OutreachView[] = [
   'live',
   'waiting',
   'today',
+  'pipeline',
   'groups',
   'friends',
   'chats',
@@ -43,12 +47,17 @@ export interface OutreachAddress {
   readonly period: ActivityPeriod;
   /** The whole team's steps, asked for; the page shows them only to owners and admins. */
   readonly everyone: boolean;
-  /** Which friends: the person's own, their requests, the ones they sent, Keep, or the business's Don't pitch. */
+  /**
+   * Which friends: the person's own, the good fits among friends and chats, their requests, the ones they sent, Keep,
+   * or the business's Don't pitch.
+   */
   readonly show: FriendView;
   /** Which chats: likely prospects, the tagged, all read, or not read yet. */
   readonly chats: ChatView;
   /** Which groups: Work these, Maybe, Skip, or all. */
   readonly groups: GroupView;
+  /** Which of the pipeline: everyone in play, or one stage. */
+  readonly stages: StageView;
   /** One of the tags, for chats. */
   readonly tag: string;
   /** Part of a name, for groups, friends and chats. */
@@ -71,6 +80,7 @@ export function readOutreachAddress(
     show: FRIEND_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'friends',
     chats: CHAT_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'prospects',
     groups: GROUP_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'work',
+    stages: STAGE_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'all',
     tag: one(sp.tag).trim().slice(0, 40),
     search: one(sp.q).trim().slice(0, 100),
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
@@ -97,6 +107,11 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   } else if (to.view === 'friends') {
     params.set('view', 'friends');
     if (to.show && to.show !== 'friends') params.set('show', to.show);
+    if (to.search) params.set('q', to.search);
+    if (to.page && to.page > 1) params.set('page', String(to.page));
+  } else if (to.view === 'pipeline') {
+    params.set('view', 'pipeline');
+    if (to.stages && to.stages !== 'all') params.set('show', to.stages);
     if (to.search) params.set('q', to.search);
     if (to.page && to.page > 1) params.set('page', String(to.page));
   } else if (to.view === 'chats') {

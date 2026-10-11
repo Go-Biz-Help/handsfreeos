@@ -51,6 +51,7 @@ import { outreachAddon } from '../manifest';
 import { ProfileSaveOutput } from '../saves';
 import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
+import { approvedHelpful } from './helpful';
 import { inWorkspace, once, saveProfile, type Ctx } from './common';
 import { businessToday, dayOf } from './day';
 import { myComputers, workingOf } from './live';
@@ -186,6 +187,37 @@ async function taskOf(
     }
     case 'group_search':
       return { task: { kind: 'group_search', words: ask.words }, target, about: askAbout(ask) };
+    case 'join': {
+      if (!ask.groupIds)
+        return { task: { kind: 'join', groupIds: null }, target, about: askAbout(ask) };
+      const ids = [...new Set(ask.groupIds)];
+      const found = await groupsForAsk(ctx, sql`g.id = any (${`{${ids.join(',')}}`}::uuid[])`);
+      if (found.length < ids.length)
+        throw HfosError.notFound(
+          'That group isn’t saved in Social Outreach any more. Refresh the Groups tab.',
+        );
+      return {
+        task: { kind: 'join', groupIds: ids },
+        target,
+        about: askAbout(ask, { groups: ids.map((id) => found.find((g) => g.id === id)!.name) }),
+      };
+    }
+    case 'post': {
+      // Only one the person OK'd: a draft waits for their OK, and one up already isn't posted twice.
+      const row = await approvedHelpful(ctx, me, ask.helpfulId);
+      if (!row)
+        throw HfosError.rule(
+          'outreach_helpful_not_approved',
+          409,
+          'That helpful post isn’t OK’d, or it’s up already. Reload Today, then press OK, post it.',
+        );
+      const [g] = await groupsForAsk(ctx, sql`g.id = ${row.groupId}`);
+      return {
+        task: { kind: 'post', helpfulId: row.id },
+        target,
+        about: askAbout(ask, { name: g?.name ?? null }),
+      };
+    }
     case 'cancel':
     case 'unfriend':
       return {

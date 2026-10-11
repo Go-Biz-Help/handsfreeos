@@ -5,6 +5,12 @@ import {
   type AsksOutput,
 } from '@hfos/core/addons/outreach/asks';
 import {
+  GROUP_CHECK_STATES,
+  GROUP_CHECK_WORDS,
+  JOIN_STATES,
+  prospectsWords,
+} from '@hfos/core/addons/outreach/group-checks';
+import {
   GROUP_VERDICTS,
   GROUP_VIEWS,
   type GroupsOutput,
@@ -122,6 +128,12 @@ export function GroupsBody({
   const empty = search.trim() ? W.groupsNoMatch : W.groupsEmpty[view];
   return (
     <Screen title={W.rows.groups} leading="back" testID="outreach-groups">
+      {groups ? (
+        <Card className="gap-1.5 px-4 py-3.5" testID="groups-prospects">
+          <Text className="text-[15px] font-semibold">{GROUP_CHECK_WORDS.prospectsTitle}</Text>
+          <Note>{prospectsWords(groups.prospects, groups.joinsOnItsOwn)}</Note>
+        </Card>
+      ) : null}
       {asks && actions ? <GroupAsks asks={asks} actions={actions} /> : null}
       <Segmented
         value={view}
@@ -158,8 +170,15 @@ export function GroupsBody({
                 {W.groupLine(g.members, g.people, g.joined) ? (
                   <Note>{W.groupLine(g.members, g.people, g.joined)}</Note>
                 ) : null}
+                {g.check && g.check.state !== 'waiting' ? (
+                  <Text className="text-[14px] leading-[20px]" testID="groups-check">
+                    {[GROUP_CHECK_STATES[g.check.state], g.check.who].filter(Boolean).join(' · ')}
+                  </Text>
+                ) : null}
                 {g.reasons.length ? <Note>{g.reasons.join(' · ')}</Note> : null}
                 {g.playbookName ? <Note>{g.playbookName}</Note> : null}
+                {g.left ? <Note>{W.leftToReach(g.left)}</Note> : null}
+                {g.join ? <Note testID="groups-join">{JOIN_STATES[g.join.state]}</Note> : null}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -177,6 +196,20 @@ export function GroupsBody({
                     label={ASK_WORDS.saveItsMembers}
                     variant="ghost"
                     testID="ask-group-members"
+                  />
+                ) : null}
+                {asks &&
+                actions &&
+                g.joined !== true &&
+                g.verdict !== 'skip' &&
+                (!g.join || g.join.state === 'failed') ? (
+                  <AskButton
+                    asks={asks}
+                    actions={actions}
+                    ask={{ kind: 'join', groupIds: [g.groupId] }}
+                    label={GROUP_CHECK_WORDS.joinOne}
+                    variant="ghost"
+                    testID="ask-group-join"
                   />
                 ) : null}
               </Card>
@@ -251,6 +284,22 @@ function GroupAsks({ asks, actions }: { asks: AsksOutput; actions: AskActions })
         label={ASK_WORDS.findPosts}
         testID="ask-posts"
       />
+      <AskButton
+        asks={asks}
+        actions={actions}
+        ask={{ kind: 'group_checks' }}
+        label={GROUP_CHECK_WORDS.checkButton}
+        testID="ask-group-checks"
+      />
+      <Note>{GROUP_CHECK_WORDS.checkNote}</Note>
+      <AskButton
+        asks={asks}
+        actions={actions}
+        ask={{ kind: 'join' }}
+        label={GROUP_CHECK_WORDS.joinButton}
+        testID="ask-join"
+      />
+      <Note>{GROUP_CHECK_WORDS.joinNote}</Note>
     </Card>
   );
 }

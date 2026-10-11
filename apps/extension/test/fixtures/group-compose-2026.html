@@ -1,0 +1,35 @@
+<!doctype html>
+<!--
+  An approximation of a group's page in October 2026 with the box that starts a post at the top, and the box Facebook
+  opens over the page to write it in (hidden until "Write something…" is pressed), written by hand: not a saved
+  Facebook page, and nobody real.
+-->
+<html lang="en">
+  <body>
+    <div role="banner">
+      <a href="/robin.hale.77" aria-label="Your profile"><svg aria-label="Your profile"></svg></a>
+    </div>
+    <div role="main">
+      <h1><a href="/groups/texascontractors/">Texas Contractors Network</a></h1>
+      <div><span>Private group</span><span> · </span><span>5.4K members</span></div>
+      <div role="button" aria-label="Joined"><span>Joined</span></div>
+      <div>
+        <div role="button" id="start"><span>Write something...</span></div>
+      </div>
+    </div>
+    <div role="dialog" aria-label="Create post" id="composer" hidden>
+      <h2>Create post</h2>
+      <div role="button" aria-label="Close"><svg aria-hidden="true"></svg></div>
+      <div
+        role="textbox"
+        id="box"
+        contenteditable="true"
+        aria-label="Create a public post…"
+        aria-placeholder="Create a public post…"
+      >
+        <p><br /></p>
+      </div>
+      <div role="button" aria-label="Post" id="post"><span>Post</span></div>
+    </div>
+  </body>
+</html>

@@ -11,7 +11,9 @@ import {
   itemKey,
   itemsLeft,
   nextStart,
+  nextWatch,
   STARTED_GAP_MS,
+  watchDue,
   workKey,
   workLeft,
 } from '../src/auto/plan';
@@ -42,6 +44,7 @@ const item = (more: Partial<TodayListItem>): TodayListItem => ({
   postUrl: null,
   posted: null,
   post: null,
+  asking: false,
   why: [],
   summary: null,
   nextStep: null,
@@ -91,6 +94,31 @@ describe('what it does next', () => {
       itemsLeft(list, ['friend_request', 'comment'], [itemKey(request)]).map((i) => i.name),
     ).toEqual(['Sam Carter']);
     expect(itemsLeft([item({ profileUrl: null })], all, [])).toEqual([]);
+    // A post asking for what the business offers goes before everything (decision 49).
+    const asking = {
+      ...post,
+      name: 'Kim Ng',
+      postId: '6b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      asking: true,
+    };
+    expect(itemsLeft([...list, asking], all, []).map((i) => i.name)).toEqual([
+      'Kim Ng',
+      'Lee Park',
+      'Ana Ruiz',
+      'Dana Reyes',
+      'Sam Carter',
+    ]);
+  });
+
+  it('looks at the newest posts every hour or two, at random', () => {
+    const now = Date.parse('2026-10-12T15:00:00Z');
+    expect(nextWatch(now, 0) - now).toBe(60 * 60_000);
+    expect(nextWatch(now, 1) - now).toBe(120 * 60_000);
+    // A new day, or a state kept by 0.22, looks now; then not until it's due.
+    expect(watchDue({ watchAt: null }, now)).toBe(true);
+    expect(watchDue({}, now)).toBe(true);
+    expect(watchDue({ watchAt: nextWatch(now, 0.5) }, now + 60 * 60_000)).toBe(false);
+    expect(watchDue({ watchAt: nextWatch(now, 0.5) }, now + 90 * 60_000)).toBe(true);
   });
 
   it('sends messages OK’d first, and drafts the rest after the steps, or before them with Approve all', () => {

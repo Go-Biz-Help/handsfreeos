@@ -11,8 +11,8 @@ import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import type { GroupCheckState, JoinState } from '../group-checks';
 import {
-  bestGroupFit,
   GROUP_VERDICT_KEYS,
   GROUPS_PAGE,
   GroupSaveInput,
@@ -27,9 +27,11 @@ import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
 import { byResults } from '../results';
 import { groupPeople, groups, myGroups } from '../tables';
+import { automationOf } from './automation';
 import { EVER, keepGroup, reachedPeople, resultsByGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
 import { playbooksInUse } from './friends';
+import { groupFitOf, peopleLeft, prospectsOf } from './group-checks';
 
 type Facts = Pick<GroupSaveInput, 'group' | 'privacy' | 'members' | 'detail' | 'joined'>;
 
@@ -188,9 +190,19 @@ export const groupsList = defineAddonQuery(outreachAddon, {
       admins_read_at: Date | string | null;
       requests: number;
       seen_at: Date | string | null;
+      check_state: GroupCheckState | null;
+      check_why: string[];
+      check_who: string | null;
+      check_playbook_id: string | null;
+      check_playbook: string | null;
+      checked_at: Date | string | null;
+      join_state: JoinState | null;
+      join_at: Date | string | null;
     }>(
       ctx.tx,
       sql`select g.id, g.name, g.url, g.privacy, g.members, g.detail, g.admins_read_at, g.seen_at,
+            g.check_state, g.check_why, g.check_who, g.check_playbook_id, cpb.name as check_playbook, g.checked_at,
+            j.state as join_state, j.asked_at as join_at,
             (select m.joined from addon_outreach.my_groups m where m.group_id = g.id and m.user_id = ${me}) as joined,
             (select count(*)::int from addon_outreach.group_people gp where gp.group_id = g.id) as people,
             (select count(*)::int from addon_outreach.group_people gp
@@ -198,22 +210,17 @@ export const groupsList = defineAddonQuery(outreachAddon, {
             (select count(*)::int from addon_outreach.touches t
               where t.group_id = g.id and t.kind = 'friend_request') as requests
           from addon_outreach.groups g
+          left join addon_outreach.playbooks cpb on cpb.id = g.check_playbook_id
+          left join addon_outreach.joins j on j.group_id = g.id and j.user_id = ${me}
           where g.workspace_id = ${ws} and g.platform = ${input.platform}
           order by g.seen_at desc nulls last, g.created_at desc
           limit ${GROUPS_MOST}`,
     );
     const playbooks = await playbooksInUse(ctx);
     const results = resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }));
-    const fitted = listed.map((g) => ({
-      g,
-      fit: bestGroupFit(playbooks, {
-        name: g.name,
-        detail: g.detail,
-        members: g.members,
-        privacy: g.privacy,
-        joined: g.joined,
-      }),
-    }));
+    // The AI's read of a group goes over what its name says (decision 48).
+    const fitted = listed.map((g) => ({ g, fit: groupFitOf(playbooks, g) }));
+    const left = await peopleLeft(ctx, me, playbooks);
     const counts = Object.fromEntries(
       GROUP_VERDICT_KEYS.map((v) => [v, fitted.filter((f) => f.fit.verdict === v).length]),
     ) as Record<GroupVerdict, number>;
@@ -252,7 +259,23 @@ export const groupsList = defineAddonQuery(outreachAddon, {
         replies: resultsOf(g.id).replies,
         demos: resultsOf(g.id).demos,
         seenAt: g.seen_at === null ? null : new Date(g.seen_at).toISOString(),
+        check: g.check_state
+          ? {
+              state: g.check_state,
+              why: g.check_why,
+              who: g.check_who,
+              playbookName: g.check_playbook,
+              checkedAt: g.checked_at === null ? null : new Date(g.checked_at).toISOString(),
+            }
+          : null,
+        left: left.get(g.id) ?? 0,
+        join:
+          g.join_state && g.join_at
+            ? { state: g.join_state, at: new Date(g.join_at).toISOString() }
+            : null,
       })),
+      prospects: await prospectsOf(ctx, left),
+      joinsOnItsOwn: (await automationOf(ctx, me)).settings.joinGroups,
       page,
       pages,
       total,

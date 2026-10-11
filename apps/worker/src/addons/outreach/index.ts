@@ -13,9 +13,18 @@ import { rows, sql } from '@hfos/db/client';
 import type { AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
 import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
+import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
-import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
+import {
+  CHECK_GROUPS_JOB,
+  checkGroupsJob,
+  groupLooked,
+  JOIN_ANSWER_ACTION,
+  joinAnswer,
+} from './groups';
+import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
+import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askProgressed } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
@@ -72,12 +81,20 @@ export const outreachAddonWorker: AddonWorkerModule = {
     },
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
-  // checked by it (./posts.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
+  // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
   // moved with the settings (./alerts.ts, ./weekly.ts); a booking through a demo link counted (./demos.ts).
   subscribers: {
     'outreach.download.saved': andMorning(downloadSaved),
     'outreach.chats.collected': andMorning(downloadSaved),
     'outreach.posts.saved': andMorning(postsSaved),
+    // A post asking for what the business offers pushes to the person who found it at once (./posts.ts, decision 49).
+    'outreach.post.checked': postChecked,
+    // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
+    'outreach.check.looked': andMorning(checkLooked),
+    // A group's About page, rules and posts, read off Facebook, wait for the AI's check of it (./groups.ts).
+    'outreach.group.looked': groupLooked,
+    // A helpful post asked for is written by the AI (./helpful.ts, decision 50).
+    'outreach.helpful.asked': helpfulAsked,
     'outreach.reply.seen': andWeekly(replySeen),
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
@@ -95,13 +112,21 @@ export const outreachAddonWorker: AddonWorkerModule = {
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
+    [CHECK_PEOPLE_JOB]: checkPeopleJob,
+    [CHECK_GROUPS_JOB]: checkGroupsJob,
+    [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
     [MORNING_JOB]: morningJob,
     [WEEKLY_JOB]: weeklyJob,
     [LIVE_PRUNE_JOB]: livePruneJob,
     [WAITING_PUSH_JOB]: waitingPushJob,
   },
-  // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
-  actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
+  // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
+  // group's questions when the extension asks to join it (./groups.ts).
+  actions: {
+    [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
+    [TODAY_DRAFT_ACTION]: todayDraft,
+    [JOIN_ANSWER_ACTION]: joinAnswer,
+  },
   // The morning push, weekly report and the feed's pruning, from now: nothing that came due while it was off runs late.
   onEnable: async (ctx) => {
     await armMorning(ctx);

@@ -12,6 +12,10 @@
  * - **Confirm their request** (decision 30): friend requests the person got from people who fit a playbook well.
  * - **Say hi**: new friends who accepted the person's request a day or more ago (the playbook's pace) and haven't
  *   had a message yet.
+ * - **Reconnect** (decision 46): friends and people they've chatted with whom the AI found a good fit (./checks.ts),
+ *   when neither side has written for a month. They count against the first messages.
+ * - **Pitch** (decision 47): people whose chat the AI read as ready for the offer, or the person marked ready, until a
+ *   pitch goes or the person writes to them again. They count against the follow-ups.
  * - **Follow up**: likely prospects whose chat's last message was the person's, a few quiet days ago (the pace).
  * - **Reply**: likely prospects who wrote last, lately, and haven't been answered.
  * - **Comment on a post**: posts in the business's groups the AI checked as good (./posts.ts, decisions 18 to 20),
@@ -40,9 +44,12 @@ export const TODAY_KINDS = {
   warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   opener: 'Say hi',
+  reconnect: 'Reconnect',
+  pitch: 'Pitch',
   follow_up: 'Follow up',
   reply: 'Reply',
   comment: 'Comment on a post',
+  warm_lead: 'Answer their comment',
 } as const;
 export type TodayKind = keyof typeof TODAY_KINDS;
 export const TODAY_KIND_KEYS = Object.keys(TODAY_KINDS) as [TodayKind, ...TodayKind[]];
@@ -53,9 +60,12 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   warm_up: 'like',
   friend_request: 'friend_request',
   opener: 'first_message',
+  reconnect: 'first_message',
+  pitch: 'follow_up',
   follow_up: 'follow_up',
   reply: null,
   comment: 'comment',
+  warm_lead: 'comment',
 };
 
 /** The pace when no playbook says: a first message a day after they accept, a follow-up after 3 quiet days. */
@@ -87,6 +97,8 @@ export const TodayItem = z.object({
   postUrl: z.string().nullable(),
   posted: z.string().nullable(),
   post: z.string().nullable(),
+  /** The post's writer is asking, now, for what the business offers (./posts.ts, decision 49): first on the list. */
+  asking: z.boolean(),
   /** Why it's on the list: "Owner at Pine Street Bakery", "Found in Austin Small Business Owners". */
   why: z.array(z.string()),
   /** The chat's summary and next step, when it's been read. */
@@ -172,15 +184,26 @@ export const TODAY_POST_MOST = 280;
 // ---- Drafts ----
 
 /** The kinds a draft is for: a friend request on Facebook carries no words. */
-export const DRAFT_KINDS = ['opener', 'follow_up', 'reply', 'comment'] as const;
+export const DRAFT_KINDS = [
+  'opener',
+  'reconnect',
+  'pitch',
+  'follow_up',
+  'reply',
+  'comment',
+  'warm_lead',
+] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
 export const DRAFTS_MOST = 3;
 /** How many drafts each kind gets: two for a comment (decision 20). */
 export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   opener: DRAFTS_MOST,
+  reconnect: DRAFTS_MOST,
+  pitch: DRAFTS_MOST,
   follow_up: DRAFTS_MOST,
   reply: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
+  warm_lead: COMMENT_DRAFTS,
 };
 export const DRAFT_MOST_CHARS = 600;
 /** What the extension looked up about them just before (decision 21): lines from their profile and business page. */
@@ -227,12 +250,18 @@ export type DraftPlaybook = Pick<
 const TASK: Record<DraftKind, string> = {
   opener:
     'They just accepted the owner’s friend request. Write a first message that says hi and starts a conversation. Don’t pitch yet.',
+  reconnect:
+    'They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch yet.',
+  pitch:
+    'They’ve shown they need what the business offers and seem open to it. Write a short, friendly message that answers where the chat left off, then offers it plainly in the playbook’s words, with the link to book. No pressure, no hype, at most one question.',
   follow_up:
     'The owner wrote last and they haven’t answered for a few days. Write a short, friendly follow-up that picks up where the chat left off.',
   reply:
     'They wrote last. Write the owner’s reply to their last message, moving the conversation along.',
   comment:
     'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
+  warm_lead:
+    'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
 };
 
 const chatLines = (recent: readonly DownloadMessage[]) =>
@@ -282,6 +311,9 @@ export function todayDraftPrompt(input: {
     input.post?.group ? `<group>${quoteData(input.post.group)}</group>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
     TASK[input.kind],
+    input.kind === 'pitch' && p?.link
+      ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
+      : null,
     input.opener?.kind === 'style'
       ? `Open every draft this way: ${quoteData(input.opener.text)}`
       : null,

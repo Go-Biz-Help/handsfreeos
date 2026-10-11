@@ -296,6 +296,7 @@ export function SetupView({
           onChange={setValue}
           sendingAllowed={me.rules.sendingAllowed}
           repliesAllowed={me.rules.repliesAllowed}
+          postingAllowed={me.rules.postingAllowed}
           timezone={me.timezone}
           testId="outreach-setup-my"
         />

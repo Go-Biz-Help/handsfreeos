@@ -18,6 +18,12 @@ import { INTRO_LINE_MOST, NAME_MOST } from './limits';
 import { GroupRef } from './activity';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 import { PersonName, ProfileRef } from './saves';
+import {
+  GroupCheckShown,
+  JOIN_STATE_KEYS,
+  ProspectsLeft,
+  type GroupCheckState,
+} from './group-checks';
 
 export const GROUP_VERDICTS = { work: 'Work these', maybe: 'Maybe', skip: 'Skip' } as const;
 export type GroupVerdict = keyof typeof GROUP_VERDICTS;
@@ -103,6 +109,51 @@ export function groupFitFor(playbook: GroupFitPlaybook | null, facts: GroupFacts
     verdict: matched && score >= WORK ? 'work' : score > 0 ? 'maybe' : 'skip',
     score,
     reasons,
+  };
+}
+
+/** What the AI made of a group, as its fit reads it (./group-checks.ts, decision 48). */
+export interface GroupChecked {
+  readonly state: GroupCheckState | null;
+  readonly why: readonly string[];
+  readonly playbookId?: string | null;
+  readonly playbookName?: string | null;
+}
+
+/**
+ * A group's fit with the AI's check of it on top (decision 48): the business's people there makes it one to work,
+ * some of them at least a maybe, and none a skip, whatever its name says. Not checked yet, it's its name's.
+ */
+export function checkedGroupFit(fit: GroupFit, check: GroupChecked | null): GroupFit {
+  const state = check?.state;
+  if (!check || !state || state === 'waiting' || state === 'failed') return fit;
+  const which = {
+    playbookId: check.playbookId ?? fit.playbookId,
+    playbookName: check.playbookName ?? fit.playbookName,
+  };
+  const said = check.why[0];
+  if (state === 'not')
+    return {
+      ...fit,
+      ...which,
+      verdict: 'skip',
+      score: Math.min(fit.score, -1),
+      reasons: [said ?? 'The AI says your people aren’t here'],
+    };
+  if (state === 'good')
+    return {
+      ...fit,
+      ...which,
+      verdict: 'work',
+      score: fit.score + 3,
+      reasons: [said ?? 'The AI says your people are here', ...fit.reasons],
+    };
+  return {
+    ...fit,
+    ...which,
+    verdict: fit.verdict === 'work' ? 'work' : 'maybe',
+    score: fit.score + 1,
+    reasons: [said ?? 'The AI says some of your people are here', ...fit.reasons],
   };
 }
 
@@ -218,8 +269,18 @@ export const GroupsOutput = z.object({
       replies: n,
       demos: n,
       seenAt: z.iso.datetime().nullable(),
+      /** What the AI made of it (decision 48), once it's been checked. */
+      check: GroupCheckShown.nullable(),
+      /** People there who fit a playbook and haven't been reached yet. */
+      left: n,
+      /** The person's ask to join it, when they made one. */
+      join: z.object({ state: z.enum(JOIN_STATE_KEYS), at: z.iso.datetime() }).nullable(),
     }),
   ),
+  /** People left to reach across the groups, against a day's friend requests. */
+  prospects: ProspectsLeft,
+  /** Whether the person lets the extension join good groups on its own when people left run low. */
+  joinsOnItsOwn: z.boolean(),
   page: n.min(1),
   pages: n.min(1),
   total: n,

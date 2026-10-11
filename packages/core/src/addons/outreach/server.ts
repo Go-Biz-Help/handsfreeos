@@ -10,9 +10,12 @@ import { askCommands, askQueries } from './ops/asks';
 import { alertCommands } from './ops/alerts';
 import { automationCommands, automationQueries } from './ops/automation';
 import { chatCommands, chatQueries } from './ops/chats';
+import { checkCommands, checkQueries } from './ops/checks';
 import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
+import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
+import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
@@ -20,6 +23,7 @@ import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
 import { setupCommands, setupQueries } from './ops/setup';
+import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { postCommands } from './ops/posts';
 import { todayQueries } from './ops/today';
@@ -46,6 +50,10 @@ export const outreachAddonServer: AddonServerModule = {
     ...waitingCommands,
     ...askCommands,
     ...setupCommands,
+    ...checkCommands,
+    ...stageCommands,
+    ...groupCheckCommands,
+    ...helpfulCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -63,5 +71,9 @@ export const outreachAddonServer: AddonServerModule = {
     ...waitingQueries,
     ...askQueries,
     ...setupQueries,
+    ...checkQueries,
+    ...stageQueries,
+    ...groupCheckQueries,
+    ...helpfulQueries,
   ],
 };

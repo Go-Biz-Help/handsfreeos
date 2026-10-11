@@ -86,9 +86,12 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   warm_up: ['post to like', 'posts to like'],
   friend_request: ['friend request', 'friend requests'],
   opener: ['new friend to say hi to', 'new friends to say hi to'],
+  reconnect: ['friend to reconnect with', 'friends to reconnect with'],
+  pitch: ['person ready for your offer', 'people ready for your offer'],
   follow_up: ['follow-up', 'follow-ups'],
   reply: ['reply', 'replies'],
   comment: ['post to comment on', 'posts to comment on'],
+  warm_lead: ['comment to answer', 'comments to answer'],
 };
 
 /** The morning push: "6 on your list for today", and what they are. Null with nothing on the list. */

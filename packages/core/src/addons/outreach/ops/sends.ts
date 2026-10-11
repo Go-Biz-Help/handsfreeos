@@ -33,6 +33,7 @@ import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { automationOf, countWheels } from './automation';
 import { inWorkspace, type Ctx } from './common';
 import { openNeed } from './needs';
+import { notePitched } from './stages';
 
 type Row = typeof sends.$inferSelect;
 
@@ -351,6 +352,8 @@ export const sendDone = defineAddonCommand(outreachAddon, {
     if (!row) throw gone();
     if (input.sent && row.kind === 'opener' && row.opener)
       await noteOpener(ctx, me, row, row.opener);
+    // A pitch that went moves them on to pitched (decision 47).
+    if (input.sent && row.kind === 'pitch') await notePitched(ctx, me, row.profileId, at);
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {
       const [to] = await ctx.tx

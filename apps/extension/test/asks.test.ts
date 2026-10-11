@@ -369,6 +369,55 @@ describe('the jobs an ask does', () => {
     );
   });
 
+  it('checks friends for good fits: reads each one listed, and says who Facebook didn’t show', async () => {
+    const dana = '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e';
+    const gone = '00000000-0000-4000-8000-000000000009';
+    const { tab, opened } = fakeTab(() => 'profile-2026.html');
+    const { hfos, sent } = fakeHfos({
+      'hfos-checks-next': () => ({
+        people: [
+          {
+            profileId: dana,
+            name: 'Dana Reyes',
+            url: `${FB}/dana.reyes.12`,
+            reason: 'chat',
+          },
+          // Not a profile's link: nothing to open.
+          { profileId: gone, name: 'Sam Lee', url: `${FB}/groups/123456/`, reason: 'friend' },
+        ],
+        today: 0,
+        perDay: 40,
+      }),
+      'hfos-check-look': () => ({ checkId: ASK, verdict: 'waiting' }),
+    });
+    const { job } = jobWith(tab, hfos);
+    const end = await runAsk({ kind: 'checks' }, job);
+    expect(opened[0]).toBe(`${FB}/dana.reyes.12`);
+    const looks = sent.filter((a) => a.type === 'hfos-check-look') as Extract<
+      HfosAsk,
+      { type: 'hfos-check-look' }
+    >[];
+    expect(looks.map((l) => [l.input.profileId, l.input.missing])).toEqual([
+      [dana, false],
+      [gone, true],
+    ]);
+    expect(looks[0]!.input.lines?.length).toBeGreaterThan(0);
+    expect(end).toEqual({
+      line: 'Done. Checked 1 person for the AI. Facebook didn’t show 1 profile. The good fits show under Good fits on the Friends tab once it has read them.',
+      warned: false,
+    });
+  });
+
+  it('checks nobody past today’s', async () => {
+    const { tab, opened } = fakeTab(() => 'profile-2026.html');
+    const { hfos } = fakeHfos({
+      'hfos-checks-next': () => ({ people: [], today: 40, perDay: 40 }),
+    });
+    const end = await runAsk({ kind: 'checks' }, jobWith(tab, hfos).job);
+    expect(opened).toEqual([]);
+    expect(end.line).toBe('That’s today’s 40. It carries on tomorrow.');
+  });
+
   it('saves the person’s friends list from their friends page', async () => {
     const { tab, opened } = fakeTab(() => 'friends-list.html');
     const { hfos, sent } = fakeHfos();

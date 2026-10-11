@@ -58,6 +58,7 @@ export const OUTREACH_WORDS = {
     waiting: 'Waiting for you',
     live: 'Live',
     today: 'Today',
+    pipeline: 'Pipeline',
     groups: 'Groups',
     chats: 'Chats',
     playbooks: 'Playbooks',
@@ -68,6 +69,7 @@ export const OUTREACH_WORDS = {
   rowDetails: {
     live: 'What your extension is doing, and Start my day',
     today: LIST_TODAY,
+    pipeline: 'Everyone you reached, by where they stand',
     groups: 'Groups to work, and why',
     chats: 'Your Facebook chats, read by the AI',
     playbooks: 'Who you’re looking for, and how you sound',
@@ -174,11 +176,14 @@ export const OUTREACH_WORDS = {
   todayEmpty: `${TODAY_EMPTY}.`,
   todayEmptyTitle: TODAY_EMPTY,
   todayEmptyBody:
-    'On the Groups tab, Save my groups and Save members of my best groups, and Find posts; on the Chats tab, Read my chats. People who fit your playbooks, new friends to say hi to, chats to follow up and posts worth a comment show here.',
+    'On the Groups tab, Save my groups and Save members of my best groups, and Find posts; on the Chats tab, Read my chats; on the Friends tab, Check my friends. People who fit your playbooks, new friends to say hi to, friends to reconnect with, chats to follow up and posts worth a comment show here.',
   listTitle: LIST_TODAY,
   todayComputerOnly:
     'Drafting a message, copying an opener and the AI’s drafts are on your computer, beside Facebook.',
   doneOnItsOwn: 'Done on its own',
+  /** A post asking for what the business offers (decision 49): first on Today, with a push. */
+  asking: 'Asking for what you offer',
+  askingAbout: 'Answer these first, while they’re fresh.',
   notForMe: 'Not for me',
   notForMeDone: 'Put aside. It won’t be on your list again.',
   wheelsTitle: 'On training wheels',
@@ -287,6 +292,9 @@ export const OUTREACH_WORDS = {
   inContacts: 'In Contacts',
   openCustomer: 'Open in Customers',
   nextStepLabel: 'Next step',
+  /** On a group: people there who fit and haven't been reached (decision 48). */
+  leftToReach: (n: number) =>
+    `${n.toLocaleString('en-US')} ${n === 1 ? 'person' : 'people'} who fit left to reach`,
 
   // ---- Playbooks ----
   playbooksEmpty: 'No playbooks yet.',
@@ -363,6 +371,7 @@ export const OUTREACH_WORDS = {
   sections: {
     onItsOwn: 'What it does on its own',
     replies: 'Replies',
+    posting: 'Helpful posts',
     along: 'Along the way',
     extension: 'The extension',
     pushes: 'Your phone and the extension',
@@ -380,6 +389,8 @@ export const OUTREACH_WORDS = {
     onItsOwn:
       'It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from Facebook.',
     repliesOff: 'Replies go out only while it writes messages: pick what it does on its own first.',
+    posting:
+      'Once a day the AI writes a post that helps the people in one of your groups, after reading its rules: never selling, never the same group twice in a week. Who puts it up?',
     replies:
       'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.',
     extension:
@@ -415,7 +426,15 @@ export const OUTREACH_WORDS = {
     ],
     collect: [
       'Once a day, first: check friend requests, save group members, find posts and read my chats',
-      'These fill the list it works from.',
+      'These fill the list it works from. It checks your friends and groups for good fits too.',
+    ],
+    joinGroups: [
+      'Join good groups when my groups run low',
+      'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
+    ],
+    watchPosts: [
+      'Look for new posts asking for what I offer, every hour or two',
+      'In your working hours, it looks at the newest posts in your best groups. When one asks for what you offer, your phone hears at once and it goes to the top of your list.',
     ],
     noting: [
       'Note my steps on Facebook',

@@ -23,7 +23,9 @@
  *
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
- * chats, one job a go, a few minutes apart.
+ * chats, one job a go, a few minutes apart. Then, in the working hours, every hour or two, it looks at the newest
+ * posts at the top of their best groups (decision 49), between the day's steps; and when the person lets it post on
+ * its own, it puts up today's helpful post once the AI has written it (decision 50).
  *
  * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
  * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
@@ -37,7 +39,7 @@ import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { pastLimitWords } from '@hfos/core/addons/outreach/limits';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
-import { AUTO_PLANS, MESSAGE_PATH, sameRef, type AutoJob } from '../facebook/auto';
+import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
 import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
 import type { FetchStep } from '../facebook/fetch';
 import { FRIENDSHIP_WORDS } from '../facebook/tidy';
@@ -69,17 +71,24 @@ import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
-import { DAILY_DOING, DAILY_NAMES, runDaily } from './daily';
+import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
+import { groupsToWork, watchPosts } from '../jobs/posts';
+import { postHelpful } from '../jobs/helpful';
+import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
 import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
   freshState,
   gapAfter,
+  HELPFUL_AGAIN_MS,
+  helpfulDue,
   IDLE_MS,
   isState,
   needOf,
   nextDaily,
   nextStart,
+  nextWatch,
+  watchDue,
   workKey,
   workLeft,
   type AutoKind,
@@ -228,15 +237,6 @@ const profileOf = (url: string | null): ProfileRef | null => {
     return null;
   }
 };
-
-/**
- * Whether the profile on the page is the one on the list: by number, or by username, when both have one; else by
- * name, as someone saved by number from a group may open at their username.
- */
-function samePerson(shown: ProfileRef, shownName: string | null, want: ProfileRef, name: string) {
-  if ((shown.id && want.id) || (shown.username && want.username)) return sameRef(shown, want);
-  return shownName !== null && sameName(shownName, name);
-}
 
 /**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
@@ -638,7 +638,35 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
     await setState({ working: false, tabId: tab.tabId });
   }
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  await setState({
+    daily: { ...state.daily, [kind]: end.line },
+    // Find posts just read the groups: the newest posts wait an hour or two.
+    ...(kind === 'posts' ? { watchAt: nextWatch(Date.now(), Math.random()) } : {}),
+  });
+  return end;
+}
+
+/** The look at the newest posts in the best groups (decision 49), and when the next is. */
+async function watch(businessId: string): Promise<JobEnd> {
+  await say('Looking at the newest posts in your groups…', { working: true });
+  let end: JobEnd;
+  try {
+    const job = jobFor(businessId);
+    const groups = await groupsToWork(job, WATCH_GROUPS);
+    end =
+      typeof groups === 'string'
+        ? { line: groups, warned: false }
+        : await watchPosts(job, groups, postSender(job, 'watch'));
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = { line: error instanceof Error ? error.message : String(error), warned: false };
+  } finally {
+    await setState({
+      working: false,
+      tabId: tab.tabId,
+      watchAt: nextWatch(Date.now(), Math.random()),
+    });
+  }
   return end;
 }
 
@@ -749,6 +777,59 @@ async function go(): Promise<void> {
     );
   }
 
+  // Today's helpful post, when the person lets it post on its own (decision 50): once the AI has written it.
+  if (
+    settings.posting === 'own' &&
+    inHours &&
+    (!settings.collect || state.daily?.helpful !== undefined) &&
+    helpfulDue(state, at)
+  ) {
+    await say('Looking for today’s helpful post…', { working: true });
+    let end: Awaited<ReturnType<typeof postHelpful>>;
+    try {
+      end = await inTurn('runner', () => postHelpful(jobFor(to.businessId), null));
+    } catch (error) {
+      if (error instanceof Refused) throw error;
+      end = { line: error instanceof Error ? error.message : String(error), warned: false };
+    } finally {
+      await setState({ working: false, tabId: tab.tabId });
+    }
+    // Up, or it couldn't go: done for today. None written yet: it looks again in a while.
+    const settled = end.posted === true || end.failed === true;
+    await setState({ helpfulUp: settled, helpfulAt: Date.now() + HELPFUL_AGAIN_MS });
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    if (settled) {
+      await say(`Helpful post: ${end.line}`);
+      void feed(end.posted ? 'done' : 'passed', `Helpful post: ${end.line}`);
+      return goAt(
+        Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+      );
+    }
+  }
+
+  // In the working hours, every hour or two, the newest posts at the top of the best groups (decision 49).
+  if (settings.watchPosts && inHours && watchDue(state, at)) {
+    const end = await inTurn('runner', () => watch(to.businessId));
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    await say(`Newest posts: ${end.line}`);
+    void feed('job', `Newest posts: ${end.line}`);
+    if ((await stateNow()).stopped) {
+      await closeWindow();
+      return goAt(tomorrow());
+    }
+    return goAt(
+      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+    );
+  }
+
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', { body: { workspaceId: to.businessId } }),
     to.businessId,
@@ -762,7 +843,13 @@ async function go(): Promise<void> {
         ? 'Done for today. It looks again later for new requests to confirm.'
         : 'Nothing on your list for it to do yet.',
     );
-    return goAt(inHours ? Math.min(at + IDLE_MS, window!.to) : tomorrow());
+    // In the hours, it looks again within the hour, or when the newest posts are due, whichever is first.
+    const watchAt = settings.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
+    return goAt(
+      inHours
+        ? Math.min(at + IDLE_MS, window!.to, ...(watchAt !== null ? [Math.max(watchAt, at)] : []))
+        : tomorrow(),
+    );
   }
 
   const { item } = work;

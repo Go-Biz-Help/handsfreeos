@@ -216,7 +216,13 @@ describe('messages on their own', () => {
   it('waits for one tap with (a), and goes once it’s sent', async () => {
     await automation(owner, 'steps');
     const dana = await accepted(owner, 'dana.cole.4', 'Dana Cole');
-    expect((await today()).messages).toEqual(['opener', 'follow_up', 'reply']);
+    expect((await today()).messages).toEqual([
+      'opener',
+      'reconnect',
+      'pitch',
+      'follow_up',
+      'reply',
+    ]);
     expect((await openerOf('Dana Cole')).send).toBeNull();
 
     const queued = await runAs(owner, ws, 'outreach.send.queue', {

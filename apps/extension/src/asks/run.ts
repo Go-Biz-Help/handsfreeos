@@ -39,6 +39,8 @@ import {
   type AskResult,
   type AskTaken,
 } from '@hfos/core/addons/outreach/asks';
+import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
+import { GROUP_CHECKS_ASKED } from '@hfos/core/addons/outreach/group-checks';
 import { postSender } from '../auto/daily';
 import { tick } from '../auto/run';
 import { inTurn, turnHeldBy } from '../auto/turns';
@@ -62,9 +64,13 @@ import { answer, answerWith, Refused, savingTo, type Place } from '../hfos/sessi
 import { POPUP_ID, popUp, waitingSoon } from '../hfos/waiting';
 import { WARNED_KEY, warnedNow } from '../hfos/warned';
 import { chatMemory, readChats } from '../jobs/chats';
+import { checkFriends } from '../jobs/checks';
 import { getFile } from '../jobs/file';
 import { bringIn } from '../jobs/file-in';
 import { saveGroups } from '../jobs/groups';
+import { checkGroups } from '../jobs/groups-check';
+import { joinGroups } from '../jobs/join';
+import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { lookupAndDraft } from '../jobs/lookup';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
@@ -283,6 +289,14 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
     }
     case 'chats':
       return readChats(job, { most: ASK_CHATS, memory: chatMemory, again: 'Ask again to go on.' });
+    case 'checks':
+      return checkFriends(job, CHECKS_PER_DAY);
+    case 'group_checks':
+      return checkGroups(job, GROUP_CHECKS_ASKED);
+    case 'join':
+      return joinGroups(job, task.groupIds);
+    case 'post':
+      return postHelpful(job, task.helpfulId);
     case 'cancel':
       return tidy(job, 'cancel_request', task.profileIds);
     case 'unfriend':

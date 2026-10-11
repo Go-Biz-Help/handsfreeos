@@ -329,6 +329,15 @@ import {
   SendSkipInput,
   SendSkipOutput,
 } from '@hfos/core/addons/outreach/sends';
+import { StageMarkInput, StageMarkOutput } from '@hfos/core/addons/outreach/stages';
+import {
+  HelpfulAskInput,
+  HelpfulAskOutput,
+  HelpfulChangeOutput,
+  HelpfulOkInput,
+  HelpfulPostedInput,
+  HelpfulSkipInput,
+} from '@hfos/core/addons/outreach/helpful';
 import {
   NeedClearInput,
   NeedClearOutput,
@@ -501,6 +510,10 @@ export const PHONE_COMMANDS = {
   'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
   'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),
   'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
+  'outreach.helpful.ask': command(ONLINE, HelpfulAskInput, HelpfulAskOutput),
+  'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
+  'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
+  'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
   'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),
@@ -509,6 +522,8 @@ export const PHONE_COMMANDS = {
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
   'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),
+  // Where someone stands, on the Pipeline screen (decision 47): with signal, as the person menu's marks are.
+  'outreach.stage.mark': command(ONLINE, StageMarkInput, StageMarkOutput),
   'outreach.wheels.end': command(ONLINE, WheelsEndInput, WheelsEndOutput),
   // The setup's payments stop: Stripe's or Square's own sign-in starts from it, in the phone's browser.
   'payment_connection.connect': command(

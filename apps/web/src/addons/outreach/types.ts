@@ -15,7 +15,12 @@ export type Chat = Chats['chats'][number];
 export type Groups = Ok<'/v1/queries/outreach.groups'>;
 export type Group = Groups['groups'][number];
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
+/** Today's helpful post and those up lately (decision 50). */
+export type HelpfulList = Ok<'/v1/queries/outreach.helpful'>;
 export type TodayItem = TodayList['items'][number];
+/** Everyone the person reached, by where they stand (packages/core/src/addons/outreach/stages.ts). */
+export type Pipeline = Ok<'/v1/queries/outreach.stages'>;
+export type PipelinePerson = Pipeline['people'][number];
 /** Who's on training wheels, for owners and admins (packages/core/src/addons/outreach/automation.ts). */
 export type WheelsList = Ok<'/v1/queries/outreach.wheels'>;
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;

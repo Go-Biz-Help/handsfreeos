@@ -10,7 +10,18 @@
  */
 import type { ReadResult } from '../facebook/types';
 import type { HfosAnswer, HfosAsk, HfosValues } from '../hfos/messages';
-import type { Answer, Ask, BrowseAnswer, BrowseAsk, FetchAnswer, FetchAsk } from '../messages';
+import type {
+  Answer,
+  Ask,
+  BrowseAnswer,
+  BrowseAsk,
+  FetchAnswer,
+  FetchAsk,
+  GroupPostAnswer,
+  GroupPostAsk,
+  JoinAnswer,
+  JoinAsk,
+} from '../messages';
 
 /** The Facebook tab a job works in: one of the extension's own (src/tab.ts). */
 export interface JobTab {
@@ -23,6 +34,8 @@ export interface JobTab {
   ask(message: Ask): Promise<Answer>;
   ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   ask(message: FetchAsk): Promise<FetchAnswer>;
+  ask(message: JoinAsk): Promise<JoinAnswer>;
+  ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */

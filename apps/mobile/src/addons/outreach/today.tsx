@@ -8,6 +8,13 @@ import {
   type TodayKind,
   type TodayOutput,
 } from '@hfos/core/addons/outreach/today';
+import {
+  HELPFUL_STATES,
+  HELPFUL_WORDS as H,
+  howWords,
+  OPEN_HELPFUL_STATES,
+  type HelpfulListOutput,
+} from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
 import * as React from 'react';
@@ -44,6 +51,21 @@ export function TodayScreen() {
     `today:${ws}`,
     W.rows.today,
   );
+  const helpful = useOutreachAnswer(
+    async () =>
+      unwrap(await api.POST('/v1/queries/outreach.helpful', { body: { workspaceId: ws } })),
+    `helpful:${ws}`,
+    H.title,
+  );
+  const helpfulChange = async (run: () => Promise<unknown>, said: string) => {
+    try {
+      await run();
+      toast.show(said);
+      helpful.reload();
+    } catch (e) {
+      failed(e);
+    }
+  };
   const wheels = useOutreachAnswer(
     ctx.manages
       ? async () =>
@@ -59,6 +81,29 @@ export function TodayScreen() {
   return (
     <TodayBody
       today={today.data}
+      helpful={helpful.data}
+      onHelpful={{
+        write: () =>
+          helpfulChange(() => change('outreach.helpful.ask', { workspaceId: ws }), H.writing),
+        ok: (helpfulId) =>
+          helpfulChange(async () => {
+            await change('outreach.helpful.ok', { workspaceId: ws, helpfulId });
+            await change('outreach.ask.make', {
+              workspaceId: ws,
+              ask: { kind: 'post', helpfulId },
+            });
+          }, H.waitingComputer),
+        posted: (helpfulId) =>
+          helpfulChange(
+            () => change('outreach.helpful.posted', { workspaceId: ws, helpfulId, posted: true }),
+            H.postedDone,
+          ),
+        skip: (helpfulId) =>
+          helpfulChange(
+            () => change('outreach.helpful.skip', { workspaceId: ws, helpfulId }),
+            W.skipped,
+          ),
+      }}
       error={today.error}
       wheels={ctx.manages ? wheels.data : null}
       onRetry={today.reload}
@@ -102,8 +147,18 @@ export function TodayScreen() {
   );
 }
 
+/** What the person does with today's helpful post (decision 50). */
+export interface HelpfulActions {
+  write: () => void;
+  ok: (helpfulId: string) => void;
+  posted: (helpfulId: string) => void;
+  skip: (helpfulId: string) => void;
+}
+
 export function TodayBody({
   today,
+  helpful = null,
+  onHelpful,
   error,
   wheels,
   onRetry,
@@ -114,6 +169,9 @@ export function TodayBody({
   onEndWheels,
 }: {
   today: TodayOutput | null;
+  /** Today's helpful post, and those up lately: none while it loads. */
+  helpful?: HelpfulListOutput | null;
+  onHelpful?: HelpfulActions;
   error: string | null;
   wheels: WheelsListOutput | null;
   onRetry: () => void;
@@ -130,7 +188,9 @@ export function TodayBody({
         {error ? <NeedsSignal words={error} onRetry={onRetry} testID="today-needs-signal" /> : null}
       </Screen>
     );
-  const kinds = TODAY_KIND_KEYS.filter((k) => today.items.some((i) => i.kind === k));
+  const kinds = TODAY_KIND_KEYS.filter((k) => today.items.some((i) => i.kind === k && !i.asking));
+  // Posts asking for what the business offers come first, apart (decision 49).
+  const asking = today.items.filter((i) => i.asking);
   return (
     <Screen title={W.rows.today} leading="back" testID="outreach-today">
       {today.warning ? (
@@ -141,7 +201,26 @@ export function TodayBody({
         </Card>
       ) : null}
       {today.wheels.on ? <Note testID="today-wheels">{wheelsWords(today.wheels)}</Note> : null}
-      {kinds.length ? (
+      {helpful && onHelpful ? <HelpfulPart helpful={helpful} on={onHelpful} /> : null}
+      {asking.length ? (
+        <Part
+          title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}
+          about={W.askingAbout}
+          testID="today-asking"
+        >
+          {asking.map((item, i) => (
+            <ItemCard
+              key={`${item.postId ?? i}:${i}`}
+              item={item}
+              menu={menu}
+              onOk={onOk}
+              onSkip={onSkip}
+              onNotForMe={onNotForMe}
+            />
+          ))}
+        </Part>
+      ) : null}
+      {kinds.length || asking.length ? (
         kinds.map((kind) => (
           <KindPart
             key={kind}
@@ -208,7 +287,7 @@ function KindPart({
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
 }) {
-  const items = today.items.filter((i) => i.kind === kind);
+  const items = today.items.filter((i) => i.kind === kind && !i.asking);
   const auto = today.auto.includes(kind);
   return (
     <Part
@@ -244,7 +323,8 @@ function ItemCard({
   onNotForMe: (postId: string) => void;
 }) {
   const chat = messengerChatUrl(item.threadKey);
-  const page = item.kind === 'comment' ? item.postUrl : (chat ?? item.profileUrl);
+  const onPost = item.kind === 'comment' || item.kind === 'warm_lead';
+  const page = onPost ? (item.postUrl ?? item.profileUrl) : (chat ?? item.profileUrl);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="today-item">
       <View className="flex-row items-center gap-2">
@@ -312,10 +392,104 @@ function ItemCard({
         ) : null}
         {page ? (
           <Button size="md" variant="ghost" icon={ExternalLink} onPress={() => openOutside(page)}>
-            {chat && item.kind !== 'comment' ? W.openInMessenger : W.openOnFacebook}
+            {chat && !onPost ? W.openInMessenger : W.openOnFacebook}
           </Button>
         ) : null}
       </View>
     </Card>
+  );
+}
+
+/**
+ * Today's helpful post (decision 50): what the AI wrote and for which group, to OK for the computer, say it's up
+ * after copying it (the words can be selected), or put aside; why one was put aside; and those up lately, with who
+ * engaged. With none today, Write a helpful post. It needs signal.
+ */
+function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulActions }) {
+  const open = helpful.posts.find((p) =>
+    (OPEN_HELPFUL_STATES as readonly string[]).includes(p.state),
+  );
+  const shown = open ?? helpful.posts.find((p) => p.state === 'skipped' || p.state === 'failed');
+  const up = helpful.posts.filter((p) => p.state === 'posted');
+  return (
+    <Part title={H.title} about={H.limit} testID="today-helpful">
+      {shown ? (
+        <Card className="gap-2 px-4 py-3.5" testID="today-helpful-post">
+          <Note>{[shown.groupName, shown.topic].filter(Boolean).join(' · ')}</Note>
+          {shown.state === 'drafting' ? <Note>{H.writing}</Note> : null}
+          {shown.state === 'skipped' || shown.state === 'failed' ? (
+            <Note>{`${HELPFUL_STATES[shown.state]}${shown.whyNot ? `: ${shown.whyNot}` : '.'}`}</Note>
+          ) : null}
+          {shown.text && (shown.state === 'draft' || shown.state === 'approved') ? (
+            <>
+              <Text
+                selectable
+                className="rounded-control bg-card-2 px-3 py-2 text-[14.5px] leading-[21px]"
+              >
+                {shown.text}
+              </Text>
+              <Note>{shown.state === 'approved' ? H.waitingComputer : howWords(shown.how)}</Note>
+              <View className="flex-row flex-wrap gap-2">
+                {shown.how === 'after_ok' || shown.state === 'approved' ? (
+                  <Button
+                    size="md"
+                    icon={Check}
+                    onPress={() => on.ok(shown.helpfulId)}
+                    testID="today-helpful-ok"
+                  >
+                    {H.ok}
+                  </Button>
+                ) : null}
+                {shown.how === 'copy' ? (
+                  <>
+                    <Button
+                      size="md"
+                      variant="ghost"
+                      icon={ExternalLink}
+                      onPress={() => openOutside(shown.groupUrl)}
+                    >
+                      {H.openGroup}
+                    </Button>
+                    <Button
+                      size="md"
+                      variant="secondary"
+                      icon={Check}
+                      onPress={() => on.posted(shown.helpfulId)}
+                      testID="today-helpful-posted"
+                    >
+                      {H.posted}
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  size="md"
+                  variant="ghost"
+                  icon={X}
+                  onPress={() => on.skip(shown.helpfulId)}
+                  testID="today-helpful-skip"
+                >
+                  {H.skip}
+                </Button>
+              </View>
+            </>
+          ) : null}
+        </Card>
+      ) : null}
+      {!open && helpful.today < helpful.perDay ? (
+        <Button size="md" variant="secondary" onPress={on.write} testID="today-helpful-write">
+          {H.write}
+        </Button>
+      ) : null}
+      {up.map((p) => (
+        <Card key={p.helpfulId} className="gap-1 px-4 py-3" testID="today-helpful-up">
+          <Text className="text-[14.5px] font-semibold">
+            {p.topic ?? p.groupName ?? HELPFUL_STATES.posted}
+          </Text>
+          <Note>
+            {[p.groupName, H.engaged(p.comments, p.reactions)].filter(Boolean).join(' · ')}
+          </Note>
+        </Card>
+      ))}
+    </Part>
   );
 }

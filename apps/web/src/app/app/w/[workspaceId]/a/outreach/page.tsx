@@ -20,7 +20,8 @@ function searchWordsOf(list: PlaybookList | null): string {
  * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, what it's
  * doing right now with the person's day, and the team's for owners and admins (`?view=live`), everything waiting for
  * the person (`?view=waiting`, whose count every tab shows on its label), the
- * person's list for today (`?view=today`), the groups saved (`?view=groups`), the person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
+ * person's list for today (`?view=today`), everyone they reached by where they stand (`?view=pipeline`), the groups
+ * saved (`?view=groups`), the person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
  * the business's playbooks with how each opener did (`?view=playbooks`), and every setting the extension follows, with
  * anyone's for owners and admins (`?view=settings&for=`). It
  * opens through the gate: "not available here" while the add-on is off, and not found for someone without
@@ -141,9 +142,10 @@ export default async function OutreachPage({
       );
     }
     if (shown.view === 'today') {
-      const [got, today, asks] = await Promise.all([
+      const [got, today, helpful, asks] = await Promise.all([
         workspace,
         api.POST('/v1/queries/outreach.today', { body: { workspaceId } }).then(unwrapPage),
+        api.POST('/v1/queries/outreach.helpful', { body: { workspaceId } }).then(unwrapPage),
         asksOf('today'),
       ]);
       const canManage = got.workspace.permissions.includes('outreach.manage');
@@ -157,7 +159,31 @@ export default async function OutreachPage({
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
           canManage={canManage}
-          shown={{ view: 'today', today, wheels, asks }}
+          shown={{ view: 'today', today, helpful, wheels, asks }}
+        />
+      );
+    }
+    if (shown.view === 'pipeline') {
+      const [got, pipeline] = await Promise.all([
+        workspace,
+        api
+          .POST('/v1/queries/outreach.stages', {
+            body: {
+              workspaceId,
+              view: shown.stages,
+              ...(shown.search ? { search: shown.search } : {}),
+              page: shown.page,
+            },
+          })
+          .then(unwrapPage),
+      ]);
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          waitingCount={await waitingCount}
+          businessName={got.workspace.name}
+          canManage={got.workspace.permissions.includes('outreach.manage')}
+          shown={{ view: 'pipeline', pipeline, show: shown.stages, search: shown.search }}
         />
       );
     }

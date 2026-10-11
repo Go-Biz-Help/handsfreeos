@@ -3,6 +3,9 @@ import {
   hourWords,
   PUSH_MODE_KEYS,
   PUSH_MODES,
+  POSTING_MODE_KEYS,
+  POSTING_MODES,
+  type PostingMode,
   REPLY_MODE_KEYS,
   REPLY_MODES,
   SENDING_MODE_KEYS,
@@ -324,6 +327,7 @@ function MySettings({
         onChange={setValue}
         sendingAllowed={automation.rules.sendingAllowed}
         repliesAllowed={automation.rules.repliesAllowed}
+        postingAllowed={automation.rules.postingAllowed}
         timezone={automation.timezone}
         testID="settings-my"
       />
@@ -436,7 +440,7 @@ function Stepper({
 }
 
 const TICKS = {
-  along: ['warmUp', 'confirmRequests', 'collect'],
+  along: ['warmUp', 'confirmRequests', 'collect', 'joinGroups', 'watchPosts'],
   extension: ['noting', 'readChats', 'markPosts'],
 } as const;
 
@@ -446,6 +450,7 @@ export function ChoicesForm({
   onChange,
   sendingAllowed,
   repliesAllowed,
+  postingAllowed = POSTING_MODE_KEYS,
   timezone,
   testID,
 }: {
@@ -453,15 +458,18 @@ export function ChoicesForm({
   onChange: (next: AutomationSettings) => void;
   sendingAllowed: readonly SendingMode[];
   repliesAllowed: readonly ReplyMode[];
+  postingAllowed?: readonly PostingMode[];
   timezone: string;
   testID: string;
 }) {
   const set = (part: Partial<AutomationSettings>) => onChange({ ...value, ...part });
   const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
   const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
+  const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
   const notAllowed = [
     ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => SENDING_MODES[m]),
     ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
+    ...POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m]),
   ];
   const hours = value.hours;
   return (
@@ -488,6 +496,18 @@ export function ChoicesForm({
             selected={value.replies === m}
             onPress={() => set({ replies: m })}
             testID={`${testID}-replies-${m}`}
+          />
+        ))}
+      </Part>
+      <Part title={W.sections.posting} about={W.abouts.posting}>
+        {posting.map((m) => (
+          <Choice
+            key={m}
+            label={POSTING_MODES[m]}
+            about={m === 'after_ok' ? W.usual : undefined}
+            selected={value.posting === m}
+            onPress={() => set({ posting: m })}
+            testID={`${testID}-posting-${m}`}
           />
         ))}
       </Part>
@@ -630,6 +650,15 @@ function BusinessSettings({
             testID={`settings-rules-replies-${m}`}
           />
         ))}
+        {POSTING_MODE_KEYS.filter((m) => m !== 'copy').map((m) => (
+          <Tick
+            key={m}
+            label={POSTING_MODES[m]}
+            checked={rules.postingAllowed.includes(m)}
+            onChange={(on) => setRules({ postingAllowed: toggle(rules.postingAllowed, m, on) })}
+            testID={`settings-rules-posting-${m}`}
+          />
+        ))}
       </Part>
       <Part title={W.sections.limits} about={W.abouts.limits}>
         {DAILY_STEPS.map((step) => (
@@ -654,6 +683,7 @@ function BusinessSettings({
           onChange={(defaults) => setRules({ defaults })}
           sendingAllowed={rules.sendingAllowed}
           repliesAllowed={rules.repliesAllowed}
+          postingAllowed={rules.postingAllowed}
           timezone={timezone}
           testID="settings-defaults"
         />

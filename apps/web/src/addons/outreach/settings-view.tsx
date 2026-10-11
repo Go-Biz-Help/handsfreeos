@@ -18,6 +18,9 @@ import {
   PUSH_MODES,
   REPLY_MODE_KEYS,
   REPLY_MODES,
+  POSTING_MODE_KEYS,
+  POSTING_MODES,
+  type PostingMode,
   SENDING_MODE_KEYS,
   SENDING_MODES,
   WEEKDAY_WORDS,
@@ -84,6 +87,7 @@ export function ChoicesForm({
   onChange,
   sendingAllowed,
   repliesAllowed,
+  postingAllowed = POSTING_MODE_KEYS,
   timezone,
   testId,
 }: {
@@ -91,15 +95,18 @@ export function ChoicesForm({
   onChange: (next: AutomationSettings) => void;
   sendingAllowed: readonly SendingMode[];
   repliesAllowed: readonly ReplyMode[];
+  postingAllowed?: readonly PostingMode[];
   timezone: string;
   testId: string;
 }) {
   const set = (part: Partial<AutomationSettings>) => onChange({ ...value, ...part });
   const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
   const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
+  const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
   const notAllowed = [
     ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => SENDING_MODES[m]),
     ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
+    ...POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m]),
   ];
   const tick = (key: keyof typeof W.ticks & keyof AutomationSettings) => (
     <div>
@@ -143,6 +150,20 @@ export function ChoicesForm({
           ))}
         </div>
       </Part>
+      <Part title={W.sections.posting} about={W.abouts.posting}>
+        <div role="radiogroup" aria-label="Helpful posts" className="flex flex-col gap-2">
+          {posting.map((m) => (
+            <RadioCard
+              key={m}
+              selected={value.posting === m}
+              onSelect={() => set({ posting: m })}
+              title={POSTING_MODES[m]}
+              description={m === 'after_ok' ? W.usual : undefined}
+              testId={`${testId}-posting-${m}`}
+            />
+          ))}
+        </div>
+      </Part>
       {notAllowed.length ? (
         <p className="text-[13px] text-text-2">{W.notAllowed(notAllowed)}</p>
       ) : null}
@@ -150,6 +171,8 @@ export function ChoicesForm({
         {tick('warmUp')}
         {tick('confirmRequests')}
         {tick('collect')}
+        {tick('joinGroups')}
+        {tick('watchPosts')}
       </Part>
       <Part title={W.sections.extension} about={W.abouts.extension}>
         {tick('noting')}
@@ -243,6 +266,7 @@ function MySettings({ workspaceId, me }: { workspaceId: string; me: Automation }
         onChange={setValue}
         sendingAllowed={me.rules.sendingAllowed}
         repliesAllowed={me.rules.repliesAllowed}
+        postingAllowed={me.rules.postingAllowed}
         timezone={me.timezone}
         testId="outreach-my"
       />
@@ -327,6 +351,20 @@ export function RulesForm({
             data-testid={`outreach-rules-replies-${m}`}
           />
         ))}
+        {POSTING_MODE_KEYS.filter((m) => m !== 'copy').map((m) => (
+          <Checkbox
+            key={m}
+            label={POSTING_MODES[m]}
+            checked={rules.postingAllowed.includes(m)}
+            onChange={(e) =>
+              setRules({
+                ...rules,
+                postingAllowed: toggle(rules.postingAllowed, m, e.target.checked),
+              })
+            }
+            data-testid={`outreach-rules-posting-${m}`}
+          />
+        ))}
       </Part>
       <Part title={W.sections.limits} about={W.abouts.limits}>
         <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
@@ -358,6 +396,7 @@ export function RulesForm({
           onChange={(defaults) => setRules({ ...rules, defaults })}
           sendingAllowed={rules.sendingAllowed}
           repliesAllowed={rules.repliesAllowed}
+          postingAllowed={rules.postingAllowed}
           timezone={timezone}
           testId="outreach-defaults"
         />

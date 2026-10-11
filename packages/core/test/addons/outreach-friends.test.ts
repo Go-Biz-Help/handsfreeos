@@ -336,7 +336,14 @@ describe('the Friends tab and the look-up', () => {
 
   it('counts each view, with Facebook’s cap', async () => {
     const friends = await tab(owner);
-    expect(friends.counts).toEqual({ friends: 2, requests: 3, sent: 1, keep: 0, dontPitch: 0 });
+    expect(friends.counts).toEqual({
+      friends: 2,
+      fits: 0,
+      requests: 3,
+      sent: 1,
+      keep: 0,
+      dontPitch: 0,
+    });
     expect(friends.cap).toBe(5000);
     expect(friends.people.map((p: { name: string }) => p.name)).toEqual([
       'Avery Lane',
@@ -350,6 +357,7 @@ describe('the Friends tab and the look-up', () => {
     // A teammate's Friends tab is their own.
     expect((await tab(member)).counts).toEqual({
       friends: 0,
+      fits: 0,
       requests: 0,
       sent: 0,
       keep: 0,

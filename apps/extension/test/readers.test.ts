@@ -32,6 +32,7 @@ describe('a group’s members', () => {
       // The exact count from the Members heading, not the rounded 12.3K at the top.
       members: 12_317,
       joined: true,
+      asked: false,
     });
   });
 

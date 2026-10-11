@@ -1,0 +1,214 @@
+import {
+  marksFor,
+  markedWords,
+  STAGE_MARKS,
+  STAGE_VIEW_KEYS,
+  STAGE_VIEWS,
+  STAGE_WORDS,
+  STAGES,
+  type StageMark,
+  type StagesOutput,
+  type StageView,
+} from '@hfos/core/addons/outreach/stages';
+import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import * as React from 'react';
+import { ScrollView, View } from 'react-native';
+
+import { change, ChangeError } from '@/changes';
+import { ExternalLink } from '@/components/icons';
+import { Screen } from '@/components/shell/screen';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { toast } from '@/components/ui/toast';
+import { api, errorMessage, unwrap } from '@/lib/api';
+
+import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import { PersonMenu } from './person-menu';
+
+/**
+ * The pipeline on the phone (decision 47), as the web's Pipeline tab: everyone the person reached on Facebook by where
+ * they stand, everyone still in play first or one stage at a time, searched by name, Show more for the next page. Each
+ * opens in Messenger or on Facebook, and has the marks the web has: ready to pitch, pitched, not a fit, back in play
+ * (`outreach.stage.mark`), and the person menu. It needs signal.
+ */
+
+export const stageViewOf = (show: string | undefined): StageView =>
+  STAGE_VIEW_KEYS.find((k) => k === show) ?? 'all';
+
+export function PipelineScreen({ show, q }: { show?: string; q?: string }) {
+  const ctx = useOutreachContext();
+  const ws = ctx.workspaceId;
+  const [view, setView] = React.useState<StageView>(stageViewOf(show));
+  const [search, setSearch] = React.useState(q ?? '');
+  const [asked, setAsked] = React.useState(q ?? '');
+  const [pages, setPages] = React.useState(1);
+  React.useEffect(() => {
+    const t = setTimeout(() => setAsked(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+  React.useEffect(() => setPages(1), [view, asked]);
+  const answer = useOutreachAnswer(
+    async () => {
+      const all: StagesOutput[] = [];
+      for (let page = 1; page <= pages; page++)
+        all.push(
+          unwrap(
+            await api.POST('/v1/queries/outreach.stages', {
+              body: { workspaceId: ws, view, page, ...(asked ? { search: asked } : {}) },
+            }),
+          ),
+        );
+      const last = all[all.length - 1]!;
+      return { ...last, people: all.flatMap((a) => a.people) };
+    },
+    `pipeline:${ws}:${view}:${asked}:${pages}`,
+    W.rows.pipeline,
+  );
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const mark = async (profileId: string, name: string, m: StageMark) => {
+    setBusy(`${profileId}:${m}`);
+    try {
+      await change('outreach.stage.mark', { workspaceId: ws, profileId, mark: m });
+      toast.show(markedWords(name, m));
+      answer.reload();
+    } catch (e) {
+      toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <PipelineBody
+      view={view}
+      onView={setView}
+      search={search}
+      onSearch={setSearch}
+      pipeline={answer.data}
+      error={answer.error}
+      onRetry={answer.reload}
+      onMore={() => setPages((p) => p + 1)}
+      busy={busy}
+      onMark={(p, m) => void mark(p.profileId, p.name, m)}
+      menu={(p) => (
+        <PersonMenu workspaceId={ws} who={p} online={ctx.online} onChanged={answer.reload} />
+      )}
+    />
+  );
+}
+
+type Person = StagesOutput['people'][number];
+
+export function PipelineBody({
+  view,
+  onView,
+  search,
+  onSearch,
+  pipeline,
+  error,
+  onRetry,
+  onMore,
+  busy = null,
+  onMark,
+  menu,
+}: {
+  view: StageView;
+  onView: (v: StageView) => void;
+  search: string;
+  onSearch: (s: string) => void;
+  pipeline: StagesOutput | null;
+  error: string | null;
+  onRetry: () => void;
+  onMore: () => void;
+  busy?: string | null;
+  onMark: (p: Person, m: StageMark) => void;
+  menu?: (p: Person) => React.ReactNode;
+}) {
+  return (
+    <Screen title={W.rows.pipeline} leading="back" testID="outreach-pipeline">
+      <Note>{view === 'lost' ? STAGE_WORDS.lostNote : STAGE_WORDS.about}</Note>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="flex-row gap-1.5">
+          {STAGE_VIEW_KEYS.map((k) => (
+            <Button
+              key={k}
+              size="sm"
+              variant={view === k ? 'secondary' : 'ghost'}
+              onPress={() => onView(k)}
+              testID={`pipeline-show-${k}`}
+            >
+              {pipeline ? `${STAGE_VIEWS[k]} ${pipeline.counts[k]}` : STAGE_VIEWS[k]}
+            </Button>
+          ))}
+        </View>
+      </ScrollView>
+      <Input
+        value={search}
+        onChangeText={onSearch}
+        placeholder={W.search}
+        autoCorrect={false}
+        testID="pipeline-search"
+      />
+      {pipeline ? (
+        pipeline.people.length ? (
+          <>
+            {pipeline.people.map((p) => (
+              <Card key={p.profileId} className="gap-1.5 px-4 py-3.5" testID="pipeline-person">
+                <View className="flex-row items-center gap-2">
+                  <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
+                    <Text className="text-[15px] font-semibold">{p.name}</Text>
+                    <Badge variant={p.stage === 'lost' ? 'gray' : 'accent'}>
+                      <Text>{STAGES[p.stage]}</Text>
+                    </Badge>
+                  </View>
+                  {menu?.(p)}
+                </View>
+                {p.why.length ? <Note>{p.why.join(' · ')}</Note> : null}
+                {p.nextStep ? <Note>{`${W.nextStepLabel}: ${p.nextStep}`}</Note> : null}
+                <View className="flex-row flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={ExternalLink}
+                    onPress={() => openOutside(messengerChatUrl(p.threadKey) ?? p.url)}
+                  >
+                    {p.threadKey ? W.openInMessenger : W.openOnFacebook}
+                  </Button>
+                  {marksFor(p.stage).map((m) => (
+                    <Button
+                      key={m}
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy !== null}
+                      onPress={() => onMark(p, m)}
+                      testID={`pipeline-mark-${m}`}
+                    >
+                      {STAGE_MARKS[m]}
+                    </Button>
+                  ))}
+                </View>
+              </Card>
+            ))}
+            {pipeline.page < pipeline.pages ? (
+              <Button variant="secondary" onPress={onMore} testID="pipeline-more">
+                {W.more}
+              </Button>
+            ) : null}
+          </>
+        ) : (
+          <Card className="gap-1.5 px-5 py-6" testID="pipeline-empty">
+            <Text className="text-[16px] font-semibold">
+              {search.trim() ? W.chatsNoMatch.title : STAGE_WORDS.empty.title}
+            </Text>
+            <Note>{search.trim() ? W.chatsNoMatch.body : STAGE_WORDS.empty.body}</Note>
+          </Card>
+        )
+      ) : error ? (
+        <NeedsSignal words={error} onRetry={onRetry} testID="pipeline-needs-signal" />
+      ) : null}
+    </Screen>
+  );
+}

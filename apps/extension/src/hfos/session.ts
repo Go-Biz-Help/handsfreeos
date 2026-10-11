@@ -18,6 +18,7 @@ import {
   type Account,
   type Business,
   type Drafts,
+  type JoinAnswerOutput,
   type HfosAnswer,
   type HfosAsk,
   type HfosValues,
@@ -409,6 +410,64 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
       return call(
         api().POST('/v1/commands/outreach.posts.save', { body: ask.input }),
         ask.input.workspaceId,
+      );
+    case 'hfos-checks-next':
+      return call(
+        api().POST('/v1/queries/outreach.checks.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-check-look':
+      return call(
+        api().POST('/v1/commands/outreach.check.look', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-groups-to-check':
+      return call(
+        api().POST('/v1/queries/outreach.groups.to_check', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-group-look':
+      return call(
+        api().POST('/v1/commands/outreach.group.look', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-joins-next':
+      return call(
+        api().POST('/v1/queries/outreach.joins.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-join-note':
+      return call(
+        api().POST('/v1/commands/outreach.join.note', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-ask':
+      return call(
+        api().POST('/v1/commands/outreach.helpful.ask', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-next':
+      return call(
+        api().POST('/v1/queries/outreach.helpful.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-posted':
+      return call(
+        api().POST('/v1/commands/outreach.helpful.posted', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-helpful-engaged':
+      return call(
+        api().POST('/v1/commands/outreach.helpful.engaged', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-join-answers':
+      return call(
+        workerPost<JoinAnswerOutput>('/v1/addons/outreach/actions/outreach.join.answer', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
       );
     case 'hfos-draft':
       return call(

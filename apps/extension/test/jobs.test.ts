@@ -22,7 +22,8 @@ vi.mock('../src/jobs/job', async (original) => ({
 const { readChats } = await import('../src/jobs/chats');
 const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS } =
   await import('../src/jobs/people');
-const { findPosts, groupsToWork } = await import('../src/jobs/posts');
+const { findPosts, groupsToWork, newestUrl, watchPosts } = await import('../src/jobs/posts');
+const { postSender } = await import('../src/auto/daily');
 const { runDaily } = await import('../src/auto/daily');
 
 const FB = 'https://www.facebook.com';
@@ -113,12 +114,41 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, then members, then posts, then chats, each once a day', () => {
-    expect(DAILY_JOBS).toEqual(['requests', 'members', 'posts', 'chats']);
+  it('checks requests, then groups, joins, members, posts, chats and friends, each once a day', () => {
+    expect(DAILY_JOBS).toEqual([
+      'requests',
+      'group_checks',
+      'join',
+      'members',
+      'posts',
+      'chats',
+      'checks',
+      'helpful',
+    ]);
     const fresh = freshState('2026-10-10');
     expect(nextDaily(fresh)).toBe('requests');
-    expect(nextDaily({ daily: { requests: 'Saved 2.', members: 'Saved 9.' } })).toBe('posts');
-    expect(nextDaily({ daily: { requests: '', members: '', posts: '', chats: '' } })).toBeNull();
+    expect(nextDaily({ daily: { requests: 'Saved 2.' } })).toBe('group_checks');
+    expect(
+      nextDaily({ daily: { requests: '', group_checks: '', join: '', members: 'Saved 9.' } }),
+    ).toBe('posts');
+    // A state kept by 0.21 hasn't done the groups' jobs yet today: they come next.
+    expect(nextDaily({ daily: { requests: '', members: '', posts: '', chats: '' } })).toBe(
+      'group_checks',
+    );
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          chats: '',
+          checks: '',
+          helpful: '',
+        },
+      }),
+    ).toBeNull();
     // A state kept by 0.11 has none: it starts from the first.
     expect(nextDaily({})).toBe('requests');
   });
@@ -267,6 +297,37 @@ describe('finding posts', () => {
     expect(saves).toHaveLength(1);
     expect(saves[0]!.input.found).toBe('find');
     expect(end.line).toContain('2 posts sent for the AI to check');
+  });
+
+  it('looks at the newest posts at the top of each group, and sends them as found by the look', async () => {
+    const { tab, opened, asked } = fakeTab(() => 'group-feed.html', {
+      'hfos-scroll-feed': [true, true, true],
+    });
+    const { hfos, sent } = fakeHfos([group('texascontractors')]);
+    const { job } = jobWith(tab, hfos);
+    const end = await watchPosts(
+      job,
+      [group('texascontractors'), group('austinsmallbiz')],
+      postSender(job, 'watch'),
+    );
+    // New posts first, Facebook's own sort; two screens of each, never more.
+    expect(opened).toEqual([
+      `${FB}/groups/texascontractors/?sorting_setting=CHRONOLOGICAL`,
+      `${FB}/groups/austinsmallbiz/?sorting_setting=CHRONOLOGICAL`,
+    ]);
+    expect(asked.filter((a) => a === 'hfos-scroll-feed')).toHaveLength(2);
+    const saves = sent.filter((a) => a.type === 'hfos-save-posts') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-posts' }
+    >[];
+    // The made-up groups show the same posts: each is sent once a look.
+    expect(saves.map((s) => s.input.found)).toEqual(['watch']);
+    expect(end.line).toBe(
+      'Looked at the newest posts in 2 groups: 2 posts sent for the AI to check. One asking for what you offer goes to your phone.',
+    );
+    expect(newestUrl(`${FB}/groups/123/?ref=share`)).toBe(
+      `${FB}/groups/123/?ref=share&sorting_setting=CHRONOLOGICAL`,
+    );
   });
 
   it('says so when they’re in no good group', async () => {

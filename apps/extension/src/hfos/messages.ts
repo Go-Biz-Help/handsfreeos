@@ -4,6 +4,7 @@
  * sign-in and never refresh it twice at once. Both ends are the extension's own; Facebook's tabs never see these.
  */
 import type { paths } from '@hfos/api-client';
+import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { AutoState } from '../auto/plan';
 
@@ -77,6 +78,30 @@ export type NeedClearInput = Body<'/v1/commands/outreach.need.clear'>;
 export type NeedCleared = Ok<'/v1/commands/outreach.need.clear'>;
 export type RequestSetAsideInput = Body<'/v1/commands/outreach.request.set_aside'>;
 export type RequestSetAside = Ok<'/v1/commands/outreach.request.set_aside'>;
+/** Who to check for a good fit next, and what their pages said (packages/core/src/addons/outreach/checks.ts). */
+export type ChecksNextInput = Body<'/v1/queries/outreach.checks.next'>;
+export type ChecksNext = Ok<'/v1/queries/outreach.checks.next'>;
+export type CheckLookInput = Body<'/v1/commands/outreach.check.look'>;
+export type CheckLooked = Ok<'/v1/commands/outreach.check.look'>;
+/** Groups to check and to join, what a group's About page said, and how an ask to join went (decision 48). */
+export type GroupsToCheckInput = Body<'/v1/queries/outreach.groups.to_check'>;
+export type GroupsToCheck = Ok<'/v1/queries/outreach.groups.to_check'>;
+export type GroupLookInput = Body<'/v1/commands/outreach.group.look'>;
+export type GroupLooked = Ok<'/v1/commands/outreach.group.look'>;
+export type JoinsNextInput = Body<'/v1/queries/outreach.joins.next'>;
+export type JoinsNext = Ok<'/v1/queries/outreach.joins.next'>;
+export type JoinNoteInput = Body<'/v1/commands/outreach.join.note'>;
+export type JoinNoted = Ok<'/v1/commands/outreach.join.note'>;
+/** Helpful posts (decision 50): today's asked for, the one to put up and those to read, and how each went. */
+export type HelpfulAskInput = Body<'/v1/commands/outreach.helpful.ask'>;
+export type HelpfulAsked = Ok<'/v1/commands/outreach.helpful.ask'>;
+export type HelpfulNextInput = Body<'/v1/queries/outreach.helpful.next'>;
+export type HelpfulNext = Ok<'/v1/queries/outreach.helpful.next'>;
+export type HelpfulPostedInput = Body<'/v1/commands/outreach.helpful.posted'>;
+export type HelpfulPosted = Ok<'/v1/commands/outreach.helpful.posted'>;
+export type HelpfulEngagedInput = Body<'/v1/commands/outreach.helpful.engaged'>;
+export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
+export type { JoinAnswerInput, JoinAnswerOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -178,6 +203,21 @@ export type HfosAsk =
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
+  | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
+  | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
+  | { readonly type: 'hfos-groups-to-check'; readonly input: GroupsToCheckInput }
+  | { readonly type: 'hfos-group-look'; readonly input: GroupLookInput }
+  | { readonly type: 'hfos-joins-next'; readonly input: JoinsNextInput }
+  | { readonly type: 'hfos-join-note'; readonly input: JoinNoteInput }
+  | { readonly type: 'hfos-helpful-ask'; readonly input: HelpfulAskInput }
+  | { readonly type: 'hfos-helpful-next'; readonly input: HelpfulNextInput }
+  | { readonly type: 'hfos-helpful-posted'; readonly input: HelpfulPostedInput }
+  | { readonly type: 'hfos-helpful-engaged'; readonly input: HelpfulEngagedInput }
+  | {
+      readonly type: 'hfos-join-answers';
+      readonly workspaceId: string;
+      readonly input: JoinAnswerInput;
+    }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -216,6 +256,17 @@ export interface HfosValues {
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
+  readonly 'hfos-checks-next': ChecksNext;
+  readonly 'hfos-check-look': CheckLooked;
+  readonly 'hfos-groups-to-check': GroupsToCheck;
+  readonly 'hfos-group-look': GroupLooked;
+  readonly 'hfos-joins-next': JoinsNext;
+  readonly 'hfos-join-note': JoinNoted;
+  readonly 'hfos-helpful-ask': HelpfulAsked;
+  readonly 'hfos-helpful-next': HelpfulNext;
+  readonly 'hfos-helpful-posted': HelpfulPosted;
+  readonly 'hfos-helpful-engaged': HelpfulEngaged;
+  readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;

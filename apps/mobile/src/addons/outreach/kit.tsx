@@ -26,7 +26,7 @@ export const OUTREACH_MANAGE = 'outreach.manage';
 
 /** The page's tabs the phone draws, as the web's `?view=` names them. */
 export type OutreachTab =
-  'waiting' | 'live' | 'today' | 'groups' | 'chats' | 'playbooks' | 'settings';
+  'waiting' | 'live' | 'today' | 'pipeline' | 'groups' | 'chats' | 'playbooks' | 'settings';
 /** The tabs the phone leaves to the web: they have a lot to look through (the manifest's `ui.phone` `web`). */
 export type WebTab = 'activity' | 'friends';
 

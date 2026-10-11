@@ -1620,7 +1620,8 @@ export const LISTING_RULES: readonly ScriptRule[] = [
 
 /**
  * Social Outreach's read of a Facebook chat: the tags whose words are in it, a prospect when they ask about a demo
- * or the price, and a summary that's only a count, so tests can tell it apart.
+ * or the price, ready for the offer when they ask how to start and a no when they say so, and a summary that's only a
+ * count, so tests can tell it apart.
  */
 function scriptedChatRead(message: string) {
   const block = (name: string) =>
@@ -1635,11 +1636,24 @@ function scriptedChatRead(message: string) {
     .split('\n')
     .filter((t) => t && t !== '(none)' && theirs.includes(t.toLowerCase()));
   const prospect = /\b(demo|price|how much)\b/.test(theirs);
+  // Ready for the offer once they ask how to start; a no for now when they say so (decision 47).
+  const pitch = /\b(sign me up|how do i start|book)\b/.test(theirs)
+    ? 'ready'
+    : /\b(not interested|no thanks|stop)\b/.test(theirs)
+      ? 'not_interested'
+      : 'not_yet';
   return {
     summary: `A chat of ${chat.split('\n').length} messages.`,
     tags,
     prospect,
     nextStep: prospect ? 'Offer a demo' : null,
+    pitch,
+    pitchWhy:
+      pitch === 'ready'
+        ? 'Asked how to start'
+        : pitch === 'not_interested'
+          ? 'Said no thanks'
+          : null,
   };
 }
 
@@ -1687,11 +1701,89 @@ function scriptedTodayDraft(message: string) {
   };
 }
 
-/** Social Outreach's check of a group post: good when it asks for a recommendation, and why says which way. */
+/**
+ * Social Outreach's check of a group post: good when it asks for a recommendation, strong when it's looking for a CRM
+ * (decision 49), and why says which way.
+ */
 function scriptedPostCheck(message: string) {
   const post = /<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '';
   const good = /\b(recommend|looking for|anyone)\b/i.test(post);
-  return { good, why: good ? 'Asking for a recommendation' : 'Nothing to answer' };
+  const strong = good && /\blooking for\b[^.?!]*\bcrm\b/i.test(post);
+  return {
+    good,
+    strong,
+    why: strong
+      ? 'Looking for a CRM now'
+      : good
+        ? 'Asking for a recommendation'
+        : 'Nothing to answer',
+  };
+}
+
+/**
+ * Social Outreach's check of someone the person knows (decision 46): a good fit for the first playbook when their pages
+ * say "Owner", might fit when they say "Manager", else not.
+ */
+function scriptedFitCheck(message: string) {
+  const pages = /<their_pages>\n?([\s\S]*?)\n?<\/their_pages>/.exec(message)?.[1] ?? '';
+  const playbook = /^Name: (.*)$/m.exec(message)?.[1] ?? null;
+  const fit = /\bowner\b/i.test(pages) ? 'good' : /\bmanager\b/i.test(pages) ? 'maybe' : 'not';
+  return {
+    fit,
+    playbook: fit === 'not' ? null : playbook && unquote(playbook),
+    why: fit === 'good' ? ['Owns a business'] : fit === 'maybe' ? ['Runs a team'] : [],
+    about: fit === 'not' ? null : unquote(pages.split('\n')[0] ?? '') || null,
+    nextStep: fit === 'good' ? 'Ask how business is going' : null,
+  };
+}
+
+/**
+ * Social Outreach's check of a group (decision 48): the business's people are there when its About page says
+ * "contractors", some when it says "business", else not; who posts is its first About line.
+ */
+function scriptedGroupCheck(message: string) {
+  const about = /<about>\n([\s\S]*?)\n<\/about>/.exec(message)?.[1] ?? '';
+  const playbook = /^Name: (.*)$/m.exec(message)?.[1] ?? null;
+  const fit = /\bcontractors?\b/i.test(about)
+    ? 'good'
+    : /\bbusiness\b/i.test(about)
+      ? 'maybe'
+      : 'not';
+  return {
+    fit,
+    playbook: fit === 'not' ? null : playbook && unquote(playbook),
+    why:
+      fit === 'good'
+        ? ['Contractors ask for help here']
+        : fit === 'maybe'
+          ? ['Some owners post']
+          : [],
+    who: fit === 'not' ? null : unquote(about.split('\n')[0] ?? '') || null,
+  };
+}
+
+/**
+ * Social Outreach's helpful post (decision 50): not allowed when the group's rules say "Only admins post", else a tip
+ * about following up, its topic and why.
+ */
+function scriptedHelpful(message: string) {
+  const rules = /<rules>\n([\s\S]*?)\n<\/rules>/.exec(message)?.[1] ?? '';
+  if (/only admins post/i.test(rules))
+    return { allowed: false, topic: 'Follow-ups', text: '', why: 'Only admins post in this group' };
+  return {
+    allowed: true,
+    topic: 'Following up on quotes',
+    text: 'One habit that won me more jobs this year: I follow up on every quote two days later with a short, friendly note.\n\nHow do you all keep track of who to follow up with?',
+    why: 'People here ask how to win more jobs',
+  };
+}
+
+/** Social Outreach's answers to a group's questions (decision 31): one per question, saying which it answers. */
+function scriptedJoinAnswers(message: string) {
+  const questions = (/<questions>\n([\s\S]*?)\n<\/questions>/.exec(message)?.[1] ?? '')
+    .split('\n')
+    .filter(Boolean);
+  return { answers: questions.map((_, i) => `Answer ${i + 1} from the playbook.`) };
 }
 
 export const OUTREACH_RULES: readonly ScriptRule[] = [
@@ -1701,6 +1793,13 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedPostCheck(message),
   },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
+  { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
+  {
+    when: /Are the business’s people in this group\?$/,
+    json: (message) => scriptedGroupCheck(message),
+  },
+  { when: /Answer the group’s questions\.$/, json: (message) => scriptedJoinAnswers(message) },
+  { when: /Write one helpful post for this group\.$/, json: (message) => scriptedHelpful(message) },
   {
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),

@@ -6740,6 +6740,59 @@
                 "properties": {
                   "kind": {
                     "type": "string",
+                    "const": "checks"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "group_checks"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "join"
+                  },
+                  "groupIds": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "post"
+                  },
+                  "helpfulId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": ["kind", "helpfulId"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
                     "const": "group_search"
                   },
                   "words": {
@@ -6843,7 +6896,15 @@
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "enum": ["opener", "follow_up", "reply", "comment"]
+                        "enum": [
+                          "opener",
+                          "reconnect",
+                          "pitch",
+                          "follow_up",
+                          "reply",
+                          "comment",
+                          "warm_lead"
+                        ]
                       },
                       "profileId": {
                         "default": null,
@@ -6948,6 +7009,19 @@
               "collect": {
                 "default": true,
                 "type": "boolean"
+              },
+              "joinGroups": {
+                "default": true,
+                "type": "boolean"
+              },
+              "watchPosts": {
+                "default": true,
+                "type": "boolean"
+              },
+              "posting": {
+                "default": "after_ok",
+                "type": "string",
+                "enum": ["copy", "after_ok", "own"]
               },
               "hours": {
                 "type": "object",
@@ -7160,6 +7234,108 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "outreach.helpful.ask": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.helpful.ok": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "helpfulId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": ["workspaceId", "helpfulId"]
+      }
+    },
+    "outreach.helpful.posted": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "helpfulId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "posted": {
+            "type": "boolean"
+          },
+          "url": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^https:\\/\\/"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "why": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "helpfulId", "posted"]
+      }
+    },
+    "outreach.helpful.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "helpfulId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "helpfulId"]
       }
     },
     "outreach.need.clear": {
@@ -7625,6 +7801,40 @@
           }
         },
         "required": ["workspaceId", "sendId"]
+      }
+    },
+    "outreach.stage.mark": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mark": {
+            "type": "string",
+            "enum": ["ready", "pitched", "lost", "open"]
+          },
+          "why": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "profileId", "mark"]
       }
     },
     "outreach.wheels.end": {
@@ -12908,7 +13118,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 14,
+            "maxItems": 18,
             "type": "array",
             "items": {
               "type": "string",
@@ -12924,6 +13134,10 @@
                 "members",
                 "posts",
                 "chats",
+                "checks",
+                "group_checks",
+                "join",
+                "post",
                 "cancel",
                 "unfriend",
                 "lookup"
@@ -13021,6 +13235,18 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.helpful": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": ["workspaceId"]
@@ -13138,6 +13364,43 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.stages": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view": {
+            "default": "all",
+            "type": "string",
+            "enum": [
+              "all",
+              "found",
+              "warming",
+              "friends",
+              "talking",
+              "ready",
+              "pitched",
+              "booked",
+              "lost"
+            ]
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
           }
         },
         "required": ["workspaceId"]

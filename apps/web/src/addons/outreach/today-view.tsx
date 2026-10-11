@@ -3,8 +3,9 @@
  * Social Outreach's Today tab (docs/outreach.md, the plan's Phase 1 step 5): the person's short list for the day on
  * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): requests they got from people who
  * fit to confirm (decision 30), a post to like before a friend request (decision 33), friend requests to people from
- * the business's groups who fit a playbook, a first message to new friends, follow-ups and replies, and comments on
- * good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
+ * the business's groups who fit a playbook, a first message to new friends, friends the AI found a good fit to
+ * reconnect with (decision 46), people ready for the offer to pitch (decision 47; copying a pitch marks it pitched),
+ * follow-ups and replies, and comments on good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
  * likes, requests and comments itself in the person's working hours. Each opens on Facebook, and a message or a comment comes with the AI's
  * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
  * notes it, which takes it off the list and counts it against today's limits. While the person's computer is online,
@@ -53,8 +54,9 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
-import type { Asks, TodayItem, TodayList, WheelsList } from './types';
+import type { Asks, HelpfulList, TodayItem, TodayList, WheelsList } from './types';
 import { useAct } from './use-act';
 
 const KIND_BADGE = {
@@ -62,9 +64,12 @@ const KIND_BADGE = {
   warm_up: 'gray',
   friend_request: 'accent',
   opener: 'ok',
+  reconnect: 'ok',
+  pitch: 'accent',
   follow_up: 'gray',
   reply: 'pending',
   comment: 'accent',
+  warm_lead: 'ok',
 } as const;
 
 /** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
@@ -76,11 +81,14 @@ function openUrl(item: TodayItem): string | null {
 export function TodayView({
   workspaceId,
   today,
+  helpful,
   wheels,
   asks,
 }: {
   workspaceId: string;
   today: TodayList;
+  /** Today's helpful post, and those up lately (decision 50). */
+  helpful: HelpfulList;
   /** Who's on training wheels: for owners and admins, else null. */
   wheels: WheelsList | null;
   /** The look-ups and group members asked of the person's computer from here. */
@@ -128,6 +136,7 @@ export function TodayView({
             {wheelsWords(today.wheels)}
           </p>
         ) : null}
+        <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
         {today.items.length ? (
           <Card className="p-0" data-testid="today-list">
             <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
@@ -265,6 +274,11 @@ function TodayRow({
           ) : null}
         </div>
         <span className="flex items-center gap-1.5">
+          {item.asking ? (
+            <Badge variant="pending" data-testid="today-asking">
+              {W.asking}
+            </Badge>
+          ) : null}
           {auto ? (
             <Badge variant="ok" data-testid="today-auto">
               {W.doneOnItsOwn}
@@ -505,14 +519,23 @@ function Drafts({
       setBusy(false);
     }
   };
-  /** Copying a first message notes which opener it was; that it couldn't is no reason to stop them. */
+  /**
+   * Copying a first message notes which opener it was, and copying a pitch moves them on to pitched (decision 47);
+   * that it couldn't is no reason to stop them.
+   */
   const copy = async (text: string) => {
     await copyText(
       text,
-      kind === 'comment'
+      kind === 'comment' || kind === 'warm_lead'
         ? 'Copied. Paste it as a comment on the post.'
         : 'Copied. Paste it in Messenger.',
     );
+    if (kind === 'pitch' && item.profileId)
+      await apiBrowser()
+        .POST('/v1/commands/outreach.stage.mark', {
+          body: { workspaceId, profileId: item.profileId, mark: 'pitched' },
+        })
+        .catch(() => undefined);
     if (!opener || !item.profileId) return;
     await apiBrowser()
       .POST('/v1/commands/outreach.opener.use', {
@@ -571,7 +594,7 @@ function Drafts({
             label={
               drafts.length
                 ? 'Look up and draft again'
-                : kind === 'comment'
+                : kind === 'comment' || kind === 'warm_lead'
                   ? 'Draft a comment'
                   : 'Draft a message'
             }
@@ -598,7 +621,7 @@ function Drafts({
           ? 'Draft from what HandsFreeOS knows'
           : drafts.length
             ? 'Draft again'
-            : kind === 'comment'
+            : kind === 'comment' || kind === 'warm_lead'
               ? 'Draft a comment'
               : 'Draft a message'}
       </Button>

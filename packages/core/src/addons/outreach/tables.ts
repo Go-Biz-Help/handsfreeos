@@ -4,8 +4,9 @@
  * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
- * steps it needs the person for, and the bundled push, and 20261027001700 for asking the extension): the Drizzle mirror
- * its server code reads and writes through.
+ * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
+ * the fits among friends and chats, 20261027002100 for stages, and 20261027002200 for checking and joining groups):
+ * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -26,8 +27,12 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
-import type { MessageKind, PushMode, ReplyMode, SendingMode } from './automation';
+import type { MessageKind, PostingMode, PushMode, ReplyMode, SendingMode } from './automation';
+import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
+import type { CheckVerdict } from './checks';
+import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
+import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -89,6 +94,30 @@ export const groups = addonOutreach.table(
     /** When its full list of admins and moderators was read: only then are its members suggested. */
     adminsReadAt: ts('admins_read_at'),
     seenAt: ts('seen_at'),
+    /** What its About page and its rules say (decision 48), and when they were read. */
+    about: text('about')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    rules: text('rules')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    aboutAt: ts('about_at'),
+    /** A few of its posts, until the AI reads them. */
+    checkLines: text('check_lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    /** What the AI made of it: whether the business's people are there, why, who posts, and the playbook. */
+    checkState: text('check_state').$type<GroupCheckState>(),
+    checkWhy: text('check_why')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    checkWho: text('check_who'),
+    checkPlaybookId: uuid('check_playbook_id'),
+    checkedAt: ts('checked_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -311,6 +340,9 @@ export const fileChats = addonOutreach.table(
       .default(sql`'{}'`),
     prospect: boolean('prospect'),
     nextStep: text('next_step'),
+    /** The AI's read of whether it's time to offer (decision 47), with why. */
+    pitch: text('pitch').$type<PitchRead>(),
+    pitchWhy: text('pitch_why'),
     readAt: ts('read_at'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
     /** The chat's number from its link, once it's been read in Messenger. */
@@ -466,6 +498,8 @@ export const posts = addonOutreach.table(
     found: text('found').notNull().$type<PostFound>(),
     checkState: text('check_state').notNull().default('waiting').$type<PostCheck>(),
     checkWhy: text('check_why'),
+    /** The writer is asking, now, for what the business offers (decision 49): pushed, and first on Today. */
+    strong: boolean('strong').notNull().default(false),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),
@@ -591,7 +625,10 @@ export const automation = addonOutreach.table(
     warmUp: boolean('warm_up').notNull().default(true),
     confirmRequests: boolean('confirm_requests').notNull().default(true),
     collect: boolean('collect').notNull().default(true),
-    joinGroups: boolean('join_groups').notNull().default(false),
+    /** It finds and asks to join good groups when people left to reach run low (decision 48). */
+    joinGroups: boolean('join_groups').notNull().default(true),
+    watchPosts: boolean('watch_posts').notNull().default(true),
+    posting: text('posting').notNull().default('after_ok').$type<PostingMode>(),
     hoursStart: smallint('hours_start').notNull().default(9),
     hoursEnd: smallint('hours_end').notNull().default(17),
     days: smallint('days')
@@ -852,20 +889,191 @@ export const setup = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
 
+/**
+ * The AI's read of someone the person already knows on Facebook (decision 46): a friend, or someone they've chatted
+ * with. What their pages said waits in `lines` until the AI reads it, then goes. Each person's own.
+ */
+export const checks = addonOutreach.table(
+  'checks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    lines: text('lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    verdict: text('verdict').notNull().default('waiting').$type<CheckVerdict>(),
+    /** The playbook they fit (let go when it goes). */
+    playbookId: uuid('playbook_id'),
+    why: text('why')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    about: text('about'),
+    nextStep: text('next_step'),
+    lookedAt: ts('looked_at').notNull(),
+    checkedAt: ts('checked_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * What a person or the AI said about where someone stands beyond what's worked out (decision 47): ready to pitch or not
+ * a fit, and when the pitch went. Each person's own.
+ */
+export const stages = addonOutreach.table(
+  'stages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    mark: text('mark').$type<'ready' | 'lost'>(),
+    markedBy: text('marked_by').$type<'person' | 'ai'>(),
+    why: text('why'),
+    markedAt: ts('marked_at'),
+    pitchedAt: ts('pitched_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Each person's asks to join a group (decision 31), with the AI's answers to its questions. Each person's own. */
+export const joins = addonOutreach.table(
+  'joins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull(),
+    state: text('state').notNull().$type<JoinState>(),
+    answers: jsonb('answers').notNull().default([]).$type<JoinAnswered[]>(),
+    why: text('why'),
+    askedAt: ts('asked_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.groupId),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * The helpful posts the AI drafts for a person to put up in their groups (decision 50): the group, what it's about,
+ * the words, and where it stands. Each person's own.
+ */
+export const helpful = addonOutreach.table(
+  'helpful',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull(),
+    playbookId: uuid('playbook_id'),
+    state: text('state').notNull().$type<HelpfulState>(),
+    /** The person's posting choice when it was drafted. */
+    how: text('how').notNull().$type<PostingMode>(),
+    topic: text('topic'),
+    body: text('body'),
+    postUrl: text('post_url'),
+    whyNot: text('why_not'),
+    askedAt: ts('asked_at').notNull(),
+    draftedAt: ts('drafted_at'),
+    approvedAt: ts('approved_at'),
+    postedAt: ts('posted_at'),
+    endedAt: ts('ended_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Who reacted to or commented on one of the person's helpful posts: warm leads (decision 50). Each person's own. */
+export const engagements = addonOutreach.table(
+  'engagements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    helpfulId: uuid('helpful_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<EngagementKind>(),
+    comment: text('comment'),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.helpfulId, t.profileId, t.kind),
+    foreignKey({
+      columns: [t.workspaceId, t.helpfulId],
+      foreignColumns: [helpful.workspaceId, helpful.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
   automation,
+  checks,
   computers,
   days,
+  engagements,
   fileChats,
   filePeople,
   friendEnds,
   friends,
   groupPeople,
   groups,
+  helpful,
   myGroups,
   imports,
+  joins,
   demos,
   liveSteps,
   needs,
@@ -876,6 +1084,7 @@ export const OUTREACH_TABLES = {
   replies,
   sends,
   setup,
+  stages,
   threads,
   touches,
   waitingPushes,
