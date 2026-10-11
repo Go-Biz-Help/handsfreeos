@@ -456,9 +456,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     onScreen: [
       'Sending address: the name customers see, and which address is the default',
       'Use your own domain: Add domain, Check now',
-      'Connected mailboxes: Connect Gmail, Connect Outlook',
+      // Connect Gmail is hidden until Google's review (NEXT_PUBLIC_GMAIL_ENABLED); add it back here then.
+      'Connected mailboxes: Connect Outlook',
       'Blocked addresses',
       'Mail from people not in Contacts',
+    ],
+    notHere: [
+      'connecting a Gmail mailbox: not yet, so connect Outlook or send from the workspace address',
     ],
     path: '/settings/email',
     permission: 'channels.manage',
@@ -471,11 +475,11 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     handovers: [
       {
-        what: 'connect a Gmail or Outlook mailbox',
-        why: 'you sign in to Google or Microsoft yourself',
+        what: 'connect an Outlook mailbox',
+        why: 'you sign in to Microsoft yourself',
         steps: [
           'Open Settings → Email.',
-          'In Connected mailboxes, press Connect Gmail or Connect Outlook.',
+          'In Connected mailboxes, press Connect Outlook.',
           'Sign in and allow HandsFreeOS to read and send that mail.',
         ],
       },

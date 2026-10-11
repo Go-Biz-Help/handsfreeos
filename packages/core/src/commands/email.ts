@@ -946,7 +946,7 @@ export const mailboxActivate = defineCommand({
       throw HfosError.rule(
         'mailbox_not_pending',
         409,
-        'This sign-in was already used or cancelled. Click Connect Gmail or Connect Outlook in Settings → Email to start again.',
+        'This sign-in was already used or cancelled. Start again from Connected mailboxes in Settings → Email.',
       );
     const now = new Date();
     // One live connection per account (a partial unique index): a reconnect retires the older one first.
