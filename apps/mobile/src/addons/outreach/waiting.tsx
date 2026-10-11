@@ -1,7 +1,12 @@
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { FacebookUrl } from '@hfos/core/addons/outreach/saves';
-import { SendText } from '@hfos/core/addons/outreach/sends';
+import {
+  recentBubbles,
+  RECENT_WORDS,
+  SendText,
+  type RecentMessage,
+} from '@hfos/core/addons/outreach/sends';
 import { TODAY_KINDS } from '@hfos/core/addons/outreach/today';
 import {
   approveAllFromPhone,
@@ -40,6 +45,7 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { clearNeed, okAll, okSend, setAside, skipSend } from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
+import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
 import {
   NeedsSignal,
@@ -73,10 +79,17 @@ export interface WaitingFromServer {
   readonly kinds: Pick<WaitingOutput['kinds'], 'ask' | 'need' | 'request'>;
   readonly wheels: WaitingOutput['wheels'];
   readonly pushes: WaitingOutput['pushes'];
+  /** Each message's chat so far, by its id: with signal only, since the phone's copy doesn't keep chats. */
+  readonly recent: ReadonlyMap<string, readonly RecentMessage[]>;
 }
 
 export function serverPart(answer: WaitingOutput): WaitingFromServer {
   return {
+    recent: new Map(
+      answer.items.flatMap((i) =>
+        i.kind === 'reply' || i.kind === 'message' ? [[i.send.sendId, i.send.recent] as const] : [],
+      ),
+    ),
     asks: answer.items.flatMap((i) => (i.kind === 'ask' ? [i.ask] : [])),
     needs: answer.items.flatMap((i) => (i.kind === 'need' ? [i.need] : [])),
     requests: answer.items.flatMap((i) => (i.kind === 'request' ? [i.request] : [])),
@@ -209,6 +222,8 @@ export function WaitingBody({
     <SendCard
       key={send.sendId}
       send={send}
+      recent={server?.recent.get(send.sendId) ?? []}
+      now={now}
       onOk={() => onOk(send)}
       onChange={() => setChanging(send)}
       onSkip={() => onSkip(send)}
@@ -402,11 +417,16 @@ function Group({
 
 function SendCard({
   send,
+  recent,
+  now,
   onOk,
   onChange,
   onSkip,
 }: {
   send: PhoneSend;
+  /** The chat so far, oldest first. */
+  recent: readonly RecentMessage[];
+  now: number;
   onOk: () => void;
   onChange: () => void;
   onSkip: () => void;
@@ -424,6 +444,16 @@ function SendCard({
           </Badge>
         ) : null}
       </View>
+      {recent.length ? (
+        <View className="gap-1">
+          <Note>{RECENT_WORDS.title}</Note>
+          <ChatBubbles
+            bubbles={recentBubbles(recent, now)}
+            label={RECENT_WORDS.title}
+            testID="waiting-chat-so-far"
+          />
+        </View>
+      ) : null}
       <Text
         selectable
         className="rounded-control bg-card-2 px-3 py-2 text-[14.5px] leading-[21px]"

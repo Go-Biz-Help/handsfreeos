@@ -27,11 +27,12 @@ import {
   SendSkipOutput,
   SendsInput,
   SendsOutput,
+  type RecentMessage,
   type Send,
 } from '../sends';
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { automationOf, countWheels } from './automation';
-import { inWorkspace, type Ctx } from './common';
+import { chatKey, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
 import { openNeed } from './needs';
 import { notePitched } from './stages';
 
@@ -51,6 +52,15 @@ export async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<S
     .where(where)
     .orderBy(sends.createdAt)
     .limit(SENDS_MOST);
+  // Each one's chat, where it's going (the person's own: sends are only ever listed for whose they are).
+  const recent = new Map<string, RecentMessage[]>();
+  for (const userId of new Set(found.map(({ s }) => s.userId)))
+    for (const [key, messages] of await recentOf(
+      ctx,
+      userId,
+      found.filter(({ s }) => s.userId === userId).map(({ s }) => refOf(s)),
+    ))
+      recent.set(`${userId}/${key}`, messages);
   return found.map(({ s, name, url }) => ({
     sendId: s.id,
     kind: s.kind,
@@ -66,8 +76,14 @@ export async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<S
     handedOver: s.handedOver,
     needsYou: s.needsYou,
     createdAt: s.createdAt.toISOString(),
+    recent: recent.get(`${s.userId}/${chatKey(refOf(s))}`) ?? [],
   }));
 }
+
+const refOf = (s: { chatId: string | null; profileId: string }): ChatRef => ({
+  chatId: s.chatId,
+  profileId: s.profileId,
+});
 
 export const mine = (ctx: Ctx, me: string) =>
   and(eq(sends.workspaceId, ctx.scope.workspaceId!), eq(sends.userId, me));

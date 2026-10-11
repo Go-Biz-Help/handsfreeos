@@ -34,6 +34,7 @@ const URL = `${FB}/dana.reyes.12`;
 const dana = { id: null, username: 'dana.reyes.12', url: URL };
 
 const item = (more: Partial<TodayListItem>): TodayListItem => ({
+  recent: [],
   kind: 'friend_request',
   name: 'Dana Reyes',
   profileId: '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',

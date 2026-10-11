@@ -172,6 +172,11 @@ describe('the list for today', () => {
       summary: 'Asked about the price.',
       nextStep: 'Offer a demo.',
     });
+    // A message shows the chat so far, where it's going; a friend request has none.
+    expect(today.items[2].recent).toEqual([
+      { fromMe: false, text: 'Do you do demos?', at: expect.any(String) },
+    ]);
+    expect(today.items[0].recent).toEqual([]);
 
     // Messaging Dana takes the opener off.
     await runAs(owner, ws, 'outreach.touch.save', {

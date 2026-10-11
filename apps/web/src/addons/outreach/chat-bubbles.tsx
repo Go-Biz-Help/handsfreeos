@@ -3,6 +3,7 @@
  * them: a chat's latest messages beside a message waiting for an OK (docs/outreach.md, "How the AI writes"), and how
  * the person's voice reads on the Settings tab.
  */
+import { recentBubbles, RECENT_WORDS, type RecentMessage } from '@hfos/core/addons/outreach/sends';
 import { cn } from '@/lib/utils';
 
 export interface Bubble {
@@ -41,9 +42,27 @@ export function ChatBubbles({
           >
             {b.text}
           </p>
-          {b.when ? <span className="px-1 text-[11.5px] text-text-3">{b.when}</span> : null}
+          {b.when ? (
+            <span className="px-1 text-[11.5px] text-text-3" suppressHydrationWarning>
+              {b.when}
+            </span>
+          ) : null}
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * A chat's latest messages above a message waiting for the person's OK (packages/core/src/addons/outreach/sends.ts), so
+ * they see where it's going before they send. Nothing when there's no chat yet.
+ */
+export function ChatSoFar({ recent }: { recent: readonly RecentMessage[] }) {
+  if (!recent.length) return null;
+  return (
+    <div className="mt-2 space-y-1" data-testid="outreach-chat-so-far">
+      <p className="text-[12.5px] text-text-3">{RECENT_WORDS.title}</p>
+      <ChatBubbles bubbles={recentBubbles(recent, Date.now())} label={RECENT_WORDS.title} />
+    </div>
   );
 }

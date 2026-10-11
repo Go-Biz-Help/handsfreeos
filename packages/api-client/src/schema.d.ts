@@ -34975,6 +34975,12 @@ export interface operations {
                         /** Format: uuid */
                         profileId: string;
                         profileUrl: string | null;
+                        recent: {
+                            /** Format: date-time */
+                            at: string;
+                            fromMe: boolean;
+                            text: string;
+                        }[];
                         /** Format: uuid */
                         sendId: string;
                         /** @enum {string} */
@@ -62416,6 +62422,12 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             profileUrl: string | null;
+                            recent: {
+                                /** Format: date-time */
+                                at: string;
+                                fromMe: boolean;
+                                text: string;
+                            }[];
                             /** Format: uuid */
                             sendId: string;
                             /** @enum {string} */
@@ -62601,6 +62613,12 @@ export interface operations {
                             postUrl: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
+                            recent: {
+                                /** Format: date-time */
+                                at: string;
+                                fromMe: boolean;
+                                text: string;
+                            }[];
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -62761,6 +62779,12 @@ export interface operations {
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
+                                recent: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    fromMe: boolean;
+                                    text: string;
+                                }[];
                                 /** Format: uuid */
                                 sendId: string;
                                 /** @enum {string} */
@@ -62793,6 +62817,12 @@ export interface operations {
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
+                                recent: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    fromMe: boolean;
+                                    text: string;
+                                }[];
                                 /** Format: uuid */
                                 sendId: string;
                                 /** @enum {string} */

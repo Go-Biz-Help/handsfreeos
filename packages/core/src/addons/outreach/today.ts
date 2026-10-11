@@ -38,6 +38,7 @@ import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
+import { RECENT_SHOWN, RecentMessage } from './sends';
 import {
   gapLine,
   joinedParts,
@@ -137,6 +138,8 @@ export const TodayItem = z.object({
       needsYou: z.string().nullable(),
     })
     .nullable(),
+  /** For a message, the chat's latest messages, oldest first, when there is one: where it's going. */
+  recent: z.array(RecentMessage).max(RECENT_SHOWN),
 });
 export type TodayItem = z.output<typeof TodayItem>;
 

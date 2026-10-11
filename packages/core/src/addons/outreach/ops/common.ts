@@ -18,10 +18,11 @@ import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { addonTimelineLine } from '../../server';
 import type { DontPitch } from '../friends';
-import { DONT_PITCH_TAG, type FriendState } from '../limits';
+import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
+import { RECENT_SHOWN, type RecentMessage } from '../sends';
 import { friends, profiles } from '../tables';
 
 export type Ctx = CommandContext | QueryContext;
@@ -429,3 +430,52 @@ export async function dontPitchOf(ctx: Ctx, profile: Profile): Promise<DontPitch
     tagged,
   };
 }
+
+/** A chat to show the latest of: by its own id when it's known, else the person's latest with the profile. */
+export interface ChatRef {
+  readonly chatId: string | null;
+  readonly profileId: string | null;
+}
+
+/**
+ * The latest messages of some of the person's own chats, oldest first, to show beside a message waiting for their OK
+ * (../sends.ts): each ref's by `chatKey`. A ref with no chat kept has none.
+ */
+export async function recentOf(
+  ctx: Ctx,
+  me: string,
+  refs: readonly ChatRef[],
+): Promise<Map<string, RecentMessage[]>> {
+  const chatIds = [...new Set(refs.flatMap((r) => (r.chatId ? [r.chatId] : [])))];
+  const profileIds = [...new Set(refs.flatMap((r) => (r.profileId ? [r.profileId] : [])))];
+  const out = new Map<string, RecentMessage[]>();
+  if (!chatIds.length && !profileIds.length) return out;
+  const found = await rows<{
+    id: string;
+    profile_id: string | null;
+    recent: { fromMe: boolean; text: string; at: string }[];
+  }>(
+    ctx.tx,
+    sql`select c.id, c.profile_id, c.recent from addon_outreach.file_chats c
+        where c.workspace_id = ${ctx.scope.workspaceId!} and c.user_id = ${me}
+          and (${chatIds.length ? sql`c.id in ${chatIds}` : sql`false`}
+            or ${profileIds.length ? sql`c.profile_id in ${profileIds}` : sql`false`})
+        order by c.last_at desc`,
+  );
+  const shown = (recent: (typeof found)[number]['recent']): RecentMessage[] =>
+    recent.slice(-RECENT_SHOWN).map((m) => ({
+      fromMe: m.fromMe,
+      text: m.text.slice(0, MESSAGE_MOST),
+      at: new Date(m.at).toISOString(),
+    }));
+  for (const r of refs) {
+    const chat =
+      (r.chatId ? found.find((c) => c.id === r.chatId) : undefined) ??
+      (r.profileId ? found.find((c) => c.profile_id === r.profileId) : undefined);
+    out.set(chatKey(r), chat ? shown(chat.recent) : []);
+  }
+  return out;
+}
+
+/** A chat ref's key in `recentOf`'s answer. */
+export const chatKey = (r: ChatRef) => `${r.chatId ?? ''}/${r.profileId ?? ''}`;

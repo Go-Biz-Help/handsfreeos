@@ -44,6 +44,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskLine } from './asks';
+import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
 import { PersonMenu } from './person-menu';
 import { Drafted } from './today-view';
@@ -245,6 +246,7 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
         {item.kind === 'reply' ? <Badge variant="pending">{W.handedOver}</Badge> : null}
         <PersonMenu workspaceId={workspaceId} who={send} />
       </div>
+      <ChatSoFar recent={send.recent} />
       <Drafted workspaceId={workspaceId} name={send.name} send={send} />
       {/* The chat it answers, onto their card in Contacts. */}
       {item.kind === 'reply' && send.chatId ? (

@@ -20,6 +20,7 @@ import {
   askRepliesFor,
 } from '@hfos/core/addons/outreach/asks';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import {
   approveAllCount,
@@ -197,6 +198,28 @@ const trouble = (key: string): Child => {
   return note ? h('div', { class: 'muted' }, note) : null;
 };
 
+/** The chat so far, above a message waiting for an OK: where it's going (@hfos/core/addons/outreach/sends). */
+function chatView(send: SendItem['send']): HTMLElement | null {
+  if (!send.recent.length) return null;
+  return h(
+    'div',
+    {},
+    h('div', { class: 'muted' }, RECENT_WORDS.title),
+    h(
+      'ol',
+      { class: 'chat', 'aria-label': RECENT_WORDS.title },
+      ...recentBubbles(send.recent, Date.now()).map((b) =>
+        h(
+          'li',
+          { class: b.fromMe ? 'me' : 'them' },
+          h('span', { class: 'bubble' }, b.text),
+          b.when ? h('span', { class: 'when' }, b.when) : null,
+        ),
+      ),
+    ),
+  );
+}
+
 function sendView(item: SendItem): HTMLElement {
   const send = item.send;
   const words = h('textarea', { rows: '4', 'aria-label': `Message to ${send.name}` });
@@ -212,6 +235,7 @@ function sendView(item: SendItem): HTMLElement {
       link(send.name, messengerChatUrl(send.threadKey) ?? send.profileUrl),
     ),
     why ? h('div', { class: 'muted' }, why) : null,
+    chatView(send),
     words,
     h(
       'div',

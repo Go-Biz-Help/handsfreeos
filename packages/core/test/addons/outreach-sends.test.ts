@@ -511,6 +511,22 @@ describe('messages on their own', () => {
       expect(await handOvers()).toHaveLength(4);
     });
 
+    it('shows the chat so far beside a message waiting for an OK', async () => {
+      const waiting = await runAs(member, ws, 'outreach.waiting', {});
+      const mo = waiting.items.find(
+        (i: { kind: string; send?: { name: string } }) => i.send?.name === 'Mo Lane',
+      );
+      expect(mo.send.recent).toEqual([
+        { fromMe: true, text: 'How’s business?', at: expect.any(String) },
+        { fromMe: false, text: 'Thanks!', at: expect.any(String) },
+      ]);
+      // One with no chat kept has none.
+      const dana = waiting.items.find(
+        (i: { kind: string; send?: { name: string } }) => i.send?.name === 'Dana Cole',
+      );
+      expect(dana?.send.recent ?? []).toEqual([]);
+    });
+
     it('choosing (b) or (c) starts training wheels, with Sending on', async () => {
       const [fresh] = await Promise.all([createTestUser('outs-fresh', { fullName: 'Sam Fresh' })]);
       await admin()

@@ -8,7 +8,13 @@ import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
-import { WARM_UP_WAIT_HOURS, WARM_UP_WINDOW_DAYS, autoKinds, messageKinds } from '../automation';
+import {
+  MESSAGE_KINDS,
+  WARM_UP_WAIT_HOURS,
+  WARM_UP_WINDOW_DAYS,
+  autoKinds,
+  messageKinds,
+} from '../automation';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
@@ -31,7 +37,7 @@ import { WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
-import { inPlay, inWorkspace, pitchable, type Ctx } from './common';
+import { chatKey, inPlay, inWorkspace, pitchable, recentOf, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
@@ -180,6 +186,7 @@ export const today = defineAddonQuery(outreachAddon, {
       send: null,
       personId: null,
       demoBooked: false,
+      recent: [],
       ...more,
     });
     // The demo link for a message (decision 24): the first playbook in use with a link, by name.
@@ -763,6 +770,9 @@ export const today = defineAddonQuery(outreachAddon, {
         )
       : [];
     const knownOf = new Map(known.map((k) => [k.id, k]));
+    // A message's chat, where it's going, to see beside it.
+    const isMessage = (i: TodayItem) => (MESSAGE_KINDS as readonly string[]).includes(i.kind);
+    const recent = await recentOf(ctx, me, items.filter(isMessage));
     // A post asking for what the business offers tops the list (decision 49): answered fast, before anything else.
     const listedItems = [...items.filter((i) => i.asking), ...items.filter((i) => !i.asking)]
       .filter((i) => !drafted.off(i.profileId, i.kind))
@@ -773,6 +783,7 @@ export const today = defineAddonQuery(outreachAddon, {
           ...i,
           personId: k?.person_id ?? null,
           demoBooked: k?.marked ?? false,
+          recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],
           ...(send ? { send } : {}),
         };
       });

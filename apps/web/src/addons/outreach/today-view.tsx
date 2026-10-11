@@ -54,6 +54,7 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { ChatSoFar } from './chat-bubbles';
 import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
 import type { Asks, HelpfulList, TodayItem, TodayList, WheelsList } from './types';
@@ -301,6 +302,7 @@ function TodayRow({
       {item.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
       ) : null}
+      <ChatSoFar recent={item.recent} />
       {item.send ? (
         <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
       ) : draftKind ? (

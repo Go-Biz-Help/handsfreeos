@@ -140,6 +140,7 @@ const LIVE: LiveOutput = {
 };
 
 const post = (n: number, name: string, asking: boolean): TodayItem => ({
+  recent: [],
   kind: 'comment',
   name,
   profileId: id(40 + n),

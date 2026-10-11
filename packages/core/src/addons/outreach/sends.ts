@@ -29,6 +29,7 @@ import {
 import { MESSAGE_KINDS, WheelsState, type ReplyMode, type SendingMode } from './automation';
 import { MESSAGE_MOST } from './limits';
 import { DraftOpener } from './openers';
+import { gapWords } from './voice';
 
 export const SEND_STATES = {
   waiting: 'Waiting for your OK',
@@ -54,6 +55,51 @@ export const SendText = z
   });
 const words = SendText;
 
+/** How many of a chat's latest messages show beside a message waiting for an OK. */
+export const RECENT_SHOWN = 6;
+
+/**
+ * One of a chat's latest messages, shown beside a message waiting for the person's OK so they see where the chat is
+ * going: theirs or the person's, its words, and when.
+ */
+export const RecentMessage = z.object({
+  fromMe: z.boolean(),
+  text: z.string(),
+  at: z.iso.datetime(),
+});
+export type RecentMessage = z.output<typeof RecentMessage>;
+
+/** When one of a chat's messages went, for the person: "Today", "Yesterday", "2 days ago", "3 weeks ago". */
+export function chatWhen(at: string, now: number): string {
+  const days = Math.floor((now - Date.parse(at)) / 86_400_000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return `${gapWords(at, now) ?? `${days} days`} ago`;
+}
+
+/**
+ * A chat's latest messages as bubbles to show beside a message waiting for an OK: each with when it went, said once for
+ * a run of messages the same day.
+ */
+export function recentBubbles(
+  recent: readonly RecentMessage[],
+  now: number,
+): { readonly fromMe: boolean; readonly text: string; readonly when: string | null }[] {
+  return recent.map((m, i) => {
+    const when = chatWhen(m.at, now);
+    const next = recent[i + 1];
+    return {
+      fromMe: m.fromMe,
+      text: m.text,
+      when: next && chatWhen(next.at, now) === when ? null : when,
+    };
+  });
+}
+
+export const RECENT_WORDS = {
+  title: 'Your chat so far',
+} as const;
+
 export const Send = z.object({
   sendId: z.uuid(),
   kind: z.enum(MESSAGE_KINDS),
@@ -72,6 +118,8 @@ export const Send = z.object({
   /** Why a reply needs the person (`replyNeedsYou`): it waits for an OK of its own too. */
   needsYou: z.string().nullable(),
   createdAt: z.iso.datetime(),
+  /** The chat's latest messages, oldest first, when there is one: where it's going. */
+  recent: z.array(RecentMessage).max(RECENT_SHOWN),
 });
 export type Send = z.output<typeof Send>;
 
