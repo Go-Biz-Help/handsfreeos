@@ -22,7 +22,7 @@
  * come off; owners and admins see who's on them and can end them early.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
-import { DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import {
@@ -35,31 +35,41 @@ import {
   approveAllWords,
   messengerChatUrl,
   oneByOne,
-  oneByOneWords,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { CalendarCheck, Check, CheckCheck, Copy, Loader2, Send, Sparkles, X } from 'lucide-react';
+import {
+  CalendarCheck,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  Copy,
+  Loader2,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk, targetOf } from './asks';
 import { ChatSoFar } from './chat-bubbles';
+import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
-import type { Asks, HelpfulList, TodayItem, TodayList, WheelsList } from './types';
+import { StatusStrip } from './status-strip';
+import type { Asks, HelpfulList, Live, TodayItem, TodayList, Waiting, WheelsList } from './types';
 import { useAct } from './use-act';
+import { NeedsYou } from './waiting-view';
 
 const KIND_BADGE = {
   confirm: 'ok',
@@ -86,6 +96,8 @@ export function TodayView({
   helpful,
   wheels,
   asks,
+  live,
+  waiting,
 }: {
   workspaceId: string;
   today: TodayList;
@@ -95,13 +107,24 @@ export function TodayView({
   wheels: WheelsList | null;
   /** The look-ups and group members asked of the person's computer from here. */
   asks: Asks;
+  /** What the person's computer is doing: the strip at the top. Null when it couldn't be had. */
+  live: Live | null;
+  /** Everything that needs the person, first. Null when it couldn't be had. */
+  waiting: Waiting | null;
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
+  // A message waiting for an OK is under Needs you; the list keeps everyone else, so nobody shows twice.
+  const needs = new Set(
+    (waiting?.items ?? []).flatMap((i) =>
+      i.kind === 'message' || i.kind === 'reply' ? [i.send.sendId] : [],
+    ),
+  );
+  const items = today.items.filter(
+    (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
+  );
   // Approve all leaves those that wait for an OK of their own: a reply handed over, or one to someone who needs them.
-  const waiting = today.items.filter(
-    (i) => i.send?.state === 'waiting' && !oneByOne(i.send),
-  ).length;
+  const approvable = items.filter((i) => i.send?.state === 'waiting' && !oneByOne(i.send)).length;
   const approving = useAct();
   const approveAll = () =>
     approving.act('all', async () => {
@@ -111,133 +134,230 @@ export function TodayView({
       );
       toast.success(W.okdAll(out.approved.length));
     });
-  const limits = [
-    ['friend_request', today.limits.friend_request],
-    ['first_message', today.limits.first_message],
-    ['follow_up', today.limits.follow_up],
-    ['comment', today.limits.comment],
-    ['like', today.limits.like],
-  ] as const;
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="outreach-today">
-      <div className="min-w-0 space-y-4">
-        {today.warning ? (
-          <p
-            role="alert"
-            data-testid="today-warning"
-            className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
-          >
-            {warningNote(today.warning)}
-          </p>
-        ) : null}
-        {today.wheels.on ? (
-          <p
-            data-testid="today-wheels"
-            className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-          >
-            {wheelsWords(today.wheels)}
-          </p>
-        ) : null}
-        <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
-        {today.items.length ? (
-          <Card className="p-0" data-testid="today-list">
-            <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
-              <h3 className="text-[15px] font-semibold">{W.listTitle}</h3>
-              {waiting > 1 ? (
-                <Button
-                  size="sm"
-                  disabled={approving.busy !== null}
-                  onClick={() => void approveAll()}
-                  data-testid="today-approve-all"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  {approveAllWords(waiting)}
-                </Button>
-              ) : (
-                <span className="text-[12.5px] text-text-3">
-                  You do each one, or the extension does on its own
-                </span>
-              )}
-            </div>
-            <ul className="mt-2">
-              {today.items.map((item) => (
-                <TodayRow
-                  key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
-                  workspaceId={workspaceId}
-                  item={item}
-                  auto={today.auto.includes(item.kind)}
-                  asks={asks}
-                />
-              ))}
-            </ul>
-          </Card>
-        ) : (
-          <Card data-testid="today-empty">
-            <EmptyState title={W.todayEmptyTitle}>{W.todayEmptyBody}</EmptyState>
-          </Card>
-        )}
-      </div>
-      <aside className="space-y-4">
-        <Card className="p-4" data-testid="today-limits">
-          <h3 className="text-[15px] font-semibold">{W.todaySoFar}</h3>
-          <ul className="mt-2 space-y-1 text-[13px]">
-            {limits.map(([step, { done, most }]) => (
-              <li key={step} className="flex justify-between gap-3">
-                <span className="text-text-2">{DAILY_WORDS[step].label}</span>
-                <span className="tabular-nums">{W.countOf(done, most)}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
-        {!today.hasPlaybook ? (
-          <Card className="p-4">
-            <h3 className="text-[15px] font-semibold">Friend requests need a playbook</h3>
-            <p className="mt-1.5 text-[13px] text-text-2">
-              People from your groups are suggested once the business has a playbook saying who to
-              look for.{' '}
-              <Link
+    <div data-testid="outreach-today">
+      {live ? <StatusStrip workspaceId={workspaceId} live={live} /> : null}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-5">
+          {today.warning && !live?.warning ? (
+            <p
+              role="alert"
+              data-testid="today-warning"
+              className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
+            >
+              {warningNote(today.warning)}
+            </p>
+          ) : null}
+          {today.wheels.on ? (
+            <p
+              data-testid="today-wheels"
+              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
+            >
+              {wheelsWords(today.wheels)}
+            </p>
+          ) : null}
+          {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
+          <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
+          {items.length ? (
+            <section aria-labelledby="today-list-title" className="space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h2 id="today-list-title" className="text-lg font-semibold tracking-tight">
+                  {W.listTitle}
+                  <span className="font-medium text-text-3">
+                    {' '}
+                    · {items.length.toLocaleString()}
+                  </span>
+                </h2>
+                {approvable > 1 ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={approving.busy !== null}
+                    onClick={() => void approveAll()}
+                    data-testid="today-approve-all"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    {approveAllWords(approvable)}
+                  </Button>
+                ) : null}
+              </div>
+              <Card className="p-0" data-testid="today-list">
+                <ul>
+                  {items.map((item, i) => (
+                    <TodayRow
+                      key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
+                      workspaceId={workspaceId}
+                      item={item}
+                      auto={today.auto.includes(item.kind)}
+                      asks={asks}
+                      first={i === 0}
+                    />
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          ) : (
+            <TodayStart workspaceId={workspaceId} />
+          )}
+        </div>
+        <aside className="space-y-4">
+          {live ? <DoneToday workspaceId={workspaceId} live={live} /> : null}
+          {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
+          {!today.hasPlaybook ? (
+            <Card className="p-4">
+              <h3 className="text-[15px] font-semibold">Friend requests need a playbook</h3>
+              <p className="mt-1.5 text-[13px] text-text-2">
+                People from your groups are suggested once the business has a playbook saying who to
+                look for.
+              </p>
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                className="mt-3"
                 href={outreachHref(workspaceId, { view: 'playbooks' })}
-                className="text-accent-text hover:underline"
               >
                 Go to Playbooks
-              </Link>
-            </p>
-          </Card>
-        ) : null}
-        {today.readAdmins.length ? (
-          <Card className="p-4" data-testid="today-read-admins">
-            <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
-            <p className="mt-1.5 text-[13px] text-text-2">
-              Their members are suggested once each group’s admins and moderators are saved, so
-              nobody who runs a group is approached. Save its members, and your computer reads who
-              runs it first.
-            </p>
-            <ul className="mt-3 grid gap-3 text-[13px]">
-              {today.readAdmins.map((g) => (
-                <li key={g.groupId} className="grid gap-1.5">
-                  <a
-                    href={g.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-accent-text hover:underline"
-                  >
-                    {g.name ?? 'A group'}
-                  </a>
-                  <AskButton
-                    workspaceId={workspaceId}
-                    asks={asks}
-                    ask={{ kind: 'members', groupIds: [g.groupId] }}
-                    label="Save its members"
-                    testId="today-ask-members"
-                  />
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ) : null}
-      </aside>
+              </ButtonLink>
+            </Card>
+          ) : null}
+          {today.readAdmins.length ? (
+            <Card className="p-4" data-testid="today-read-admins">
+              <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
+              <p className="mt-1.5 text-[13px] text-text-2">
+                Their members are suggested once the group’s admins are saved, so nobody who runs a
+                group is approached.
+              </p>
+              <ul className="mt-3 grid gap-3 text-[13px]">
+                {today.readAdmins.map((g) => (
+                  <li key={g.groupId} className="grid gap-1.5">
+                    <a
+                      href={g.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent-text hover:underline"
+                    >
+                      {g.name ?? 'A group'}
+                    </a>
+                    <AskButton
+                      workspaceId={workspaceId}
+                      asks={asks}
+                      ask={{ kind: 'members', groupIds: [g.groupId] }}
+                      label="Save its members"
+                      testId="today-ask-members"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+        </aside>
+      </div>
+      <HowItWorks />
     </div>
+  );
+}
+
+/** An empty list: what gives it something to work with, each a button to where it's done (decision 59). */
+function TodayStart({ workspaceId }: { workspaceId: string }) {
+  return (
+    <Card className="p-5" data-testid="today-empty">
+      <h2 className="text-[15px] font-semibold">{W.todayEmptyTitle}</h2>
+      <p className="mt-1 text-[13px] text-text-2">{W.todayEmptyBody}</p>
+      <ol className="mt-4 grid gap-2.5">
+        {W.todayStart.map((step, i) => (
+          <li
+            key={step.to}
+            className="flex flex-wrap items-center gap-3 rounded-menu border border-border p-3.5"
+            data-testid={`today-start-${step.to}`}
+          >
+            <span
+              className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent-text"
+              aria-hidden="true"
+            >
+              {i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-medium">{step.title}</span>
+              <span className="block text-[12.5px] text-text-2">{step.body}</span>
+            </span>
+            <ButtonLink
+              size="sm"
+              variant="secondary"
+              href={outreachHref(workspaceId, { view: step.to })}
+            >
+              {step.button}
+            </ButtonLink>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+/** The newest of today's steps, beside the lists: the rest, and the computers, on the computer's own page. */
+function DoneToday({ workspaceId, live }: { workspaceId: string; live: Live }) {
+  const shown = live.steps.slice(0, 6);
+  return (
+    <Card className="p-4" data-testid="today-done">
+      <h3 className="text-[15px] font-semibold">{W.doneToday}</h3>
+      {shown.length ? (
+        <ol className="mt-3 space-y-2">
+          {shown.map((step, i) => (
+            <li key={`${step.at}-${i}`} className="flex gap-3 text-[13px]">
+              <span className="w-[62px] flex-none tabular-nums text-text-3">
+                {clockWords(step.at, live.timezone)}
+              </span>
+              <span
+                className={cn(
+                  'min-w-0',
+                  step.kind === 'stopped' && 'text-danger-text',
+                  step.kind === 'passed' && 'text-text-2',
+                )}
+              >
+                {step.line}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
+      )}
+      <Link
+        href={outreachHref(workspaceId, { view: 'live' })}
+        className="mt-3 inline-block text-[13px] font-medium text-accent-text hover:underline"
+      >
+        {W.seeAllToday}
+      </Link>
+    </Card>
+  );
+}
+
+/** How it works, folded away: once, instead of a note beside every list. */
+function HowItWorks() {
+  return (
+    <details
+      className="group mt-6 rounded-card border border-border bg-card"
+      data-testid="today-how"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-card px-5 py-4 text-[14px] font-medium [&::-webkit-details-marker]:hidden">
+        {W.howItWorks}
+        <ChevronDown
+          className="h-4 w-4 text-text-2 transition-transform group-open:rotate-180"
+          strokeWidth={1.5}
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="grid gap-5 px-5 pb-5 text-[13px] text-text-2 md:grid-cols-3">
+        {W.howItWorksSteps.map((step, i) => (
+          <p key={step.title}>
+            <strong className="font-semibold text-text">
+              {i + 1}. {step.title}
+            </strong>{' '}
+            {step.body}
+          </p>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -246,17 +366,20 @@ function TodayRow({
   item,
   auto,
   asks,
+  first = false,
 }: {
   workspaceId: string;
   item: TodayItem;
   /** The extension does it on its own for you. */
   auto: boolean;
   asks: Asks;
+  /** The list's first row: no line above it. */
+  first?: boolean;
 }) {
   const url = openUrl(item);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
-    <li className="border-t border-border px-5 py-3" data-testid="today-item">
+    <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
           {url ? (
@@ -310,102 +433,6 @@ function TodayRow({
         <Drafts workspaceId={workspaceId} item={item} kind={draftKind} asks={asks} />
       ) : null}
     </li>
-  );
-}
-
-/** What Drafted needs of a message the extension drafted: Today's and Waiting for you's both have it. */
-export interface DraftedSend {
-  readonly sendId: string;
-  readonly state: 'waiting' | 'approved' | (string & {});
-  readonly text: string;
-  readonly handedOver: boolean;
-  readonly needsYou: string | null;
-}
-
-/**
- * A message the extension drafted to send: to change, send or skip while it waits, with why it waits for an OK of its
- * own when it does; else it goes soon. Today and Waiting for you both show it.
- */
-export function Drafted({
-  workspaceId,
-  name,
-  send,
-}: {
-  workspaceId: string;
-  /** Who it's to. */
-  name: string;
-  send: DraftedSend;
-}) {
-  const [text, setText] = useState(send.text);
-  const { busy, act } = useAct();
-  if (send.state === 'approved')
-    return (
-      <div className="mt-2" data-testid="today-send-approved">
-        <p className="text-[12.5px] text-text-3">{W.sentOkd}</p>
-        <p className="mt-1 whitespace-pre-wrap rounded-md bg-card-2 px-3 py-2 text-[13px]">
-          {send.text}
-        </p>
-      </div>
-    );
-  const alone = oneByOneWords(send);
-  return (
-    <div className="mt-2 space-y-1.5" data-testid="today-send">
-      <p className="text-[12.5px] text-text-3">{W.sentWaiting}</p>
-      {alone ? (
-        <p className="text-[12.5px] text-warning-text" data-testid="today-send-alone">
-          {alone}
-        </p>
-      ) : null}
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-label={`Message to ${name}`}
-        rows={3}
-      />
-      <div className="flex flex-wrap gap-1.5">
-        <Button
-          size="sm"
-          disabled={busy !== null || !text.trim()}
-          onClick={() =>
-            void act(
-              'send',
-              async () =>
-                unwrap(
-                  await apiBrowser().POST('/v1/commands/outreach.send.approve', {
-                    body: { workspaceId, sends: [{ sendId: send.sendId, text }] },
-                  }),
-                ),
-              W.okd,
-            )
-          }
-          data-testid="today-send-ok"
-        >
-          <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Send
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={busy !== null}
-          onClick={() =>
-            void act(
-              'skip',
-              async () =>
-                unwrap(
-                  await apiBrowser().POST('/v1/commands/outreach.send.skip', {
-                    body: { workspaceId, sendId: send.sendId },
-                  }),
-                ),
-              `Skipped. ${name} is off your list for today.`,
-            )
-          }
-          data-testid="today-send-skip"
-        >
-          <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Skip
-        </Button>
-      </div>
-    </div>
   );
 }
 

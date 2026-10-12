@@ -36,7 +36,7 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { Check, Minus, Plus } from '@/components/icons';
+import { BookOpen, Check, Minus, Plus, Radar } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,14 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { ChatBubbles } from './chat-bubbles';
-import { NeedsSignal, Note, Part, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutreach,
+  Part,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 
 const VOICE_KEYS = [
   'shorthand',
@@ -142,6 +149,7 @@ export function SettingsScreen({ whose }: { whose?: string }) {
       online={ctx.online}
       onRetry={automation.reload}
       onWhose={(id) => setUserId(id === ctx.userId ? null : id)}
+      onOpen={(view) => openOutreach(ws, view)}
       onSaveMine={async (settings) => {
         try {
           await change('outreach.automation.save', {
@@ -196,6 +204,7 @@ export function SettingsBody({
   onWhose,
   onSaveMine,
   onSaveBusiness,
+  onOpen,
 }: {
   automation: AutomationOutput | null;
   error: string | null;
@@ -210,6 +219,8 @@ export function SettingsBody({
   onSaveMine: (settings: AutomationSettings) => Promise<string | null>;
   /** Saves some of the business's settings, the others kept as they are. */
   onSaveBusiness: (changes: Partial<OutreachSettings>, said?: string) => Promise<string | null>;
+  /** Playbooks and the person's computer, beside the settings since the tabs went to four (decision 59). */
+  onOpen?: (view: 'playbooks' | 'live') => void;
 }) {
   if (!automation)
     return (
@@ -221,6 +232,24 @@ export function SettingsBody({
     );
   return (
     <Screen title={W.rows.settings} leading="back" testID="outreach-settings">
+      {onOpen ? (
+        <List>
+          <ListRow
+            icon={BookOpen}
+            label={W.settingsParts.playbooks}
+            detail={W.rowDetails.playbooks}
+            onPress={() => onOpen('playbooks')}
+            testID="settings-open-playbooks"
+          />
+          <ListRow
+            icon={Radar}
+            label={W.settingsParts.computer}
+            detail={W.rowDetails.live}
+            onPress={() => onOpen('live')}
+            testID="settings-open-computer"
+          />
+        </List>
+      ) : null}
       <Note>{W.settingsIntro}</Note>
       {!online ? <NeedsSignal words={W.needsSignal(W.rows.settings)} /> : null}
       {people && people.people.length > 1 ? (

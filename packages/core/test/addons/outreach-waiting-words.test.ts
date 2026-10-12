@@ -94,15 +94,15 @@ describe('the words', () => {
     // Replies handed over pushed on their own: the bundle leaves them out.
     expect(bundlePushWords(kinds({ message: 3, reply: 2 }))).toEqual({
       title: '3 messages wait for your OK',
-      body: 'Open Waiting for you to OK, change or skip them.',
+      body: 'Open Today to OK, change or skip them.',
     });
     expect(bundlePushWords(kinds({ message: 1, need: 2 }))).toEqual({
       title: '1 message waits for your OK',
-      body: 'And 2 steps the extension couldn’t do. Open Waiting for you.',
+      body: 'And 2 steps the extension couldn’t do. Open Today.',
     });
     expect(bundlePushWords(kinds({ need: 2, request: 4 }))).toEqual({
       title: '2 steps need you',
-      body: 'The extension couldn’t do them. Do them yourself, or let them go, in Waiting for you.',
+      body: 'The extension couldn’t do them. Do them yourself, or let them go, on Today.',
     });
     expect(bundlePushWords(kinds({ reply: 2, request: 1 }))).toBeNull();
     // The extension's first look tells of them too.
@@ -116,11 +116,11 @@ describe('the words', () => {
   it('push one at a time with “one for each”, the why as a sentence', () => {
     expect(eachPushWords('message', 'Dana Reyes')).toEqual({
       title: 'Dana Reyes: a message waits for your OK',
-      body: 'OK it, change it or skip it in Waiting for you.',
+      body: 'OK it, change it or skip it on Today.',
     });
     expect(eachPushWords('need', 'Dana Reyes', 'couldn’t find “Add friend”.')).toEqual({
       title: 'Dana Reyes: the extension needs you',
-      body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, in Waiting for you.',
+      body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
     });
   });
 

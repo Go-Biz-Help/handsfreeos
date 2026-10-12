@@ -37,7 +37,7 @@
 import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
-import { pastLimitWords } from '@hfos/core/addons/outreach/limits';
+import { DAILY_STEPS, pastLimitWords, type DailyStep } from '@hfos/core/addons/outreach/limits';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
@@ -55,6 +55,7 @@ import type {
   HfosAsk,
   TodayList,
   TodayListItem,
+  TodaySoFar,
 } from '../hfos/messages';
 import { config } from '../hfos/config';
 import { follow, loadSettings } from '../hfos/follow';
@@ -975,22 +976,40 @@ export async function wake(): Promise<void> {
 
 // ------------------------------------------------------------------------------------------------- the panel
 
+/** How many of the day's steps the panel lists under Done today. */
+const DONE_SHOWN = 4;
+
 /**
- * The warning when the person's own steps today go past a daily limit: the limits count, they don't
- * stop, so the panel says so where the steps happen. Null within them, or when HandsFreeOS can't say.
+ * Today in HandsFreeOS (its live answer): each step against its daily limit, for Next up, and the newest steps, for
+ * Done today. Null when HandsFreeOS can't say.
  */
-async function pastLimitOf(businessId: string): Promise<string | null> {
+async function todayOf(businessId: string): Promise<TodaySoFar | null> {
   try {
-    const day = await call(
-      api().POST('/v1/queries/outreach.activity', {
-        body: { workspaceId: businessId, period: 'today' },
-      }),
+    const live = await call(
+      api().POST('/v1/queries/outreach.live', { body: { workspaceId: businessId } }),
       businessId,
     );
-    return pastLimitWords(day.today, day.limits);
+    return {
+      limits: live.limits,
+      steps: live.steps.slice(0, DONE_SHOWN).map((s) => ({ at: s.at, line: s.line, kind: s.kind })),
+    };
   } catch {
     return null;
   }
+}
+
+/**
+ * The warning when the person's own steps today go past a daily limit: the limits count, they don't stop, so the
+ * panel says so where the steps happen. Null within them, or when HandsFreeOS can't say.
+ */
+function pastLimitOf(today: TodaySoFar | null): string | null {
+  if (!today) return null;
+  const counts = (pick: 'done' | 'most') =>
+    Object.fromEntries(DAILY_STEPS.map((step) => [step, today.limits[step][pick]])) as Record<
+      DailyStep,
+      number
+    >;
+  return pastLimitWords(counts('done'), counts('most'));
 }
 
 async function status(): Promise<AutoStatus> {
@@ -1004,6 +1023,7 @@ async function status(): Promise<AutoStatus> {
     trouble: null,
     live: null,
     pastLimit: null,
+    today: null,
     warned,
     noting,
     state,
@@ -1012,14 +1032,17 @@ async function status(): Promise<AutoStatus> {
   if (!to) return { ...none, businessId: null };
   const kept = await keptFor(to);
   const live = kept ? { working: kept.working, workingName: kept.workingName } : null;
-  const pastLimit = pastLimitOf(to.businessId);
+  const today = todayOf(to.businessId);
   try {
+    const automation = await automationOf(to.businessId);
+    const day = await today;
     return {
       ...none,
-      automation: await automationOf(to.businessId),
+      automation,
       businessId: to.businessId,
       live,
-      pastLimit: await pastLimit,
+      pastLimit: pastLimitOf(day),
+      today: day,
     };
   } catch (error) {
     if (!(error instanceof Refused)) throw error;
@@ -1028,7 +1051,8 @@ async function status(): Promise<AutoStatus> {
       trouble: error.problem.message,
       businessId: to.businessId,
       live,
-      pastLimit: await pastLimit,
+      pastLimit: pastLimitOf(await today),
+      today: await today,
     };
   }
 }

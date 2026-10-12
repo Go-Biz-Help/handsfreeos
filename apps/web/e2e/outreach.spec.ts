@@ -52,7 +52,9 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
   await expect(page.getByTestId('outreach-home')).toBeVisible();
-  await page.getByTestId('outreach-tab-playbooks').click();
+  // Playbooks sit under the gear, beside the settings (decision 59).
+  await page.getByTestId('outreach-tab-settings').click();
+  await page.getByTestId('outreach-settings-part-playbooks').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=playbooks$`));
   await page.getByTestId('playbook-new').click();
   await page.getByTestId('template-blank').click();
@@ -188,7 +190,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   );
 });
 
-test('the activity tab counts what the extension noted, by group and person, over a stretch of days', async ({
+test('the Results tab counts what the extension noted, by group and person, over a stretch of days', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -197,6 +199,8 @@ test('the activity tab counts what the extension noted, by group and person, ove
   await turnOnOutreach(page, email, workspaceId);
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
+  await page.getByTestId('outreach-tab-results').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results$`));
   await expect(page.getByTestId('activity-empty')).toContainText(
     'Nothing noted in the last 7 days',
   );
@@ -261,18 +265,22 @@ test('the activity tab counts what the extension noted, by group and person, ove
   await expect(people.filter({ hasText: 'Kim Lowe' })).toContainText('Friend request');
   await expect(people.filter({ hasText: 'Dana Reyes' })).toContainText('Messaged');
 
-  // The owner's day against the limits, whatever the stretch.
-  await expect(page.getByTestId('activity-today-friend_request')).toContainText('1 of 20');
-  await expect(page.getByTestId('activity-today-first_message')).toContainText('1 of 15');
-
   // Another stretch, and everyone's steps for the owner, each in the address.
   await page.getByTestId('activity-period-today').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?period=today$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results&period=today$`));
   await expect(numbers.getByTestId('activity-number-people')).toContainText('3');
   await page.getByTestId('activity-who-everyone').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?period=today&who=everyone$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results&period=today&who=everyone$`));
   await expect(page.getByTestId('activity-who-everyone')).toHaveAttribute('aria-selected', 'true');
   await expect(people).toHaveCount(3);
+
+  // The owner's day against the limits is at the top of Today.
+  await page.getByTestId('outreach-tab-today').click();
+  await expect(page.getByTestId('today-limit-friend_request')).toContainText('1 of 20');
+  await expect(page.getByTestId('today-limit-first_message')).toContainText('1 of 15');
+  // The old address of the activity opens Results.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=activity`);
+  await expect(page.getByTestId('outreach-tab-results')).toHaveAttribute('aria-current', 'page');
 });
 
 test('the friends tab lists what the extension saved a page at a time, keeps a friend, and puts someone on the Don’t pitch list', async ({
@@ -314,7 +322,9 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
   });
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
-  await page.getByTestId('outreach-tab-friends').click();
+  // Friends sit under People (decision 59).
+  await page.getByTestId('outreach-tab-people').click();
+  await page.getByTestId('outreach-people-friends').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends$`));
   const people = page.getByTestId('friend');
   await expect(people).toHaveText([/Parker Reed/, /Quinn Harper/, /Sky Patel/]);

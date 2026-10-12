@@ -17,7 +17,6 @@ import { ScrollView, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
 import { ExternalLink } from '@/components/icons';
-import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,6 +25,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
+import { OutreachFrame } from './frame';
 import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
 import { PersonMenu } from './person-menu';
 
@@ -128,7 +128,7 @@ export function PipelineBody({
   menu?: (p: Person) => React.ReactNode;
 }) {
   return (
-    <Screen title={W.rows.pipeline} leading="back" testID="outreach-pipeline">
+    <OutreachFrame tab="people" people="pipeline" testID="outreach-pipeline">
       <Note>{view === 'lost' ? STAGE_WORDS.lostNote : STAGE_WORDS.about}</Note>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-1.5">
@@ -209,6 +209,6 @@ export function PipelineBody({
       ) : error ? (
         <NeedsSignal words={error} onRetry={onRetry} testID="pipeline-needs-signal" />
       ) : null}
-    </Screen>
+    </OutreachFrame>
   );
 }

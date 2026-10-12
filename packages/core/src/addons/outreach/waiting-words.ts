@@ -272,16 +272,16 @@ export function bundlePushWords(
     return {
       title: `${things(messages, 'message waits', 'messages wait')} for your OK`,
       body: needs
-        ? `And ${things(needs, 'step', 'steps')} the extension couldn’t do. Open Waiting for you.`
-        : `Open Waiting for you to OK, change or skip ${messages === 1 ? 'it' : 'them'}.`,
+        ? `And ${things(needs, 'step', 'steps')} the extension couldn’t do. Open Today.`
+        : `Open Today to OK, change or skip ${messages === 1 ? 'it' : 'them'}.`,
     };
   if (needs)
     return {
       title: needs === 1 ? '1 step needs you' : `${needs.toLocaleString('en-US')} steps need you`,
       body:
         needs === 1
-          ? 'The extension couldn’t do it. Do it yourself, or let it go, in Waiting for you.'
-          : 'The extension couldn’t do them. Do them yourself, or let them go, in Waiting for you.',
+          ? 'The extension couldn’t do it. Do it yourself, or let it go, on Today.'
+          : 'The extension couldn’t do them. Do them yourself, or let them go, on Today.',
     };
   return null;
 }
@@ -301,12 +301,12 @@ export function eachPushWords(
   if (kind === 'message')
     return {
       title: `${name}: a message waits for your OK`,
-      body: 'OK it, change it or skip it in Waiting for you.',
+      body: 'OK it, change it or skip it on Today.',
     };
   const said = why ? sentence(why) : '';
   return {
     title: `${name}: the extension needs you`,
-    body: `${said ? `${said}. ` : ''}Do it yourself, or let it go, in Waiting for you.`,
+    body: `${said ? `${said}. ` : ''}Do it yourself, or let it go, on Today.`,
   };
 }
 
@@ -317,7 +317,7 @@ export function handOverPushWords(
 ): { title: string; body: string } {
   return {
     title: `${name} needs you`,
-    body: `Their reply waits for your OK in Waiting for you${why ? `: ${why}` : ': it isn’t a simple one'}.`,
+    body: `Their reply waits for your OK on Today${why ? `: ${why}` : ': it isn’t a simple one'}.`,
   };
 }
 

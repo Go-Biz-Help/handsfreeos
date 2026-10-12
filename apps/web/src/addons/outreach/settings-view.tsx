@@ -9,7 +9,11 @@
  * - **Business settings:** owners and admins set the choices people may pick, daily limits under the starting ones,
  *   where a new person starts, where the team downloads the extension (./extension-link.tsx), and the business's
  *   other Social Outreach settings (`addon.save_settings`).
+ * - **Your computer:** the person's computers, to rename (./live-view.tsx); the one used last works.
  * - **Set up again** opens Social Outreach's setup at its first step (./setup-view.tsx).
+ * - **Start fresh**, for owners (./start-fresh.tsx).
+ *
+ * Each part has an anchor the Settings tab's menu links to (./home.tsx, decision 59); Playbooks sit beside them there.
  */
 import {
   BusinessRules,
@@ -49,7 +53,8 @@ import { ChatBubbles } from './chat-bubbles';
 import { ExtensionLinkForm } from './extension-link';
 import { StartFresh } from './start-fresh';
 import OutreachBusinessSettings from './business-settings';
-import type { Automation, AutomationPeople } from './types';
+import { ComputersCard, useServerNow } from './live-view';
+import type { Automation, AutomationPeople, Live } from './types';
 import { useAct } from './use-act';
 
 const VOICE_KEYS = [
@@ -62,10 +67,21 @@ const VOICE_KEYS = [
 const select =
   'h-8 rounded-control border border-border-strong bg-card px-2 text-[13px] max-md:h-11';
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="space-y-3 rounded-card border border-border bg-card p-4">
-      <h2 className="text-[15px] font-semibold">{title}</h2>
+    <section
+      id={id}
+      className="scroll-mt-4 space-y-3 rounded-card border border-border bg-card p-5 shadow-1"
+    >
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       {children}
     </section>
   );
@@ -413,20 +429,37 @@ export function RulesForm({
           ))}
         </div>
       </Part>
-      <Part
-        title={W.sections.defaults}
-        about={`${W.abouts.defaults} Change anyone’s under Settings for, above.`}
+      {/* Folded: it's the same form as each person's, and rarely changed (decision 59). */}
+      <details
+        className="group rounded-menu border border-border"
+        data-testid="outreach-defaults-part"
       >
-        <ChoicesForm
-          value={rules.defaults}
-          onChange={(defaults) => setRules({ ...rules, defaults })}
-          sendingAllowed={rules.sendingAllowed}
-          repliesAllowed={rules.repliesAllowed}
-          postingAllowed={rules.postingAllowed}
-          timezone={timezone}
-          testId="outreach-defaults"
-        />
-      </Part>
+        <summary className="flex cursor-pointer list-none items-start justify-between gap-3 rounded-menu p-3.5 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0">
+            <span className="block text-[14px] font-semibold">{W.sections.defaults}</span>
+            <span className="mt-0.5 block text-[13px] text-text-2">
+              {SENDING_MODES[rules.defaults.sending]} · {REPLY_MODES[rules.defaults.replies]}
+            </span>
+          </span>
+          <span className="flex-none text-[13px] font-medium text-accent-text group-open:hidden">
+            {W.change}
+          </span>
+        </summary>
+        <div className="border-t border-border p-3.5">
+          <p className="mb-4 text-[13px] text-text-2">
+            {`${W.abouts.defaults} Change anyone’s under Settings for, above.`}
+          </p>
+          <ChoicesForm
+            value={rules.defaults}
+            onChange={(defaults) => setRules({ ...rules, defaults })}
+            sendingAllowed={rules.sendingAllowed}
+            repliesAllowed={rules.repliesAllowed}
+            postingAllowed={rules.postingAllowed}
+            timezone={timezone}
+            testId="outreach-defaults"
+          />
+        </div>
+      </details>
       <Button
         size={carryOn ? 'lg' : 'sm'}
         disabled={(!carryOn && same(rules, now)) || busy !== null || carryingOn}
@@ -458,6 +491,16 @@ export function RulesForm({
   );
 }
 
+/** The person's computers, to rename; or how to get one going. */
+function ComputerPart({ workspaceId, live }: { workspaceId: string; live: Live }) {
+  const now = useServerNow(live.now);
+  return live.computers.length ? (
+    <ComputersCard workspaceId={workspaceId} live={live} now={now} bare />
+  ) : (
+    <p className="text-[13px] text-text-2">{W.noComputer}</p>
+  );
+}
+
 export function SettingsView({
   workspaceId,
   me,
@@ -465,8 +508,11 @@ export function SettingsView({
   people,
   business,
   canStartFresh = false,
+  live = null,
 }: {
   workspaceId: string;
+  /** The person's computers: null when they couldn't be had. */
+  live?: Live | null;
   /** An owner, who may erase everything and start fresh (`addons.purge`). */
   canStartFresh?: boolean;
   /** Whether they're the person's own. */
@@ -482,7 +528,7 @@ export function SettingsView({
   // A change made elsewhere (the person on another screen, or an owner) shows here too.
   useLiveRefresh(['outreach_automation', 'addon']);
   return (
-    <div className="max-w-2xl space-y-4" data-testid="outreach-settings-view">
+    <div className="max-w-3xl space-y-5" data-testid="outreach-settings-view">
       <p className="text-[13px] text-text-2">{W.settingsIntro}</p>
       {people ? (
         <label className="flex flex-wrap items-center gap-2 text-[13px]">
@@ -521,7 +567,7 @@ export function SettingsView({
           </ButtonLink>
         </div>
       ) : null}
-      <Section title={mine ? W.mySettings : W.settingsOf(me.name)}>
+      <Section id="mine" title={mine ? W.mySettings : W.settingsOf(me.name)}>
         <MySettings
           // Saved somewhere else: the form starts again from what's kept.
           key={`${me.userId}:${JSON.stringify(me.settings)}:${me.changedBy ?? ''}`}
@@ -530,7 +576,7 @@ export function SettingsView({
         />
       </Section>
       {business ? (
-        <Section title={W.sections.business}>
+        <Section id="business" title={W.sections.business}>
           <RulesForm
             key={JSON.stringify(business.rules ?? null)}
             workspaceId={workspaceId}
@@ -567,7 +613,16 @@ export function SettingsView({
           </Link>
         </p>
       )}
-      {canStartFresh && mine ? <StartFresh workspaceId={workspaceId} /> : null}
+      {mine && live ? (
+        <Section id="computer" title={W.settingsParts.computer}>
+          <ComputerPart workspaceId={workspaceId} live={live} />
+        </Section>
+      ) : null}
+      {canStartFresh && mine ? (
+        <div id="fresh" className="scroll-mt-4">
+          <StartFresh workspaceId={workspaceId} />
+        </div>
+      ) : null}
     </div>
   );
 }

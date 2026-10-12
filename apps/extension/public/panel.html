@@ -7,29 +7,31 @@
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
-    <header>
+    <header class="top">
       <img src="icons/icon-32.png" width="24" height="24" alt="" />
-      <div>
-        <h1>HandsFreeOS Social</h1>
-        <p class="sub">
-          Test build. It works on Facebook for you, as you set it in HandsFreeOS: what it does on
-          its own, and what you ask of it there. It stops for the day on any Facebook warning.
-        </p>
+      <div class="brand">
+        <h1>HandsFree<span class="os">OS</span> <span class="product">Social</span></h1>
+        <p id="where" class="where" hidden></p>
       </div>
+      <span id="state" class="state" hidden></span>
     </header>
 
-    <div id="account" class="account"></div>
-
-    <section id="now" class="today now" hidden></section>
-    <section id="waiting" class="today waiting" hidden></section>
+    <main>
+      <div id="account" class="account"></div>
+      <section id="now" class="card now" hidden></section>
+      <section id="waiting" class="card waiting" hidden></section>
+      <section id="done" class="card done" hidden></section>
+    </main>
 
     <footer>
+      <p id="settings-line" class="settings-line" hidden></p>
+      <p id="who" class="who" hidden></p>
       <p><a id="open-hfos" target="_blank" rel="noreferrer" hidden>Open HandsFreeOS</a></p>
       <details>
-        <summary>Page read wrong?</summary>
+        <summary>Something look wrong on this page? Tell us</summary>
         <p>
           Copy or save the outline of the Facebook page beside this panel and send it to us. It
-          keeps the page's layout and Facebook's own words, and hides names, messages and posts.
+          keeps the page’s layout and Facebook’s own words, and hides names, messages and posts.
           Look it over before you send it.
         </p>
         <div class="actions">

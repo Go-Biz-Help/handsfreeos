@@ -1,18 +1,19 @@
 'use client';
 /**
- * Social Outreach's activity tab (docs/outreach.md, decision 7): what the browser extension noted as people worked on
- * Facebook (apps/extension/README.md, "What it notes"), over a stretch of days. How many people were reached and how,
- * by the group they were found in and person by person, and the person's own day against the daily limits. Owners and
- * admins can see the whole team's. The stretch and whose are in the address (./address.ts), so the page asks
- * HandsFreeOS for them and Back still works.
+ * Social Outreach's Results tab (docs/outreach.md, decisions 7, 34 and 59): what the browser extension noted as people
+ * worked on Facebook (apps/extension/README.md, "What it notes"), over a stretch of days. It leads with what came of
+ * it: demos booked, then each step from reached to booked with how many of the step before made it, then what was
+ * done along the way, by the group people were found in and person by person. The day against the daily limits is on
+ * Today. Owners and admins can see the whole team's. The stretch and whose are in the address (./address.ts), so the
+ * page asks HandsFreeOS for them and Back still works.
  */
 import {
   ACTIVITY_PERIOD_KEYS,
   ACTIVITY_PERIODS,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
-import { DAILY_STEPS, DAILY_WORDS, pastLimitWords } from '@hfos/core/addons/outreach/limits';
-import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
@@ -28,16 +29,19 @@ type Numbers = Activity['numbers'];
 type Group = Activity['groups'][number];
 type Person = Activity['people'][number];
 
-/** The numbers across the top: who was reached, then how. */
-const NUMBERS: readonly { readonly key: keyof Numbers; readonly label: string }[] = [
-  { key: 'people', label: 'People reached' },
+/** From reached to booked, each step from the one before. */
+const FUNNEL = [
+  'people',
+  'chatsStarted',
+  'replies',
+  'demos',
+] as const satisfies readonly (keyof Numbers)[];
+/** What was done along the way. */
+const ALONG: readonly { readonly key: keyof Numbers; readonly label: string }[] = [
   { key: 'friendRequests', label: 'Friend requests' },
   { key: 'likes', label: 'Likes' },
   { key: 'comments', label: 'Comments' },
-  { key: 'chatsStarted', label: 'Chats started' },
   { key: 'followUps', label: 'Follow-ups' },
-  { key: 'replies', label: 'Wrote back' },
-  { key: 'demos', label: 'Demos booked' },
 ];
 
 /** How far someone has come, a step at a time. */
@@ -62,13 +66,11 @@ const groupName = (g: { readonly name: string | null; readonly url: string }) =>
 
 export function ActivityView({
   workspaceId,
-  businessName,
   activity,
   period,
   canManage,
 }: {
   workspaceId: string;
-  businessName: string;
   activity: Activity;
   period: ActivityPeriod;
   /** Owners and admins can see everyone's steps. */
@@ -80,6 +82,7 @@ export function ActivityView({
     startTransition(() =>
       router.replace(
         outreachHref(workspaceId, {
+          view: 'results',
           period: to.period ?? period,
           everyone: to.everyone ?? activity.everyone,
         }),
@@ -116,62 +119,108 @@ export function ActivityView({
         className={cn('space-y-4 transition-opacity', pending && 'opacity-60')}
         aria-busy={pending || undefined}
       >
-        {nothing ? null : <NumbersRow numbers={activity.numbers} />}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="min-w-0 space-y-4">
-            {nothing ? (
-              <Card data-testid="activity-empty">
-                <EmptyState title={`Nothing noted ${within(period)}`}>
-                  When {activity.everyone ? 'your team sends' : 'you send'} friend requests, likes,
-                  comments and messages on Facebook with HandsFreeOS Social signed in, they show up
-                  here.
-                </EmptyState>
-              </Card>
-            ) : (
-              <>
-                <GroupsCard groups={activity.groups} />
-                <PeopleCard
-                  workspaceId={workspaceId}
-                  people={activity.people}
-                  more={activity.morePeople}
-                />
-              </>
-            )}
-          </div>
-          <aside className="space-y-4">
-            <DayCard today={activity.today} limits={activity.limits} warning={activity.warning} />
-            <Card className="p-4">
-              <h3 className="text-[15px] font-semibold">The browser extension</h3>
-              <p className="mt-1.5 text-[13px] text-text-2">
-                HandsFreeOS Social works beside you on Facebook. Sign in to it with your HandsFreeOS
-                email and pick {businessName}. It notes the friend requests, likes, comments and
-                messages you send, with the group you found each person in, and never what you
-                wrote. Press <strong>Save to HandsFreeOS</strong> on a profile or a chat to add the
-                person to Contacts. It’s a test build for now, loaded into Chrome by hand.
-              </p>
-            </Card>
-          </aside>
-        </div>
+        {nothing ? null : <Funnel numbers={activity.numbers} />}
+        {nothing ? (
+          <Card data-testid="activity-empty">
+            <EmptyState title={`Nothing noted ${within(period)}`}>
+              When {activity.everyone ? 'your team sends' : 'you send'} friend requests, likes,
+              comments and messages on Facebook with HandsFreeOS Social signed in, they show up
+              here.
+            </EmptyState>
+          </Card>
+        ) : (
+          <>
+            <GroupsCard groups={activity.groups} />
+            <PeopleCard
+              workspaceId={workspaceId}
+              people={activity.people}
+              more={activity.morePeople}
+            />
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function NumbersRow({ numbers }: { numbers: Numbers }) {
+/** What came of it: demos booked first, then each step from reached to booked, then what was done along the way. */
+function Funnel({ numbers }: { numbers: Numbers }) {
+  const R = W.results;
   return (
-    <div
-      className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8"
-      data-testid="activity-numbers"
-    >
-      {NUMBERS.map((n) => (
-        <Card key={n.key} className="p-3.5" data-testid={`activity-number-${n.key}`}>
-          <div className="text-[22px] font-semibold leading-tight tabular-nums">
-            {numbers[n.key].toLocaleString()}
-          </div>
-          <div className="mt-0.5 text-[12.5px] text-text-2">{n.label}</div>
-        </Card>
-      ))}
-    </div>
+    <section aria-label={W.tabs.results} className="space-y-3" data-testid="activity-numbers">
+      <p className="text-[26px] font-semibold leading-tight tracking-[-0.015em] tabular-nums">
+        {R.headline(numbers.demos)}{' '}
+        <span className="font-medium text-text-2">{R.from(numbers.people)}</span>
+      </p>
+      <ol className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+        {FUNNEL.map((key, i) => {
+          const before = i > 0 ? FUNNEL[i - 1]! : null;
+          const of = before ? numbers[before] : 0;
+          const pct = before && of > 0 ? Math.round((numbers[key] / of) * 100) : null;
+          const width = numbers.people > 0 ? Math.round((numbers[key] / numbers.people) * 100) : 0;
+          const last = key === 'demos';
+          return (
+            <li
+              key={key}
+              className={cn(
+                'relative grid gap-2 rounded-card border p-4',
+                last ? 'border-success-soft bg-success-soft' : 'border-border bg-card shadow-1',
+              )}
+              data-testid={`activity-number-${key}`}
+            >
+              <span
+                className={cn(
+                  'text-[13px] font-medium',
+                  last ? 'text-success-text' : 'text-text-2',
+                )}
+              >
+                {R.funnel[key]}
+              </span>
+              <span
+                className={cn(
+                  'text-[26px] font-semibold leading-tight tabular-nums',
+                  last && 'text-success-text',
+                )}
+              >
+                {numbers[key].toLocaleString()}
+              </span>
+              <div
+                className={cn('h-2 rounded-full', last ? 'bg-card' : 'bg-card-2')}
+                aria-hidden="true"
+              >
+                <div
+                  className={cn('h-2 rounded-full', last ? 'bg-success' : 'bg-accent')}
+                  style={{ width: `${numbers[key] > 0 ? Math.max(3, width) : 0}%` }}
+                />
+              </div>
+              <span className={cn('text-[12.5px]', last ? 'text-success-text' : 'text-text-3')}>
+                {pct !== null && before ? R.rate(pct, R.funnel[before]) : '\u00a0'}
+              </span>
+              {i < FUNNEL.length - 1 ? (
+                <ChevronRight
+                  className="absolute -right-[15px] top-1/2 z-10 hidden h-4 w-4 -translate-y-1/2 text-text-3 lg:block"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-text-2">
+        <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+          {R.along}
+        </span>
+        {ALONG.map((n) => (
+          <span key={n.key} data-testid={`activity-number-${n.key}`}>
+            {n.label}{' '}
+            <span className="font-medium tabular-nums text-text">
+              {numbers[n.key].toLocaleString()}
+            </span>
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -303,72 +352,6 @@ function PeopleCard({
       {more ? (
         <p className="border-t border-border px-5 py-3 text-[12.5px] text-text-3">
           And {more.toLocaleString()} more, not shown.
-        </p>
-      ) : null}
-    </Card>
-  );
-}
-
-/**
- * The person's own day so far against the daily limits, whatever the stretch above shows: halved for a week after
- * Facebook warns them (docs/outreach.md, decision 25), with a red note saying so.
- */
-function DayCard({
-  today,
-  limits,
-  warning,
-}: {
-  today: Activity['today'];
-  limits: Activity['limits'];
-  warning: Activity['warning'];
-}) {
-  const past = pastLimitWords(today, limits);
-  return (
-    <Card className="p-4" data-testid="activity-today">
-      <h3 className="text-[15px] font-semibold">Your day so far</h3>
-      <p className="mt-0.5 text-[12.5px] text-text-3">
-        Against the daily limits. Stay under them so Facebook doesn’t block your account.
-      </p>
-      {warning ? (
-        <p
-          role="alert"
-          data-testid="activity-warning"
-          className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
-        >
-          {warningNote(warning)}
-        </p>
-      ) : null}
-      <ul className="mt-3 space-y-2.5">
-        {DAILY_STEPS.map((step) => {
-          const count = today[step];
-          const limit = limits[step];
-          const full = count >= limit;
-          return (
-            <li key={step} data-testid={`activity-today-${step}`}>
-              <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                <span>{DAILY_WORDS[step].label}</span>
-                <span
-                  className={cn(
-                    'tabular-nums',
-                    full ? 'font-semibold text-warning-text' : 'text-text-2',
-                  )}
-                >
-                  {count} of {limit}
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-card-2" aria-hidden="true">
-                <div
-                  className={cn('h-full rounded-full', full ? 'bg-warning' : 'bg-accent')}
-                  style={{ width: `${Math.min(100, Math.round((count / limit) * 100))}%` }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      {past ? (
-        <p className="mt-3 rounded-menu bg-warning-soft p-2.5 text-[12.5px] text-warning-text">
-          {past}
         </p>
       ) : null}
     </Card>

@@ -115,7 +115,7 @@ describe('the pop-ups', () => {
       {
         id: POPUP_ID,
         title: '2 messages wait for your OK',
-        message: 'Open Waiting for you to OK, change or skip them.',
+        message: 'Open Today to OK, change or skip them.',
       },
     ]);
     expect(shown.told).toEqual(items.slice(0, 2).map(idOf));
@@ -158,7 +158,7 @@ describe('the pop-ups', () => {
       {
         id: `${POPUP_ID}-${idOf(reply)}`,
         title: 'Ana Moss needs you',
-        message: 'Their reply waits for your OK in Waiting for you: they sound upset.',
+        message: 'Their reply waits for your OK on Today: they sound upset.',
       },
     ]);
     expect(shown.told).toEqual([idOf(reply)]);
@@ -178,7 +178,7 @@ describe('the pop-ups', () => {
       'Sam Lee: a message waits for your OK',
     ]);
     expect(each.show[1]!.message).toBe(
-      'Couldn’t find “Add friend”. Do it yourself, or let it go, in Waiting for you.',
+      'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
     );
     const four = [...three, send('message', 'Kim Lee')];
     expect(
@@ -187,7 +187,7 @@ describe('the pop-ups', () => {
       {
         id: POPUP_ID,
         title: '3 messages wait for your OK',
-        message: 'And 1 step the extension couldn’t do. Open Waiting for you.',
+        message: 'And 1 step the extension couldn’t do. Open Today.',
       },
     ]);
     expect(
@@ -216,7 +216,7 @@ describe('the pop-ups', () => {
       {
         id: POPUP_ID,
         title: '3 messages wait for your OK',
-        message: 'Open Waiting for you to OK, change or skip them.',
+        message: 'Open Today to OK, change or skip them.',
       },
     ]);
     expect(first.told).toEqual(items.map(idOf));

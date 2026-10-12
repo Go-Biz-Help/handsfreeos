@@ -1,11 +1,20 @@
 /**
- * What Social Outreach's page shows, from its address: the tab (`?view=live`, `waiting`, `today`, `pipeline`, `groups`,
- * `friends`, `chats`, `playbooks` or `settings`, else the activity); for the pipeline, which stage (`?show=ready`…, else
- * everyone in play); for settings, whose (`?for=` someone's id, for owners and admins); for groups, which (`?show=maybe`, `skip` or `all`, else Work these); for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps
- * (`?who=everyone`, for owners and admins); for friends, which of them (`?show=fits`, `requests`, `sent`, `keep` or
- * `dont_pitch`); for chats, which (`?show=tagged`, `read` or `waiting`) and a tag (`?tag=`); for both, a name
- * searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server and the tabs
- * build their links from it.
+ * What Social Outreach's page shows, from its address. Four tabs and the gear (docs/outreach.md, decision 59):
+ *
+ * - **Today** (`?view=today`, and the bare page): what needs the person and their list. `?view=waiting`, the old
+ *   Waiting for you tab's address that pushes and links still use, opens it too; `?view=live` is the detail of what
+ *   their computer is doing, under the same tab.
+ * - **People**: everyone reached by where they stand (`?view=pipeline`, `?show=ready`… for one stage, else the board),
+ *   their friends (`?view=friends`, `?show=fits`, `requests`, `sent`, `keep` or `dont_pitch`) and their chats
+ *   (`?view=chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`).
+ * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these).
+ * - **Results** (`?view=results`, and the old `?view=activity`): the stretch of days (`?period=today`, `week` or
+ *   `month`) and whose steps (`?who=everyone`, for owners and admins).
+ * - **Settings** (`?view=settings`, whose with `?for=` someone's id, for owners and admins) and the business's playbooks
+ *   (`?view=playbooks`).
+ *
+ * Lists take a name searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server
+ * and the tabs build their links from it.
  */
 import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import { CHAT_VIEW_KEYS, type ChatView } from '@hfos/core/addons/outreach/chat-read';
@@ -15,31 +24,75 @@ import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stag
 
 export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
 
-/** The stretch the activity opens on. */
+/** The stretch the results open on. */
 export const DEFAULT_PERIOD: ActivityPeriod = 'week';
 
 export type OutreachView =
-  | 'activity'
-  | 'live'
-  | 'waiting'
   | 'today'
+  | 'live'
   | 'pipeline'
-  | 'groups'
   | 'friends'
   | 'chats'
-  | 'playbooks'
-  | 'settings';
+  | 'groups'
+  | 'results'
+  | 'settings'
+  | 'playbooks';
 const VIEWS: readonly OutreachView[] = [
-  'live',
-  'waiting',
   'today',
+  'live',
   'pipeline',
-  'groups',
   'friends',
   'chats',
+  'groups',
+  'results',
+  'settings',
   'playbooks',
+];
+/** The old tabs' addresses, which pushes, emails and old phones still open. */
+const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
+  waiting: 'today',
+  activity: 'results',
+};
+
+/** The four tabs and the gear (decision 59). */
+export type OutreachTab = 'today' | 'people' | 'groups' | 'results' | 'settings';
+export const OUTREACH_TABS: readonly OutreachTab[] = [
+  'today',
+  'people',
+  'groups',
+  'results',
   'settings',
 ];
+
+/** The tab a view sits under. */
+export function tabOf(view: OutreachView): OutreachTab {
+  switch (view) {
+    case 'today':
+    case 'live':
+      return 'today';
+    case 'pipeline':
+    case 'friends':
+    case 'chats':
+      return 'people';
+    case 'groups':
+      return 'groups';
+    case 'results':
+      return 'results';
+    case 'settings':
+    case 'playbooks':
+      return 'settings';
+  }
+}
+
+/** Where a tab's own link goes. */
+export const TAB_VIEW: Readonly<Record<OutreachTab, OutreachView>> = {
+  today: 'today',
+  people: 'pipeline',
+  groups: 'groups',
+  results: 'results',
+  settings: 'settings',
+};
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface OutreachAddress {
@@ -56,13 +109,13 @@ export interface OutreachAddress {
   readonly chats: ChatView;
   /** Which groups: Work these, Maybe, Skip, or all. */
   readonly groups: GroupView;
-  /** Which of the pipeline: everyone in play, or one stage. */
+  /** Which of the pipeline: everyone in play (the board), or one stage. */
   readonly stages: StageView;
   /** One of the tags, for chats. */
   readonly tag: string;
-  /** Part of a name, for groups, friends and chats. */
+  /** Part of a name, for the pipeline, groups, friends and chats. */
   readonly search: string;
-  /** Which page of groups, friends or chats, from 1. */
+  /** Which page of the pipeline, groups, friends or chats, from 1. */
   readonly page: number;
   /** Whose settings, for an owner or admin: someone's id, or empty for their own. */
   readonly for: string;
@@ -74,7 +127,7 @@ export function readOutreachAddress(
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
   const view = one(sp.view);
   return {
-    view: VIEWS.find((v) => v === view) ?? 'activity',
+    view: VIEWS.find((v) => v === view) ?? OLD_VIEWS[view] ?? 'today',
     period: ACTIVITY_PERIOD_KEYS.find((k) => k === one(sp.period)) ?? DEFAULT_PERIOD,
     everyone: one(sp.who) === 'everyone',
     show: FRIEND_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'friends',
@@ -89,41 +142,35 @@ export function readOutreachAddress(
 }
 
 /**
- * A tab's address: for the activity its stretch and whose; for groups, friends and chats which, the name searched for
- * and the page.
+ * A view's address: for the results their stretch and whose; for the pipeline, groups, friends and chats which, the
+ * name searched for and the page; for settings, whose.
  */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
-  if (to.view === 'playbooks' || to.view === 'today' || to.view === 'live' || to.view === 'waiting')
-    params.set('view', to.view);
-  else if (to.view === 'settings') {
-    params.set('view', 'settings');
+  const view = to.view ?? 'today';
+  params.set('view', view);
+  if (view === 'settings') {
     if (to.for) params.set('for', to.for);
-  } else if (to.view === 'groups') {
-    params.set('view', 'groups');
+  } else if (view === 'groups') {
     if (to.groups && to.groups !== 'work') params.set('show', to.groups);
     if (to.search) params.set('q', to.search);
     if (to.page && to.page > 1) params.set('page', String(to.page));
-  } else if (to.view === 'friends') {
-    params.set('view', 'friends');
+  } else if (view === 'friends') {
     if (to.show && to.show !== 'friends') params.set('show', to.show);
     if (to.search) params.set('q', to.search);
     if (to.page && to.page > 1) params.set('page', String(to.page));
-  } else if (to.view === 'pipeline') {
-    params.set('view', 'pipeline');
+  } else if (view === 'pipeline') {
     if (to.stages && to.stages !== 'all') params.set('show', to.stages);
     if (to.search) params.set('q', to.search);
     if (to.page && to.page > 1) params.set('page', String(to.page));
-  } else if (to.view === 'chats') {
-    params.set('view', 'chats');
+  } else if (view === 'chats') {
     if (to.chats && to.chats !== 'prospects') params.set('show', to.chats);
     if (to.tag) params.set('tag', to.tag);
     if (to.search) params.set('q', to.search);
     if (to.page && to.page > 1) params.set('page', String(to.page));
-  } else {
+  } else if (view === 'results') {
     if (to.period && to.period !== DEFAULT_PERIOD) params.set('period', to.period);
     if (to.everyone) params.set('who', 'everyone');
   }
-  const qs = params.toString();
-  return `/app/w/${workspaceId}/a/outreach${qs ? `?${qs}` : ''}`;
+  return `/app/w/${workspaceId}/a/outreach?${params.toString()}`;
 }

@@ -1,5 +1,6 @@
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as Linking from 'expo-linking';
+import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -11,6 +12,8 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { openWebPath } from '@/home/open';
+import { config } from '@/lib/config';
+import { targetOfLink } from '@/links/route-map';
 import { useGrants } from '@/lib/grants';
 import { useLiveAnswer, type LiveAnswer, type LiveAnswerOptions } from '@/lib/live-answer';
 import { useNetwork } from '@/lib/network';
@@ -24,9 +27,17 @@ import { useNetwork } from '@/lib/network';
 export const OUTREACH_USE = 'outreach.use';
 export const OUTREACH_MANAGE = 'outreach.manage';
 
-/** The page's tabs the phone draws, as the web's `?view=` names them. */
+/** The page's views the phone draws, as the web's `?view=` names them. */
 export type OutreachTab =
-  'waiting' | 'live' | 'today' | 'pipeline' | 'groups' | 'chats' | 'playbooks' | 'settings';
+  | 'waiting'
+  | 'live'
+  | 'today'
+  | 'pipeline'
+  | 'groups'
+  | 'chats'
+  | 'results'
+  | 'playbooks'
+  | 'settings';
 /** The tabs the phone leaves to the web: they have a lot to look through (the manifest's `ui.phone` `web`). */
 export type WebTab = 'activity' | 'friends';
 
@@ -39,6 +50,17 @@ export function outreachPath(workspaceId: string, view?: OutreachTab | WebTab, m
 /** Opens a tab: the phone's screen, or the web's for the tabs it leaves there (the route map decides). */
 export const openOutreach = (workspaceId: string, view?: OutreachTab | WebTab, more = '') =>
   openWebPath(outreachPath(workspaceId, view, more));
+
+/**
+ * Moves between the four tabs (decision 59): the screen is swapped for the tab's, rather than stacked on it, so Back
+ * still leaves Social Outreach.
+ */
+export function switchOutreach(workspaceId: string, view: OutreachTab): void {
+  const path = outreachPath(workspaceId, view);
+  const target = targetOfLink(path, [config.webUrl]);
+  if (target.kind === 'screen') router.replace(target.href as Href);
+  else openWebPath(path);
+}
 
 /** Opens a playbook's screen. */
 export const openPlaybook = (workspaceId: string, playbookId: string) =>
@@ -76,6 +98,13 @@ export function useOutreachContext(): OutreachContext {
     [business.id, business.timezone, me.user.id, permissions, online],
   );
 }
+
+/**
+ * Whether the person has set Social Outreach up, for the phone's line (decision 45): only once they finished the
+ * setup. Hiding the web's "Finish setting up" line doesn't count. With no answer yet, the line waits.
+ */
+export const isSetUp = (setup: { readonly finishedAt: string | null } | null): boolean =>
+  setup === null || setup.finishedAt !== null;
 
 /** One of the server's answers for a screen: with no signal, the screen says it needs signal, plainly. */
 export function useOutreachAnswer<T>(

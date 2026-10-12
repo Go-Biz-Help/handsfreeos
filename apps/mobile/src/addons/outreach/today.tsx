@@ -45,7 +45,8 @@ import { PersonMenu } from './person-menu';
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
 
-export function TodayScreen() {
+/** Today's answers and what its buttons do: for its own screen, and for Today's tab with Needs you above it. */
+export function useTodayProps(): React.ComponentProps<typeof TodayBody> {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const today = useOutreachAnswer(
@@ -80,73 +81,71 @@ export function TodayScreen() {
     toast.show(said);
     today.reload();
   };
-  return (
-    <TodayBody
-      today={today.data}
-      helpful={helpful.data}
-      onHelpful={{
-        write: () =>
-          helpfulChange(() => change('outreach.helpful.ask', { workspaceId: ws }), H.writing),
-        ok: (helpfulId) =>
-          helpfulChange(async () => {
-            await change('outreach.helpful.ok', { workspaceId: ws, helpfulId });
-            await change('outreach.ask.make', {
-              workspaceId: ws,
-              ask: { kind: 'post', helpfulId },
-            });
-          }, H.waitingComputer),
-        posted: (helpfulId) =>
-          helpfulChange(
-            () => change('outreach.helpful.posted', { workspaceId: ws, helpfulId, posted: true }),
-            H.postedDone,
-          ),
-        skip: (helpfulId) =>
-          helpfulChange(
-            () => change('outreach.helpful.skip', { workspaceId: ws, helpfulId }),
-            W.skipped,
-          ),
-      }}
-      error={today.error}
-      wheels={ctx.manages ? wheels.data : null}
-      onRetry={today.reload}
-      menu={(item) => (
-        <PersonMenu workspaceId={ws} who={item} online={ctx.online} onChanged={today.reload} />
-      )}
-      onOk={async (sendId) => {
-        try {
-          await okSend(ws, sendId);
-          after(ctx.online ? W.okd : W.okdQueued);
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onSkip={async (sendId) => {
-        try {
-          await skipSend(ws, sendId);
-          after(ctx.online ? W.skipped : W.skippedQueued);
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onNotForMe={async (postId) => {
-        try {
-          await skipPost(ws, postId);
-          after(ctx.online ? W.notForMeDone : W.queued);
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onEndWheels={async (userId, name) => {
-        try {
-          await change('outreach.wheels.end', { workspaceId: ws, userId });
-          toast.show(W.wheelsEnded(name));
-          wheels.reload();
-        } catch (e) {
-          failed(e);
-        }
-      }}
-    />
-  );
+  return {
+    today: today.data,
+    helpful: helpful.data,
+    onHelpful: {
+      write: () =>
+        helpfulChange(() => change('outreach.helpful.ask', { workspaceId: ws }), H.writing),
+      ok: (helpfulId) =>
+        helpfulChange(async () => {
+          await change('outreach.helpful.ok', { workspaceId: ws, helpfulId });
+          await change('outreach.ask.make', {
+            workspaceId: ws,
+            ask: { kind: 'post', helpfulId },
+          });
+        }, H.waitingComputer),
+      posted: (helpfulId) =>
+        helpfulChange(
+          () => change('outreach.helpful.posted', { workspaceId: ws, helpfulId, posted: true }),
+          H.postedDone,
+        ),
+      skip: (helpfulId) =>
+        helpfulChange(
+          () => change('outreach.helpful.skip', { workspaceId: ws, helpfulId }),
+          W.skipped,
+        ),
+    },
+    error: today.error,
+    wheels: ctx.manages ? wheels.data : null,
+    onRetry: today.reload,
+    menu: (item) => (
+      <PersonMenu workspaceId={ws} who={item} online={ctx.online} onChanged={today.reload} />
+    ),
+    onOk: async (sendId) => {
+      try {
+        await okSend(ws, sendId);
+        after(ctx.online ? W.okd : W.okdQueued);
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onSkip: async (sendId) => {
+      try {
+        await skipSend(ws, sendId);
+        after(ctx.online ? W.skipped : W.skippedQueued);
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onNotForMe: async (postId) => {
+      try {
+        await skipPost(ws, postId);
+        after(ctx.online ? W.notForMeDone : W.queued);
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onEndWheels: async (userId, name) => {
+      try {
+        await change('outreach.wheels.end', { workspaceId: ws, userId });
+        toast.show(W.wheelsEnded(name));
+        wheels.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
+  };
 }
 
 /** What the person does with today's helpful post (decision 50). */
@@ -169,6 +168,8 @@ export function TodayBody({
   onSkip,
   onNotForMe,
   onEndWheels,
+  embedded = false,
+  hideSends,
 }: {
   today: TodayOutput | null;
   /** Today's helpful post, and those up lately: none while it loads. */
@@ -183,26 +184,47 @@ export function TodayBody({
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
   onEndWheels: (userId: string, name: string) => void;
+  /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
+  embedded?: boolean;
+  /** Messages Needs you shows already: left off here, so nobody shows twice. */
+  hideSends?: ReadonlySet<string>;
 }) {
-  if (!today)
-    return (
+  // Its own screen, or a part of Today's tab: a plain function, so the screen is never drawn anew.
+  const frame = (children: React.ReactNode) =>
+    embedded ? (
+      <View className="gap-3" testID="outreach-today">
+        {children}
+      </View>
+    ) : (
       <Screen title={W.rows.today} leading="back" testID="outreach-today">
-        {error ? <NeedsSignal words={error} onRetry={onRetry} testID="today-needs-signal" /> : null}
+        {children}
       </Screen>
     );
-  const kinds = TODAY_KIND_KEYS.filter((k) => today.items.some((i) => i.kind === k && !i.asking));
+  if (!today)
+    return frame(
+      error ? <NeedsSignal words={error} onRetry={onRetry} testID="today-needs-signal" /> : null,
+    );
+  const list: TodayOutput = hideSends?.size
+    ? {
+        ...today,
+        items: today.items.filter(
+          (i) => !(i.send?.state === 'waiting' && hideSends.has(i.send.sendId)),
+        ),
+      }
+    : today;
+  const kinds = TODAY_KIND_KEYS.filter((k) => list.items.some((i) => i.kind === k && !i.asking));
   // Posts asking for what the business offers come first, apart (decision 49).
-  const asking = today.items.filter((i) => i.asking);
-  return (
-    <Screen title={W.rows.today} leading="back" testID="outreach-today">
-      {today.warning ? (
+  const asking = list.items.filter((i) => i.asking);
+  return frame(
+    <>
+      {list.warning ? (
         <Card className="border-danger px-4 py-3" testID="today-warning">
           <Text className="text-[14px] leading-[20px] text-danger">
-            {warningNote(today.warning)}
+            {warningNote(list.warning)}
           </Text>
         </Card>
       ) : null}
-      {today.wheels.on ? <Note testID="today-wheels">{wheelsWords(today.wheels)}</Note> : null}
+      {list.wheels.on ? <Note testID="today-wheels">{wheelsWords(list.wheels)}</Note> : null}
       {helpful && onHelpful ? <HelpfulPart helpful={helpful} on={onHelpful} /> : null}
       {asking.length ? (
         <Part
@@ -227,7 +249,7 @@ export function TodayBody({
           <KindPart
             key={kind}
             kind={kind}
-            today={today}
+            today={list}
             menu={menu}
             onOk={onOk}
             onSkip={onSkip}
@@ -263,7 +285,7 @@ export function TodayBody({
           )}
         </Part>
       ) : null}
-    </Screen>
+    </>,
   );
 }
 

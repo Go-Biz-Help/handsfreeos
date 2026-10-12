@@ -1,8 +1,8 @@
 /**
- * Waiting for you, in the side panel after Right now (docs/outreach.md, decisions 40, 42 and 43): everything waiting
- * for the person, the same list as HandsFreeOS's Waiting for you tab, in five groups:
+ * Needs you, in the side panel after Next up (docs/outreach.md, decisions 40, 42, 43 and 59): everything waiting for
+ * the person, the same list as Needs you on HandsFreeOS's Today, in five groups:
  *
- * - **Replies handed over to you**, each with why, its words to change, **Send** and **Skip**;
+ * - **Replies handed over to you**, each with why, the texts it would send, **Send**, **Edit** and **Skip**;
  * - **Messages to OK**, the same, with **Approve all** above them (which leaves those that wait one at a time);
  * - **Steps it needs you for**: what to do, why the extension couldn't, a link to do it on Facebook, **I did it** and
  *   **Let it go**; a message that didn't go has its words to copy;
@@ -22,6 +22,8 @@ import {
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
+import { messageParts } from '@hfos/core/addons/outreach/voice';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   approveAllCount,
   approveAllWords,
@@ -34,7 +36,6 @@ import {
   oneByOneWords,
   WAITING_KIND_KEYS,
   WAITING_KINDS,
-  waitingWords,
   type NeedClear,
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
@@ -69,6 +70,8 @@ let picked: string | null = null;
 let kept: Kept | null = null;
 /** Messages as the person is changing them, by send; why one couldn't be done, and what happened, by item (or "all"). */
 const edits = new Map<string, string>();
+/** Messages open to change: the rest show as the texts they'd send. */
+const editing = new Set<string>();
 const problems = new Map<string, string>();
 const notes = new Map<string, string>();
 let busy = false;
@@ -221,12 +224,27 @@ function chatView(send: SendItem['send']): HTMLElement | null {
   );
 }
 
+/** The texts a message goes as, as they'd look in Messenger: dashed until sent (decision 55). */
+function textsView(text: string): HTMLElement {
+  return h(
+    'ol',
+    { class: 'texts', 'aria-label': 'Your reply' },
+    ...messageParts(text, true).map((part) => h('li', {}, part)),
+  );
+}
+
 function sendView(item: SendItem): HTMLElement {
   const send = item.send;
-  const words = h('textarea', { rows: '4', 'aria-label': `Message to ${send.name}` });
-  words.value = edits.get(send.sendId) ?? send.text;
-  words.addEventListener('input', () => edits.set(send.sendId, words.value));
+  const text = edits.get(send.sendId) ?? send.text;
+  const parts = messageParts(text, true).length;
   const why = oneByOneWords(send);
+  let words: Child = null;
+  if (editing.has(send.sendId)) {
+    const area = h('textarea', { rows: '5', 'aria-label': `Message to ${send.name}` });
+    area.value = text;
+    area.addEventListener('input', () => edits.set(send.sendId, area.value));
+    words = area;
+  }
   return h(
     'li',
     {},
@@ -237,12 +255,25 @@ function sendView(item: SendItem): HTMLElement {
     ),
     why ? h('div', { class: 'muted' }, why) : null,
     chatView(send),
-    words,
+    words ?? textsView(text),
     h(
       'div',
       { class: 'actions' },
-      button('Send', () => approve(item), { primary: true, disabled: busy }),
-      button('Skip', () => skip(item), { disabled: busy }),
+      button(parts > 1 ? `Send ${parts} texts` : 'Send', () => approve(item), {
+        primary: true,
+        wide: true,
+        disabled: busy,
+      }),
+      button(
+        editing.has(send.sendId) ? 'Done' : 'Edit',
+        () => {
+          if (editing.has(send.sendId)) editing.delete(send.sendId);
+          else editing.add(send.sendId);
+          draw();
+        },
+        { disabled: busy },
+      ),
+      button('Skip', () => skip(item), { ghost: true, disabled: busy }),
     ),
     trouble(send.sendId),
   );
@@ -361,7 +392,7 @@ function groupView(kind: WaitingKind, list: Waiting): Child[] {
           'p',
           { class: 'muted' },
           `${moreWords(kind, count - items.length)} `,
-          web ? hfosLink('See them all', web('waiting')) : null,
+          web ? hfosLink('See them all', web('today')) : null,
         )
       : null,
     kind === 'request' && web
@@ -383,23 +414,17 @@ function draw(): void {
     h(
       'h2',
       {},
-      'Waiting for you ',
+      W.needsYou,
       list.count ? h('span', { class: 'count' }, list.count.toLocaleString()) : null,
       config.webUrl
         ? h(
             'span',
             { class: 'see-all' },
-            hfosLink('See all', `${config.webUrl}${outreachPath(businessId, 'waiting')}`),
+            hfosLink('See all', `${config.webUrl}${outreachPath(businessId, 'today')}`),
           )
         : null,
     ),
-    list.count
-      ? null
-      : h(
-          'p',
-          { class: 'muted' },
-          `${waitingWords(0)} When the extension writes a message for your OK, hands you a reply, or can’t do a step, it shows here.`,
-        ),
+    list.count ? null : h('p', { class: 'muted' }, W.needsYouNone),
     ...WAITING_KIND_KEYS.flatMap((kind) => groupView(kind, list)),
   ];
   box.replaceChildren(...parts.filter((part): part is Node | string => Boolean(part)));

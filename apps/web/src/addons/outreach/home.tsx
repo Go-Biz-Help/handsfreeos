@@ -1,35 +1,44 @@
 'use client';
 /**
- * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, what it's doing right now
- * with Start my day and Stop for today (Live), everything waiting for the person (Waiting for you, with how many on its
- * tab), the person's list for today, everyone they reached by where they stand (Pipeline),
- * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, the business's playbooks, and
- * every setting the extension follows, each a tab with its own address (./address.ts), so a link or the
- * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
- * (`app/w/[workspaceId]/a/outreach/page.tsx`), with what the person asked their computer to do on it: the buttons
- * on the Friends, Groups, Chats and Today tabs ask the computer (./asks.tsx), and Live lists them all.
+ * Social Outreach's page (docs/outreach.md): four tabs and the gear (decision 59), each view with its own address
+ * (./address.ts), so a link, a push or the builder's way back opens the one it's about.
+ *
+ * - **Today**: what the person's computer is doing with Start my day and Stop for today, everything that needs them
+ *   (decision 42's list), and their list for the day; `?view=live` is the full detail of their computer's day.
+ * - **People**: everyone reached by where they stand (the board, or one stage), their friends and the Don't pitch list,
+ *   and their chats as the AI read them.
+ * - **Groups**: the groups saved and how they fit.
+ * - **Results**: from reached to booked, by group and by person.
+ * - **Settings**: every setting the extension follows, the business's playbooks, the person's computers, and Start
+ *   fresh for owners.
+ *
+ * The page asks HandsFreeOS for what the view shows (`app/w/[workspaceId]/a/outreach/page.tsx`), with what the person
+ * asked their computer to do on it: the buttons on People, Groups and Today ask the computer (./asks.tsx), and why
+ * they wait is said once, under the tabs.
  */
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
 import type { StageView } from '@hfos/core/addons/outreach/stages';
-import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { Settings } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shell/page-header';
 import { cn } from '@/lib/utils';
 import { ActivityView } from './activity-view';
-import { outreachHref } from './address';
+import { OUTREACH_TABS, outreachHref, TAB_VIEW, tabOf, type OutreachView } from './address';
+import { ComputerNote } from './asks';
 import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
 import { LiveView } from './live-view';
+import type { Board } from './board';
 import { PipelineView } from './pipeline-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-view';
 import { SetupBanner } from './setup-view';
 import { TodayView } from './today-view';
-import { WaitingView } from './waiting-view';
 import type {
   Activity,
   Asks,
@@ -38,37 +47,42 @@ import type {
   Chats,
   Friends,
   Groups,
+  HelpfulList,
   Live,
   LiveTeam,
   Openers,
   Pipeline,
   PlaybookList,
   Tidy,
-  HelpfulList,
   TodayList,
   Waiting,
   WheelsList,
 } from './types';
 
 export type OutreachShown =
-  | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
-  | {
-      readonly view: 'live';
-      readonly live: Live;
-      readonly team: LiveTeam | null;
-      readonly asks: Asks;
-    }
-  | { readonly view: 'waiting'; readonly waiting: Waiting }
   | {
       readonly view: 'today';
       readonly today: TodayList;
       readonly helpful: HelpfulList;
       readonly wheels: WheelsList | null;
       readonly asks: Asks;
+      /** What the person's computer is doing: null when it couldn't be had. */
+      readonly live: Live | null;
+      /** Everything that needs the person: null when it couldn't be had. */
+      readonly waiting: Waiting | null;
     }
+  | {
+      readonly view: 'live';
+      readonly live: Live;
+      readonly team: LiveTeam | null;
+      readonly asks: Asks;
+    }
+  | { readonly view: 'results'; readonly activity: Activity; readonly period: ActivityPeriod }
   | {
       readonly view: 'pipeline';
       readonly pipeline: Pipeline;
+      /** Everyone in play by stage, side by side: on the bare People tab, not for one stage or a search. */
+      readonly board: Board | null;
       readonly show: StageView;
       readonly search: string;
     }
@@ -106,29 +120,102 @@ export type OutreachShown =
       readonly business: Readonly<Record<string, unknown>> | null;
       /** An owner, who may erase everything and start fresh. */
       readonly canStartFresh: boolean;
+      /** The person's computers, to rename: null when it couldn't be had. */
+      readonly live: Live | null;
     };
 
-/** The tabs, in order; their names are the phone's rows, from core. */
-const TABS = (
-  [
-    'activity',
-    'live',
-    'waiting',
-    'today',
-    'pipeline',
-    'groups',
-    'friends',
-    'chats',
-    'playbooks',
-    'settings',
-  ] as const
-).map((view) => ({ view, label: OUTREACH_WORDS.rows[view] }));
+/** A row of links that looks like a segmented control: People's three lists. */
+function LinkSegments({
+  label,
+  items,
+}: {
+  label: string;
+  items: readonly {
+    readonly href: string;
+    readonly label: string;
+    readonly active: boolean;
+    readonly testId: string;
+  }[];
+}) {
+  return (
+    <nav
+      aria-label={label}
+      className="inline-flex max-w-full overflow-x-auto rounded-[9px] border border-border bg-card-2 p-[3px]"
+    >
+      {items.map((i) => (
+        <Link
+          key={i.href}
+          href={i.href}
+          aria-current={i.active ? 'page' : undefined}
+          data-testid={i.testId}
+          className={cn(
+            'inline-flex h-8 items-center whitespace-nowrap rounded-[6px] px-3.5 text-[13px] font-medium transition-colors max-md:h-10',
+            i.active ? 'bg-card text-text shadow-1' : 'text-text-2 hover:text-text',
+          )}
+        >
+          {i.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function SettingsMenu({
+  workspaceId,
+  view,
+  canManage,
+  canStartFresh,
+}: {
+  workspaceId: string;
+  view: OutreachView;
+  canManage: boolean;
+  canStartFresh: boolean;
+}) {
+  const P = W.settingsParts;
+  const settings = outreachHref(workspaceId, { view: 'settings' });
+  const row = (key: string, href: string, label: string, active: boolean, danger = false) => (
+    <Link
+      key={key}
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      data-testid={`outreach-settings-part-${key}`}
+      className={cn(
+        'flex h-9 flex-none items-center whitespace-nowrap rounded-control px-2.5 text-[14px] font-medium transition-colors max-md:h-11',
+        active
+          ? 'bg-accent-soft text-accent-text'
+          : danger
+            ? 'text-danger-text hover:bg-card-2'
+            : 'text-text-2 hover:bg-card-2 hover:text-text',
+      )}
+    >
+      {label}
+    </Link>
+  );
+  return (
+    <nav
+      aria-label={W.tabs.settings}
+      className="flex gap-0.5 overflow-x-auto md:sticky md:top-4 md:flex-col md:self-start"
+    >
+      {row('mine', `${settings}#mine`, P.mine, view === 'settings')}
+      {canManage ? row('business', `${settings}#business`, P.business, false) : null}
+      {row(
+        'playbooks',
+        outreachHref(workspaceId, { view: 'playbooks' }),
+        P.playbooks,
+        view === 'playbooks',
+      )}
+      {row('computer', `${settings}#computer`, P.computer, false)}
+      {canStartFresh ? row('fresh', `${settings}#fresh`, P.fresh, false, true) : null}
+    </nav>
+  );
+}
 
 export function OutreachHome({
   workspaceId,
   businessName,
   shown,
   canManage,
+  canStartFresh = false,
   waitingCount = null,
 }: {
   workspaceId: string;
@@ -136,37 +223,46 @@ export function OutreachHome({
   shown: OutreachShown;
   /** Owners and admins write the playbooks and see everyone's activity. */
   canManage: boolean;
-  /** How many things wait for the person, on the Waiting for you tab: null when it couldn't be had. */
+  /** An owner, who may erase everything and start fresh: for the Settings tab's menu. */
+  canStartFresh?: boolean;
+  /** How many things need the person, on the Today tab: null when it couldn't be had. */
   waitingCount?: number | null;
 }) {
-  const count = shown.view === 'waiting' ? shown.waiting.count : waitingCount;
+  const tab = tabOf(shown.view);
+  const count = shown.view === 'today' && shown.waiting ? shown.waiting.count : waitingCount;
+  const asks =
+    'asks' in shown && shown.view !== 'today' && shown.view !== 'live' ? shown.asks : null;
   return (
     <div data-testid="outreach-home">
-      <PageHeader
-        title="Social Outreach"
-        description={`${businessName} · finding and following up with people on Facebook`}
-      />
-      <nav aria-label="Social Outreach" className="mb-4 flex flex-wrap items-center gap-1.5">
-        {TABS.map((t) => {
-          const active = t.view === shown.view;
+      <PageHeader title={W.title} description={W.pageAbout} />
+      <nav
+        aria-label={W.title}
+        className="mb-5 flex gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none]"
+      >
+        {OUTREACH_TABS.map((t) => {
+          const active = t === tab;
           return (
             <Link
-              key={t.view}
-              href={outreachHref(workspaceId, { view: t.view })}
+              key={t}
+              href={outreachHref(workspaceId, { view: TAB_VIEW[t] })}
               aria-current={active ? 'page' : undefined}
-              data-testid={`outreach-tab-${t.view}`}
+              data-testid={`outreach-tab-${t}`}
               className={cn(
-                'inline-flex h-8 flex-none items-center rounded-full border px-3 text-[13px] font-medium transition-colors max-md:h-11 max-md:px-4',
+                '-mb-px flex h-10 flex-none items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-medium transition-colors max-md:h-11',
+                t === 'settings' && 'ml-auto',
                 active
-                  ? 'border-transparent bg-accent-soft text-accent-text'
-                  : 'border-border-strong bg-card text-text-2 hover:text-text',
+                  ? 'border-accent text-accent-text'
+                  : 'border-transparent text-text-2 hover:text-text',
               )}
             >
-              {t.label}
-              {t.view === 'waiting' && count ? (
+              {t === 'settings' ? (
+                <Settings className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              ) : null}
+              <span className={cn(t === 'settings' && 'max-md:sr-only')}>{W.tabs[t]}</span>
+              {t === 'today' && count ? (
                 <span
-                  className="ml-1.5 rounded-full bg-danger-soft px-1.5 text-[11.5px] tabular-nums text-danger-text"
-                  data-testid="outreach-tab-waiting-count"
+                  className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-white"
+                  data-testid="outreach-tab-today-count"
                 >
                   {count.toLocaleString()}
                 </span>
@@ -176,18 +272,50 @@ export function OutreachHome({
         })}
       </nav>
       <SetupBanner workspaceId={workspaceId} />
-      {shown.view === 'activity' ? (
-        <ActivityView
-          workspaceId={workspaceId}
-          businessName={businessName}
-          activity={shown.activity}
-          period={shown.period}
-          canManage={canManage}
-        />
-      ) : shown.view === 'live' ? (
-        <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} asks={shown.asks} />
-      ) : shown.view === 'waiting' ? (
-        <WaitingView workspaceId={workspaceId} waiting={shown.waiting} />
+      {tab === 'people' ? (
+        <div className="mb-4">
+          <LinkSegments
+            label={W.tabs.people}
+            items={(['pipeline', 'friends', 'chats'] as const).map((v) => ({
+              href: outreachHref(workspaceId, { view: v }),
+              label: W.peopleParts[v],
+              active: shown.view === v,
+              testId: `outreach-people-${v}`,
+            }))}
+          />
+        </div>
+      ) : null}
+      {/* Why the buttons that ask the computer wait: once, not on every card. */}
+      {asks ? <ComputerNote asks={asks} className="mb-4" /> : null}
+      {tab === 'settings' ? (
+        <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
+          <SettingsMenu
+            workspaceId={workspaceId}
+            view={shown.view}
+            canManage={canManage}
+            canStartFresh={canStartFresh}
+          />
+          <div className="min-w-0">
+            {shown.view === 'settings' ? (
+              <SettingsView
+                workspaceId={workspaceId}
+                me={shown.me}
+                mine={shown.mine}
+                people={shown.people}
+                business={shown.business}
+                canStartFresh={shown.canStartFresh}
+                live={shown.live}
+              />
+            ) : shown.view === 'playbooks' ? (
+              <PlaybooksView
+                workspaceId={workspaceId}
+                list={shown.list}
+                openers={shown.openers}
+                canManage={canManage}
+              />
+            ) : null}
+          </div>
+        </div>
       ) : shown.view === 'today' ? (
         <TodayView
           workspaceId={workspaceId}
@@ -195,11 +323,23 @@ export function OutreachHome({
           helpful={shown.helpful}
           wheels={shown.wheels}
           asks={shown.asks}
+          live={shown.live}
+          waiting={shown.waiting}
+        />
+      ) : shown.view === 'live' ? (
+        <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} asks={shown.asks} />
+      ) : shown.view === 'results' ? (
+        <ActivityView
+          workspaceId={workspaceId}
+          activity={shown.activity}
+          period={shown.period}
+          canManage={canManage}
         />
       ) : shown.view === 'pipeline' ? (
         <PipelineView
           workspaceId={workspaceId}
           pipeline={shown.pipeline}
+          board={shown.board}
           show={shown.show}
           search={shown.search}
         />
@@ -232,23 +372,7 @@ export function OutreachHome({
           canManage={canManage}
           asks={shown.asks}
         />
-      ) : shown.view === 'settings' ? (
-        <SettingsView
-          workspaceId={workspaceId}
-          me={shown.me}
-          mine={shown.mine}
-          people={shown.people}
-          business={shown.business}
-          canStartFresh={shown.canStartFresh}
-        />
-      ) : (
-        <PlaybooksView
-          workspaceId={workspaceId}
-          list={shown.list}
-          openers={shown.openers}
-          canManage={canManage}
-        />
-      )}
+      ) : null}
     </div>
   );
 }

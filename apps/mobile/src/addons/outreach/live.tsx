@@ -80,7 +80,7 @@ export function pressShown(
   return (answeredAt ?? 0) <= press.at;
 }
 
-function StateChip({ state, testID }: { state: ShownState; testID?: string }) {
+export function StateChip({ state, testID }: { state: ShownState; testID?: string }) {
   return (
     <Badge variant={TONE_BADGE[stateTone(state)]} testID={testID}>
       <Text>{SHOWN_STATES[state]}</Text>
@@ -89,6 +89,11 @@ function StateChip({ state, testID }: { state: ShownState; testID?: string }) {
 }
 
 export function LiveScreen() {
+  return <LiveBody {...useLiveProps()} />;
+}
+
+/** The live answer, Start and Stop with what waits on the phone: for its own screen and Today's strip (./hub.tsx). */
+export function useLiveProps(full = true): React.ComponentProps<typeof LiveBody> {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const live = useOutreachAnswer(
@@ -97,8 +102,9 @@ export function LiveScreen() {
     W.rows.live,
     { everySeconds: LIVE_REFETCH_SECONDS },
   );
+  // The team's only on the live screen itself.
   const team = useOutreachAnswer(
-    ctx.manages
+    ctx.manages && full
       ? async () =>
           unwrap(await api.POST('/v1/queries/outreach.live.team', { body: { workspaceId: ws } }))
       : null,
@@ -140,24 +146,22 @@ export function LiveScreen() {
       toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
     }
   };
-  return (
-    <LiveBody
-      live={live.data}
-      at={live.at}
-      error={live.error}
-      team={ctx.manages ? team.data : null}
-      online={ctx.online}
-      now={Date.now()}
-      pressed={shown && pressed ? pressed.state : null}
-      onRetry={reload}
-      onStart={() => void press('started')}
-      onStop={() => void press('stopped')}
-      onWaiting={() => openOutreach(ws, 'waiting')}
-      onSettings={() => openOutreach(ws, 'settings')}
-      asks={asks.data}
-      askActions={askActions}
-    />
-  );
+  return {
+    live: live.data,
+    at: live.at,
+    error: live.error,
+    team: ctx.manages ? team.data : null,
+    online: ctx.online,
+    now: Date.now(),
+    pressed: shown && pressed ? pressed.state : null,
+    onRetry: reload,
+    onStart: () => void press('started'),
+    onStop: () => void press('stopped'),
+    onWaiting: () => openOutreach(ws, 'today'),
+    onSettings: () => openOutreach(ws, 'settings'),
+    asks: asks.data,
+    askActions,
+  };
 }
 
 export function LiveBody({
