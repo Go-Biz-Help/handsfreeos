@@ -431,6 +431,32 @@ describe('the jobs an ask does', () => {
     expect(saves.every((s) => s.input.list === 'friends')).toBe(true);
     expect(end.line).toMatch(/^Saved \d+ friends?/);
   });
+
+  it('saves the friends list when Facebook sends /me/friends on to a page it can’t tell is yours', async () => {
+    const landed = `${FB}/chris.gobiz/friends`;
+    const tab = {
+      async open() {
+        return 1;
+      },
+      async loaded() {
+        return 1;
+      },
+      async ask(message: { readonly type: string }) {
+        if (message.type === 'hfos-read') {
+          const doc = load('friends-list.html', landed);
+          // Facebook's top bar no longer says which link is "Your profile".
+          for (const el of doc.querySelectorAll('[aria-label="Your profile"]'))
+            el.setAttribute('aria-label', 'Chris');
+          return { ok: true, result: readPage(doc, landed) };
+        }
+        return { ok: false };
+      },
+    } as unknown as JobTab;
+    const { hfos, sent } = fakeHfos();
+    const end = await runAsk({ kind: 'friends' }, jobWith(tab, hfos).job);
+    expect(sent.some((a) => a.type === 'hfos-save-friends')).toBe(true);
+    expect(end.line).toMatch(/^Saved \d+ friends?/);
+  });
 });
 
 describe('scrolling a list of groups', () => {

@@ -7,6 +7,7 @@
  * loaded. Nothing is pressed on Facebook.
  */
 import type { Person, ReadResult } from '../facebook/types';
+import { listBeside } from '../facebook/friends';
 import { profileKey } from '../facebook/urls';
 import { friendsSave, groupSave, isAdminsPage, listOnPage } from '../hfos/saves';
 import { counted } from '../words';
@@ -95,7 +96,12 @@ export async function saveFriends(job: Job): Promise<JobEnd> {
     FRIENDS_SCROLLS,
     (page) => {
       const mine = listOnPage(page);
-      return mine?.list === 'friends' ? mine.people : [];
+      if (mine?.list === 'friends') return mine.people;
+      // Facebook sends /me/friends on to /<username>/friends, which the page alone can't always tell is yours, but
+      // this job opened your own list: any friends tab it lands on that isn't /friends/… is it.
+      return page.kind === 'friends' && !page.friendList && !listBeside(page.url)
+        ? (page.people ?? [])
+        : [];
     },
     (count) => `Reading your friends… ${counted(count, 'friend')} so far.`,
   );
