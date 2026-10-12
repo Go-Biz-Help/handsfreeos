@@ -18,8 +18,15 @@ Start my day and Stop for today in the app, Waiting for you, the bare-bones exte
 asked of it from the app, the whole add-on on the phone, the setup, Social Outreach's onboarding, in HandsFreeOS, the
 good fits among friends and chats (growth part 1), stages with the moment to pitch (growth part 2), groups,
 theirs first, then new ones (growth part 3), posts asking for what the business offers, fast (growth part 4),
-helpful posts with the people who engage (growth part 5), and the owner's notes after trying it (decisions 51 to 58:
-how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome):
+helpful posts with the people who engage (growth part 5), the owner's notes after trying it (decisions 51 to 58:
+how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), and the redesign
+(decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look).
+
+The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
+status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
+you as **Needs you**, and the list; **People** has the Pipeline (a board for everyone in play), Friends and Chats;
+**Groups** is as it was; **Results** is the Activity tab; and the gear's **Settings** has the settings, Playbooks, the
+person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=activity`) open what they became.
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -790,6 +797,38 @@ defaults, a few texts on to start), the choice made is said, for the owner to ch
 58. **Check my groups did nothing.** The computer's extension was a build from before checking groups, which left
     the ask hanging. Each kind of ask now names the build it needs: an older one says to update, with how. Built; the
     extension is 0.25.0.
+
+The owner asked on 12 Oct 2026 for a better design of the add-on and the extension, saw it drawn in the HandsFreeOS
+design system ("Social Outreach redesign", a Design canvas), and said to build all of it. That changes where decisions
+41 to 44 put things; what they decided stands. Settled too:
+
+59. **Four tabs and the gear, and the panel in HandsFreeOS's look.** Ten tabs were too many, Waiting for you and Today
+    said the same, and every tab carried notes and the same orange line about the computer.
+    - **Today** opens first (the bare page; `?view=waiting` too): a strip with the computer's state, what it's doing,
+      the next step, today's steps against the limits as bars, **Start my day** or **Stop for today**, and
+      **Details** for the full day (`?view=live`: the feed, what was asked of it, the team and renaming computers);
+      then **Needs you** (decision 42's list, its count on the tab); then the list for today, without a message
+      Needs you shows already; **Done today** beside them; an empty list is three next steps with a button each; and
+      **How Social Outreach works**, folded away, in place of the notes beside each tab. A drafted message shows as
+      the texts it would send, with **Send**, **Edit** and **Skip**.
+    - **People**: the Pipeline, a board of Friends, Talking, Ready to pitch, Pitched and Booked for everyone in play
+      (found and warming up counted above it), one stage or a search a list; moving someone to another stage is in
+      their menu; and Friends and Chats beside it.
+    - **Groups**, as it was; why its buttons wait is said once under the tabs, as on People.
+    - **Results** (`?view=results`, the old `?view=activity`): demos booked first, then reached, chats started, wrote
+      back and booked, each with how many of the step before made it, what was done along the way, by group and by
+      person. The day against the limits moved to Today's strip.
+    - **Settings**, the gear: a menu of My settings, Business settings, Playbooks, Your computer and Start fresh;
+      where a new person starts is folded to a line until changed.
+    - **On the phone** the same four tabs at the top of one screen, with the gear for Settings (Playbooks and the
+      computer in it): Today with the strip, Needs you (offline as before) and the list; People with the Pipeline
+      and Chats, Friends on the web; Groups; and Results, a summary, person by person on the web.
+    - **The panel** (0.26.0): the business and a state chip in the top bar; the first run's three steps over signing
+      in; **Next up** with today's steps as bars and Start or Stop; **Needs you**; **Done today**, the newest steps
+      (both from `outreach.live`); and at the foot the settings line, who's signed in, Open HandsFreeOS and
+      **Something look wrong on this page? Tell us**. Pushes and pop-ups say Today where they said Waiting for you.
+
+    Built.
 
 ## Rules worth knowing before changing anything
 

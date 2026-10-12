@@ -250,7 +250,7 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         throw HfosError.rule(
           'outreach_send_one_by_one',
           409,
-          'A reply handed over to you, or a message to someone who needs you, waits for an OK of its own. OK each one on its own in Waiting for you.',
+          'A reply handed over to you, or a message to someone who needs you, waits for an OK of its own. OK each one on its own, under Needs you on Today.',
         );
       throw gone();
     }

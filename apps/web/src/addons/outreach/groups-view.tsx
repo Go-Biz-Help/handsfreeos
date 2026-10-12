@@ -36,7 +36,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GROUP_VIEW_KEYS, outreachHref } from './address';
-import { AskButton, AskLine, cantAskWhy, ComputerNote, latestAsk, targetOf } from './asks';
+import { AskButton, AskLine, cantAskWhy, latestAsk, targetOf } from './asks';
 import { dayWords, Pager, SearchBox } from './friends-view';
 import type { Asks, Group, Groups } from './types';
 import { useAct } from './use-act';
@@ -244,7 +244,6 @@ function GroupAsks({
     <Card className="mb-4 p-4" data-testid="groups-asks">
       <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
-      <ComputerNote asks={asks} className="mt-3" />
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         <AskButton
           workspaceId={workspaceId}

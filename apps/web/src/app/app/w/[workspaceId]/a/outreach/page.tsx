@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { readOutreachAddress } from '@/addons/outreach/address';
 import { addonPage } from '@/addons/gate';
 import { OutreachHome } from '@/addons/outreach/home';
+import { BOARD_STAGES, type Board } from '@/addons/outreach/board';
 import type { PlaybookList } from '@/addons/outreach/types';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
@@ -17,17 +18,18 @@ function searchWordsOf(list: PlaybookList | null): string {
 }
 
 /**
- * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, what it's
- * doing right now with the person's day, and the team's for owners and admins (`?view=live`), everything waiting for
- * the person (`?view=waiting`, whose count every tab shows on its label), the
- * person's list for today (`?view=today`), everyone they reached by where they stand (`?view=pipeline`), the groups
- * saved (`?view=groups`), the person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
- * the business's playbooks with how each opener did (`?view=playbooks`), and every setting the extension follows, with
- * anyone's for owners and admins (`?view=settings&for=`). It
- * opens through the gate: "not available here" while the add-on is off, and not found for someone without
- * `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's activity
- * (`?who=everyone`); anyone else asking for that sees their own. Someone who never saved their own settings and never
- * started Social Outreach's setup is sent there from the bare page (`./setup`).
+ * Social Outreach's page (its manifest's `ui.nav` points here), four tabs and the gear (decision 59, ./address.ts):
+ * Today (the bare page, `?view=today`, and the old `?view=waiting`), with what the person's computer is doing,
+ * everything that needs them and their list; the full day of their computer and the team's for owners and admins
+ * (`?view=live`); People, everyone reached by where they stand (`?view=pipeline`, a board for everyone in play),
+ * their friends and the Don't pitch list (`?view=friends`) and their chats as the AI read them (`?view=chats`); the
+ * groups saved (`?view=groups`); Results (`?view=results`, and the old `?view=activity`); and Settings, every setting
+ * the extension follows, with anyone's for owners and admins (`?view=settings&for=`), and the business's playbooks
+ * with how each opener did (`?view=playbooks`). The Today tab's label counts what needs the person. It opens through
+ * the gate: "not available here" while the add-on is off, and not found for someone without `outreach.use`. Owners
+ * and admins (`outreach.manage`) write the playbooks and see everyone's results (`?who=everyone`); anyone else asking
+ * for that sees their own. Someone who never saved their own settings and never started Social Outreach's setup is
+ * sent there from the bare page (`./setup`).
  */
 export default async function OutreachPage({
   params,
@@ -46,11 +48,15 @@ export default async function OutreachPage({
     const workspace = api
       .POST('/v1/queries/workspace.get', { body: { workspaceId } })
       .then(unwrapPage);
-    // How many things wait for the person, on the Waiting for you tab's label: no number when it can't be had.
-    const waitingCount = api
-      .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: false } })
-      .then((r) => r.data?.count ?? null)
-      .catch(() => null);
+    // How many things need the person, on the Today tab's label: no number when it can't be had.
+    // Today has the list itself.
+    const waitingCount =
+      shown.view === 'today'
+        ? Promise.resolve(null)
+        : api
+            .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: false } })
+            .then((r) => r.data?.count ?? null)
+            .catch(() => null);
     // What the person asked their computer to do from here: each tab its own kinds, the Live tab all of them.
     const asksOf = (tab?: keyof typeof ASK_KINDS_FOR) =>
       api
@@ -58,6 +64,12 @@ export default async function OutreachPage({
           body: { workspaceId, ...(tab ? { kinds: [...ASK_KINDS_FOR[tab]] } : {}) },
         })
         .then(unwrapPage);
+    // What the person's computer is doing: Today's strip, and Settings' computers. Left out when it can't be had.
+    const liveOf = () =>
+      api
+        .POST('/v1/queries/outreach.live', { body: { workspaceId } })
+        .then((r) => r.data ?? null)
+        .catch(() => null);
     const activityOf = (everyone: boolean) =>
       api
         .POST('/v1/queries/outreach.activity', {
@@ -69,7 +81,7 @@ export default async function OutreachPage({
       const canManage = got.workspace.permissions.includes('outreach.manage');
       // Someone else's, for owners and admins; anyone else asking sees their own.
       const whose = canManage && shown.for ? shown.for : undefined;
-      const [me, people, business] = await Promise.all([
+      const [me, people, business, live] = await Promise.all([
         api
           .POST('/v1/queries/outreach.automation', {
             body: { workspaceId, ...(whose ? { userId: whose } : {}) },
@@ -85,20 +97,24 @@ export default async function OutreachPage({
               .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
               .then(unwrapPage)
           : null,
+        whose ? null : liveOf(),
       ]);
+      const canStartFresh = got.workspace.permissions.includes('addons.purge');
       return (
         <OutreachHome
           workspaceId={workspaceId}
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
           canManage={canManage}
+          canStartFresh={canStartFresh}
           shown={{
             view: 'settings',
             me,
             mine: !whose,
             people,
             business: business?.settings ?? null,
-            canStartFresh: got.workspace.permissions.includes('addons.purge'),
+            canStartFresh,
+            live,
           }}
         />
       );
@@ -126,65 +142,35 @@ export default async function OutreachPage({
         />
       );
     }
-    if (shown.view === 'waiting') {
-      const [got, waiting] = await Promise.all([
-        workspace,
+    if (shown.view === 'pipeline') {
+      const stageOf = (view: (typeof BOARD_STAGES)[number] | typeof shown.stages) =>
         api
-          .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
-          .then(unwrapPage),
-      ]);
-      return (
-        <OutreachHome
-          workspaceId={workspaceId}
-          businessName={got.workspace.name}
-          canManage={got.workspace.permissions.includes('outreach.manage')}
-          shown={{ view: 'waiting', waiting }}
-        />
-      );
-    }
-    if (shown.view === 'today') {
-      const [got, today, helpful, asks] = await Promise.all([
+          .POST('/v1/queries/outreach.stages', {
+            body: {
+              workspaceId,
+              view,
+              ...(shown.search ? { search: shown.search } : {}),
+              page: view === shown.stages ? shown.page : 1,
+            },
+          })
+          .then(unwrapPage);
+      // Everyone in play is a board: each column's first page, asked one stage at a time.
+      const onBoard = shown.stages === 'all' && !shown.search && shown.page === 1;
+      const [got, pipeline, columns] = await Promise.all([
         workspace,
-        api.POST('/v1/queries/outreach.today', { body: { workspaceId } }).then(unwrapPage),
-        api.POST('/v1/queries/outreach.helpful', { body: { workspaceId } }).then(unwrapPage),
-        asksOf('today'),
+        stageOf(shown.stages),
+        onBoard ? Promise.all(BOARD_STAGES.map((stage) => stageOf(stage))) : null,
       ]);
-      const canManage = got.workspace.permissions.includes('outreach.manage');
-      // Owners and admins see who's on training wheels, to end them early.
-      const wheels = canManage
-        ? await api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
+      const board = columns
+        ? (Object.fromEntries(BOARD_STAGES.map((stage, i) => [stage, columns[i]!])) as Board)
         : null;
       return (
         <OutreachHome
           workspaceId={workspaceId}
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
-          canManage={canManage}
-          shown={{ view: 'today', today, helpful, wheels, asks }}
-        />
-      );
-    }
-    if (shown.view === 'pipeline') {
-      const [got, pipeline] = await Promise.all([
-        workspace,
-        api
-          .POST('/v1/queries/outreach.stages', {
-            body: {
-              workspaceId,
-              view: shown.stages,
-              ...(shown.search ? { search: shown.search } : {}),
-              page: shown.page,
-            },
-          })
-          .then(unwrapPage),
-      ]);
-      return (
-        <OutreachHome
-          workspaceId={workspaceId}
-          waitingCount={await waitingCount}
-          businessName={got.workspace.name}
           canManage={got.workspace.permissions.includes('outreach.manage')}
-          shown={{ view: 'pipeline', pipeline, show: shown.stages, search: shown.search }}
+          shown={{ view: 'pipeline', pipeline, board, show: shown.stages, search: shown.search }}
         />
       );
     }
@@ -311,24 +297,48 @@ export default async function OutreachPage({
         />
       );
     }
-    // Everyone's steps only once it's known they may see them.
-    const [got, own, setup] = await Promise.all([
+    if (shown.view === 'results') {
+      // Everyone's steps only once it's known they may see them.
+      const [got, own] = await Promise.all([workspace, shown.everyone ? null : activityOf(false)]);
+      const canManage = got.workspace.permissions.includes('outreach.manage');
+      const activity = own ?? (await activityOf(canManage));
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          waitingCount={await waitingCount}
+          businessName={got.workspace.name}
+          canManage={canManage}
+          shown={{ view: 'results', activity, period: shown.period }}
+        />
+      );
+    }
+    // Today, the bare page's: a first-timer is sent to the setup first.
+    const [got, setup, today, helpful, asks, live, waiting] = await Promise.all([
       workspace,
-      shown.everyone ? null : activityOf(false),
       bare
         ? api.POST('/v1/queries/outreach.setup', { body: { workspaceId } }).then(unwrapPage)
         : null,
+      api.POST('/v1/queries/outreach.today', { body: { workspaceId } }).then(unwrapPage),
+      api.POST('/v1/queries/outreach.helpful', { body: { workspaceId } }).then(unwrapPage),
+      asksOf('today'),
+      liveOf(),
+      api
+        .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
     ]);
     if (setup?.firstTime) redirect(outreachSetupPath(workspaceId));
     const canManage = got.workspace.permissions.includes('outreach.manage');
-    const activity = own ?? (await activityOf(canManage));
+    // Owners and admins see who's on training wheels, to end them early.
+    const wheels = canManage
+      ? await api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
+      : null;
     return (
       <OutreachHome
         workspaceId={workspaceId}
-        waitingCount={await waitingCount}
         businessName={got.workspace.name}
         canManage={canManage}
-        shown={{ view: 'activity', activity, period: shown.period }}
+        shown={{ view: 'today', today, helpful, wheels, asks, live, waiting }}
       />
     );
   });

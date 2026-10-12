@@ -1,11 +1,13 @@
 'use client';
 /**
- * Social Outreach's Pipeline tab (docs/outreach.md, decision 47): everyone the person reached on Facebook, by where
+ * The People tab's Pipeline (docs/outreach.md, decisions 47 and 59): everyone the person reached on Facebook, by where
  * they stand, worked out from what HandsFreeOS knows (packages/core/src/addons/outreach/stages.ts): found, warming up,
- * friends, talking, ready to pitch, pitched, booked, or not a fit. "All in play" lists who to act on first; each
- * stage has its count. The person marks someone ready to pitch (Today then offers Pitch), pitched, not a fit (nothing
- * on Today reaches them again but a reply) or back in play when they know better (`outreach.stage.mark`). Which stage,
- * a name searched for and the page are in the address (./address.ts).
+ * friends, talking, ready to pitch, pitched, booked, or not a fit. "All in play" is a board, a column for each stage
+ * the person acts on, side by side; found and warming up are the extension's own work, so they're counted above it.
+ * One stage, or a name searched for, is a list with its count. The person marks someone ready to pitch (Today then
+ * offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply) or back in play when they know
+ * better (`outreach.stage.mark`), from the person's menu. Which stage, a name searched for and the page are in the
+ * address (./address.ts).
  */
 import {
   marksFor,
@@ -22,16 +24,17 @@ import {
 } from '@hfos/core/addons/outreach/stages';
 import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useTransition } from 'react';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
+import { BOARD_STAGES, type Board } from './board';
 import { Pager, SearchBox } from './friends-view';
 import { PersonMenu } from './person-menu';
 import type { Pipeline, PipelinePerson } from './types';
@@ -49,14 +52,20 @@ export const STAGE_TONE: Record<Stage, BadgeVariant> = {
   lost: 'danger',
 };
 
+/** How many people a column shows before "See all". */
+const COLUMN_MOST = 8;
+
 export function PipelineView({
   workspaceId,
   pipeline,
+  board = null,
   show,
   search,
 }: {
   workspaceId: string;
   pipeline: Pipeline;
+  /** Everyone in play by stage: shown in place of the list. */
+  board?: Board | null;
   show: StageView;
   search: string;
 }) {
@@ -117,7 +126,15 @@ export function PipelineView({
         className={cn('transition-opacity', pending && 'opacity-60')}
         aria-busy={pending || undefined}
       >
-        {pipeline.people.length ? (
+        {board && pipeline.counts.all ? (
+          <BoardView
+            workspaceId={workspaceId}
+            board={board}
+            counts={pipeline.counts}
+            busy={busy !== null}
+            onMark={(p, m) => void mark(p, m)}
+          />
+        ) : pipeline.people.length ? (
           <Card className="p-0" data-testid="pipeline-list">
             <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
               <h3 className="text-[15px] font-semibold">{STAGE_VIEWS[show]}</h3>
@@ -157,7 +174,16 @@ export function PipelineView({
                       <Badge variant={STAGE_TONE[p.stage]} data-testid="pipeline-stage">
                         {STAGES[p.stage]}
                       </Badge>
-                      <PersonMenu workspaceId={workspaceId} who={p} />
+                      <PersonMenu
+                        workspaceId={workspaceId}
+                        who={p}
+                        moves={marksFor(p.stage).map((m) => ({
+                          key: m,
+                          label: STAGE_MARKS[m],
+                          onSelect: () => void mark(p, m),
+                          danger: m === 'lost',
+                        }))}
+                      />
                     </span>
                   </div>
                   {p.nextStep ? (
@@ -165,25 +191,9 @@ export function PipelineView({
                       {W.nextStepLabel}: {p.nextStep}
                     </p>
                   ) : null}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {marksFor(p.stage).map((m) => (
-                      <Button
-                        key={m}
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy !== null}
-                        onClick={() => void mark(p, m)}
-                        data-testid={`pipeline-mark-${m}`}
-                      >
-                        {STAGE_MARKS[m]}
-                      </Button>
-                    ))}
-                    {p.lastAt ? (
-                      <span className="text-[12px] text-text-3">
-                        Latest {relativeTime(p.lastAt)}
-                      </span>
-                    ) : null}
-                  </div>
+                  {p.lastAt ? (
+                    <p className="mt-1 text-[12px] text-text-3">Latest {relativeTime(p.lastAt)}</p>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -204,5 +214,140 @@ export function PipelineView({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Everyone in play, a column for each stage the person acts on: the first few of each, who to act on first, with
+ * "See all" opening that stage's list. Found and warming up are counted above, with Not a fit's link.
+ */
+function BoardView({
+  workspaceId,
+  board,
+  counts,
+  busy,
+  onMark,
+}: {
+  workspaceId: string;
+  board: Board;
+  counts: Pipeline['counts'];
+  busy: boolean;
+  onMark: (p: PipelinePerson, m: StageMark) => void;
+}) {
+  return (
+    <div className="space-y-3" data-testid="pipeline-board">
+      <p className="text-[13px] text-text-2" data-testid="pipeline-before">
+        {STAGES.found} {counts.found.toLocaleString()} · {STAGES.warming}{' '}
+        {counts.warming.toLocaleString()} · the extension works on these itself.{' '}
+        {counts.lost ? (
+          <Link
+            href={outreachHref(workspaceId, { view: 'pipeline', stages: 'lost' })}
+            className="font-medium text-accent-text hover:underline"
+          >
+            {STAGES.lost} {counts.lost.toLocaleString()}
+          </Link>
+        ) : null}
+      </p>
+      <div className="-mx-1 overflow-x-auto px-1 pb-2">
+        <div className="flex items-start gap-3">
+          {BOARD_STAGES.map((stage) => {
+            const column = board[stage];
+            const people = column.people.slice(0, COLUMN_MOST);
+            const count = counts[stage];
+            return (
+              <section
+                key={stage}
+                aria-label={STAGES[stage]}
+                className="flex w-[262px] flex-none flex-col gap-2 rounded-card bg-card-2 p-2.5"
+                data-testid={`pipeline-column-${stage}`}
+              >
+                <div className="flex items-baseline justify-between px-1 pt-0.5">
+                  <h3 className="text-[14px] font-semibold">{STAGES[stage]}</h3>
+                  <span className="text-[13px] tabular-nums text-text-3">
+                    {count.toLocaleString()}
+                  </span>
+                </div>
+                {people.map((p) => (
+                  <BoardCard
+                    key={p.profileId}
+                    workspaceId={workspaceId}
+                    person={p}
+                    busy={busy}
+                    onMark={onMark}
+                  />
+                ))}
+                {count === 0 ? (
+                  <p className="rounded-menu border border-dashed border-border-strong px-3 py-4 text-center text-[12.5px] text-text-3">
+                    Nobody yet
+                  </p>
+                ) : count > people.length ? (
+                  <Link
+                    href={outreachHref(workspaceId, { view: 'pipeline', stages: stage })}
+                    className="flex h-8 items-center justify-center rounded-control text-[13px] font-medium text-text-2 hover:bg-card-3 hover:text-text"
+                    data-testid={`pipeline-column-all-${stage}`}
+                  >
+                    See all {count.toLocaleString()}
+                  </Link>
+                ) : null}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BoardCard({
+  workspaceId,
+  person: p,
+  busy,
+  onMark,
+}: {
+  workspaceId: string;
+  person: PipelinePerson;
+  busy: boolean;
+  onMark: (p: PipelinePerson, m: StageMark) => void;
+}) {
+  return (
+    <article
+      className="grid gap-1 rounded-menu border border-border bg-card p-3 shadow-1"
+      data-testid="pipeline-person"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <a
+          href={messengerChatUrl(p.threadKey) ?? p.url}
+          target="_blank"
+          rel="noreferrer"
+          className="min-w-0 truncate text-[14px] font-medium hover:underline"
+        >
+          {p.name}
+        </a>
+        <span className="-mr-1 -mt-0.5 flex-none">
+          <PersonMenu
+            workspaceId={workspaceId}
+            who={p}
+            disabled={busy}
+            moves={marksFor(p.stage).map((m) => ({
+              key: m,
+              label: STAGE_MARKS[m],
+              onSelect: () => onMark(p, m),
+              danger: m === 'lost',
+            }))}
+          />
+        </span>
+      </div>
+      {p.why[0] ? (
+        <p className="line-clamp-2 text-[12.5px] text-text-2" data-testid="pipeline-why">
+          {p.why[0]}
+        </p>
+      ) : null}
+      {p.nextStep ? (
+        <p className="mt-1 line-clamp-2 self-start rounded-[6px] bg-accent-soft px-2 py-1 text-[12px] font-medium text-accent-text">
+          {p.nextStep}
+        </p>
+      ) : null}
+      {p.lastAt ? <p className="text-[12px] text-text-3">Latest {relativeTime(p.lastAt)}</p> : null}
+    </article>
   );
 }

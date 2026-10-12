@@ -3,9 +3,10 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.25.0), and a bare one** (decision 43 in docs/outreach.md). Everything is set and started
-in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it's doing right
-now with **Start my day** and **Stop for today**, **Waiting for you**, and a link to HandsFreeOS.
+**This is a test build (0.26.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
+next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
+HandsFreeOS.
 
 Signed in, it notes the friend requests, likes, comments and messages you send yourself, with the group you found
 each person in, and your answers to friend requests. In the Facebook tab in front of you it reads Facebook's
@@ -54,22 +55,29 @@ conversation, and is with whoever its header links to.
 ## The panel
 
 Press the extension's button on any page and Chrome's side panel opens beside it (`src/panel/`, `public/panel.html`).
-It shows what's going on and leaves the rest to HandsFreeOS:
+It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's look (decision 59):
 
+- **The top bar**: the business it works for, and how it's doing (working, waiting for the next step, stopped,
+  standing by) as a coloured chip, the same words and colours as HandsFreeOS's.
 - **Signing in** (`src/panel/account.ts`), the way the phone app does: an emailed 6-digit code, or a password, for an
-  account that already exists (new accounts start on the web). It then works for one business, picked at the top
-  when there are several. Only businesses where Social Outreach is on and you have **Use Social Outreach** are listed;
-  with none it says there's nowhere to work, and if Social Outreach is turned off it says so and the business leaves
-  the list.
-- **Right now** (`src/panel/status.ts`): what it's doing (working, waiting for the next step, stopped, standing by)
-  with its line and when; the next step; why it isn't working when it isn't (another computer works for you, noting is
-  off, you do everything yourself); Facebook's warning that day; a warning when your own steps today go past a daily
-  limit (`pastLimitWords`, from `outreach.activity`: the limits count, they don't stop); your settings in one line, the
-  hours and training wheels in it, with **Change in HandsFreeOS**; **Start my day** and **Stop for today**, with HandsFreeOS's words when it refuses one; and anything
-  you asked of it from HandsFreeOS while it goes, with **Carry on**, **Skip** and **Stop**.
-- **Waiting for you** (`src/panel/waiting.ts`), below.
-- **Open HandsFreeOS**, at the foot, opens Social Outreach's Live tab for the business, and **Page read wrong?**,
-  folded away, holds **Copy page outline** and **Save page outline** (below, "When it reads a page wrong").
+  account that already exists (new accounts start on the web), under the first run's three steps (sign in here, open
+  Facebook in this window, pick your groups and limits in HandsFreeOS). It then works for one business, picked in the
+  panel when there are several. Only businesses where Social Outreach is on and you have **Use Social Outreach** are
+  listed; with none it says there's nowhere to work, and if Social Outreach is turned off it says so and the business
+  leaves the list.
+- **Next up** (`src/panel/status.ts`): what it's doing or does next, with when; why it isn't working when it isn't
+  (another computer works for you, noting is off, you do everything yourself); Facebook's warning that day; a warning
+  when your own steps today go past a daily limit (`pastLimitWords`: the limits count, they don't stop); today's steps
+  against the daily limits, as bars, from `outreach.live`; **Start my day**, and **Stop for today** while the day
+  goes, with HandsFreeOS's words when it refuses one; and anything you asked of it from HandsFreeOS while it goes,
+  with **Carry on**, **Skip** and **Stop**.
+- **Needs you** (`src/panel/waiting.ts`), below: a message shows as the texts it would send, with **Send**, **Edit**
+  and **Skip**.
+- **Done today**: the newest of the day's steps, as HandsFreeOS keeps them, with **See all**.
+- **At the foot**: your settings in one line, the hours and training wheels in it, with **Change in HandsFreeOS**;
+  who's signed in, with **Sign out**; **Open HandsFreeOS**, which opens Social Outreach's Today for the business; and
+  **Something look wrong on this page? Tell us**, folded away, with **Copy page outline** and **Save page outline**
+  (below, "When it reads a page wrong").
 
 **The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.
 Whenever someone is signed in, it tells HandsFreeOS so (`outreach.setup.save` with `extension`): at each sign-in or
@@ -161,7 +169,7 @@ the build, and how. A build that's handed a kind it doesn't know ends it saying 
   one left there when the extension starts again (Chrome closed mid-way) is ended as lost.
 - **Steps it hands to you:** a step it can't find on Facebook's download pages or a profile it hands to you: the tab
   comes to the front, Chrome pops up, your phone hears "Your computer needs you", and it waits for **Carry on** (or
-  **Skip**, for someone ticked) from the panel, Waiting for you, or the web, asking HandsFreeOS for your answer every
+  **Skip**, for someone ticked) from the panel, Needs you, or the web, asking HandsFreeOS for your answer every
   20 seconds. Half an hour with no answer stops it. While Facebook asks for your password or PIN, it waits for you to
   type it there; it never types one.
 - **Stops:** **Stop**, in the panel or the app; Stop for today, pressed in the panel, the app or the phone; another of
@@ -290,10 +298,10 @@ web and the phone shows it as it happens (decision 41 in docs/outreach.md, `src/
 - **Whose:** every line, waiting press and answer kept says whose it is (you and the business), so none goes as
   someone else's or to another business after signing in as someone else.
 
-## Waiting for you: the number and the pop-ups
+## Needs you: the number and the pop-ups
 
-**Waiting for you**, in the panel, is the same list as the Waiting for you tab in HandsFreeOS (decisions 40 and
-42 in docs/outreach.md, `outreach.waiting`): something you asked of your computer that needs you (**Carry on**,
+**Needs you**, in the panel, is the same list as Needs you on Today in HandsFreeOS (decisions 40, 42 and 59 in
+docs/outreach.md, `outreach.waiting`, the list once called Waiting for you): something you asked of your computer that needs you (**Carry on**,
 **Skip**, **Stop**), replies handed over to you, messages waiting for your OK, each under the chat so far (with **Approve
 all**, which leaves a reply handed over or one to someone who needs you, each to OK on its own), steps the extension
 couldn't do and hands to you (**I did it** or **Let it go**), and friend requests to decide (**Leave it**). The
@@ -311,7 +319,7 @@ background keeps it (`src/hfos/waiting.ts`), and the panel draws it (`src/panel/
   pop up. Only the computer that works shows them (src/hfos/live.ts); the first look after signing in tells of what's
   there, replies too, in one pop-up at most. A click opens the side panel in the window you last used (kept in the
   session's storage, so a click that wakes the background still knows it); **Open in HandsFreeOS**, or a click Chrome
-  won't open the panel for, opens Waiting for you on the web.
+  won't open the panel for, opens Today on the web.
 - **The panel's list** shows only while it's for who's signed in and the business they save to, so picking another
   business never shows, or acts on, the last one's. **Approve all** names the same number as the web's. **I did it**
   on a step the extension couldn't do again since says so, and the step stays.
@@ -381,7 +389,8 @@ build after it signs in to the API on port 4000.
 
 ## When it reads a page wrong
 
-**Copy page outline** and **Save page outline**, under **Page read wrong?** at the foot of the panel, give the
+**Copy page outline** and **Save page outline**, under **Something look wrong on this page? Tell us** at the foot of
+the panel, give the
 page's structure as plain text: tags, roles, Facebook's own words and labels, and the shape of every link.
 Everything a person wrote becomes `[2 words]`, and the people, groups and chats that links lead to become `{1}`, `{2}`…, the same number each time the
 same one comes up. With the reader's counts at the top, that's enough to see what Facebook changed and fix the reader.
@@ -483,7 +492,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/facebook/`                             | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps, what to look at as you go     |
 | `src/content.ts`                            | The script in each Facebook tab: reads the page when asked, looks at the tab in front of you as it settles, and notices your steps                     |
-| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Right now with Start, Stop and an ask under way, `waiting.ts` Waiting for you                     |
+| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up with Start, Stop and an ask under way, and Done today, `waiting.ts` Needs you             |
 | `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                    |
 | `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                        |
 | `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks       |
@@ -494,7 +503,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                        |
 | `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                   |
 | `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                       |
-| `src/hfos/waiting.ts`                       | Waiting for you: the number on the icon and Chrome's pop-ups                                                                                           |
+| `src/hfos/waiting.ts`                       | Needs you: the number on the icon and Chrome's pop-ups                                                                                                 |
 | `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                              |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks |
 | `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                  |

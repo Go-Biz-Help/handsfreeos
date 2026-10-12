@@ -35,14 +35,19 @@ export function chip(text: string, tone: 'plain' | 'warn' | 'saved' = 'plain'): 
   return h('span', { class: `chip ${tone}` }, text);
 }
 
+/** A button: the card's one primary, a quiet ghost, or the plain kind; `wide` fills its row. */
 export function button(
   text: string,
   onClick: () => void,
-  options: { primary?: boolean; disabled?: boolean } = {},
+  options: { primary?: boolean; ghost?: boolean; wide?: boolean; disabled?: boolean } = {},
 ): HTMLButtonElement {
+  const classes = [
+    options.primary ? 'primary' : options.ghost ? 'ghost' : null,
+    options.wide ? 'wide' : null,
+  ].filter(Boolean);
   const element = h(
     'button',
-    { type: 'button', class: options.primary ? 'primary' : undefined },
+    { type: 'button', class: classes.length ? classes.join(' ') : undefined },
     text,
   );
   element.disabled = options.disabled ?? false;

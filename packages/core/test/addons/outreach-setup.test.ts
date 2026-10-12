@@ -110,9 +110,11 @@ describe('the setup’s steps', () => {
     expect(outreachSetupPath(ws, { from: 'extension' })).toBe(
       `/app/w/${ws}/a/outreach/setup?from=extension`,
     );
-    // And each tab's, which the extension's links use: the activity is the bare page.
+    // And each view's, which the extension's links use.
     expect(outreachPath(ws, 'live')).toBe(`/app/w/${ws}/a/outreach?view=live`);
-    expect(outreachPath(ws, 'activity')).toBe(`/app/w/${ws}/a/outreach`);
+    // The old tabs open what they became (decision 59).
+    expect(outreachPath(ws, 'activity')).toBe(`/app/w/${ws}/a/outreach?view=results`);
+    expect(outreachPath(ws, 'waiting')).toBe(`/app/w/${ws}/a/outreach?view=today`);
     expect(outreachPath(ws, 'friends', { show: 'requests' })).toBe(
       `/app/w/${ws}/a/outreach?view=friends&show=requests`,
     );

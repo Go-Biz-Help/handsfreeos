@@ -15,6 +15,8 @@ type Step =
 const CODE = /^\d{6,10}$/;
 
 let box: HTMLElement;
+/** Where "Signed in as" goes: the panel's foot. */
+let whoBox: HTMLElement | null = null;
 let accountChanged: (account: Account | null) => void = () => undefined;
 
 /** Null until the background has said; a problem when it couldn't. */
@@ -98,6 +100,27 @@ function errorLine(): Child {
   return formError ? h('p', { class: 'error', role: 'alert' }, formError) : null;
 }
 
+/** The first run, above signing in: three steps, this one first (decision 59). */
+function firstSteps(): HTMLElement {
+  const steps = [
+    'Sign in to HandsFreeOS, here',
+    'Open Facebook in this window',
+    'Pick your groups and limits in HandsFreeOS',
+  ];
+  return h(
+    'ol',
+    { class: 'steps', 'aria-label': 'Getting it working' },
+    ...steps.map((step, i) =>
+      h(
+        'li',
+        { class: i === 0 ? 'now' : undefined },
+        h('span', { class: 'n' }, String(i + 1)),
+        step,
+      ),
+    ),
+  );
+}
+
 function signInView(): HTMLElement {
   const intro = h(
     'p',
@@ -136,7 +159,8 @@ function signInView(): HTMLElement {
     };
     return form(
       sendCode,
-      h('h2', {}, 'Sign in to HandsFreeOS'),
+      h('h2', {}, 'Get it working'),
+      firstSteps(),
       intro,
       email.row,
       errorLine(),
@@ -248,7 +272,13 @@ function signedInView(a: Extract<Account, { signedIn: true }>): HTMLElement {
       else problem(answer.problem);
     });
   });
-  const who = h('p', { class: 'muted who' }, `Signed in as ${a.email} · `, signOut);
+  const who = h('span', {}, `Signed in as ${a.email} · `, signOut);
+  // At the foot when the panel has one; else here, under the business.
+  if (whoBox) {
+    whoBox.hidden = false;
+    whoBox.replaceChildren(who);
+  }
+  const whoHere = whoBox ? null : h('p', { class: 'muted who' }, who);
   if (!a.businesses.length)
     return h(
       'div',
@@ -258,11 +288,15 @@ function signedInView(a: Extract<Account, { signedIn: true }>): HTMLElement {
         {},
         'None of your businesses has Social Outreach on, or you can’t use it there. Ask an owner of the business to turn it on in Add-ons, or to let you use it.',
       ),
-      who,
+      whoHere,
     );
+  // One business: its name is in the top bar, and there's nothing to pick.
+  if (a.businesses.length === 1) {
+    const error = errorLine();
+    return error || whoHere ? h('div', {}, error, whoHere) : h('div', { hidden: '' });
+  }
   let where: Child;
-  if (a.businesses.length === 1) where = h('strong', {}, a.businesses[0]!.name);
-  else {
+  {
     const select = h(
       'select',
       { 'aria-label': 'Business' },
@@ -277,7 +311,7 @@ function signedInView(a: Extract<Account, { signedIn: true }>): HTMLElement {
     });
     where = select;
   }
-  return h('div', {}, h('p', { class: 'saving-to' }, 'Working for ', where), who, errorLine());
+  return h('div', {}, h('p', { class: 'saving-to' }, 'Working for ', where), whoHere, errorLine());
 }
 
 function drawAccount(): void {
@@ -298,15 +332,23 @@ function drawAccount(): void {
       'This build can’t sign in to HandsFreeOS, so it can’t work for you.',
     );
   else content = signInView();
+  if (whoBox && !account?.signedIn) {
+    whoBox.hidden = true;
+    whoBox.replaceChildren();
+  }
   box.replaceChildren(content);
+  // Nothing to say here once signed in to one business: the box goes, rather than sitting empty.
+  box.hidden = content instanceof HTMLElement && content.hidden;
 }
 
 /** Draws the account into `into`, and asks the background who's signed in. `changed` hears every change. */
 export async function startAccount(
   into: HTMLElement,
   changed: (account: Account | null) => void,
+  who: HTMLElement | null = null,
 ): Promise<void> {
   box = into;
+  whoBox = who;
   accountChanged = changed;
   drawAccount();
   await loadAccount();

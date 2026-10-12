@@ -1,7 +1,7 @@
 'use client';
 /**
- * Social Outreach's Waiting for you tab (docs/outreach.md, decisions 40 and 42): everything waiting for the person, in
- * one list, the same as the extension's panel and the number on its icon (packages/core/src/addons/outreach/waiting.ts):
+ * Needs you, at the top of Social Outreach's Today (docs/outreach.md, decisions 40, 42 and 59): everything waiting for
+ * the person, in one list, the same as the extension's panel and the number on its icon (packages/core/src/addons/outreach/waiting.ts):
  *
  * - **Your computer needs you**: something asked of it from here hit a step it couldn't find, or Facebook wants a
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
@@ -39,7 +39,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
-import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
@@ -47,7 +46,7 @@ import { AskLine } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
 import { PersonMenu } from './person-menu';
-import { Drafted } from './today-view';
+import { Drafted } from './drafted';
 import type { Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
 
@@ -70,7 +69,7 @@ function when(iso: string, timeZone: string): string {
   }
 }
 
-export function WaitingView({ workspaceId, waiting }: { workspaceId: string; waiting: Waiting }) {
+export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waiting: Waiting }) {
   useLiveRefresh(
     [
       'outreach_profile',
@@ -83,37 +82,34 @@ export function WaitingView({ workspaceId, waiting }: { workspaceId: string; wai
     800,
   );
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="outreach-waiting">
-      <div className="min-w-0 space-y-4">
-        <p className="text-[14px] font-medium" data-testid="waiting-count">
-          {waitingWords(waiting.count)}
-        </p>
+    <section aria-labelledby="needs-you" className="space-y-3" data-testid="outreach-waiting">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 id="needs-you" className="text-lg font-semibold tracking-tight">
+          {W.needsYou}
+          {waiting.count ? (
+            <span className="font-medium text-text-3" data-testid="waiting-count">
+              {' '}
+              · {waiting.count.toLocaleString()}
+            </span>
+          ) : null}
+        </h2>
         {waiting.count ? (
-          WAITING_KIND_KEYS.map((kind) => (
-            <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
-          ))
-        ) : (
-          <Card className="p-0">
-            <EmptyState title={W.emptyTitle}>{W.emptyBody}</EmptyState>
-          </Card>
-        )}
+          <span className="text-[12.5px] text-text-3">{waitingWords(waiting.count)}</span>
+        ) : null}
       </div>
-      <div className="space-y-4">
-        <Card className="p-4">
-          <h3 className="text-[15px] font-semibold">{W.hearTitle}</h3>
-          <p className="mt-1.5 text-[13px] text-text-2">{W.hearOfIt(waiting.pushes)}</p>
-          <p className="mt-2 text-[13px]">
-            <Link
-              className="font-medium text-accent-text underline-offset-2 hover:underline"
-              href={outreachHref(workspaceId, { view: 'settings' })}
-              data-testid="waiting-settings"
-            >
-              {W.changeInSettings}
-            </Link>
-          </p>
-        </Card>
-      </div>
-    </div>
+      {waiting.count ? (
+        WAITING_KIND_KEYS.map((kind) => (
+          <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
+        ))
+      ) : (
+        <p
+          className="rounded-card border border-dashed border-border-strong px-4 py-3.5 text-[13px] text-text-2"
+          data-testid="waiting-none"
+        >
+          {W.needsYouNone}
+        </p>
+      )}
+    </section>
   );
 }
 

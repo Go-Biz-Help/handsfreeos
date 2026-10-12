@@ -106,7 +106,8 @@ function failed(e: unknown) {
   toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
 }
 
-export function WaitingScreen() {
+/** What needs the person and what its buttons do: for its own screen, and for Today's tab (./hub.tsx). */
+export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
   const ctx = useOutreachContext();
   const phone = useOutreachWaiting(ctx.workspaceId, ctx.userId);
   const answer = useOutreachAnswer(
@@ -123,61 +124,59 @@ export function WaitingScreen() {
   );
   const ws = ctx.workspaceId;
   const askActions = useAskActions(null, answer.reload);
-  return (
-    <WaitingBody
-      phone={phone}
-      server={answer.data}
-      serverError={answer.error}
-      online={ctx.online}
-      timeZone={ctx.timeZone}
-      now={Date.now()}
-      onRetry={answer.reload}
-      onOk={async (send, text) => {
-        try {
-          await okSend(ws, send.sendId, text);
-          toast.show(saidOf(ctx.online, W.okd, W.okdQueued));
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onSkip={async (send) => {
-        try {
-          await skipSend(ws, send.sendId);
-          toast.show(saidOf(ctx.online, W.skipped, W.skippedQueued));
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onOkAll={async (sends) => {
-        try {
-          await okAll(ws, sends);
-          toast.show(saidOf(ctx.online, W.okdAll(sends.length), W.okdQueued));
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onClear={async (need, how) => {
-        try {
-          await clearNeed(ws, need.needId, how);
-          toast.show(saidOf(ctx.online, needClearedWords(how, 'done'), W.queued));
-          answer.reload();
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onLeave={async (request) => {
-        try {
-          await setAside(ws, request.profileId);
-          toast.show(saidOf(ctx.online, W.left(request.name), W.queued));
-          answer.reload();
-        } catch (e) {
-          failed(e);
-        }
-      }}
-      onSettings={() => openOutreach(ws, 'settings')}
-      askActions={askActions}
-    />
-  );
+  return {
+    phone,
+    server: answer.data,
+    serverError: answer.error,
+    online: ctx.online,
+    timeZone: ctx.timeZone,
+    now: Date.now(),
+    onRetry: answer.reload,
+    onOk: async (send, text) => {
+      try {
+        await okSend(ws, send.sendId, text);
+        toast.show(saidOf(ctx.online, W.okd, W.okdQueued));
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onSkip: async (send) => {
+      try {
+        await skipSend(ws, send.sendId);
+        toast.show(saidOf(ctx.online, W.skipped, W.skippedQueued));
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onOkAll: async (sends) => {
+      try {
+        await okAll(ws, sends);
+        toast.show(saidOf(ctx.online, W.okdAll(sends.length), W.okdQueued));
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onClear: async (need, how) => {
+      try {
+        await clearNeed(ws, need.needId, how);
+        toast.show(saidOf(ctx.online, needClearedWords(how, 'done'), W.queued));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onLeave: async (request) => {
+      try {
+        await setAside(ws, request.profileId);
+        toast.show(saidOf(ctx.online, W.left(request.name), W.queued));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
+    onSettings: () => openOutreach(ws, 'settings'),
+    askActions,
+  };
 }
 
 export function WaitingBody({
@@ -195,6 +194,7 @@ export function WaitingBody({
   onLeave,
   onSettings,
   askActions,
+  embedded = false,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -211,6 +211,8 @@ export function WaitingBody({
   onSettings: () => void;
   /** Carry on, Skip and Stop, on what the computer needs them for. */
   askActions?: AskActions;
+  /** Inside Today's tab, as Needs you (./hub.tsx): no screen of its own, and a line when nothing waits. */
+  embedded?: boolean;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -229,13 +231,24 @@ export function WaitingBody({
       onSkip={() => onSkip(send)}
     />
   );
-  return (
-    <Screen
-      title={W.rows.waiting}
-      subtitle={server ? waitingWords(count) : W.waitingMore(count)}
-      leading="back"
-      testID="outreach-waiting"
-    >
+  // Its own screen, or a part of Today's tab: a plain function, so the screen is never drawn anew.
+  const frame = (children: React.ReactNode) =>
+    embedded ? (
+      <View className="gap-3" testID="outreach-waiting">
+        {children}
+      </View>
+    ) : (
+      <Screen
+        title={W.rows.waiting}
+        subtitle={server ? waitingWords(count) : W.waitingMore(count)}
+        leading="back"
+        testID="outreach-waiting"
+      >
+        {children}
+      </Screen>
+    );
+  return frame(
+    <>
       {!online ? (
         <Card className="px-4 py-3" testID="waiting-offline">
           <Note>{W.waitingOffline}</Note>
@@ -343,7 +356,11 @@ export function WaitingBody({
         <NeedsSignal words={serverError} onRetry={onRetry} testID="waiting-server-error" />
       ) : null}
 
-      {count === 0 && (server || !online) ? (
+      {count === 0 && embedded && (server || !online) ? (
+        <Card className="border-dashed px-4 py-3.5" testID="waiting-empty">
+          <Note>{server ? W.needsYouNone : W.waitingMore(0)}</Note>
+        </Card>
+      ) : count === 0 && (server || !online) ? (
         <Card className="gap-1.5 px-5 py-6" testID="waiting-empty">
           {/* With no word from HandsFreeOS, only the phone's messages are known: steps and requests may wait. */}
           <Text className="text-[16px] font-semibold">
@@ -353,7 +370,7 @@ export function WaitingBody({
         </Card>
       ) : null}
 
-      {server ? (
+      {server && !embedded ? (
         <Card className="gap-2 px-4 py-3.5" testID="waiting-hear">
           <Text className="text-[15px] font-semibold">{W.hearTitle}</Text>
           <Note>{W.hearOfIt(server.pushes)}</Note>
@@ -377,7 +394,7 @@ export function WaitingBody({
           onOk(send, text);
         }}
       />
-    </Screen>
+    </>,
   );
 }
 

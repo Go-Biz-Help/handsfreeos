@@ -2,17 +2,22 @@ import * as React from 'react';
 import type * as ReactNative from 'react-native';
 
 /**
- * The stand-in Screen Social Outreach's tests draw into: its title, subtitle and children, without the shell's
- * safe areas and navigation. Each test file mocks `@/components/shell/screen` with it.
+ * The stand-in Screen Social Outreach's tests draw into: its title, subtitle, the buttons beside the title, what sits
+ * above the content (the four tabs) and the children, without the shell's safe areas and navigation. Each test file
+ * mocks `@/components/shell/screen` with it.
  */
 export function TestScreen({
   title,
   subtitle,
+  trailing,
+  header,
   children,
   testID,
 }: {
   title?: string;
   subtitle?: string;
+  trailing?: React.ReactNode;
+  header?: React.ReactNode;
   children?: React.ReactNode;
   testID?: string;
 }) {
@@ -21,6 +26,8 @@ export function TestScreen({
     <RN.View testID={testID}>
       <RN.Text testID="screen-title">{title}</RN.Text>
       {subtitle ? <RN.Text testID="screen-subtitle">{subtitle}</RN.Text> : null}
+      {trailing}
+      {header}
       {children}
     </RN.View>
   );

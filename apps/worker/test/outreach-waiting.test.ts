@@ -162,7 +162,7 @@ describe('pushes about what waits', () => {
     expect(await pushes(ws)).toEqual([
       {
         title: '2 messages wait for your OK',
-        body: 'Open Waiting for you to OK, change or skip them.',
+        body: 'Open Today to OK, change or skip them.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },
@@ -268,9 +268,7 @@ describe('pushes about what waits', () => {
       '1 message waits for your OK',
       '1 message waits for your OK',
     ]);
-    expect((await pushes(ws))[1]!.body).toBe(
-      'And 1 step the extension couldn’t do. Open Waiting for you.',
-    );
+    expect((await pushes(ws))[1]!.body).toBe('And 1 step the extension couldn’t do. Open Today.');
   }, 90_000);
 
   it('gives up only when the person may not be told: anything else is tried again', () => {
@@ -323,13 +321,13 @@ describe('pushes about what waits', () => {
     expect(await pushes(ws)).toEqual([
       {
         title: 'Dana Reyes: a message waits for your OK',
-        body: 'OK it, change it or skip it in Waiting for you.',
+        body: 'OK it, change it or skip it on Today.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },
       {
         title: 'Eli Brook: the extension needs you',
-        body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, in Waiting for you.',
+        body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },

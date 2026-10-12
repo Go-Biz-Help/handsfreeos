@@ -107,26 +107,30 @@ export function setupOpenAt(
 
 /** Social Outreach's tabs, as their addresses name them (`?view=`); the activity is the bare page. */
 export type OutreachTab =
-  | 'activity'
-  | 'live'
-  | 'waiting'
   | 'today'
-  | 'groups'
+  | 'live'
+  | 'pipeline'
   | 'friends'
   | 'chats'
+  | 'groups'
+  | 'results'
   | 'playbooks'
-  | 'settings';
+  | 'settings'
+  // The old tabs' names (decision 59): Activity is Results now, and Waiting for you is on Today.
+  | 'activity'
+  | 'waiting';
 
 /**
- * A tab's address, for the extension's links and anything else that opens one: `?view=`, or the bare page for the
- * activity (which sends a first-timer to the setup; a tab's own link never does). `more` adds the tab's own choices.
+ * A view's address, for the extension's links and anything else that opens one: `?view=`, the old tabs' names as
+ * the views they became (decision 59). `more` adds the view's own choices.
  */
 export function outreachPath(
   workspaceId: string,
   view: OutreachTab,
   more: Readonly<Record<string, string>> = {},
 ): string {
-  const params = new URLSearchParams(view === 'activity' ? more : { view, ...more });
+  const shown = view === 'activity' ? 'results' : view === 'waiting' ? 'today' : view;
+  const params = new URLSearchParams({ view: shown, ...more });
   const qs = params.toString();
   return `/app/w/${workspaceId}/a/outreach${qs ? `?${qs}` : ''}`;
 }

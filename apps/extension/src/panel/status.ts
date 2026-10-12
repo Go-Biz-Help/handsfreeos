@@ -1,10 +1,11 @@
 /**
- * Right now, in the side panel (docs/outreach.md, decisions 26 to 33, 41 and 43): what the extension is doing, its next
- * step, and why it isn't working when it isn't (another computer works, noting is off, Facebook warned you today);
- * a warning when their own steps today go past a daily limit; the person's settings in one line (the hours and
- * training wheels in it), with **Change in HandsFreeOS**; **Start my day** and **Stop for today**; and what
- * they asked of it from HandsFreeOS while it goes, with **Carry on**, **Skip** and **Stop**. Everything else is in
- * HandsFreeOS. The background's runner does the work (src/auto/run.ts), and the asks (src/asks/run.ts).
+ * Next up, in the side panel (docs/outreach.md, decisions 26 to 33, 41, 43 and 59): how it's doing, in the top bar;
+ * what the extension is doing or does next, and why it isn't working when it isn't (another computer works, noting is
+ * off, Facebook warned you today); a warning when their own steps today go past a daily limit; today's steps against
+ * the limits; **Start my day** and **Stop for today**; and what they asked of it from HandsFreeOS while it goes, with
+ * **Carry on**, **Skip** and **Stop**. Under the list, Done today, the newest of the day's steps; at the foot, the
+ * person's settings in one line (the hours and training wheels in it), with **Change in HandsFreeOS**. Everything else
+ * is in HandsFreeOS. The background's runner does the work (src/auto/run.ts), and the asks (src/asks/run.ts).
  */
 import {
   ASK_KINDS,
@@ -14,7 +15,9 @@ import {
   type AskReply,
 } from '@hfos/core/addons/outreach/asks';
 import { settingsSummary } from '@hfos/core/addons/outreach/automation';
-import { REPORTED_STATES, standDownWords } from '@hfos/core/addons/outreach/live';
+import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { REPORTED_STATES, standDownWords, stateTone } from '@hfos/core/addons/outreach/live';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import { AUTO_STATE_KEY, isState } from '../auto/plan';
 import { ASK_KEY, type KeptAsk } from '../hfos/asks';
@@ -23,12 +26,15 @@ import { LIVE_KEY, reportedStatus } from '../hfos/live';
 import type { AutoStatus } from '../hfos/messages';
 import { WARNED_KEY } from '../hfos/warned';
 import { ask } from './ask';
-import { ago, button, chip, h, hfosLink, type Child } from './dom';
+import { ago, button, h, hfosLink, type Child } from './dom';
 
 /** Training wheels, in the settings line: HandsFreeOS says the rest. */
 const WHEELS_SHORT = 'Training wheels: each message waits for your OK';
 
 let box: HTMLElement;
+let doneBox: HTMLElement | null = null;
+let chipBox: HTMLElement | null = null;
+let settingsBox: HTMLElement | null = null;
 let status: AutoStatus | null = null;
 let problem: string | null = null;
 /** Why HandsFreeOS refused Start my day or Stop for today, or a press about the ask, in its words. */
@@ -56,6 +62,9 @@ async function readAsk(): Promise<void> {
 
 const clock = (at: number) =>
   new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+/** "2:04 PM", for the day's steps. */
+const clockShort = (at: number) =>
+  new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
 const hfosUrl = (now: AutoStatus, view: OutreachTab) =>
   now.businessId ? `${now.webUrl}${outreachPath(now.businessId, view)}` : null;
@@ -105,31 +114,76 @@ function askView(a: KeptAsk): Child {
   );
 }
 
+/** Today's steps against the daily limits, from HandsFreeOS: only those it may take today. */
+function metersView(now: AutoStatus): Child {
+  const limits = now.today?.limits;
+  if (!limits) return null;
+  const steps = DAILY_STEPS.filter((step) => limits[step].most > 0);
+  if (!steps.length) return null;
+  return h(
+    'ul',
+    { class: 'meters', 'aria-label': W.todaySoFar },
+    ...steps.map((step) => {
+      const { done, most } = limits[step];
+      const full = done >= most;
+      return h(
+        'li',
+        { class: full ? 'meter full' : 'meter' },
+        h(
+          'div',
+          {},
+          h('span', { class: 'label' }, DAILY_WORDS[step].label),
+          h('span', { class: 'count' }, `${done} / ${most}`),
+        ),
+        h(
+          'div',
+          { class: 'bar' },
+          h('span', { style: `width: ${Math.min(100, Math.round((done / most) * 100))}%` }),
+        ),
+      );
+    }),
+  );
+}
+
+/** How it's doing, in the panel's top bar: the same words and colours as HandsFreeOS's. */
+function stateChip(now: AutoStatus | null): void {
+  if (!chipBox) return;
+  const automation = now?.automation;
+  if (!now || !automation) {
+    chipBox.hidden = true;
+    return;
+  }
+  const standing = now.live !== null && !now.live.working;
+  const reported = reportedStatus(now.state, automation.settings, standing).state;
+  chipBox.hidden = false;
+  chipBox.className = `state ${stateTone(reported)}`;
+  chipBox.textContent = REPORTED_STATES[reported];
+}
+
+/** Next up: what it's doing or does next, why it isn't working when it isn't, the day's steps, and the day's buttons. */
 function stateView(now: AutoStatus): Child[] {
   const automation = now.automation;
   const state = now.state;
   if (!automation) return [];
   const settings = automation.settings;
-  const settingsUrl = hfosUrl(now, 'settings');
   const off = settings.sending === 'off';
   const standing = now.live !== null && !now.live.working;
   const reported = reportedStatus(state, settings, standing).state;
   const next =
     !off && !standing && !state.stopped && !state.working && state.nextAt !== null
-      ? `Next step: ${clock(state.nextAt)}.`
+      ? state.nextAt
       : null;
+  const going = state.started && !state.stopped;
   return [
+    h('p', { class: 'overline' }, next ? `Next up · ${clock(next)}` : W.rightNow),
     h(
       'p',
-      { class: 'now-line' },
-      chip(REPORTED_STATES[reported], reported === 'working' ? 'saved' : 'plain'),
-      ' ',
-      state.line && !standing && !off ? state.line : '',
-      state.line && state.lineAt && !state.working && !standing && !off
-        ? h('span', { class: 'muted' }, ` · ${ago(new Date(state.lineAt).toISOString())}`)
-        : null,
+      { class: 'next-title' },
+      state.line && !standing && !off ? state.line : REPORTED_STATES[reported],
     ),
-    next ? h('p', { class: 'muted' }, next) : null,
+    state.line && state.lineAt && !state.working && !standing && !off
+      ? h('p', { class: 'muted' }, ago(new Date(state.lineAt).toISOString()))
+      : null,
     standing ? h('p', { class: 'muted' }, standDownWords(now.live!.workingName)) : null,
     !now.noting && !off
       ? h(
@@ -138,39 +192,91 @@ function stateView(now: AutoStatus): Child[] {
           'Noting is off, so the extension doesn’t work on its own. Turn on “Note my steps on Facebook” in HandsFreeOS.',
         )
       : null,
-    h(
-      'p',
-      { class: 'muted settings-line' },
-      off
-        ? 'It doesn’t work on its own for you: you do everything.'
-        : `${[...settingsSummary(settings), ...(automation.wheels.on ? [WHEELS_SHORT] : [])].join(' · ')}.`,
-      ' ',
-      settingsUrl ? hfosLink('Change in HandsFreeOS', settingsUrl) : null,
-    ),
+    off ? h('p', { class: 'muted' }, W.sendingOffNote) : null,
+    metersView(now),
     off
       ? null
       : h(
           'div',
           { class: 'actions' },
-          button('Start my day', () => void act('hfos-auto-start'), {
-            primary: true,
-            disabled: state.working || (state.started && !state.stopped),
-          }),
-          button('Stop for today', () => void act('hfos-auto-stop'), {
-            disabled: state.stopped !== null,
-          }),
+          going
+            ? null
+            : button(W.startDay, () => void act('hfos-auto-start'), {
+                wide: true,
+                disabled: state.working,
+              }),
+          state.stopped
+            ? null
+            : button(W.stopDay, () => void act('hfos-auto-stop'), {
+                wide: going,
+                ghost: !going,
+              }),
         ),
   ];
+}
+
+/** Done today: the newest of the day's steps, as HandsFreeOS keeps them, and the rest there. */
+function doneView(now: AutoStatus): Child[] {
+  const steps = now.today?.steps;
+  if (!steps) return [];
+  const all = hfosUrl(now, 'live');
+  return [
+    h(
+      'h2',
+      {},
+      W.doneToday,
+      all ? h('span', { class: 'see-all' }, hfosLink('See all', all)) : null,
+    ),
+    steps.length
+      ? h(
+          'ol',
+          {},
+          ...steps.map((step) =>
+            h(
+              'li',
+              { class: step.kind === 'stopped' ? 'stopped' : undefined },
+              h('time', { datetime: step.at }, clockShort(Date.parse(step.at))),
+              h('span', {}, step.line),
+            ),
+          ),
+        )
+      : h('p', { class: 'muted' }, W.noSteps),
+  ];
+}
+
+/** The person's settings in a line, at the foot, with where to change them. */
+function settingsView(now: AutoStatus | null): void {
+  if (!settingsBox) return;
+  const automation = now?.automation;
+  if (!now || !automation) {
+    settingsBox.hidden = true;
+    return settingsBox.replaceChildren();
+  }
+  const settings = automation.settings;
+  const url = hfosUrl(now, 'settings');
+  settingsBox.hidden = false;
+  settingsBox.replaceChildren(
+    settings.sending === 'off'
+      ? 'It doesn’t work on its own for you: you do everything.'
+      : `${[...settingsSummary(settings), ...(automation.wheels.on ? [WHEELS_SHORT] : [])].join(' · ')}.`,
+    ...(url ? [' ', hfosLink('Change in HandsFreeOS', url)] : []),
+  );
 }
 
 function draw(): void {
   if (!box) return;
   const shown = status?.businessId != null || problem !== null;
   box.hidden = !shown;
+  stateChip(shown ? status : null);
+  settingsView(shown ? status : null);
+  if (doneBox) {
+    const done = shown && status ? doneView(status) : [];
+    doneBox.hidden = !done.length;
+    doneBox.replaceChildren(...done.filter((part): part is Node | string => Boolean(part)));
+  }
   if (!shown) return box.replaceChildren();
   const warned = status?.warned ?? null;
   const parts: Child[] = [
-    h('h2', {}, 'Right now'),
     problem || status?.trouble
       ? h('p', { class: 'muted' }, `Couldn’t get your settings. ${problem ?? status?.trouble}`)
       : null,
@@ -189,8 +295,18 @@ function draw(): void {
   box.replaceChildren(...parts.filter((part): part is Node | string => Boolean(part)));
 }
 
-export function startStatus(into: HTMLElement): void {
+/**
+ * Draws Next up into `into`, Done today into `done`, how it's doing into the top bar's `chip`, and the settings line
+ * into `settingsLine`, and again whenever what they show changes.
+ */
+export function startStatus(
+  into: HTMLElement,
+  parts: { done?: HTMLElement; chip?: HTMLElement; settingsLine?: HTMLElement } = {},
+): void {
   box = into;
+  doneBox = parts.done ?? null;
+  chipBox = parts.chip ?? null;
+  settingsBox = parts.settingsLine ?? null;
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     // The ask's line changes every few seconds: drawn from what's kept, without asking the background.

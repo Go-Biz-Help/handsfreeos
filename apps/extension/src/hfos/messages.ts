@@ -6,6 +6,7 @@
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
+import type { DailyStep } from '@hfos/core/addons/outreach/limits';
 import type { AutoState } from '../auto/plan';
 
 type Body<P extends keyof paths> = paths[P] extends {
@@ -179,6 +180,17 @@ export interface AutoStatus {
   readonly warned: readonly string[] | null;
   /** The warning when the person's steps today go past a daily limit (`pastLimitWords`): null within them. */
   readonly pastLimit: string | null;
+  /**
+   * Today in HandsFreeOS, for the panel's Next up and Done today (decision 59): each step against its daily limit, and
+   * the latest steps. Null when HandsFreeOS couldn't say; missing from a background before 0.26.
+   */
+  readonly today?: TodaySoFar | null;
+}
+
+/** Today's steps against the daily limits, and the newest of the day's feed. */
+export interface TodaySoFar {
+  readonly limits: Readonly<Record<DailyStep, { readonly done: number; readonly most: number }>>;
+  readonly steps: readonly { readonly at: string; readonly line: string; readonly kind: string }[];
 }
 
 export type HfosAsk =

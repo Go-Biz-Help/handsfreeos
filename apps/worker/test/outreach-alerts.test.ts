@@ -142,7 +142,7 @@ describe('phone alerts', () => {
     await drain(s, ws);
     expect(await pushes(ws)).toContainEqual({
       title: 'Ana Moss needs you',
-      body: 'Their reply waits for your OK in Waiting for you: it’s about a refund.',
+      body: 'Their reply waits for your OK on Today: it’s about a refund.',
       path: `/app/w/${ws}/a/outreach?view=waiting`,
       user_ids: [owner.id],
     });

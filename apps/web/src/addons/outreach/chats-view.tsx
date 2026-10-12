@@ -26,7 +26,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton, ComputerNote } from './asks';
+import { AskButton } from './asks';
 import { KeepChatButton } from './chat-keep';
 import { dayWords, Pager, SearchBox } from './friends-view';
 import { PersonMenu } from './person-menu';
@@ -99,7 +99,6 @@ export function ChatsView({
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="chats-asks">
-        <ComputerNote asks={asks} className="mb-3" />
         <AskButton
           workspaceId={workspaceId}
           asks={asks}

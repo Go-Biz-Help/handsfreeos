@@ -11,7 +11,6 @@ import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { ExternalLink, UserRound } from '@/components/icons';
-import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,6 +20,7 @@ import { Text } from '@/components/ui/text';
 import { openWebPath } from '@/home/open';
 import { api, unwrap } from '@/lib/api';
 
+import { OutreachFrame } from './frame';
 import {
   AskButton,
   ComputerNote,
@@ -131,7 +131,7 @@ export function ChatsBody({
 }) {
   const empty = search.trim() || tag ? W.chatsNoMatch : W.chatsEmpty[view];
   return (
-    <Screen title={W.rows.chats} leading="back" testID="outreach-chats">
+    <OutreachFrame tab="people" people="chats" testID="outreach-chats">
       {asks && actions ? (
         <Card className="gap-2 px-4 py-3.5" testID="chats-asks">
           <ComputerNote asks={asks} />
@@ -248,6 +248,6 @@ export function ChatsBody({
       ) : error ? (
         <NeedsSignal words={error} onRetry={onRetry} testID="chats-needs-signal" />
       ) : null}
-    </Screen>
+    </OutreachFrame>
   );
 }

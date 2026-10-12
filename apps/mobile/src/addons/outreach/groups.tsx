@@ -21,7 +21,6 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { ExternalLink } from '@/components/icons';
-import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -30,6 +29,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 
+import { OutreachFrame } from './frame';
 import {
   AskButton,
   AskLine,
@@ -127,7 +127,7 @@ export function GroupsBody({
 }) {
   const empty = search.trim() ? W.groupsNoMatch : W.groupsEmpty[view];
   return (
-    <Screen title={W.rows.groups} leading="back" testID="outreach-groups">
+    <OutreachFrame tab="groups" testID="outreach-groups">
       {groups ? (
         <Card className="gap-1.5 px-4 py-3.5" testID="groups-prospects">
           <Text className="text-[15px] font-semibold">{GROUP_CHECK_WORDS.prospectsTitle}</Text>
@@ -229,7 +229,7 @@ export function GroupsBody({
       ) : error ? (
         <NeedsSignal words={error} onRetry={onRetry} testID="groups-needs-signal" />
       ) : null}
-    </Screen>
+    </OutreachFrame>
   );
 }
 

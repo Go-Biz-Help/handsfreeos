@@ -381,9 +381,7 @@ export function trackWindows(): void {
 async function openPage(): Promise<void> {
   const place = await savingTo().catch(() => null);
   if (!config.webUrl) return;
-  const url = place
-    ? `${config.webUrl}${outreachPath(place.businessId, 'waiting')}`
-    : config.webUrl;
+  const url = place ? `${config.webUrl}${outreachPath(place.businessId, 'today')}` : config.webUrl;
   await chrome.tabs.create({ url }).catch(() => undefined);
 }
 

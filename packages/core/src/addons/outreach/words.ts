@@ -34,6 +34,8 @@ const ASK_TO_SEND = 'Ask an owner of this business if you’d like it to.';
 const JOINED = 'You’re in it';
 const TEAM_NONE = 'Nobody uses Social Outreach here yet';
 const LIST_TODAY = 'Your list for today';
+/** What waits for the person (decision 42), on Today since decision 59: the panel and the phone say it too. */
+const NEEDS_YOU = 'Needs you';
 const TODAY_EMPTY = 'Nothing on your list for today';
 
 const days = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -55,7 +57,7 @@ export const OUTREACH_WORDS = {
       ? `${things(messages, 'message waits', 'messages wait')} for your OK`
       : 'No messages wait for your OK',
   rows: {
-    waiting: 'Waiting for you',
+    waiting: NEEDS_YOU,
     live: 'Live',
     today: 'Today',
     pipeline: 'Pipeline',
@@ -160,7 +162,7 @@ export const OUTREACH_WORDS = {
   todaySoFar: 'Today so far',
   countOf: (done: number, most: number) =>
     `${done.toLocaleString('en-US')} of ${most.toLocaleString('en-US')}`,
-  waitingLink: (n: number) => `Waiting for you: ${n.toLocaleString('en-US')}`,
+  waitingLink: (n: number) => `${NEEDS_YOU}: ${n.toLocaleString('en-US')}`,
   todaySteps: 'Today’s steps',
   noSteps: 'Nothing yet today.',
   team: 'Your team',
@@ -176,7 +178,28 @@ export const OUTREACH_WORDS = {
   todayEmpty: `${TODAY_EMPTY}.`,
   todayEmptyTitle: TODAY_EMPTY,
   todayEmptyBody:
-    'On the Groups tab, Save my groups and Save members of my best groups, and Find posts; on the Chats tab, Read my chats; on the Friends tab, Check my friends. People who fit your playbooks, new friends to say hi to, friends to reconnect with, chats to follow up and posts worth a comment show here.',
+    'People who fit your playbooks, new friends to say hi to, friends to reconnect with, chats to follow up and posts worth a comment show here. Give it something to work with:',
+  /** Today's empty list: the next steps, each where it's done (decision 59). */
+  todayStart: [
+    {
+      to: 'groups',
+      title: 'Save your groups',
+      body: 'Your computer saves the groups you’re in, then who’s in the best ones.',
+      button: 'Go to Groups',
+    },
+    {
+      to: 'chats',
+      title: 'Read your chats',
+      body: 'The AI reads your Messenger chats and finds who fits.',
+      button: 'Go to Chats',
+    },
+    {
+      to: 'friends',
+      title: 'Check your friends',
+      body: 'It looks for good fits among the friends you already have.',
+      button: 'Go to Friends',
+    },
+  ] as const,
   listTitle: LIST_TODAY,
   todayComputerOnly:
     'Drafting a message, copying an opener and the AI’s drafts are on your computer, beside Facebook.',
@@ -193,9 +216,76 @@ export const OUTREACH_WORDS = {
   sentWaiting: 'I’d send this. Change it if you like; your changes teach the AI.',
   sentOkd: 'OK’d: the extension sends it soon.',
 
+  // ---- The page's tabs (decision 59) ----
+  /** The line under the page's title. */
+  pageAbout: 'Finds people in your Facebook groups, makes friends and starts real chats for you.',
+  /** The four tabs and the gear, in order. */
+  tabs: {
+    today: 'Today',
+    people: 'People',
+    groups: 'Groups',
+    results: 'Results',
+    settings: 'Settings',
+  },
+  tabDetails: {
+    today: 'What needs you, and your list',
+    people: 'Everyone you reached, your friends and chats',
+    groups: 'Groups to work, and why',
+    results: 'Friends made, chats and demos booked',
+    settings: 'Your settings, playbooks and computer',
+  },
+  /** People's three lists. */
+  peopleParts: { pipeline: 'Pipeline', friends: 'Friends', chats: 'Chats' },
+  /** The Settings tab's parts. */
+  settingsParts: {
+    mine: 'My settings',
+    business: 'Business settings',
+    playbooks: 'Playbooks',
+    computer: 'Your computer',
+    fresh: 'Start fresh',
+  },
+  needsYou: NEEDS_YOU,
+  /** Nothing waits: said in a line on Today. */
+  needsYouNone: 'Nothing needs you right now.',
+  doneToday: 'Done today',
+  seeAllToday: 'See everything it did today',
+  computerDetails: 'Details',
+  /** Today's fold-out, in place of the notes that sat beside each tab. */
+  howItWorks: 'How Social Outreach works',
+  howItWorksSteps: [
+    {
+      title: 'It finds people.',
+      body: 'It reads the groups you pick and saves the people who fit your playbooks.',
+    },
+    {
+      title: 'It makes friends.',
+      body: 'A few friend requests at a time, at a person’s pace, and a hello when they say yes.',
+    },
+    {
+      title: 'You say when to pitch.',
+      body: 'Anything with your demo link waits on Today for your OK, unless you let it go on its own.',
+    },
+  ] as const,
+  /** The Results tab: from reached to booked. */
+  results: {
+    headline: (demos: number) => things(demos, 'demo booked', 'demos booked'),
+    from: (people: number) => `from ${things(people, 'person reached', 'people reached')}`,
+    funnel: {
+      people: 'Reached',
+      chatsStarted: 'Chats started',
+      replies: 'Wrote back',
+      demos: 'Demos booked',
+    },
+    /** Under each step but the first: how many of the step before made it. */
+    rate: (pct: number, of: string) => `${pct}% of ${of.toLowerCase()}`,
+    along: 'Along the way',
+  },
+
   // ---- Someone kept as a profile: the person menu, on Today, Friends, Chats and Waiting for you ----
   person: {
     menu: (name: string) => `More for ${name}`,
+    /** The People tab's moves to another stage, first in the menu. */
+    moveTo: 'Move to',
     addToContacts: 'Add to Contacts',
     inContacts: 'In Contacts',
     demoBooked: 'Demo booked',

@@ -48,7 +48,7 @@ const TONES: Record<ReturnType<typeof stateTone>, BadgeVariant> = {
   plain: 'gray',
 };
 
-function StateChip({ state, testId }: { state: ShownState; testId?: string }) {
+export function StateChip({ state, testId }: { state: ShownState; testId?: string }) {
   return (
     <Badge variant={TONES[stateTone(state)]} data-testid={testId}>
       {SHOWN_STATES[state]}
@@ -60,7 +60,7 @@ function StateChip({ state, testId }: { state: ShownState; testId?: string }) {
  * The server's clock, moving on: it starts at the answer's `now` (so the page draws the same on the server and in the
  * browser), then adds the time passed in the browser every 30 seconds. A fresh answer starts it again.
  */
-function useServerNow(serverNow: string, everyMs = 30_000): number {
+export function useServerNow(serverNow: string, everyMs = 30_000): number {
   const server = Date.parse(serverNow);
   const [tick, setTick] = useState<{ readonly server: number; readonly now: number } | null>(null);
   useEffect(() => {
@@ -72,7 +72,7 @@ function useServerNow(serverNow: string, everyMs = 30_000): number {
 }
 
 /** Asks again on a clock while the tab is shown: what a heartbeat brings (the last-seen time) tells nobody. */
-function useRefetchWhileShown(everyMs = LIVE_REFETCH_SECONDS * 1000): void {
+export function useRefetchWhileShown(everyMs = LIVE_REFETCH_SECONDS * 1000): void {
   const router = useRouter();
   useEffect(() => {
     const t = setInterval(() => {
@@ -308,7 +308,7 @@ function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) 
         <p className="mt-3 text-[13px]" data-testid="live-waiting">
           <Link
             className="font-medium text-accent-text underline-offset-2 hover:underline"
-            href={outreachHref(workspaceId, { view: 'waiting' })}
+            href={outreachHref(workspaceId, { view: 'today' })}
           >
             {W.waitingLink(live.waiting)}
           </Link>
@@ -347,14 +347,17 @@ function StepsCard({ live }: { live: Live }) {
   );
 }
 
-function ComputersCard({
+export function ComputersCard({
   workspaceId,
   live,
   now,
+  bare = false,
 }: {
   workspaceId: string;
   live: Live;
   now: number;
+  /** Inside another card (Settings' Your computer): no card or title of its own. */
+  bare?: boolean;
 }) {
   const { busy, act } = useAct();
   const [editing, setEditing] = useState<string | null>(null);
@@ -371,10 +374,11 @@ function ComputersCard({
         ),
       'Renamed.',
     ).then((ok) => ok && setEditing(null));
+  const Box = bare ? 'div' : Card;
   return (
-    <Card className="p-4" data-testid="live-computers">
-      <h3 className="text-[15px] font-semibold">Your computers</h3>
-      <p className="mt-0.5 text-[12.5px] text-text-3">
+    <Box className={bare ? undefined : 'p-4'} data-testid="live-computers">
+      {bare ? null : <h3 className="text-[15px] font-semibold">Your computers</h3>}
+      <p className={cn('text-[12.5px] text-text-3', !bare && 'mt-0.5')}>
         The one you used last works; the others stand by. Open the panel on one to work from it.
       </p>
       <ul className="mt-3 space-y-3">
@@ -430,7 +434,7 @@ function ComputersCard({
           </li>
         ))}
       </ul>
-    </Card>
+    </Box>
   );
 }
 

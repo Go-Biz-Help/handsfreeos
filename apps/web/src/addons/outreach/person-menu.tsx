@@ -16,6 +16,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -34,15 +36,28 @@ export interface MenuPerson {
   readonly demoBooked?: boolean;
 }
 
+/** A move to another stage, on the People tab: Ready to pitch, Pitched, Not a fit, Back in play. */
+export interface MenuMove {
+  readonly key: string;
+  readonly label: string;
+  readonly onSelect: () => void;
+  readonly danger?: boolean;
+}
+
 export function PersonMenu({
   workspaceId,
   who,
   dontPitch = true,
+  moves = [],
+  disabled = false,
 }: {
   workspaceId: string;
   who: MenuPerson;
   /** Offer Don't pitch: left off where the row has its own switch for it. */
   dontPitch?: boolean;
+  /** Stages to move them to, first in the menu (the board's cards and the pipeline's rows). */
+  moves?: readonly MenuMove[];
+  disabled?: boolean;
 }) {
   const { busy, act } = useAct();
   const [same, setSame] = useState<readonly SameName[] | null>(null);
@@ -109,12 +124,29 @@ export function PersonMenu({
             aria-label={P.menu(who.name)}
             className="h-7 w-7"
             loading={busy !== null}
+            disabled={disabled}
             data-testid="person-menu"
           >
             <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
+          {moves.length ? (
+            <>
+              <DropdownMenuLabel>{P.moveTo}</DropdownMenuLabel>
+              {moves.map((m) => (
+                <DropdownMenuItem
+                  key={m.key}
+                  danger={m.danger}
+                  onSelect={m.onSelect}
+                  data-testid={`pipeline-mark-${m.key}`}
+                >
+                  {m.label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           {who.personId ? (
             <DropdownMenuItem asChild>
               <Link
