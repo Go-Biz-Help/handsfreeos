@@ -50,6 +50,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { ChatBubbles } from './chat-bubbles';
+import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
 import { StartFresh } from './start-fresh';
 import OutreachBusinessSettings from './business-settings';
@@ -509,8 +510,11 @@ export function SettingsView({
   business,
   canStartFresh = false,
   live = null,
+  extensionLink = null,
 }: {
   workspaceId: string;
+  /** The business's own link to the extension's zip, when it gave one: else HandsFreeOS's own. */
+  extensionLink?: string | null;
   /** The person's computers: null when they couldn't be had. */
   live?: Live | null;
   /** An owner, who may erase everything and start fresh (`addons.purge`). */
@@ -613,9 +617,10 @@ export function SettingsView({
           </Link>
         </p>
       )}
-      {mine && live ? (
+      {mine ? (
         <Section id="computer" title={W.settingsParts.computer}>
-          <ComputerPart workspaceId={workspaceId} live={live} />
+          {live ? <ComputerPart workspaceId={workspaceId} live={live} /> : null}
+          <ExtensionDownload link={extensionLink} folded />
         </Section>
       ) : null}
       {canStartFresh && mine ? (

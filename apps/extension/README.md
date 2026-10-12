@@ -344,11 +344,21 @@ the web.
 ## Load it in Chrome
 
 People on a business's team follow the setup in HandsFreeOS (Social Outreach sends a first-timer there; Settings →
-Set up again, or the Carry on line on any tab, opens it), which has the download link and these steps in plain
-words. To hand out a build, zip the **contents** of `dist/chrome` so `manifest.json` is at the zip's top (into `dist/`, which git ignores, never into the repo), put the zip wherever the team downloads files
-(a shared drive, a release page), and paste its https link under Social Outreach → Settings → Business settings →
-**Where your team gets the extension** (on the web or the phone). A newer build goes the same way: people unzip it
-over the same folder and press the reload arrow. When a business starts Social Outreach fresh, the extension
+Set up again, or the Carry on line on any tab, opens it), which has the download and these steps in plain
+words (decision 60). HandsFreeOS hands out the build itself: with every version bump, run
+
+```bash
+HFOS_SUPABASE_PUBLISHABLE_KEY=sb_publishable_… pnpm --filter @hfos/extension release
+```
+
+which builds it for HandsFreeOS (whatever `.env.local` says), zips it with `manifest.json` at the top to
+`apps/web/public/downloads/hfos-social.zip`, and writes its version and size to
+`packages/core/src/addons/outreach/extension-release.ts`; commit both, and the web app serves it with the next deploy.
+`test/release.test.ts` fails while the version there and `package.json`'s disagree. The zip keeps its name from version
+to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
+and press the reload arrow, and stay signed in. A business that keeps its own copy pastes its https link under Social
+Outreach → Settings → Business settings → **Where your team gets the extension** (on the web or the phone), and
+everyone's download is that one instead. When a business starts Social Outreach fresh, the extension
 forgets what it kept on the computer for it (chats read, steps not yet sent, the setup opened) the next time it loads
 its settings (`forgetOnFreshStart`). Once everyone has the bare-bones build (0.19.0, settings part 4, or
 newer), set the API's `MIN_EXTENSION_VERSION` to it, so an older build that still saves from its panel is refused

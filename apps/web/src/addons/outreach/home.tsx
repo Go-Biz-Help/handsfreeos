@@ -122,6 +122,8 @@ export type OutreachShown =
       readonly canStartFresh: boolean;
       /** The person's computers, to rename: null when it couldn't be had. */
       readonly live: Live | null;
+      /** The business's own link to the extension's zip, when it gave one. */
+      readonly extensionLink: string | null;
     };
 
 /** A row of links that looks like a segmented control: People's three lists. */
@@ -305,6 +307,7 @@ export function OutreachHome({
                 business={shown.business}
                 canStartFresh={shown.canStartFresh}
                 live={shown.live}
+                extensionLink={shown.extensionLink}
               />
             ) : shown.view === 'playbooks' ? (
               <PlaybooksView
