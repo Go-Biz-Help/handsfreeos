@@ -546,6 +546,35 @@ describe('asking the extension', () => {
     expect((await runAs(warned, ws, 'outreach.asks', {})).warnedToday).toBe(true);
   });
 
+  it('says how to update an extension too old for what’s asked, and ends what it can’t do at the take', async () => {
+    const old = await createTestUser('outa-old', { fullName: 'Kai Member' });
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: old.id, role: 'member' });
+    const pc = randomUUID();
+    // 0.19.0 knows none of the group checks.
+    await beat(old, pc, true);
+    expect(await refused(ask(old, { kind: 'group_checks' }))).toBe('outreach_extension_too_old');
+    const asks = await runAs(old, ws, 'outreach.asks', {});
+    expect(asks.computer.version).toBe('0.19.0');
+    // One asked before it said its version waits; the take ends it, saying how to update.
+    const groups = await ask(old, { kind: 'groups' });
+    await admin().execute(
+      sql`insert into addon_outreach.asks (workspace_id, user_id, kind, target, task, via, asked_at)
+          values (${ws}, ${old.id}, 'group_checks', '', '{"kind":"group_checks"}'::jsonb, 'web', now() - interval '1 minute')`,
+    );
+    const { ask: taken } = await take(old, pc);
+    expect(taken.kind).toBe('groups');
+    const [ended] = await rows<{ state: string; line: string }>(
+      admin(),
+      sql`select state, line from addon_outreach.asks
+          where workspace_id = ${ws} and user_id = ${old.id} and kind = 'group_checks'`,
+    );
+    expect(ended).toMatchObject({ state: 'failed' });
+    expect(ended!.line).toMatch(/older build \(0\.19\.0\).*Reload/);
+    expect(groups.fresh).toBe(true);
+  });
+
   it('adds someone to Contacts from the web, marks a demo by the profile kept', async () => {
     await runAs(owner, ws, 'outreach.touch.save', {
       kind: 'friend_request',

@@ -38,6 +38,7 @@ function send(
       chatId: null,
       threadKey: null,
       text: `Hi ${name}`,
+      recent: [],
       state: 'waiting',
       why: null,
       opener: null,

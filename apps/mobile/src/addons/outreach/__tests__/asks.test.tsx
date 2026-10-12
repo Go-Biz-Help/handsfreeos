@@ -38,6 +38,7 @@ const COMPUTER = {
   online: true,
   signedOut: false,
   lastSeenAt: '2026-10-10T14:59:30.000Z',
+  version: '0.25.0',
 };
 
 const asksOf = (asks: AskShown[] = [], over: Partial<AsksOutput> = {}): AsksOutput => ({
@@ -168,6 +169,22 @@ describe('Groups on the phone asks the computer', () => {
       /^Facebook warned you today/,
     );
     expect(screen.getByTestId('ask-posts').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('says an older extension can’t check groups, and how to update it', async () => {
+    await render(
+      groupsBody({
+        groups: groupsOf([GROUP]),
+        asks: asksOf([], { computer: { ...COMPUTER, version: '0.20.0' } }),
+        actions: actionsOf(),
+      }),
+    );
+    expect(screen.getByTestId('ask-group-checks').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getAllByTestId('outreach-ask-too-old')[0]!.props.children).toMatch(
+      /older build \(0\.20\.0\).*Reload/,
+    );
+    // What every build does still asks.
+    expect(screen.getByTestId('ask-groups').props.accessibilityState.disabled).toBe(false);
   });
 
   it('shows no buttons until HandsFreeOS says what was asked', async () => {

@@ -38,6 +38,7 @@ import {
   oneByOneWords,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
+import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { CalendarCheck, Check, CheckCheck, Copy, Loader2, Send, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
@@ -54,6 +55,7 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { ChatSoFar } from './chat-bubbles';
 import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
 import type { Asks, HelpfulList, TodayItem, TodayList, WheelsList } from './types';
@@ -301,6 +303,7 @@ function TodayRow({
       {item.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
       ) : null}
+      <ChatSoFar recent={item.recent} />
       {item.send ? (
         <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
       ) : draftKind ? (
@@ -523,13 +526,17 @@ function Drafts({
    * Copying a first message notes which opener it was, and copying a pitch moves them on to pitched (decision 47);
    * that it couldn't is no reason to stop them.
    */
-  const copy = async (text: string) => {
+  const copy = async (text: string, part?: { readonly n: number; readonly of: number }) => {
     await copyText(
       text,
       kind === 'comment' || kind === 'warm_lead'
         ? 'Copied. Paste it as a comment on the post.'
-        : 'Copied. Paste it in Messenger.',
+        : part
+          ? `Copied text ${part.n} of ${part.of}. Paste it in Messenger${part.n < part.of ? ', then copy the next' : ''}.`
+          : 'Copied. Paste it in Messenger.',
     );
+    // A message copied a text at a time counts once, with its first.
+    if (part && part.n > 1) return;
     if (kind === 'pitch' && item.profileId)
       await apiBrowser()
         .POST('/v1/commands/outreach.stage.mark', {
@@ -564,22 +571,37 @@ function Drafts({
       ) : null}
       {drafts.length ? (
         <ul className="space-y-1.5" data-testid="today-drafts">
-          {drafts.map((text) => (
-            <li
-              key={text}
-              className="flex items-start gap-2 rounded-md bg-card-2 px-3 py-2 text-[13px]"
-            >
-              <p className="flex-1 whitespace-pre-wrap">{text}</p>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Copy this draft"
-                onClick={() => void copy(text)}
-              >
-                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </Button>
-            </li>
-          ))}
+          {drafts.map((text) => {
+            // A message the person sends as a few texts: each its own, to copy in turn.
+            const parts =
+              kind === 'comment' || kind === 'warm_lead' ? [text] : messageParts(text, true);
+            return (
+              <li key={text} className="space-y-1 rounded-md bg-card-2 px-3 py-2 text-[13px]">
+                {parts.map((part, i) => (
+                  <div key={i} className="flex items-start gap-2" data-testid="today-draft-text">
+                    <p className="flex-1 whitespace-pre-wrap">{part}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={
+                        parts.length > 1
+                          ? `Copy text ${i + 1} of ${parts.length}`
+                          : 'Copy this draft'
+                      }
+                      onClick={() =>
+                        void copy(
+                          part,
+                          parts.length > 1 ? { n: i + 1, of: parts.length } : undefined,
+                        )
+                      }
+                    >
+                      <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    </Button>
+                  </div>
+                ))}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {looked && (lookingUp || looked.state !== 'done') ? (

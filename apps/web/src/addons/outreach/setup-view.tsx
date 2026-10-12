@@ -20,7 +20,7 @@ import {
   CHROME_EXTENSIONS_URL,
   nextScreen,
   outreachSetupPath,
-  previousStep,
+  previousScreen,
   SETUP_WORDS,
   setupSummary,
   stepsDone,
@@ -33,7 +33,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { PhoneAppDialog } from '@/components/home/phone-app-dialog';
-import { SetupCard } from '@/components/onboarding-setup/frame';
+import { SetupCard, SetupPage } from '@/components/onboarding-setup/frame';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { CopyField } from '@/components/ui/copy-field';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -92,6 +92,7 @@ export function SetupView({
   email,
   at,
   fromExtension,
+  resumed = false,
   setup,
   me,
   business,
@@ -104,6 +105,8 @@ export function SetupView({
   at: SetupScreen;
   /** Opened by the extension at its first sign-in. */
   fromExtension: boolean;
+  /** Opened where they'd left off, with some steps finished before: "Carry on where you left off". */
+  resumed?: boolean;
   setup: Setup;
   /** The person's own settings, the business's defaults until they save theirs. */
   me: Automation;
@@ -119,6 +122,7 @@ export function SetupView({
     'outreach_automation',
     'outreach_playbook',
     'outreach_ask',
+    'outreach_group',
     'addon',
     'workspace',
   ]);
@@ -146,7 +150,7 @@ export function SetupView({
     if (ok) router.push(outreachHref(workspaceId));
   };
 
-  const prev = previousStep(at, steps);
+  const prev = previousScreen(at, steps);
   const back =
     prev && at !== 'done' ? (
       <Button
@@ -193,7 +197,47 @@ export function SetupView({
   let body: ReactNode = null;
   let footer: ReactNode = null;
 
-  if (at === 'playbooks') {
+  if (at === 'welcome') {
+    body = (
+      <div className="flex flex-col gap-4" data-testid="outreach-setup-welcome">
+        <div>
+          <h2 className="text-[14px] font-semibold">{W.welcome.steps}</h2>
+          <ol className="mt-2.5 flex flex-col gap-3">
+            {steps.map((s, i) => (
+              <li key={s} className="flex items-start gap-3">
+                <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-[12.5px] font-semibold text-accent-text">
+                  {i + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium">{W.steps[s].name}</p>
+                  <p className="text-[13px] text-text-2">{W.stepAbout[s]}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <Note>{W.welcome.time}</Note>
+      </div>
+    );
+    footer = (
+      <Footer back={back}>
+        <Button
+          size="lg"
+          onClick={() =>
+            void act('start', () => saveSetup(workspaceId, { started: true })).then(
+              (ok) => ok && go(steps[0] ?? 'playbooks'),
+            )
+          }
+          loading={busy === 'start'}
+          disabled={busy !== null && busy !== 'start'}
+          data-testid="outreach-setup-start"
+        >
+          {W.welcome.start}
+          <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+        </Button>
+      </Footer>
+    );
+  } else if (at === 'playbooks') {
     const names = new Set(setup.playbooks.map((p) => p.name.toLowerCase()));
     const used = new Set(setup.playbooks.map((p) => p.template));
     const templates = PLAYBOOK_TEMPLATE_KEYS.filter(
@@ -267,7 +311,6 @@ export function SetupView({
     );
     footer = (
       <Footer back={back}>
-        {laterButton}
         {primary('playbooks', setup.playbooks.length || !setup.canManage ? W.next : W.skip)}
       </Footer>
     );
@@ -284,7 +327,7 @@ export function SetupView({
     ) : (
       <Note>{W.steps.rules.hint}</Note>
     );
-    footer = <Footer back={back}>{laterButton}</Footer>;
+    footer = <Footer back={back} />;
   } else if (at === 'settings') {
     body = (
       <div className="flex flex-col gap-3">
@@ -307,7 +350,6 @@ export function SetupView({
     );
     footer = (
       <Footer back={back}>
-        {laterButton}
         {primary('settings', W.next, async () =>
           // Always saved, even unchanged: they've chosen, and the extension stops sending them here.
           unwrap(
@@ -385,7 +427,6 @@ export function SetupView({
     );
     footer = (
       <Footer back={back}>
-        {laterButton}
         {setup.extensionAt
           ? primary('extension', W.next)
           : primary('extension', W.skip, undefined, 'outreach-setup-skip')}
@@ -433,12 +474,7 @@ export function SetupView({
         ) : null}
       </div>
     );
-    footer = (
-      <Footer back={back}>
-        {laterButton}
-        {primary('groups', W.finish)}
-      </Footer>
-    );
+    footer = <Footer back={back}>{primary('groups', W.finish)}</Footer>;
   } else {
     body = (
       <div className="flex flex-col gap-4" data-testid="outreach-setup-done">
@@ -496,43 +532,73 @@ export function SetupView({
     );
   }
 
-  const index = at === 'done' ? -1 : steps.indexOf(at);
-  return (
-    <div className="mx-auto flex w-full max-w-[1080px] flex-col items-center gap-4">
-      <SetupCard
-        testId="outreach-setup"
-        screen={at}
-        counter={at === 'done' ? W.title : W.counter(index + 1, steps.length, W.steps[at].name)}
-        title={at === 'done' ? W.done.title : W.steps[at].title}
-        hint={
-          at === 'done'
-            ? W.done.hint
-            : at === 'playbooks' && !setup.canManage
-              ? W.steps.playbooks.hintMember
-              : at === 'settings' && setup.settingsSaved
-                ? W.steps.settings.hintSaved
-                : W.steps[at].hint
-        }
-        banner={
-          fromExtension && at === steps[0] ? (
-            <div
-              className="flex items-start gap-2.5 rounded-menu bg-success-soft px-3.5 py-2.5 text-[13.5px] text-success-text"
-              data-testid="outreach-setup-from-extension"
-            >
-              <Check className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
-              <span className="min-w-0 flex-1">{W.fromExtension}</span>
-            </div>
-          ) : undefined
-        }
-        summary={
-          at === 'done'
-            ? null
-            : setupSummary(setup, setup.settingsSaved ? me.settings : null, me.timezone)
-        }
-        footer={footer}
+  const index = at === 'done' || at === 'welcome' ? -1 : steps.indexOf(at);
+  const banner =
+    fromExtension && (at === 'welcome' || at === steps[0]) ? (
+      <div
+        className="flex items-start gap-2.5 rounded-menu bg-success-soft px-3.5 py-2.5 text-[13.5px] text-success-text"
+        data-testid="outreach-setup-from-extension"
       >
-        {body}
-      </SetupCard>
+        <Check className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
+        <span className="min-w-0 flex-1">{W.fromExtension}</span>
+      </div>
+    ) : resumed && at !== 'welcome' && at !== 'done' ? (
+      <div
+        className="flex flex-wrap items-center justify-between gap-2 rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13.5px] text-accent-text"
+        data-testid="outreach-setup-resumed"
+      >
+        <span className="min-w-0 flex-1">{W.resumed}</span>
+        <Link
+          className="font-medium underline"
+          href={outreachSetupPath(workspaceId, { step: 'welcome' })}
+          data-testid="outreach-setup-start-over"
+        >
+          {W.startOver}
+        </Link>
+      </div>
+    ) : undefined;
+  // A page of its own over the app, as the main app's onboarding is: no sidebar, Finish later at the top.
+  return (
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-bg" data-testid="outreach-setup-page">
+      <SetupPage
+        business={{ name: businessName, home: outreachHref(workspaceId) }}
+        email={email}
+        settingUp={W.settingUp(businessName)}
+        finishLater={at === 'done' ? <span /> : laterButton}
+      >
+        <SetupCard
+          testId="outreach-setup"
+          screen={at}
+          counter={
+            at === 'done' || at === 'welcome'
+              ? W.title
+              : W.counter(index + 1, steps.length, W.steps[at].name)
+          }
+          title={
+            at === 'done' ? W.done.title : at === 'welcome' ? W.welcome.title : W.steps[at].title
+          }
+          hint={
+            at === 'done'
+              ? W.done.hint
+              : at === 'welcome'
+                ? W.welcome.hint
+                : at === 'playbooks' && !setup.canManage
+                  ? W.steps.playbooks.hintMember
+                  : at === 'settings' && setup.settingsSaved
+                    ? W.steps.settings.hintSaved
+                    : W.steps[at].hint
+          }
+          banner={banner}
+          summary={
+            at === 'done' || at === 'welcome'
+              ? null
+              : setupSummary(setup, setup.settingsSaved ? me.settings : null, me.timezone)
+          }
+          footer={footer}
+        >
+          {body}
+        </SetupCard>
+      </SetupPage>
     </div>
   );
 }

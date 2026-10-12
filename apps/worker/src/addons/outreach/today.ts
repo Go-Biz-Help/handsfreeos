@@ -19,6 +19,7 @@ import {
   type Opener,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
+import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
@@ -120,6 +121,17 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                   and verdict in ('good', 'maybe')`,
           )
         : [];
+      // When they last wrote to each other, either way, for a greeting after a gap: in a chat, or a message noted.
+      const [last] = profileId
+        ? await rows<{ at: Date | string | null }>(
+            tx,
+            sql`select greatest(
+                  (select max(c.last_at) from addon_outreach.file_chats c
+                    where c.profile_id = ${profileId} and c.user_id = ${ctx.userId}),
+                  (select max(t.at) from addon_outreach.touches t
+                    where t.profile_id = ${profileId} and t.user_id = ${ctx.userId} and t.kind = 'message')) as at`,
+          )
+        : [];
       return {
         business,
         chat,
@@ -129,6 +141,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         lines: lines[0]?.lines ?? [],
         playbooks,
         check,
+        voice: await voiceFor(tx, ws, ctx.userId),
+        lastAt: last?.at ?? null,
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -203,6 +217,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                   : null,
               lookup: input.lookup,
               opener,
+              voice: found.voice,
+              lastAt: found.lastAt,
             }),
           },
         ],
@@ -212,7 +228,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
       const theirs = [...(found.chat?.recent ?? [])].reverse().find((m) => !m.fromMe)?.text ?? null;
-      const drafts = checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]);
+      const drafts = checkedDrafts(
+        value,
+        playbook?.details.avoid ?? [],
+        DRAFTS_FOR[input.kind],
+        found.voice.split && input.kind !== 'comment' && input.kind !== 'warm_lead',
+      );
       return {
         // A pitch always carries their demo link (decision 47): one the AI left out goes on the end.
         drafts:

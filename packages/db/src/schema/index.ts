@@ -5114,6 +5114,9 @@ export const addonInstallations = app.table(
     verification: jsonb('verification').$type<Json | null>(),
     verifiedAt: ts('verified_at'),
     lastError: text('last_error'),
+    /** An owner asked for it to start fresh: the worker deletes its data and installs it again, then clears these. */
+    freshBy: userRef('fresh_by'),
+    freshAt: ts('fresh_at'),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],

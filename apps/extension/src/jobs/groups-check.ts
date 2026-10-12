@@ -27,7 +27,9 @@ export async function checkGroups(job: Job, most: number): Promise<JobEnd> {
   );
   if (!next.groups.length)
     return {
-      line: 'Every group you have is checked. Save your groups or find more on the Groups tab, and there’s more to check.',
+      line: next.saved
+        ? 'Every group you have is checked lately. Find more on the Groups tab, and there’s more to check.'
+        : 'No groups are saved yet. Press Save my groups on the Groups tab first, then Check my groups.',
       warned: false,
     };
   let sent = 0;

@@ -7065,6 +7065,27 @@
                 "default": "bundled",
                 "type": "string",
                 "enum": ["bundled", "each"]
+              },
+              "voice": {
+                "type": "object",
+                "properties": {
+                  "shorthand": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "acronyms": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "emoji": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "split": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                }
               }
             },
             "required": ["sending", "warmUp", "confirmRequests", "hours"]

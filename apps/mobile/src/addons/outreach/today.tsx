@@ -17,6 +17,7 @@ import {
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -31,6 +32,7 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { okSend, skipPost, skipSend } from './actions';
+import { ChatBubbles } from './chat-bubbles';
 import { NeedsSignal, Note, openOutside, Part, useOutreachAnswer, useOutreachContext } from './kit';
 import { PersonMenu } from './person-menu';
 
@@ -345,6 +347,16 @@ function ItemCard({
         <Text className="rounded-control bg-card-2 px-3 py-2 text-[14px] leading-[20px]">
           {item.post}
         </Text>
+      ) : null}
+      {item.recent.length ? (
+        <View className="gap-1">
+          <Note>{RECENT_WORDS.title}</Note>
+          <ChatBubbles
+            bubbles={recentBubbles(item.recent, Date.now())}
+            label={RECENT_WORDS.title}
+            testID="today-chat-so-far"
+          />
+        </View>
       ) : null}
       {item.send ? (
         <View className="gap-2" testID="today-send">

@@ -711,6 +711,7 @@ describe('registry', () => {
       'addon.disable',
       'addon.uninstall',
       'addon.purge',
+      'addon.start_fresh',
       'addon.save_settings',
       'addon.save_my_settings',
       'addon.dismiss_suggestion',

@@ -9,9 +9,10 @@ export const metadata: Metadata = { title: 'Set up Social Outreach' };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
 /**
- * Social Outreach's setup (docs/outreach.md, decisions 36 and 45), a step at a time: where the person got to opens
- * unless a step is asked for (`?step=`); Set up again (`?again=1`) opens the first; the extension's first sign-in
- * opens it with `?from=extension`. Anyone with `outreach.use`; owners and admins also set the team's rules.
+ * Social Outreach's setup (docs/outreach.md, decisions 36 and 45), a page of its own like the main app's onboarding:
+ * a welcome until a step is finished, then a step at a time. Where the person got to opens unless a step is asked
+ * for (`?step=`), saying so; Set up again (`?again=1`) opens the first; the extension's first sign-in opens it with
+ * `?from=extension`. Anyone with `outreach.use`; owners and admins also set the team's rules.
  */
 export default async function OutreachSetupPage({
   params,
@@ -53,6 +54,8 @@ export default async function OutreachSetupPage({
         email={me.user.email}
         at={at}
         fromExtension={one(sp.from) === 'extension'}
+        // Opened where they'd left off, with some steps finished before.
+        resumed={!one(sp.step) && one(sp.again) !== '1' && !!setup.reached && !setup.finishedAt}
         setup={setup}
         me={mine}
         business={setup.canManage ? (business?.settings ?? {}) : null}

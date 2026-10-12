@@ -12,6 +12,7 @@ import {
   askRepliesFor,
   askWaitingWords,
   cantAskWhy,
+  tooOldFor,
   computerNoteWords,
   latestAsk,
   targetOf,
@@ -179,6 +180,15 @@ export function AskButton({
       >
         {label}
       </Button>
+      {/* An older extension can't do this kind: said here, since the screen's note is about the computer. */}
+      {asks.computer && tooOldFor(asks.computer.version, ask.kind) ? (
+        <Text
+          className="text-[13px] leading-[18px] text-warning-text"
+          testID="outreach-ask-too-old"
+        >
+          {why}
+        </Text>
+      ) : null}
       {showLine && latest ? <AskLine asks={asks} ask={latest} actions={actions} /> : null}
     </View>
   );

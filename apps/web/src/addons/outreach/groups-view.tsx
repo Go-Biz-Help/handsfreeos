@@ -62,8 +62,8 @@ export function GroupsView({
   /** Find groups' box starts with these: the first playbook in use's words to search for groups. */
   searchWords: string;
 }) {
-  // An ask's progress and end: the groups it saved show once it ends.
-  useLiveRefresh(['outreach_ask'], 800);
+  // An ask's progress and end: the groups it saved show once it ends, and the AI's read of each as it lands.
+  useLiveRefresh(['outreach_ask', 'outreach_group'], 800);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // What was last asked for, ahead of the address while it loads (as the Friends tab).

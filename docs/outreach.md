@@ -17,8 +17,9 @@ demo link, the extension working on its own (the first part), its settings in Ha
 Start my day and Stop for today in the app, Waiting for you, the bare-bones extension, with what needs the browser
 asked of it from the app, the whole add-on on the phone, the setup, Social Outreach's onboarding, in HandsFreeOS, the
 good fits among friends and chats (growth part 1), stages with the moment to pitch (growth part 2), groups,
-theirs first, then new ones (growth part 3), posts asking for what the business offers, fast (growth part 4), and
-helpful posts with the people who engage (growth part 5):
+theirs first, then new ones (growth part 3), posts asking for what the business offers, fast (growth part 4),
+helpful posts with the people who engage (growth part 5), and the owner's notes after trying it (decisions 51 to 58:
+how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome):
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -430,6 +431,10 @@ helpful posts with the people who engage (growth part 5):
 | The phone's copy of Waiting for you                      | `views/waiting.ts`, `../phone-rows.ts`, `supabase/migrations/20261027001800_outreach_on_the_phone.sql`                                                                                                                                                          |
 | The setup, in HandsFreeOS                                | `setup.ts`, `ops/setup.ts`, `apps/web/src/addons/outreach/setup-view.tsx`, `extension-link.tsx`, `/a/outreach/setup`                                                                                                                                            |
 | The extension's first run, and the setup's table         | `apps/extension/src/hfos/setup.ts`, `supabase/migrations/20261027001900_outreach_setup.sql`                                                                                                                                                                     |
+| How the AI writes, and a message as a few texts          | `voice.ts`, `today.ts` (`checkedDrafts`), `apps/worker/src/addons/outreach/today.ts`, `apps/extension/src/auto/run.ts`, `supabase/migrations/20261027002600_outreach_voice.sql`                                                                                 |
+| The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`, `apps/extension/src/panel/waiting.ts`                                                          |
+| Don’t pitch covering a person kept twice                 | `ops/common.ts` (`neverTwins`, `pitchable`), `supabase/migrations/20261027002500_outreach_dont_pitch_twins.sql`                                                                                                                                                 |
+| Start fresh                                              | `apps/web/src/addons/outreach/start-fresh.tsx`, core’s `addon.start_fresh`, `apps/extension/src/hfos/follow.ts` (`forgetOnFreshStart`)                                                                                                                          |
 | The extension                                            | `apps/extension`                                                                                                                                                                                                                                                |
 
 Operations, all through the kernel:
@@ -758,6 +763,34 @@ These are settled too:
 The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) groups, theirs and new; (4) fast posts;
 (5) helpful posts and warm leads. Each is a part of its own, as decision 35 says.
 
+After trying it, the owner sent notes on 11 Oct 2026. Built as below; where a note left a choice open (the voice's
+defaults, a few texts on to start), the choice made is said, for the owner to change:
+
+51. **Friends on Don't pitch never show in the Pipeline.** Some still did: Facebook shows one person by number in one
+    place and by username in another, so the same friend was kept twice, and only one was on the list. Don't pitch now
+    covers a profile kept under the same name on the same network. Built.
+52. **See the chat so far when a message waits for an OK,** to know where it's going: its latest messages as chat
+    bubbles above it, on Today and Waiting for you on the web, the phone and the extension's panel. Built.
+53. **The AI writes plainly:** everyday words a 10-year-old knows, short sentences, relaxed, and never a long dash.
+    Each person picks their voice on the Settings tab (and in the setup's settings step), with a sample of how a
+    message reads: short forms like "u" and "thx", text acronyms like "lol" and "btw", an emoji now and then, all off
+    to start. Built.
+54. **A greeting after a gap.** When the last message either way was a few days ago or more, the AI opens with a
+    greeting that fits ("it's been a while"), as its own text when the person sends a few, and a sorry for the slow
+    reply when they wrote last. Built.
+55. **A message as a few short texts,** a few seconds apart, the way people text: a greeting, then the point. A
+    setting, on to start. Built.
+56. **Start fresh.** An owner can erase everything in Social Outreach for the business and start again with its
+    setup, on the Settings tab after typing its name: everyone's profiles, friends, chats, groups, playbooks, settings,
+    messages waiting and steps noted. Customers in Contacts stay. The rule that nobody deletes a profile, chat or
+    playbook stands: they go only with all of the add-on's data, as before. Built, in core for every add-on.
+57. **An onboarding like the main app's.** The setup is a page of its own over the app, in the main onboarding's
+    frame, with a welcome first that says what's ahead, Finish later at the top, and "carry on where you left off".
+    Built.
+58. **Check my groups did nothing.** The computer's extension was a build from before checking groups, which left
+    the ask hanging. Each kind of ask now names the build it needs: an older one says to update, with how. Built; the
+    extension is 0.25.0.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -774,6 +807,31 @@ The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) g
   `rules`, set on the Settings tab; the extension reads it from `outreach.automation` and keeps no copy but the one
   `src/hfos/follow.ts` writes. Saving the person's settings is what tells the extension (`outreach.automation.saved`
   and `addon.settings_saved` on the live channel), so nothing else needs to.
+- **What the AI writes for the person goes through `voice.ts`** (decisions 53 to 55). Every prompt that writes for
+  them carries `PLAIN_WRITING` (everyday words, short sentences, relaxed, no long dash), and what comes back is cleaned
+  with `noDashes` (a dash between words becomes a comma, between numbers a hyphen) whatever the prompt said. A message
+  or comment carries the person's voice (`voiceLines`, from `AutomationSettings.voice`, columns `voice_*` in
+  `addon_outreach.automation`; the worker reads it with `voiceFor`); a helpful post only their emoji choice. A message
+  to a chat quiet `GAP_GREETING_DAYS` (3) or more opens with a greeting that fits the gap (`gapLine`), measured from the
+  latest message either way, in the chat or a message noted; a first message and a comment never get one.
+- **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few
+  (`voice.split`, on to start): at most `PARTS_MOST` (3), any more joined to the last. The AI writes them so
+  (`checkedDrafts` with `split`, which also joins a message to one when they don't), and a pitch's link goes on as its
+  own. The extension sends each as its own text, waiting `partPauseMs` (2 to 8 seconds, as long as typing it takes)
+  between them. Once one text has gone the message counts as sent, and a later one that didn't go is said on its line.
+- **A message waiting shows the chat so far** (decision 52): `Send` and `TodayItem` carry `recent`, the chat's latest
+  `RECENT_SHOWN` (6) messages, oldest first, from the person's own chat (`recentOf` in `ops/common.ts`: its own when
+  the send names it, else their latest with the profile). Bubbles say when, once for a run the same day
+  (`recentBubbles`). The phone's offline copy keeps no chats, so its Waiting for you shows them with signal only.
+- **Each kind of ask names the first build that does it** (`ASK_KIND_SINCE` in `asks.ts`, decision 58). A computer
+  with an older build isn't asked it: the button says so with how to update (`cantAskWhy`), `outreach.ask.make`
+  refuses (`outreach_extension_too_old`), and one waiting ends at the take saying so. A new kind of ask goes in the
+  list with the build it ships in, and the extension's version goes up. The extension ends any kind it doesn't know,
+  and always frees the next ask after one ends.
+- **The setup is a page of its own** (decision 57): it opens over the app with no sidebar, in the main app's
+  onboarding frame (`SetupPage`, `SetupCard`), with Finish later at the top. A **welcome** comes first while no step
+  is finished (`setupOpenAt`); Back from the first step goes to it; coming back where they left off says so
+  (`resumed`), with Start over.
 - **The setup is each person's own, and only moves forward** (`addon_outreach.setup`, `laterStep`). Finishing it
   changes nothing the extension does: the settings step's save does (`outreach.automation.save`). A **first-timer**
   (`isFirstTime`) has never saved their own settings and never started the setup (`started_at`: moving on from a
@@ -996,6 +1054,12 @@ The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) g
   with when it started; so is Keep. The Don't pitch list is the business's and says who added each person and when.
   Only they, or someone with `outreach.manage`, take a person off (`outreach_dont_pitch_not_yours`). Customers tagged
   **Friend or family** in Contacts count as on it.
+- **Don't pitch covers a person kept twice** (decision 51). Facebook shows one person by number in one place and by
+  username in another, so the same person can be kept as two profiles. A profile kept under the same name on the same
+  network as one on the list, or tagged Friend or family, is never pitched either (`neverTwins` and `pitchable` in
+  `ops/common.ts`, the name compared with one space between words and no capitals). A stranger who shares the name is
+  left alone too: the safe side. Every list that pitches goes through `pitchable`; the Don't pitch list itself shows
+  only who was put on it.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.
@@ -1085,7 +1149,12 @@ The order: (1) the fits among friends and chats; (2) stages and the pitch; (3) g
   keeps a chat's save under the API's 256 KB.
 - **Nobody deletes a saved profile, chat or playbook.** The tables' rules give no one delete; a playbook is archived
   instead, and two in use never share a name (`outreach_playbook_name_taken`). Their rows go when the business deletes
-  the add-on's data, like any add-on's.
+  the add-on's data, like any add-on's: on Settings → Add-ons, or all at once with **Start fresh** (decision 56).
+- **Start fresh is core's** (`addon.start_fresh`, docs/addon-architecture.md, "Starting fresh"): an owner types the
+  name, and the add-on is uninstalled, its data deleted and installed again, the worker making each move. Social
+  Outreach only offers it, on the Settings tab. The extension forgets what it kept on the computer for the business
+  when `outreach.automation`'s `startedAt` (the add-on's `installed_at`) moves (`forgetOnFreshStart` in
+  `src/hfos/follow.ts`): a new key the extension keeps about a business's outreach goes in `KEPT_FOR_BUSINESS`.
 - **A playbook is checked by one schema,** `PlaybookDetails` (`playbooks.ts`): the builder checks each step with it
   as it's written, and the save holds to it. How long each part may be is `PLAYBOOK_LIMITS`, which the builder's boxes
   use too.

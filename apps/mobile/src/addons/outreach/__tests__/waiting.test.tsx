@@ -44,6 +44,7 @@ const handlers = () => ({
 });
 
 const SERVER: WaitingFromServer = {
+  recent: new Map(),
   asks: [],
   needs: [
     {
@@ -121,6 +122,30 @@ describe('Waiting for you on the phone', () => {
     // With no signal, nothing of the server's shows, and nothing says it failed.
     expect(screen.queryByTestId('waiting-need')).toBeNull();
     expect(screen.queryByTestId('waiting-server-error')).toBeNull();
+  });
+
+  it('shows the chat so far above a message, with signal', async () => {
+    const phone = waitingOfCopy([sendRow(1, { name: 'Dana Reyes' })], ME);
+    const recent = [
+      { fromMe: false, text: 'Do you do demos?', at: '2026-09-19T14:00:00.000Z' },
+      { fromMe: true, text: 'We do!', at: '2026-09-19T15:00:00.000Z' },
+    ];
+    await render(
+      <WaitingBody
+        phone={phone}
+        server={{ ...SERVER, recent: new Map([[id(1), recent]]) }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        {...handlers()}
+      />,
+    );
+    const chat = screen.getByTestId('waiting-chat-so-far');
+    expect(within(chat).getByText('Do you do demos?')).toBeTruthy();
+    expect(within(chat).getByText('We do!')).toBeTruthy();
+    // When, once for the day's run of messages.
+    expect(within(chat).getAllByText('3 weeks ago')).toHaveLength(1);
   });
 
   it('OKs, changes and skips a message, and Approve all names those that can go together', async () => {

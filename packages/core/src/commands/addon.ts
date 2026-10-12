@@ -254,6 +254,50 @@ export function addonLifecycleCommands(catalog: Catalog) {
     },
   });
 
+  const startFresh = defineCommand({
+    name: 'addon.start_fresh',
+    description:
+      'Start an installed add-on fresh: permanently delete all of its data and install it again, empty, in one step. Core records it touched stay; history keeps its lines without the details.',
+    risk: 4,
+    input: AddonPurgeInput,
+    output: AddonMoveOutput,
+    permission: 'addons.purge',
+    scope,
+    emits: [ADDON_MOVE_EVENTS.uninstall],
+    async handler(ctx, input) {
+      const m = known(catalog, input.addonId);
+      const [now] = await rows<{ state: string }>(
+        ctx.tx,
+        sql`select state from app.addon_installations
+            where workspace_id = ${ctx.scope.workspaceId!}::uuid and addon_id = ${m.id}`,
+      );
+      if (now?.state !== 'enabled' && now?.state !== 'disabled')
+        throw HfosError.rule(
+          'addon_not_installed',
+          409,
+          `${m.name} isn’t installed here now, so there’s nothing to start fresh. Its data can be deleted, and it can be installed again, on Settings → Add-ons.`,
+        );
+      // The moves an owner would make on Settings → Add-ons, one after another: uninstalled now, and marked, so the
+      // worker deletes its data and installs it again (apps/worker/src/addons/reconcile.ts).
+      const moved = await makeMoves(ctx, catalog, m.id, 'uninstall', [], async () => {
+        if (input.confirmName.trim().toLowerCase() !== m.name.trim().toLowerCase())
+          throw HfosError.validation(
+            [{ path: 'confirmName', message: `Type ${m.name} to confirm.` }],
+            `Type ${m.name} to confirm.`,
+          );
+        const held = addonDataHeldMessage(
+          m.name,
+          await loadKept(ctx.tx, ctx.scope.workspaceId!, m.id),
+        );
+        if (held) throw HfosError.rule('addon_data_held', 409, held);
+      });
+      await ctx.tx.execute(
+        sql`select private.addon_start_fresh(${ctx.scope.workspaceId!}::uuid, ${m.id})`,
+      );
+      return moved;
+    },
+  });
+
   const saveSettings = defineCommand({
     name: 'addon.save_settings',
     description: 'Save an add-on’s settings and switches for this business.',
@@ -386,6 +430,7 @@ export function addonLifecycleCommands(catalog: Catalog) {
     disable,
     uninstall,
     purge,
+    startFresh,
     saveSettings,
     saveMySettings,
     dismissSuggestion,

@@ -303,6 +303,13 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
       return tidy(job, 'unfriend', task.profileIds);
     case 'lookup':
       return lookupAndDraft(job, task);
+    default:
+      // A kind HandsFreeOS knows and this build doesn't: it ends saying so, never left hanging at its start.
+      return {
+        line: 'This build of HandsFreeOS Social can’t do that yet. Download the newest one, unzip it over the old folder, press Reload on Chrome’s Extensions page, and ask again.',
+        warned: false,
+        failed: true,
+      };
   }
 }
 
@@ -378,11 +385,15 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
   }
   await u.tab.close().catch(() => undefined);
   void chrome.notifications.clear(popUpId(ask.askId)).catch(() => undefined);
-  const ended = endOf(u, end);
-  await endAsk(place, ask.askId, ended.state, ended.line, end.result ?? null);
-  under = null;
-  await keepAsk(null);
-  waitingSoon();
+  // Whatever happens saying how it ended, the next ask can go.
+  try {
+    const ended = endOf(u, end);
+    await endAsk(place, ask.askId, ended.state, ended.line, end.result ?? null);
+  } finally {
+    under = null;
+    await keepAsk(null);
+    waitingSoon();
+  }
 }
 
 let running: Promise<void> | null = null;

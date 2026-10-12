@@ -32,6 +32,7 @@ import {
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
 import { settingsToSave } from '@hfos/core/addons/outreach/chat-read';
+import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
@@ -44,10 +45,19 @@ import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
+import { ChatBubbles } from './chat-bubbles';
 import { ExtensionLinkForm } from './extension-link';
+import { StartFresh } from './start-fresh';
 import OutreachBusinessSettings from './business-settings';
 import type { Automation, AutomationPeople } from './types';
 import { useAct } from './use-act';
+
+const VOICE_KEYS = [
+  'shorthand',
+  'acronyms',
+  'emoji',
+  'split',
+] as const satisfies readonly (keyof Voice)[];
 
 const select =
   'h-8 rounded-control border border-border-strong bg-card px-2 text-[13px] max-md:h-11';
@@ -167,6 +177,22 @@ export function ChoicesForm({
       {notAllowed.length ? (
         <p className="text-[13px] text-text-2">{W.notAllowed(notAllowed)}</p>
       ) : null}
+      <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note}>
+        {VOICE_KEYS.map((key) => (
+          <Checkbox
+            key={key}
+            label={<span className="text-[14px]">{VOICE_WORDS[key]}</span>}
+            checked={value.voice[key]}
+            onChange={(e) => set({ voice: { ...value.voice, [key]: e.target.checked } })}
+            data-testid={`${testId}-voice-${key}`}
+          />
+        ))}
+        <ChatBubbles
+          bubbles={voiceSample(value.voice).map((text) => ({ fromMe: true, text }))}
+          label="How a message from you might read"
+          testId={`${testId}-voice-sample`}
+        />
+      </Part>
       <Part title={W.sections.along}>
         {tick('warmUp')}
         {tick('confirmRequests')}
@@ -438,8 +464,11 @@ export function SettingsView({
   mine,
   people,
   business,
+  canStartFresh = false,
 }: {
   workspaceId: string;
+  /** An owner, who may erase everything and start fresh (`addons.purge`). */
+  canStartFresh?: boolean;
   /** Whether they're the person's own. */
   mine: boolean;
   /** Whose settings are shown: the person's own, or someone else's for an owner or admin. */
@@ -538,6 +567,7 @@ export function SettingsView({
           </Link>
         </p>
       )}
+      {canStartFresh && mine ? <StartFresh workspaceId={workspaceId} /> : null}
     </div>
   );
 }

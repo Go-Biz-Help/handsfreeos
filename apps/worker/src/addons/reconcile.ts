@@ -394,6 +394,62 @@ async function leave(run: Run): Promise<JobResult> {
   const hooks = hookContext(run);
   if (hooks) await run.module?.onUninstall?.(hooks);
   await settle(run, { to: 'uninstalled', event: 'addon.uninstalled', action: 'addon.uninstall' });
+  return freshOn(run, 'uninstalled');
+}
+
+/**
+ * Starting fresh (an owner asked: `fresh_at`, set by `addon.start_fresh`): the next move, made here as the owner would
+ * make it on Settings → Add-ons. Uninstalled, its data is deleted; deleted, it's installed again as a new generation,
+ * at this version, and the mark goes. The job runs again straight away for the new state. Nothing when it isn't
+ * starting fresh, or a move was made meanwhile.
+ */
+async function freshOn(run: Run, from: 'uninstalled' | 'purged'): Promise<JobResult> {
+  const m = run.manifest;
+  const moved = await asWorker(run.ctx.db, run.scope, async (tx) => {
+    const [r] = await rows<{ state: State; generation: number; fresh_by: string | null }>(
+      tx,
+      sql`select state, generation, fresh_by from app.addon_installations
+          where ${where(run)} and fresh_at is not null for no key update`,
+    );
+    if (!r || r.state !== from || r.generation !== run.inst.generation) return false;
+    if (from === 'uninstalled') {
+      await tx.execute(
+        sql`update app.addon_installations set state = 'purging', changed_by = ${r.fresh_by},
+              changed_at = now(), last_error = null
+            where ${where(run)}`,
+      );
+      await record(
+        tx,
+        { ...run, inst: { ...run.inst, state: 'purging' } },
+        'addon.purge_started',
+        'addon.purge',
+      );
+      return true;
+    }
+    // Its code gone from HandsFreeOS: it stays deleted, with nothing to install.
+    if (!m) {
+      await tx.execute(
+        sql`update app.addon_installations set fresh_by = null, fresh_at = null where ${where(run)}`,
+      );
+      return false;
+    }
+    await tx.execute(
+      sql`update app.addon_installations set state = 'installing', generation = generation + 1,
+            installed_version = ${m.version}, data_version = ${m.dataVersion},
+            settings_version = ${m.settings?.version ?? 1}, installed_by = ${r.fresh_by}, installed_at = now(),
+            changed_by = ${r.fresh_by}, changed_at = now(), last_error = null, verification = null,
+            verified_at = null, fresh_by = null, fresh_at = null
+          where ${where(run)}`,
+    );
+    await record(
+      tx,
+      { ...run, inst: { ...run.inst, state: 'installing', generation: r.generation + 1 } },
+      'addon.install_started',
+      'addon.install',
+    );
+    return true;
+  });
+  return moved ? { rescheduleAt: new Date() } : undefined;
 }
 
 async function purge(run: Run): Promise<JobResult> {
@@ -410,7 +466,7 @@ async function purge(run: Run): Promise<JobResult> {
     const done: Run = { ...run, inst: { ...run.inst, state: 'purged' } };
     await within(done, (tx) => record(tx, done, 'addon.purged', 'addon.purge'));
     await settle(done);
-    return;
+    return freshOn(done, 'purged');
   }
   return { rescheduleAt: new Date(Date.now() + 1000) };
 }
@@ -418,6 +474,9 @@ async function purge(run: Run): Promise<JobResult> {
 async function settled(run: Run): Promise<JobResult> {
   await stopAndHide(run);
   await settle(run);
+  // Part way through starting fresh, when a job was lost: it carries on (the sweep queues it).
+  if (run.inst.state === 'uninstalled' || run.inst.state === 'purged')
+    return freshOn(run, run.inst.state);
 }
 
 /** `addon.reconcile`: one add-on in one business, whatever state it's in. */

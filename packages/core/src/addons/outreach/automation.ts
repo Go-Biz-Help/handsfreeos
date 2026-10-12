@@ -40,6 +40,7 @@ import { z } from 'zod';
 import { localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
 import { DAILY_LIMITS } from './limits';
 import type { TodayKind } from './today';
+import { Voice, VOICE_DEFAULTS } from './voice';
 
 export const SENDING_MODES = {
   off: 'You do everything',
@@ -131,6 +132,8 @@ export const AutomationSettings = z.object({
   markPosts: z.boolean().default(true),
   /** How the phone hears about messages waiting for their OK. */
   pushes: z.enum(PUSH_MODE_KEYS).default('bundled'),
+  /** How the AI writes for them (./voice.ts): plain words always, and their own short forms, acronyms and emoji. */
+  voice: Voice.default(VOICE_DEFAULTS),
 });
 export type AutomationSettings = z.output<typeof AutomationSettings>;
 
@@ -148,6 +151,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   readChats: true,
   markPosts: true,
   pushes: 'bundled',
+  voice: VOICE_DEFAULTS,
 };
 
 /** The daily limits a business can set, each at most the starting one (./limits.ts). */
@@ -336,6 +340,11 @@ export const AutomationOutput = z.object({
   settings: AutomationSettings,
   /** The business's time zone, which the working hours are on. */
   timezone: z.string(),
+  /**
+   * When Social Outreach was last installed here: starting it fresh moves it, and the extension then forgets what it
+   * kept on the computer from before (chats read, steps not yet sent, the setup opened).
+   */
+  startedAt: z.iso.datetime().nullable().default(null),
   /** Whether the person has saved their own yet: until then, these are the defaults. */
   saved: z.boolean(),
   /** Their training wheels. */
@@ -359,7 +368,8 @@ export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Someone else's, for an owner or admin; the person's own when left out. */
   userId: z.uuid().optional(),
-  settings: AutomationSettings,
+  /** The voice left out (a screen from before it) keeps the one kept. */
+  settings: AutomationSettings.extend({ voice: Voice.optional() }),
 });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
 

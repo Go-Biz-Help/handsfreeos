@@ -182,6 +182,13 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
           b.fit.score - a.fit.score ||
           (b.g.members ?? 0) - (a.g.members ?? 0),
       );
+    const [kept] = found.length
+      ? [{ n: found.length }]
+      : await rows<{ n: number }>(
+          ctx.tx,
+          sql`select count(*)::int as n from addon_outreach.groups
+              where workspace_id = ${ctx.scope.workspaceId!}`,
+        );
     return {
       groups: ranked.slice(0, input.most).map(({ g }) => ({
         groupId: g.id,
@@ -189,6 +196,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
         url: g.url,
         joined: g.joined,
       })),
+      saved: kept?.n ?? 0,
     };
   },
 });
@@ -242,8 +250,8 @@ export const groupLook = defineAddonCommand(outreachAddon, {
     if (state === 'waiting')
       await ctx.emit({
         type: 'outreach.group.looked',
-        entityType: 'workspace',
-        entityId: ws,
+        entityType: 'outreach_group',
+        entityId: group.id,
         payload: { groupId: group.id },
       });
     return { groupId: group.id, checkState: state };
@@ -290,8 +298,8 @@ export const groupCheck = defineAddonCommand(outreachAddon, {
       .where(eq(groups.id, group.id));
     await ctx.emit({
       type: 'outreach.group.checked',
-      entityType: 'workspace',
-      entityId: ws,
+      entityType: 'outreach_group',
+      entityId: group.id,
       payload: { groupId: group.id, checkState: state },
     });
     return { saved: true, checkState: state };
@@ -419,8 +427,8 @@ export const joinNote = defineAddonCommand(outreachAddon, {
         });
     await ctx.emit({
       type: 'outreach.join.noted',
-      entityType: 'workspace',
-      entityId: ws,
+      entityType: 'outreach_group',
+      entityId: group.id,
       payload: { groupId: group.id, state: input.state },
     });
     return { groupId: group.id, state: input.state };

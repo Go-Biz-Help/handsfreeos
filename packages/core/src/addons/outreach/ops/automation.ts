@@ -4,7 +4,7 @@
  * rules; their training wheels; and a profile it found no post to like on before a friend request (decision 33).
  */
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
-import { rows } from '@hfos/db/client';
+import { rows, type Tx } from '@hfos/db/client';
 import { users } from '@hfos/db/schema';
 import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
@@ -40,6 +40,7 @@ import {
   type WheelsState,
 } from '../automation';
 import { outreachSettings } from '../chat-read';
+import type { Voice } from '../voice';
 import { dailyLimitsNow } from '../limits';
 import { outreachAddon } from '../manifest';
 import { automation, profiles, setup } from '../tables';
@@ -65,6 +66,12 @@ const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSetti
           readChats: row.readChats,
           markPosts: row.markPosts,
           pushes: row.pushes,
+          voice: {
+            shorthand: row.voiceShorthand,
+            acronyms: row.voiceAcronyms,
+            emoji: row.voiceEmoji,
+            split: row.voiceSplit,
+          },
         }
       : rules.defaults,
     rules,
@@ -114,6 +121,30 @@ export async function automationOf(
     wheels: stateOf(row, rules, now),
     rules,
   };
+}
+
+/**
+ * How the AI writes for someone (../voice.ts): their own choice, or the business's default until they save theirs. For
+ * the worker, which writes their drafts.
+ */
+export async function voiceFor(tx: Tx, workspaceId: string, userId: string): Promise<Voice> {
+  const [row] = await rows<{
+    shorthand: boolean;
+    acronyms: boolean;
+    emoji: boolean;
+    split: boolean;
+  }>(
+    tx,
+    sql`select voice_shorthand as shorthand, voice_acronyms as acronyms, voice_emoji as emoji, voice_split as split
+        from addon_outreach.automation where workspace_id = ${workspaceId} and user_id = ${userId}`,
+  );
+  if (row) return row;
+  const [installed] = await rows<{ settings: unknown }>(
+    tx,
+    sql`select settings from app.addon_installations
+        where workspace_id = ${workspaceId} and addon_id = ${outreachAddon.id}`,
+  );
+  return outreachSettings(installed?.settings).rules.defaults.voice;
 }
 
 /** Everyone's choices and training wheels in the business at once, for the team's live view (./live.ts). */
@@ -216,11 +247,17 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
     const u = named.find((n) => n.id === id);
     return u ? u.fullName || u.email : 'Someone';
   };
+  const [installed] = await rows<{ at: Date | string }>(
+    ctx.tx,
+    sql`select installed_at as at from app.addon_installations
+        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
+  );
   return {
     settings: settingsOf(row, rules),
     saved: row !== undefined,
     wheels: stateOf(row, rules, Date.now()),
     timezone: await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+    startedAt: installed ? new Date(installed.at).toISOString() : null,
     userId: whose,
     name: nameOf(whose),
     changedBy: row?.changedBy ? nameOf(row.changedBy) : null,
@@ -264,10 +301,14 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const rules = await rulesOf(ctx);
-    const refused = notAllowedWords(input.settings, rules);
-    if (refused) throw HfosError.rule('not_allowed', 403, refused);
-    const s = input.settings;
     const before = await rowOf(ctx, whose);
+    // A screen from before the voice sends none: the one kept stays.
+    const s: AutomationSettings = {
+      ...input.settings,
+      voice: input.settings.voice ?? settingsOf(before, rules).voice,
+    };
+    const refused = notAllowedWords(s, rules);
+    if (refused) throw HfosError.rule('not_allowed', 403, refused);
     // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once.
     const wheels = wheelsMatter(s) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
     const values = {
@@ -287,6 +328,10 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       readChats: s.readChats,
       markPosts: s.markPosts,
       pushes: s.pushes,
+      voiceShorthand: s.voice.shorthand,
+      voiceAcronyms: s.voice.acronyms,
+      voiceEmoji: s.voice.emoji,
+      voiceSplit: s.voice.split,
       // Someone else's choices say who changed them; the person's own clear it.
       changedBy: whose === me ? null : me,
       updatedAt: at,

@@ -16,6 +16,7 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { PlaybookDetails } from './playbooks';
+import { noDashes, PLAIN_WRITING } from './voice';
 
 /** What the AI made of a group: not read yet, the business's people are there, some are, they aren't, couldn't. */
 export const GROUP_CHECK_STATES = {
@@ -89,6 +90,8 @@ export const GroupsToCheckOutput = z.object({
       joined: z.boolean().nullable(),
     }),
   ),
+  /** Whether the business has any groups saved at all (at least this many): none says to save them first. */
+  saved: z.number().int().min(0).default(0),
 });
 export type GroupsToCheckOutput = z.output<typeof GroupsToCheckOutput>;
 
@@ -328,6 +331,7 @@ export const JOIN_ANSWER_ASK = 'Answer the group’s questions.';
 
 export const JOIN_ANSWER_SYSTEM = [
   'You answer the questions a Facebook group asks someone who wants to join, for a small business owner, in the first person.',
+  PLAIN_WRITING,
   'Be honest and brief: one or two plain sentences each. Say who the owner is and why they want to join, from the business and the playbook only. Never invent facts, never pitch, never give an email, phone number or link unless the question asks for one and the business gives it.',
   'A question asking to agree to the rules gets "Yes, I agree." A question you can’t answer from the facts gets a short honest answer that says what the owner does.',
   'Give exactly one answer per question, in the same order.',
@@ -385,7 +389,9 @@ export function checkedJoinAnswers(
   fallback: string,
 ): string[] {
   return questions.map(
-    (_, i) => oneLine(answers[i] ?? null, JOIN_ANSWER_MOST) ?? oneLine(fallback, JOIN_ANSWER_MOST)!,
+    (_, i) =>
+      oneLine(answers[i] ? noDashes(answers[i]) : null, JOIN_ANSWER_MOST) ??
+      oneLine(fallback, JOIN_ANSWER_MOST)!,
   );
 }
 

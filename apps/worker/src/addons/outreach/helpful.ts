@@ -67,12 +67,16 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
       rules: string[];
       playbook_name: string | null;
       details: unknown;
+      emoji: boolean | null;
     }>(
       tx,
-      sql`select h.id, h.group_id, g.name as group_name, g.about, g.rules, pb.name as playbook_name, pb.details
+      // Each post in its own person's voice (voice.ts): an emoji or none.
+      sql`select h.id, h.group_id, g.name as group_name, g.about, g.rules, pb.name as playbook_name, pb.details,
+            au.voice_emoji as emoji
           from addon_outreach.helpful h
           join addon_outreach.groups g on g.id = h.group_id
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
+          left join addon_outreach.automation au on au.workspace_id = h.workspace_id and au.user_id = h.user_id
           where h.workspace_id = ${ws} and h.state = 'drafting'
           order by h.asked_at limit ${DRAFT_BATCH + 1}`,
     );
@@ -112,6 +116,7 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
                   : null,
               group: { name: h.group_name, about: h.about, rules: h.rules },
               asked: found.asked.get(h.group_id) ?? [],
+              emoji: h.emoji ?? false,
             }),
           },
         ],

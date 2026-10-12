@@ -18,6 +18,7 @@ import {
   ASK_TYPING_WORDS,
   ASK_WORDS,
   cantAskWhy,
+  tooOldFor,
   computerNoteWords,
   latestAsk,
   targetOf,
@@ -94,6 +95,12 @@ export function AskButton({
           {label}
         </Button>
       </div>
+      {/* An older extension can't do this kind: said here, since the tab's note is about the computer. */}
+      {asks.computer && tooOldFor(asks.computer.version, kind) ? (
+        <p className="text-[12.5px] text-warning-text" data-testid="outreach-ask-too-old">
+          {why}
+        </p>
+      ) : null}
       {showLine && latest ? <AskLine workspaceId={workspaceId} asks={asks} ask={latest} /> : null}
     </div>
   );

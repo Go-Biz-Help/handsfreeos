@@ -397,6 +397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon.start_fresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an installed add-on fresh: permanently delete all of its data and install it again, empty, in one step. Core records it touched stay; history keeps its lines without the details.
+         * @description Risk level 4. Requires addons.purge. Emits addon.uninstall_started.
+         */
+        post: operations["command_addon_start_fresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon.uninstall": {
         parameters: {
             query?: never;
@@ -19814,6 +19834,45 @@ export interface operations {
             };
         };
     };
+    command_addon_start_fresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    confirmName: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_addon_uninstall: {
         parameters: {
             query?: never;
@@ -33038,6 +33097,16 @@ export interface operations {
                         replies?: "draft" | "simple" | "everything";
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
+                        voice?: {
+                            /** @default false */
+                            acronyms?: boolean;
+                            /** @default false */
+                            emoji?: boolean;
+                            /** @default false */
+                            shorthand?: boolean;
+                            /** @default true */
+                            split?: boolean;
+                        };
                         warmUp: boolean;
                         /** @default true */
                         watchPosts?: boolean;
@@ -33106,10 +33175,30 @@ export interface operations {
                             replies: "draft" | "simple" | "everything";
                             /** @enum {string} */
                             sending: "off" | "steps" | "approve_all" | "everything";
+                            /**
+                             * @default {
+                             *       "shorthand": false,
+                             *       "acronyms": false,
+                             *       "emoji": false,
+                             *       "split": true
+                             *     }
+                             */
+                            voice: {
+                                /** @default false */
+                                acronyms: boolean;
+                                /** @default false */
+                                emoji: boolean;
+                                /** @default false */
+                                shorthand: boolean;
+                                /** @default true */
+                                split: boolean;
+                            };
                             warmUp: boolean;
                             /** @default true */
                             watchPosts: boolean;
                         };
+                        /** @default null */
+                        startedAt: string | null;
                         timezone: string;
                         /** Format: uuid */
                         userId: string;
@@ -34939,6 +35028,12 @@ export interface operations {
                         /** Format: uuid */
                         profileId: string;
                         profileUrl: string | null;
+                        recent: {
+                            /** Format: date-time */
+                            at: string;
+                            fromMe: boolean;
+                            text: string;
+                        }[];
                         /** Format: uuid */
                         sendId: string;
                         /** @enum {string} */
@@ -61115,6 +61210,7 @@ export interface operations {
                             name: string;
                             online: boolean;
                             signedOut: boolean;
+                            version: string | null;
                         } | null;
                         /** Format: date-time */
                         now: string;
@@ -61199,10 +61295,30 @@ export interface operations {
                             replies: "draft" | "simple" | "everything";
                             /** @enum {string} */
                             sending: "off" | "steps" | "approve_all" | "everything";
+                            /**
+                             * @default {
+                             *       "shorthand": false,
+                             *       "acronyms": false,
+                             *       "emoji": false,
+                             *       "split": true
+                             *     }
+                             */
+                            voice: {
+                                /** @default false */
+                                acronyms: boolean;
+                                /** @default false */
+                                emoji: boolean;
+                                /** @default false */
+                                shorthand: boolean;
+                                /** @default true */
+                                split: boolean;
+                            };
                             warmUp: boolean;
                             /** @default true */
                             watchPosts: boolean;
                         };
+                        /** @default null */
+                        startedAt: string | null;
                         timezone: string;
                         /** Format: uuid */
                         userId: string;
@@ -61697,6 +61813,8 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        /** @default 0 */
+                        saved: number;
                     };
                 };
             };
@@ -62362,6 +62480,12 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             profileUrl: string | null;
+                            recent: {
+                                /** Format: date-time */
+                                at: string;
+                                fromMe: boolean;
+                                text: string;
+                            }[];
                             /** Format: uuid */
                             sendId: string;
                             /** @enum {string} */
@@ -62547,6 +62671,12 @@ export interface operations {
                             postUrl: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
+                            recent: {
+                                /** Format: date-time */
+                                at: string;
+                                fromMe: boolean;
+                                text: string;
+                            }[];
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -62707,6 +62837,12 @@ export interface operations {
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
+                                recent: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    fromMe: boolean;
+                                    text: string;
+                                }[];
                                 /** Format: uuid */
                                 sendId: string;
                                 /** @enum {string} */
@@ -62739,6 +62875,12 @@ export interface operations {
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
+                                recent: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    fromMe: boolean;
+                                    text: string;
+                                }[];
                                 /** Format: uuid */
                                 sendId: string;
                                 /** @enum {string} */
