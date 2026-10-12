@@ -345,17 +345,12 @@ the web.
 
 People on a business's team follow the setup in HandsFreeOS (Social Outreach sends a first-timer there; Settings →
 Set up again, or the Carry on line on any tab, opens it), which has the download and these steps in plain
-words (decision 60). HandsFreeOS hands out the build itself: with every version bump, run
-
-```bash
-HFOS_SUPABASE_PUBLISHABLE_KEY=sb_publishable_… pnpm --filter @hfos/extension release
-```
-
-which builds it for HandsFreeOS (whatever `.env.local` says), zips it with `manifest.json` at the top to
-`apps/web/public/downloads/hfos-social.zip`, and writes its version and size to
-`packages/core/src/addons/outreach/extension-release.ts`; commit both, and the web app serves it with the next deploy.
-`test/release.test.ts` fails while the version there and `package.json`'s disagree. The zip keeps its name from version
-to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
+words (decision 60). HandsFreeOS hands out the build itself, made with every deploy: the web app's `build` (and
+`dev`) first runs `scripts/download.mjs`, which builds the extension for the HandsFreeOS the web app talks to (its
+`NEXT_PUBLIC_` settings, so Vercel's for a deploy and the local stack's on your computer) and zips it with
+`manifest.json` at the top to `apps/web/public/downloads/hfos-social.zip`. Nothing to release or commit: bump the
+version in `package.json` and the next deploy hands it out (`test/download.test.ts` covers it). The zip keeps its name
+from version to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
 and press the reload arrow, and stay signed in. A business that keeps its own copy pastes its https link under Social
 Outreach → Settings → Business settings → **Where your team gets the extension** (on the web or the phone), and
 everyone's download is that one instead. When a business starts Social Outreach fresh, the extension

@@ -326,8 +326,14 @@ export const SETUP_WORDS = {
     'Pin it: press the puzzle piece beside the address bar, then the pin beside HandsFreeOS Social.',
   ] as const,
   /** Beside the download: which version, how big, and where it works. */
-  downloadAbout: (version: string, bytes: number) =>
-    `Version ${version} · ${Math.max(0.1, Math.round(bytes / 104_857.6) / 10)} MB · for Chrome on a computer`,
+  downloadAbout: (version: string, bytes: number | null) =>
+    [
+      `Version ${version}`,
+      bytes ? `${Math.max(0.1, Math.round(bytes / 104_857.6) / 10)} MB` : null,
+      'for Chrome on a computer',
+    ]
+      .filter(Boolean)
+      .join(' · '),
   /** Chrome's own note about extensions loaded by hand, which it shows now and then. */
   devModeNote:
     'Chrome may ask you to turn off extensions in developer mode now and then. Keep them on, or the extension stops working.',

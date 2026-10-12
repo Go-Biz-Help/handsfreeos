@@ -4,8 +4,9 @@
  * offscreen page that reads Facebook's file, the icons, and manifest.json with the version from package.json. Load
  * dist/chrome with "Load unpacked" on chrome://extensions (README.md).
  *
- *   node scripts/build.mjs           build once
- *   node scripts/build.mjs --watch   build, then again on every change
+ *   node scripts/build.mjs               build once
+ *   node scripts/build.mjs --watch       build, then again on every change
+ *   node scripts/build.mjs --out=<dir>   build into another folder (the download the web app hands out does)
  *
  * Where it signs in and saves comes from HFOS_API_URL, HFOS_WORKER_URL, HFOS_WEB_URL, HFOS_SUPABASE_URL and
  * HFOS_SUPABASE_PUBLISHABLE_KEY, in the environment or in .env.local or .env beside package.json (`pnpm env:local`
@@ -13,12 +14,13 @@
  * build reads pages and doesn't sign in.
  */
 import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const out = join(root, 'dist/chrome');
+const outArg = process.argv.find((arg) => arg.startsWith('--out='));
+const out = outArg ? resolve(root, outArg.slice('--out='.length)) : join(root, 'dist/chrome');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const watch = process.argv.includes('--watch');
 
@@ -135,7 +137,9 @@ if (watch) {
   await context.watch();
 } else {
   await esbuild.build(options);
-  console.log(`Built HandsFreeOS Social ${version} in dist/chrome, saving to ${config.apiUrl}.`);
+  console.log(
+    `Built HandsFreeOS Social ${version} in ${relative(root, out)}, saving to ${config.apiUrl}.`,
+  );
   if (!config.supabasePublishableKey)
     console.log(
       'No HFOS_SUPABASE_PUBLISHABLE_KEY, so this build reads pages and can’t sign in (README.md).',

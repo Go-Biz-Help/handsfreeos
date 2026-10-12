@@ -614,8 +614,9 @@ The owner asked on 12 Oct 2026 for the extension's zip to be in HandsFreeOS for 
 install it in Chrome with Developer mode. That replaces "kept wherever the team keeps files, never in HandsFreeOS's
 code" (decision 45's install step). Settled too:
 
-60. **HandsFreeOS hands out the extension.** The web app serves the latest build (`/downloads/hfos-social.zip`),
-    released from the code with each version (`pnpm --filter @hfos/extension release`); the setup's install step
+60. **HandsFreeOS hands out the extension.** The web app serves the build its own code makes
+    (`/downloads/hfos-social.zip`): every deploy zips the extension as it builds, so nobody releases or uploads
+    anything by hand, and a deploy always hands out the extension its code has. The setup's install step
     and Settings → Your computer have **Download HandsFreeOS Social** with its version and size, and the steps:
     unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
     Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
@@ -903,13 +904,14 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
   or hidden (`showsSetupBanner`). The groups step lists the groups the person is in that the extension saved last
   (`groups.latest`), which **Save my groups** (an ask, there and on the Groups tab) fills from their own groups page
   (facebook.com/groups/joins/), where each group listed is saved as one they're in.
-- **HandsFreeOS hands out the extension** (decision 60): `pnpm --filter @hfos/extension release`, with the web app's
-  publishable key in `HFOS_SUPABASE_PUBLISHABLE_KEY`, builds it for HandsFreeOS itself whatever `.env.local` says,
-  zips it to `apps/web/public/downloads/hfos-social.zip` and writes its version and size to
-  `extension-release.ts`. Run it with every version bump: the extension's `release.test.ts` fails while the two
-  disagree. The zip's name never changes, since Chrome knows an extension loaded by hand by its folder and a newer one
-  unzipped over the same folder keeps the person signed in; the link ends `?v=` and the version so browsers fetch the
-  newer one.
+- **HandsFreeOS hands out the extension** (decision 60): the web app's `build` and `dev` first run the extension's
+  `scripts/download.mjs`, which builds it for the HandsFreeOS the web app's own settings name (`NEXT_PUBLIC_API_URL`,
+  `NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, read as Next.js
+  reads them) and zips it to `apps/web/public/downloads/hfos-social.zip`, which git ignores. `next.config.ts` gives
+  the button its version and size. `apps/web/turbo.json` counts the extension's files in the web build, so a change to
+  them makes a new zip, and keeps the zip with a cached build. Never commit a zip or release one by hand. The zip's
+  name never changes, since Chrome knows an extension loaded by hand by its folder and a newer one unzipped over the
+  same folder keeps the person signed in; the link ends `?v=` and the version so browsers fetch the newer one.
 - **A business's own link wins** (`extensionLink` in its Social Outreach settings, a whole https link with
   a real host only, refused
   with its own words on a save). A stored one that stopped passing reads as none and leaves the other settings as

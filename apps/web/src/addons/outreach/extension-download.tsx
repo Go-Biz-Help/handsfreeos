@@ -1,18 +1,27 @@
 'use client';
 /**
- * Getting the browser extension (docs/outreach.md, decisions 45 and 60): HandsFreeOS hands out its own build
- * (`EXTENSION_RELEASE`, served from `public/downloads`, put there by `pnpm --filter @hfos/extension release`), unless
- * the business gave its own link (`extensionLink`, Business settings), and says how to load it into Chrome with
- * Developer mode, step by step. The setup's install step shows it all; the Settings tab folds the steps away.
+ * Getting the browser extension (docs/outreach.md, decisions 45 and 60): HandsFreeOS hands out its own build, zipped
+ * into `public/downloads` as this web app builds (apps/extension/scripts/download.mjs; its version and size come
+ * through next.config.ts), unless the business gave its own link (`extensionLink`, Business settings), and says how to
+ * load it into Chrome with Developer mode, step by step. The setup's install step shows it all; the Settings tab folds
+ * the steps away.
  */
-import { EXTENSION_RELEASE } from '@hfos/core/addons/outreach/extension-release';
 import { CHROME_EXTENSIONS_URL, SETUP_WORDS as W } from '@hfos/core/addons/outreach/setup';
 import { Download } from 'lucide-react';
 import { CopyField } from '@/components/ui/copy-field';
 
+/** The build this web app hands out. Read whole: Next.js puts the values in as it builds. */
+const VERSION = process.env.HFOS_EXTENSION_VERSION ?? '';
+const BYTES = Number(process.env.HFOS_EXTENSION_BYTES) || null;
+/**
+ * The name stays the same from version to version, so a newer zip unzips over the same folder; the version on the end
+ * only makes browsers fetch the newer one.
+ */
+const OURS = `/downloads/hfos-social.zip?v=${VERSION}`;
+
 /** Where the extension downloads from: the business's own link, else HandsFreeOS's build. */
 export function extensionHref(link: string | null): string {
-  return link ?? EXTENSION_RELEASE.path;
+  return link ?? OURS;
 }
 
 export function ExtensionDownload({
@@ -68,7 +77,7 @@ export function ExtensionDownload({
         </a>
         {ours ? (
           <span className="text-[12.5px] text-text-3" data-testid="outreach-download-about">
-            {W.downloadAbout(EXTENSION_RELEASE.version, EXTENSION_RELEASE.bytes)}
+            {W.downloadAbout(VERSION, BYTES)}
           </span>
         ) : null}
       </div>

@@ -8,8 +8,7 @@
     "build": "node scripts/build.mjs",
     "lint": "eslint . --config ../../eslint.config.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "release": "node scripts/release.mjs"
+    "test": "vitest run"
   },
   "dependencies": {
     "@hfos/api-client": "workspace:*",
