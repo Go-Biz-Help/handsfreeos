@@ -1,5 +1,7 @@
 import {
   clockOfMinutes,
+  copyWeeklyHoursDay,
+  COPY_HOURS_TO_ALL_DAYS,
   minutesToClock,
   parseClock,
   timeOptionsWith,
@@ -10,7 +12,7 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { AI_SETUP_PHONE_WORDS as P } from '@/ai-setup/words';
-import { Check, Plus, X } from '@/components/icons';
+import { Check, Copy, Plus, X } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { FieldError } from '@/components/ui/label';
 import { Sheet } from '@/components/ui/sheet';
@@ -147,17 +149,33 @@ export function HoursField({
               ) : (
                 <Text className="mt-3 text-[13.5px] text-text-3">{P.closed}</Text>
               )}
-              {on && windows.length < MOST ? (
-                <Pressable
-                  role="button"
-                  accessibilityLabel={`${P.addHours}, ${long}`}
-                  onPress={addStretch}
-                  className="h-9 flex-row items-center gap-1.5 self-start rounded-control px-1 active:bg-card-2"
-                  testID={`${idPrefix}-${short.toLowerCase()}-add`}
-                >
-                  <Icon as={Plus} className="size-4 text-accent-text" />
-                  <Text className="text-[13px] font-medium text-accent-text">{P.addHours}</Text>
-                </Pressable>
+              {on ? (
+                <View className="flex-row flex-wrap gap-x-3">
+                  {windows.length < MOST ? (
+                    <Pressable
+                      role="button"
+                      accessibilityLabel={`${P.addHours}, ${long}`}
+                      onPress={addStretch}
+                      className="h-9 flex-row items-center gap-1.5 self-start rounded-control px-1 active:bg-card-2"
+                      testID={`${idPrefix}-${short.toLowerCase()}-add`}
+                    >
+                      <Icon as={Plus} className="size-4 text-accent-text" />
+                      <Text className="text-[13px] font-medium text-accent-text">{P.addHours}</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    role="button"
+                    accessibilityLabel={`${COPY_HOURS_TO_ALL_DAYS}, from ${long}`}
+                    onPress={() => onChange(copyWeeklyHoursDay(value, day))}
+                    className="h-9 flex-row items-center gap-1.5 self-start rounded-control px-1 active:bg-card-2"
+                    testID={`${idPrefix}-${short.toLowerCase()}-copy`}
+                  >
+                    <Icon as={Copy} className="size-4 text-accent-text" />
+                    <Text className="text-[13px] font-medium text-accent-text">
+                      {COPY_HOURS_TO_ALL_DAYS}
+                    </Text>
+                  </Pressable>
+                </View>
               ) : null}
               {problem ? <FieldError>{problem}</FieldError> : null}
             </View>

@@ -51,6 +51,21 @@ export function weeklyHoursDayProblem(windows: readonly WeeklyHours[number][]): 
   return null;
 }
 
+/** The hours editors' button that copies one day's hours to the rest of the week. */
+export const COPY_HOURS_TO_ALL_DAYS = 'Copy to all days';
+
+/**
+ * One day's stretches copied to every day of the week, so each is open the same hours: the hours editors' "Copy to
+ * all days". A day that should stay closed is switched off after.
+ */
+export function copyWeeklyHoursDay(value: WeeklyHours, from: number): WeeklyHours {
+  const windows = value
+    .filter((h) => h.day === from)
+    .sort((a, b) => a.start.localeCompare(b.start));
+  if (!windows.length) return value;
+  return [0, 1, 2, 3, 4, 5, 6].flatMap((day) => windows.map((w) => ({ ...w, day })));
+}
+
 export const AssignmentMode = z.enum([
   'fixed',
   'customer_choice',

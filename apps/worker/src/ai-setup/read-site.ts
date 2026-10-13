@@ -31,7 +31,7 @@ import {
   titleFromUrl,
 } from '../knowledge/crawl';
 import { ALLOW_ALL, parseRobots, robotsAllows, type Robots } from '../knowledge/robots';
-import { isHtml } from '../knowledge/scan';
+import { isHtml, mayPass } from '../knowledge/scan';
 import { errorMessage, MAX_ATTEMPTS } from '../outbox';
 import { systemActor, tenantOf, type TenantScope } from '../services';
 
@@ -339,13 +339,19 @@ export function readSiteMessage(pages: readonly SitePage[]): string {
   ].join('\n');
 }
 
+/**
+ * The site didn't answer (a dropped connection, a timeout or a server error). Small sites often do this for a moment,
+ * so the job runs again (5s, 10s, 20s, 40s later) rather than giving up on the first try.
+ */
+export class SiteUnreachableError extends Error {}
+
 /** The start page, then the pages worth reading that it links to, as far as robots.txt lets us. */
 async function readPages(ctx: JobContext, start: string, log: Logger): Promise<SitePage[]> {
   const url = normalizePageUrl(start);
   if (!url) return [];
-  const robots = await robotsOf(ctx, new URL(url).origin, log);
+  const robots = await robotsOf(ctx, new URL(url).origin, log, { retry: true });
   if (!robots) return [];
-  const home = await readPage(ctx, url, robots, log);
+  const home = await readPage(ctx, url, robots, log, { mustAnswer: true });
   if (!home) {
     log.info('quick setup couldn’t read the website’s start page');
     return [];
@@ -363,6 +369,7 @@ export async function robotsOf(
   ctx: JobContext,
   origin: string,
   log: Logger,
+  { retry = false }: { readonly retry?: boolean } = {},
 ): Promise<Robots | null> {
   try {
     const res = await ctx.fetchUrl(`${origin}/robots.txt`, {
@@ -372,6 +379,8 @@ export async function robotsOf(
     });
     if (res.status >= 500 || res.status === 429) {
       log.info({ status: res.status }, 'the website’s robots.txt answered with an error');
+      if (retry)
+        throw new SiteUnreachableError(`robots.txt answered with an error (${res.status})`);
       return null;
     }
     return res.status >= 200 && res.status < 300 ? parseRobots(res.body) : ALLOW_ALL;
@@ -379,6 +388,7 @@ export async function robotsOf(
     // robots.txt served from another site counts as none.
     if (e instanceof SafeFetchError && e.code === 'other_host') return ALLOW_ALL;
     log.info({ code: fetchCode(e) }, 'quick setup couldn’t reach the website');
+    if (retry && mayPass(e)) throw new SiteUnreachableError('the website didn’t answer');
     return null;
   }
 }
@@ -388,6 +398,7 @@ async function readPage(
   url: string,
   robots: Robots,
   log: Logger,
+  { mustAnswer = false }: { readonly mustAnswer?: boolean } = {},
 ): Promise<{ readonly page: SitePage; readonly links: string[] } | null> {
   const u = new URL(url);
   if (!robotsAllows(robots, u.pathname + u.search)) {
@@ -404,8 +415,11 @@ async function readPage(
     });
   } catch (e) {
     log.info({ url, code: fetchCode(e) }, 'quick setup couldn’t read a page');
+    if (mustAnswer && mayPass(e)) throw new SiteUnreachableError('the website didn’t answer');
     return null;
   }
+  if (mustAnswer && (res.status >= 500 || res.status === 429))
+    throw new SiteUnreachableError(`the website answered with an error (${res.status})`);
   if (res.status < 200 || res.status >= 300 || !isHtml(res)) return null;
   const finalUrl = normalizePageUrl(res.finalUrl) ?? url;
   const footer = footerText(res.body);

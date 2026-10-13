@@ -994,6 +994,11 @@ describe('the screens’ behaviour', () => {
       'business.name': 'Name your business.',
       'business.address.postalCode': 'Use the 5-digit ZIP code.',
     });
+    const blank = { line1: '', line2: '', city: '', state: '', postalCode: '' };
+    expect(
+      onboardingSetupScreenProblemsOf('business', answers(), state, { ...draft, address: blank }),
+    ).toEqual({});
+    expect(onboardingSetupBusinessOf({ ...draft, address: blank })).not.toHaveProperty('address');
     expect(
       onboardingSetupScreenProblemsOf('about', answers({ booksTime: true }), state, draft),
     ).toEqual({

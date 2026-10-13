@@ -258,13 +258,22 @@ export function onboardingSetupDraftLine(draft: OnboardingSetupBusinessDraft): s
   });
 }
 
-/** The first screen's answers as `onboarding_setup.save` takes them: no website when there's none, or none typed. */
+/** Nothing typed in any part of the address: it's optional, so it's left out. */
+export const isBlankBusinessAddress = (address: BusinessAddressInput): boolean =>
+  [address.line1, address.line2, address.city, address.state, address.postalCode].every(
+    (part) => !(part ?? '').trim(),
+  );
+
+/**
+ * The first screen's answers as `onboarding_setup.save` takes them: no website when there's none, or none typed, and
+ * no address when none is typed.
+ */
 export function onboardingSetupBusinessOf(draft: OnboardingSetupBusinessDraft) {
   const site = draft.site.trim();
   return {
     name: draft.name.trim(),
     industry: draft.industry,
-    address: draft.address,
+    ...(isBlankBusinessAddress(draft.address) ? {} : { address: draft.address }),
     timezone: draft.timeZone,
     website: draft.noSite || !site ? null : site,
   };
@@ -274,13 +283,14 @@ export function onboardingSetupBusinessOf(draft: OnboardingSetupBusinessDraft) {
 export const onboardingSetupProblemsOf = (details: unknown): AiSetupProblems =>
   aiSetupProblemsOf(details);
 
-/** What the first screen still needs before Next, by path: the name, what they do and the address. */
+/** What the first screen still needs before Next, by path: the name, what they do, and an address started but not finished. */
 export function onboardingSetupBusinessProblemsOf(
   business: Pick<OnboardingSetupBusinessDraft, 'name' | 'industry' | 'address'>,
 ): AiSetupProblems {
   const out: Record<string, string> = {};
   if (!business.name.trim()) out['business.name'] = W.businessNameMissing;
   if (!business.industry) out['business.industry'] = W.kindMissing;
+  if (isBlankBusinessAddress(business.address)) return out;
   const address = BusinessAddress.safeParse(business.address);
   if (!address.success)
     for (const issue of address.error.issues) {
