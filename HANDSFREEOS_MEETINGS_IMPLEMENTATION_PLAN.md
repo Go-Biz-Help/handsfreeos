@@ -15,7 +15,7 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   and no sync change; it's made when the host's Google Calendar event is written, so it needs the host's Google
 >   Calendar connected and the calendar's "Add to people's calendars" on. Reminders and the portal carry it; a
 >   confirmation sent before the link exists says "Online".
-> - **Step 2, the Zoom connection.** `app.meeting_connections` (20261027003000), `meeting_connection.connect`,
+> - **Step 2, the Zoom connection.** `app.meeting_connections` (20261027003200), `meeting_connection.connect`,
 >   `.disconnect`, `.activate`, `.fail` and `meeting_connection.list`, Zoom's sign-in on the shared
 >   `/oauth/:provider/start` and `/callback` (with a stand-in locally), and a Video meetings card on
 >   Settings → My calendar. `.check_settings` and the settings columns come with step 4. Setup is "Zoom" in
@@ -26,7 +26,7 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   (the appointment's **Make link** button) tries again. Recording (`auto_recording`) waits for step 5. A reassigned
 >   appointment gets a new meeting in the new host's Zoom; the old host's stays in their account.
 > - **Step 4, the Zoom settings check.** `settings_checked_at` and `settings_problems` on
->   `app.meeting_connections` (20261027003100), `meeting_connection.check_settings` (Check again) and
+>   `app.meeting_connections` (20261027003300), `meeting_connection.check_settings` (Check again) and
 >   `.record_settings`, the job `meeting_connection.settings_check` (after connecting, on Check again, daily), and the
 >   problems with their fixes on the Zoom card. Smaller than §7: Zoom's lock settings need an admin's account, so a
 >   locked switch isn't told apart (each fix says to ask the Zoom admin); the push and notification wait for step 5,
