@@ -40,6 +40,7 @@ import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './fac
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { LOOK_EVERY_MS, lookFor } from './facebook/looking';
 import { outlinePage } from './facebook/outline';
+import { requestsPage } from './facebook/friends';
 import { tidyPage } from './facebook/tidy';
 import { classifyUrl } from './facebook/urls';
 import { readPage } from './facebook/page';
@@ -79,12 +80,19 @@ const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** One of the panel's steps on a download page, looked for until it shows or `waitMs` is up. */
 async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
-  if (ask.tidy ? !tidyPage(location.href) : !fetchPage(location.href))
+  const allowed = ask.tidy
+    ? tidyPage(location.href)
+    : ask.lists
+      ? requestsPage(location.href)
+      : fetchPage(location.href);
+  if (!allowed)
     return {
       ok: false,
       error: ask.tidy
         ? 'Facebook didn’t open their profile.'
-        : 'This isn’t one of Facebook’s download pages.',
+        : ask.lists
+          ? 'Facebook didn’t open your friend requests.'
+          : 'This isn’t one of Facebook’s download pages.',
     };
   const until = Date.now() + ask.waitMs;
   for (;;) {

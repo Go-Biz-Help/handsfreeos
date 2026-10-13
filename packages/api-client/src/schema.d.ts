@@ -6377,6 +6377,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.lists.saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent), worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all three lists are saved.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.lists.saved.
+         */
+        post: operations["command_outreach_lists_saved"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.live.beat": {
         parameters: {
             query?: never;
@@ -16551,6 +16571,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * When the person’s own friends list, the friend requests they’ve got and the ones they’ve sent were last saved to their end, and when the first Tidy up and good-fits check after that were done.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_lists"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34239,6 +34279,41 @@ export interface operations {
                         groupId: string;
                         /** @enum {string} */
                         state: "asked" | "pending" | "joined" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_lists_saved: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    list: "friends" | "requests" | "sent" | "tidy" | "checks";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checksAt: string | null;
+                        friendsAt: string | null;
+                        requestsAt: string | null;
+                        sentAt: string | null;
+                        tidyAt: string | null;
                     };
                 };
             };
@@ -61966,6 +62041,39 @@ export interface operations {
             };
         };
     };
+    query_outreach_lists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checksAt: string | null;
+                        friendsAt: string | null;
+                        requestsAt: string | null;
+                        sentAt: string | null;
+                        tidyAt: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_live: {
         parameters: {
             query?: never;
@@ -62043,6 +62151,13 @@ export interface operations {
                                 done: number;
                                 most: number;
                             };
+                        };
+                        lists?: {
+                            checksAt: string | null;
+                            friendsAt: string | null;
+                            requestsAt: string | null;
+                            sentAt: string | null;
+                            tidyAt: string | null;
                         };
                         /** Format: date-time */
                         now: string;

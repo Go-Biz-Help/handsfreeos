@@ -134,7 +134,7 @@ export function LiveStrip({
   });
   const offline = computer !== null && isOffline(computer.lastSeenAt, now);
   const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
-  const said = dayWords(day, tz);
+  const said = dayWords(day, tz, live.lists);
   return (
     <Card className="gap-3 px-4 py-3.5" testID="today-status">
       <View className="flex-row items-center gap-3">

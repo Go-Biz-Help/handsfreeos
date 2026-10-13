@@ -608,4 +608,22 @@ describe('live status and control', () => {
     expect(json).not.toContain('Dana Cole');
     expect(json).not.toContain('Next: Eli Brook');
   });
+  it('keeps when the person’s own lists were saved, and the live view says a first day waits for them', async () => {
+    const before = await runAs(member, ws, 'outreach.lists', {});
+    expect(before).toEqual({
+      friendsAt: null,
+      requestsAt: null,
+      sentAt: null,
+      tidyAt: null,
+      checksAt: null,
+    });
+    await runAs(member, ws, 'outreach.lists.saved', { list: 'friends' });
+    const after = await runAs(member, ws, 'outreach.lists.saved', { list: 'sent' });
+    expect(after.friendsAt).not.toBeNull();
+    expect(after.sentAt).not.toBeNull();
+    expect(after.requestsAt).toBeNull();
+    expect((await runAs(member, ws, 'outreach.live', {})).lists).toEqual(after);
+    // Each person's own: the owner's are still unsaved.
+    expect((await runAs(owner, ws, 'outreach.lists', {})).friendsAt).toBeNull();
+  });
 });
