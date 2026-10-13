@@ -653,6 +653,21 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.status) === 'reauth_required'
         ? `recorded that the ${calendarName(e)} ${s(e.after?.account)} needs reconnecting`
         : `recorded that the ${calendarName(e)} ${s(e.after?.account)} stopped syncing${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    // Video meetings: people's own Zoom accounts
+    case 'meeting_connection.connect':
+      return 'started connecting a Zoom account';
+    case 'meeting_connection.activate':
+      return `connected the Zoom account ${s(e.after?.account)}`;
+    case 'meeting_connection.disconnect':
+      return s(e.after?.person)
+        ? `disconnected ${s(e.after?.person)}'s Zoom account`
+        : `disconnected the Zoom account ${s(e.after?.account)}`;
+    case 'meeting_connection.fail':
+      return s(e.after?.status) === 'reauth_required'
+        ? `recorded that the Zoom account ${s(e.after?.account)} needs reconnecting`
+        : `recorded that the Zoom account ${s(e.after?.account)} stopped working${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    case 'appointment.set_meeting_link':
+      return 'added a video link to an appointment';
     // Milestone 5: calendars, their catalogs, people's hours and appointments
     case 'calendar.create':
       return `created the calendar ${name(e)}${s(e.after?.preset) ? ` from the ${s(e.after?.preset)} preset` : ''}`;
@@ -1886,6 +1901,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
 const CALENDAR_PREFIXES = [
   'calendar.',
   'calendar_connection.',
+  'meeting_connection.',
   'service.',
   'resource.',
   'territory.',

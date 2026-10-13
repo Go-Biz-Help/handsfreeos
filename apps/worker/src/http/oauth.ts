@@ -20,6 +20,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
   calendarConnectionActivate,
+  meetingConnectionActivate,
   reviewConnectionActivate,
   executeCommand,
   HfosError,
@@ -29,6 +30,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   calendarConnections,
+  meetingConnections,
   mailboxConnections,
   metaConnections,
   paymentConnections,
@@ -37,6 +39,7 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { CALENDAR_NAME } from '../calendar/provider';
+import { isMeetingProvider, MEETING_NAME, type MeetingProviderName } from '../meetings/provider';
 import { REVIEW_NAME, type ReviewProviderName } from '../reviews/provider';
 import { escapeHtml } from '../emails/templates';
 import { fakeCode } from '../mailbox/fake';
@@ -78,7 +81,7 @@ const isProvider = (p: string): p is MailboxProviderName => p === 'microsoft' ||
  */
 type StateRow = {
   /** `meta`: a business's Facebook Pages and Instagram accounts for the inbox (20261025000200). */
-  kind: 'mailbox' | 'calendar' | 'payment' | 'reviews' | 'meta';
+  kind: 'mailbox' | 'calendar' | 'payment' | 'reviews' | 'meta' | 'meeting';
   connection_id: string;
   workspace_id: string;
   organization_id: string;
@@ -86,7 +89,7 @@ type StateRow = {
    * Mailboxes and calendars name their providers the same way; payments name Stripe and Square; reviews
    * name Google and Facebook; the inbox's Pages are always Facebook's.
    */
-  provider: MailboxProviderName | PaymentProviderName | ReviewProviderName;
+  provider: MailboxProviderName | PaymentProviderName | ReviewProviderName | MeetingProviderName;
   status: string;
   state_expires_at: Date | string | null;
 };
@@ -142,8 +145,9 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   const { providers, fake } = deps.mailboxes;
   const calendars = deps.calendars;
   const payments = deps.payments;
-  const callbackUrl = (p: MailboxProviderName | PaymentProviderName | ReviewProviderName) =>
-    `${deps.publicUrl}/oauth/${p}/callback`;
+  const callbackUrl = (
+    p: MailboxProviderName | PaymentProviderName | ReviewProviderName | MeetingProviderName,
+  ) => `${deps.publicUrl}/oauth/${p}/callback`;
   const settingsUrl = (workspaceId: string) => `${deps.webUrl}/app/w/${workspaceId}/settings/email`;
   const myCalendarUrl = (workspaceId: string) =>
     `${deps.webUrl}/app/w/${workspaceId}/settings/my-calendar`;
@@ -162,7 +166,12 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   }
   /** The same, by the state's hash: what a handoff carries back. */
   async function lookupHash(provider: string, stateHash: string): Promise<StateRow | null> {
-    if (!isProvider(provider) && !isPaymentProvider(provider) && !isReviewProvider(provider))
+    if (
+      !isProvider(provider) &&
+      !isPaymentProvider(provider) &&
+      !isReviewProvider(provider) &&
+      !isMeetingProvider(provider)
+    )
       return null;
     const [row] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<StateRow>(
@@ -185,6 +194,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     payment: 'Payments',
     reviews: 'Reviews',
     meta: 'Facebook & Instagram',
+    meeting: 'My calendar',
   };
   /**
    * Which Settings page to send someone back to when their link is dead. A used or expired state has no row
@@ -192,7 +202,8 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
    * Google could be either a mailbox or a calendar, so those fall back to Email as they always have.
    */
   const kindOf = (provider: string, found: StateRow | null): StateRow['kind'] | undefined =>
-    found?.kind ?? (isPaymentProvider(provider) ? 'payment' : undefined);
+    found?.kind ??
+    (isPaymentProvider(provider) ? 'payment' : isMeetingProvider(provider) ? 'meeting' : undefined);
 
   const expiredPage = (kind?: StateRow['kind'], provider?: string): FinishPage => ({
     title: 'This sign-in link has expired',
@@ -220,6 +231,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (row.kind === 'meta') return startMeta(row, state, reply);
     if (row.kind === 'payment') return startPayment(row, state, reply);
     if (row.kind === 'calendar') return startCalendar(row, state, reply);
+    if (row.kind === 'meeting') return startMeeting(row, state, reply);
     if (row.kind === 'reviews') return startReviews(row, state, reply);
     if (!isProvider(row.provider)) return expired(reply, row.kind);
     const p = providers[row.provider];
@@ -331,6 +343,11 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
           .update(calendarConnections)
           .set(ended)
           .where(eq(calendarConnections.id, row.connection_id));
+      else if (row.kind === 'meeting')
+        await tx
+          .update(meetingConnections)
+          .set(ended)
+          .where(eq(meetingConnections.id, row.connection_id));
       else if (row.kind === 'payment')
         await tx
           .update(paymentConnections)
@@ -359,6 +376,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (row.kind === 'meta') return finishMetaSignIn(deps, row, q);
     if (row.kind === 'payment') return paymentCallback(row, q);
     if (row.kind === 'calendar') return calendarCallback(row, q);
+    if (row.kind === 'meeting') return meetingCallback(row, q);
     if (row.kind === 'reviews') return reviewsCallback(row, q);
     return mailboxCallback(row, q);
   });
@@ -509,6 +527,98 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       deps.log.warn(
         { connectionId: row.connection_id, err: errorMessage(e) },
         'a calendar did not connect',
+      );
+      await note(errorMessage(e));
+      return back('failed');
+    }
+  }
+
+  // ---------- a person's own Zoom account: the same sign-in, back to Settings → My calendar ----------
+
+  async function startMeeting(row: StateRow, state: string, reply: FastifyReply) {
+    if (!isMeetingProvider(row.provider)) return expired(reply, row.kind);
+    const p = calendars.meetings[row.provider];
+    const name = MEETING_NAME[row.provider];
+    if (!p.configured)
+      return deadEnd(
+        reply,
+        503,
+        `${name} isn’t set up yet`,
+        `This server can’t connect ${name} accounts yet.`,
+        { href: myCalendarUrl(row.workspace_id), label: 'Back to My calendar' },
+      );
+    const { verifier, challenge } = pkcePair();
+    await asWorker(deps.httpDb, scopeOf(row), (tx) =>
+      tx
+        .update(meetingConnections)
+        .set({ pkceVerifierEnc: deps.sealer.seal(verifier) })
+        .where(eq(meetingConnections.id, row.connection_id)),
+    );
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .redirect(
+        p.authorizeUrl({ state, codeChallenge: challenge, redirectUri: callbackUrl(row.provider) }),
+        302,
+      );
+  }
+
+  async function meetingCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
+    if (!isMeetingProvider(row.provider)) return { page: expiredPage(row.kind) };
+    const provider = row.provider;
+    const scope = scopeOf(row);
+    const back = (result: 'connected' | 'cancelled' | 'missing_permissions' | 'failed') =>
+      next(`${myCalendarUrl(row.workspace_id)}?meeting=${result}`);
+    const note = (error: string) =>
+      asWorker(deps.httpDb, scope, (tx) =>
+        tx
+          .update(meetingConnections)
+          .set({ lastError: error.slice(0, 2000) })
+          .where(eq(meetingConnections.id, row.connection_id)),
+      );
+    if (q.error || !q.code) {
+      await note(`The sign-in ended without access (${(q.error ?? 'no code').slice(0, 80)}).`);
+      return back(q.error === 'access_denied' ? 'cancelled' : 'failed');
+    }
+    const [c] = await asWorker(deps.httpDb, scope, (tx) =>
+      tx
+        .select({ verifier: meetingConnections.pkceVerifierEnc })
+        .from(meetingConnections)
+        .where(eq(meetingConnections.id, row.connection_id)),
+    );
+    if (!c?.verifier) return back('failed');
+    const p = calendars.meetings[provider];
+    try {
+      const tokens = await p.exchangeCode({
+        code: q.code,
+        codeVerifier: deps.sealer.open(c.verifier),
+        redirectUri: callbackUrl(provider),
+      });
+      if (p.missingScopes(tokens.scopes).length > 0) {
+        await note('Some permissions were left out of the Zoom sign-in.');
+        return back('missing_permissions');
+      }
+      const account = await p.account(tokens.accessToken);
+      await executeCommand(
+        deps.httpDb,
+        meetingConnectionActivate,
+        {
+          workspaceId: row.workspace_id,
+          connectionId: row.connection_id,
+          accountEmail: account.email,
+          externalUserId: account.id.slice(0, 200),
+          scopes: tokens.scopes.slice(0, 50).map((s) => s.slice(0, 200)),
+          tokenEnc: deps.sealer.seal(JSON.stringify(tokens)),
+          tokenKeyId: deps.sealer.keyId,
+          tokenExpiresAt: tokens.expiresAt,
+        },
+        systemActor(scope),
+        workerMeta(),
+      );
+      return back('connected');
+    } catch (e) {
+      deps.log.warn(
+        { connectionId: row.connection_id, err: errorMessage(e) },
+        'a Zoom account did not connect',
       );
       await note(errorMessage(e));
       return back('failed');
@@ -1001,7 +1111,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const { provider } = req.params as { provider: string };
     const q = req.query as Record<string, string | undefined>;
     if (
-      (!isProvider(provider) && !isReviewProvider(provider)) ||
+      (!isProvider(provider) && !isReviewProvider(provider) && !isMeetingProvider(provider)) ||
       !q.state ||
       !q.code_challenge ||
       q.redirect_uri !== callbackUrl(provider)
@@ -1016,18 +1126,22 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     // signing in, and only a mailbox and a calendar have an email address to ask for.
     const kind = (await lookup(provider, q.state))?.kind;
     const reviewSignIn = kind === 'reviews' && isReviewProvider(provider);
-    const name = reviewSignIn
-      ? REVIEW_NAME[provider]
-      : kind === 'calendar' && isProvider(provider)
-        ? CALENDAR_NAME[provider]
-        : isProvider(provider)
-          ? PROVIDER_NAME[provider]
-          : provider;
-    const intro = reviewSignIn
-      ? `A stand-in for ${name}’s sign-in on this development server. No real page or profile is touched.`
-      : kind === 'calendar'
-        ? `A stand-in for ${provider === 'google' ? 'Google' : 'Microsoft'}’s sign-in on this development server. No real calendar is touched.`
-        : `A stand-in for ${name}’s sign-in on this development server. No real mailbox is touched.`;
+    const name = isMeetingProvider(provider)
+      ? MEETING_NAME[provider]
+      : reviewSignIn
+        ? REVIEW_NAME[provider]
+        : kind === 'calendar' && isProvider(provider)
+          ? CALENDAR_NAME[provider]
+          : isProvider(provider)
+            ? PROVIDER_NAME[provider]
+            : provider;
+    const intro = isMeetingProvider(provider)
+      ? `A stand-in for ${name}’s sign-in on this development server. No real ${name} account is touched.`
+      : reviewSignIn
+        ? `A stand-in for ${name}’s sign-in on this development server. No real page or profile is touched.`
+        : kind === 'calendar'
+          ? `A stand-in for ${provider === 'google' ? 'Google' : 'Microsoft'}’s sign-in on this development server. No real calendar is touched.`
+          : `A stand-in for ${name}’s sign-in on this development server. No real mailbox is touched.`;
     const hidden = (k: string, v: string) =>
       `<input type="hidden" name="${k}" value="${escapeHtml(v)}">`;
     return reply.type('text/html; charset=utf-8').send(
@@ -1043,7 +1157,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
           (reviewSignIn
             ? hidden('email', `reviews@${provider}.fake`)
             : `<label for="email" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Email address</label>` +
-              `<input id="email" name="email" type="email" required value="owner@${provider === 'microsoft' ? 'outlook' : 'gmail'}.fake" style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">`) +
+              `<input id="email" name="email" type="email" required value="owner@${provider === 'microsoft' ? 'outlook' : provider === 'zoom' ? 'zoom' : 'gmail'}.fake" style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">`) +
           `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
           `<button type="submit" name="decision" value="allow" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Allow</button>` +
           `<button type="submit" name="decision" value="deny" formnovalidate style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
@@ -1057,7 +1171,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const q = req.query as Record<string, string | undefined>;
     // The fake only ever answers our own callback.
     if (
-      (!isProvider(provider) && !isReviewProvider(provider)) ||
+      (!isProvider(provider) && !isReviewProvider(provider) && !isMeetingProvider(provider)) ||
       !q.state ||
       q.redirect_uri !== callbackUrl(provider)
     )

@@ -284,6 +284,37 @@ portal and everyone else's calendar event show it. It should need no new scope (
 on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
 someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
 
+## Zoom
+
+**Settings** → **My calendar** → **Video meetings** → **Connect Zoom** links a person's own Zoom account. For
+now it only connects; making Zoom meetings for appointments is the next step of
+`HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md`.
+
+Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
+same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
+
+For production:
+
+1. In the Zoom App Marketplace (marketplace.zoom.us), **Develop** → **Build App** → **General App**, managed by
+   each user (not the account admin).
+2. **OAuth redirect URL** and the allow list: `https://hooks.handsfreeos.com/oauth/zoom/callback`.
+3. **Scopes**: making meetings and reading the user (`meeting:write:meeting`, `meeting:update:meeting`,
+   `meeting:delete:meeting`, `user:read:user`); for the steps after this one, `user:read:settings` and
+   `cloud_recording:read:list_recording_files`. The connection refuses a sign-in that comes back without a
+   `meeting:write…` and a `user:read…` scope.
+4. Give the worker the two values, and nothing else:
+
+   ```bash
+   fly secrets set -a handsfreeos-worker ZOOM_OAUTH_CLIENT_ID=… ZOOM_OAUTH_CLIENT_SECRET=…
+   ```
+
+   Without them the button ends on "Zoom isn’t set up yet". The API refuses to start with them (any name with
+   `_OAUTH_`), like every other provider key.
+
+5. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
+
+Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
+
 ## If something goes wrong
 
 | What you see                                                    | What it is                                              | Fix                                                                               |

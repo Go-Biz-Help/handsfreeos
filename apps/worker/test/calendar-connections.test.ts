@@ -14,6 +14,10 @@ import {
   calendarConnectionSyncNow,
   executeCommand,
   mailboxConnect,
+  meetingConnectionConnect,
+  meetingConnectionDisconnect,
+  meetingConnectionList,
+  executeQuery,
   organizationCreate,
   type HumanActor,
 } from '@hfos/core/server';
@@ -23,6 +27,7 @@ import {
   calendarBusyBlocks,
   calendarConnections,
   mailboxConnections,
+  meetingConnections,
 } from '@hfos/db/schema';
 import {
   closeTestDbs,
@@ -753,5 +758,121 @@ describe('disconnecting', () => {
         meta(),
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('connecting Zoom', () => {
+  /** Zoom's sign-in through the real routes, the same way a calendar's goes. */
+  async function connectZoom(
+    user: TestUser,
+    account: string,
+    decision: 'allow' | 'deny' = 'allow',
+  ) {
+    const { output } = await executeCommand(
+      api(),
+      meetingConnectionConnect,
+      { workspaceId, provider: 'zoom' },
+      actor(user),
+      meta(),
+    );
+    const start = await get(`/oauth/zoom/start?state=${encodeURIComponent(output.state)}`);
+    expect(start.statusCode).toBe(302);
+    const authorize = new URL(String(start.headers.location));
+    expect(authorize.pathname).toBe('/oauth/fake/zoom/authorize');
+    const page = await get(`${authorize.pathname}${authorize.search}`);
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain('No real Zoom account is touched');
+    const approve = await get(
+      `/oauth/fake/zoom/approve?${new URLSearchParams({
+        state: output.state,
+        code_challenge: authorize.searchParams.get('code_challenge')!,
+        redirect_uri: authorize.searchParams.get('redirect_uri')!,
+        email: account,
+        decision,
+      })}`,
+    );
+    const callback = new URL(String(approve.headers.location));
+    expect(callback.pathname).toBe('/oauth/zoom/callback');
+    const back = await finishSignIn(
+      app,
+      await get(`${callback.pathname}${callback.search}`),
+      await signInTestUser(user),
+    );
+    await drain();
+    return { connectionId: output.connectionId, location: String(back.location) };
+  }
+  const meeting = async (id: string) =>
+    (await admin().select().from(meetingConnections).where(eq(meetingConnections.id, id)))[0]!;
+
+  it('signs in through the stand-in Zoom page and seals the tokens; a reconnect replaces the old one', async () => {
+    const first = await connectZoom(tech, 'priya@zoom.fake');
+    expect(first.location).toMatch(/\/settings\/my-calendar\?meeting=connected$/);
+    const c = await meeting(first.connectionId);
+    expect(c).toMatchObject({
+      status: 'active',
+      provider: 'zoom',
+      accountEmail: 'priya@zoom.fake',
+      oauthStateHash: null,
+      pkceVerifierEnc: null,
+    });
+    expect(c.externalUserId).toMatch(/^fake-zoom-user-/);
+    expect(c.tokenEnc).not.toContain('fake-zoom-access');
+    const opened = JSON.parse(s.sealer.open(c.tokenEnc!)) as TokenSet;
+    expect(opened.accessToken).toMatch(/^fake-zoom-access\./);
+
+    // People see their own, never the tokens; the calendar stays as it was.
+    const output = await executeQuery(
+      api(),
+      meetingConnectionList,
+      { workspaceId },
+      actor(tech),
+      meta(),
+    );
+    expect(output.items).toEqual([
+      expect.objectContaining({
+        id: first.connectionId,
+        status: 'active',
+        fullName: expect.any(String),
+      }),
+    ]);
+    expect(output.items[0]).not.toHaveProperty('tokenEnc');
+
+    const again = await connectZoom(tech, 'priya.new@zoom.fake');
+    expect((await meeting(again.connectionId)).status).toBe('active');
+    expect(await meeting(first.connectionId)).toMatchObject({
+      status: 'disconnected',
+      tokenEnc: null,
+    });
+  });
+
+  it('comes back as cancelled when the person says no', async () => {
+    const { connectionId, location } = await connectZoom(owner, 'dale@zoom.fake', 'deny');
+    expect(location).toMatch(/\?meeting=cancelled$/);
+    expect((await meeting(connectionId)).status).toBe('pending');
+  });
+
+  it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {
+    const mine = await connectZoom(owner, 'dale@zoom.fake');
+    await expect(
+      executeCommand(
+        api(),
+        meetingConnectionDisconnect,
+        { workspaceId, connectionId: mine.connectionId },
+        actor(tech),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    await executeCommand(
+      api(),
+      meetingConnectionDisconnect,
+      { workspaceId, connectionId: mine.connectionId },
+      actor(owner),
+      meta(),
+    );
+    expect(await meeting(mine.connectionId)).toMatchObject({
+      status: 'disconnected',
+      tokenEnc: null,
+      pkceVerifierEnc: null,
+    });
   });
 });

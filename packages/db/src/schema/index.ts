@@ -1990,6 +1990,7 @@ export const waitlistStatus = app.enum('waitlist_status', [
   'removed',
 ]);
 export const calendarProvider = app.enum('calendar_provider', ['google', 'microsoft']);
+export const meetingProvider = app.enum('meeting_provider', ['zoom']);
 export const calendarConnectionStatus = app.enum('calendar_connection_status', [
   'pending',
   'active',
@@ -2598,6 +2599,33 @@ export const calendarConnections = app.table('calendar_connections', {
   tokenExpiresAt: ts('token_expires_at'),
   busySyncedAt: ts('busy_synced_at'),
   nextSyncAt: ts('next_sync_at'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** A person's own video-meeting account (Zoom), for the links on their online appointments. */
+export const meetingConnections = app.table('meeting_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  provider: meetingProvider('provider').notNull(),
+  status: calendarConnectionStatus('status').notNull().default('pending'),
+  accountEmail: text('account_email'),
+  externalUserId: text('external_user_id'),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash').unique(),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
   failures: integer('failures').notNull().default(0),
   lastError: text('last_error'),
   connectedAt: ts('connected_at'),

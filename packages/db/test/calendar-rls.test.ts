@@ -577,6 +577,102 @@ describe('calendar connections', () => {
   });
 });
 
+describe('meeting connections (Zoom)', () => {
+  it('people connect only their own Zoom, never read its tokens, and can only disconnect it', async () => {
+    const state = `zoom-state-${token()}`;
+    const connect = (u: TestUser, whose: TestUser) =>
+      as(u)((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.meeting_connections (workspace_id, user_id, provider, oauth_state_hash,
+                oauth_state_expires_at, created_by)
+              values (${wsA}, ${whose.id}, 'zoom', ${state}, now() + interval '10 minutes', ${u.id})
+              returning id`,
+        ),
+      );
+    expect((await expectPgError(() => connect(owner, member))).code).toBe('42501');
+    const forged = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.meeting_connections (workspace_id, user_id, provider, token_enc, created_by)
+              values (${wsA}, ${member.id}, 'zoom', 'sealed:v1:forged', ${member.id})`,
+        ),
+      ),
+    );
+    expect(forged.code).toBe('42501');
+    const [c] = await connect(member, member);
+
+    const found = await unscoped((tx) =>
+      rows(
+        tx,
+        sql`select kind, connection_id, workspace_id, user_id, provider
+            from private.oauth_connection_by_state(${state})`,
+      ),
+    );
+    expect(found).toEqual([
+      {
+        kind: 'meeting',
+        connection_id: c!.id,
+        workspace_id: wsA,
+        user_id: member.id,
+        provider: 'zoom',
+      },
+    ]);
+    const startedBy = await unscoped((tx) =>
+      rows(tx, sql`select private.oauth_state_started_by(${state}) as by`),
+    );
+    expect(startedBy).toEqual([{ by: member.id }]);
+
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`update app.meeting_connections set status = 'active', account_email = ${`mike-${token()}@zoom.example`},
+              token_enc = 'sealed:v1:not-a-real-token', connected_at = now()
+            where id = ${c!.id}`,
+      ),
+    );
+    for (const column of [
+      'token_enc',
+      'pkce_verifier_enc',
+      'token_key_id',
+      'oauth_state_hash',
+      'external_user_id',
+    ]) {
+      const sealed = await expectPgError(() =>
+        as(member)((tx) => rows(tx, sql.raw(`select ${column} from app.meeting_connections`))),
+      );
+      expect(sealed.code).toBe('42501');
+    }
+    const byTeammate = await as(teammate)((tx) =>
+      rows(tx, sql`select id from app.meeting_connections where id = ${c!.id}`),
+    );
+    expect(byTeammate).toHaveLength(0);
+    const byOwner = await as(owner)((tx) =>
+      rows(tx, sql`select id from app.meeting_connections where id = ${c!.id}`),
+    );
+    expect(byOwner).toHaveLength(1);
+    const reactivate = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(tx, sql`update app.meeting_connections set status = 'error' where id = ${c!.id}`),
+      ),
+    );
+    expect(reactivate.code).toBe('42501');
+    await as(member)((tx) =>
+      rows(tx, sql`update app.meeting_connections set status = 'disconnected' where id = ${c!.id}`),
+    );
+    const [after] = await rows(
+      dbs.admin.db,
+      sql`select status::text as status, token_enc is null as token_gone, disconnected_at is not null as at
+          from app.meeting_connections where id = ${c!.id}`,
+    );
+    expect(after).toEqual({ status: 'disconnected', token_gone: true, at: true });
+  });
+});
+
 describe('the booking site', () => {
   let site: string;
 

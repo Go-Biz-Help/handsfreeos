@@ -62,6 +62,7 @@ import {
 } from './calendar-catalog';
 import { scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
 import { calendarConnectionCommands } from './calendar-connection';
+import { meetingConnectionCommands } from './meeting-connection';
 import { companyArchive } from './company.archive';
 import {
   conversationAssign,
@@ -855,6 +856,7 @@ export const commands: readonly CommandDef[] = [
   bookingReleaseHold,
   waitlistJoinOnline,
   ...calendarConnectionCommands,
+  ...meetingConnectionCommands,
   attendeeRecordReminder,
   waitlistPromote,
   waitlistOffer,
@@ -1108,6 +1110,7 @@ export { attendeeFromPerson } from './appointment';
 export { validateIntake } from './appointment-online';
 export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-online';
 export * from './calendar-connection';
+export * from './meeting-connection';
 export * from './number-import';
 export * from './twilio-connection';
 export * from './social';

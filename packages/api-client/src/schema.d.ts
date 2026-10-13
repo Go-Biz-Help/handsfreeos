@@ -4777,6 +4777,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/meeting_connection.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting your own Zoom account, for video links on your online appointments. Returns a one-time state; the browser signs in to Zoom through the worker.
+         * @description Risk level 2. Requires appointments.write. Emits meeting_connection.connect_started.
+         */
+        post: operations["command_meeting_connection_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meeting_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect a Zoom account: your own, or anyone’s for owners and admins. HandsFreeOS forgets the sign-in; meetings it already made stay in Zoom.
+         * @description Risk level 2. Requires appointments.write. Emits meeting_connection.disconnected.
+         */
+        post: operations["command_meeting_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/membership.change_role": {
         parameters: {
             query?: never;
@@ -16051,6 +16091,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_maintenance_for_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/meeting_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Zoom connections: your own, or everyone’s for owners and admins.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_meeting_connection_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29979,6 +30039,71 @@ export interface operations {
                         /** Format: uuid */
                         serviceId: string;
                         source: ("customer" | "plan" | "service") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_meeting_connection_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    provider: "zoom";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_meeting_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
                     };
                 };
             };
@@ -59206,6 +59331,57 @@ export interface operations {
                             serviceMonths: number | null;
                             serviceName: string;
                             source: ("customer" | "plan" | "service") | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_meeting_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeDisconnected?: boolean;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountEmail: string | null;
+                            connectedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            disconnectedAt: string | null;
+                            failures: number;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            /** @enum {string} */
+                            provider: "zoom";
+                            scopes: string[];
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            /** Format: uuid */
+                            userId: string;
                         }[];
                     };
                 };

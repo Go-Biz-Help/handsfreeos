@@ -12,7 +12,12 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { CalendarConnection, TeamSchedule, TimeOffSpan } from '@/lib/api/types';
+import type {
+  CalendarConnection,
+  MeetingConnection,
+  TeamSchedule,
+  TimeOffSpan,
+} from '@/lib/api/types';
 import {
   dateOf,
   fmtMonthDay,
@@ -24,6 +29,7 @@ import {
 } from '@/lib/calendar/time';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CalendarConnectionCard } from './calendar-connection-card';
+import { MeetingConnectionCard } from './meeting-connection-card';
 
 const RESULT: Record<string, { tone: 'success' | 'info' | 'error'; text: string }> = {
   connected: {
@@ -75,19 +81,23 @@ export function MyCalendar({
   workspaceId,
   person,
   connection,
+  meeting,
   isSelf,
   canManage,
   result,
+  meetingResult,
 }: {
   workspaceId: string;
   person: TeamSchedule;
   connection: CalendarConnection | null;
+  meeting: MeetingConnection | null;
   isSelf: boolean;
   canManage: boolean;
   result: string | null;
+  meetingResult: string | null;
 }) {
   const router = useRouter();
-  useLiveRefresh(['schedule', 'calendar_connection']);
+  useLiveRefresh(['schedule', 'calendar_connection', 'meeting_connection']);
   const tz = person.timezone;
   const firstName = person.fullName.split(/\s+/)[0] || person.fullName;
 
@@ -260,6 +270,20 @@ export function MyCalendar({
               isSelf={isSelf}
               canManage={canManage}
               firstName={firstName}
+            />
+          </section>
+
+          <section>
+            <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+              Video meetings
+            </div>
+            <MeetingConnectionCard
+              workspaceId={workspaceId}
+              connection={meeting}
+              isSelf={isSelf}
+              canManage={canManage}
+              firstName={firstName}
+              result={meetingResult}
             />
           </section>
         </div>
