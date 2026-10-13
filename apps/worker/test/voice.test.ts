@@ -7,6 +7,7 @@ import {
   organizationCreate,
   personCreate,
   phoneNumberBuy,
+  phoneNumberSetRecordingNotice,
   phoneNumberSetRouting,
   type HumanActor,
 } from '@hfos/core/server';
@@ -71,6 +72,7 @@ let mikeId: string;
 let s: TestServices;
 let app: FastifyInstance;
 let businessNumber: string;
+let phoneNumberId: string;
 let accountSid: string;
 
 /** Locks this workspace's pending work for this suite's worker id: no other poller or suite takes it. */
@@ -209,6 +211,7 @@ beforeAll(async () => {
     .from(telephonyAccounts)
     .where(eq(telephonyAccounts.workspaceId, workspaceId));
   accountSid = account!.accountSid!;
+  phoneNumberId = bought.output.phoneNumberId;
   await executeCommand(
     api(),
     phoneNumberSetRouting,
@@ -367,7 +370,7 @@ describe('a customer calls', () => {
     const sid = fakeSid('CA');
     const body = await ringIn(sid);
     expect(body).toContain(
-      `<Dial answerOnBridge="true" timeout="15" action="${TEST_PUBLIC_URL}${V}/dial-result" method="POST">`,
+      `<Say voice="Polly.Joanna-Neural">This call may be recorded.</Say><Dial answerOnBridge="true" timeout="15" action="${TEST_PUBLIC_URL}${V}/dial-result" method="POST" record="record-from-answer-dual" recordingStatusCallback="${TEST_PUBLIC_URL}${V}/recording" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed absent">`,
     );
     expect(body).toContain(`<Identity>${identityOf(owner.id)}</Identity>`);
     expect(body).toContain(`<Identity>${identityOf(member.id)}</Identity>`);
@@ -381,6 +384,25 @@ describe('a customer calls', () => {
     const call = await callRow(sid);
     expect(call).toMatchObject({ direction: 'inbound', status: 'ringing', personId: mikeId });
     expect(call!.conversationId).toBeTruthy();
+  });
+
+  it('records every answered call, and says so only while the notice is on', async () => {
+    const notice = (announceRecording: boolean) =>
+      executeCommand(
+        api(),
+        phoneNumberSetRecordingNotice,
+        { workspaceId, phoneNumberId, announceRecording },
+        actor(owner),
+        meta(),
+      );
+    await notice(false);
+    const quiet = await ringIn(fakeSid('CA'));
+    expect(quiet).not.toContain('This call may be recorded.');
+    expect(quiet).toContain('record="record-from-answer-dual"');
+    await notice(true);
+    const told = await ringIn(fakeSid('CA'));
+    expect(told).toContain('This call may be recorded.');
+    expect(told).toContain('record="record-from-answer-dual"');
   });
 
   it('refuses a mis-signed call and stores nothing', async () => {
@@ -598,7 +620,7 @@ describe('a teammate calls a customer from the browser', () => {
     expect((await outbound({ To: '+17135550199' })).body).toContain('could not be placed');
     const ok = await outbound({});
     expect(ok.body).toContain(
-      `<Dial callerId="${businessNumber}" answerOnBridge="true" action="${TEST_PUBLIC_URL}${V}/hangup" method="POST"><Number statusCallback="${TEST_PUBLIC_URL}${V}/leg-status" statusCallbackEvent="ringing answered completed" statusCallbackMethod="POST">${MIKE}</Number></Dial>`,
+      `<Dial callerId="${businessNumber}" answerOnBridge="true" action="${TEST_PUBLIC_URL}${V}/hangup" method="POST" record="record-from-answer-dual" recordingStatusCallback="${TEST_PUBLIC_URL}${V}/recording" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed absent"><Number statusCallback="${TEST_PUBLIC_URL}${V}/leg-status" statusCallbackEvent="ringing answered completed" statusCallbackMethod="POST" url="${TEST_PUBLIC_URL}${V}/notice" method="POST">${MIKE}</Number></Dial>`,
     );
     await drain();
     expect(await callRow(browserSid)).toMatchObject({ id: started.callId, status: 'ringing' });

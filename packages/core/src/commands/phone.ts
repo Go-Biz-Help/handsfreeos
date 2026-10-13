@@ -25,6 +25,8 @@ import {
   PhoneNumberReleaseOutput,
   PhoneNumberSetCallerIdInput,
   PhoneNumberSetCallerIdOutput,
+  PhoneNumberSetRecordingNoticeInput,
+  PhoneNumberSetRecordingNoticeOutput,
   PhoneNumberSetDefaultInput,
   PhoneNumberSetDefaultOutput,
   PhoneNumberSetLabelInput,
@@ -191,6 +193,7 @@ export const phoneNumberSetRouting = defineCommand({
     if (issues.length > 0) throw HfosError.validation(issues);
     // What forwarding phones show stays as it is unless this save names it.
     const callerId = input.routing.forwardedCallerId ?? n.routing.forwardedCallerId;
+    const announce = input.routing.announceRecording ?? n.routing.announceRecording;
     const routing = {
       forwarding: input.routing.forwarding.map((f) => ({
         e164: f.e164,
@@ -201,6 +204,7 @@ export const phoneNumberSetRouting = defineCommand({
       voicemailEnabled: input.routing.voicemailEnabled,
       voicemailGreeting: input.routing.voicemailGreeting || null,
       ...(callerId ? { forwardedCallerId: callerId } : {}),
+      ...(announce === undefined ? {} : { announceRecording: announce }),
     };
     await ctx.tx.update(phoneNumbers).set({ routing }).where(eq(phoneNumbers.id, n.id));
     await ctx.emit({
@@ -252,6 +256,50 @@ export const phoneNumberSetCallerId = defineCommand({
       after: { forwardedCallerId: input.forwardedCallerId },
     });
     return { phoneNumberId: n.id, forwardedCallerId: input.forwardedCallerId };
+  },
+});
+
+/**
+ * Whether customers hear "This call may be recorded." on this number. Every answered call is recorded and
+ * transcribed either way; some states need everyone on a call to agree to that, so the business decides.
+ */
+export const phoneNumberSetRecordingNotice = defineCommand({
+  name: 'phone_number.set_recording_notice',
+  description:
+    'Choose whether customers hear “This call may be recorded.” on this number: callers before it rings, and customers the team calls when they pick up. Every answered call is recorded and transcribed either way.',
+  risk: 1,
+  input: PhoneNumberSetRecordingNoticeInput,
+  output: PhoneNumberSetRecordingNoticeOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.routing_updated'],
+  async handler(ctx, input) {
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    if (n.status === 'released' || n.status === 'failed')
+      throw HfosError.rule(
+        'number_not_active',
+        409,
+        n.status === 'released'
+          ? 'This number was released, so its settings can’t change anymore.'
+          : 'This number never finished setting up, so its settings can’t change. Get another one in Settings → Texting & calls.',
+      );
+    const was = n.routing.announceRecording !== false;
+    if (was === input.announceRecording)
+      return { phoneNumberId: n.id, announceRecording: input.announceRecording };
+    const routing = { ...n.routing, announceRecording: input.announceRecording };
+    await ctx.tx.update(phoneNumbers).set({ routing }).where(eq(phoneNumbers.id, n.id));
+    await ctx.emit({
+      type: 'phone_number.routing_updated',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: {
+        ringing: n.routing.forwarding.filter((f) => f.enabled).length,
+        announceRecording: input.announceRecording,
+      },
+      before: { announceRecording: was },
+      after: { announceRecording: input.announceRecording },
+    });
+    return { phoneNumberId: n.id, announceRecording: input.announceRecording };
   },
 });
 

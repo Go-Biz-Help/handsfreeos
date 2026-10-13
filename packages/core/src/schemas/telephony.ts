@@ -91,6 +91,8 @@ export const PhoneRoutingInput = z.object({
   voicemailGreeting: z.string().trim().max(500).nullable(),
   /** Left out, the number keeps what it shows now (phone_number.set_caller_id changes it on its own). */
   forwardedCallerId: forwardedCallerId.optional(),
+  /** Left out, the number keeps what it does now (phone_number.set_recording_notice changes it on its own). */
+  announceRecording: z.boolean().optional(),
 });
 export const PhoneRoutingOut = z.object({
   forwarding: z.array(z.object({ e164: z.string(), label: z.string(), enabled: z.boolean() })),
@@ -98,6 +100,8 @@ export const PhoneRoutingOut = z.object({
   voicemailEnabled: z.boolean(),
   voicemailGreeting: z.string().nullable(),
   forwardedCallerId: forwardedCallerId,
+  /** Whether customers hear that the call is recorded. Every answered call is recorded either way. */
+  announceRecording: z.boolean(),
 });
 
 export const PhoneNumberBuyInput = z.object({
@@ -126,6 +130,15 @@ export const PhoneNumberSetCallerIdInput = z.object({
 export const PhoneNumberSetCallerIdOutput = z.object({
   phoneNumberId: uuid,
   forwardedCallerId: forwardedCallerId,
+});
+export const PhoneNumberSetRecordingNoticeInput = z.object({
+  workspaceId: uuid,
+  phoneNumberId: uuid,
+  announceRecording: z.boolean(),
+});
+export const PhoneNumberSetRecordingNoticeOutput = z.object({
+  phoneNumberId: uuid,
+  announceRecording: z.boolean(),
 });
 export const PhoneNumberSetDefaultInput = z.object({ workspaceId: uuid, phoneNumberId: uuid });
 export const PhoneNumberSetDefaultOutput = z.object({ phoneNumberId: uuid });

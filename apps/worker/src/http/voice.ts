@@ -36,6 +36,7 @@ import {
   isPhone,
   NOT_IN_SERVICE_TWIML,
   NOT_VERIFIED_TWIML,
+  NOTICE_TWIML,
   outboundTwiml,
   ringTwiml,
   routingOf,
@@ -295,6 +296,7 @@ async function teamTwiml(
         line: route.e164,
         // The business number on forwarded phones, when the number is set to show it.
         callerId: routing.forwardedCallerId === 'business' ? route.e164 : null,
+        announce: routing.announceRecording,
         params: {
           workspaceId: route.workspace_id,
           callSid: call.callSid,
@@ -472,7 +474,16 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       return xml(reply, CANNOT_PLACE_TWIML);
     }
     await store(v, 'voice.outbound', `${p['CallSid']}:outbound`, scope);
-    return xml(reply, outboundTwiml(c.fromE164!, c.toE164!, urls));
+    const route = await routeFor(deps, c.fromE164!);
+    const announce = routingOf(route?.routing).announceRecording;
+    return xml(reply, outboundTwiml(c.fromE164!, c.toE164!, urls, { announce }));
+  });
+
+  // A customer picked up a call the team placed, on a number that announces recording.
+  app.post('/webhooks/twilio/voice/notice', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    return xml(reply, NOTICE_TWIML);
   });
 
   // Status reports: stored, answered at once, processed by the webhook loop.
@@ -530,6 +541,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       workerMeta(),
     );
     if (ENDED.has(output.status)) return xml(reply, BRIDGE_NOT_PLACED_TWIML);
+    const route = await routeFor(deps, b.call.fromE164!);
     return xml(
       reply,
       bridgeDialTwiml(
@@ -538,6 +550,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
           to: b.call.toE164!,
           callId: b.call.id,
           customer: b.customer,
+          announce: routingOf(route?.routing).announceRecording,
         },
         urls,
       ),

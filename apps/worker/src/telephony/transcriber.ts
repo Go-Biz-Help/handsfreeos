@@ -43,9 +43,9 @@ export interface TranscribeRequest {
    */
   readonly recordingSid: string;
   /**
-   * `2` for a bridged call, which Twilio records one side per channel (`record-from-answer-dual`); `1` for a
-   * voicemail, which is the caller alone. Either way the words come back on the channels the rest of the worker
-   * already expects: 1 is the business's side, 2 is the customer's.
+   * `2` for an answered call, which Twilio records one side per channel (`record-from-answer-dual`); `1` for a
+   * voicemail, which is the caller alone. The words come back on Twilio's channels: 1 is the side that ran the
+   * `<Dial>`, 2 the phone it dialed (a voicemail comes back as 2, the customer).
    */
   readonly channels: 1 | 2;
 }

@@ -134,6 +134,10 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.forwardedCallerId) === 'business'
         ? 'set forwarded calls to show the business number'
         : 'set forwarded calls to show the customer’s number';
+    case 'phone_number.set_recording_notice':
+      return e.after?.announceRecording === false
+        ? 'stopped telling customers their calls are recorded'
+        : 'set calls to tell customers they are recorded';
     case 'message.cancel_scheduled':
       return 'cancelled a text that was waiting for quiet hours to end';
     case 'message.release_scheduled':
