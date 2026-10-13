@@ -293,7 +293,7 @@ async function startState(
     // runs again first; a site we still can't reach isn't scanned at all.
     const code = e instanceof SafeFetchError ? e.code : 'network';
     if (code !== 'other_host') {
-      if ((code === 'network' || code === 'timeout') && ctx.attempt < MAX_ATTEMPTS) throw e;
+      if (mayPass(e) && ctx.attempt < MAX_ATTEMPTS) throw e;
       return { problem: siteProblem(u.host, e) };
     }
   }
@@ -716,6 +716,11 @@ function fetchProblem(url: string, e: unknown): ScanProblem {
   if (e instanceof SafeFetchError) return { url, code: e.code, message: e.message };
   return { url, code: 'network', message: 'The page couldn’t be read.' };
 }
+
+/** A dropped connection or a timeout, which may pass; not a name that doesn't exist, a private address or another site. */
+export const mayPass = (e: unknown): boolean =>
+  !(e instanceof Error && /ENOTFOUND/.test(e.message)) &&
+  (!(e instanceof SafeFetchError) || e.code === 'network' || e.code === 'timeout');
 
 function siteProblem(host: string, e: unknown): ScanProblem {
   const code = e instanceof SafeFetchError ? e.code : 'network';
