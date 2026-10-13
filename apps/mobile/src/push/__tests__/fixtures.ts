@@ -120,3 +120,23 @@ export function safetyCheck(overrides: Partial<PushData> = {}): PushData {
 }
 
 export const COMMAND_IDS = ids;
+
+/** Someone signing in to the browser extension with the person's email (20261027002900): about no business. */
+export const SIGN_IN = '77777777-7777-4777-8777-777777777777';
+export function extensionSignIn(overrides: Partial<PushData> = {}): PushData {
+  return {
+    v: 1,
+    notificationId: '20000000-0000-4000-8000-000000000009',
+    category: 'extension_sign_in',
+    workspaceId: null,
+    business: '',
+    path: `/app/extension-sign-in/${SIGN_IN}`,
+    sentAt: '2026-10-13T20:00:00.000Z',
+    refs: { signInId: SIGN_IN },
+    commandIds: {},
+    collapseId: `sign-in-${SIGN_IN}`,
+    title: 'Signing in to the extension on Chrome?',
+    body: 'Open to pick the number the extension shows. It ends in 2 minutes.',
+    ...overrides,
+  };
+}

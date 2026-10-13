@@ -50,6 +50,26 @@ Both are for people, can be sent again safely, and are online-only (refused if m
 | `customer_file`          | Open                                        | `qualifying`      | A customer sent the file a qualifying question asks for (`file.received`), like a photo or PDF of their electric bill, through the AI teammate's file link or by text or email                                                                                                                                                                                                                                                                                      | The people the question's "Tell when it arrives" names who still work in the business (owners and admins, the lead's assignee, the customer's owner, or one person)                                                                         | `/app/w/<ws>/leads/<leadId>`; the customer's page when the lead has gone                                                                                   |
 | `lead_qualified`         | Open                                        | `qualifying`      | A lead qualifies (`lead.qualified`): every required qualifying answer is in and none rules the lead out, whether the AI teammate or a person recorded the last one                                                                                                                                                                                                                                                                                                  | The people "When a lead qualifies → Tell" names who still work in the business, except a person who recorded the last answer themselves                                                                                                     | `/app/w/<ws>/leads/<leadId>`                                                                                                                               |
 | `support_ticket`         | Open                                        | `supportTickets`  | Someone writes to HandsFreeOS support and starts a new ticket: from inside the app, or by mail to support@ (see "A new support ticket")                                                                                                                                                                                                                                                                                                                             | Every active support person with the switch on, except whoever wrote in                                                                                                                                                                     | `/admin/tickets/<ticketId>`: the phone's Support desk, `/app/admin/tickets/<ticketId>`                                                                     |
+| `extension_sign_in`      | Open                                        | always on         | Someone is signing in to the browser extension with the person's email (see "An extension sign-in")                                                                                                                                                                                                                                                                                                                                                                 |
+
+### An extension sign-in
+
+Someone typed the person's email in the Social Outreach extension and pressed **Send me a prompt**
+(20261027002900, apps/extension/README.md "Signing in with a prompt"):
+
+- **`extension_sign_in`** ("Signing in to the extension on Chrome?") to that person's own phones alone, at once, with
+  **Open**. It belongs to no business: `workspaceId: null`, `business: ''`, `path: /app/extension-sign-in/<id>`,
+  `refs.signInId`, `collapseId: sign-in-<id>`. Never the number itself. Time-sensitive, kept 2 minutes (the request's
+  life), and not a switch: only the person can have asked for it.
+- **How the worker sends it:** queued by the worker's public start door in the transaction that makes the request
+  (`queuePersonalPush`, `push:extension_sign_in:<id>`), in a savepoint, only when the email has an account with a phone
+  on. Its phones, and turning off the ones Expo says are gone, go through `private.own_push_devices` and
+  `private.turn_off_own_push_devices`, the worker's alone.
+- **On the phone:** Open, or a tap, opens the screen that asks for the number (`app/app/extension-sign-in/[requestId]`),
+  which reads `extension_sign_in.pending` and answers with `extension_sign_in.answer`. Shown (Android) to whoever is
+  signed in on the phone, since it only ever goes to that person's own phones.
+- **Older app builds** don't know the kind, and its path doesn't parse for them: Android shows nothing, an iPhone shows
+  it with no Open button. The web's prompt and the emailed code still work.
 
 ### A missed check-out (round six)
 

@@ -14,11 +14,15 @@
  * **HandsFreeOS's own support people** hear about a new support ticket (`queueStaffPush`). That push belongs to no
  * business: its job has no workspace, and its people are every active support person with the kind's switch and a
  * phone on (`private.staff_push_devices`), which the worker can't see from any business's scope.
+ *
+ * **A person's own moments** (`queuePersonalPush`): a sign-in to the extension with their email. About no business
+ * either, and to that one person's phones alone (`private.own_push_devices`), with no switch: only they asked for it.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
   clipLine,
   commandButtonsOf,
+  isPersonalPush,
   isStaffPush,
   PUSH_CATEGORIES,
   scheduleJob,
@@ -111,6 +115,8 @@ export async function pushAudience(
 export async function queuePush(tx: Tx, scope: TenantScope, moment: PushMoment): Promise<number> {
   if (isStaffPush(moment.category))
     throw new Error(`a ${moment.category} push is for support people: queueStaffPush sends it`);
+  if (isPersonalPush(moment.category))
+    throw new Error(`a ${moment.category} push is the person's own: queuePersonalPush sends it`);
   const userIds = await pushAudience(tx, moment.category, moment.userIds, moment.exceptUserId);
   if (userIds.length === 0) return 0;
   const [ws] = await rows<{ name: string }>(
@@ -156,6 +162,31 @@ export async function queueStaffPush(tx: Tx, moment: StaffPushMoment): Promise<n
     business: '',
   });
   return userIds.length;
+}
+
+/** A moment about one person themselves, about no business: whose phones it goes to. */
+export type PersonalPushMoment = Omit<PushMoment, 'userIds' | 'whileWaiting' | 'exceptUserId'> & {
+  readonly userId: string;
+};
+
+/**
+ * Queues a push to one person's own phones (`extension_sign_in`), with no business. Answers how many people it is for
+ * (0: they have no phone on, and nothing was queued).
+ */
+export async function queuePersonalPush(tx: Tx, moment: PersonalPushMoment): Promise<number> {
+  if (!isPersonalPush(moment.category))
+    throw new Error(`a ${moment.category} push is not a personal one`);
+  const found = await rows<{ user_id: string }>(
+    tx,
+    sql`select distinct user_id from private.own_push_devices(array[${moment.userId}::uuid])`,
+  );
+  if (found.length === 0) return 0;
+  await schedulePush(tx, moment, [moment.userId], {
+    workspaceId: null,
+    organizationId: null,
+    business: '',
+  });
+  return 1;
 }
 
 /** The send job for a moment: one notice, one notification id and a command id per button, for everyone on it. */

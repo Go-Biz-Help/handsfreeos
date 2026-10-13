@@ -20,6 +20,7 @@ import {
 import {
   approval,
   CONVERSATION,
+  extensionSignIn,
   customerMessage,
   LONE_STAR,
   supportTicket,
@@ -172,6 +173,27 @@ describe('the Android presenter', () => {
         request: { content: { data: customerMessage({ path: `/admin/tickets/${TICKET}` }) } },
       }),
     ).toBeNull();
+  });
+
+  it('keeps an extension sign-in for whoever is signed in on the phone it was sent to, and never with a business', () => {
+    const dale = { businessIds: [LONE_STAR], staff: false };
+    expect(pushIsFor(extensionSignIn(), dale)).toBe(true);
+    expect(pushIsFor(extensionSignIn(), { businessIds: [], staff: false })).toBe(true);
+    expect(pushIsFor(extensionSignIn(), null)).toBe(false);
+    // One naming a business, or opening anywhere but its own screen, isn't a HandsFreeOS push.
+    expect(
+      pushDataOfNotification({
+        request: { content: { data: { ...extensionSignIn(), workspaceId: LONE_STAR } } },
+      }),
+    ).toBeNull();
+    expect(
+      pushDataOfNotification({
+        request: { content: { data: extensionSignIn({ path: `/admin/tickets/${TICKET}` }) } },
+      }),
+    ).toBeNull();
+    expect(pushDataOfNotification({ request: { content: { data: extensionSignIn() } } })).toEqual(
+      extensionSignIn(),
+    );
   });
 
   it('shows the stand-in pushes on an iPhone the way iOS would: time-sensitive for the urgent kinds, passive when quiet', () => {

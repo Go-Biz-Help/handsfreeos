@@ -4208,6 +4208,29 @@ export const pushDevices = app.table('push_devices', {
 });
 
 /**
+ * Approving an extension sign-in from the phone or the web (20261027002900): one row per Send me a prompt. Two
+ * minutes to answer, answered once, a wrong pick refuses it. Only the hash of the extension's secret is kept, and
+ * `user_id` is null when the email has no account. People read their own (not the number, hash or email); the
+ * worker starts, collects and finds the push's phones through private functions.
+ */
+export const extensionSignIns = app.table('extension_sign_ins', {
+  id: id(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  email: citext('email').notNull(),
+  browser: text('browser').notNull(),
+  secretHash: bytea('secret_hash').notNull(),
+  number: smallint('number').notNull(),
+  choices: smallint('choices').array().notNull(),
+  /** pending, approved, refused, collected, cancelled. */
+  status: text('status').notNull().default('pending'),
+  expiresAt: ts('expires_at').notNull(),
+  answeredAt: ts('answered_at'),
+  collectedAt: ts('collected_at'),
+  ipHmac: text('ip_hmac'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
  * A person's own cell (0059), which "Call" rings to connect them to a customer. HandsFreeOS verifies it with a call;
  * the verification columns are the worker's. One verified cell per person.
  */
@@ -7231,6 +7254,7 @@ export const tables = {
   rolePermissionOverrides,
   memberPermissionOverrides,
   pushDevices,
+  extensionSignIns,
   userPhones,
   products,
   plans,

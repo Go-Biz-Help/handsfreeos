@@ -43,6 +43,7 @@ describe('the notification categories', () => {
       approval: ['Approve', 'Review'],
       booking: ['Open'],
       assigned: ['Open'],
+      extension_sign_in: ['Open'],
       payment: ['Open'],
       wallet: ['Open'],
       job_check: ['Done', 'Didn’t happen', 'Still there'],

@@ -215,6 +215,12 @@ export const PUSH_CATEGORIES = {
    */
   safety_check: { switch: 'safety', buttons: ['im_ok', 'add_15'] },
   safety_alert: { switch: 'safety', buttons: ['open'] },
+  /**
+   * Someone is signing in to the browser extension with this person's email (20261027002900): "Signing in to the
+   * extension on Chrome?" Open goes to the screen that asks for the number the extension shows. Never switched off:
+   * only the person can have asked for it, and it lasts two minutes.
+   */
+  extension_sign_in: { switch: 'safety', buttons: ['open'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch | typeof ALWAYS_ON; readonly buttons: readonly PushButton[] }
@@ -229,6 +235,16 @@ export const PUSH_CATEGORY_IDS = Object.keys(PUSH_CATEGORIES) as [PushCategory, 
 export const STAFF_PUSH_CATEGORIES: readonly PushCategory[] = ['support_ticket'];
 export const isStaffPush = (category: PushCategory): boolean =>
   STAFF_PUSH_CATEGORIES.includes(category);
+
+/**
+ * The kinds about the person themselves rather than a business (a sign-in to the extension): they carry no
+ * workspace, go to that person's own phones alone, and open under `PERSONAL_PUSH_PATH`.
+ */
+export const PERSONAL_PUSH_CATEGORIES: readonly PushCategory[] = ['extension_sign_in'];
+export const isPersonalPush = (category: PushCategory): boolean =>
+  PERSONAL_PUSH_CATEGORIES.includes(category);
+/** Where a personal push opens: the phone's screen for answering an extension sign-in. */
+export const PERSONAL_PUSH_PATH = '/app/extension-sign-in/';
 
 /** The buttons of a category that run a command: the ones a push carries a command id for. */
 export const commandButtonsOf = (category: PushCategory): PushButton[] =>
@@ -270,6 +286,8 @@ export const PushRefs = z.object({
   ticketId: z.uuid().optional(),
   /** A check-in (`safety_check`, `safety_alert`): I’m OK and +15 min act on it. */
   checkInId: z.uuid().optional(),
+  /** An extension sign-in waiting for its number (`extension_sign_in`). */
+  signInId: z.uuid().optional(),
 });
 export type PushRefs = z.infer<typeof PushRefs>;
 
@@ -292,7 +310,7 @@ export const PushData = z
     /** The business's name, for people who work in more than one; empty when it is about no business. */
     business: z.string(),
     /** Where it opens: a web path under /app/w/<business>/, as the emails link, or the support desk's /admin/…. */
-    path: z.string().regex(/^\/(app\/w|admin)\//),
+    path: z.string().regex(/^\/(app\/w|admin|app\/extension-sign-in)\//),
     sentAt: z.iso.datetime(),
     refs: PushRefs,
     /** The command id each button that runs a command uses (`x-hfos-command-id`). */
@@ -312,9 +330,12 @@ export const PushData = z
     (d) =>
       isStaffPush(d.category)
         ? d.workspaceId === null && d.path.startsWith('/admin/')
-        : d.workspaceId !== null && d.path.startsWith('/app/w/'),
+        : isPersonalPush(d.category)
+          ? d.workspaceId === null && d.path.startsWith(PERSONAL_PUSH_PATH)
+          : d.workspaceId !== null && d.path.startsWith('/app/w/'),
     {
-      error: 'A push opens its own business, or the support desk for a push to support people.',
+      error:
+        'A push opens its own business, the support desk for a push to support people, or the person’s own sign-in.',
       path: ['path'],
     },
   );

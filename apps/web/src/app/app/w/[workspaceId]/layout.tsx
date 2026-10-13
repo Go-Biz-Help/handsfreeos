@@ -2,6 +2,7 @@ import { can } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
+import { ExtensionSignInPrompt } from '@/components/account/extension-sign-in-prompt';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
@@ -103,6 +104,8 @@ export default async function WorkspaceLayout({
                   />
                 </MenuProvider>
                 <CallOverlays />
+                {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
+                <ExtensionSignInPrompt />
                 {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
                 <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
               </AssistantProvider>

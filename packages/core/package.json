@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
     "./mobile": "./src/mobile.ts",
+    "./extension-sign-in": "./src/account/extension-sign-in-words.ts",
     "./addons/*": "./src/addons/*.ts"
   },
   "scripts": {

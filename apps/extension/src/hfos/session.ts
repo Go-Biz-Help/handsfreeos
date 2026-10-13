@@ -24,6 +24,7 @@ import {
   type HfosValues,
   type Problem,
 } from './messages';
+import { checkPrompt, PromptRefused, startPrompt } from './prompt';
 import { outreachBusinesses } from './saves';
 
 /**
@@ -352,6 +353,24 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
       });
       if (error) throw refuse(passwordWords(error));
       return account(true);
+    }
+    case 'hfos-prompt-start':
+      try {
+        return await startPrompt(ask.email);
+      } catch (error) {
+        throw error instanceof PromptRefused ? refuse(error.message) : error;
+      }
+    case 'hfos-prompt-check': {
+      let status: Awaited<ReturnType<typeof checkPrompt>>;
+      try {
+        status = await checkPrompt(ask.requestId, async (tokenHash) => {
+          const { error } = await auth().verifyOtp({ token_hash: tokenHash, type: 'email' });
+          if (error) throw refuse(checkCodeWords(error));
+        });
+      } catch (error) {
+        throw error instanceof PromptRefused ? refuse(error.message) : error;
+      }
+      return status === 'signed-in' ? { status, account: await account(true) } : { status };
     }
     case 'hfos-sign-out':
       await signOutHere();

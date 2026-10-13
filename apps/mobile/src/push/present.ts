@@ -1,4 +1,4 @@
-import { isStaffPush, type PushCategory, type PushData } from '@hfos/core';
+import { isPersonalPush, isStaffPush, type PushCategory, type PushData } from '@hfos/core';
 
 import type { FollowUp } from './press';
 import { notificationIdentifierOf } from './payload';
@@ -122,11 +122,14 @@ export interface PhonePerson {
 
 /**
  * Whether a push is for the person signed in here: one of their businesses', or, for a push to support people (which
- * has no business), someone who answers support. Nobody signed in: nothing is.
+ * has no business), someone who answers support, or one about the person themselves (an extension sign-in). Nobody signed in: nothing is.
  */
 export function pushIsFor(data: PushData, person: PhonePerson | null): boolean {
   if (!person) return false;
   if (isStaffPush(data.category)) return data.workspaceId === null && person.staff;
+  // About the person themselves (an extension sign-in): only ever sent to their own phones, and the screen it opens
+  // shows only their own requests.
+  if (isPersonalPush(data.category)) return data.workspaceId === null;
   return data.workspaceId !== null && person.businessIds.includes(data.workspaceId);
 }
 

@@ -15,6 +15,8 @@
  *   phone's too, so a link to it opens the same screens here.
  * - **An add-on's pages** (`/a/<id>/…`, which its alerts open) go by what the add-on declares the phone draws
  *   (`ui.phone`): its screen once this build has it (./addon-screens.ts), the web until then and for the rest.
+ * - **An extension sign-in** (`/app/extension-sign-in/<id>`, its push) opens the screen that asks for the number the
+ *   extension shows. It belongs to no business.
  * - **The support desk** (the web's /admin, M13) is the one place outside /app the app opens: a new-ticket
  *   notification links to `/admin/tickets/<id>`. Its pages open the phone's Support desk (/app/admin), which asks
  *   HandsFreeOS whether the person works there. The phones don't claim /admin in app.json, so an email's /admin link
@@ -308,6 +310,15 @@ export function routeFor(pathAndQuery: string): LinkTarget {
   if (parts[1] === 'admin') return deskRoute(parts.slice(2), query);
   if (parts.length === 1)
     return { kind: 'screen', href: '/app', businessId: null, later: null, params: query };
+  // An extension sign-in waiting for the person's number (its push, 20261027002900): about no business.
+  if (parts[1] === 'extension-sign-in' && parts.length === 3 && UUID.test(parts[2]!))
+    return {
+      kind: 'screen',
+      href: `/app/extension-sign-in/${parts[2]!}`,
+      businessId: null,
+      later: null,
+      params: { ...query, requestId: parts[2]! },
+    };
   // An email about an idea (`/app/ideas/<id>`) names no business, since the board is every business's: it opens in
   // the one the phone had open last (app/ideas/[ideaId].tsx), as the web's own page does.
   if (parts[1] === 'ideas' && parts.length === 3 && UUID.test(parts[2]!))

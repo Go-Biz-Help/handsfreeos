@@ -59,8 +59,9 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
 
 - **The top bar**: the business it works for, and how it's doing (working, waiting for the next step, stopped,
   standing by) as a coloured chip, the same words and colours as HandsFreeOS's.
-- **Signing in** (`src/panel/account.ts`), the way the phone app does: an emailed 6-digit code, or a password, for an
-  account that already exists (new accounts start on the web), under the first run's three steps (sign in here, open
+- **Signing in** (`src/panel/account.ts`): **Send me a prompt** first (below, "Signing in with a prompt"), with
+  **Use an emailed code instead** one click away; or, the way the phone app does, an emailed 6-digit code or a
+  password, for an account that already exists (new accounts start on the web), under the first run's three steps (sign in here, open
   Facebook in this window, pick your groups and limits in HandsFreeOS). It then works for one business, picked in the
   panel when there are several. Only businesses where Social Outreach is on and you have **Use Social Outreach** are
   listed; with none it says there's nowhere to work, and if Social Outreach is turned off it says so and the business
@@ -78,6 +79,25 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
   who's signed in, with **Sign out**; **Open HandsFreeOS**, which opens Social Outreach's Today for the business; and
   **Something look wrong on this page? Tell us**, folded away, with **Copy page outline** and **Save page outline**
   (below, "When it reads a page wrong").
+
+**Signing in with a prompt** (20261027002900). The person types their email and presses **Send me a prompt**; the
+panel shows a 2-digit number. Their phone gets a push (`extension_sign_in`), and any HandsFreeOS tab open in front of
+them asks "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one signs
+the extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.
+
+- **The background holds the secret** (`src/hfos/prompt.ts`). Starting (`POST /public/extension-sign-in/start` on the
+  worker) answers a request id, the number, a random secret and when it ends; the secret stays in the extension's
+  session storage and only its hash is kept in HandsFreeOS. The panel asks every 2 seconds
+  (`hfos-prompt-check`), and the background collects with the secret (`…/collect`).
+- **Only the worker makes the sign-in.** Once the right number is picked, the first collect with the secret gets a
+  one-time token: the hashed token of a magic link the worker makes with its admin key (`generateLink`, never
+  emailed). The background redeems it with Supabase Auth (`verifyOtp({ token_hash, type: 'email' })`), which makes
+  this extension's own session; the token is stored nowhere. The API never holds the admin key.
+- **Two minutes, once.** A request ends after 2 minutes, is answered once, and is handed over once. A new prompt for
+  the same email cancels the one before.
+- **Nobody learns who has an account.** Starting answers the same for any email; one with no account simply never
+  gets answered. Starts are limited per address and per email.
+- **Nobody signed in anywhere?** Nothing pops up, the prompt runs out, and **Use an emailed code instead** still works.
 
 **The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.
 Whenever someone is signed in, it tells HandsFreeOS so (`outreach.setup.save` with `extension`): at each sign-in or
