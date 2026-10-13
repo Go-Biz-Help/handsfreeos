@@ -36,7 +36,7 @@ export async function checkGroups(job: Job, most: number): Promise<JobEnd> {
   for (const [i, group] of next.groups.entries()) {
     if (job.stopped()) break;
     const name = group.name ?? 'a group';
-    job.progress(`${i + 1} of ${next.groups.length}: reading ${name}…`);
+    job.progress(`${i} of ${counted(next.groups.length, 'group')} checked. Reading ${name}…`);
     await job.tab.open(group.url);
     const feed = await readIn(job.tab);
     const warned = await warnedOn(job, feed);

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.27.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.28.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -240,10 +240,17 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
 
 Before anything else in your day, it saves your own lists (`src/auto/lists.ts`; docs/outreach.md, decision 60): your
-friends list, the friend requests you've got, and the ones you've sent (it presses **View sent requests** on your
-friend requests page, and nothing else). The first time, your day waits until all three are saved to their end, and
-it says so ("Saving your friends list first…"); then it works out Tidy up's suggestions and checks your friends for
-good fits once. After that it saves the requests again each morning and your friends list once a week.
+friends list, the friend requests you've got, the ones you've sent (it presses **View sent requests** on your friend
+requests page, and nothing else), and your groups (Save my groups, `src/jobs/groups.ts`). The first time, your day
+waits until all four are saved and your groups are checked (Check my groups, `src/jobs/groups-check.ts`, up to 4), and
+it says so ("Saving your friends list first…"); one that goes wrong is tried again in a few minutes. Then it works out
+Tidy up's suggestions and checks your friends for good fits once. After that it saves the requests again each morning,
+and your friends list and groups once a week; the groups are checked by the daily group checks. While it gets ready,
+the panel's Next up shows each step as a checklist (Save your friends list, Save friend requests you got, Save friend
+requests you sent, Save your groups, Check your groups, Work out who to unfriend, Check your friends for good fits):
+each is ticked once done, and the one under way shows its progress ("Reading your friends… 1,240 friends so far.",
+"3 of 8 groups checked."). The runner keeps the step under way (`beforeNow`) and the lists as HandsFreeOS last said
+(`lists`) in its state for it; HandsFreeOS and the phone show the same checklist from `outreach.live`.
 
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests

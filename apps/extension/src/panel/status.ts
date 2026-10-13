@@ -16,6 +16,7 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import { settingsSummary } from '@hfos/core/addons/outreach/automation';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
 import { REPORTED_STATES, standDownWords, stateTone } from '@hfos/core/addons/outreach/live';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
@@ -161,6 +162,45 @@ function stateChip(now: AutoStatus | null): void {
 }
 
 /** Next up: what it's doing or does next, why it isn't working when it isn't, the day's steps, and the day's buttons. */
+/**
+ * The steps before the first day, as a live checklist: each ticked once done, the one under way with its progress
+ * line ("Reading your friends… 1,240 friends so far."). Nothing once they're all done.
+ */
+export const PRE_DAY_TICKS = { done: '✓', now: '•', next: '○' } as const;
+/** For screen readers, after each step's name. */
+const PRE_DAY_STATE_WORDS = { done: ': done', now: ': under way', next: ': to come' } as const;
+
+export function preDayView(state: AutoStatus['state']): Child {
+  const steps = preDaySteps(state.lists, {
+    doing: state.beforeNow ?? null,
+    line: state.working && state.beforeNow ? state.line : null,
+  });
+  if (!steps.length) return null;
+  return h(
+    'div',
+    { class: 'run-line' },
+    h('p', {}, h('strong', {}, PRE_DAY_TITLE), ` · ${preDayCount(steps)}`),
+    h(
+      'ol',
+      { class: 'pre-day', 'aria-label': PRE_DAY_TITLE },
+      ...steps.map((step) =>
+        h(
+          'li',
+          { class: step.state, 'aria-current': step.state === 'now' ? 'step' : undefined },
+          h('span', { class: 'tick', 'aria-hidden': 'true' }, PRE_DAY_TICKS[step.state]),
+          h(
+            'span',
+            {},
+            step.label,
+            h('span', { class: 'sr-only' }, PRE_DAY_STATE_WORDS[step.state]),
+          ),
+          step.progress ? h('span', { class: 'progress', role: 'status' }, step.progress) : null,
+        ),
+      ),
+    ),
+  );
+}
+
 function stateView(now: AutoStatus): Child[] {
   const automation = now.automation;
   const state = now.state;
@@ -185,6 +225,7 @@ function stateView(now: AutoStatus): Child[] {
       ? h('p', { class: 'muted' }, ago(new Date(state.lineAt).toISOString()))
       : null,
     standing ? h('p', { class: 'muted' }, standDownWords(now.live!.workingName)) : null,
+    standing || off ? null : preDayView(state),
     !now.noting && !off
       ? h(
           'p',

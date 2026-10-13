@@ -33,6 +33,8 @@ export async function listsOf(ctx: Ctx, userId: string): Promise<ListsSaved> {
     friendsAt: iso(row.friendsAt),
     requestsAt: iso(row.requestsAt),
     sentAt: iso(row.sentAt),
+    groupsAt: iso(row.groupsAt),
+    groupChecksAt: iso(row.groupChecksAt),
     tidyAt: iso(row.tidyAt),
     checksAt: iso(row.checksAt),
   };
@@ -41,7 +43,7 @@ export async function listsOf(ctx: Ctx, userId: string): Promise<ListsSaved> {
 export const lists = defineAddonQuery(outreachAddon, {
   name: 'outreach.lists',
   description:
-    'When the person’s own friends list, the friend requests they’ve got and the ones they’ve sent were last saved to their end, and when the first Tidy up and good-fits check after that were done.',
+    'When the person’s own friends list, the friend requests they’ve got, the ones they’ve sent and their groups were last saved to their end, and when the first check of their groups, Tidy up and good-fits check after that were done.',
   input: ListsInput,
   output: ListsOutput,
   permission: 'outreach.use',
@@ -52,7 +54,7 @@ export const lists = defineAddonQuery(outreachAddon, {
 export const listSaved = defineAddonCommand(outreachAddon, {
   name: 'outreach.lists.saved',
   description:
-    'Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent), worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all three lists are saved.',
+    'Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent, groups), checked their groups, worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all four lists are saved.',
   risk: 0,
   input: ListSavedInput,
   output: ListSavedOutput,
