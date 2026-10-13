@@ -922,6 +922,8 @@ export const checks = addonOutreach.table(
     nextStep: text('next_step'),
     lookedAt: ts('looked_at').notNull(),
     checkedAt: ts('checked_at'),
+    /** Check everyone again was pressed since: read again next, whenever it was last checked. */
+    again: boolean('again').notNull().default(false),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

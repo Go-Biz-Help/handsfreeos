@@ -6017,6 +6017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.checks.again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Puts everyone the person’s computer has checked back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.checks.again.
+         */
+        post: operations["command_outreach_checks_again"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.rename": {
         parameters: {
             query?: never;
@@ -16407,7 +16427,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -33408,6 +33428,35 @@ export interface operations {
                         checkId: string;
                         /** @enum {string} */
                         verdict: "waiting" | "good" | "maybe" | "not" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_checks_again: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        again: number;
                     };
                 };
             };
@@ -61517,6 +61566,7 @@ export interface operations {
                     "application/json": {
                         cap: number;
                         checks: {
+                            again: number;
                             checked: number;
                             good: number;
                             maybe: number;

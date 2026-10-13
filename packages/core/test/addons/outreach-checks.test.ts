@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   checkedAnswer,
   checkPrompt,
+  checksAgainDone,
   CHECKS_PER_DAY,
   checksWords,
 } from '../../src/addons/outreach/checks';
@@ -109,15 +110,32 @@ describe('the AI’s check', () => {
         today: 12,
         perDay: 40,
         waiting: 3,
+        again: 0,
       }),
     ).toEqual({
       progress: '312 of 1,840 checked · 28 good fits · 9 might fit · 3 waiting for the AI',
       today: 'Today: 12 of 40.',
     });
     expect(
-      checksWords({ people: 2, checked: 1, good: 1, maybe: 0, today: 40, perDay: 40, waiting: 0 })
-        .today,
+      checksWords({
+        people: 2,
+        checked: 1,
+        good: 1,
+        maybe: 0,
+        today: 40,
+        perDay: 40,
+        waiting: 0,
+        again: 0,
+      }).today,
     ).toBe('That’s today’s 40. It carries on tomorrow.');
+  });
+
+  it('says what Check everyone again did', () => {
+    expect(checksAgainDone(312, 40)).toBe(
+      '312 people go back on the list to check, about 40 a day, so it takes about 8 days.',
+    );
+    expect(checksAgainDone(1, 40)).toBe('1 person goes back on the list to check, about 40 a day.');
+    expect(checksAgainDone(0, 40)).toMatch(/already waiting/);
   });
 });
 
@@ -362,6 +380,29 @@ describe('checking friends and chats', () => {
     const again = await runAs(owner, ws, 'outreach.today', {});
     expect(again.items.filter((i: { kind: string }) => i.kind === 'reconnect')).toHaveLength(0);
     await runAs(owner, ws, 'outreach.friend.set', { profileId: blake, dontPitch: false });
+  });
+
+  it('checks everyone again when asked, keeping what the AI said until then', async () => {
+    const names = async () => (await next()).people.map((p) => p.name).sort();
+    // Only Ellis, whose page Facebook didn't show a week ago, is due.
+    expect(await names()).toEqual(['Ellis Ford']);
+    expect(await runAs(owner, ws, 'outreach.checks.again', {})).toEqual({ again: 4 });
+    expect(await names()).toEqual(['Avery Lane', 'Blake Cho', 'Casey Moreno', 'Ellis Ford']);
+    // Pressed again, nobody more; a teammate's press touches none of the owner's.
+    expect(await runAs(owner, ws, 'outreach.checks.again', {})).toEqual({ again: 0 });
+    expect(await runAs(riley, ws, 'outreach.checks.again', {})).toEqual({ again: 0 });
+    const friends = await runAs(owner, ws, 'outreach.friends', { view: 'fits' });
+    expect(friends.checks).toMatchObject({ good: 2, maybe: 1, again: 4 });
+    // Read again, Avery's off the list; what the AI said stays until it answers.
+    const avery = await idOf('avery.lane.5');
+    const looked = await look(avery, ['Data Analyst at Consultmyapp']);
+    expect(await names()).toEqual(['Blake Cho', 'Casey Moreno', 'Ellis Ford']);
+    const after = await runAs(owner, ws, 'outreach.friends', { view: 'fits' });
+    expect(after.checks.again).toBe(3);
+    expect(
+      after.people.find((p: { profileId: string }) => p.profileId === avery).check,
+    ).toMatchObject({ about: 'Owns Lane Plumbing in Austin' });
+    expect((await kept(looked.checkId)).verdict).toBe('waiting');
   });
 
   it('keeps each person’s own: a teammate sees none of them', async () => {

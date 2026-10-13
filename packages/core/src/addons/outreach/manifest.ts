@@ -115,6 +115,7 @@ export const outreachAddon = defineAddon({
       'outreach.setup.saved',
       'outreach.check.looked',
       'outreach.check.saved',
+      'outreach.checks.again',
       'outreach.stage.marked',
       'outreach.group.looked',
       'outreach.group.checked',

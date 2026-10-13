@@ -55,8 +55,12 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   good fit for a playbook, might fit, or not, why in up to three lines, who they are in one, and a natural first step
   (`outreach.check.save`); the lines are let go once it has. The Friends tab's **Good fits** list has the good fits
   first, then those who might fit, with the AI's why and first step, and its card says how far it has come ("312 of
-  1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. Nobody
-  goes in Contacts.
+  1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. The
+  card's **Check everyone again** (`outreach.checks.again`) puts everyone checked back on the list at once, for when
+  the AI reads pages better than it did: it sets `again` on each of the person's checks, and the next read clears it.
+  They go at the day's pace, and what the AI said stays on show until it answers again. A page linked from their
+  profile counts as their business only when the line naming it says they own or founded it; otherwise the AI is
+  told it's where they work. Nobody goes in Contacts.
 - **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
   phone's `pipeline.tsx`): the **Pipeline** tab, after Today, on the web and the phone, has everyone the person
   reached (a step noted, a chat with words, a good fit or might fit from the checks, a demo, or a mark) by where they

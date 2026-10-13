@@ -274,6 +274,8 @@ export const ChecksSummary = z.object({
   perDay: n,
   /** Read from their pages and waiting for the AI. */
   waiting: n,
+  /** Checked before, and to be read again since Check everyone again was pressed. */
+  again: n,
 });
 export type ChecksSummary = z.output<typeof ChecksSummary>;
 
@@ -288,14 +290,33 @@ export const CheckShown = z.object({
 });
 export type CheckShown = z.output<typeof CheckShown>;
 
+export const ChecksAgainInput = z.object({ workspaceId: z.uuid() });
+export type ChecksAgainInput = z.input<typeof ChecksAgainInput>;
+
+export const ChecksAgainOutput = z.object({
+  /** How many of those checked before are now to be read again. */
+  again: n,
+});
+export type ChecksAgainOutput = z.output<typeof ChecksAgainOutput>;
+
 export const CHECKS_WORDS = {
   title: 'Good fits among your friends',
   button: 'Check my friends',
+  again: 'Check everyone again',
+  againNote:
+    'Reads everyone checked before again, with what the AI knows now. What it said stays on show until then.',
   note: `Your computer opens your friends’ profiles, and their business pages, about ${CHECKS_PER_DAY} a day, every ${CHECK_PACE_SECONDS[0]} to ${CHECK_PACE_SECONDS[1]} seconds, in a window of its own. The AI reads them with your chats to see who fits your playbooks. Friends you’ve chatted with go first.`,
   daily:
     'While the extension works on its own with Once a day ticked, it checks them each morning too.',
   none: 'Save your friends list first (above), or bring in your Facebook file and read your chats, and there’s someone to check.',
 } as const;
+
+/** What Check everyone again says it did. */
+export function checksAgainDone(again: number, perDay: number): string {
+  if (!again) return 'Everyone checked is already waiting to be checked again.';
+  const days = Math.ceil(again / perDay);
+  return `${again.toLocaleString('en-US')} ${again === 1 ? 'person goes' : 'people go'} back on the list to check, about ${perDay.toLocaleString('en-US')} a day${days > 1 ? `, so it takes about ${days} days` : ''}.`;
+}
 
 /** "312 of 1,840 checked · 28 good fits · 9 might fit", and today's: "Today: 12 of 40". */
 export function checksWords(s: ChecksSummary): {
@@ -309,6 +330,7 @@ export function checksWords(s: ChecksSummary): {
     counted(s.good, 'good fit', 'good fits'),
     s.maybe ? `${s.maybe.toLocaleString('en-US')} might fit` : null,
     s.waiting ? `${s.waiting.toLocaleString('en-US')} waiting for the AI` : null,
+    s.again ? `${s.again.toLocaleString('en-US')} to check again` : null,
   ]
     .filter(Boolean)
     .join(' · ');

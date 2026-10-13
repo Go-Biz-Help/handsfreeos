@@ -4,7 +4,7 @@
  * goes in Contacts. The Friends tab lists them (./friends.ts), and Today has the good fits to reconnect with
  * (./today.ts).
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
@@ -14,6 +14,8 @@ import {
   CHECK_AGAIN_DAYS,
   CHECK_RETRY_DAYS,
   CHECKS_PER_DAY,
+  ChecksAgainInput,
+  ChecksAgainOutput,
   CheckLookInput,
   CheckLookOutput,
   CheckSaveInput,
@@ -70,13 +72,15 @@ export async function checksSummary(
     good: number;
     maybe: number;
     waiting: number;
+    again: number;
   }>(
     ctx.tx,
     sql`select count(*)::int as people,
           count(*) filter (where ch.verdict in ('good', 'maybe', 'not'))::int as checked,
           count(*) filter (where ch.verdict = 'good')::int as good,
           count(*) filter (where ch.verdict = 'maybe')::int as maybe,
-          count(*) filter (where ch.verdict = 'waiting')::int as waiting
+          count(*) filter (where ch.verdict = 'waiting')::int as waiting,
+          count(*) filter (where ch.again)::int as again
         from addon_outreach.profiles p
         left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
         where p.workspace_id = ${ws} and ${knownToMe(me)}`,
@@ -87,6 +91,7 @@ export async function checksSummary(
     good: counted?.good ?? 0,
     maybe: counted?.maybe ?? 0,
     waiting: counted?.waiting ?? 0,
+    again: counted?.again ?? 0,
     ...(await perDayFor(ctx, me, now)),
   };
 }
@@ -94,7 +99,7 @@ export async function checksSummary(
 export const checksNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.checks.next',
   description:
-    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately.',
+    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again.',
   input: ChecksNextInput,
   output: ChecksNextOutput,
   permission: 'outreach.use',
@@ -130,6 +135,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
             where p.workspace_id = ${ws} and ${knownToMe(me)}
               and p.url like 'https://www.facebook.com/%'
               and (ch.id is null
+                or (ch.again and ch.verdict <> 'waiting')
                 or (ch.verdict in ('good', 'maybe', 'not')
                   and ch.checked_at < ${ago(CHECK_AGAIN_DAYS)}::timestamptz)
                 or (ch.verdict = 'failed' and ch.looked_at < ${ago(CHECK_RETRY_DAYS)}::timestamptz))
@@ -189,6 +195,7 @@ export const checkLook = defineAddonCommand(outreachAddon, {
             ? { why, about: null, nextStep: null, playbookId: null, checkedAt: null }
             : {}),
           lookedAt: at,
+          again: false,
         },
       })
       .returning({ id: checks.id });
@@ -253,5 +260,45 @@ export const checkSave = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const checkCommands = [checkLook, checkSave] as const;
+/**
+ * Check everyone again: everyone the person's computer has checked is read again, at the day's pace, whenever it last
+ * was. For when the AI reads pages better than it did; what it said stays on show until then.
+ */
+export const checksAgain = defineAddonCommand(outreachAddon, {
+  name: 'outreach.checks.again',
+  description:
+    'Puts everyone the person’s computer has checked back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then.',
+  risk: 1,
+  input: ChecksAgainInput,
+  output: ChecksAgainOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.checks.again'],
+  async handler(ctx) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const marked = await ctx.tx
+      .update(checks)
+      .set({ again: true })
+      .where(
+        and(
+          eq(checks.workspaceId, ws),
+          eq(checks.userId, me),
+          eq(checks.again, false),
+          ne(checks.verdict, 'waiting'),
+        ),
+      )
+      .returning({ id: checks.id });
+    if (marked.length)
+      await ctx.emit({
+        type: 'outreach.checks.again',
+        entityType: 'workspace',
+        entityId: ws,
+        payload: { again: marked.length },
+      });
+    return { again: marked.length };
+  },
+});
+
+export const checkCommands = [checkLook, checkSave, checksAgain] as const;
 export const checkQueries = [checksNext] as const;
