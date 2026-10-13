@@ -41,7 +41,7 @@ import { DAILY_STEPS, pastLimitWords, type DailyStep } from '@hfos/core/addons/o
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
-import { line as lookupLine, linesOf, POSTS_READ } from '../facebook/lookup';
+import { linesOf, pageHeading, POSTS_READ } from '../facebook/lookup';
 import type { FetchStep } from '../facebook/fetch';
 import { FRIENDSHIP_WORDS } from '../facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../facebook/types';
@@ -434,10 +434,7 @@ async function lookUpIn(
     const page = await read();
     const stop = await warnedOn(page, businessId);
     if (stop) return { stop };
-    lines.push(
-      `Their business page: ${lookupLine(business.name)}`,
-      ...linesOf(page, business.name, 1),
-    );
+    lines.push(pageHeading(opened.page, business), ...linesOf(page, business.name, 1));
   }
   return { lines: [...new Set(lines.filter(Boolean))].slice(0, LOOKUP_LINES) };
 }

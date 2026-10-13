@@ -10,7 +10,7 @@
  */
 import type { AskResult, AskTask } from '@hfos/core/addons/outreach/asks';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
-import { line, linesOf, POSTS_READ } from '../facebook/lookup';
+import { linesOf, ownsPage, pageHeading, POSTS_READ } from '../facebook/lookup';
 import { workUrl } from '../facebook/urls';
 import { readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 
@@ -36,12 +36,14 @@ export async function lookUpLines(
     // Only a Facebook page of theirs: a link read off their profile never takes the tab anywhere else.
     const pageUrl = business?.profile ? workUrl(business.profile.url) : null;
     if (business && pageUrl && !job.stopped()) {
-      job.progress('Reading their business page…');
+      job.progress(
+        ownsPage(profile, business) ? 'Reading their business page…' : 'Reading where they work…',
+      );
       await job.tab.open(pageUrl);
       const page = await readIn(job.tab);
       const warnedThere = await warnedOn(job, page);
       if (warnedThere) return { end: warnedThere };
-      lines.push(`Their business page: ${line(business.name)}`, ...linesOf(page, business.name, 1));
+      lines.push(pageHeading(profile, business), ...linesOf(page, business.name, 1));
     }
   } catch {
     // Facebook went elsewhere: draft from what's known.

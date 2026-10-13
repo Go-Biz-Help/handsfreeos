@@ -602,7 +602,8 @@ openers on group posts") and answered its questions the same day. These are sett
 20. **A good post goes on Today's list** with two AI comment drafts. The person posts the comment; the extension
     notes it. Built.
 21. **Before drafting, the extension looks the person up:** it opens their profile and business page itself, quietly
-    in a tab. Built.
+    in a tab. A page their profile links to counts as their business only when the line naming it says they own or
+    founded it ("Owner at…"); otherwise it's told to the AI as where they work, a job. Built.
 22. **Phone alerts:** a push when the extension spots a reply, and a morning push at a time that's a setting (8am to
     start). Built (the third of three parts).
 23. **Which openers work:** each playbook has two or three AI opener styles and the person's own openers. Drafts
