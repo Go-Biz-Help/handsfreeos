@@ -220,6 +220,10 @@ export const touches = addonOutreach.table(
     threadKey: text('thread_key'),
     /** Taken by the extension on its own (decision 26), not pressed by the person. */
     auto: boolean('auto').notNull().default(false),
+    /** For a like or comment it made on its own: what the post said, the AI's comment, and why that post. */
+    postText: text('post_text'),
+    commentText: text('comment_text'),
+    why: text('why'),
     at: ts('at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },

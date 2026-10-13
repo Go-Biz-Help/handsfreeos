@@ -26,6 +26,7 @@ import {
 } from './groups';
 import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
+import { LIKE_PICK_ACTION, likePick } from './likes';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askProgressed } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
@@ -126,11 +127,12 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [GUESS_COUNTRIES_JOB]: guessCountriesJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
-  // group's questions when the extension asks to join it (./groups.ts).
+  // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).
   actions: {
     [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
+    [LIKE_PICK_ACTION]: likePick,
   },
   // The morning push, weekly report and the feed's pruning, from now: nothing that came due while it was off runs late.
   onEnable: async (ctx) => {

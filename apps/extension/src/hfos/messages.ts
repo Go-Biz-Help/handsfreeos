@@ -5,6 +5,7 @@
  */
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
+import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
@@ -103,7 +104,7 @@ export type HelpfulPostedInput = Body<'/v1/commands/outreach.helpful.posted'>;
 export type HelpfulPosted = Ok<'/v1/commands/outreach.helpful.posted'>;
 export type HelpfulEngagedInput = Body<'/v1/commands/outreach.helpful.engaged'>;
 export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
-export type { JoinAnswerInput, JoinAnswerOutput };
+export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -234,6 +235,8 @@ export type HfosAsk =
       readonly workspaceId: string;
       readonly input: JoinAnswerInput;
     }
+  /** Which of someone's posts to like before their friend request (src/auto/run.ts). */
+  | { readonly type: 'hfos-like-pick'; readonly workspaceId: string; readonly input: LikePickInput }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -285,6 +288,7 @@ export interface HfosValues {
   readonly 'hfos-helpful-posted': HelpfulPosted;
   readonly 'hfos-helpful-engaged': HelpfulEngaged;
   readonly 'hfos-join-answers': JoinAnswerOutput;
+  readonly 'hfos-like-pick': LikePickOutput;
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;

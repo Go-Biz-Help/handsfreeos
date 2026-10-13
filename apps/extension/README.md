@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.28.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.29.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -98,7 +98,8 @@ Keep and Don't pitch are on the web.
 
 Signed in, the extension notes four steps as you take them on Facebook yourself, in any Facebook tab, with the panel
 open or not (decision 8 in docs/outreach.md), and your answers to the friend requests you get. It notes who each step
-was to, never what you wrote.
+was to, never what you wrote. For a like or comment it makes on its own, it also notes what the post said, the AI's
+comment and why the AI picked that post to like, for the Results tab's **Posts liked and commented on**.
 
 | Step           | Noted when you…                                                                   | To                                                                  |
 | -------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------- |

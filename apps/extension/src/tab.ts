@@ -10,6 +10,8 @@ import type {
   Answer,
   Ask,
   AutoAnswer,
+  PostsAnswer,
+  PostsAsk,
   AutoAsk,
   BrowseAnswer,
   BrowseAsk,
@@ -121,6 +123,7 @@ export class WorkTab {
 
   /** Asks the tab's script, loading it first into a tab opened before the extension was. */
   async ask(message: FetchAsk): Promise<FetchAnswer>;
+  async ask(message: PostsAsk): Promise<PostsAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;

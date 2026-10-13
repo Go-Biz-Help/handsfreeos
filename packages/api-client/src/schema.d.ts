@@ -16397,6 +16397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.activity.posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The posts the person liked and commented on in a stretch of days, the latest first, as the extension noted them: whose post, a link to it, what it said, and the comment the extension posted on its own and why it picked a post to like. Owners and admins can see everyone’s.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_activity_posts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.asks": {
         parameters: {
             query?: never;
@@ -35434,6 +35454,8 @@ export interface operations {
                     /** @default false */
                     auto?: boolean;
                     /** @default null */
+                    commentText?: string | null;
+                    /** @default null */
                     group?: {
                         id: string | null;
                         /** @default null */
@@ -35450,6 +35472,8 @@ export interface operations {
                      */
                     platform?: "facebook";
                     /** @default null */
+                    postText?: string | null;
+                    /** @default null */
                     postUrl?: string | null;
                     profile: {
                         id: string | null;
@@ -35460,6 +35484,8 @@ export interface operations {
                     replying?: boolean | null;
                     /** @default null */
                     threadKey?: string | null;
+                    /** @default null */
+                    why?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -61416,6 +61442,75 @@ export interface operations {
                             today: boolean;
                             words: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_activity_posts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    before?: string | null;
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    kind?: "all" | "like" | "comment";
+                    /**
+                     * @default week
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: boolean;
+                        /** Format: date-time */
+                        from: string;
+                        next: string | null;
+                        posts: {
+                            /** Format: date-time */
+                            at: string;
+                            auto: boolean;
+                            by: string | null;
+                            commentText: string | null;
+                            group: {
+                                name: string | null;
+                                url: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "like" | "comment";
+                            name: string;
+                            personId: string | null;
+                            postText: string | null;
+                            postUrl: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            /** Format: uuid */
+                            touchId: string;
+                            why: string | null;
+                        }[];
                     };
                 };
             };

@@ -38,6 +38,13 @@ import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/out
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { DAILY_STEPS, pastLimitWords, type DailyStep } from '@hfos/core/addons/outreach/limits';
+import {
+  fallbackLikePick,
+  LIKE_POSTS_READ,
+  likedText,
+  LikePickInput,
+  type LikePickOutput,
+} from '@hfos/core/addons/outreach/like-pick';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
@@ -328,24 +335,64 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   return { done: true, line: `Sent ${item.name} a friend request` };
 }
 
-/** Likes their latest post, a day before their friend request (decision 33); with none, the request goes without. */
+/**
+ * Likes one of their latest posts, a day before their friend request (decision 33): the AI picks one to do with the
+ * business, else about them, never one about grief, illness or trouble (`outreach.like.pick`; the words alone pick
+ * when it can't be asked). None, or none fit: the request goes without.
+ */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
-  const liked = await tab.ask({ type: 'hfos-like-latest', profile: opened.profile });
-  if (!liked.ok) throw new Error(liked.error);
-  if (liked.result === 'none') {
+  const theirs = await tab.ask({
+    type: 'hfos-their-posts',
+    profile: opened.profile,
+    most: LIKE_POSTS_READ,
+  });
+  if (!theirs.ok) throw new Error(theirs.error);
+  const missed = async (line: string): Promise<Outcome> => {
     await call(
       api().POST('/v1/commands/outreach.warm_up.missed', {
         body: { workspaceId: businessId, profileId: item.profileId! },
       }),
       businessId,
     );
-    return {
-      done: false,
-      line: `No post of ${item.name}’s to like: their friend request goes without`,
-    };
+    return { done: false, line };
+  };
+  if (!theirs.posts.length)
+    return missed(`No post of ${item.name}’s to like: their friend request goes without`);
+  const posts = theirs.posts.map((p) => ({
+    text: p.text,
+    pictures: [...p.pictures],
+    when: p.when,
+  }));
+  // One they liked already warms them up as well as a new one.
+  const likedAlready = theirs.posts.findIndex((p) => p.liked);
+  let pick: LikePickOutput;
+  if (likedAlready >= 0) pick = { pick: likedAlready, about: null, why: null, by: 'words' };
+  else {
+    const asked = await answer({
+      type: 'hfos-like-pick',
+      workspaceId: businessId,
+      input: { profileId: item.profileId!, posts },
+    });
+    pick = asked.ok
+      ? (asked.value as LikePickOutput)
+      : fallbackLikePick(LikePickInput.parse({ profileId: item.profileId!, posts }).posts);
   }
+  if (pick.pick === null)
+    return missed(
+      `None of ${item.name}’s posts were right to like: their friend request goes without`,
+    );
+  const chosen = theirs.posts[pick.pick]!;
+  const liked = await tab.ask({
+    type: 'hfos-like-post',
+    profile: opened.profile,
+    index: pick.pick,
+    url: chosen.url,
+  });
+  if (!liked.ok) throw new Error(liked.error);
+  if (liked.result === 'none' || liked.result === 'not_sent')
+    return missed(`Couldn’t like ${item.name}’s post: their friend request goes without`);
   await pause(SETTLE_MS);
   const stop = await warnedOn(await read(), businessId);
   if (stop) return { stop };
@@ -355,19 +402,22 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       kind: 'like',
       to: { name: opened.page.profile!.name ?? item.name, profile: opened.noted },
       group: null,
-      postUrl: liked.postUrl ?? null,
+      postUrl: liked.postUrl ?? chosen.url ?? null,
       thread: null,
       replying: null,
       auto: true,
+      postText: likedText(chosen),
+      why: pick.why,
     },
     at: now(),
   });
+  const about = pick.why ? ` (${pick.why.replace(/[.!]$/, '')})` : '';
   return {
     done: true,
     line:
       liked.result === 'already'
         ? `${item.name}’s post was liked already: their friend request comes tomorrow`
-        : `Liked a post of ${item.name}’s: their friend request comes tomorrow`,
+        : `Liked a post of ${item.name}’s${about}: their friend request comes tomorrow`,
   };
 }
 
@@ -416,6 +466,9 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
       thread: null,
       replying: null,
       auto: true,
+      // The AI's words, not the person's: kept for the Results tab.
+      postText: item.post,
+      commentText: text,
     },
     at: now(),
   });

@@ -17,6 +17,11 @@ import {
   USERNAME,
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
+import {
+  TOUCH_COMMENT_MOST,
+  TOUCH_POST_TEXT_MOST,
+  TOUCH_WHY_MOST,
+} from '@hfos/core/addons/outreach/activity';
 import { GROUP_PEOPLE_MOST, GROUPS_SAVE_MOST } from '@hfos/core/addons/outreach/groups';
 import { POST_TEXT_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
 import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
@@ -132,7 +137,8 @@ function groupRef(group: StepGroup): TouchInput['group'] {
 
 /**
  * A step the person took on Facebook, to note: who it was to, the group they were found in (the page's, or the one
- * the background remembers them by), and the post or chat, cut to what HandsFreeOS takes. Never what was written.
+ * the background remembers them by), and the post or chat, cut to what HandsFreeOS takes. Never what the person
+ * wrote: only for a like or comment the extension made on its own, what the post said, the AI's comment and why.
  */
 export function touchSave(
   step: Step,
@@ -158,8 +164,21 @@ export function touchSave(
           : null,
       replying: step.kind === 'message' ? step.replying : null,
       auto: step.auto === true,
+      ...(step.auto === true && (step.kind === 'like' || step.kind === 'comment')
+        ? {
+            postText: words(step.postText, TOUCH_POST_TEXT_MOST),
+            commentText:
+              step.kind === 'comment' ? words(step.commentText, TOUCH_COMMENT_MOST) : null,
+            why: step.kind === 'like' ? words(step.why, TOUCH_WHY_MOST) : null,
+          }
+        : {}),
     },
   };
+}
+
+/** Writing cut to what HandsFreeOS keeps, on one line; nothing when there's none. */
+function words(text: string | null | undefined, most: number): string | null {
+  return clip(text ?? '', most) || null;
 }
 
 /** The person's answer to a friend request they got, to note: Confirm or Delete, who asked, and their mutual friends. */

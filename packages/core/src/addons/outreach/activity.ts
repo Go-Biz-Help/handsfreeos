@@ -25,6 +25,11 @@ export {
   type TouchStep,
 } from './limits';
 
+/** What a step keeps of the post, the comment and why, at most. */
+export const TOUCH_POST_TEXT_MOST = 300;
+export const TOUCH_COMMENT_MOST = 2_000;
+export const TOUCH_WHY_MOST = 160;
+
 /** A group by its number, the name in its link, or both: whichever its links showed. */
 export const GroupRef = z
   .object({
@@ -56,6 +61,13 @@ export const TouchSaveInput = z.object({
   replying: z.boolean().nullable().default(null),
   /** Taken by the extension on its own (decision 26), not pressed by the person. */
   auto: z.boolean().default(false),
+  /**
+   * For a like or comment the extension made on its own, for the Results tab: what the post said, the AI's comment,
+   * and why it picked that post to like. Never what the person wrote themselves.
+   */
+  postText: z.string().trim().min(1).max(TOUCH_POST_TEXT_MOST).nullable().default(null),
+  commentText: z.string().trim().min(1).max(TOUCH_COMMENT_MOST).nullable().default(null),
+  why: z.string().trim().min(1).max(TOUCH_WHY_MOST).nullable().default(null),
 });
 export type TouchSaveInput = z.input<typeof TouchSaveInput>;
 
@@ -182,3 +194,52 @@ export const ActivityOutput = z.object({
   morePeople: count,
 });
 export type ActivityOutput = z.output<typeof ActivityOutput>;
+
+/** Which steps the list of posts shows: likes and comments, or one of them. */
+export const TOUCHED_POST_KINDS = ['all', 'like', 'comment'] as const;
+/** How many posts the list shows at a time; `before` asks for the ones after. */
+export const TOUCHED_POSTS_PAGE = 50;
+
+export const TouchedPostsInput = z.object({
+  workspaceId: z.uuid(),
+  period: z.enum(ACTIVITY_PERIOD_KEYS).default('week'),
+  /** Everyone's, for owners and admins (`outreach.manage`). Left out: the person's own. */
+  everyone: z.boolean().default(false),
+  kind: z.enum(TOUCHED_POST_KINDS).default('all'),
+  /** The next page: the ones before the last one shown. */
+  before: moment.nullable().default(null),
+});
+export type TouchedPostsInput = z.input<typeof TouchedPostsInput>;
+
+export const TouchedPostsOutput = z.object({
+  from: moment,
+  everyone: z.boolean(),
+  /** The posts liked and commented on in the stretch, the latest first. */
+  posts: z.array(
+    z.object({
+      touchId: z.uuid(),
+      kind: z.enum(['like', 'comment']),
+      at: moment,
+      /** Whose post it was. */
+      profileId: z.uuid(),
+      personId: z.uuid().nullable(),
+      name: z.string(),
+      profileUrl: z.string(),
+      postUrl: z.string().nullable(),
+      /** What the post said, when it was kept: for the extension's own likes and comments, and posts found. */
+      postText: z.string().nullable(),
+      /** The comment the extension posted on its own. The person's own are never kept. */
+      commentText: z.string().nullable(),
+      /** Why the AI picked that post to like. */
+      why: z.string().nullable(),
+      /** Done by the extension on its own, not pressed by the person. */
+      auto: z.boolean(),
+      group: z.object({ name: z.string().nullable(), url: z.string() }).nullable(),
+      /** Who on the team, when the list is everyone's. */
+      by: z.string().nullable(),
+    }),
+  ),
+  /** The time to ask `before` for the next page; null when there are no more. */
+  next: moment.nullable(),
+});
+export type TouchedPostsOutput = z.output<typeof TouchedPostsOutput>;

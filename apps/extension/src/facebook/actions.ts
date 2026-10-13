@@ -75,6 +75,10 @@ export interface Step {
   readonly replying: boolean | null;
   /** Taken by the extension on its own (src/auto/run.ts), not by the person. */
   readonly auto?: boolean;
+  /** For one it took on its own: what the post liked or commented on said, the AI's comment, and why that post. */
+  readonly postText?: string | null;
+  readonly commentText?: string | null;
+  readonly why?: string | null;
 }
 
 /**

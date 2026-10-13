@@ -19,6 +19,7 @@ import {
   type Business,
   type Drafts,
   type JoinAnswerOutput,
+  type LikePickOutput,
   type HfosAnswer,
   type HfosAsk,
   type HfosValues,
@@ -476,6 +477,14 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-join-answers':
       return call(
         workerPost<JoinAnswerOutput>('/v1/addons/outreach/actions/outreach.join.answer', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
+      );
+    case 'hfos-like-pick':
+      return call(
+        workerPost<LikePickOutput>('/v1/addons/outreach/actions/outreach.like.pick', {
           workspaceId: ask.workspaceId,
           input: ask.input,
         }),

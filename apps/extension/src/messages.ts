@@ -4,7 +4,7 @@
  * end is the extension's own: Facebook's scripts never see these messages.
  */
 import type { Answered, Seen, Step } from './facebook/actions';
-import type { AutoResult } from './facebook/auto';
+import type { AutoResult, TheirPost } from './facebook/auto';
 import type { FetchStep, StepResult } from './facebook/fetch';
 import type { Engaged, PostResult } from './facebook/compose';
 import type { JoinStep } from './facebook/join';
@@ -55,11 +55,17 @@ export type BrowseAnswer = { readonly ok: boolean };
 
 /**
  * What the background's runner asks a tab it works in on its own (src/facebook/auto.ts): on someone's profile, like
- * their latest post; on a post, write a comment and send it; in a chat, write a message and send it. Add friend,
+ * their latest posts to pick one, then like it; on a post, write a comment and send it; in a chat, write a message and send it. Add friend,
  * Confirm and their profile's Message go as a `FetchAsk`.
  */
 export type AutoAsk =
-  | { readonly type: 'hfos-like-latest'; readonly profile: ProfileRef }
+  | { readonly type: 'hfos-their-posts'; readonly profile: ProfileRef; readonly most: number }
+  | {
+      readonly type: 'hfos-like-post';
+      readonly profile: ProfileRef;
+      readonly index: number;
+      readonly url: string | null;
+    }
   | { readonly type: 'hfos-comment'; readonly text: string }
   | { readonly type: 'hfos-message'; readonly text: string };
 
@@ -90,6 +96,12 @@ export type GroupPostAnswer =
 
 export type AutoAnswer =
   | { readonly ok: true; readonly result: AutoResult; readonly postUrl?: string | null }
+  | { readonly ok: false; readonly error: string };
+
+/** The posts of theirs read on their profile, for the AI to pick one to like. */
+export type PostsAsk = Extract<AutoAsk, { readonly type: 'hfos-their-posts' }>;
+export type PostsAnswer =
+  | { readonly ok: true; readonly posts: readonly TheirPost[] }
   | { readonly ok: false; readonly error: string };
 
 /** What it answers: how the step went, or the place along the path pressed; an error off the download pages. */

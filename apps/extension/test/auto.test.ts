@@ -19,7 +19,8 @@ import {
 } from '../src/auto/plan';
 import {
   AUTO_PLANS,
-  likeLatest,
+  likeTheirPost,
+  readTheirPosts,
   MESSAGE_PATH,
   sameRef,
   writeComment,
@@ -278,24 +279,36 @@ describe('liking their latest post', () => {
   afterEach(() => vi.useRealTimers());
   const view = { scrollBy: () => undefined, innerHeight: 800 };
 
-  it('likes their own post, and leaves one liked already', async () => {
+  it('reads their own posts, with what the pictures show, and likes the one picked', async () => {
+    vi.useFakeTimers();
     const doc = load('profile-2026.html', URL);
-    expect((await likeLatest(doc, URL, dana, view)).result).toBe('already');
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const posts = await reading;
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ liked: true, pictures: ['May be an image of text'] });
+    const pick = { index: 0, url: posts[0]!.url };
+    expect((await likeTheirPost(doc, URL, dana, pick)).result).toBe('already');
     const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
     like.setAttribute('aria-label', 'Like');
     let pressed = 0;
     like.addEventListener('click', () => pressed++);
-    expect((await likeLatest(doc, URL, dana, view)).result).toBe('done');
+    expect((await readTheirPosts(doc, URL, dana, view, 1))[0]!.liked).toBe(false);
+    expect((await likeTheirPost(doc, URL, dana, pick)).result).toBe('done');
     expect(pressed).toBe(1);
+    // A post that's gone from the page isn't liked in its place.
+    expect((await likeTheirPost(doc, URL, dana, { index: 0, url: `${URL}/posts/1` })).result).toBe(
+      'none',
+    );
   });
 
-  it('likes nobody else’s post', async () => {
+  it('reads nobody else’s posts', async () => {
     vi.useFakeTimers();
     const doc = load('profile-2026.html', URL);
     const other = { id: null, username: 'sam.carter', url: `${FB}/sam.carter` };
-    const liking = likeLatest(doc, URL, other, view);
+    const reading = readTheirPosts(doc, URL, other, view, 6);
     await vi.advanceTimersByTimeAsync(10_000);
-    expect((await liking).result).toBe('none');
+    expect(await reading).toEqual([]);
   });
 });
 
