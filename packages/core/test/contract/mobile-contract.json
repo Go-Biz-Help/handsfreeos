@@ -6947,6 +6947,20 @@
                   }
                 },
                 "required": ["kind", "draft"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "research"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": ["kind", "profileId"]
               }
             ]
           }
