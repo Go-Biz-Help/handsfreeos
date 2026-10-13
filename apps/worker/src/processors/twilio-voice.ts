@@ -291,7 +291,7 @@ export const onScreened: DeliveryProcessor = async (ctx) => {
 };
 
 /**
- * A recording finished: a voicemail, or a whole call through someone's own cell.
+ * A recording finished: a voicemail, or a whole answered call (every answered call is recorded).
  *
  * Three things happen, in this order for a reason. The call is marked as having a recording first, because that is
  * the fact the carrier just told us and nothing about it can fail. Then the audio is copied into the workspace's
@@ -312,7 +312,12 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
     await forget(ctx, account, p.RecordingSid);
     return 'ignored';
   }
-  const whole = call.answeredVia === 'bridge';
+  // A whole call comes from a `<Dial>`, two-sided; a voicemail from `<Record>`, the caller alone. Twilio says which,
+  // and a bridged call is a whole call whatever the report leaves out.
+  const whole =
+    p.RecordingSource === 'DialVerb' ||
+    p.RecordingChannels === '2' ||
+    call.answeredVia === 'bridge';
   const recordingSid = p.RecordingSid;
   const attach = (objectPath: string | null) =>
     executeCommand(

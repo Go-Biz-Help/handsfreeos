@@ -101,6 +101,8 @@ export function voiceUrls(publicUrl: string) {
       `${base.replace(/^http/, 'ws')}/agent/test/${encodeURIComponent(machine)}`,
     hangup: `${base}/hangup`,
     recording: `${base}/recording`,
+    /** What a customer hears on picking up a call the team placed, when the number announces recording. */
+    notice: `${base}/notice`,
     /**
      * A forwarding phone that picked up. `from` is the customer's number when forwarded phones show the business
      * number instead (their leg then says the business is calling, so the screen reads the customer from here).
@@ -132,6 +134,8 @@ export interface Routing {
   readonly voicemailGreeting: string | null;
   /** What forwarding phones show: the customer's number, or the business number. */
   readonly forwardedCallerId: ForwardedCallerId;
+  /** Whether customers hear that the call is recorded. Every answered call is recorded either way. */
+  readonly announceRecording: boolean;
 }
 
 /** The number's routing (phone_numbers.routing), with the rules the settings page enforces applied again. */
@@ -142,6 +146,7 @@ export function routingOf(raw: unknown): Routing {
     voicemailEnabled?: unknown;
     voicemailGreeting?: unknown;
     forwardedCallerId?: unknown;
+    announceRecording?: unknown;
   };
   const ring = typeof r.ringSeconds === 'number' ? r.ringSeconds : 20;
   return {
@@ -160,11 +165,26 @@ export function routingOf(raw: unknown): Routing {
         ? r.voicemailGreeting.trim()
         : null,
     forwardedCallerId: r.forwardedCallerId === 'business' ? 'business' : 'customer',
+    announceRecording: r.announceRecording !== false,
   };
 }
 
 export const defaultGreeting = (workspaceName: string) =>
   `You’ve reached ${workspaceName}. Leave your name, number and what you need, and we’ll call you back today.`;
+
+/** What a customer hears before a recorded call, when the number announces it. */
+export const RECORDING_NOTICE = 'This call may be recorded.';
+
+/**
+ * Every answered call is recorded, one side per channel, so its words can be read afterwards (and told apart).
+ * Twilio puts the call that ran the `<Dial>` on channel 1 and the phone it dialed on channel 2.
+ */
+const recorded = (urls: VoiceUrls) => ({
+  record: 'record-from-answer-dual',
+  recordingStatusCallback: urls.recording,
+  recordingStatusCallbackMethod: 'POST',
+  recordingStatusCallbackEvent: 'completed absent',
+});
 
 /** A number spoken digit by digit ("7 1 3, 5 5 5, 0 1 4 2"), for the forwarded-phone screen. */
 export function spokenPhone(e164: string): string {
@@ -190,6 +210,8 @@ export function ringTwiml(
     params: Readonly<Record<string, string>>;
     /** The business number, when forwarded phones show it. */
     callerId?: string | null;
+    /** The caller hears that the call is recorded before it rings. */
+    announce?: boolean;
   },
   urls: VoiceUrls,
 ): string {
@@ -221,8 +243,10 @@ export function ringTwiml(
     timeout: Math.max(5, plan.ringSeconds - 5),
     action: urls.dialResult,
     method: 'POST',
+    ...recorded(urls),
   });
-  return twiml(`<Dial${dial}>${clients}${numbers}</Dial>`);
+  const notice = plan.announce ? say(RECORDING_NOTICE) : '';
+  return twiml(`${notice}<Dial${dial}>${clients}${numbers}</Dial>`);
 }
 
 /**
@@ -279,6 +303,8 @@ export const NOT_IN_SERVICE_TWIML = twiml(
 );
 export const CANNOT_PLACE_TWIML = twiml(`${say('Sorry, this call could not be placed.')}${HANGUP}`);
 export const HANGUP_TWIML = twiml(HANGUP);
+/** Played to a customer who picked up, before they are joined to the teammate. */
+export const NOTICE_TWIML = twiml(say(RECORDING_NOTICE));
 
 /** What a forwarded phone hears after it picks up. Anything but 1 (or silence) hangs up that phone only. */
 export function screenTwiml(announcement: string, line: string, urls: VoiceUrls): string {
@@ -292,12 +318,25 @@ export function screenTwiml(announcement: string, line: string, urls: VoiceUrls)
 }
 
 /** A teammate's browser calls a customer: the customer sees the business number. */
-export function outboundTwiml(from: string, to: string, urls: VoiceUrls): string {
-  const dial = attrs({ callerId: from, answerOnBridge: true, action: urls.hangup, method: 'POST' });
+export function outboundTwiml(
+  from: string,
+  to: string,
+  urls: VoiceUrls,
+  opts: { readonly announce?: boolean } = {},
+): string {
+  const dial = attrs({
+    callerId: from,
+    answerOnBridge: true,
+    action: urls.hangup,
+    method: 'POST',
+    ...recorded(urls),
+  });
   const leg = attrs({
     statusCallback: urls.legStatus,
     statusCallbackEvent: 'ringing answered completed',
     statusCallbackMethod: 'POST',
+    // The customer hears the notice on picking up, before the two sides are joined.
+    ...(opts.announce ? { url: urls.notice, method: 'POST' } : {}),
   });
   return twiml(`<Dial${dial}><Number${leg}>${escapeXml(to)}</Number></Dial>`);
 }
@@ -328,6 +367,8 @@ export function bridgeDialTwiml(
     readonly to: string;
     readonly callId: string;
     readonly customer: string;
+    /** The customer hears that the call is recorded on picking up. */
+    readonly announce?: boolean;
   },
   urls: VoiceUrls,
 ): string {
@@ -337,15 +378,13 @@ export function bridgeDialTwiml(
     timeout: BRIDGE_CUSTOMER_RING_SECONDS,
     action: urls.bridgeResult(call.callId),
     method: 'POST',
-    record: 'record-from-answer-dual',
-    recordingStatusCallback: urls.recording,
-    recordingStatusCallbackMethod: 'POST',
-    recordingStatusCallbackEvent: 'completed absent',
+    ...recorded(urls),
   });
   const leg = attrs({
     statusCallback: urls.legStatus,
     statusCallbackEvent: 'ringing answered completed',
     statusCallbackMethod: 'POST',
+    ...(call.announce ? { url: urls.notice, method: 'POST' } : {}),
   });
   return twiml(
     `${say(`Calling ${call.customer}.`)}<Dial${dial}><Number${leg}>${escapeXml(call.to)}</Number></Dial>`,

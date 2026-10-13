@@ -360,7 +360,7 @@ describe('calling a customer through your own cell', () => {
     const dial = await post(`${V}/bridge-gate?callId=${out.callId}`, { ...base, Digits: '1' });
     expect(dial.body).toContain('>Calling Mike Johnson.</Say>');
     expect(dial.body).toContain(
-      `<Dial callerId="${businessNumber}" answerOnBridge="true" timeout="30" action="${TEST_PUBLIC_URL}${V}/bridge-result?callId=${out.callId}" method="POST" record="record-from-answer-dual" recordingStatusCallback="${TEST_PUBLIC_URL}${V}/recording" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed absent"><Number statusCallback="${TEST_PUBLIC_URL}${V}/leg-status" statusCallbackEvent="ringing answered completed" statusCallbackMethod="POST">${MIKE}</Number></Dial>`,
+      `<Dial callerId="${businessNumber}" answerOnBridge="true" timeout="30" action="${TEST_PUBLIC_URL}${V}/bridge-result?callId=${out.callId}" method="POST" record="record-from-answer-dual" recordingStatusCallback="${TEST_PUBLIC_URL}${V}/recording" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed absent"><Number statusCallback="${TEST_PUBLIC_URL}${V}/leg-status" statusCallbackEvent="ringing answered completed" statusCallbackMethod="POST" url="${TEST_PUBLIC_URL}${V}/notice" method="POST">${MIKE}</Number></Dial>`,
     );
     expect(await callRow(out.callId)).toMatchObject({
       answeredByUserId: dale.id,

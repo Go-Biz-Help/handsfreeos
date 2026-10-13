@@ -911,6 +911,8 @@ export interface PhoneRouting {
   readonly voicemailGreeting: string | null;
   /** Milestone 10: what forwarding phones show when a customer calls (missing: the customer's number). */
   readonly forwardedCallerId?: 'customer' | 'business';
+  /** Whether customers hear "This call may be recorded." (missing: they do). Answered calls are always recorded. */
+  readonly announceRecording?: boolean;
 }
 /** A stored copy of an MMS photo, a recording or an email attachment in the `telephony` bucket. */
 export interface MediaRef {
