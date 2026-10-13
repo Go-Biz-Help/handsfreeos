@@ -211,6 +211,23 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   what they said) until the person comments on the post after it; and someone not a friend yet goes first for **Like
   a post first** ("Like one of theirs back") and then a friend request, ahead of anyone from the groups, whatever
   the playbooks say.
+- **Only certain countries, or not them** (decision 60, `countries.ts`, `ops/countries.ts`, the worker's
+  `countries.ts`, the web's `business-settings.tsx`, `country-picker.tsx` and `country-skipped.tsx`): Social
+  Outreach → Settings → Business settings has **Which countries to reach**: **Anywhere** (to start), **Only these
+  countries** or **Not these countries**, with the countries picked by name (ISO two-letter codes underneath, kept in
+  the add-on's settings as `countries`). Each person kept as a profile has a country: the one a line on their profile
+  shows ("Lives in Austin, Texas", then "From Lagos, Nigeria"; `countryFromLines`), **seen**; or, when none does,
+  the AI's guess from their name, posts and groups, **guessed**; or **couldn't tell**. A check of someone (decision 46) reads it with the rest, its lines first (`outreach.check.save`); everyone else found, in a group, asking to be
+  friends, writing a post or engaging, is worked out by the worker's `outreach.guess_countries`, armed when a group's
+  people or friend requests are saved and when the settings are, and only while the setting skips anyone: the lines
+  under their name first, then the AI, 25 to a question, up to 200 a run (`outreach.countries.save`). A guess never
+  replaces a country seen. While the setting skips anyone, Today leaves them out of everything new: Confirm their
+  request, Like a post first, friend requests, Say hi, Pitch, follow-ups, Reconnect, comments and warm leads (a reply
+  owed still shows); so does the extension, which works from Today's list; the Friends tab's good fits leave them out,
+  and so do the Groups tab's people left to reach (`countryLetsSql` in `ops/common.ts`, the one copy of
+  `countryLets`). The Friends tab's **Skipped for country** (`outreach.countries.skipped`) lists them, the latest
+  worked out first, with their country and seen or guessed, and **Unskip** (`outreach.country.unskip`) lets one
+  through from then on whatever the setting says.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
   warn them that day, **Draft a message** or **Draft a comment** on Today asks it (a `lookup` ask): it opens the
   person's profile in a window of its own, reads their intro and latest two posts, follows the link in their lines to
@@ -830,6 +847,14 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
 
     Built.
 
+60. **Only certain countries, or not them.** A business can reach anyone (to start), only people in the countries
+    it picks, or everyone but them. Where someone lives is what their profile shows; when it shows none, the AI
+    guesses from their name, posts and groups (the owner's decision), and both are kept, with whether it was seen or
+    guessed. Everyone the setting skips is on a list with their country, and **Unskip** lets that person through from
+    then on, whatever the setting says. Built: the setting, the countries from checks and the worker's guesses, the
+    filter on Today, the good fits and people left to reach, and the Skipped for country list on the Friends tab.
+    Not yet on the phone's Business settings, which keeps the setting as saved.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -896,6 +921,11 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
   saved (`outreachSettings`), and every screen that saves some of the business's settings sends what's kept as it
   reads it (`settingsToSave`), so such a link goes with the next save rather than refusing it. The web's box and the
   phone's check a link as the save does before sending it (`extensionLinkProblem`). Members read it through `outreach.setup`, since `addon.settings` is the managers'.
+- **The country setting skips, it never deletes** (decision 60). Anyone it skips stays kept, on the Skipped for
+  country list. Someone whose country isn't known, yet or at all, is let through: nothing says they're outside. A
+  reply owed is never skipped. Unskip is the business's, per profile (`country_through` in `addon_outreach.profiles`,
+  with who and when), and holds whatever the setting becomes. Every place that picks people for outreach filters
+  with `countryLetsSql`; a new one does too.
 - **Noting a step adds nobody to Contacts.** Someone reached is kept as a profile with no customer, and the group
   they were first found in, until the person saves them; saving keeps their steps. A friend request marks the profile
   "request sent".

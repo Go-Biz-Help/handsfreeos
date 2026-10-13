@@ -6037,6 +6037,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.country.unskip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let someone the business’s country setting skips be reached from now on, whatever the setting says (Unskip); or put them back under the setting.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.country.unskipped.
+         */
+        post: operations["command_outreach_country_unskip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.day.start": {
         parameters: {
             query?: never;
@@ -16411,6 +16431,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.countries.skipped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everyone the business’s country setting skips: not reached, not suggested on Today, not sent friend requests or messages, and not in the good fits; with their country and whether it was seen on their profile or guessed.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_countries_skipped"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33442,6 +33482,41 @@ export interface operations {
                         /** Format: uuid */
                         computerId: string;
                         name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_country_unskip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** @default true */
+                    through?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        through: boolean;
                     };
                 };
             };
@@ -61479,6 +61554,57 @@ export interface operations {
                         }[];
                         perDay: number;
                         today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_countries_skipped: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 1 */
+                    page?: number;
+                    search?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        page: number;
+                        pages: number;
+                        people: {
+                            at: string | null;
+                            country: string;
+                            countryName: string;
+                            /** @enum {string} */
+                            how: "seen" | "guessed" | "unknown";
+                            name: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            url: string;
+                        }[];
+                        rule: {
+                            codes: string[];
+                            /** @enum {string} */
+                            mode: "anywhere" | "only" | "not";
+                        };
+                        total: number;
+                        unskipped: number;
                     };
                 };
             };

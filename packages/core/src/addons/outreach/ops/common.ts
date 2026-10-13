@@ -17,6 +17,8 @@ import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { addonTimelineLine } from '../../server';
+import { outreachSettings } from '../chat-read';
+import { countryRuleOn, type CountryRule } from '../countries';
 import type { DontPitch } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
@@ -75,6 +77,30 @@ export const pitchable = (p: string) =>
 export const inPlay = (me: string, p: string) => sql`not exists (
   select 1 from addon_outreach.stages st
   where st.profile_id = ${sql.raw(p)}.id and st.user_id = ${me} and st.mark = 'lost')`;
+
+/** The business's country setting (decision 60), as it's read: Anywhere when it isn't set. */
+export async function countryRuleOf(ctx: Ctx): Promise<CountryRule> {
+  const [installed] = await rows<{ settings: unknown }>(
+    ctx.tx,
+    sql`select settings from app.addon_installations
+        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
+  );
+  return outreachSettings(installed?.settings).countries;
+}
+
+/**
+ * A profile the business's country setting lets be reached (decision 60, `countryLets` in ../countries.ts, the one
+ * copy of the rule): let through with Unskip, its country not known, or in (or not in) the countries picked. `p` is
+ * its alias, any row with `country` and `country_through`.
+ */
+export function countryLetsSql(rule: CountryRule, p: string) {
+  if (!countryRuleOn(rule)) return sql`true`;
+  const a = sql.raw(p);
+  const codes = `{${rule.codes.join(',')}}`;
+  return rule.mode === 'only'
+    ? sql`(${a}.country_through or ${a}.country is null or ${a}.country = any (${codes}::text[]))`
+    : sql`(${a}.country_through or ${a}.country is null or not (${a}.country = any (${codes}::text[])))`;
+}
 
 export const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,

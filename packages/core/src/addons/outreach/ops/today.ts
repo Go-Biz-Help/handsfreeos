@@ -37,7 +37,16 @@ import { WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
-import { chatKey, inPlay, inWorkspace, pitchable, recentOf, type Ctx } from './common';
+import {
+  chatKey,
+  countryLetsSql,
+  countryRuleOf,
+  inPlay,
+  inWorkspace,
+  pitchable,
+  recentOf,
+  type Ctx,
+} from './common';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
@@ -112,6 +121,8 @@ export async function requestsToConfirm(
   playbooks: readonly FitPlaybook[],
 ): Promise<{ readonly p: RequestGot; readonly fit: Fit }[]> {
   if (!playbooks.length) return [];
+  // The business's country setting skips some (decision 60): they're on the Skipped for country list instead.
+  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
   const asked = await rows<RequestGot>(
     ctx.tx,
     sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
@@ -119,7 +130,7 @@ export async function requestsToConfirm(
         join addon_outreach.profiles p on p.id = f.profile_id
         left join addon_outreach.groups g on g.id = p.group_id
         where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-          and f.state = 'request_received' and ${pitchable('p')} and ${inPlay(me, 'p')}
+          and f.state = 'request_received' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
         order by f.since desc limit ${CANDIDATES_MOST}`,
   );
   return asked
@@ -156,6 +167,8 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
+    // Who the business's country setting lets be reached (decision 60): everything new on the list but a reply owed.
+    const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
     const pace = {
       messageAfterDays: Math.min(
         ...playbooks.map((p) => p.details.pace.messageAfterDays),
@@ -247,7 +260,7 @@ export const today = defineAddonQuery(outreachAddon, {
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
           where e.workspace_id = ${ws} and e.user_id = ${me}
             and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz
-            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')}
+            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
             and not exists (select 1 from addon_outreach.group_people x
               where x.profile_id = p.id and x.runs_group)
           order by e.profile_id, e.kind, e.seen_at desc`,
@@ -353,7 +366,7 @@ export const today = defineAddonQuery(outreachAddon, {
             join addon_outreach.groups g on g.id = gp.group_id
             join addon_outreach.profiles p on p.id = gp.profile_id
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
-              and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
+              and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
@@ -469,7 +482,7 @@ export const today = defineAddonQuery(outreachAddon, {
             where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
               and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
                 and ${ago(pace.messageAfterDays)}::timestamptz
-              and ${pitchable('p')} and ${inPlay(me, 'p')}
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
                 and t.user_id = ${me} and t.kind = 'friend_request')
               and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
@@ -516,7 +529,7 @@ export const today = defineAddonQuery(outreachAddon, {
               from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}
               order by c.last_at desc limit 1
             ) c on true
-            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
+            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')} and ${lets}
               and (c.pitch = 'ready' or s.mark = 'ready')
               and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
               and not exists (select 1 from addon_outreach.demos d
@@ -562,7 +575,8 @@ export const today = defineAddonQuery(outreachAddon, {
             c.next_step
           from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
           where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
-            and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}))
+            and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}
+              and (not c.last_from_me or ${lets})))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.followUpAfterDays)}::timestamptz)
               or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz))
@@ -664,7 +678,7 @@ export const today = defineAddonQuery(outreachAddon, {
               where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
             ) c on true
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good'
-              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')}
+              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and (c.last_at is null or c.last_at < ${quiet}::timestamptz)
               and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
                 and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)
@@ -717,7 +731,7 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
             where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
               and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
-              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')}
+              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t

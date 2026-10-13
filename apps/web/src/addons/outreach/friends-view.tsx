@@ -46,6 +46,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk } from './asks';
+import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
 import { PersonMenu } from './person-menu';
@@ -342,6 +343,7 @@ export function FriendsView({
             </Card>
           )}
           <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
+          <SkippedCountryCard workspaceId={workspaceId} />
         </div>
         <aside className="space-y-4">
           <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} />
