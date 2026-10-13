@@ -57,7 +57,7 @@ export function StatusStrip({ workspaceId, live }: { workspaceId: string; live: 
   const sendingOff = live.sending === 'off';
   const started = live.day.state === 'started';
   const stopped = live.day.state === 'stopped';
-  const said = dayWords(live.day, tz);
+  const said = dayWords(live.day, tz, live.lists);
   const line =
     computer && live.status?.line && !offline && state !== 'signed_out' ? live.status.line : null;
   const next =

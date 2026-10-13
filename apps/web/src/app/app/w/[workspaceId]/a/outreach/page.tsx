@@ -162,10 +162,12 @@ export default async function OutreachPage({
           .then(unwrapPage);
       // Everyone in play is a board: each column's first page, asked one stage at a time.
       const onBoard = shown.stages === 'all' && !shown.search && shown.page === 1;
-      const [got, pipeline, columns] = await Promise.all([
+      const [got, pipeline, columns, asks] = await Promise.all([
         workspace,
         stageOf(shown.stages),
         onBoard ? Promise.all(BOARD_STAGES.map((stage) => stageOf(stage))) : null,
+        // Research on the rows: left out (the buttons wait) when it can't be had.
+        asksOf('pipeline').catch(() => null),
       ]);
       const board = columns
         ? (Object.fromEntries(BOARD_STAGES.map((stage, i) => [stage, columns[i]!])) as Board)
@@ -176,7 +178,14 @@ export default async function OutreachPage({
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
           canManage={got.workspace.permissions.includes('outreach.manage')}
-          shown={{ view: 'pipeline', pipeline, board, show: shown.stages, search: shown.search }}
+          shown={{
+            view: 'pipeline',
+            pipeline,
+            board,
+            show: shown.stages,
+            search: shown.search,
+            asks,
+          }}
         />
       );
     }

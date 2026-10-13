@@ -45,7 +45,7 @@ import { linesOf, pageHeading, POSTS_READ } from '../facebook/lookup';
 import type { FetchStep } from '../facebook/fetch';
 import { FRIENDSHIP_WORDS } from '../facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../facebook/types';
-import type { Hfos, Job, JobEnd } from '../jobs/job';
+import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { sameName } from '../facebook/people';
 import { FACEBOOK, profileFromUrl } from '../facebook/urls';
 import type {
@@ -77,6 +77,7 @@ import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork, watchPosts } from '../jobs/posts';
 import { postHelpful } from '../jobs/helpful';
 import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
+import { beforeDay, beforeDayDoing, beforeDayLine, doBeforeDay, type BeforeDay } from './lists';
 import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
@@ -667,6 +668,35 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
   return end;
 }
 
+/**
+ * Does what's due before the day (./lists.ts) and keeps how it went: a refresh that went wrong isn't tried again
+ * today. The morning's friend requests, and the first check of friends, stand for today's once-a-day ones.
+ */
+async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd> {
+  await say(beforeDayDoing(step), { working: true });
+  let end: JobEnd;
+  try {
+    end = await doBeforeDay(step, jobFor(businessId));
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = {
+      line: error instanceof Error ? error.message : String(error),
+      warned: false,
+      failed: true,
+    };
+  } finally {
+    await setState({ working: false, tabId: tab.tabId });
+  }
+  const state = await stateNow();
+  const key = step.do === 'save' ? step.list : step.do;
+  const stands =
+    !end.failed && (key === 'requests' || key === 'checks')
+      ? { daily: { ...state.daily, [key]: end.line } }
+      : {};
+  await setState({ before: { ...state.before, [key]: end.line }, ...stands });
+  return end;
+}
+
 /** The look at the newest posts in the best groups (decision 49), and when the next is. */
 async function watch(businessId: string): Promise<JobEnd> {
   await say('Looking at the newest posts in your groups…', { working: true });
@@ -776,6 +806,38 @@ async function go(): Promise<void> {
   if (askInLine()) {
     await say(ASK_FIRST_WORDS);
     return goAt(at + ASK_FIRST_MS);
+  }
+
+  // Before the day, the person's own lists (./lists.ts): the first time, nothing else runs till they're saved; then
+  // the requests each morning and the friends list weekly; and after the first full save, Tidy up and one check.
+  const lists = valueOf(await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId }));
+  const before = beforeDay(lists, state.before ?? {}, at, timezone);
+  if (before) {
+    const end = await inTurn('runner', () => beforeTheDay(before, to.businessId));
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    const line = beforeDayLine(before, end);
+    void feed('job', line);
+    if (before.do === 'save' && before.first && end.failed) {
+      // The first time, the day waits for the lists: it tries again in a few minutes.
+      await closeWindow();
+      await say(
+        `${line} Your day starts once your friends list and friend requests are saved, so it tries again in a few minutes.`,
+        { needs: true },
+      );
+      return goAt(Date.now() + AGAIN_MS);
+    }
+    await say(line);
+    if ((await stateNow()).stopped) {
+      await closeWindow();
+      return goAt(tomorrow());
+    }
+    return goAt(
+      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+    );
   }
 
   const daily = settings.collect ? nextDaily(state) : null;

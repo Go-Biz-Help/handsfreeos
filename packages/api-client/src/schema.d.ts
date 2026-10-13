@@ -5847,8 +5847,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, or look someone up before drafting. The computer that works for them takes it. Asking again while one like it is open answers that one.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made.
+         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made, outreach.ask.ended.
          */
         post: operations["command_outreach_ask_make"];
         delete?: never;
@@ -6051,6 +6051,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.computer.renamed.
          */
         post: operations["command_outreach_computer_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.country.unskip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let someone the business’s country setting skips be reached from now on, whatever the setting says (Unskip); or put them back under the setting.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.country.unskipped.
+         */
+        post: operations["command_outreach_country_unskip"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6391,6 +6411,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.join.noted.
          */
         post: operations["command_outreach_join_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.lists.saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent), worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all three lists are saved.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.lists.saved.
+         */
+        post: operations["command_outreach_lists_saved"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16457,6 +16497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.countries.skipped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everyone the business’s country setting skips: not reached, not suggested on Today, not sent friend requests or messages, and not in the good fits; with their country and whether it was seen on their profile or guessed.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_countries_skipped"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.friends": {
         parameters: {
             query?: never;
@@ -16591,6 +16651,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * When the person’s own friends list, the friend requests they’ve got and the ones they’ve sent were last saved to their end, and when the first Tidy up and good-fits check after that were done.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_lists"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32648,7 +32728,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32663,6 +32743,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -32704,6 +32786,8 @@ export interface operations {
                             playbookId: string;
                             text: string;
                         } | null;
+                        /** @default false */
+                        queued?: boolean;
                         /** @default false */
                         simple?: boolean;
                     } | null;
@@ -32812,6 +32896,11 @@ export interface operations {
                         };
                         /** @enum {string} */
                         kind: "lookup";
+                    } | {
+                        /** @enum {string} */
+                        kind: "research";
+                        /** Format: uuid */
+                        profileId: string;
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -32835,7 +32924,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32850,6 +32939,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -32937,7 +33028,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32952,6 +33043,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -33001,7 +33094,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -33085,6 +33178,12 @@ export interface operations {
                                 kind: "lookup";
                                 name: string;
                                 profileUrl: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "research";
+                                name: string;
+                                /** Format: uuid */
+                                profileId: string;
                             };
                         } | null;
                         waiting: number;
@@ -33511,6 +33610,41 @@ export interface operations {
                         /** Format: uuid */
                         computerId: string;
                         name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_country_unskip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** @default true */
+                    through?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        through: boolean;
                     };
                 };
             };
@@ -34308,6 +34442,41 @@ export interface operations {
                         groupId: string;
                         /** @enum {string} */
                         state: "asked" | "pending" | "joined" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_lists_saved: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    list: "friends" | "requests" | "sent" | "tidy" | "checks";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checksAt: string | null;
+                        friendsAt: string | null;
+                        requestsAt: string | null;
+                        sentAt: string | null;
+                        tidyAt: string | null;
                     };
                 };
             };
@@ -61258,7 +61427,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -61281,7 +61450,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -61296,6 +61465,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -61561,6 +61732,8 @@ export interface operations {
                     /** @default 40 */
                     most?: number;
                     /** Format: uuid */
+                    profileId?: string;
+                    /** Format: uuid */
                     workspaceId: string;
                 };
             };
@@ -61578,11 +61751,62 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "prospect" | "chat" | "chat_only" | "group" | "friend";
+                            reason: "asked" | "prospect" | "chat" | "chat_only" | "group" | "friend";
                             url: string;
                         }[];
                         perDay: number;
                         today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_countries_skipped: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 1 */
+                    page?: number;
+                    search?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        page: number;
+                        pages: number;
+                        people: {
+                            at: string | null;
+                            country: string;
+                            countryName: string;
+                            /** @enum {string} */
+                            how: "seen" | "guessed" | "unknown";
+                            name: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            url: string;
+                        }[];
+                        rule: {
+                            codes: string[];
+                            /** @enum {string} */
+                            mode: "anywhere" | "only" | "not";
+                        };
+                        total: number;
+                        unskipped: number;
                     };
                 };
             };
@@ -62071,6 +62295,39 @@ export interface operations {
             };
         };
     };
+    query_outreach_lists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checksAt: string | null;
+                        friendsAt: string | null;
+                        requestsAt: string | null;
+                        sentAt: string | null;
+                        tidyAt: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_live: {
         parameters: {
             query?: never;
@@ -62148,6 +62405,13 @@ export interface operations {
                                 done: number;
                                 most: number;
                             };
+                        };
+                        lists?: {
+                            checksAt: string | null;
+                            friendsAt: string | null;
+                            requestsAt: string | null;
+                            sentAt: string | null;
+                            tidyAt: string | null;
                         };
                         /** Format: date-time */
                         now: string;
@@ -62709,6 +62973,12 @@ export interface operations {
                         page: number;
                         pages: number;
                         people: {
+                            check: {
+                                playbookName: string | null;
+                                /** @enum {string} */
+                                verdict: "waiting" | "good" | "maybe" | "not" | "failed";
+                                why: string[];
+                            } | null;
                             demoBooked: boolean;
                             lastAt: string | null;
                             marked: boolean;
@@ -62889,7 +63159,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                                 line: string | null;
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
@@ -62904,6 +63174,8 @@ export interface operations {
                                         playbookId: string;
                                         text: string;
                                     } | null;
+                                    /** @default false */
+                                    queued: boolean;
                                     /** @default false */
                                     simple: boolean;
                                 } | null;

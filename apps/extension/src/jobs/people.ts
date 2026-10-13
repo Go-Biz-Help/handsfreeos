@@ -2,11 +2,14 @@
  * The jobs that save people (docs/outreach.md, decisions 32 and 43), once a day on their own or when the person asks
  * from HandsFreeOS: **checking friend requests** saves the requests they've got, which Today confirms the ones that
  * fit from (decision 30); **saving group members** saves each good group's admins and moderators, then its members,
- * which Today suggests friend requests from (decision 8). Asked for only: **saving the friends list**, to its end,
- * which Tidy up your friends and the Friends tab work from. It loads each list a screen at a time, and saves what
- * loaded. Nothing is pressed on Facebook.
+ * which Today suggests friend requests from (decision 8). **Saving the friends list**, to its end, which Tidy up your
+ * friends and the Friends tab work from; and **saving the requests you've sent**, after View sent requests. Before the
+ * person's day, the runner saves all three to their end the first time, then the requests each morning and the
+ * friends list weekly (../auto/lists.ts). It loads each list a screen at a time, and saves what loaded. Nothing is
+ * pressed on Facebook but View sent requests.
  */
 import type { Person, ReadResult } from '../facebook/types';
+import type { FetchStep } from '../facebook/fetch';
 import { listBeside } from '../facebook/friends';
 import { profileKey } from '../facebook/urls';
 import { friendsSave, groupSave, isAdminsPage, listOnPage } from '../hfos/saves';
@@ -61,13 +64,30 @@ async function gather(
 
 const ended = (got: object): got is JobEnd => 'warned' in got;
 
-/** Opens the person's friend requests and saves the ones they've got. */
-export async function checkRequests(job: Job): Promise<JobEnd> {
+/** One of the person's lists of people, saved: how many were new. */
+async function saveList(
+  job: Job,
+  people: readonly Person[],
+  list: 'friends' | 'requests' | 'sent',
+): Promise<{ added: number } | JobEnd> {
+  const built = friendsSave(people, list, job.businessId);
+  if (!built.ok) return { line: built.why, warned: false, failed: true };
+  let added = 0;
+  for (const input of built.input)
+    added += valueOf(await job.hfos({ type: 'hfos-save-friends', input })).added;
+  return { added };
+}
+
+/**
+ * Opens the person's friend requests and saves the ones they've got: a few screens once a day, or, before their day
+ * (../auto/lists.ts), to the end of the list (`scrolls`). `whole` says it got to the end.
+ */
+export async function checkRequests(job: Job, scrolls = REQUEST_SCROLLS): Promise<JobEnd> {
   job.progress('Opening your friend requests…');
   await job.tab.open(FRIEND_REQUESTS);
   const got = await gather(
     job,
-    REQUEST_SCROLLS,
+    scrolls,
     (page) => {
       const mine = listOnPage(page);
       return mine?.list === 'requests' ? mine.people : [];
@@ -75,15 +95,69 @@ export async function checkRequests(job: Job): Promise<JobEnd> {
     (count) => `Reading your friend requests… ${counted(count, 'request')} so far.`,
   );
   if (ended(got)) return got;
-  if (!got.people.length) return { line: 'No friend requests waiting.', warned: false };
-  const built = friendsSave(got.people, 'requests', job.businessId);
-  if (!built.ok) return { line: built.why, warned: false, failed: true };
-  let added = 0;
-  for (const input of built.input)
-    added += valueOf(await job.hfos({ type: 'hfos-save-friends', input })).added;
+  const whole = got.whole && !job.stopped();
+  if (!got.people.length) return { line: 'No friend requests waiting.', warned: false, whole };
+  const saved = await saveList(job, got.people, 'requests');
+  if (ended(saved)) return saved;
   return {
-    line: `Saved ${counted(got.people.length, 'friend request')}${added ? `, ${added.toLocaleString()} new` : ''}.`,
+    line: `Saved ${counted(got.people.length, 'friend request')}${saved.added ? `, ${saved.added.toLocaleString()} new` : ''}.`,
     warned: false,
+    whole,
+  };
+}
+
+/** View sent requests on the friend requests page: the words it may go by. */
+export const VIEW_SENT: FetchStep = {
+  action: 'press',
+  words: ['View sent requests', 'Sent requests'],
+  says: 'Press “View sent requests”.',
+};
+/** How long it looks for View sent requests, and lets the list it opens draw. */
+const VIEW_SENT_WAIT_MS = 8_000;
+const VIEW_SENT_SETTLE_MS = 2_000;
+
+/**
+ * Opens the person's friend requests, presses View sent requests, and saves the requests they've sent, to the end of
+ * the list. That press is all it does on Facebook: it never cancels one (tidying does, once the person ticks it).
+ */
+export async function checkSent(job: Job, scrolls = FRIENDS_SCROLLS): Promise<JobEnd> {
+  job.progress('Opening the friend requests you’ve sent…');
+  await job.tab.open(FRIEND_REQUESTS);
+  const first = await readIn(job.tab);
+  const warned = await warnedOn(job, first);
+  if (warned) return warned;
+  const pressed = await job.tab.ask({
+    type: 'hfos-fetch-step',
+    step: VIEW_SENT,
+    waitMs: VIEW_SENT_WAIT_MS,
+    lists: true,
+  });
+  if (!pressed.ok) return { line: pressed.error, warned: false, failed: true };
+  if (pressed.result !== 'done' && pressed.result !== 'already')
+    return {
+      line: 'Couldn’t find View sent requests on your friend requests page. Check you’re signed in to Facebook in this browser; it tries again in a few minutes.',
+      warned: false,
+      failed: true,
+    };
+  await pause(VIEW_SENT_SETTLE_MS);
+  const got = await gather(
+    job,
+    scrolls,
+    (page) => {
+      const mine = listOnPage(page);
+      return mine?.list === 'sent' ? mine.people : [];
+    },
+    (count) => `Reading the friend requests you’ve sent… ${counted(count, 'request')} so far.`,
+  );
+  if (ended(got)) return got;
+  const whole = got.whole && !job.stopped();
+  if (!got.people.length) return { line: 'No sent requests waiting.', warned: false, whole };
+  const saved = await saveList(job, got.people, 'sent');
+  if (ended(saved)) return saved;
+  return {
+    line: `Saved ${counted(got.people.length, 'sent request')}${saved.added ? `, ${saved.added.toLocaleString()} new` : ''}.`,
+    warned: false,
+    whole,
   };
 }
 
@@ -112,15 +186,14 @@ export async function saveFriends(job: Job): Promise<JobEnd> {
       warned: false,
       failed: true,
     };
-  const built = friendsSave(got.people, 'friends', job.businessId);
-  if (!built.ok) return { line: built.why, warned: false, failed: true };
-  let added = 0;
-  for (const input of built.input)
-    added += valueOf(await job.hfos({ type: 'hfos-save-friends', input })).added;
-  const tail = got.whole ? '' : ' It stopped before the end of the list: ask again for the rest.';
+  const saved = await saveList(job, got.people, 'friends');
+  if (ended(saved)) return saved;
+  const whole = got.whole && !job.stopped();
+  const tail = whole ? '' : ' It stopped before the end of the list: ask again for the rest.';
   return {
-    line: `Saved ${counted(got.people.length, 'friend')}${added ? `, ${added.toLocaleString()} new` : ''}.${tail}`,
+    line: `Saved ${counted(got.people.length, 'friend')}${saved.added ? `, ${saved.added.toLocaleString()} new` : ''}.${tail}`,
     warned: false,
+    whole,
   };
 }
 

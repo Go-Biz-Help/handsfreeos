@@ -78,6 +78,7 @@ describe('the AI’s check', () => {
       why: ['Owns a plumbing business', `${'x'.repeat(159)}…`, 'four'],
       about: 'Owns Reyes Plumbing',
       nextStep: null,
+      country: null,
     });
     // Not a fit names no playbook; one that isn't the business's is none, unless it has only one.
     expect(
@@ -399,10 +400,15 @@ describe('checking friends and chats', () => {
     expect(await names()).toEqual(['Blake Cho', 'Casey Moreno', 'Ellis Ford']);
     const after = await runAs(owner, ws, 'outreach.friends', { view: 'fits' });
     expect(after.checks.again).toBe(3);
-    expect(
-      after.people.find((p: { profileId: string }) => p.profileId === avery).check,
-    ).toMatchObject({ about: 'Owns Lane Plumbing in Austin' });
-    expect((await kept(looked.checkId)).verdict).toBe('waiting');
+    const [read] = await rows<{ verdict: string; about: string | null; again: boolean }>(
+      admin(),
+      sql`select verdict, about, again from addon_outreach.checks where id = ${looked.checkId}`,
+    );
+    expect(read).toEqual({
+      verdict: 'waiting',
+      about: 'Owns Lane Plumbing in Austin',
+      again: false,
+    });
   });
 
   it('keeps each person’s own: a teammate sees none of them', async () => {

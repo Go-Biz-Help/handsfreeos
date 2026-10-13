@@ -4,7 +4,7 @@
  * goes in Contacts. The Friends tab lists them (./friends.ts), and Today has the good fits to reconnect with
  * (./today.ts).
  */
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
@@ -26,6 +26,8 @@ import {
   type ChecksSummary,
   type CheckVerdict,
 } from '../checks';
+import { ASK_KEEP_DAYS } from '../asks';
+import { checkedCountry, countryFromLines } from '../countries';
 import { limitNow } from '../limits';
 import { outreachAddon } from '../manifest';
 import { checks, profiles } from '../tables';
@@ -44,7 +46,7 @@ const knownToMe = (me: string) => sql`p.friendship <> 'self' and ${pitchable('p'
   or exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}))`;
 
 /** How many a day the person's computer checks now: halved for a week after a warning from Facebook. */
-async function perDayFor(ctx: Ctx, me: string, now: number) {
+export async function perDayFor(ctx: Ctx, me: string, now: number) {
   const todayStart = await startOfToday(ctx, now);
   const warning = await warningOf(ctx, me, todayStart, now);
   const [done] = await rows<{ n: number }>(
@@ -112,11 +114,21 @@ export const checksNext = defineAddonQuery(outreachAddon, {
     const room = Math.max(0, Math.min(input.most, perDay - today));
     if (!room) return { people: [], today, perDay };
     const ago = (days: number) => new Date(now - days * DAY).toISOString();
+    // Pressed Research (decision 46a) since they were last read: they go first, whoever they are to the person.
+    const asked = sql`exists (select 1 from addon_outreach.asks a
+      where a.workspace_id = p.workspace_id and a.user_id = ${me} and a.kind = 'research'
+        and a.target = 'profile:' || p.id::text and a.state <> 'cancelled'
+        and a.asked_at > ${ago(ASK_KEEP_DAYS)}::timestamptz
+        and (ch.id is null or a.asked_at > ch.looked_at))`;
+    const who = input.profileId
+      ? sql`p.id = ${input.profileId} and p.friendship <> 'self' and ${pitchable('p')}`
+      : sql`(${knownToMe(me)} or (p.friendship <> 'self' and ${pitchable('p')} and ${asked}))`;
     const found = await rows<{ id: string; name: string; url: string; reason: CheckReason }>(
       ctx.tx,
       sql`select x.id, x.name, x.url, x.reason from (
             select p.id, p.name, p.url, p.mutual_friends, p.updated_at,
               case
+                when ${asked} then 'asked'
                 when f.id is not null and c.prospect then 'prospect'
                 when f.id is not null and c.id is not null then 'chat'
                 when c.id is not null then 'chat_only'
@@ -132,15 +144,16 @@ export const checksNext = defineAddonQuery(outreachAddon, {
               order by c.prospect desc nulls last, c.last_at desc limit 1
             ) c on true
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
-            where p.workspace_id = ${ws} and ${knownToMe(me)}
+            where p.workspace_id = ${ws} and ${who}
               and p.url like 'https://www.facebook.com/%'
               and (ch.id is null
                 or (ch.again and ch.verdict <> 'waiting')
+                or (ch.verdict = 'failed' and ${asked})
                 or (ch.verdict in ('good', 'maybe', 'not')
                   and ch.checked_at < ${ago(CHECK_AGAIN_DAYS)}::timestamptz)
                 or (ch.verdict = 'failed' and ch.looked_at < ${ago(CHECK_RETRY_DAYS)}::timestamptz))
           ) x
-          order by array_position(array['prospect', 'chat', 'chat_only', 'group', 'friend'], x.reason),
+          order by array_position(array['asked', 'prospect', 'chat', 'chat_only', 'group', 'friend'], x.reason),
             x.mutual_friends desc nulls last, x.updated_at desc, x.id
           limit ${room}`,
     );
@@ -238,6 +251,31 @@ export const checkSave = defineAddonCommand(outreachAddon, {
       return { saved: false, verdict: check.verdict };
     const a = input.answer;
     const verdict: CheckVerdict = a ? a.fit : 'failed';
+    // Where they live (decision 61): what their pages' lines show, seen, over the AI's word; a guess never replaces a
+    // country seen before.
+    const lined = countryFromLines(check.lines);
+    const said = checkedCountry(a?.country?.code);
+    const country = lined
+      ? { code: lined, how: 'seen' as const }
+      : said
+        ? {
+            code: said,
+            how: a!.country!.seen && check.lines.length ? ('seen' as const) : ('guessed' as const),
+          }
+        : null;
+    if (country)
+      await ctx.tx
+        .update(profiles)
+        .set({ country: country.code, countryHow: country.how, countryAt: at })
+        .where(
+          and(
+            eq(profiles.workspaceId, ws),
+            eq(profiles.id, check.profileId),
+            ...(country.how === 'guessed'
+              ? [or(isNull(profiles.countryHow), ne(profiles.countryHow, 'seen'))]
+              : []),
+          ),
+        );
     await ctx.tx
       .update(checks)
       .set({

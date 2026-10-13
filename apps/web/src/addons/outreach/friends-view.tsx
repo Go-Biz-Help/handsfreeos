@@ -43,14 +43,16 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
-import { apiBrowser, unwrap } from '@/lib/api/client';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAsk } from './asks';
+import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
 import { PersonMenu } from './person-menu';
+import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
 import { useAct } from './use-act';
 
@@ -167,7 +169,10 @@ function dontPitchWords(d: DontPitch): string {
   return `Tagged ${DONT_PITCH_TAG} in Contacts. Take the tag off there to pitch them.`;
 }
 
-function doneWords(name: string, change: { keep?: boolean; dontPitch?: boolean }): string {
+/** Keep or Don't pitch as switched on a row. */
+type Flip = { keep?: boolean; dontPitch?: boolean };
+
+function doneWords(name: string, change: Flip): string {
   if (change.dontPitch === true) return `${name} is on the Don’t pitch list.`;
   if (change.dontPitch === false) return `${name} is off the Don’t pitch list.`;
   return change.keep ? `You’ll keep ${name}.` : `${name} is off your Keep list.`;
@@ -226,18 +231,53 @@ export function FriendsView({
     const top = list.current;
     if (top && top.getBoundingClientRect().top < 0) top.scrollIntoView({ block: 'start' });
   }, [friends.page]);
-  const { busy, act } = useAct();
-  const set = (f: Friend, change: { keep?: boolean; dontPitch?: boolean }) =>
-    act(
-      `set:${f.profileId}`,
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/outreach.friend.set', {
-            body: { workspaceId, profileId: f.profileId, ...change },
-          }),
-        ),
-      doneWords(f.name, change),
-    );
+  // Keep and Don't pitch flip at once, as the pipeline board moves a card: the command goes in the background and
+  // a refusal flips the switch back with why. What's still waiting on the server stays flipped through a refresh;
+  // what has landed gives way to what the list says, once it's reloaded.
+  const [flipped, setFlipped] = useState<Record<string, Flip>>({});
+  const waiting = useRef(new Map<string, number>());
+  useEffect(() => {
+    setFlipped((all) => {
+      const kept: Record<string, Flip> = {};
+      for (const [id, flip] of Object.entries(all)) {
+        const still: Flip = {};
+        if (flip.keep !== undefined && waiting.current.get(`${id}:keep`)) still.keep = flip.keep;
+        if (flip.dontPitch !== undefined && waiting.current.get(`${id}:dontPitch`))
+          still.dontPitch = flip.dontPitch;
+        if (still.keep !== undefined || still.dontPitch !== undefined) kept[id] = still;
+      }
+      return kept;
+    });
+  }, [friends]);
+  const set = async (f: Friend, change: Flip) => {
+    const id = f.profileId;
+    const keys = Object.keys(change).map((k) => `${id}:${k}`);
+    const was = flipped[id];
+    for (const k of keys) waiting.current.set(k, (waiting.current.get(k) ?? 0) + 1);
+    setFlipped((all) => ({ ...all, [id]: { ...all[id], ...change } }));
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.friend.set', {
+          body: { workspaceId, profileId: id, ...change },
+        }),
+      );
+      toast.success(doneWords(f.name, change));
+    } catch (e) {
+      // Back to what it showed before this click.
+      setFlipped((all) => {
+        const back: Flip = { ...all[id] };
+        for (const k of Object.keys(change) as (keyof Flip)[]) {
+          if (was?.[k] !== undefined) back[k] = was[k];
+          else delete back[k];
+        }
+        return { ...all, [id]: back };
+      });
+      toast.error(errorMessage(e));
+    } finally {
+      for (const k of keys) waiting.current.set(k, (waiting.current.get(k) ?? 1) - 1);
+      router.refresh();
+    }
+  };
   // Fit comes from the playbooks in use: with none, only mutual friends and groups count.
   const noPlaybook =
     show === 'requests' &&
@@ -323,7 +363,8 @@ export function FriendsView({
                     workspaceId={workspaceId}
                     friend={f}
                     show={show}
-                    busy={busy === `set:${f.profileId}`}
+                    flip={flipped[f.profileId]}
+                    asks={asks}
                     onSet={(change) => void set(f, change)}
                   />
                 ))}
@@ -344,6 +385,7 @@ export function FriendsView({
             </Card>
           )}
           <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
+          <SkippedCountryCard workspaceId={workspaceId} />
         </div>
         <aside className="space-y-4">
           <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} />
@@ -469,17 +511,21 @@ function FriendRow({
   workspaceId,
   friend: f,
   show,
-  busy,
+  flip,
+  asks,
   onSet,
 }: {
   workspaceId: string;
   friend: Friend;
   show: FriendView;
-  busy: boolean;
-  onSet: (change: { keep?: boolean; dontPitch?: boolean }) => void;
+  /** A switch flipped and not yet reloaded: shown over what the list says. */
+  flip: Flip | undefined;
+  asks: Asks;
+  onSet: (change: Flip) => void;
 }) {
   const since = sinceWords(f);
-  const listed = f.dontPitch !== null && f.dontPitch.at !== null;
+  const keep = flip?.keep ?? f.keep;
+  const listed = flip?.dontPitch ?? (f.dontPitch !== null && f.dontPitch.at !== null);
   // Where you stand, where the list doesn't say: Don't pitch, or a friend kept who isn't one now.
   const state =
     f.state && (show === 'dont_pitch' || (show === 'keep' && f.state !== 'friends'))
@@ -509,6 +555,11 @@ function FriendRow({
           >
             Facebook
           </a>
+          {mutual ? (
+            <span className="ml-2 align-middle" data-testid="friend-mutual">
+              <Badge>{mutual.toLocaleString()} mutual</Badge>
+            </span>
+          ) : null}
           {since ? (
             <div className="text-[12.5px] text-text-3" data-testid="friend-since">
               {since}
@@ -522,10 +573,9 @@ function FriendRow({
           {f.state === 'friends' || f.keep ? (
             <span className="inline-flex items-center gap-2">
               <Switch
-                checked={f.keep}
+                checked={keep}
                 onChange={(keep) => onSet({ keep })}
                 label={`Keep ${f.name}: never suggest unfriending them`}
-                disabled={busy}
                 testId="friend-keep"
               />
               Keep
@@ -536,7 +586,6 @@ function FriendRow({
               checked={listed}
               onChange={(dontPitch) => onSet({ dontPitch })}
               label={`Don’t pitch ${f.name}`}
-              disabled={busy}
               testId="friend-dont-pitch"
             />
             Don’t pitch
@@ -545,7 +594,7 @@ function FriendRow({
           <PersonMenu workspaceId={workspaceId} who={f} dontPitch={false} />
         </div>
       </div>
-      {f.fit || f.check || state || mutual ? (
+      {(f.check && (show === 'fits' || f.check.verdict === 'good')) || f.fit || state ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {f.check && (show === 'fits' || f.check.verdict === 'good') ? (
             <Badge variant={CHECK_TONE[f.check.verdict]} data-testid="friend-check">
@@ -562,7 +611,6 @@ function FriendRow({
           {state ? (
             <Badge variant={state === 'friends' ? 'ok' : 'gray'}>{FRIEND_STATES[state]}</Badge>
           ) : null}
-          {mutual ? <Badge>{mutual.toLocaleString()} mutual</Badge> : null}
         </div>
       ) : null}
       {f.fit?.reasons.length ? (
@@ -570,13 +618,27 @@ function FriendRow({
           {f.fit.reasons.join(' · ')}
         </p>
       ) : null}
+      {f.check && show !== 'fits' && f.check.verdict === 'good' && f.check.why.length ? (
+        <FitWhy why={f.check.why} />
+      ) : null}
       {f.check && show === 'fits' ? (
         <div className="mt-1 text-[12.5px]" data-testid="friend-check-why">
           {f.check.about ? <p className="text-text">{f.check.about}</p> : null}
-          {f.check.why.length ? <p className="text-text-2">{f.check.why.join(' · ')}</p> : null}
+          {f.check.why.length ? <FitWhy why={f.check.why} /> : null}
           {f.check.nextStep ? <p className="text-text-2">First step: {f.check.nextStep}</p> : null}
         </div>
       ) : null}
+      {/* Research (decision 46a): the button, Researching…, or the AI's answer where the row doesn't say it. */}
+      <ResearchSlot
+        workspaceId={workspaceId}
+        asks={asks}
+        profileId={f.profileId}
+        name={f.name}
+        check={f.check}
+        neverPitched={f.dontPitch !== null}
+        showResult={show !== 'fits'}
+        badge={f.check?.verdict !== 'good'}
+      />
       {show === 'requests' && f.intro.length ? (
         <p className="mt-1 text-[12.5px] text-text-3">{f.intro.join(' · ')}</p>
       ) : null}
@@ -584,6 +646,35 @@ function FriendRow({
         <p className="mt-1 text-[12.5px] text-text-3">{dontPitchWords(f.dontPitch)}</p>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Why the AI found someone a good fit or might fit (`outreach.check.save` keeps up to three lines): the first line,
+ * and the rest on **More**.
+ */
+function FitWhy({ why }: { why: readonly string[] }) {
+  const [open, setOpen] = useState(false);
+  const more = why.length > 1 || (why[0]?.length ?? 0) > 110;
+  return (
+    <div
+      className="mt-0.5 flex items-baseline gap-2 text-[12.5px] text-text-2"
+      data-testid="friend-check-why-line"
+    >
+      <span className={open ? 'min-w-0' : 'min-w-0 truncate'}>
+        {open ? why.join(' · ') : why[0]}
+      </span>
+      {more ? (
+        <button
+          type="button"
+          className="shrink-0 text-[12px] text-accent-text hover:underline"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? 'Less' : 'More'}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
