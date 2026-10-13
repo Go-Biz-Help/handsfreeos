@@ -84,7 +84,7 @@ const namedNever = (p: string) =>
  * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched. Once it isn't marked
  * itself, any profile marked never pitched under its name is a twin. `p` is its alias.
  */
-export const pitchable = (p: string) => sql`not ${markedNever(p)} and not ${namedNever(p)}`;
+export const pitchable = (p: string) => sql`(not ${markedNever(p)} and not ${namedNever(p)})`;
 
 /**
  * Whether a profile has a twin marked never pitched (`neverTwins`): for one not marked itself, any profile marked
