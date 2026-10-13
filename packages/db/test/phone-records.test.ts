@@ -18,6 +18,7 @@ import {
   dbs,
   expectPgError,
   type TestUser,
+  retryDeadlock,
 } from './harness';
 
 const letters = (n: number) =>
@@ -111,20 +112,24 @@ beforeAll(async () => {
   );
 
   // The add-on's own table, as its migration makes it, following a deal; and what phones keep of it.
-  await rows(admin$, sql`select private.create_addon_schema(${ADDON})`);
-  await rows(
-    admin$,
-    sql.raw(`create table addon_${ADDON}.items (
+  await retryDeadlock(() => rows(admin$, sql`select private.create_addon_schema(${ADDON})`));
+  await retryDeadlock(() =>
+    rows(
+      admin$,
+      sql.raw(`create table addon_${ADDON}.items (
       id uuid primary key default gen_random_uuid(),
       workspace_id uuid not null references app.workspaces (id) on delete cascade,
       deal_id uuid references app.custom_records (id) on delete cascade,
       title text not null,
       private_note text,
       updated_at timestamptz not null default now())`),
+    ),
   );
-  await rows(
-    admin$,
-    sql`select private.addon_table_policies(${`addon_${ADDON}.items`}::regclass, ${USE}, ${USE}, ${USE}, 'deal_id')`,
+  await retryDeadlock(() =>
+    rows(
+      admin$,
+      sql`select private.addon_table_policies(${`addon_${ADDON}.items`}::regclass, ${USE}, ${USE}, ${USE}, 'deal_id')`,
+    ),
   );
 
   kind = await one(
@@ -484,19 +489,23 @@ describe('once it does', () => {
 
   it('keeps a person’s own rows to their phone alone, and only those it keeps (20261027001800)', async () => {
     const notes = `addon_${ADDON}.notes`;
-    await rows(
-      admin$,
-      sql.raw(`create table ${notes} (
+    await retryDeadlock(() =>
+      rows(
+        admin$,
+        sql.raw(`create table ${notes} (
         id uuid primary key default gen_random_uuid(),
         workspace_id uuid not null references app.workspaces (id) on delete cascade,
         user_id uuid,
         state text not null,
         body text not null,
         updated_at timestamptz not null default now())`),
+      ),
     );
-    await rows(
-      admin$,
-      sql`select private.addon_table_policies(${notes}::regclass, ${USE}, ${USE}, ${USE}, null)`,
+    await retryDeadlock(() =>
+      rows(
+        admin$,
+        sql`select private.addon_table_policies(${notes}::regclass, ${USE}, ${USE}, ${USE}, null)`,
+      ),
     );
     const note = (who: TestUser | null, state: string, body: string) =>
       one(
@@ -513,20 +522,24 @@ describe('once it does', () => {
 
     // No row of a person's own is ever written open to the business, not even for a moment on the first copy.
     const guard = `fx_no_open_${letters(8)}`;
-    await rows(
-      admin$,
-      sql.raw(`create function public.${guard}() returns trigger language plpgsql as $f$
+    await retryDeadlock(() =>
+      rows(
+        admin$,
+        sql.raw(`create function public.${guard}() returns trigger language plpgsql as $f$
         begin
           if new.addon_id = '${ADDON}' and new.source = 'notes' and new.seal_open then
             raise exception 'a person''s own row was written open';
           end if;
           return new;
         end $f$`),
+      ),
     );
-    await rows(
-      admin$,
-      sql.raw(`create trigger ${guard} after insert or update on app.addon_phone_rows
+    await retryDeadlock(() =>
+      rows(
+        admin$,
+        sql.raw(`create trigger ${guard} after insert or update on app.addon_phone_rows
         for each row execute function public.${guard}()`),
+      ),
     );
     try {
       await rows(
@@ -592,8 +605,10 @@ describe('once it does', () => {
       ]);
       await inStep();
     } finally {
-      await rows(admin$, sql.raw(`drop trigger ${guard} on app.addon_phone_rows`));
-      await rows(admin$, sql.raw(`drop function public.${guard}()`));
+      await retryDeadlock(() =>
+        rows(admin$, sql.raw(`drop trigger ${guard} on app.addon_phone_rows`)),
+      );
+      await retryDeadlock(() => rows(admin$, sql.raw(`drop function public.${guard}()`)));
     }
   });
 

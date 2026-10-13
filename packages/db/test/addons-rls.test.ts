@@ -20,6 +20,7 @@ import {
   dbs,
   expectPgError,
   type TestUser,
+  retryDeadlock,
 } from './harness';
 
 let owner: TestUser;
@@ -497,25 +498,29 @@ describe('an add-on’s own tables', () => {
       { key: `${addon}.write`, defaultRoles: ['admin'], requires: [`${addon}.read`] },
     ]);
     // What the add-on's migration does: its schema, its table, then every tenant rule in one call.
-    await dbs.admin.db.transaction(async (tx: Tx) => {
-      await tx.execute(sql`select private.create_addon_schema(${addon})`);
-      await tx.execute(
-        sql.raw(`create table ${table} (
+    await retryDeadlock(() =>
+      dbs.admin.db.transaction(async (tx: Tx) => {
+        await tx.execute(sql`select private.create_addon_schema(${addon})`);
+        await tx.execute(
+          sql.raw(`create table ${table} (
           id uuid primary key default gen_random_uuid(),
           workspace_id uuid not null references app.workspaces (id) on delete cascade,
           rent_cents bigint not null check (rent_cents >= 0),
           created_at timestamptz not null default now(),
           updated_at timestamptz not null default now())`),
-      );
-      await tx.execute(sql.raw(`create index on ${table} (workspace_id)`));
-      await tx.execute(
-        sql`select private.addon_table_policies(${table}::regclass, ${`${addon}.read`}, ${`${addon}.write`}, ${`${addon}.write`})`,
-      );
-    });
+        );
+        await tx.execute(sql.raw(`create index on ${table} (workspace_id)`));
+        await tx.execute(
+          sql`select private.addon_table_policies(${table}::regclass, ${`${addon}.read`}, ${`${addon}.write`}, ${`${addon}.write`})`,
+        );
+      }),
+    );
     await turnOn(wsA, orgA, addon);
   });
   afterAll(async () => {
-    await rows(dbs.admin.db, sql.raw(`drop schema if exists ${schema} cascade`));
+    await retryDeadlock(() =>
+      rows(dbs.admin.db, sql.raw(`drop schema if exists ${schema} cascade`)),
+    );
   });
 
   it('keeps each business to its own rows, behind the add-on’s own permissions', async () => {

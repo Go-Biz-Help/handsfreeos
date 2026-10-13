@@ -16,6 +16,7 @@ import {
   dbs,
   expectPgError,
   type TestUser,
+  retryDeadlock,
 } from './harness';
 
 const letters = (n: number) =>
@@ -127,24 +128,26 @@ beforeAll(async () => {
   await relate(linh, notAsClient, vendor);
 
   // The add-on's own table, as its migration would make it.
-  await admin().transaction(async (tx: Tx) => {
-    await tx.execute(sql`select private.create_addon_schema(${ADDON})`);
-    await tx.execute(
-      sql.raw(`create table ${TABLE} (
+  await retryDeadlock(() =>
+    admin().transaction(async (tx: Tx) => {
+      await tx.execute(sql`select private.create_addon_schema(${ADDON})`);
+      await tx.execute(
+        sql.raw(`create table ${TABLE} (
         id uuid primary key default gen_random_uuid(),
         workspace_id uuid not null references app.workspaces (id) on delete cascade,
         deal_record_id uuid not null references app.custom_records (id) on delete cascade,
         label text not null,
         agent_note text,
         created_at timestamptz not null default now())`),
-    );
-    await tx.execute(
-      sql`select private.addon_table_policies(${TABLE}::regclass, ${`${ADDON}.read`}, ${`${ADDON}.write`}, null, 'deal_record_id')`,
-    );
-    await tx.execute(
-      sql`select private.addon_portal_policies(${TABLE}::regclass, 'deal_record_id', array['id', 'label']::name[])`,
-    );
-  });
+      );
+      await tx.execute(
+        sql`select private.addon_table_policies(${TABLE}::regclass, ${`${ADDON}.read`}, ${`${ADDON}.write`}, null, 'deal_record_id')`,
+      );
+      await tx.execute(
+        sql`select private.addon_portal_policies(${TABLE}::regclass, 'deal_record_id', array['id', 'label']::name[])`,
+      );
+    }),
+  );
   for (const [deal, label] of [
     [mine, 'Inspection'],
     [theirs, 'Appraisal'],
