@@ -618,21 +618,22 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   await page.getByTestId('outreach-setup-my-sending-steps').click();
   await page.getByTestId('outreach-setup-next').click();
 
-  // The extension: no link yet, so the owner pastes one; then it waits until the extension signs in.
+  // The extension: HandsFreeOS's own download, served by the app, with the steps to load it into Chrome; then it
+  // waits until the extension signs in.
   await expect(setup).toHaveAttribute('data-screen', 'extension');
-  await page
-    .getByTestId('outreach-extension-link-input')
-    .fill('http://files.example.test/social.zip');
-  await page.getByTestId('outreach-extension-link-save').click();
-  await expect(page.getByTestId('outreach-extension-link')).toContainText('starting https://');
-  await page
-    .getByTestId('outreach-extension-link-input')
-    .fill('https://files.example.test/social.zip');
-  await page.getByTestId('outreach-extension-link-save').click();
-  await expect(page.getByTestId('outreach-setup-download')).toHaveAttribute(
+  const download = page.getByTestId('outreach-setup-download');
+  await expect(download).toHaveAttribute(
     'href',
-    'https://files.example.test/social.zip',
+    /^\/downloads\/hfos-social\.zip\?v=\d+\.\d+\.\d+$/,
   );
+  await expect(page.getByTestId('outreach-download-about')).toContainText(
+    'for Chrome on a computer',
+  );
+  await expect(page.getByTestId('outreach-install-steps')).toContainText('Developer mode');
+  await expect(page.getByTestId('outreach-install-steps')).toContainText('Load unpacked');
+  const zip = await page.request.get((await download.getAttribute('href'))!);
+  expect(zip.status()).toBe(200);
+  expect((await zip.body()).readUInt32LE(0)).toBe(0x04034b50);
   await expect(page.getByTestId('outreach-setup-waiting')).toBeVisible();
   const { token } = await signInOwner(email);
   await api(token, 'commands', 'outreach.setup.save', { workspaceId, extension: true });

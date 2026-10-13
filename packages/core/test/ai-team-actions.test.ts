@@ -10,6 +10,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { applyTeammatePatch, parseTeammateConfig, type TeammatePatch } from '../src/ai-team/index';
+import { addDays } from '../src/calendar/index';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type {
@@ -278,7 +279,7 @@ describe('repeat visits for the customer in the conversation', () => {
     const cy = await aiChat(a, 'Cy');
     const dee = await aiChat(a, 'Dee');
     // Someone already has the third week's 10:00.
-    const third = new Date(Date.parse(isoAt(day, '10:00')) + 14 * 86_400_000).toISOString();
+    const third = isoAt(addDays(day, 14), '10:00');
     await asAva(a, { conversationId: dee.conversationId }, appointmentBookForCustomer, {
       workspaceId: a.wsId,
       calendarId: weekly.id,

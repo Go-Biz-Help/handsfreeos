@@ -17,7 +17,6 @@ import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import { GROUP_VERDICTS } from '@hfos/core/addons/outreach/groups';
 import { PLAYBOOK_TEMPLATE_KEYS, PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import {
-  CHROME_EXTENSIONS_URL,
   nextScreen,
   outreachSetupPath,
   previousScreen,
@@ -28,19 +27,18 @@ import {
   type SetupScreen,
   type SetupStep,
 } from '@hfos/core/addons/outreach/setup';
-import { ArrowLeft, ArrowRight, Check, Download } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { PhoneAppDialog } from '@/components/home/phone-app-dialog';
 import { SetupCard, SetupPage } from '@/components/onboarding-setup/frame';
 import { Button, ButtonLink } from '@/components/ui/button';
-import { CopyField } from '@/components/ui/copy-field';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskButton, ComputerNote } from './asks';
-import { ExtensionLinkForm } from './extension-link';
+import { ExtensionDownload } from './extension-download';
 import { ChoicesForm, RulesForm } from './settings-view';
 import type { Asks, Automation, Setup } from './types';
 import { useAct } from './use-act';
@@ -361,47 +359,10 @@ export function SetupView({
       </Footer>
     );
   } else if (at === 'extension') {
-    const link = setup.extensionLink;
     body = (
       <div className="flex flex-col gap-4" data-testid="outreach-setup-extension">
         {!chrome ? <Note testId="outreach-setup-not-chrome">{W.notChrome}</Note> : null}
-        {link ? (
-          <div>
-            <a
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-hover"
-              data-testid="outreach-setup-download"
-            >
-              <Download className="h-4 w-4" strokeWidth={1.75} />
-              {W.download}
-            </a>
-          </div>
-        ) : business ? (
-          <div className="flex flex-col gap-3">
-            <Note testId="outreach-setup-no-link">{W.noLinkManage}</Note>
-            <ExtensionLinkForm workspaceId={workspaceId} settings={business} />
-          </div>
-        ) : (
-          <Note testId="outreach-setup-no-link">{W.noLinkMember}</Note>
-        )}
-        <ol className="flex list-decimal flex-col gap-2 pl-5 text-[14px]">
-          {W.install.map((line, i) => (
-            <li key={line}>
-              {line}
-              {i === 1 ? (
-                <CopyField
-                  className="mt-1.5 max-w-xs"
-                  value={CHROME_EXTENSIONS_URL}
-                  label={W.copy}
-                  copied={W.copied}
-                />
-              ) : null}
-            </li>
-          ))}
-          <li>{W.signInStep(email, businessName)}</li>
-        </ol>
+        <ExtensionDownload link={setup.extensionLink} email={email} businessName={businessName} />
         {setup.extensionAt ? (
           <p
             className="flex items-start gap-2 rounded-menu bg-success-soft px-3.5 py-2.5 text-[13.5px] text-success-text"
