@@ -29,6 +29,8 @@ export interface FakeCalendarEvent {
   readonly end: string;
   /** Always empty: HandsFreeOS never invites anyone. */
   readonly attendees: readonly string[];
+  /** The Meet link the Google stand-in made, kept across later writes like Google keeps it. */
+  readonly meetingUrl: string | null;
 }
 
 export interface FakeCalendars {
@@ -132,6 +134,12 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
           : ((existingId && list.has(existingId) ? existingId : null) ??
             [...list.values()].find((x) => x.appointmentId === e.appointmentId)?.id ??
             `fake-outlook-event-${++seq}`);
+      // Google keeps a Meet link once made; the stand-in makes one from the appointment, so a retry gets the same.
+      const meetingUrl =
+        list.get(id)?.meetingUrl ??
+        (name === 'google' && e.addMeet
+          ? `https://meet.google.com/fake-${e.appointmentId.slice(0, 8)}`
+          : null);
       list.set(id, {
         id,
         appointmentId: e.appointmentId,
@@ -141,8 +149,9 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
         start: e.start.toISOString(),
         end: e.end.toISOString(),
         attendees: [],
+        meetingUrl,
       });
-      return { providerEventId: id };
+      return { providerEventId: id, meetingUrl };
     },
     async deleteEvent(accessToken, providerEventId) {
       eventsOf(emailOf(accessToken)).delete(providerEventId);

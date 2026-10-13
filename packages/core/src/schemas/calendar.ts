@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 import { JobOut } from './job';
-import { CalendarConfig, LocationKind, WeeklyHours } from '../calendar/config';
+import { CalendarConfig, LocationKind, VideoProvider, WeeklyHours } from '../calendar/config';
 import { RecurrenceRule } from '../calendar/engine/recurrence';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { IMPACT_DECISIONS } from '../calendar/impact';
@@ -58,6 +58,8 @@ export const AppointmentLocation = z.object({
   address: z.string().trim().max(300).nullable().default(null),
   meetingUrl: z.url().max(500).nullable().default(null),
   postalCode: z.string().trim().max(20).nullable().default(null),
+  /** Online only: the link is made for it (`google_meet`), filled in once the host's calendar has it. */
+  video: VideoProvider.nullable().default(null),
 });
 export type AppointmentLocation = z.infer<typeof AppointmentLocation>;
 

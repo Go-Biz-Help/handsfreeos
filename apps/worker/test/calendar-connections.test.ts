@@ -172,13 +172,19 @@ async function addBusy(account: string, from: Date, to: Date): Promise<void> {
 }
 
 /** An appointment as the booking engine writes one: the row, then who works it. */
-function book(title: string, from: Date, to: Date, staff: readonly string[]): Promise<string> {
+function book(
+  title: string,
+  from: Date,
+  to: Date,
+  staff: readonly string[],
+  location: Record<string, unknown> = {},
+): Promise<string> {
   return worker(async (tx) => {
     const [a] = await rows<{ id: string }>(
       tx,
-      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at)
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at, location)
           values (${workspaceId}, ${calendarId}, 1, ${title}, ${from.toISOString()}::timestamptz,
-            ${to.toISOString()}::timestamptz)
+            ${to.toISOString()}::timestamptz, ${JSON.stringify(location)}::jsonb)
           returning id`,
     );
     for (const userId of staff)
@@ -523,6 +529,53 @@ describe('appointments in people’s calendars', () => {
     await sync(visit);
     expect(await eventsFor(google, visit)).toHaveLength(0);
     expect((await written(visit, owner.id))?.providerEventId).toBeNull();
+  });
+
+  it('makes one Google Meet link for an online visit set to get one, and keeps it', async () => {
+    const video = {
+      kind: 'virtual',
+      address: null,
+      meetingUrl: null,
+      postalCode: null,
+      video: 'google_meet',
+    };
+    const call = await book('Video consult', at(5, 16), at(5, 17), [owner.id], video);
+    await sync(call);
+    const [e] = await eventsFor(google, call);
+    const link = `https://meet.google.com/fake-${call.slice(0, 8)}`;
+    expect(e?.meetingUrl).toBe(link);
+    const location = async () =>
+      (
+        await worker((tx) =>
+          rows<{ location: Record<string, unknown> }>(
+            tx,
+            sql`select location from app.appointments where id = ${call}`,
+          ),
+        )
+      )[0]!.location;
+    expect(await location()).toMatchObject({
+      kind: 'virtual',
+      meetingUrl: link,
+      video: 'google_meet',
+    });
+    // Saving the link ran the write-through again: the event now shows the link as its place.
+    expect((await eventsFor(google, call))[0]).toMatchObject({ location: link, meetingUrl: link });
+
+    // Moved: the same link stays.
+    await move(call, at(5, 18), at(5, 19));
+    await sync(call);
+    expect(await location()).toMatchObject({ meetingUrl: link });
+
+    // A visit with a link someone typed in is left alone.
+    const typed = await book('Typed link', at(5, 20), at(5, 21), [owner.id], {
+      ...video,
+      meetingUrl: 'https://zoom.us/j/123',
+    });
+    await sync(typed);
+    expect((await eventsFor(google, typed))[0]).toMatchObject({
+      location: 'https://zoom.us/j/123',
+      meetingUrl: null,
+    });
   });
 
   it('Outlook finds its event again by our property, and a reassigned visit changes calendars', async () => {

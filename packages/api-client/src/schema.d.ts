@@ -20985,6 +20985,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default null */
+                        video?: ("none" | "google_meet") | null;
                     };
                     notes?: string | null;
                     /** @default true */
@@ -21304,6 +21306,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default null */
+                        video?: ("none" | "google_meet") | null;
                     };
                     notes?: string | null;
                     title?: string;
@@ -22864,6 +22868,11 @@ export interface operations {
                                 kind: "customer_address" | "business" | "virtual" | "phone";
                                 /** @default null */
                                 meetingUrl?: string | null;
+                                /**
+                                 * @default none
+                                 * @enum {string}
+                                 */
+                                video?: "none" | "google_meet";
                             }[];
                         };
                         /** @default {} */
@@ -46164,6 +46173,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default null */
+                        video?: ("none" | "google_meet") | null;
                     };
                     notes?: string | null;
                     /** @default false */
@@ -46395,6 +46406,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default null */
+                        video?: ("none" | "google_meet") | null;
                     };
                     notes?: string | null;
                     serviceId?: string | null;
@@ -52431,6 +52444,8 @@ export interface operations {
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
+                                /** @default null */
+                                video: ("none" | "google_meet") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -52576,6 +52591,8 @@ export interface operations {
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
+                                /** @default null */
+                                video: ("none" | "google_meet") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -54175,6 +54192,11 @@ export interface operations {
                                         kind: "customer_address" | "business" | "virtual" | "phone";
                                         /** @default null */
                                         meetingUrl: string | null;
+                                        /**
+                                         * @default none
+                                         * @enum {string}
+                                         */
+                                        video: "none" | "google_meet";
                                     }[];
                                 };
                                 notifications: {

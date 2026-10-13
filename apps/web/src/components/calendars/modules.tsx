@@ -722,7 +722,12 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 set(
                   options.map((x, j) =>
                     j === i
-                      ? { kind: e.target.value as LocationKind, address: null, meetingUrl: null }
+                      ? {
+                          kind: e.target.value as LocationKind,
+                          address: null,
+                          meetingUrl: null,
+                          video: 'none' as const,
+                        }
                       : x,
                   ),
                 )
@@ -745,15 +750,50 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 }
               />
             ) : o.kind === 'virtual' ? (
-              <CommitInput
-                label="Meeting link"
-                placeholder="https://"
-                className="min-w-[200px] flex-1"
-                value={o.meetingUrl ?? ''}
-                onCommit={(v) =>
-                  set(options.map((x, j) => (j === i ? { ...x, meetingUrl: v.trim() || null } : x)))
-                }
-              />
+              <>
+                <Select
+                  selectSize="sm"
+                  className="w-[200px]"
+                  aria-label="Video link"
+                  value={o.video}
+                  onChange={(e) =>
+                    set(
+                      options.map((x, j) =>
+                        j === i
+                          ? {
+                              ...x,
+                              video: e.target.value as 'none' | 'google_meet',
+                              meetingUrl: null,
+                            }
+                          : x,
+                      ),
+                    )
+                  }
+                >
+                  <option value="none">Use my link</option>
+                  <option value="google_meet">Make a Google Meet link</option>
+                </Select>
+                {o.video === 'google_meet' ? (
+                  <span className="min-w-[200px] flex-1 text-xs text-text-3">
+                    Each appointment gets its own link, made in the host’s Google Calendar. They
+                    connect it in Settings → My calendar.
+                  </span>
+                ) : (
+                  <CommitInput
+                    label="Meeting link"
+                    placeholder="https://"
+                    className="min-w-[200px] flex-1"
+                    value={o.meetingUrl ?? ''}
+                    onCommit={(v) =>
+                      set(
+                        options.map((x, j) =>
+                          j === i ? { ...x, meetingUrl: v.trim() || null } : x,
+                        ),
+                      )
+                    }
+                  />
+                )}
+              </>
             ) : (
               <span className="flex-1 text-xs text-text-3">
                 {o.kind === 'customer_address'
@@ -782,7 +822,12 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 e.target.value &&
                 set([
                   ...options,
-                  { kind: e.target.value as LocationKind, address: null, meetingUrl: null },
+                  {
+                    kind: e.target.value as LocationKind,
+                    address: null,
+                    meetingUrl: null,
+                    video: 'none' as const,
+                  },
                 ])
               }
             >

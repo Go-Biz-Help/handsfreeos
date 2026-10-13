@@ -7,7 +7,13 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: not started.** This plan needs the owner's decisions in §1 before step 1 of §12.
+> **Status: step 1 of §12 is built** (Google Meet links). The owner took every pick in §1 (2026-10-13). What step 1
+> does differently from §3 and §6, to keep it small: the choice lives on the calendar's **Online** place
+> (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
+> appointment's `location.meetingUrl` (with `location.video = 'google_meet'`), so no new columns, no migration and
+> no sync change; and it's made when the host's Google Calendar event is written, so it needs the host's Google
+> Calendar connected and the calendar's "Add to people's calendars" on. The customer gets it in reminders and the
+> portal; a confirmation sent before the link exists says "Online".
 
 ---
 

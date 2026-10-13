@@ -587,6 +587,11 @@ export function locationFor(
     address: given?.address ?? option?.address ?? null,
     meetingUrl: given?.meetingUrl ?? option?.meetingUrl ?? null,
     postalCode: given?.postalCode ?? null,
+    // A link made per appointment, unless the caller gave one.
+    video:
+      k === 'virtual' && !given?.meetingUrl
+        ? (given?.video ?? (option?.video === 'google_meet' ? 'google_meet' : null))
+        : null,
   };
 }
 

@@ -6,6 +6,7 @@
  */
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { z } from 'zod';
 import {
   appointmentAttendees,
   appointmentResources,
@@ -64,6 +65,7 @@ import { isOptedOut } from '../messaging/store';
 import {
   AppointmentAddAttendeeInput,
   AppointmentAddAttendeeOutput,
+  AppointmentLocation,
   AppointmentCancelInput,
   AppointmentCancelOutput,
   AppointmentCreateInput,
@@ -91,6 +93,7 @@ import {
   WaitlistRemoveInput,
   WaitlistRemoveOutput,
 } from '../schemas/calendar';
+import { uuid } from '../schemas/common';
 import { wantedWindowIssue } from './waitlist-online';
 
 const MIN = 60_000;
@@ -420,6 +423,57 @@ export const appointmentUpdate = defineCommand({
       after: { title, ...after },
     });
     return { appointmentId: appt.id, updated, notApplied };
+  },
+});
+
+const SetMeetingLinkInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  meetingUrl: z.url().max(500),
+});
+const SetMeetingLinkOutput = z.object({ appointmentId: uuid, changed: z.boolean() });
+
+/**
+ * Worker: the Meet link Google made for an online appointment set to "Make a Google Meet link". Only fills an
+ * empty link: one a person typed in, or a place that changed in the meantime, stays as it is.
+ */
+export const appointmentSetMeetingLink = defineCommand({
+  name: 'appointment.set_meeting_link',
+  description: 'Worker: save the video link made for an online appointment.',
+  risk: 1,
+  input: SetMeetingLinkInput,
+  output: SetMeetingLinkOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.updated'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [appt] = await ctx.tx
+      .select({
+        id: appointments.id,
+        calendarId: appointments.calendarId,
+        title: appointments.title,
+        location: appointments.location,
+      })
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)))
+      .for('update');
+    if (!appt) return { appointmentId: input.appointmentId, changed: false };
+    const place = AppointmentLocation.parse(appt.location ?? {});
+    if (place.kind !== 'virtual' || place.video !== 'google_meet' || place.meetingUrl)
+      return { appointmentId: appt.id, changed: false };
+    const location = { ...place, meetingUrl: input.meetingUrl };
+    await ctx.tx.update(appointments).set({ location }).where(eq(appointments.id, appt.id));
+    await ctx.emit({
+      type: 'appointment.updated',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { calendarId: appt.calendarId, fields: ['location'] },
+      before: { title: appt.title, location: place },
+      after: { title: appt.title, location },
+    });
+    return { appointmentId: appt.id, changed: true };
   },
 });
 

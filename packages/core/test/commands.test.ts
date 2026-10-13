@@ -272,6 +272,7 @@ describe('registry', () => {
       'time_off.remove',
       'appointment.create',
       'appointment.update',
+      'appointment.set_meeting_link',
       'appointment.reschedule',
       'appointment.reassign',
       'appointment.cancel',

@@ -274,6 +274,16 @@ while you wait.
 
 ---
 
+## Google Meet links
+
+A calendar's **Online** place can be set to **Make a Google Meet link** (Settings → Calendars → Locations). Each
+appointment there then gets its own Meet link, made when HandsFreeOS writes the event into the host's Google
+Calendar (the event asks for `conferenceData` with the appointment's id as its request id, so a retry never makes a
+second link). The worker saves the link on the appointment with `appointment.set_meeting_link`, and reminders, the
+portal and everyone else's calendar event show it. It should need no new scope (`calendar.events.owned` covers conference data on the person’s own events); check it on the first real connection. It only happens when the host (or someone
+on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
+someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
+
 ## If something goes wrong
 
 | What you see                                                    | What it is                                              | Fix                                                                               |

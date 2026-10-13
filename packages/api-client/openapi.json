@@ -12598,6 +12598,14 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "video": {
+                                  "default": "none",
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "google_meet"
+                                  ]
                                 }
                               },
                               "required": [
@@ -15602,6 +15610,21 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "video": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "google_meet"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     }
                   },
@@ -15847,6 +15870,21 @@
                           {
                             "type": "string",
                             "maxLength": 20
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "video": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "google_meet"
+                            ]
                           },
                           {
                             "type": "null"
@@ -16798,6 +16836,21 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "video": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "google_meet"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     }
                   },
@@ -17107,6 +17160,21 @@
                           {
                             "type": "string",
                             "maxLength": 20
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "video": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "google_meet"
+                            ]
                           },
                           {
                             "type": "null"
@@ -107356,12 +107424,21 @@
                                             "type": "null"
                                           }
                                         ]
+                                      },
+                                      "video": {
+                                        "default": "none",
+                                        "type": "string",
+                                        "enum": [
+                                          "none",
+                                          "google_meet"
+                                        ]
                                       }
                                     },
                                     "required": [
                                       "kind",
                                       "address",
-                                      "meetingUrl"
+                                      "meetingUrl",
+                                      "video"
                                     ],
                                     "additionalProperties": false
                                   }
@@ -108652,13 +108729,29 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "video": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "none",
+                                      "google_meet"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "kind",
                               "address",
                               "meetingUrl",
-                              "postalCode"
+                              "postalCode",
+                              "video"
                             ],
                             "additionalProperties": false
                           },
@@ -109192,13 +109285,29 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "video": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "google_meet"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
                             "kind",
                             "address",
                             "meetingUrl",
-                            "postalCode"
+                            "postalCode",
+                            "video"
                           ],
                           "additionalProperties": false
                         },
