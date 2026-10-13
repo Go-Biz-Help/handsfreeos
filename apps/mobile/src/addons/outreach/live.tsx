@@ -5,6 +5,7 @@ import {
   isOffline,
   LIVE_REFETCH_SECONDS,
   offlineWords,
+  preDayNow,
   seenWords,
   SHOWN_STATES,
   shownState,
@@ -407,10 +408,8 @@ const PRE_DAY_END = { done: 'Done', now: 'Under way', next: 'To come' } as const
  * the one under way with what the computer says it's doing, while it works. Gone once all are done.
  */
 export function PreDayPart({ live, now }: { live: LiveOutput; now: number }) {
-  const computer = live.computer;
-  const working =
-    computer !== null && computer.state === 'working' && !isOffline(computer.lastSeenAt, now);
-  const steps = preDaySteps(live.lists, { line: working ? (live.status?.line ?? null) : null });
+  // The count under the step the computer says it's doing, while it works and is online.
+  const steps = preDaySteps(live.lists, preDayNow(live, now));
   if (!steps.length || live.day.state !== 'started') return null;
   return (
     <Part title={PRE_DAY_TITLE} about={preDayCount(steps)} testID="live-pre-day">

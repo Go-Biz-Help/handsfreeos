@@ -36,6 +36,7 @@ import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
+import type { ListMark } from './lists';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
@@ -733,6 +734,8 @@ export const computers = addonOutreach.table(
     state: text('state').notNull().default('idle').$type<ReportedState>(),
     line: text('line'),
     lineAt: ts('line_at'),
+    /** The step before the first day under way, whose progress the line is; null for any other work. */
+    doing: text('doing').$type<ListMark>(),
     nextAt: ts('next_at'),
     toldAt: ts('told_at'),
     createdAt: ts('created_at').notNull().defaultNow(),

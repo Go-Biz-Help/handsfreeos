@@ -34597,6 +34597,8 @@ export interface operations {
                         version?: string | null;
                     };
                     status: {
+                        /** @default null */
+                        doing?: ("friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks") | null;
                         line?: string | null;
                         /** @default null */
                         lineAt?: string | null;
@@ -62629,6 +62631,8 @@ export interface operations {
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         status: {
+                            /** @default null */
+                            doing: ("friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks") | null;
                             line: string | null;
                             lineAt: string | null;
                             nextAt: string | null;

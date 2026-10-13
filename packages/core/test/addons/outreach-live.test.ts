@@ -24,6 +24,7 @@ import {
   numberedName,
   OFFLINE_MINUTES,
   offlineWords,
+  preDayNow,
   seenWords,
   sendingOffWords,
   shownState,
@@ -627,6 +628,45 @@ describe('live status and control', () => {
     expect((await runAs(member, ws, 'outreach.live', {})).lists).toEqual(after);
     // Each person's own: the owner's are still unsaved.
     expect((await runAs(owner, ws, 'outreach.lists', {})).friendsAt).toBeNull();
+  });
+
+  it('keeps the step before the first day a computer is doing, and tells its count every few seconds', async () => {
+    const pc = randomUUID();
+    const reading = (n: number) => ({
+      status: {
+        ...status('working', `Reading your friends… ${n} friends so far.`),
+        doing: 'friends',
+      },
+    });
+    await beat(member, pc, { active: true, ...reading(40) });
+    let live = await runAs(member, ws, 'outreach.live', {});
+    expect(live.status).toMatchObject({ doing: 'friends' });
+    expect(preDayNow(live, Date.now())).toEqual({
+      doing: 'friends',
+      line: 'Reading your friends… 40 friends so far.',
+    });
+    // Told just now: the next count waits a few seconds, not 45.
+    const before = await told();
+    await beat(member, pc, reading(80));
+    expect(await told()).toBe(before);
+    await rows(
+      admin(),
+      sql`update addon_outreach.computers set told_at = now() - interval '5 seconds'
+          where workspace_id = ${ws} and install_id = ${pc}`,
+    );
+    await beat(member, pc, reading(120));
+    expect(await told()).toBe(before + 1);
+    // On to other work: told at once, and no line shows under a step.
+    await beat(member, pc, { status: status('working', 'Liking a post of Dana Cole’s…') });
+    expect(await told()).toBe(before + 2);
+    live = await runAs(member, ws, 'outreach.live', {});
+    expect(live.status).toMatchObject({ doing: null });
+    expect(preDayNow(live, Date.now())).toEqual({ doing: null, line: null });
+    // An older extension that doesn't say: nothing under a step either.
+    await beat(member, pc, {
+      status: status('working', 'Reading your friends… 9 friends so far.'),
+    });
+    expect((await runAs(member, ws, 'outreach.live', {})).status).toMatchObject({ doing: null });
   });
 
   it('keeps when the person’s groups were saved and first checked, before their first day', async () => {

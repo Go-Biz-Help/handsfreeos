@@ -21,6 +21,7 @@ import {
   DayOutput,
   isOffline,
   LINE_TELL_SECONDS,
+  PRE_DAY_LINE_SECONDS,
   LIVE_STEPS_SHOWN_MOST,
   LiveBeatInput,
   LiveBeatOutput,
@@ -175,6 +176,9 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
     const lineChanged =
       !isNew && (line !== row.line || !sameTime(nextAt, row.nextAt) || untoldLine);
     const stateChanged = !isNew && state !== row.state;
+    // The step before the first day under way: its count is told every few seconds rather than every 45.
+    const doing = isWorking ? input.status.doing : null;
+    const doingChanged = !isNew && doing !== (row.doing ?? null);
 
     const sent = input.steps.map((s) => ({
       workspaceId: ws,
@@ -196,12 +200,14 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
     // A heartbeat tells nobody. A new computer, a different one working, a new state or step, one back online, or a
     // new line (at most every so often) tells the app and the person's other computers once.
     const toldLately =
-      row.toldAt !== null && now.getTime() - row.toldAt.getTime() < LINE_TELL_SECONDS * 1000;
+      row.toldAt !== null &&
+      now.getTime() - row.toldAt.getTime() <
+        (doing ? PRE_DAY_LINE_SECONDS : LINE_TELL_SECONDS) * 1000;
     const tell =
       isNew ||
       workingBefore?.id !== working?.id ||
       inserted.length > 0 ||
-      (isWorking && (stateChanged || wasOffline || (lineChanged && !toldLately))) ||
+      (isWorking && (stateChanged || doingChanged || wasOffline || (lineChanged && !toldLately))) ||
       (!isWorking && stateChanged);
     const [kept] = await ctx.tx
       .update(computers)
@@ -213,6 +219,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
         line,
         lineAt: serverTime(input.status.lineAt, ctx.meta, now),
         nextAt,
+        doing,
         ...(tell ? { toldAt: now } : {}),
       })
       .where(eq(computers.id, row.id))
@@ -436,6 +443,7 @@ export const live = defineAddonQuery(outreachAddon, {
             line: working.line,
             lineAt: working.lineAt?.toISOString() ?? null,
             nextAt: working.nextAt?.toISOString() ?? null,
+            doing: working.doing ?? null,
           }
         : null,
       limits: todayLimits(

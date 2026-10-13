@@ -80910,6 +80910,26 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "doing": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "friends",
+                              "requests",
+                              "sent",
+                              "groups",
+                              "group_checks",
+                              "tidy",
+                              "checks"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -165900,13 +165920,34 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "doing": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "friends",
+                                    "requests",
+                                    "sent",
+                                    "groups",
+                                    "group_checks",
+                                    "tidy",
+                                    "checks"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
                             "state",
                             "line",
                             "lineAt",
-                            "nextAt"
+                            "nextAt",
+                            "doing"
                           ],
                           "additionalProperties": false
                         },
