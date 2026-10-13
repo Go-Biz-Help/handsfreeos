@@ -39,10 +39,10 @@ import {
   countryLetsSql,
   countryRuleOf,
   dontPitchOf,
+  hasNeverTwin,
   inWorkspace,
   keepFriendStates,
   keptProfile,
-  neverTwins,
   once,
   pitchable,
   type Profile,
@@ -527,7 +527,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         f.state, f.since, f.keep, p.dont_pitch,
         coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
-        ${tagged} as tagged, exists (${neverTwins('p')}) as twin, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
+        ${tagged} as tagged, ${hasNeverTwin('p')} as twin, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
         ch.verdict, cpb.name as check_playbook, ch.why as check_why, ch.about as check_about,
         ch.next_step as check_next_step, ch.checked_at, p.country, p.country_through
       from addon_outreach.profiles p
