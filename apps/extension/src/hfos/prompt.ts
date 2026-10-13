@@ -1,5 +1,5 @@
 /**
- * Signing in with a prompt on the person's phone or in HandsFreeOS (20261027002900, README "Signing in with a
+ * Signing in with a prompt on the person's phone or in HandsFreeOS (20261027002910, README "Signing in with a
  * prompt"), in the background worker. The panel shows the number; this keeps the request's secret and asks the worker
  * whether the right number was picked.
  *

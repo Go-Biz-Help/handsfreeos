@@ -377,7 +377,7 @@ function command<C extends OfflineClass, I extends Schema, O extends Schema>(
 
 export const PHONE_COMMANDS = {
   'account.delete': command(ONLINE, AccountDeleteInput, AccountDeleteOutput),
-  // Letting the browser extension sign in by picking its number, from the push (20261027002900).
+  // Letting the browser extension sign in by picking its number, from the push (20261027002910).
   'extension_sign_in.answer': command(
     ONLINE,
     ExtensionSignInAnswerInput,

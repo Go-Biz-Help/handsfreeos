@@ -1,5 +1,5 @@
 /**
- * The shapes on the wire for approving an extension sign-in (20261027002900); the words, numbers and times are in
+ * The shapes on the wire for approving an extension sign-in (20261027002910); the words, numbers and times are in
  * ./extension-sign-in-words.ts, which the extension imports without zod.
  */
 import { z } from 'zod';

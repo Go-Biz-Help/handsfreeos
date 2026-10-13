@@ -241,7 +241,7 @@ export const queries: readonly QueryDef[] = [
   me,
   accountDeletionCheck,
   pushDeviceList,
-  // Approving an extension sign-in from the phone or the web (20261027002900).
+  // Approving an extension sign-in from the phone or the web (20261027002910).
   extensionSignInPending,
   userPhoneGet,
   workspaceGet,

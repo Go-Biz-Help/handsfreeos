@@ -292,7 +292,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
-  // Signing in to the browser extension with a prompt on the phone or the web (20261027002900).
+  // Signing in to the browser extension with a prompt on the phone or the web (20261027002910).
   await registerExtensionSignInRoutes(app, deps);
   // An add-on's accounts at other services: a pasted key, tried and sealed, and their updates (round five).
   registerAddonConnectionRoutes(app, deps, deps.addonConnections);

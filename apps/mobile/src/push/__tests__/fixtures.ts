@@ -121,7 +121,7 @@ export function safetyCheck(overrides: Partial<PushData> = {}): PushData {
 
 export const COMMAND_IDS = ids;
 
-/** Someone signing in to the browser extension with the person's email (20261027002900): about no business. */
+/** Someone signing in to the browser extension with the person's email (20261027002910): about no business. */
 export const SIGN_IN = '77777777-7777-4777-8777-777777777777';
 export function extensionSignIn(overrides: Partial<PushData> = {}): PushData {
   return {

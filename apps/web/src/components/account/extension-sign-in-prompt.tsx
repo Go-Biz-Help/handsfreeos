@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 /**
- * Someone is signing in to the browser extension with this person's email (20261027002900): "Signing in to the
+ * Someone is signing in to the browser extension with this person's email (20261027002910): "Signing in to the
  * extension on Chrome? Pick the number you see." with three numbers, one of them the extension's. The right one lets
  * it in; a wrong one, or That wasn't me, stops it. Mounted once in the workspace layout; while the tab is in front it
  * asks every few seconds whether a request is waiting (`extension_sign_in.pending`), and a hidden tab asks nothing.

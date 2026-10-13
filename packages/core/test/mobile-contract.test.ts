@@ -140,7 +140,7 @@ const ONLINE_COMMANDS = [
   'outreach.helpful.ok',
   'outreach.helpful.posted',
   'outreach.helpful.skip',
-  // Letting the browser extension sign in by picking its number, from the push (20261027002900).
+  // Letting the browser extension sign in by picking its number, from the push (20261027002910).
   'extension_sign_in.answer',
 ];
 /**
@@ -236,7 +236,7 @@ const QUERIES = [
   'outreach.stages',
   // Today's helpful post, and those up lately (decision 50).
   'outreach.helpful',
-  // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002900).
+  // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
 ];
 

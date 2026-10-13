@@ -216,7 +216,7 @@ export const PUSH_CATEGORIES = {
   safety_check: { switch: 'safety', buttons: ['im_ok', 'add_15'] },
   safety_alert: { switch: 'safety', buttons: ['open'] },
   /**
-   * Someone is signing in to the browser extension with this person's email (20261027002900): "Signing in to the
+   * Someone is signing in to the browser extension with this person's email (20261027002910): "Signing in to the
    * extension on Chrome?" Open goes to the screen that asks for the number the extension shows. Never switched off:
    * only the person can have asked for it, and it lasts two minutes.
    */

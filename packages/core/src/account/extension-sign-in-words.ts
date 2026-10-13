@@ -1,5 +1,5 @@
 /**
- * Approving a sign-in to the browser extension from the phone or the web, with a matching number (20261027002900,
+ * Approving a sign-in to the browser extension from the phone or the web, with a matching number (20261027002910,
  * apps/extension/README.md "Signing in with a prompt"). Browser-safe: the extension, the web prompt, the phone's
  * screen and the worker all read these.
  *

@@ -14,7 +14,7 @@ type State =
   | { readonly kind: 'done'; readonly said: string; readonly ok: boolean };
 
 /**
- * Signing in to the browser extension with this person's email (its push, `extension_sign_in`, 20261027002900):
+ * Signing in to the browser extension with this person's email (its push, `extension_sign_in`, 20261027002910):
  * "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one lets it in;
  * a wrong one, or That wasn’t me, stops it. Answered online, straight away: it lasts two minutes.
  */

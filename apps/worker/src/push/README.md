@@ -55,7 +55,7 @@ Both are for people, can be sent again safely, and are online-only (refused if m
 ### An extension sign-in
 
 Someone typed the person's email in the Social Outreach extension and pressed **Send me a prompt**
-(20261027002900, apps/extension/README.md "Signing in with a prompt"):
+(20261027002910, apps/extension/README.md "Signing in with a prompt"):
 
 - **`extension_sign_in`** ("Signing in to the extension on Chrome?") to that person's own phones alone, at once, with
   **Open**. It belongs to no business: `workspaceId: null`, `business: ''`, `path: /app/extension-sign-in/<id>`,

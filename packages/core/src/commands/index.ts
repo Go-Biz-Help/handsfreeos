@@ -1010,7 +1010,7 @@ export const commands: readonly CommandDef[] = [
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
-  // Approving an extension sign-in from the phone or the web (20261027002900).
+  // Approving an extension sign-in from the phone or the web (20261027002910).
   extensionSignInAnswer,
   ...migrationCommands,
   ...supportTicketCommands,

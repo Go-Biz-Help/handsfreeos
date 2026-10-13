@@ -19,7 +19,7 @@ import { jobs } from '../src/scheduled';
 import { testServices, type TestServices } from './helpers';
 
 /**
- * Signing in to the browser extension with a prompt (20261027002900), through the worker's public doors on the real
+ * Signing in to the browser extension with a prompt (20261027002910), through the worker's public doors on the real
  * database with the stand-in push sender and a stand-in for Supabase's admin key:
  * - **Start** answers the same for an email with or without an account, and pushes only that person's own phones.
  * - **Collect** needs the secret; waits, then hands the sign-in over exactly once after the right number; a wrong

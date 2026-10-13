@@ -310,7 +310,7 @@ export function routeFor(pathAndQuery: string): LinkTarget {
   if (parts[1] === 'admin') return deskRoute(parts.slice(2), query);
   if (parts.length === 1)
     return { kind: 'screen', href: '/app', businessId: null, later: null, params: query };
-  // An extension sign-in waiting for the person's number (its push, 20261027002900): about no business.
+  // An extension sign-in waiting for the person's number (its push, 20261027002910): about no business.
   if (parts[1] === 'extension-sign-in' && parts.length === 3 && UUID.test(parts[2]!))
     return {
       kind: 'screen',

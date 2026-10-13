@@ -18,7 +18,7 @@ export interface AuthAdmin {
   /** Blocks every way of signing in, and takes the person's email and name off the sign-in. */
   blockSignIn(userId: string, deletedEmail: string): Promise<void>;
   /**
-   * A one-time sign-in for this email, for the extension (20261027002900): the hashed token of a magic link that is
+   * A one-time sign-in for this email, for the extension (20261027002910): the hashed token of a magic link that is
    * never emailed, which the extension redeems with `verifyOtp({ token_hash, type: 'email' })`. Only after the person
    * picked the right number on their phone or in HandsFreeOS (http/extension-sign-in.ts).
    */

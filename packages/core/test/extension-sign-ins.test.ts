@@ -1,5 +1,5 @@
 /**
- * Approving an extension sign-in with a matching number, on the local database (20261027002900):
+ * Approving an extension sign-in with a matching number, on the local database (20261027002910):
  * - **Starting** (the worker's, `private.start_extension_sign_in`) answers the same shape for an email with no
  *   account, which nobody can ever answer; a new request for an email cancels the one before.
  * - **extension_sign_in.pending** shows a person their own waiting requests, never the number, and nobody else's.

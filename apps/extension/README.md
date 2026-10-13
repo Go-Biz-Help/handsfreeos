@@ -80,7 +80,7 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
   **Something look wrong on this page? Tell us**, folded away, with **Copy page outline** and **Save page outline**
   (below, "When it reads a page wrong").
 
-**Signing in with a prompt** (20261027002900). The person types their email and presses **Send me a prompt**; the
+**Signing in with a prompt** (20261027002910). The person types their email and presses **Send me a prompt**; the
 panel shows a 2-digit number. Their phone gets a push (`extension_sign_in`), and any HandsFreeOS tab open in front of
 them asks "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one signs
 the extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.

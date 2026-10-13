@@ -4208,7 +4208,7 @@ export const pushDevices = app.table('push_devices', {
 });
 
 /**
- * Approving an extension sign-in from the phone or the web (20261027002900): one row per Send me a prompt. Two
+ * Approving an extension sign-in from the phone or the web (20261027002910): one row per Send me a prompt. Two
  * minutes to answer, answered once, a wrong pick refuses it. Only the hash of the extension's secret is kept, and
  * `user_id` is null when the email has no account. People read their own (not the number, hash or email); the
  * worker starts, collects and finds the push's phones through private functions.

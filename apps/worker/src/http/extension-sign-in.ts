@@ -1,5 +1,5 @@
 /**
- * Signing in to the browser extension with a prompt on the phone or the web (20261027002900,
+ * Signing in to the browser extension with a prompt on the phone or the web (20261027002910,
  * apps/extension/README.md "Signing in with a prompt"). The extension's two doors, before anybody is signed in:
  *
  * - `POST /public/extension-sign-in/start` `{ email, browser }`: a new request. The answer is the same whether or not
