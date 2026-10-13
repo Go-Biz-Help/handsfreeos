@@ -5,7 +5,7 @@
  * use it.
  */
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
-import type { ReadResult } from './types';
+import type { Named, ReadResult } from './types';
 
 /** What's read from their latest posts, and the business's: a couple each, cut short. */
 export const POSTS_READ = 2;
@@ -24,4 +24,23 @@ export function linesOf(read: ReadResult, label: string | null, posts: number): 
     .slice(0, posts)
     .map((post) => `${label ?? 'They'} posted: ${line(post.text, POST_LINE_MOST)}`);
   return [...intro.map((l) => line(label ? `${label}: ${l}` : l)), ...latest];
+}
+
+/** Words on a profile's line that say the page linked from it is theirs: "Owner at Smith Plumbing". */
+const OWNS =
+  /\b(owner|co-?owner|founder|co-?founder|ceo|proprietor|self[- ]employed|owns|my (own )?business)\b/i;
+
+/**
+ * Whether the page a profile links to is their own business: only when the line naming it says so. "Data Analyst at
+ * Consultmyapp", or a Work entry with just the name, is where they work, not theirs.
+ */
+export function ownsPage(read: ReadResult, page: Named): boolean {
+  return (read.profile?.intro ?? []).some((l) => l.includes(page.name) && OWNS.test(l));
+}
+
+/** The line that heads what the page says, for the AI: their business, or where they work. */
+export function pageHeading(read: ReadResult, page: Named): string {
+  return ownsPage(read, page)
+    ? `Their business page: ${line(page.name)}`
+    : `Where they work, a job and not their own business: ${line(page.name)}`;
 }

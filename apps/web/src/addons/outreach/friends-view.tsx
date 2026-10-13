@@ -18,6 +18,7 @@ import {
 import {
   CHECK_VERDICTS,
   CHECKS_WORDS,
+  checksAgainDone,
   checksWords,
   type CheckVerdict,
 } from '@hfos/core/addons/outreach/checks';
@@ -53,6 +54,7 @@ import { FileAsksCard } from './file-asks';
 import { PersonMenu } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
+import { useAct } from './use-act';
 
 type Counts = Friends['counts'];
 type DontPitch = NonNullable<Friend['dontPitch']>;
@@ -678,7 +680,8 @@ function FitWhy({ why }: { why: readonly string[] }) {
 
 /**
  * Checking the person's friends and chats for good fits (decision 46): how far it has come, today's against the
- * day's, and **Check my friends**, which asks their computer to read the next ones' profiles for the AI.
+ * day's, and **Check my friends**, which asks their computer to read the next ones' profiles for the AI. **Check
+ * everyone again** puts everyone checked before back on that list.
  */
 function ChecksCard({
   workspaceId,
@@ -691,6 +694,14 @@ function ChecksCard({
 }) {
   const words = checksWords(friends.checks);
   const room = friends.checks.today < friends.checks.perDay;
+  const { busy, act } = useAct();
+  const checkAgain = () =>
+    act('checks-again', async () => {
+      const { again } = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.checks.again', { body: { workspaceId } }),
+      );
+      toast.success(checksAgainDone(again, friends.checks.perDay));
+    });
   return (
     <Card className="p-4" data-testid="friends-checks">
       <h3 className="text-[15px] font-semibold">{CHECKS_WORDS.title}</h3>
@@ -716,6 +727,20 @@ function ChecksCard({
         />
       </div>
       <p className="mt-2 text-[12.5px] text-text-3">{CHECKS_WORDS.daily}</p>
+      {friends.checks.checked ? (
+        <div className="mt-3 border-t border-border pt-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={busy === 'checks-again'}
+            onClick={checkAgain}
+            data-testid="checks-again"
+          >
+            {CHECKS_WORDS.again}
+          </Button>
+          <p className="mt-1.5 text-[12.5px] text-text-3">{CHECKS_WORDS.againNote}</p>
+        </div>
+      ) : null}
     </Card>
   );
 }

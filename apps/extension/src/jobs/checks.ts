@@ -16,7 +16,7 @@ import {
 import type { ChecksNext } from '../hfos/messages';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { samePerson } from '../facebook/auto';
-import { line, linesOf, POSTS_READ } from '../facebook/lookup';
+import { linesOf, pageHeading, POSTS_READ } from '../facebook/lookup';
 import { profileFromUrl, workUrl } from '../facebook/urls';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
@@ -62,7 +62,7 @@ async function readThem(
     const page = await readIn(job.tab);
     const warnedThere = await warnedOn(job, page);
     if (warnedThere) return { end: warnedThere };
-    lines.push(`Their business page: ${line(business.name)}`, ...linesOf(page, business.name, 1));
+    lines.push(pageHeading(profile, business), ...linesOf(page, business.name, 1));
   }
   return { lines: [...new Set(lines.filter(Boolean))].slice(0, LOOKUP_LINES), missing: false };
 }
