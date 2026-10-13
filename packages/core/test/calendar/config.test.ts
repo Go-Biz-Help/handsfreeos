@@ -13,6 +13,7 @@ import {
   resolveTerms,
   upgradeConfig,
   weeklyHoursDayProblem,
+  copyWeeklyHoursDay,
   type ConfigPatch,
 } from '../../src/calendar/index';
 import { catalogs, DALE, MARCO, presetContext, PRIYA, TRUCK, TUNE_UP, WORKFLOW } from './fixtures';
@@ -254,5 +255,29 @@ describe('one day’s hours', () => {
     expect(weeklyHoursDayProblem(day(['11:00', '15:00'], ['09:00', '12:00']))).toBe(
       'These hours overlap.',
     );
+  });
+});
+
+describe('copyWeeklyHoursDay', () => {
+  it('gives every day the copied day’s hours, lunch break and all', () => {
+    const copied = copyWeeklyHoursDay(
+      [
+        { day: 1, start: '13:00', end: '17:00' },
+        { day: 1, start: '08:00', end: '12:00' },
+        { day: 3, start: '10:00', end: '11:00' },
+      ],
+      1,
+    );
+    expect(copied).toHaveLength(14);
+    expect(copied.filter((h) => h.day === 0)).toEqual([
+      { day: 0, start: '08:00', end: '12:00' },
+      { day: 0, start: '13:00', end: '17:00' },
+    ]);
+    expect(copied.some((h) => h.start === '10:00')).toBe(false);
+  });
+
+  it('leaves the week alone when the day is closed', () => {
+    const week = [{ day: 2, start: '09:00', end: '17:00' }];
+    expect(copyWeeklyHoursDay(week, 5)).toBe(week);
   });
 });

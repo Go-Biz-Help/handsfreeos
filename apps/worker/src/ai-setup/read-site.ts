@@ -339,13 +339,19 @@ export function readSiteMessage(pages: readonly SitePage[]): string {
   ].join('\n');
 }
 
+/**
+ * The site didn't answer (a dropped connection, a timeout or a server error). Small sites often do this for a moment,
+ * so the job runs again (5s, 10s, 20s, 40s later) rather than giving up on the first try.
+ */
+export class SiteUnreachableError extends Error {}
+
 /** The start page, then the pages worth reading that it links to, as far as robots.txt lets us. */
 async function readPages(ctx: JobContext, start: string, log: Logger): Promise<SitePage[]> {
   const url = normalizePageUrl(start);
   if (!url) return [];
   const robots = await robotsOf(ctx, new URL(url).origin, log);
-  if (!robots) return [];
-  const home = await readPage(ctx, url, robots, log);
+  if (!robots) throw new SiteUnreachableError('the website’s robots.txt didn’t answer');
+  const home = await readPage(ctx, url, robots, log, { mustAnswer: true });
   if (!home) {
     log.info('quick setup couldn’t read the website’s start page');
     return [];
@@ -388,6 +394,7 @@ async function readPage(
   url: string,
   robots: Robots,
   log: Logger,
+  { mustAnswer = false }: { readonly mustAnswer?: boolean } = {},
 ): Promise<{ readonly page: SitePage; readonly links: string[] } | null> {
   const u = new URL(url);
   if (!robotsAllows(robots, u.pathname + u.search)) {
@@ -404,8 +411,11 @@ async function readPage(
     });
   } catch (e) {
     log.info({ url, code: fetchCode(e) }, 'quick setup couldn’t read a page');
+    if (mustAnswer && isPassing(e)) throw new SiteUnreachableError('the website didn’t answer');
     return null;
   }
+  if (mustAnswer && (res.status >= 500 || res.status === 429))
+    throw new SiteUnreachableError(`the website answered with an error (${res.status})`);
   if (res.status < 200 || res.status >= 300 || !isHtml(res)) return null;
   const finalUrl = normalizePageUrl(res.finalUrl) ?? url;
   const footer = footerText(res.body);
@@ -465,5 +475,9 @@ export function pagesWorthReading(links: readonly string[], start: string): stri
   const rest = [...byTopic.about, ...byTopic.services.slice(1), ...byTopic.area.slice(1)];
   return [...firsts, ...rest].slice(0, READ_SITE_LIMITS.morePages);
 }
+
+/** A dropped connection or a timeout, which may pass; not a private address or another site. */
+const isPassing = (e: unknown) =>
+  !(e instanceof SafeFetchError) || e.code === 'network' || e.code === 'timeout';
 
 const fetchCode = (e: unknown) => (e instanceof SafeFetchError ? e.code : 'network');

@@ -1,6 +1,13 @@
 'use client';
-import { minutesToClock, parseClock, weeklyHoursDayProblem, type WeeklyHours } from '@hfos/core';
-import { Plus, X } from 'lucide-react';
+import {
+  copyWeeklyHoursDay,
+  COPY_HOURS_TO_ALL_DAYS,
+  minutesToClock,
+  parseClock,
+  weeklyHoursDayProblem,
+  type WeeklyHours,
+} from '@hfos/core';
+import { Copy, Plus, X } from 'lucide-react';
 import { Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { clockLabel } from '@/lib/calendar/time';
@@ -30,7 +37,7 @@ export function hoursProblem(value: WeeklyHours): string | null {
 
 /**
  * Weekly hours, Monday first: a switch per day, one or more stretches (the + adds a second one, for a
- * lunch break), no stretch crossing midnight. Used for people, services, resources and calendars.
+ * lunch break), no stretch crossing midnight, and a copy button that gives every day an open day's hours. Used for people, services, resources and calendars.
  */
 export function WeeklyHoursEditor({
   value,
@@ -143,6 +150,17 @@ export function WeeklyHoursEditor({
                 </span>
               ) : null}
             </span>
+            <button
+              type="button"
+              title={COPY_HOURS_TO_ALL_DAYS}
+              aria-label={`${COPY_HOURS_TO_ALL_DAYS}, from ${long}`}
+              disabled={disabled || !on}
+              onClick={() => onChange(copyWeeklyHoursDay(value, day))}
+              data-testid={`${idPrefix}-day-${short.toLowerCase()}-copy`}
+              className="mt-[1px] flex h-7 w-7 flex-none items-center justify-center rounded-control text-text-2 hover:bg-card-2 hover:text-text disabled:opacity-40"
+            >
+              <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
             <button
               type="button"
               title="Add hours"

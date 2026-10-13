@@ -177,9 +177,9 @@ export const ONBOARDING_SETUP_WORDS = {
   whatYouDoHint: 'Search, like “plumber” or “hair salon”, or tap the closest fit.',
   kindMissing: 'Pick what you do: search for it, or tap the closest fit and pick from the list.',
   searchKinds: 'Search kinds of business',
-  address: 'Your address',
+  address: 'Your address (optional)',
   addressHint:
-    'It goes on your invoices and your texting registration, and it finds you a local number.',
+    'It goes on your invoices and your texting registration, and it finds you a local number. You can add it later.',
   line1: 'Street address',
   line2: 'Suite or unit (optional)',
   city: 'City',

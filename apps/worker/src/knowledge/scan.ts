@@ -276,6 +276,9 @@ async function startState(
       timeoutMs: SCAN_LIMITS.requestMs,
       maxBytes: 512 * 1024,
     });
+    // A server error may pass: run the job again (5s, 10s, 20s, 40s later) before saying so.
+    if ((res.status >= 500 || res.status === 429) && ctx.attempt < MAX_ATTEMPTS)
+      throw new Error(`the website’s robots.txt answered with an error (${res.status})`);
     if (res.status >= 500 || res.status === 429)
       return {
         problem: {
@@ -286,9 +289,13 @@ async function startState(
     // Anything else in the 400s means there is no robots.txt: everything may be read.
     if (res.status >= 200 && res.status < 300) robots = parseRobots(res.body);
   } catch (e) {
-    // robots.txt served from another site counts as none; a site we can't reach isn't scanned at all.
-    if (!(e instanceof SafeFetchError && e.code === 'other_host'))
+    // robots.txt served from another site counts as none. A dropped connection or a timeout may pass, so the job
+    // runs again first; a site we still can't reach isn't scanned at all.
+    const code = e instanceof SafeFetchError ? e.code : 'network';
+    if (code !== 'other_host') {
+      if ((code === 'network' || code === 'timeout') && ctx.attempt < MAX_ATTEMPTS) throw e;
       return { problem: siteProblem(u.host, e) };
+    }
   }
   const state: ScanState = {
     mode,
