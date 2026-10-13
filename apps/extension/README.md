@@ -239,6 +239,12 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   when they run low (decisions 32, 46 and 48).
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
 
+Before anything else in your day, it saves your own lists (`src/auto/lists.ts`; docs/outreach.md, decision 60): your
+friends list, the friend requests you've got, and the ones you've sent (it presses **View sent requests** on your
+friend requests page, and nothing else). The first time, your day waits until all three are saved to their end, and
+it says so ("Saving your friends list first…"); then it works out Tidy up's suggestions and checks your friends for
+good fits once. After that it saves the requests again each morning and your friends list once a week.
+
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests
 you've got (Friend requests, loading a few screens of them); checks up to 4 of your groups for your people (Check my

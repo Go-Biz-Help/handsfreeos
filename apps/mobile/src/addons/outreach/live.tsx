@@ -305,7 +305,9 @@ export function LiveBody({
             </Button>
           </View>
         )}
-        {dayWords(day, tz) ? <Note testID="live-day-words">{dayWords(day, tz)}</Note> : null}
+        {dayWords(day, tz, live.lists) ? (
+          <Note testID="live-day-words">{dayWords(day, tz, live.lists)}</Note>
+        ) : null}
         {pressed ? <QueuedNote online={online} /> : null}
       </Card>
 

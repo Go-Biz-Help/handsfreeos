@@ -1061,6 +1061,30 @@ export const engagements = addonOutreach.table(
   ],
 );
 
+/**
+ * When the person's own lists were last saved to their end, before their day (../lists.ts): their friends, the friend
+ * requests they've got and the ones they've sent; and when the first Tidy up and good-fits check after that were done.
+ * Each person's own: one row a person.
+ */
+export const listSaves = addonOutreach.table(
+  'list_saves',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    friendsAt: ts('friends_at'),
+    requestsAt: ts('requests_at'),
+    sentAt: ts('sent_at'),
+    tidyAt: ts('tidy_at'),
+    checksAt: ts('checks_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1080,6 +1104,7 @@ export const OUTREACH_TABLES = {
   imports,
   joins,
   demos,
+  listSaves,
   liveSteps,
   needs,
   openerUses,

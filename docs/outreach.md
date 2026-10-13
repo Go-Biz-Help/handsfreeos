@@ -254,6 +254,19 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   and their members (`outreach.group.save`), then Find posts (`outreach.posts.save`) and Read my chats, up to 60
   (`outreach.chats.collect`). Each reads and saves only, as the same asks from the app do, and a warning stops the
   day.
+- **Lists first** (decision 60, `lists.ts`, `ops/lists.ts`, the extension's `src/auto/lists.ts` and
+  `src/jobs/people.ts`): before anything else in the person's day, the runner saves their own lists to their end:
+  their friends list, the friend requests they've got, and the ones they've sent (it presses **View sent requests**
+  on `/friends/requests`, and nothing else). HandsFreeOS keeps when each was last saved to its end, each person's own
+  (`addon_outreach.list_saves`, `outreach.lists`, `outreach.lists.saved`). The first time, nothing runs until all
+  three are saved: the extension says "Saving your friends list first…", and under **Start my day** the web and the
+  phone say the day starts once they're saved (`dayWords` with `outreach.live`'s `lists`). One that goes wrong is
+  tried again in a few minutes. After that, the requests either way are saved again each morning before the day (they
+  stand for that day's once-a-day friend requests), and the friends list once its last full save is 7 days old
+  (`FRIENDS_AGAIN_DAYS`); a refresh that goes wrong waits for tomorrow and never holds the day up. Right after the
+  first full save it works out the **Tidy up** suggestions (`outreach.friends.tidy`, decisions 10, 12 and 17) and
+  then checks friends for good fits once (decision 46, up to `CHECKS_PER_DAY`), which stands for that day's check;
+  from then on the checks run daily with their cap.
 - **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
   `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the
   extension follows is set here, never in the extension. **My settings** holds what it does on its own, Replies, the
@@ -426,6 +439,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | Waiting for you, and steps it needs you for              | `waiting.ts`, `waiting-words.ts` (no zod of its own), `ops/waiting.ts`, `ops/needs.ts`, `supabase/migrations/20261027001600_outreach_waiting.sql`                                                                                                               |
 | Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                                                                                                                                   |
 | The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                                                                                                                               |
+| Lists first, before the day (decision 60)                | `lists.ts`, `ops/lists.ts`, `apps/extension/src/auto/lists.ts`, `src/jobs/people.ts`, `supabase/migrations/20261027002800_outreach_list_saves.sql`                                                                                                              |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                          |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                        |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                    |
@@ -510,6 +524,7 @@ Operations, all through the kernel:
 | `outreach.wheels.end`                                 | `outreach.manage` | End someone's training wheels early                                                                                                                                                                                                                                                                                                 |
 | `outreach.live.beat`                                  | `outreach.use`    | The extension's beat: this computer, what it's doing, new feed lines; answers whether it works, the day, and how many asks wait. Keeps no receipt                                                                                                                                                                                   |
 | `outreach.day.start`, `outreach.day.stop`             | `outreach.use`    | Start my day or Stop for today, the person's own; an older press never undoes a newer one, and one from another day changes nothing. Start after a warning: `outreach_warned_today`; with nothing on its own: `outreach_sending_off`                                                                                                |
+| `outreach.lists`, `outreach.lists.saved`              | `outreach.use`    | When the person's own friends list, requests got and requests sent were last saved to their end, and the first Tidy up and check after; the extension notes each (Lists first, decision 60)                                                                                                                                         |
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                                                                                                                                                                                                                |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed                                                                                                                                                                                                                      |
 | `outreach.live.team`                                  | `outreach.manage` | Each person's status, computer, counts and how many wait; never their lines or messages                                                                                                                                                                                                                                             |
@@ -829,6 +844,12 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
       **Something look wrong on this page? Tell us**. Pushes and pop-ups say Today where they said Waiting for you.
 
     Built.
+
+60. **Lists first, the first day only.** Before someone can start their day, the system first finishes saving their
+    friends list and their friend requests, sent and received; once that's done, the day starts. The first time,
+    Start my day waits until all three are saved. After that, the requests are refreshed each morning before the day
+    starts, and the friends list once a week. Right after the first full save, it works out the friends to unfriend
+    (Tidy up, decisions 10, 12 and 17) and then the good fits among friends (decision 46), once. Built.
 
 ## Rules worth knowing before changing anything
 

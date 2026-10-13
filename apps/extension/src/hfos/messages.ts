@@ -7,6 +7,7 @@ import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
+import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
 import type { AutoState } from '../auto/plan';
 
 type Body<P extends keyof paths> = paths[P] extends {
@@ -212,6 +213,9 @@ export type HfosAsk =
       readonly input: TodayDraftInput;
     }
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
+  /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
+  | { readonly type: 'hfos-lists'; readonly workspaceId: string }
+  | { readonly type: 'hfos-lists-saved'; readonly workspaceId: string; readonly list: ListMark }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
@@ -265,6 +269,8 @@ export interface HfosValues {
   readonly 'hfos-groups': GroupsList;
   readonly 'hfos-draft': Drafts;
   readonly 'hfos-tidy': Tidy;
+  readonly 'hfos-lists': ListsSaved;
+  readonly 'hfos-lists-saved': ListsSaved;
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;

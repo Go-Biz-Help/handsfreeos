@@ -49,6 +49,13 @@ export function friendListOf(doc: Document, href: string): ListPage | null {
     : null;
 }
 
+/** Whether the page is your own friend requests, where View sent requests opens the ones you've sent. */
+export function requestsPage(href: string): boolean {
+  const url = facebookUrl(href);
+  const [first = '', second = ''] = url ? pathParts(url).map((part) => part.toLowerCase()) : [];
+  return first === 'friends' && second === 'requests';
+}
+
 /** Whether your list is beside the page, as on /friends/requests and /friends/list, rather than on it. */
 export function listBeside(href: string): boolean {
   const url = facebookUrl(href);

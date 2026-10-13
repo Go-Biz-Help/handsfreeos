@@ -17,6 +17,7 @@ import { friendCommands, friendQueries } from './ops/friends';
 import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
 import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
+import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
@@ -47,6 +48,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationCommands,
     ...sendCommands,
     ...liveCommands,
+    ...listCommands,
     ...waitingCommands,
     ...askCommands,
     ...setupCommands,
@@ -68,6 +70,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationQueries,
     ...sendQueries,
     ...liveQueries,
+    ...listQueries,
     ...waitingQueries,
     ...askQueries,
     ...setupQueries,

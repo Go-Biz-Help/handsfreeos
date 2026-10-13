@@ -33,6 +33,8 @@ export type FetchAsk = (
    * their list, to send a friend request or confirm theirs (src/facebook/auto.ts).
    */
   readonly tidy?: boolean;
+  /** On the person's own friend requests page: View sent requests, to save the ones they've sent (src/jobs/people.ts). */
+  readonly lists?: boolean;
 };
 
 /**
