@@ -2,7 +2,7 @@
  * People's own video-meeting accounts (Zoom) behind one seam, so the sign-in routes never name a provider.
  * Signing in is the same OAuth dance as calendars and connected mailboxes, so the helpers (PKCE, token errors,
  * the sealed TokenSet JSON) and the error classes are the mailbox's. A fake stands in locally and in tests.
- * Making meetings comes next (HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md, step 3).
+ * Meetings follow their appointments (meetings/sync.ts).
  */
 import type { TokenSet } from '../mailbox/provider';
 
@@ -25,6 +25,20 @@ export interface MeetingAccount {
   readonly id: string;
 }
 
+/** One appointment's meeting, as the provider is asked to hold it. */
+export interface MeetingInput {
+  readonly appointmentId: string;
+  readonly topic: string;
+  readonly start: Date;
+  readonly end: Date;
+}
+
+/** A meeting the provider made: its id there, and the link people join with (passcode included). */
+export interface MadeMeeting {
+  readonly id: string;
+  readonly joinUrl: string;
+}
+
 export interface MeetingProvider {
   readonly name: MeetingProviderName;
   /** This server has the provider's OAuth app (client id and secret). */
@@ -39,4 +53,9 @@ export interface MeetingProvider {
   account(accessToken: string): Promise<MeetingAccount>;
   /** Permissions the sign-in came back without; the connection needs them all. */
   missingScopes(granted: readonly string[]): string[];
+  createMeeting(accessToken: string, m: MeetingInput): Promise<MadeMeeting>;
+  /** Moves a meeting. One that's gone (deleted in Zoom) answers null, so a new one is made. */
+  updateMeeting(accessToken: string, id: string, m: MeetingInput): Promise<'updated' | null>;
+  /** Removes a meeting; one that's already gone counts as removed. */
+  deleteMeeting(accessToken: string, id: string): Promise<void>;
 }

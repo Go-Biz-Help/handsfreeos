@@ -621,7 +621,12 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
             await executeCommand(
               ctx.db,
               appointmentSetMeetingLink,
-              { workspaceId: scope.workspaceId, appointmentId: a.id, meetingUrl },
+              {
+                workspaceId: scope.workspaceId,
+                appointmentId: a.id,
+                video: 'google_meet',
+                meetingUrl,
+              },
               systemActor(scope),
               workerMeta(),
             );

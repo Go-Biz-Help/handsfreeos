@@ -286,9 +286,15 @@ someone typed in is never replaced. Locally the stand-in makes `https://meet.goo
 
 ## Zoom
 
-**Settings** → **My calendar** → **Video meetings** → **Connect Zoom** links a person's own Zoom account. For
-now it only connects; making Zoom meetings for appointments is the next step of
-`HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md`.
+**Settings** → **My calendar** → **Video meetings** → **Connect Zoom** links a person's own Zoom account. A
+calendar's **Online** place set to **Make a Zoom link** (Settings → Calendars → Locations) then gets a Zoom
+meeting for each appointment, in the host's Zoom account (the host, else the first person on it). The job
+`appointment.meeting_sync` makes it when the appointment is booked, moves it when it moves, makes it again if
+someone deleted it in Zoom, and deletes it when the appointment is cancelled, a no-show or deleted. The link, Zoom's
+meeting id and the times it was set to live on the appointment's place. When the host hasn't connected Zoom (or
+Zoom needs them to sign in again), the appointment says so and has a **Make link** button; connecting Zoom also
+makes the links their upcoming appointments are missing. Meetings have a waiting room, and the join link carries
+Zoom's passcode.
 
 Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
 same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.

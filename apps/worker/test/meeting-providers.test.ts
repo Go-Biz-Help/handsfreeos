@@ -110,4 +110,45 @@ describe('Zoom', () => {
     const nobody = zoom(() => json({}));
     await expect(nobody.p.account('at')).rejects.toBeInstanceOf(MeetingError);
   });
+
+  it('makes a scheduled meeting in UTC with a waiting room, moves it, and treats a gone one as gone', async () => {
+    const m = {
+      appointmentId: 'a1',
+      topic: 'Video consult',
+      start: new Date('2026-10-06T15:00:00Z'),
+      end: new Date('2026-10-06T15:45:00Z'),
+    };
+    const made = zoom(() =>
+      json({ id: 85746065432, join_url: 'https://zoom.us/j/85746065432?pwd=x' }, 201),
+    );
+    expect(await made.p.createMeeting('at', m)).toEqual({
+      id: '85746065432',
+      joinUrl: 'https://zoom.us/j/85746065432?pwd=x',
+    });
+    expect(made.calls[0]).toMatchObject({
+      url: 'https://api.zoom.us/v2/users/me/meetings',
+      method: 'POST',
+    });
+    expect(JSON.parse(made.calls[0]!.body)).toMatchObject({
+      topic: 'Video consult',
+      type: 2,
+      start_time: '2026-10-06T15:00:00Z',
+      duration: 45,
+      timezone: 'UTC',
+      settings: { waiting_room: true },
+    });
+
+    const moved = zoom(() => new Response(null, { status: 204 }));
+    expect(await moved.p.updateMeeting('at', '857', m)).toBe('updated');
+    expect(moved.calls[0]).toMatchObject({
+      url: 'https://api.zoom.us/v2/meetings/857',
+      method: 'PATCH',
+    });
+
+    const gone = zoom(() => json({ code: 3001, message: 'Meeting does not exist' }, 404));
+    expect(await gone.p.updateMeeting('at', '857', m)).toBeNull();
+    await expect(gone.p.deleteMeeting('at', '857')).resolves.toBeUndefined();
+    const down = zoom(() => json({}, 500));
+    await expect(down.p.deleteMeeting('at', '857')).rejects.toBeInstanceOf(MeetingError);
+  });
 });

@@ -34,6 +34,8 @@ import {
 import { onJobStatusChanged } from '../booking/job-texts';
 import {
   onAppointmentChanged,
+  onMeetingConnected,
+  onMeetingLinkRequested,
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
@@ -234,6 +236,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'mailbox.reauth_required': [onMailboxReauthRequired, onConnectionBroke],
     'mailbox.failed': onConnectionBroke,
     'calendar_connection.connected': onCalendarRefreshWanted,
+    'meeting_connection.connected': onMeetingConnected,
+    'appointment.meeting_link_requested': onMeetingLinkRequested,
     // What customers said in public: a person asks, and the queue does it.
     'review_connection.connected': onReviewSyncWanted,
     'review_connection.sync_requested': onReviewSyncWanted,

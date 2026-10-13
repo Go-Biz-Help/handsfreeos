@@ -590,8 +590,11 @@ export function locationFor(
     // A link made per appointment, unless the caller gave one.
     video:
       k === 'virtual' && !given?.meetingUrl
-        ? (given?.video ?? (option?.video === 'google_meet' ? 'google_meet' : null))
+        ? (given?.video ?? (option?.video && option.video !== 'none' ? option.video : null))
         : null,
+    meetingId: null,
+    meetingFor: null,
+    meetingError: null,
   };
 }
 

@@ -32,6 +32,7 @@ import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
+import { appointmentMeetingSync } from './meetings/sync';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
@@ -509,6 +510,8 @@ export const jobs: JobMap = {
   'reviews.sync': reviewsSync,
   'review.reply_post': reviewReplyPost,
   'appointment.calendar_sync': appointmentCalendarSync,
+  // A Zoom appointment's meeting, made, moved or deleted with it.
+  'appointment.meeting_sync': appointmentMeetingSync,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,

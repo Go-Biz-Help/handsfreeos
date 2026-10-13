@@ -42,6 +42,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeCalendarEvent } from '../src/calendar/fake';
 import type { TokenSet } from '../src/calendar/provider';
 import { queueCalendarSync } from '../src/calendar/sync';
+import { queueMeetingSync } from '../src/meetings/sync';
 import { processDeliveries } from '../src/deliveries';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
@@ -849,6 +850,86 @@ describe('connecting Zoom', () => {
     const { connectionId, location } = await connectZoom(owner, 'dale@zoom.fake', 'deny');
     expect(location).toMatch(/\?meeting=cancelled$/);
     expect((await meeting(connectionId)).status).toBe('pending');
+  });
+
+  it('makes the host’s Zoom meeting, moves it with the appointment and deletes it when cancelled', async () => {
+    const zoomPlace = {
+      kind: 'virtual',
+      address: null,
+      meetingUrl: null,
+      postalCode: null,
+      video: 'zoom',
+    };
+    const placeOf = async (id: string) =>
+      (
+        await worker((tx) =>
+          rows<{ location: Record<string, unknown> }>(
+            tx,
+            sql`select location from app.appointments where id = ${id}`,
+          ),
+        )
+      )[0]!.location;
+    const meetingSync = async (id: string) => {
+      await worker((tx) => queueMeetingSync(tx, scope(), id));
+      await drain();
+    };
+    const zoom = s.calendars.fakeZoom!;
+
+    // Priya connected Zoom above (priya.new@zoom.fake).
+    const call = await book('Zoom consult', at(8, 16), at(8, 17), [tech.id], zoomPlace);
+    await meetingSync(call);
+    const [m] = zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(m).toMatchObject({
+      topic: 'Zoom consult',
+      start: at(8, 16).toISOString(),
+      end: at(8, 17).toISOString(),
+    });
+    expect(await placeOf(call)).toMatchObject({
+      video: 'zoom',
+      meetingUrl: m!.joinUrl,
+      meetingId: m!.id,
+      meetingError: null,
+    });
+
+    // Moved: the same meeting moves; run again unchanged, nothing new is made.
+    await move(call, at(8, 18), at(8, 19));
+    await meetingSync(call);
+    await meetingSync(call);
+    const after = zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(after).toEqual([expect.objectContaining({ id: m!.id, start: at(8, 18).toISOString() })]);
+
+    // Deleted in Zoom itself: the next change makes a new one.
+    zoom.forget(m!.id);
+    await move(call, at(8, 19), at(8, 20));
+    await meetingSync(call);
+    const remade = zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(remade).toHaveLength(1);
+    expect(remade[0]!.id).not.toBe(m!.id);
+    expect(await placeOf(call)).toMatchObject({ meetingId: remade[0]!.id });
+
+    // Cancelled: the meeting comes out of Zoom.
+    await setStatus(call, 'cancelled');
+    await meetingSync(call);
+    expect(zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call)).toEqual(
+      [],
+    );
+    expect(await placeOf(call)).toMatchObject({ meetingId: null });
+  });
+
+  it('says why there’s no link when the host hasn’t connected Zoom, and Make link tries again', async () => {
+    const zoomPlace = { kind: 'virtual', video: 'zoom' };
+    const call = await book('No Zoom yet', at(8, 9), at(8, 10), [owner.id], zoomPlace);
+    await worker((tx) => queueMeetingSync(tx, scope(), call));
+    await drain();
+    const [row] = await worker((tx) =>
+      rows<{ location: Record<string, unknown> }>(
+        tx,
+        sql`select location from app.appointments where id = ${call}`,
+      ),
+    );
+    expect(row!.location).toMatchObject({ meetingUrl: null });
+    expect(String(row!.location['meetingError'])).toContain('hasn’t connected Zoom');
+    expect(String(row!.location['meetingError'])).toContain('Settings → My calendar');
   });
 
   it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {

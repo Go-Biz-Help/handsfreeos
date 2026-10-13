@@ -7,12 +7,32 @@ import { randomBytes } from 'node:crypto';
 import { pkceChallenge } from '../mailbox/provider';
 import { MeetingAuthError, MeetingError, type MeetingProvider, type TokenSet } from './provider';
 
+/** A meeting the stand-in holds. */
+export interface FakeMeeting {
+  readonly id: string;
+  readonly account: string;
+  readonly appointmentId: string;
+  readonly topic: string;
+  readonly start: string;
+  readonly end: string;
+  readonly joinUrl: string;
+}
+
+export interface FakeZoom extends MeetingProvider {
+  /** What HandsFreeOS made in the account's Zoom. */
+  meetings(account: string): readonly FakeMeeting[];
+  /** Someone deleted the meeting in Zoom itself. */
+  forget(id: string): void;
+}
+
 const enc = (s: string) => Buffer.from(s).toString('base64url');
 const dec = (s: string) => Buffer.from(s, 'base64url').toString('utf8');
 const HOUR = 3_600_000;
 const SCOPES = ['meeting:write:meeting', 'meeting:update:meeting', 'user:read:user'];
 
-export function createFakeZoom(opts: { publicUrl: string }): MeetingProvider {
+export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
+  const held = new Map<string, FakeMeeting>();
+  let seq = 0;
   const tokens = (email: string): TokenSet => ({
     accessToken: `fake-zoom-access.${enc(email)}.${randomBytes(6).toString('hex')}`,
     refreshToken: `fake-zoom-refresh.${enc(email)}`,
@@ -25,7 +45,7 @@ export function createFakeZoom(opts: { publicUrl: string }): MeetingProvider {
       throw new MeetingError('Not a fake Zoom token.', 401);
     return dec(who);
   };
-  return {
+  const zoom: FakeZoom = {
     name: 'zoom',
     configured: true,
     authorizeUrl({ state, codeChallenge, redirectUri }) {
@@ -53,5 +73,40 @@ export function createFakeZoom(opts: { publicUrl: string }): MeetingProvider {
       return { email, id: `fake-zoom-user-${enc(email).slice(0, 12)}` };
     },
     missingScopes: () => [],
+    async createMeeting(accessToken, m) {
+      const id = String(80_000_000_000 + ++seq);
+      const joinUrl = `https://zoom.us/j/${id}?pwd=fake`;
+      held.set(id, {
+        id,
+        account: emailOf(accessToken),
+        appointmentId: m.appointmentId,
+        topic: m.topic,
+        start: m.start.toISOString(),
+        end: m.end.toISOString(),
+        joinUrl,
+      });
+      return { id, joinUrl };
+    },
+    async updateMeeting(accessToken, id, m) {
+      const had = held.get(id);
+      if (!had || had.account !== emailOf(accessToken)) return null;
+      held.set(id, {
+        ...had,
+        topic: m.topic,
+        start: m.start.toISOString(),
+        end: m.end.toISOString(),
+      });
+      return 'updated';
+    },
+    async deleteMeeting(accessToken: string, id: string) {
+      emailOf(accessToken);
+      held.delete(id);
+    },
+    meetings: (account: string) =>
+      [...held.values()].filter((x) => x.account === account.trim().toLowerCase()),
+    forget(id: string) {
+      held.delete(id);
+    },
   };
+  return zoom;
 }

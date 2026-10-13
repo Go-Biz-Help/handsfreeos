@@ -5,7 +5,14 @@
  * checked instead.
  */
 import { oauthFailure, providerJson } from '../mailbox/provider';
-import { MeetingError, type MeetingAccount, type MeetingProvider, type TokenSet } from './provider';
+import {
+  MeetingError,
+  type MadeMeeting,
+  type MeetingAccount,
+  type MeetingInput,
+  type MeetingProvider,
+  type TokenSet,
+} from './provider';
 
 const AUTH = 'https://zoom.us/oauth/authorize';
 const TOKEN = 'https://zoom.us/oauth/token';
@@ -52,6 +59,28 @@ export function createZoom(opts: {
     };
   }
 
+  async function api<T>(accessToken: string, path: string, init: RequestInit = {}): Promise<T> {
+    const res = await f(`${API}${path}`, {
+      ...init,
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        ...(init.body ? { 'content-type': 'application/json' } : {}),
+      },
+    });
+    return providerJson<T>('Zoom', res);
+  }
+  const gone = (e: unknown) => e instanceof MeetingError && e.status === 404;
+  // A scheduled meeting in UTC, with a waiting room; its join link carries the passcode Zoom makes.
+  const body = (m: MeetingInput) => ({
+    topic: m.topic.slice(0, 200),
+    type: 2,
+    start_time: m.start.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    duration: Math.max(1, Math.round((m.end.getTime() - m.start.getTime()) / 60_000)),
+    timezone: 'UTC',
+    agenda: `HandsFreeOS appointment ${m.appointmentId}`,
+    settings: { waiting_room: true, join_before_host: false },
+  });
+
   return {
     name: 'zoom',
     configured: !!(opts.clientId && opts.clientSecret),
@@ -91,6 +120,35 @@ export function createZoom(opts: {
       if (!email.includes('@') || !me.id)
         throw new MeetingError('Zoom didn’t say which account signed in.', null, true);
       return { email, id: me.id };
+    },
+    async createMeeting(accessToken, m): Promise<MadeMeeting> {
+      const made = await api<{ id?: number | string; join_url?: string }>(
+        accessToken,
+        '/users/me/meetings',
+        { method: 'POST', body: JSON.stringify(body(m)) },
+      );
+      if (made.id === undefined || !made.join_url?.startsWith('https://'))
+        throw new MeetingError('Zoom didn’t send back the new meeting’s link.', null);
+      return { id: String(made.id), joinUrl: made.join_url };
+    },
+    async updateMeeting(accessToken, id, m) {
+      try {
+        await api(accessToken, `/meetings/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body(m)),
+        });
+        return 'updated';
+      } catch (e) {
+        if (gone(e)) return null;
+        throw e;
+      }
+    },
+    async deleteMeeting(accessToken, id) {
+      try {
+        await api(accessToken, `/meetings/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      } catch (e) {
+        if (!gone(e)) throw e;
+      }
     },
     missingScopes: (granted) =>
       ZOOM_NEEDED_SCOPES.filter(

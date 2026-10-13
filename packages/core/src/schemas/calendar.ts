@@ -58,8 +58,14 @@ export const AppointmentLocation = z.object({
   address: z.string().trim().max(300).nullable().default(null),
   meetingUrl: z.url().max(500).nullable().default(null),
   postalCode: z.string().trim().max(20).nullable().default(null),
-  /** Online only: the link is made for it (`google_meet`), filled in once the host's calendar has it. */
+  /** Online only: the link is made for it (`google_meet`, `zoom`), filled in once the host's account has it. */
   video: VideoProvider.nullable().default(null),
+  /** Zoom: the meeting's id there, so a move or a cancel follows it. */
+  meetingId: z.string().max(100).nullable().default(null),
+  /** Zoom: the times the meeting was last set to (`startsAt|endsAt`), so an unchanged one isn't sent again. */
+  meetingFor: z.string().max(100).nullable().default(null),
+  /** Why no link could be made yet, in words for the team ("Dale hasn’t connected Zoom…"). */
+  meetingError: z.string().max(500).nullable().default(null),
 });
 export type AppointmentLocation = z.infer<typeof AppointmentLocation>;
 

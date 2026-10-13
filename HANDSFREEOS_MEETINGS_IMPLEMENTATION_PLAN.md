@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 and 2 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 3 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -20,6 +20,11 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   `/oauth/:provider/start` and `/callback` (with a stand-in locally), and a Video meetings card on
 >   Settings → My calendar. `.check_settings` and the settings columns come with step 4. Setup is "Zoom" in
 >   `docs/calendar-setup.md`.
+> - **Step 3, Zoom meetings.** Smaller than §5 and §6: the choice is "Make a Zoom link" on the calendar's Online
+>   place; the meeting's link, id, times and any "why there's no link" live in the appointment's `location`
+>   (no new columns); `appointment.meeting_sync` makes, moves, remakes and deletes it, and `appointment.make_meeting_link`
+>   (the appointment's **Make link** button) tries again. Recording (`auto_recording`) waits for step 5. A reassigned
+>   appointment gets a new meeting in the new host's Zoom; the old host's stays in their account.
 
 ---
 

@@ -3,7 +3,7 @@ import { createFakeCalendars, type FakeCalendars } from './fake';
 import { createGoogleCalendar } from './google';
 import { createGraphCalendar } from './graph';
 import type { CalendarProvider, CalendarProviderName } from './provider';
-import { createFakeZoom } from '../meetings/fake';
+import { createFakeZoom, type FakeZoom } from '../meetings/fake';
 import type { MeetingProvider, MeetingProviderName } from '../meetings/provider';
 import { createZoom } from '../meetings/zoom';
 
@@ -15,6 +15,8 @@ export interface CalendarServices {
   readonly refreshEveryMs: number;
   /** People's own video-meeting accounts (Zoom), signed in to beside their calendar. */
   readonly meetings: Readonly<Record<MeetingProviderName, MeetingProvider>>;
+  /** Local and tests: the stand-in Zoom, to look at what was made. Null with the real one. */
+  readonly fakeZoom: FakeZoom | null;
 }
 
 /** In-memory calendars (local development, tests and the seed). */
@@ -23,11 +25,13 @@ export function fakeCalendarServices(
   refreshEveryMs: number,
 ): CalendarServices & { readonly fake: FakeCalendars } {
   const fake = createFakeCalendars({ publicUrl });
+  const fakeZoom = createFakeZoom({ publicUrl });
   return {
     providers: fake.providers,
     fake,
     refreshEveryMs,
-    meetings: { zoom: createFakeZoom({ publicUrl }) },
+    meetings: { zoom: fakeZoom },
+    fakeZoom,
   };
 }
 
@@ -53,5 +57,6 @@ export function createCalendars(env: WorkerEnv): CalendarServices {
     meetings: {
       zoom: createZoom({ clientId: env.zoomClientId, clientSecret: env.zoomClientSecret }),
     },
+    fakeZoom: null,
   };
 }

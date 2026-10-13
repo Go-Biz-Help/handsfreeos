@@ -12604,7 +12604,8 @@
                                   "type": "string",
                                   "enum": [
                                     "none",
-                                    "google_meet"
+                                    "google_meet",
+                                    "zoom"
                                   ]
                                 }
                               },
@@ -15618,8 +15619,45 @@
                             "type": "string",
                             "enum": [
                               "none",
-                              "google_meet"
+                              "google_meet",
+                              "zoom"
                             ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingFor": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingError": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500
                           },
                           {
                             "type": "null"
@@ -15883,8 +15921,45 @@
                             "type": "string",
                             "enum": [
                               "none",
-                              "google_meet"
+                              "google_meet",
+                              "zoom"
                             ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingFor": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingError": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500
                           },
                           {
                             "type": "null"
@@ -16022,6 +16097,65 @@
                     "appointmentId",
                     "updated",
                     "notApplied"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/appointment.make_meeting_link": {
+      "post": {
+        "operationId": "command_appointment_make_meeting_link",
+        "summary": "Try again to make the Zoom link for an online appointment, for instance after its host connected Zoom.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits appointment.meeting_link_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "appointmentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "appointmentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "appointmentId"
                   ],
                   "additionalProperties": false
                 }
@@ -16844,8 +16978,45 @@
                             "type": "string",
                             "enum": [
                               "none",
-                              "google_meet"
+                              "google_meet",
+                              "zoom"
                             ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingFor": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingError": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500
                           },
                           {
                             "type": "null"
@@ -17173,8 +17344,45 @@
                             "type": "string",
                             "enum": [
                               "none",
-                              "google_meet"
+                              "google_meet",
+                              "zoom"
                             ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingFor": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meetingError": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500
                           },
                           {
                             "type": "null"
@@ -107553,7 +107761,8 @@
                                         "type": "string",
                                         "enum": [
                                           "none",
-                                          "google_meet"
+                                          "google_meet",
+                                          "zoom"
                                         ]
                                       }
                                     },
@@ -108860,8 +109069,45 @@
                                     "type": "string",
                                     "enum": [
                                       "none",
-                                      "google_meet"
+                                      "google_meet",
+                                      "zoom"
                                     ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "meetingId": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 100
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "meetingFor": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 100
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "meetingError": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 500
                                   },
                                   {
                                     "type": "null"
@@ -108874,7 +109120,10 @@
                               "address",
                               "meetingUrl",
                               "postalCode",
-                              "video"
+                              "video",
+                              "meetingId",
+                              "meetingFor",
+                              "meetingError"
                             ],
                             "additionalProperties": false
                           },
@@ -109416,8 +109665,45 @@
                                   "type": "string",
                                   "enum": [
                                     "none",
-                                    "google_meet"
+                                    "google_meet",
+                                    "zoom"
                                   ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "meetingId": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 100
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "meetingFor": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 100
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "meetingError": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 500
                                 },
                                 {
                                   "type": "null"
@@ -109430,7 +109716,10 @@
                             "address",
                             "meetingUrl",
                             "postalCode",
-                            "video"
+                            "video",
+                            "meetingId",
+                            "meetingFor",
+                            "meetingError"
                           ],
                           "additionalProperties": false
                         },

@@ -429,17 +429,24 @@ export const appointmentUpdate = defineCommand({
 const SetMeetingLinkInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,
-  meetingUrl: z.url().max(500),
+  /** Which kind of link this is for: a change only lands while the appointment still wants that kind. */
+  video: z.enum(['google_meet', 'zoom']),
+  meetingUrl: z.url().max(500).nullable().optional(),
+  meetingId: z.string().max(100).nullable().optional(),
+  meetingFor: z.string().max(100).nullable().optional(),
+  meetingError: z.string().max(500).nullable().optional(),
 });
 const SetMeetingLinkOutput = z.object({ appointmentId: uuid, changed: z.boolean() });
 
 /**
- * Worker: the Meet link Google made for an online appointment set to "Make a Google Meet link". Only fills an
- * empty link: one a person typed in, or a place that changed in the meantime, stays as it is.
+ * Worker: the video link made for an online appointment (a Google Meet one, or a Zoom meeting), or why it
+ * couldn't be made. Only while the appointment still wants that kind of link; a Meet link only fills an empty one,
+ * so a link a person typed in stays.
  */
 export const appointmentSetMeetingLink = defineCommand({
   name: 'appointment.set_meeting_link',
-  description: 'Worker: save the video link made for an online appointment.',
+  description:
+    'Worker: save the video link made for an online appointment, or why it couldn’t be made.',
   risk: 1,
   input: SetMeetingLinkInput,
   output: SetMeetingLinkOutput,
@@ -461,9 +468,17 @@ export const appointmentSetMeetingLink = defineCommand({
       .for('update');
     if (!appt) return { appointmentId: input.appointmentId, changed: false };
     const place = AppointmentLocation.parse(appt.location ?? {});
-    if (place.kind !== 'virtual' || place.video !== 'google_meet' || place.meetingUrl)
+    if (place.kind !== 'virtual' || place.video !== input.video)
       return { appointmentId: appt.id, changed: false };
-    const location = { ...place, meetingUrl: input.meetingUrl };
+    if (input.video === 'google_meet' && place.meetingUrl)
+      return { appointmentId: appt.id, changed: false };
+    const location = { ...place };
+    if (input.meetingUrl !== undefined) location.meetingUrl = input.meetingUrl;
+    if (input.meetingId !== undefined) location.meetingId = input.meetingId;
+    if (input.meetingFor !== undefined) location.meetingFor = input.meetingFor;
+    if (input.meetingError !== undefined) location.meetingError = input.meetingError;
+    if (JSON.stringify(location) === JSON.stringify(place))
+      return { appointmentId: appt.id, changed: false };
     await ctx.tx.update(appointments).set({ location }).where(eq(appointments.id, appt.id));
     await ctx.emit({
       type: 'appointment.updated',
@@ -474,6 +489,54 @@ export const appointmentSetMeetingLink = defineCommand({
       after: { title: appt.title, location },
     });
     return { appointmentId: appt.id, changed: true };
+  },
+});
+
+const MakeMeetingLinkInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+const MakeMeetingLinkOutput = z.object({ appointmentId: uuid });
+
+/** Try again to make an online appointment's Zoom link (after its host connected Zoom, say). */
+export const appointmentMakeMeetingLink = defineCommand({
+  name: 'appointment.make_meeting_link',
+  description:
+    'Try again to make the Zoom link for an online appointment, for instance after its host connected Zoom.',
+  risk: 1,
+  input: MakeMeetingLinkInput,
+  output: MakeMeetingLinkOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.meeting_link_requested'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [appt] = await ctx.tx
+      .select({ id: appointments.id, status: appointments.status, location: appointments.location })
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)));
+    if (!appt)
+      throw HfosError.notFound(
+        'That appointment isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
+    const place = AppointmentLocation.parse(appt.location ?? {});
+    if (place.kind !== 'virtual' || place.video !== 'zoom')
+      throw HfosError.rule(
+        'appointment_not_zoom',
+        409,
+        'This appointment doesn’t get a Zoom link. Choose “Make a Zoom link” for the calendar’s Online place in Settings → Calendars → Locations.',
+      );
+    if (appt.status !== 'scheduled')
+      throw HfosError.rule(
+        'appointment_not_scheduled',
+        409,
+        'This appointment isn’t coming up anymore, so it doesn’t need a Zoom link.',
+      );
+    await ctx.emit({
+      type: 'appointment.meeting_link_requested',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: {},
+      broadcast: false,
+    });
+    return { appointmentId: appt.id };
   },
 });
 

@@ -306,6 +306,24 @@ export function AppointmentSheet({
     }
   }
 
+  /** Try the Zoom link again (after the host connected Zoom, say); the worker makes it in a moment. */
+  async function makeMeetingLink() {
+    if (!appt) return;
+    setBusy('meeting');
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/appointment.make_meeting_link', {
+          body: { workspaceId, appointmentId: appt.id },
+        }),
+      );
+      toast.success('Making the Zoom link now.');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function setStatus(status: 'completed' | 'no_show') {
     if (!appt) return;
     setBusy(status);
@@ -811,6 +829,27 @@ export function AppointmentSheet({
                         </Button>
                       </div>
                     ))}
+                  </div>
+                </Section>
+              ) : null}
+
+              {appt.location.video === 'zoom' &&
+              !appt.location.meetingUrl &&
+              appt.status === 'scheduled' ? (
+                <Section label="Zoom link">
+                  <div className="flex items-start gap-2.5 pt-1.5" data-testid="meeting-pending">
+                    <span className="min-w-0 flex-1 text-[13px] text-text-2">
+                      {appt.location.meetingError ?? 'Making the Zoom link now.'}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-none"
+                      loading={busy === 'meeting'}
+                      onClick={() => void makeMeetingLink()}
+                    >
+                      Make link
+                    </Button>
                   </div>
                 </Section>
               ) : null}

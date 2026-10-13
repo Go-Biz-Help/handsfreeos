@@ -667,7 +667,9 @@ function describeAction(e: AuditEntry): string {
         ? `recorded that the Zoom account ${s(e.after?.account)} needs reconnecting`
         : `recorded that the Zoom account ${s(e.after?.account)} stopped working${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
     case 'appointment.set_meeting_link':
-      return 'added a video link to an appointment';
+      return 'updated an appointment’s video link';
+    case 'appointment.make_meeting_link':
+      return 'asked for an appointment’s Zoom link to be made again';
     // Milestone 5: calendars, their catalogs, people's hours and appointments
     case 'calendar.create':
       return `created the calendar ${name(e)}${s(e.after?.preset) ? ` from the ${s(e.after?.preset)} preset` : ''}`;

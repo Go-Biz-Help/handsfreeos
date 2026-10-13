@@ -1521,8 +1521,45 @@
                     "type": "string",
                     "enum": [
                       "none",
-                      "google_meet"
+                      "google_meet",
+                      "zoom"
                     ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingId": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingFor": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingError": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
                   },
                   {
                     "type": "null"
@@ -1755,8 +1792,45 @@
                     "type": "string",
                     "enum": [
                       "none",
-                      "google_meet"
+                      "google_meet",
+                      "zoom"
                     ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingId": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingFor": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingError": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
                   },
                   {
                     "type": "null"

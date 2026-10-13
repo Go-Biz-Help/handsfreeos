@@ -797,6 +797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/appointment.make_meeting_link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try again to make the Zoom link for an online appointment, for instance after its host connected Zoom.
+         * @description Risk level 1. Requires appointments.write. Emits appointment.meeting_link_requested.
+         */
+        post: operations["command_appointment_make_meeting_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/appointment.reassign": {
         parameters: {
             query?: never;
@@ -21042,11 +21062,17 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
                         /** @default null */
-                        video?: ("none" | "google_meet") | null;
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     /** @default true */
@@ -21129,6 +21155,38 @@ export interface operations {
                         }[];
                         /** Format: date-time */
                         purgeAfter: string;
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_make_meeting_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
                     };
                 };
             };
@@ -21363,11 +21421,17 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
                         /** @default null */
-                        video?: ("none" | "google_meet") | null;
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     title?: string;
@@ -22932,7 +22996,7 @@ export interface operations {
                                  * @default none
                                  * @enum {string}
                                  */
-                                video?: "none" | "google_meet";
+                                video?: "none" | "google_meet" | "zoom";
                             }[];
                         };
                         /** @default {} */
@@ -46295,11 +46359,17 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
                         /** @default null */
-                        video?: ("none" | "google_meet") | null;
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     /** @default false */
@@ -46528,11 +46598,17 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
                         /** @default null */
-                        video?: ("none" | "google_meet") | null;
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     serviceId?: string | null;
@@ -52566,11 +52642,17 @@ export interface operations {
                                 /** @default null */
                                 kind: ("customer_address" | "business" | "virtual" | "phone") | null;
                                 /** @default null */
+                                meetingError: string | null;
+                                /** @default null */
+                                meetingFor: string | null;
+                                /** @default null */
+                                meetingId: string | null;
+                                /** @default null */
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
                                 /** @default null */
-                                video: ("none" | "google_meet") | null;
+                                video: ("none" | "google_meet" | "zoom") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -52713,11 +52795,17 @@ export interface operations {
                                 /** @default null */
                                 kind: ("customer_address" | "business" | "virtual" | "phone") | null;
                                 /** @default null */
+                                meetingError: string | null;
+                                /** @default null */
+                                meetingFor: string | null;
+                                /** @default null */
+                                meetingId: string | null;
+                                /** @default null */
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
                                 /** @default null */
-                                video: ("none" | "google_meet") | null;
+                                video: ("none" | "google_meet" | "zoom") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -54321,7 +54409,7 @@ export interface operations {
                                          * @default none
                                          * @enum {string}
                                          */
-                                        video: "none" | "google_meet";
+                                        video: "none" | "google_meet" | "zoom";
                                     }[];
                                 };
                                 notifications: {

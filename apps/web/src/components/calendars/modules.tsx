@@ -762,7 +762,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                         j === i
                           ? {
                               ...x,
-                              video: e.target.value as 'none' | 'google_meet',
+                              video: e.target.value as 'none' | 'google_meet' | 'zoom',
                               meetingUrl: null,
                             }
                           : x,
@@ -772,11 +772,13 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 >
                   <option value="none">Use my link</option>
                   <option value="google_meet">Make a Google Meet link</option>
+                  <option value="zoom">Make a Zoom link</option>
                 </Select>
-                {o.video === 'google_meet' ? (
+                {o.video !== 'none' ? (
                   <span className="min-w-[200px] flex-1 text-xs text-text-3">
-                    Each appointment gets its own link, made in the host’s Google Calendar. They
-                    connect it in Settings → My calendar.
+                    Each appointment gets its own link, made in the host’s{' '}
+                    {o.video === 'zoom' ? 'Zoom account' : 'Google Calendar'}. They connect it in
+                    Settings → My calendar.
                   </span>
                 ) : (
                   <CommitInput

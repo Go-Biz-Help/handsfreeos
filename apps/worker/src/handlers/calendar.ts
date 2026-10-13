@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { calendarConnections, users, workspaces } from '@hfos/db/schema';
 import { queueCalendarSync, scheduleRefresh } from '../calendar/sync';
+import { queueMeetingSync, queueMeetingSyncForHost } from '../meetings/sync';
 import { calendarReconnectEmail } from '../emails/templates';
 import { tenantOf } from '../services';
 import type { EventHandler } from './types';
@@ -55,5 +56,21 @@ export const onAppointmentChanged: EventHandler = async (ctx) => {
     : ctx.event.entityType === 'appointment' && ctx.event.entityId
       ? [ctx.event.entityId]
       : [];
-  for (const id of new Set(ids)) await queueCalendarSync(ctx.tx, scope, id);
+  for (const id of new Set(ids)) {
+    await queueCalendarSync(ctx.tx, scope, id);
+    // Its Zoom meeting follows too, when it has one (queued only for Zoom appointments).
+    await queueMeetingSync(ctx.tx, scope, id);
+  }
+};
+
+/** Make link pressed on an appointment: its Zoom meeting is tried again now. */
+export const onMeetingLinkRequested: EventHandler = async (ctx) => {
+  if (ctx.event.entityId) await queueMeetingSync(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId);
+};
+
+/** Someone connected Zoom: their upcoming Zoom appointments without a link get one. */
+export const onMeetingConnected: EventHandler = async (ctx) => {
+  const userId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['userId'];
+  if (typeof userId === 'string')
+    await queueMeetingSyncForHost(ctx.tx, tenantOf(ctx.scope), userId);
 };

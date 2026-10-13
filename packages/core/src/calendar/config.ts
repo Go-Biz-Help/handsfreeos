@@ -81,7 +81,7 @@ export type AssignmentMode = z.infer<typeof AssignmentMode>;
 export const LocationKind = z.enum(['customer_address', 'business', 'virtual', 'phone']);
 export type LocationKind = z.infer<typeof LocationKind>;
 /** For an online place: a link people type in ('none'), or one made for each appointment. */
-export const VideoProvider = z.enum(['none', 'google_meet']);
+export const VideoProvider = z.enum(['none', 'google_meet', 'zoom']);
 export type VideoProvider = z.infer<typeof VideoProvider>;
 
 export const IntakeKind = z.enum([
@@ -163,7 +163,10 @@ const Location = z.object({
   kind: LocationKind,
   address: z.string().trim().max(300).nullable().default(null),
   meetingUrl: z.url().max(500).nullable().default(null),
-  /** Online only: make a Google Meet link for each appointment, in the host's Google Calendar. */
+  /**
+   * Online only: make a link for each appointment, a Google Meet one in the host's Google Calendar or a Zoom
+   * meeting in the host's Zoom account.
+   */
   video: VideoProvider.default('none'),
 });
 
