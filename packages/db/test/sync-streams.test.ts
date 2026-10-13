@@ -20,6 +20,7 @@ import {
   createTestUser,
   dbs,
   type TestUser,
+  retryDeadlock,
 } from './harness';
 import { readSyncConfig, type SyncQuery } from './sync-config';
 
@@ -263,13 +264,15 @@ beforeAll(async () => {
           where workspace_id = ${business} and addon_id = ${PHONE_ADDON}`,
     ),
   );
-  await admin$.transaction(async (tx) => {
-    await tx.execute(
-      sql`select set_config('streams.ws', ${business}, true), set_config('streams.owner', ${owner.id}, true),
+  await retryDeadlock(() =>
+    admin$.transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('streams.ws', ${business}, true), set_config('streams.owner', ${owner.id}, true),
             set_config('streams.addon', ${PHONE_ADDON}, true)`,
-    );
-    await tx.execute(sql.raw(PHONE_FIXTURE));
-  });
+      );
+      await tx.execute(sql.raw(PHONE_FIXTURE));
+    }),
+  );
 }, 60_000);
 
 /** A stream query as Postgres runs it for one person subscribed to the business: every selected column, in id order. */
