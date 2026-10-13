@@ -750,3 +750,47 @@ footer details[open] summary {
   margin: 0 0 12px;
   font-size: 12px;
 }
+
+/* The live checklist of the steps before the first day (docs/outreach.md, "Lists first"). */
+.pre-day {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.pre-day li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  color: var(--text-3);
+}
+.pre-day li.done {
+  color: var(--text-2);
+}
+.pre-day li.now {
+  color: var(--text);
+  font-weight: 600;
+}
+.pre-day .tick {
+  text-align: center;
+}
+.pre-day li.done .tick {
+  color: var(--success);
+}
+.pre-day li.now .tick {
+  color: var(--accent-text);
+}
+.pre-day .progress {
+  grid-column: 2;
+  font-weight: 400;
+  color: var(--text-2);
+}
+.pre-day .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

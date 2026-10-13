@@ -14,6 +14,7 @@ import {
   type LiveTeamOutput,
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
+import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
@@ -23,7 +24,7 @@ import { View } from 'react-native';
 import { ChangeError } from '@/changes';
 import { useChange } from '@/changes/hooks';
 import type { ChangeState } from '@/changes/rules';
-import { Inbox, Pause, Play } from '@/components/icons';
+import { Check, Inbox, LoaderCircle, Pause, Play } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -311,6 +312,8 @@ export function LiveBody({
         {pressed ? <QueuedNote online={online} /> : null}
       </Card>
 
+      <PreDayPart live={{ ...live, day }} now={now} />
+
       {asks && askActions ? <AskedPart asks={asks} actions={askActions} /> : null}
 
       <Part title={W.todaySoFar} testID="live-limits">
@@ -393,6 +396,45 @@ function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
       ) : (
         <Note>{W.teamNone}</Note>
       )}
+    </Part>
+  );
+}
+
+const PRE_DAY_END = { done: 'Done', now: 'Under way', next: 'To come' } as const;
+
+/**
+ * The steps before the first day as a checklist (docs/outreach.md, decision 60 "Lists first"): each ticked once done,
+ * the one under way with what the computer says it's doing, while it works. Gone once all are done.
+ */
+export function PreDayPart({ live, now }: { live: LiveOutput; now: number }) {
+  const computer = live.computer;
+  const working =
+    computer !== null && computer.state === 'working' && !isOffline(computer.lastSeenAt, now);
+  const steps = preDaySteps(live.lists, { line: working ? (live.status?.line ?? null) : null });
+  if (!steps.length || live.day.state !== 'started') return null;
+  return (
+    <Part title={PRE_DAY_TITLE} about={preDayCount(steps)} testID="live-pre-day">
+      <List>
+        {steps.map((step) => (
+          <ListRow
+            key={step.key}
+            icon={step.state === 'done' ? Check : step.state === 'now' ? LoaderCircle : undefined}
+            label={step.label}
+            detail={step.progress ?? undefined}
+            end={
+              <Text
+                className={
+                  step.state === 'next' ? 'text-[14px] text-text-3' : 'text-[14px] text-text-2'
+                }
+              >
+                {PRE_DAY_END[step.state]}
+              </Text>
+            }
+            chevron={false}
+            testID={`live-pre-day-${step.key}`}
+          />
+        ))}
+      </List>
     </Part>
   );
 }

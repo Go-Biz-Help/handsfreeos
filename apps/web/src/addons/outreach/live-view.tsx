@@ -39,6 +39,7 @@ import { outreachHref } from './address';
 import { AskLine } from './asks';
 import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import type { Asks, Live, LiveTeam } from './types';
+import { PreDayList } from './pre-day-list';
 import { useAct } from './use-act';
 
 const TONES: Record<ReturnType<typeof stateTone>, BadgeVariant> = {
@@ -186,6 +187,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           {W.noComputer}
         </p>
       )}
+      <PreDayList live={live} now={now} className="mt-3" />
       {offline && computer ? (
         <p
           role="status"

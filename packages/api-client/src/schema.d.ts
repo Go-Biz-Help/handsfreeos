@@ -6447,7 +6447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent), worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all three lists are saved.
+         * Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent, groups), checked their groups, worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all four lists are saved.
          * @description Risk level 0. Requires outreach.use. Emits outreach.lists.saved.
          */
         post: operations["command_outreach_lists_saved"];
@@ -16707,7 +16707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * When the person’s own friends list, the friend requests they’ve got and the ones they’ve sent were last saved to their end, and when the first Tidy up and good-fits check after that were done.
+         * When the person’s own friends list, the friend requests they’ve got, the ones they’ve sent and their groups were last saved to their end, and when the first check of their groups, Tidy up and good-fits check after that were done.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_lists"];
@@ -34529,7 +34529,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    list: "friends" | "requests" | "sent" | "tidy" | "checks";
+                    list: "friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34545,6 +34545,10 @@ export interface operations {
                     "application/json": {
                         checksAt: string | null;
                         friendsAt: string | null;
+                        /** @default null */
+                        groupChecksAt: string | null;
+                        /** @default null */
+                        groupsAt: string | null;
                         requestsAt: string | null;
                         sentAt: string | null;
                         tidyAt: string | null;
@@ -62424,6 +62428,10 @@ export interface operations {
                     "application/json": {
                         checksAt: string | null;
                         friendsAt: string | null;
+                        /** @default null */
+                        groupChecksAt: string | null;
+                        /** @default null */
+                        groupsAt: string | null;
                         requestsAt: string | null;
                         sentAt: string | null;
                         tidyAt: string | null;
@@ -62513,6 +62521,10 @@ export interface operations {
                         lists?: {
                             checksAt: string | null;
                             friendsAt: string | null;
+                            /** @default null */
+                            groupChecksAt: string | null;
+                            /** @default null */
+                            groupsAt: string | null;
                             requestsAt: string | null;
                             sentAt: string | null;
                             tidyAt: string | null;

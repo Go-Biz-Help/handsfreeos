@@ -614,6 +614,8 @@ describe('live status and control', () => {
       friendsAt: null,
       requestsAt: null,
       sentAt: null,
+      groupsAt: null,
+      groupChecksAt: null,
       tidyAt: null,
       checksAt: null,
     });
@@ -625,5 +627,14 @@ describe('live status and control', () => {
     expect((await runAs(member, ws, 'outreach.live', {})).lists).toEqual(after);
     // Each person's own: the owner's are still unsaved.
     expect((await runAs(owner, ws, 'outreach.lists', {})).friendsAt).toBeNull();
+  });
+
+  it('keeps when the person’s groups were saved and first checked, before their first day', async () => {
+    await runAs(member, ws, 'outreach.lists.saved', { list: 'groups' });
+    const after = await runAs(member, ws, 'outreach.lists.saved', { list: 'group_checks' });
+    expect(after.groupsAt).not.toBeNull();
+    expect(after.groupChecksAt).not.toBeNull();
+    expect((await runAs(member, ws, 'outreach.live', {})).lists).toEqual(after);
+    expect((await runAs(owner, ws, 'outreach.lists', {})).groupsAt).toBeNull();
   });
 });

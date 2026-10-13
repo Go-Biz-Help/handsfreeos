@@ -297,6 +297,43 @@ describe('The live view on the phone', () => {
     expect(h.onWaiting).toHaveBeenCalled();
   });
 
+  it('before the first day, lists each step with ticks, the one under way showing its progress', async () => {
+    const h = liveHandlers();
+    const saved = new Date(NOW - 60_000).toISOString();
+    await render(
+      <LiveBody
+        live={{
+          ...LIVE,
+          day: { ...LIVE.day, state: 'started', via: 'web', at: saved },
+          status: { ...LIVE.status!, line: '3 of 8 groups checked. Reading Lake Homes…' },
+          lists: {
+            friendsAt: saved,
+            requestsAt: saved,
+            sentAt: saved,
+            groupsAt: saved,
+            groupChecksAt: null,
+            tidyAt: null,
+            checksAt: null,
+          },
+        }}
+        at={NOW}
+        error={null}
+        team={null}
+        online
+        now={NOW}
+        pressed={null}
+        {...h}
+      />,
+    );
+    expect(screen.getByTestId('live-pre-day')).toHaveTextContent(/4 of 7 done/);
+    expect(screen.getByTestId('live-pre-day-friends')).toHaveTextContent(/Save your friends list/);
+    expect(screen.getByTestId('live-pre-day-friends')).toHaveTextContent(/Done/);
+    expect(screen.getByTestId('live-pre-day-group_checks')).toHaveTextContent(
+      /Check your groups.*3 of 8 groups checked/,
+    );
+    expect(screen.getByTestId('live-pre-day-checks')).toHaveTextContent(/To come/);
+  });
+
   it('sums the computer up at the top of Today: its state, today’s steps, Start my day and Details', async () => {
     const h = liveHandlers();
     const onDetails = jest.fn();

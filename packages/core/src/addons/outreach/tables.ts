@@ -1091,6 +1091,8 @@ export const listSaves = addonOutreach.table(
     friendsAt: ts('friends_at'),
     requestsAt: ts('requests_at'),
     sentAt: ts('sent_at'),
+    groupsAt: ts('groups_at'),
+    groupChecksAt: ts('group_checks_at'),
     tidyAt: ts('tidy_at'),
     checksAt: ts('checks_at'),
     createdAt: ts('created_at').notNull().defaultNow(),

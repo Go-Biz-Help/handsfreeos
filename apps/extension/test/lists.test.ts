@@ -17,7 +17,8 @@ vi.mock('../src/jobs/job', async (original) => ({
   pause: () => Promise.resolve(),
 }));
 
-const { beforeDay, beforeDayDoing, beforeDayLine, doBeforeDay } = await import('../src/auto/lists');
+const { beforeDay, beforeDayDoing, beforeDayLine, doBeforeDay, markOf } =
+  await import('../src/auto/lists');
 const { checkSent, FRIEND_REQUESTS } = await import('../src/jobs/people');
 
 const BUSINESS = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
@@ -31,6 +32,8 @@ const saved = (more: Partial<ListsSaved> = {}): ListsSaved => ({
   friendsAt: at(NOW - 2 * DAY),
   requestsAt: at(NOW - 60_000),
   sentAt: at(NOW - 60_000),
+  groupsAt: at(NOW - 2 * DAY),
+  groupChecksAt: at(NOW - 2 * DAY),
   tidyAt: at(NOW - 2 * DAY),
   checksAt: at(NOW - 2 * DAY),
   ...more,
@@ -56,8 +59,39 @@ describe('what comes before the day', () => {
     });
   });
 
-  it('right after the first full save, works out Tidy up, then checks friends once', () => {
+  it('the first time, saves the groups after the lists, and checks them before anything else', () => {
     const lists = { ...NO_LISTS, friendsAt: at(NOW), requestsAt: at(NOW), sentAt: at(NOW) };
+    expect(beforeDay(lists, {}, NOW, TZ)).toEqual({ do: 'save', list: 'groups', first: true });
+    const groups = { ...lists, groupsAt: at(NOW) };
+    expect(beforeDay(groups, {}, NOW, TZ)).toEqual({ do: 'group_checks' });
+    // Like the lists, the first check of the groups is tried again till it's done.
+    expect(beforeDay(groups, { group_checks: 'Try again in a minute.' }, NOW, TZ)).toEqual({
+      do: 'group_checks',
+    });
+    expect(beforeDay({ ...groups, groupChecksAt: at(NOW) }, {}, NOW, TZ)).toEqual({ do: 'tidy' });
+  });
+
+  it('then the groups again weekly, and a refresh that went wrong never holds the day up', () => {
+    expect(beforeDay(saved({ groupsAt: at(NOW - 6 * DAY) }), {}, NOW, TZ)).toBeNull();
+    expect(beforeDay(saved({ groupsAt: at(NOW - 7 * DAY) }), {}, NOW, TZ)).toEqual({
+      do: 'save',
+      list: 'groups',
+      first: false,
+    });
+    expect(
+      beforeDay(saved({ groupsAt: at(NOW - 8 * DAY) }), { groups: 'Went wrong.' }, NOW, TZ),
+    ).toBeNull();
+  });
+
+  it('right after the first full save, works out Tidy up, then checks friends once', () => {
+    const lists = {
+      ...NO_LISTS,
+      friendsAt: at(NOW),
+      requestsAt: at(NOW),
+      sentAt: at(NOW),
+      groupsAt: at(NOW),
+      groupChecksAt: at(NOW),
+    };
     expect(beforeDay(lists, {}, NOW, TZ)).toEqual({ do: 'tidy' });
     expect(beforeDay({ ...lists, tidyAt: at(NOW) }, {}, NOW, TZ)).toEqual({ do: 'checks' });
     expect(beforeDay({ ...lists, tidyAt: at(NOW), checksAt: at(NOW) }, {}, NOW, TZ)).toBeNull();
@@ -142,6 +176,8 @@ function fakeHfos() {
         return { ok: true, value: { saved: ask.input.people.length, added: 0, changed: 0 } };
       case 'hfos-lists-saved':
         return { ok: true, value: NO_LISTS };
+      case 'hfos-groups-to-check':
+        return { ok: true, value: { groups: [], saved: 0 } };
       case 'hfos-tidy':
         return {
           ok: true,
@@ -224,5 +260,24 @@ describe('doing what comes before the day', () => {
     expect(end.line).toBe(
       'Suggested 4 old requests to cancel and 1 friend to unfriend. Tick the ones to go under Friends → Tidy up in HandsFreeOS.',
     );
+  });
+
+  it('checks the groups once, and notes it, even with none saved yet', async () => {
+    const { hfos, sent } = fakeHfos();
+    const end = await doBeforeDay({ do: 'group_checks' }, jobOf(requestsTab().tab, hfos));
+    expect(sent.map((a) => a.type)).toEqual(['hfos-groups-to-check', 'hfos-lists-saved']);
+    expect(sent.at(-1)).toEqual({
+      type: 'hfos-lists-saved',
+      workspaceId: BUSINESS,
+      list: 'group_checks',
+    });
+    expect(beforeDayLine({ do: 'group_checks' }, end)).toMatch(/^Check my groups: /);
+    expect(beforeDayDoing({ do: 'group_checks' })).toBe('Checking your groups first…');
+  });
+
+  it('names the step it notes, for the live checklist', () => {
+    expect(markOf({ do: 'save', list: 'groups', first: true })).toBe('groups');
+    expect(markOf({ do: 'group_checks' })).toBe('group_checks');
+    expect(markOf({ do: 'checks' })).toBe('checks');
   });
 });
