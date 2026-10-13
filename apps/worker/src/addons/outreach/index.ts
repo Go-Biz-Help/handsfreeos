@@ -14,6 +14,7 @@ import type { AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
 import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
+import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
 import {
@@ -100,7 +101,10 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
     'outreach.send.queued': both(handOver, sendWaits),
     'outreach.need.noted': needNoted,
-    'addon.settings_saved': andWeekly(settingsSaved),
+    'addon.settings_saved': both(andWeekly(settingsSaved), countriesWanted),
+    // People found, and the country setting, have the AI work out where they live (./countries.ts, decision 61).
+    'outreach.group.saved': countriesWanted,
+    'outreach.friends.saved': countriesWanted,
     'appointment.booked': appointmentBooked,
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
     // pruning armed (./live.ts).
@@ -119,6 +123,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [WEEKLY_JOB]: weeklyJob,
     [LIVE_PRUNE_JOB]: livePruneJob,
     [WAITING_PUSH_JOB]: waitingPushJob,
+    [GUESS_COUNTRIES_JOB]: guessCountriesJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts).

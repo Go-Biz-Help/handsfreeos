@@ -36,6 +36,8 @@ import { PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playb
 import type { Friendship } from '../saves';
 import { friends, imports, playbooks, profiles } from '../tables';
 import {
+  countryLetsSql,
+  countryRuleOf,
   dontPitchOf,
   inWorkspace,
   keepFriendStates,
@@ -493,6 +495,9 @@ export const friendsList = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
+    // The good fits leave out anyone the business's country setting skips (decision 61).
+    const rule = await countryRuleOf(ctx);
+    const lets = (alias: string) => countryLetsSql(rule, alias);
     const tagged = sql`exists (select 1 from app.record_tags rt join app.tags t on t.id = rt.tag_id
       where rt.workspace_id = p.workspace_id and rt.record_type = 'person' and rt.record_id = p.person_id
         and lower(t.name::text) = lower(${DONT_PITCH_TAG}))`;
@@ -502,7 +507,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       sql`select count(*)::int as fits from addon_outreach.checks ch
           join addon_outreach.profiles p on p.id = ch.profile_id
           where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
-            and ${pitchable('p')}`,
+            and ${pitchable('p')} and ${lets('p')}`,
     );
     const [mine] = await rows<{ friends: number; requests: number; sent: number; keep: number }>(
       ctx.tx,
@@ -524,7 +529,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
         ${tagged} as tagged, exists (${neverTwins('p')}) as twin, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
         ch.verdict, cpb.name as check_playbook, ch.why as check_why, ch.about as check_about,
-        ch.next_step as check_next_step, ch.checked_at
+        ch.next_step as check_next_step, ch.checked_at, p.country, p.country_through
       from addon_outreach.profiles p
       left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
       left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
@@ -534,6 +539,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       left join addon_outreach.groups g on g.id = p.group_id
       where p.workspace_id = ${ws}`;
     const shown = sql`${VIEW_WHERE[input.view]}
+      and ${input.view === 'fits' ? lets('l') : sql`true`}
       and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(l.name)) > 0` : sql`true`}`;
     const read = (limit: number, offset = 0) =>
       rows<Listed>(

@@ -4,7 +4,7 @@
  * goes in Contacts. The Friends tab lists them (./friends.ts), and Today has the good fits to reconnect with
  * (./today.ts).
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
@@ -25,6 +25,7 @@ import {
   type CheckVerdict,
 } from '../checks';
 import { ASK_KEEP_DAYS } from '../asks';
+import { checkedCountry, countryFromLines } from '../countries';
 import { limitNow } from '../limits';
 import { outreachAddon } from '../manifest';
 import { checks, profiles } from '../tables';
@@ -243,6 +244,31 @@ export const checkSave = defineAddonCommand(outreachAddon, {
       return { saved: false, verdict: check.verdict };
     const a = input.answer;
     const verdict: CheckVerdict = a ? a.fit : 'failed';
+    // Where they live (decision 61): what their pages' lines show, seen, over the AI's word; a guess never replaces a
+    // country seen before.
+    const lined = countryFromLines(check.lines);
+    const said = checkedCountry(a?.country?.code);
+    const country = lined
+      ? { code: lined, how: 'seen' as const }
+      : said
+        ? {
+            code: said,
+            how: a!.country!.seen && check.lines.length ? ('seen' as const) : ('guessed' as const),
+          }
+        : null;
+    if (country)
+      await ctx.tx
+        .update(profiles)
+        .set({ country: country.code, countryHow: country.how, countryAt: at })
+        .where(
+          and(
+            eq(profiles.workspaceId, ws),
+            eq(profiles.id, check.profileId),
+            ...(country.how === 'guessed'
+              ? [or(isNull(profiles.countryHow), ne(profiles.countryHow, 'seen'))]
+              : []),
+          ),
+        );
     await ctx.tx
       .update(checks)
       .set({

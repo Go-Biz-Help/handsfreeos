@@ -7,12 +7,20 @@ import {
   settingsToSave,
   type ContactsFromChats,
 } from '@hfos/core/addons/outreach/chat-read';
+import {
+  COUNTRY_MODE_WORDS,
+  COUNTRY_MODES,
+  COUNTRY_WORDS,
+  countryRuleWords,
+  type CountryRule,
+} from '@hfos/core/addons/outreach/countries';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioCard } from '@/components/ui/radio-card';
 import type { AddonSettingsProps } from '../registry';
+import { CountryPicker } from './country-picker';
 import { useAct } from './use-act';
 
 /** The weeks a sent friend request can wait before it's suggested for cancelling. */
@@ -23,8 +31,8 @@ const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
  * settings-link.tsx): who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), and how long a sent friend request waits before it's suggested for cancelling
  * (decision 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), and
- * whether each person gets the weekly report by email (decision 34). Anyone already in Contacts gets the tags whatever
- * it says.
+ * whether each person gets the weekly report by email (decision 34), and which countries it reaches (decision 61).
+ * Anyone already in Contacts gets the tags whatever it says.
  */
 export default function OutreachBusinessSettings({ settings, saveSettings }: AddonSettingsProps) {
   const now = outreachSettings(settings);
@@ -33,6 +41,12 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
   const [weeks, setWeeks] = useState(now.cancelRequestsAfterWeeks);
   const [hour, setHour] = useState(now.morningPushHour);
   const [weekly, setWeekly] = useState(now.weeklyReport);
+  const [countries, setCountries] = useState<CountryRule>(now.countries);
+  const countriesChanged =
+    countries.mode !== now.countries.mode ||
+    countries.codes.join(',') !== now.countries.codes.join(',');
+  const countriesProblem =
+    countries.mode === 'only' && !countries.codes.length ? COUNTRY_WORDS.noneOnly : null;
   const { busy, act } = useAct();
   if (settings === null)
     return (
@@ -41,8 +55,8 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
         requests are suggested for cancelling after {W.weeks(now.cancelRequestsAfterWeeks)}. The
         morning push{' '}
         {now.morningPushHour === null ? 'is off' : `comes at ${hourWords(now.morningPushHour)}`},
-        and the weekly report {now.weeklyReport ? 'comes by email on Mondays' : 'is off'}. An owner
-        or admin can change these.
+        and the weekly report {now.weeklyReport ? 'comes by email on Mondays' : 'is off'}. Countries
+        reached: {countryRuleWords(now.countries)}. An owner or admin can change these.
       </p>
     );
   return (
@@ -108,13 +122,42 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
         />
         <span className="mt-0.5 block pl-7 text-[13px] text-text-2">{W.abouts.weekly}</span>
       </div>
+      <div data-testid="outreach-countries">
+        <h3 className="text-[14px] font-semibold">{W.sections.countries}</h3>
+        <p className="text-[13px] text-text-2">{W.abouts.countries}</p>
+        <div role="radiogroup" aria-label="Which countries" className="mt-2 flex flex-col gap-2">
+          {COUNTRY_MODES.map((m) => (
+            <RadioCard
+              key={m}
+              selected={countries.mode === m}
+              onSelect={() => setCountries({ ...countries, mode: m })}
+              title={COUNTRY_MODE_WORDS[m]}
+              description={m === 'anywhere' ? W.usual : undefined}
+              testId={`outreach-countries-${m}`}
+            />
+          ))}
+        </div>
+        {countries.mode !== 'anywhere' ? (
+          <CountryPicker
+            codes={countries.codes}
+            onChange={(codes) => setCountries({ ...countries, codes })}
+          />
+        ) : null}
+        {countriesProblem ? (
+          <p className="mt-1.5 text-[12.5px] text-danger-text" role="alert">
+            {countriesProblem}
+          </p>
+        ) : null}
+      </div>
       <Button
         size="sm"
         disabled={
           (pick === saved &&
             weeks === now.cancelRequestsAfterWeeks &&
             hour === now.morningPushHour &&
-            weekly === now.weeklyReport) ||
+            weekly === now.weeklyReport &&
+            !countriesChanged) ||
+          countriesProblem !== null ||
           busy !== null
         }
         onClick={() =>
@@ -128,6 +171,7 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
                   cancelRequestsAfterWeeks: weeks,
                   morningPushHour: hour,
                   weeklyReport: weekly,
+                  countries,
                 }),
               ),
             W.saved,

@@ -35,7 +35,7 @@ import { outreachAddon } from '../manifest';
 import type { PlaybookDetails } from '../playbooks';
 import { groups, joins, myGroups } from '../tables';
 import { automationOf, rulesOf } from './automation';
-import { inPlay, inWorkspace, pitchable, type Ctx } from './common';
+import { countryLetsSql, countryRuleOf, inPlay, inWorkspace, pitchable, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
@@ -90,6 +90,8 @@ export async function peopleLeft(
 ): Promise<Map<string, number>> {
   const left = new Map<string, number>();
   if (!playbooks.length) return left;
+  // Anyone the business's country setting skips isn't left to reach (decision 61).
+  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
   const found = await rows<
     CheckedGroupRow & {
       id: string;
@@ -109,6 +111,7 @@ export async function peopleLeft(
         join addon_outreach.profiles p on p.id = gp.profile_id
         where gp.workspace_id = ${ctx.scope.workspaceId!} and g.admins_read_at is not null
           and not gp.runs_group and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
+          and ${lets}
           and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
           and not exists (select 1 from addon_outreach.group_people x
             where x.profile_id = p.id and x.runs_group)
