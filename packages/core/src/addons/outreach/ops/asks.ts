@@ -366,6 +366,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
             about,
             via: viaOf(ctx.meta),
             askedAt: at,
+            startedAt: at,
             state: 'done',
             line: RESEARCH_WORDS.tomorrow(task.name, perDay),
             result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },

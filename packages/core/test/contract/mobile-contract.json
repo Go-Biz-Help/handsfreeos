@@ -13153,7 +13153,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 18,
+            "maxItems": 19,
             "type": "array",
             "items": {
               "type": "string",
@@ -13175,7 +13175,8 @@
                 "post",
                 "cancel",
                 "unfriend",
-                "lookup"
+                "lookup",
+                "research"
               ]
             }
           }
