@@ -127,6 +127,7 @@ const LIVE: LiveOutput = {
     line: 'Liking a post of Dana Reyes’s',
     lineAt: new Date(NOW - 20_000).toISOString(),
     nextAt: null,
+    doing: null,
   },
   limits: {
     friend_request: LIMIT,
@@ -305,7 +306,11 @@ describe('The live view on the phone', () => {
         live={{
           ...LIVE,
           day: { ...LIVE.day, state: 'started', via: 'web', at: saved },
-          status: { ...LIVE.status!, line: '3 of 8 groups checked. Reading Lake Homes…' },
+          status: {
+            ...LIVE.status!,
+            line: '3 of 8 groups checked. Reading Lake Homes…',
+            doing: 'group_checks',
+          },
           lists: {
             friendsAt: saved,
             requestsAt: saved,

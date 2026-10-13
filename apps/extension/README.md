@@ -271,7 +271,8 @@ the panel's Next up shows each step as a checklist (Save your friends list, Save
 requests you sent, Save your groups, Check your groups, Work out who to unfriend, Check your friends for good fits):
 each is ticked once done, and the one under way shows its progress ("Reading your friends… 1,240 friends so far.",
 "3 of 8 groups checked."). The runner keeps the step under way (`beforeNow`) and the lists as HandsFreeOS last said
-(`lists`) in its state for it; HandsFreeOS and the phone show the same checklist from `outreach.live`.
+(`lists`) in its state for it; HandsFreeOS and the phone show the same checklist from `outreach.live`. Each beat says
+the step under way (`doing`), so they show its count under that step, sent every few seconds while it runs (0.30.0).
 
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests

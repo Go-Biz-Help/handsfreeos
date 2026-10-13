@@ -331,9 +331,13 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   Save your groups, Check your groups, Work out who to unfriend, Check your friends for good fits), each ticked once
   noted, the one under way showing what the extension says it's doing ("Reading your friends… 1,240 friends so far.",
   "3 of 8 groups checked. Reading …"). No new channel: the ticks are `outreach.live`'s `lists`, and the progress is
-  the working computer's status line, which the jobs' `job.progress` already sends with each beat. The web and the
-  phone take the first step not done as the one under way; the panel knows it exactly (`beforeNow` in the runner's
-  state). It shows only while the day is started, and goes once every step is done.
+  the working computer's status line, which the jobs' `job.progress` already sends with each beat. Each beat also
+  says which step it's doing (`doing`, the runner's `beforeNow`; `addon_outreach.computers.doing`,
+  `20261027003100_outreach_computer_doing.sql`), so the web and the phone show the count under that step and no
+  other (`preDayNow`): while the extension does other work, no line shows under a step. While a step runs its count
+  is sent and told every `PRE_DAY_LINE_SECONDS` (4) rather than every 20 and 45, so it goes up as it reads. Work out
+  who to unfriend is one call to HandsFreeOS, so it has no count. The web and the phone take the first step not done
+  as the one under way. It shows only while the day is started, and goes once every step is done.
 
 - **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
   `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the

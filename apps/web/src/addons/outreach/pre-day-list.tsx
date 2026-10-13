@@ -6,7 +6,7 @@
  * extension says it's doing now ("Reading your friends… 1,240 friends so far."), from the live status that already
  * comes with `outreach.live`. Shown under Start my day, on Today's strip and the Live view; gone once all are done.
  */
-import { isOffline } from '@hfos/core/addons/outreach/live';
+import { preDayNow } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
 import { Check, Circle, LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,11 +21,8 @@ export function PreDayList({
   now: number;
   className?: string;
 }) {
-  const computer = live.computer;
-  // What the computer says now is the step's progress only while it works and is online.
-  const working =
-    computer !== null && computer.state === 'working' && !isOffline(computer.lastSeenAt, now);
-  const steps = preDaySteps(live.lists, { line: working ? (live.status?.line ?? null) : null });
+  // The count under the step the computer says it's doing, while it works and is online.
+  const steps = preDaySteps(live.lists, preDayNow(live, now));
   if (!steps.length || live.day.state !== 'started') return null;
   return (
     <section
