@@ -15,6 +15,7 @@ import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automa
 import { WATCH_EVERY_MINUTES } from '@hfos/core/addons/outreach/posts';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import type { NeedNoteInput, TodayList, TodayListItem } from '../hfos/messages';
+import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
 import type { TriedBefore } from './lists';
 
 /** Where the runner keeps its state, which the panel watches. */
@@ -66,6 +67,12 @@ export interface AutoState {
   readonly daily?: Readonly<Partial<Record<DailyJob, string>>>;
   /** What it did before the day today (./lists.ts), each with how it went in words. Missing in a state kept by 0.26. */
   readonly before?: TriedBefore;
+  /**
+   * The person's lists as HandsFreeOS last said, and the step before the day under way now: for the panel's live
+   * checklist. Missing in a state kept by 0.27.
+   */
+  readonly lists?: ListsSaved | null;
+  readonly beforeNow?: ListMark | null;
   /** When it next looks at the newest posts in the groups (decision 49). Missing in a state kept by 0.22: due now. */
   readonly watchAt?: number | null;
   /**

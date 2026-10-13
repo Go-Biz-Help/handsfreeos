@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { useRefetchWhileShown, useServerNow } from './live-view';
 import type { Live } from './types';
+import { PreDayList } from './pre-day-list';
 import { useAct } from './use-act';
 
 const DOT: Record<ReturnType<typeof stateTone>, string> = {
@@ -147,6 +148,7 @@ export function StatusStrip({ workspaceId, live }: { workspaceId: string; live: 
           </Link>
         </div>
       </div>
+      <PreDayList live={live} now={now} />
       {steps.length ? (
         <ul
           className="grid gap-x-4 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))]"

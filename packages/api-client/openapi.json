@@ -81267,7 +81267,7 @@
     "/v1/commands/outreach.lists.saved": {
       "post": {
         "operationId": "command_outreach_lists_saved",
-        "summary": "Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent), worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all three lists are saved.",
+        "summary": "Note that the extension saved one of the person’s own lists to its end (friends, friend requests got or sent, groups), checked their groups, worked out their Tidy up suggestions, or checked their friends for good fits, the first time. The first time, their day starts once all four lists are saved.",
         "tags": [
           "commands"
         ],
@@ -81290,6 +81290,8 @@
                       "friends",
                       "requests",
                       "sent",
+                      "groups",
+                      "group_checks",
                       "tidy",
                       "checks"
                     ]
@@ -81347,6 +81349,32 @@
                         }
                       ]
                     },
+                    "groupsAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "groupChecksAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "tidyAt": {
                       "anyOf": [
                         {
@@ -81376,6 +81404,8 @@
                     "friendsAt",
                     "requestsAt",
                     "sentAt",
+                    "groupsAt",
+                    "groupChecksAt",
                     "tidyAt",
                     "checksAt"
                   ],
@@ -165669,6 +165699,32 @@
                             }
                           ]
                         },
+                        "groupsAt": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "groupChecksAt": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "tidyAt": {
                           "anyOf": [
                             {
@@ -165698,6 +165754,8 @@
                         "friendsAt",
                         "requestsAt",
                         "sentAt",
+                        "groupsAt",
+                        "groupChecksAt",
                         "tidyAt",
                         "checksAt"
                       ],
@@ -166096,7 +166154,7 @@
     "/v1/queries/outreach.lists": {
       "post": {
         "operationId": "query_outreach_lists",
-        "summary": "When the person’s own friends list, the friend requests they’ve got and the ones they’ve sent were last saved to their end, and when the first Tidy up and good-fits check after that were done.",
+        "summary": "When the person’s own friends list, the friend requests they’ve got, the ones they’ve sent and their groups were last saved to their end, and when the first check of their groups, Tidy up and good-fits check after that were done.",
         "tags": [
           "queries"
         ],
@@ -166165,6 +166223,32 @@
                         }
                       ]
                     },
+                    "groupsAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "groupChecksAt": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "tidyAt": {
                       "anyOf": [
                         {
@@ -166194,6 +166278,8 @@
                     "friendsAt",
                     "requestsAt",
                     "sentAt",
+                    "groupsAt",
+                    "groupChecksAt",
                     "tidyAt",
                     "checksAt"
                   ],

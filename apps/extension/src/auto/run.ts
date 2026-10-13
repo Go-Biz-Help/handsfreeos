@@ -77,7 +77,14 @@ import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork, watchPosts } from '../jobs/posts';
 import { postHelpful } from '../jobs/helpful';
 import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
-import { beforeDay, beforeDayDoing, beforeDayLine, doBeforeDay, type BeforeDay } from './lists';
+import {
+  beforeDay,
+  beforeDayDoing,
+  beforeDayLine,
+  doBeforeDay,
+  markOf,
+  type BeforeDay,
+} from './lists';
 import { askInLine, inTurn } from './turns';
 import {
   AUTO_STATE_KEY,
@@ -673,6 +680,9 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
  * today. The morning's friend requests, and the first check of friends, stand for today's once-a-day ones.
  */
 async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd> {
+  const key = markOf(step);
+  // The panel's live checklist shows the step under way, with the job's progress lines.
+  await setState({ beforeNow: key });
   await say(beforeDayDoing(step), { working: true });
   let end: JobEnd;
   try {
@@ -685,15 +695,19 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
       failed: true,
     };
   } finally {
-    await setState({ working: false, tabId: tab.tabId });
+    await setState({ working: false, tabId: tab.tabId, beforeNow: null });
   }
   const state = await stateNow();
-  const key = step.do === 'save' ? step.list : step.do;
   const stands =
-    !end.failed && (key === 'requests' || key === 'checks')
+    !end.failed && (key === 'requests' || key === 'checks' || key === 'group_checks')
       ? { daily: { ...state.daily, [key]: end.line } }
       : {};
-  await setState({ before: { ...state.before, [key]: end.line }, ...stands });
+  const lists = await (answer as Hfos)({ type: 'hfos-lists', workspaceId: businessId });
+  await setState({
+    before: { ...state.before, [key]: end.line },
+    ...stands,
+    ...(lists.ok ? { lists: lists.value } : {}),
+  });
   return end;
 }
 
@@ -811,6 +825,7 @@ async function go(): Promise<void> {
   // Before the day, the person's own lists (./lists.ts): the first time, nothing else runs till they're saved; then
   // the requests each morning and the friends list weekly; and after the first full save, Tidy up and one check.
   const lists = valueOf(await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId }));
+  if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
   if (before) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId));
@@ -821,11 +836,11 @@ async function go(): Promise<void> {
     }
     const line = beforeDayLine(before, end);
     void feed('job', line);
-    if (before.do === 'save' && before.first && end.failed) {
-      // The first time, the day waits for the lists: it tries again in a few minutes.
+    if (((before.do === 'save' && before.first) || before.do === 'group_checks') && end.failed) {
+      // The first time, the day waits for the lists and the groups: it tries again in a few minutes.
       await closeWindow();
       await say(
-        `${line} Your day starts once your friends list and friend requests are saved, so it tries again in a few minutes.`,
+        `${line} Your day starts once your friends list, friend requests and groups are saved and checked, so it tries again in a few minutes.`,
         { needs: true },
       );
       return goAt(Date.now() + AGAIN_MS);
