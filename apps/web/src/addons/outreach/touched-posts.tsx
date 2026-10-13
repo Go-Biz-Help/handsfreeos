@@ -6,8 +6,8 @@
  * themselves is never kept, so their own comments show without the words.
  */
 import {
-  ACTIVITY_PERIODS,
   TOUCHED_POST_KINDS,
+  TOUCHED_POSTS_WORDS as T,
   type ActivityPeriod,
   type TouchedPostsOutput,
 } from '@hfos/core/addons/outreach/activity';
@@ -22,12 +22,6 @@ import { relativeTime } from '@/lib/utils';
 
 type Kind = (typeof TOUCHED_POST_KINDS)[number];
 type Posted = TouchedPostsOutput['posts'][number];
-
-const KIND_LABELS: Readonly<Record<Kind, string>> = {
-  all: 'All',
-  like: 'Likes',
-  comment: 'Comments',
-};
 
 export function TouchedPostsCard({
   workspaceId,
@@ -71,10 +65,8 @@ export function TouchedPostsCard({
     <Card className="p-0" data-testid="activity-posts">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
         <div>
-          <h3 className="text-[15px] font-semibold">Posts liked and commented on</h3>
-          <p className="text-[12.5px] text-text-3">
-            {ACTIVITY_PERIODS[period].label}, the latest first
-          </p>
+          <h3 className="text-[15px] font-semibold">{T.title}</h3>
+          <p className="text-[12.5px] text-text-3">{T.latestFirst(period)}</p>
         </div>
         <Segmented
           ariaLabel="Which posts"
@@ -82,22 +74,17 @@ export function TouchedPostsCard({
           onChange={setKind}
           options={TOUCHED_POST_KINDS.map((k) => ({
             value: k,
-            label: KIND_LABELS[k],
+            label: T.kinds[k],
             testId: `activity-posts-${k}`,
           }))}
         />
       </div>
       {failed && !posts ? (
-        <p className="px-5 pb-4 pt-2 text-[13px] text-text-2">
-          The posts didn’t load. Try again in a minute.
-        </p>
+        <p className="px-5 pb-4 pt-2 text-[13px] text-text-2">{T.failed}</p>
       ) : !posts ? (
         <p className="px-5 pb-4 pt-2 text-[13px] text-text-3">Loading…</p>
       ) : posts.length === 0 ? (
-        <p className="px-5 pb-4 pt-2 text-[13px] text-text-2">
-          No {kind === 'all' ? 'likes or comments' : KIND_LABELS[kind].toLowerCase()} noted{' '}
-          {period === 'today' ? 'today' : `in the ${ACTIVITY_PERIODS[period].label.toLowerCase()}`}.
-        </p>
+        <p className="px-5 pb-4 pt-2 text-[13px] text-text-2">{T.none(kind, period)}</p>
       ) : (
         <ul className="mt-2">
           {posts.map((p) => (
@@ -108,7 +95,7 @@ export function TouchedPostsCard({
       {next ? (
         <div className="border-t border-border px-5 py-3">
           <Button variant="secondary" size="sm" disabled={loading} onClick={() => void load(next)}>
-            Show more
+            {T.more}
           </Button>
         </div>
       ) : null}
@@ -121,9 +108,7 @@ function PostRow({ workspaceId, post: p }: { workspaceId: string; post: Posted }
     <li className="border-t border-border px-5 py-3" data-testid="activity-post">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 text-[13.5px]">
-          <Badge variant={p.kind === 'comment' ? 'accent' : 'gray'}>
-            {p.kind === 'comment' ? 'Commented' : 'Liked'}
-          </Badge>{' '}
+          <Badge variant={p.kind === 'comment' ? 'accent' : 'gray'}>{T.kind(p)}</Badge>{' '}
           {p.personId ? (
             <Link
               href={`/app/w/${workspaceId}/customers/people/${p.personId}`}
@@ -141,7 +126,7 @@ function PostRow({ workspaceId, post: p }: { workspaceId: string; post: Posted }
               rel="noreferrer"
               className="ml-2 text-[12.5px] text-accent-text hover:underline"
             >
-              Open the post
+              {T.openPost}
             </a>
           ) : (
             <a
@@ -150,18 +135,10 @@ function PostRow({ workspaceId, post: p }: { workspaceId: string; post: Posted }
               rel="noreferrer"
               className="ml-2 text-[12.5px] text-text-3 hover:underline"
             >
-              Facebook
+              {T.openProfile}
             </a>
           )}
-          <div className="text-[12.5px] text-text-3">
-            {[
-              p.auto ? 'By the extension' : 'By hand',
-              p.by,
-              p.group ? `in ${p.group.name ?? 'a group'}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
+          <div className="text-[12.5px] text-text-3">{T.byLine(p)}</div>
         </div>
         <span className="text-[12.5px] text-text-3" title={new Date(p.at).toLocaleString()}>
           {relativeTime(p.at)}
@@ -172,16 +149,16 @@ function PostRow({ workspaceId, post: p }: { workspaceId: string; post: Posted }
           “{p.postText}”
         </p>
       ) : null}
-      {p.why ? <p className="mt-1 text-[12.5px] text-text-3">Why this post: {p.why}</p> : null}
+      {p.why ? <p className="mt-1 text-[12.5px] text-text-3">{T.why(p.why)}</p> : null}
       {p.commentText ? (
         <div className="mt-2 rounded-control bg-card-2 px-3 py-2 text-[13px]">
           <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-            The comment
+            {T.commentHeading}
           </span>
           <p className="mt-0.5 whitespace-pre-line">{p.commentText}</p>
         </div>
       ) : p.kind === 'comment' && !p.auto ? (
-        <p className="mt-1 text-[12.5px] text-text-3">Your own comment: its words aren’t kept.</p>
+        <p className="mt-1 text-[12.5px] text-text-3">{T.ownComment}</p>
       ) : null}
     </li>
   );

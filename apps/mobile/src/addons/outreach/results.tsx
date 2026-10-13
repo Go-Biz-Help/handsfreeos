@@ -15,6 +15,7 @@ import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { OutreachFrame } from './frame';
+import { TouchedPostsPart } from './posted';
 import {
   NeedsSignal,
   Note,
@@ -27,7 +28,8 @@ import {
 /**
  * Results on the phone (decision 59): what came of it over a stretch, as the web's tab leads with it: demos booked,
  * then each step from reached to booked with how many of the step before made it, what was done along the way, and the
- * groups that brought the most. Person by person stays on the web, which has room for it. It needs signal.
+ * groups that brought the most, and the posts liked and commented on (./posted.tsx). Person by person stays on the
+ * web, which has room for it. It needs signal.
  */
 
 type Numbers = ActivityOutput['numbers'];
@@ -66,6 +68,7 @@ export function ResultsScreen() {
       onPeriod={setPeriod}
       onRetry={activity.reload}
       onWeb={() => openOutreach(ws, 'activity', `period=${period}`)}
+      posts={<TouchedPostsPart workspaceId={ws} period={period} />}
     />
   );
 }
@@ -77,6 +80,7 @@ export function ResultsBody({
   onPeriod,
   onRetry,
   onWeb,
+  posts,
 }: {
   activity: ActivityOutput | null;
   error: string | null;
@@ -85,6 +89,8 @@ export function ResultsBody({
   onRetry: () => void;
   /** Person by person, on the web. */
   onWeb: () => void;
+  /** The posts liked and commented on (./posted.tsx), under the numbers. */
+  posts?: React.ReactNode;
 }) {
   const R = W.results;
   const n = activity?.numbers;
@@ -174,6 +180,7 @@ export function ResultsBody({
               </Card>
             </Part>
           ) : null}
+          {posts}
           <Text
             role="link"
             onPress={onWeb}

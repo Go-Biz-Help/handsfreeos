@@ -5,6 +5,7 @@
  * month. Browser-safe: the extension builds the notes, and the web and the extension draw the panel from these.
  */
 import { z } from 'zod';
+import { relativeTimeAgo } from '../../workflows/approval-words';
 import {
   GROUP_ID,
   GROUP_SLUG,
@@ -243,3 +244,37 @@ export const TouchedPostsOutput = z.object({
   next: moment.nullable(),
 });
 export type TouchedPostsOutput = z.output<typeof TouchedPostsOutput>;
+
+type TouchedPost = TouchedPostsOutput['posts'][number];
+type TouchedKind = (typeof TOUCHED_POST_KINDS)[number];
+
+/** The words of the Results tab's posts liked and commented on, on the web and the phone. */
+export const TOUCHED_POSTS_WORDS = {
+  title: 'Posts liked and commented on',
+  kinds: { all: 'All', like: 'Likes', comment: 'Comments' } satisfies Record<TouchedKind, string>,
+  latestFirst: (period: ActivityPeriod) => `${ACTIVITY_PERIODS[period].label}, the latest first`,
+  none: (kind: TouchedKind, period: ActivityPeriod) =>
+    `No ${kind === 'all' ? 'likes or comments' : TOUCHED_POSTS_WORDS.kinds[kind].toLowerCase()} noted ${
+      period === 'today' ? 'today' : `in the ${ACTIVITY_PERIODS[period].label.toLowerCase()}`
+    }.`,
+  failed: 'The posts didn’t load. Try again in a minute.',
+  more: 'Show more',
+  openPost: 'Open the post',
+  openProfile: 'Facebook',
+  commentHeading: 'The comment',
+  ownComment: 'Your own comment: its words aren’t kept.',
+  why: (why: string) => `Why this post: ${why}`,
+  /** "12 min ago", "3 d ago", then the day. */
+  when: (at: string, now = Date.now()) => relativeTimeAgo(at, now),
+  /** "Liked", "Commented". */
+  kind: (post: Pick<TouchedPost, 'kind'>) => (post.kind === 'comment' ? 'Commented' : 'Liked'),
+  /** "By the extension · Sam · in Austin Owners". */
+  byLine: (post: Pick<TouchedPost, 'auto' | 'by' | 'group'>) =>
+    [
+      post.auto ? 'By the extension' : 'By hand',
+      post.by,
+      post.group ? `in ${post.group.name ?? 'a group'}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+} as const;
