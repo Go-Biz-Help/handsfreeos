@@ -32,6 +32,21 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
   the group each person was found in, and person by person with how far each has come; and the person's own day
   against the daily limits. Owners and admins can see the whole team's (`?who=everyone`).
+- **Posts liked and commented on** (the Results tab, `outreach.activity.posts`, the web's `touched-posts.tsx`, the
+  phone's `posted.tsx`, their words `TOUCHED_POSTS_WORDS`): each post liked or commented on in the stretch, the latest first, All, Likes or Comments, 50 at a time: whose post, a
+  link to it, the group, by hand or by the extension, and who on the team for everyone's. For what the extension did
+  on its own it keeps what the post said, the AI's comment it posted, and why the AI picked that post to like
+  (`touches.post_text`, `comment_text`, `why`); a comment on a post found in a group shows what that post said. What
+  the person wrote themselves is still never kept: their own comments show without the words.
+- **Which post gets the like** (decision 33, `like-pick.ts`, the worker's `likes.ts`, the extension's
+  `readTheirPosts` and `likeTheirPost`): the extension reads up to 6 of the latest posts on their profile that are
+  theirs, what each says and what Facebook says its pictures show ("May be an image of 2 people and dog"), and the AI
+  picks one (`outreach.like.pick`): to do with the business first (its offer, line of work or area), else about them
+  (family, a pet, a hobby, a trip, a win), else a plain friendly one; never one about a death, an illness, an
+  accident, money trouble, politics or religion, or one that's angry or sad, which a list of words also rules out
+  whatever the AI says (`neverLike`). None fit: no like, and the friend request goes without, as with no post. One
+  they liked already counts without asking. Without the AI (its limit, not set up, busy, or out of reach) the words
+  alone pick the first safe post. The feed says why ("Liked a post of Dana's (a photo of their new boat)").
 - **Noting what the person does on Facebook**: signed in, the extension notes each friend request, like, comment and
   message the person sends there themselves, with who it was to and the group they found them in, never what they
   wrote. The Live and Activity tabs show the day so far (apps/extension/README.md, "What it notes").
@@ -316,9 +331,13 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   Save your groups, Check your groups, Work out who to unfriend, Check your friends for good fits), each ticked once
   noted, the one under way showing what the extension says it's doing ("Reading your friends… 1,240 friends so far.",
   "3 of 8 groups checked. Reading …"). No new channel: the ticks are `outreach.live`'s `lists`, and the progress is
-  the working computer's status line, which the jobs' `job.progress` already sends with each beat. The web and the
-  phone take the first step not done as the one under way; the panel knows it exactly (`beforeNow` in the runner's
-  state). It shows only while the day is started, and goes once every step is done.
+  the working computer's status line, which the jobs' `job.progress` already sends with each beat. Each beat also
+  says which step it's doing (`doing`, the runner's `beforeNow`; `addon_outreach.computers.doing`,
+  `20261027003100_outreach_computer_doing.sql`), so the web and the phone show the count under that step and no
+  other (`preDayNow`): while the extension does other work, no line shows under a step. While a step runs its count
+  is sent and told every `PRE_DAY_LINE_SECONDS` (4) rather than every 20 and 45, so it goes up as it reads. Work out
+  who to unfriend is one call to HandsFreeOS, so it has no count. The web and the phone take the first step not done
+  as the one under way. It shows only while the day is started, and goes once every step is done.
 
 - **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
   `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the
@@ -526,6 +545,7 @@ Operations, all through the kernel:
 | `outreach.profile.contact`                            | `outreach.use`    | Add to Contacts: a profile kept here becomes a customer (source Facebook), or is tied to the one named                                                                                                                                                                                                                              |
 | `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                                                                                                                                                                                                                                                |
 | `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from                                                                                                                                                                                                                                  |
+| `outreach.activity.posts`                             | `outreach.use`    | The posts liked and commented on over a stretch, the latest first, with what the extension's own said; everyone's for owners, admins. Not them: `outreach_activity_everyone`                                                                                                                                                        |
 | `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins                                                                                                                                                                                                                                  |
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                                                                                                                                                                                                                                        |
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                                                                                                                                                                                                                                               |
@@ -727,7 +747,8 @@ than a store extension, and for more features, and answered the questions the sa
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
     own and **Once a day** is ticked (on to start).
 33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
-    hours after the like; a like over 14 days old doesn't count; no post to like, no wait.
+    hours after the like; a like over 14 days old doesn't count; no post to like, no wait. The post is picked by the
+    AI from their latest few, business first, then personal, never a sensitive one ("Which post gets the like").
 34. **All the features:** results by group, team sharing, an after-demo workflow, birthday and new-job notes, more
     templates, LinkedIn then Instagram, and a weekly report. Automation parts 2, 6 and 7. Built (automation part 2): **results by group**,
     everyone reached counted under the group they were found in, with who wrote back (in a saved chat, a chat read,
@@ -910,7 +931,8 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
       where a new person starts is folded to a line until changed.
     - **On the phone** the same four tabs at the top of one screen, with the gear for Settings (Playbooks and the
       computer in it): Today with the strip, Needs you (offline as before) and the list; People with the Pipeline
-      and Chats, Friends on the web; Groups; and Results, a summary, person by person on the web.
+      and Chats, Friends on the web; Groups; and Results, a summary with the posts liked and commented on (the
+      person's own; a tap opens the post on Facebook), person by person and the team's posts on the web.
     - **The panel** (0.26.0): the business and a state chip in the top bar; the first run's three steps over signing
       in; **Next up** with today's steps as bars and Start or Stop; **Needs you**; **Done today**, the newest steps
       (both from `outreach.live`); and at the foot the settings line, who's signed in, Open HandsFreeOS and

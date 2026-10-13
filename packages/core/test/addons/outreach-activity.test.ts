@@ -422,6 +422,85 @@ describe('the activity panel', () => {
   });
 });
 
+describe('posts liked and commented on', () => {
+  let ws: string;
+  const jo = someone('jo.hill.5', 'Jo Hill');
+  const kim = someone('kim.ng.8', 'Kim Ng');
+  const posts = (u: TestUser, input: Record<string, unknown> = {}) =>
+    runAs(u, ws, 'outreach.activity.posts', input) as Promise<{
+      posts: {
+        kind: string;
+        name: string;
+        postUrl: string | null;
+        postText: string | null;
+        commentText: string | null;
+        why: string | null;
+        auto: boolean;
+        by: string | null;
+      }[];
+      next: string | null;
+    }>;
+
+  beforeAll(async () => {
+    ({ ws } = await business('Outreach Posts Co'));
+    // The extension's own like and comment keep what the post said, its comment and why; the person's own don't.
+    await runAs(owner, ws, 'outreach.touch.save', {
+      kind: 'like',
+      ...jo,
+      postUrl: post(7001),
+      auto: true,
+      postText: 'Finally got the new roof on the shop!',
+      why: 'A new roof on their shop',
+    });
+    await runAs(owner, ws, 'outreach.touch.save', {
+      kind: 'comment',
+      ...kim,
+      group: austin,
+      postUrl: post(7002),
+      auto: true,
+      postText: 'Can anyone recommend a roofer?',
+      commentText: 'We do roofs around Austin, happy to take a look!',
+    });
+    await runAs(member, ws, 'outreach.touch.save', {
+      kind: 'comment',
+      ...jo,
+      postUrl: post(7003),
+      postText: 'Typed by hand',
+      commentText: 'My own words',
+    });
+    await runAs(owner, ws, 'outreach.touch.save', { kind: 'friend_request', ...kim });
+  });
+
+  it('lists the person’s own, the latest first, with what the extension’s said', async () => {
+    const mine = await posts(owner);
+    expect(mine.posts.map((p) => [p.kind, p.name])).toEqual([
+      ['comment', 'Kim Ng'],
+      ['like', 'Jo Hill'],
+    ]);
+    expect(mine.posts[0]).toMatchObject({
+      postUrl: post(7002),
+      postText: 'Can anyone recommend a roofer?',
+      commentText: 'We do roofs around Austin, happy to take a look!',
+      why: null,
+      auto: true,
+      by: null,
+    });
+    expect(mine.posts[1]).toMatchObject({ why: 'A new roof on their shop', commentText: null });
+    expect(mine.next).toBeNull();
+    expect((await posts(owner, { kind: 'like' })).posts).toHaveLength(1);
+  });
+
+  it('never keeps what the person wrote, and shows owners everyone’s', async () => {
+    const theirs = await posts(member);
+    expect(theirs.posts).toHaveLength(1);
+    expect(theirs.posts[0]).toMatchObject({ auto: false, postText: null, commentText: null });
+    const team = await posts(owner, { everyone: true });
+    expect(team.posts).toHaveLength(3);
+    expect(team.posts.find((p) => !p.auto)?.by).toBe('Sam Member');
+    expect(await refused(posts(member, { everyone: true }))).toBe('outreach_activity_everyone');
+  });
+});
+
 describe('with the add-on off', () => {
   it('notes nothing and shows nothing', async () => {
     const { ws } = await business('Outreach Off Co');

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.28.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.29.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -59,8 +59,9 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
 
 - **The top bar**: the business it works for, and how it's doing (working, waiting for the next step, stopped,
   standing by) as a coloured chip, the same words and colours as HandsFreeOS's.
-- **Signing in** (`src/panel/account.ts`), the way the phone app does: an emailed 6-digit code, or a password, for an
-  account that already exists (new accounts start on the web), under the first run's three steps (sign in here, open
+- **Signing in** (`src/panel/account.ts`): **Send me a prompt** first (below, "Signing in with a prompt"), with
+  **Use an emailed code instead** one click away; or, the way the phone app does, an emailed 6-digit code or a
+  password, for an account that already exists (new accounts start on the web), under the first run's three steps (sign in here, open
   Facebook in this window, pick your groups and limits in HandsFreeOS). It then works for one business, picked in the
   panel when there are several. Only businesses where Social Outreach is on and you have **Use Social Outreach** are
   listed; with none it says there's nowhere to work, and if Social Outreach is turned off it says so and the business
@@ -78,6 +79,25 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
   who's signed in, with **Sign out**; **Open HandsFreeOS**, which opens Social Outreach's Today for the business; and
   **Something look wrong on this page? Tell us**, folded away, with **Copy page outline** and **Save page outline**
   (below, "When it reads a page wrong").
+
+**Signing in with a prompt** (20261027002910). The person types their email and presses **Send me a prompt**; the
+panel shows a 2-digit number. Their phone gets a push (`extension_sign_in`), and any HandsFreeOS tab open in front of
+them asks "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one signs
+the extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.
+
+- **The background holds the secret** (`src/hfos/prompt.ts`). Starting (`POST /public/extension-sign-in/start` on the
+  worker) answers a request id, the number, a random secret and when it ends; the secret stays in the extension's
+  session storage and only its hash is kept in HandsFreeOS. The panel asks every 2 seconds
+  (`hfos-prompt-check`), and the background collects with the secret (`…/collect`).
+- **Only the worker makes the sign-in.** Once the right number is picked, the first collect with the secret gets a
+  one-time token: the hashed token of a magic link the worker makes with its admin key (`generateLink`, never
+  emailed). The background redeems it with Supabase Auth (`verifyOtp({ token_hash, type: 'email' })`), which makes
+  this extension's own session; the token is stored nowhere. The API never holds the admin key.
+- **Two minutes, once.** A request ends after 2 minutes, is answered once, and is handed over once. A new prompt for
+  the same email cancels the one before.
+- **Nobody learns who has an account.** Starting answers the same for any email; one with no account simply never
+  gets answered. Starts are limited per address and per email.
+- **Nobody signed in anywhere?** Nothing pops up, the prompt runs out, and **Use an emailed code instead** still works.
 
 **The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.
 Whenever someone is signed in, it tells HandsFreeOS so (`outreach.setup.save` with `extension`): at each sign-in or
@@ -98,7 +118,8 @@ Keep and Don't pitch are on the web.
 
 Signed in, the extension notes four steps as you take them on Facebook yourself, in any Facebook tab, with the panel
 open or not (decision 8 in docs/outreach.md), and your answers to the friend requests you get. It notes who each step
-was to, never what you wrote.
+was to, never what you wrote. For a like or comment it makes on its own, it also notes what the post said, the AI's
+comment and why the AI picked that post to like, for the Results tab's **Posts liked and commented on**.
 
 | Step           | Noted when you…                                                                   | To                                                                  |
 | -------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -250,7 +271,8 @@ the panel's Next up shows each step as a checklist (Save your friends list, Save
 requests you sent, Save your groups, Check your groups, Work out who to unfriend, Check your friends for good fits):
 each is ticked once done, and the one under way shows its progress ("Reading your friends… 1,240 friends so far.",
 "3 of 8 groups checked."). The runner keeps the step under way (`beforeNow`) and the lists as HandsFreeOS last said
-(`lists`) in its state for it; HandsFreeOS and the phone show the same checklist from `outreach.live`.
+(`lists`) in its state for it; HandsFreeOS and the phone show the same checklist from `outreach.live`. Each beat says
+the step under way (`doing`), so they show its count under that step, sent every few seconds while it runs (0.30.0).
 
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests

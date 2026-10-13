@@ -23,6 +23,7 @@ import {
   clipLine,
   computerName,
   LINE_BEAT_SECONDS,
+  PRE_DAY_LINE_SECONDS,
   LIVE_STEPS_SENT_MOST,
   LIVE_STEPS_UNSENT_MOST,
   type LiveBeatOutput,
@@ -30,6 +31,7 @@ import {
   type ReportedState,
 } from '@hfos/core/addons/outreach/live';
 import type { AutomationSettings } from '@hfos/core/addons/outreach/automation';
+import type { ListMark } from '@hfos/core/addons/outreach/lists';
 import { APP_HEADERS } from '@hfos/core/mobile';
 import { AUTO_STATE_KEY, isState, type AutoState } from '../auto/plan';
 import { SETTINGS_KEY } from './follow';
@@ -69,6 +71,7 @@ export interface Told {
   readonly state: ReportedState;
   readonly line: string | null;
   readonly nextAt: string | null;
+  readonly doing?: ListMark | null;
   readonly at: number;
 }
 
@@ -77,6 +80,8 @@ export interface Status {
   readonly line: string | null;
   readonly lineAt: string | null;
   readonly nextAt: string | null;
+  /** The step before the first day under way (../auto/lists.ts): the line is its count. Null for other work. */
+  readonly doing: ListMark | null;
 }
 
 // ------------------------------------------------------------------------------------------------- the workings
@@ -100,11 +105,15 @@ export function reportedStatus(
     lineAt: iso(state.lineAt),
     nextAt: iso(state.nextAt),
   };
-  const shown = (s: ReportedState): Status => ({ state: s, ...kept });
+  const shown = (s: ReportedState, doing: ListMark | null = null): Status => ({
+    state: s,
+    ...kept,
+    doing,
+  });
   if (settings?.sending === 'off') return shown('off');
   if (state.stopped) return shown('stopped');
   if (standing) return shown('standby');
-  if (state.working) return shown('working');
+  if (state.working) return shown('working', state.beforeNow ?? null);
   if (state.needs) return shown('trouble');
   if (state.nextAt !== null) return shown('waiting');
   return shown('idle');
@@ -176,14 +185,24 @@ export function beatWait(
   more: { readonly steps: number; readonly active: boolean; readonly force: boolean },
   at: number,
 ): number {
-  if (more.force || more.steps || more.active || !last || last.state !== now.state) return 0;
+  if (
+    more.force ||
+    more.steps ||
+    more.active ||
+    !last ||
+    last.state !== now.state ||
+    (last.doing ?? null) !== now.doing
+  )
+    return 0;
   const nextSame =
     last.nextAt === now.nextAt ||
     (last.nextAt !== null &&
       now.nextAt !== null &&
       Math.abs(Date.parse(last.nextAt) - Date.parse(now.nextAt)) < 5_000);
   if (last.line === now.line && nextSame) return -1;
-  return Math.max(0, last.at + LINE_BEAT_SECONDS * 1000 - at);
+  // While a step before the first day runs, its count goes up every few seconds on the web and the phone.
+  const every = now.doing ? PRE_DAY_LINE_SECONDS : LINE_BEAT_SECONDS;
+  return Math.max(0, last.at + every * 1000 - at);
 }
 
 // ------------------------------------------------------------------------------------------------- storage
@@ -358,10 +377,11 @@ async function beatOnce(
         line: override.line === null ? null : clipLine(override.line),
         lineAt: new Date().toISOString(),
         nextAt: null,
+        doing: null,
       }
     : state
       ? reportedStatus(state, settings?.settings ?? null, kept ? !kept.working : false)
-      : { state: 'idle', line: null, lineAt: null, nextAt: null };
+      : { state: 'idle', line: null, lineAt: null, nextAt: null, doing: null };
   const wait = beatWait(told, shown, { steps: steps.length, active: isActive, force }, Date.now());
   if (wait < 0) return kept;
   if (wait > 0) {
@@ -387,7 +407,13 @@ async function beatOnce(
     // No connection, or Social Outreach is off there: everything waits for the next beat.
     return kept;
   }
-  told = { state: shown.state, line: shown.line, nextAt: shown.nextAt, at: Date.now() };
+  told = {
+    state: shown.state,
+    line: shown.line,
+    nextAt: shown.nextAt,
+    doing: shown.doing,
+    at: Date.now(),
+  };
   const keptIds = new Set(answer.stepsKept);
   await write({ [LIVE_STEPS_KEY]: (await unsentNow()).filter((s) => !keptIds.has(s.id)) });
   // Used again while this went: that one goes with the next beat.

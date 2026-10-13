@@ -19,11 +19,13 @@ import {
   type Business,
   type Drafts,
   type JoinAnswerOutput,
+  type LikePickOutput,
   type HfosAnswer,
   type HfosAsk,
   type HfosValues,
   type Problem,
 } from './messages';
+import { checkPrompt, PromptRefused, startPrompt } from './prompt';
 import { outreachBusinesses } from './saves';
 
 /**
@@ -353,6 +355,24 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
       if (error) throw refuse(passwordWords(error));
       return account(true);
     }
+    case 'hfos-prompt-start':
+      try {
+        return await startPrompt(ask.email);
+      } catch (error) {
+        throw error instanceof PromptRefused ? refuse(error.message) : error;
+      }
+    case 'hfos-prompt-check': {
+      let status: Awaited<ReturnType<typeof checkPrompt>>;
+      try {
+        status = await checkPrompt(ask.requestId, async (tokenHash) => {
+          const { error } = await auth().verifyOtp({ token_hash: tokenHash, type: 'email' });
+          if (error) throw refuse(checkCodeWords(error));
+        });
+      } catch (error) {
+        throw error instanceof PromptRefused ? refuse(error.message) : error;
+      }
+      return status === 'signed-in' ? { status, account: await account(true) } : { status };
+    }
     case 'hfos-sign-out':
       await signOutHere();
       return account();
@@ -476,6 +496,14 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-join-answers':
       return call(
         workerPost<JoinAnswerOutput>('/v1/addons/outreach/actions/outreach.join.answer', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
+      );
+    case 'hfos-like-pick':
+      return call(
+        workerPost<LikePickOutput>('/v1/addons/outreach/actions/outreach.like.pick', {
           workspaceId: ask.workspaceId,
           input: ask.input,
         }),

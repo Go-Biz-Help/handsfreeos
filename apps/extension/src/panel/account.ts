@@ -1,15 +1,27 @@
 /**
- * Signing in, in the side panel: an emailed code or a password, for a HandsFreeOS account that already exists, and
+ * Signing in, in the side panel: a prompt on the person's phone or in HandsFreeOS (pick the number shown here), an
+ * emailed code or a password, for a HandsFreeOS account that already exists, and
  * the business it works for when the person has more than one with Social Outreach. The background worker holds the
  * sign-in (src/hfos/session.ts); this draws it and asks.
  */
+import { EXTENSION_SIGN_IN_POLL_MS } from '@hfos/core/extension-sign-in';
 import type { Account, HfosAnswer, Problem } from '../hfos/messages';
+import { PROMPT_WORDS } from '../hfos/prompt';
 import { ask } from './ask';
 import { button, h, hfosLink, type Child } from './dom';
 
 type Step =
   | { readonly kind: 'email' }
   | { readonly kind: 'code'; readonly email: string }
+  | {
+      readonly kind: 'prompt';
+      readonly email: string;
+      readonly requestId: string;
+      readonly number: number;
+      /** Said under the number: waiting, or why it stopped. */
+      readonly said: string;
+      readonly ended: boolean;
+    }
   | { readonly kind: 'password'; readonly email: string };
 
 const CODE = /^\d{6,10}$/;
@@ -26,6 +38,69 @@ let step: Step = { kind: 'email' };
 let typedEmail = '';
 let formError: string | null = null;
 let working = false;
+/** The look at a prompt under way, every couple of seconds while it waits. */
+let promptTimer: ReturnType<typeof setTimeout> | null = null;
+
+function stopWatching(): void {
+  if (promptTimer) clearTimeout(promptTimer);
+  promptTimer = null;
+}
+
+/** Asks the background whether the prompt was answered, until it is, it ends, or the person leaves it. */
+function watchPrompt(requestId: string): void {
+  stopWatching();
+  promptTimer = setTimeout(() => {
+    promptTimer = null;
+    void (async () => {
+      if (step.kind !== 'prompt' || step.requestId !== requestId || step.ended) return;
+      const answer = await ask({ type: 'hfos-prompt-check', requestId });
+      if (step.kind !== 'prompt' || step.requestId !== requestId) return;
+      if (!answer.ok) {
+        // Out of reach for a moment: keep asking until the prompt runs out.
+        watchPrompt(requestId);
+        return;
+      }
+      const state = answer.value;
+      if (state.status === 'signed-in') {
+        step = { kind: 'email' };
+        take(state.account);
+        drawAccount();
+        return;
+      }
+      if (state.status === 'waiting') return watchPrompt(requestId);
+      step = { ...step, said: PROMPT_WORDS[state.status], ended: true };
+      drawAccount();
+    })();
+  }, EXTENSION_SIGN_IN_POLL_MS);
+}
+
+/** Sends a prompt for this email and shows its number. */
+function sendPrompt(email: string): void {
+  void signIn(async () => {
+    const answer = await ask({ type: 'hfos-prompt-start', email });
+    if (!answer.ok) return answer;
+    step = {
+      kind: 'prompt',
+      email,
+      requestId: answer.value.requestId,
+      number: answer.value.number,
+      said: PROMPT_WORDS.waiting,
+      ended: false,
+    };
+    watchPrompt(answer.value.requestId);
+    return { ok: true, value: null };
+  });
+}
+
+/** Sends a code to this email and asks for it. */
+function sendCodeTo(email: string): void {
+  stopWatching();
+  void signIn(async () => {
+    const answer = await ask({ type: 'hfos-send-code', email });
+    if (answer.ok) step = { kind: 'code', email };
+    return answer;
+  });
+}
 
 // ------------------------------------------------------------------------------------------------- the account
 
@@ -148,17 +223,12 @@ function signInView(): HTMLElement {
       if (formError) drawAccount();
       return formError ? null : value;
     };
-    const sendCode = () => {
+    const prompt = () => {
       const value = checked();
-      if (!value) return;
-      void signIn(async () => {
-        const answer = await ask({ type: 'hfos-send-code', email: value });
-        if (answer.ok) step = { kind: 'code', email: value };
-        return answer;
-      });
+      if (value) sendPrompt(value);
     };
     return form(
-      sendCode,
+      prompt,
       h('h2', {}, 'Get it working'),
       firstSteps(),
       intro,
@@ -167,7 +237,15 @@ function signInView(): HTMLElement {
       h(
         'div',
         { class: 'actions' },
-        submit('Email me a code'),
+        submit('Send me a prompt'),
+        button(
+          'Use an emailed code instead',
+          () => {
+            const value = checked();
+            if (value) sendCodeTo(value);
+          },
+          { disabled: working },
+        ),
         button(
           'Use my password',
           () => {
@@ -185,12 +263,37 @@ function signInView(): HTMLElement {
   const other = button(
     'Use another email',
     () => {
+      stopWatching();
       step = { kind: 'email' };
       formError = null;
       drawAccount();
     },
     { disabled: working },
   );
+  if (step.kind === 'prompt') {
+    const { email, number, said, ended } = step;
+    return form(
+      () => sendPrompt(email),
+      h('h2', {}, ended ? 'Prompt ended' : 'Check your phone'),
+      h(
+        'p',
+        { class: 'muted' },
+        'On your phone, or in HandsFreeOS on this computer, pick this number for ',
+        h('strong', {}, email),
+        ':',
+      ),
+      ended ? null : h('p', { class: 'prompt-number', 'aria-live': 'polite' }, String(number)),
+      h('p', { class: ended ? 'error' : 'muted', role: ended ? 'alert' : undefined }, said),
+      errorLine(),
+      h(
+        'div',
+        { class: 'actions' },
+        ended ? submit('Send another prompt') : null,
+        button('Use an emailed code instead', () => sendCodeTo(email), { disabled: working }),
+        other,
+      ),
+    );
+  }
   if (step.kind === 'code') {
     const { email } = step;
     const code = field('Code', {
@@ -220,6 +323,7 @@ function signInView(): HTMLElement {
           () => void signIn(() => ask({ type: 'hfos-send-code', email })),
           { disabled: working },
         ),
+        button('Send me a prompt instead', () => sendPrompt(email), { disabled: working }),
         other,
       ),
     );
@@ -242,16 +346,7 @@ function signInView(): HTMLElement {
       'div',
       { class: 'actions' },
       submit('Sign in'),
-      button(
-        'Email me a code instead',
-        () =>
-          void signIn(async () => {
-            const answer = await ask({ type: 'hfos-send-code', email });
-            if (answer.ok) step = { kind: 'code', email };
-            return answer;
-          }),
-        { disabled: working },
-      ),
+      button('Email me a code instead', () => sendCodeTo(email), { disabled: working }),
       other,
     ),
     account && !account.signedIn

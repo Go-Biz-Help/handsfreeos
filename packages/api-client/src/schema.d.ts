@@ -3017,6 +3017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/extension_sign_in.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a sign-in to the browser extension with your email: pick the number it shows to let it in, or say it wasn’t you. A wrong number stops it.
+         * @description Risk level 2. Emits extension_sign_in.approved, extension_sign_in.refused.
+         */
+        post: operations["command_extension_sign_in_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/file.begin_upload": {
         parameters: {
             query?: never;
@@ -15337,6 +15357,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/extension_sign_in.pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.
+         * @description Any signed-in user.
+         */
+        post: operations["query_extension_sign_in_pending"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/file.fingerprints": {
         parameters: {
             query?: never;
@@ -16491,6 +16531,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.activity.posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The posts the person liked and commented on in a stretch of days, the latest first, as the extension noted them: whose post, a link to it, what it said, and the comment the extension posted on its own and why it picked a post to like. Owners and admins can see everyone’s.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_activity_posts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26343,6 +26403,37 @@ export interface operations {
             };
         };
     };
+    command_extension_sign_in_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pick: number | null;
+                    /** Format: uuid */
+                    requestId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        outcome: "approved" | "refused";
+                    };
+                };
+            };
+        };
+    };
     command_file_begin_upload: {
         parameters: {
             query?: never;
@@ -34756,6 +34847,8 @@ export interface operations {
                         version?: string | null;
                     };
                     status: {
+                        /** @default null */
+                        doing?: ("friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks") | null;
                         line?: string | null;
                         /** @default null */
                         lineAt?: string | null;
@@ -35684,6 +35777,8 @@ export interface operations {
                     /** @default false */
                     auto?: boolean;
                     /** @default null */
+                    commentText?: string | null;
+                    /** @default null */
                     group?: {
                         id: string | null;
                         /** @default null */
@@ -35700,6 +35795,8 @@ export interface operations {
                      */
                     platform?: "facebook";
                     /** @default null */
+                    postText?: string | null;
+                    /** @default null */
                     postUrl?: string | null;
                     profile: {
                         id: string | null;
@@ -35710,6 +35807,8 @@ export interface operations {
                     replying?: boolean | null;
                     /** @default null */
                     threadKey?: string | null;
+                    /** @default null */
+                    why?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -56841,6 +56940,39 @@ export interface operations {
             };
         };
     };
+    query_extension_sign_in_pending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        requests: {
+                            browser: string;
+                            choices: number[];
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_file_fingerprints: {
         parameters: {
             query?: never;
@@ -61761,6 +61893,75 @@ export interface operations {
             };
         };
     };
+    query_outreach_activity_posts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    before?: string | null;
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    kind?: "all" | "like" | "comment";
+                    /**
+                     * @default week
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: boolean;
+                        /** Format: date-time */
+                        from: string;
+                        next: string | null;
+                        posts: {
+                            /** Format: date-time */
+                            at: string;
+                            auto: boolean;
+                            by: string | null;
+                            commentText: string | null;
+                            group: {
+                                name: string | null;
+                                url: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "like" | "comment";
+                            name: string;
+                            personId: string | null;
+                            postText: string | null;
+                            postUrl: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            /** Format: uuid */
+                            touchId: string;
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_asks: {
         parameters: {
             query?: never;
@@ -62770,6 +62971,8 @@ export interface operations {
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         status: {
+                            /** @default null */
+                            doing: ("friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks") | null;
                             line: string | null;
                             lineAt: string | null;
                             nextAt: string | null;

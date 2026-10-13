@@ -202,6 +202,45 @@ describe('answering a group’s questions', () => {
   });
 });
 
+describe('picking a post to like', () => {
+  const pick = async (posts: unknown[]) => {
+    const profileId = randomUUID();
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.profiles (id, workspace_id, platform, username, url, name)
+          values (${profileId}, ${ws}, 'facebook', ${`like.pick.${profileId.slice(0, 8)}`},
+            ${`https://www.facebook.com/like.pick.${profileId.slice(0, 8)}`}, 'Dana Reyes')`,
+    );
+    return app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.like.pick',
+      headers: { authorization: `Bearer ${await signInTestUser(owner)}` },
+      payload: { workspaceId: ws, input: { profileId, posts } },
+    });
+  };
+
+  it('asks the AI which post, and never takes one about a death', async () => {
+    const res = await pick([
+      { text: 'RIP Grandpa', pictures: [] },
+      { text: 'Busy week at the shop', pictures: [] },
+      { text: '', pictures: ['May be an image of 2 people and dog'] },
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      pick: 2,
+      about: 'personal',
+      why: 'A photo they shared',
+      by: 'ai',
+    });
+    // The AI's pick is a sad one: the words pick the first safe post instead.
+    const sad = await pick([
+      { text: 'Busy week at the shop', pictures: [] },
+      { text: 'Funeral is Saturday', pictures: ['May be an image of flowers'] },
+    ]);
+    expect(sad.json()).toMatchObject({ pick: 0, by: 'words' });
+  });
+});
+
 describe('writing a helpful post', () => {
   it('writes one for a group the person is in, or puts it aside when its rules don’t allow it', async () => {
     await runAs(owner, ws, 'outreach.groups.save', {

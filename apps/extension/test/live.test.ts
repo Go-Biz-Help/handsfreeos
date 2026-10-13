@@ -3,7 +3,11 @@
  * how the runner's day follows HandsFreeOS's, which changes heard live it looks at, and how often a line alone goes.
  */
 import { describe, expect, it } from 'vitest';
-import { LINE_BEAT_SECONDS, LIVE_STEPS_UNSENT_MOST } from '@hfos/core/addons/outreach/live';
+import {
+  LINE_BEAT_SECONDS,
+  LIVE_STEPS_UNSENT_MOST,
+  PRE_DAY_LINE_SECONDS,
+} from '@hfos/core/addons/outreach/live';
 import { freshState, type AutoState } from '../src/auto/plan';
 import {
   beatWait,
@@ -43,6 +47,15 @@ describe('what it reports', () => {
     expect(reportedStatus(state({ nextAt: 1 }), on, true).state).toBe('standby');
     expect(reportedStatus(state({ stopped: 'person' }), on, true).state).toBe('stopped');
     expect(reportedStatus(state(), { sending: 'off' }, true).state).toBe('off');
+  });
+
+  it('says which step before the first day it’s doing, only while it works on it', () => {
+    expect(reportedStatus(state({ working: true, beforeNow: 'groups' }), on).doing).toBe('groups');
+    expect(reportedStatus(state({ working: true }), on).doing).toBeNull();
+    expect(reportedStatus(state({ beforeNow: 'groups', nextAt: 1 }), on).doing).toBeNull();
+    expect(
+      reportedStatus(state({ working: true, beforeNow: 'groups' }), on, true).doing,
+    ).toBeNull();
   });
 
   it('keeps the line and when it was said', () => {
@@ -168,6 +181,7 @@ describe('how often it tells', () => {
     line: 'Waiting',
     lineAt: null,
     nextAt: null,
+    doing: null,
     ...more,
   });
   const none = { steps: 0, active: false, force: false };
@@ -193,5 +207,24 @@ describe('how often it tells', () => {
     expect(beatWait(last, now({ line: 'Liked a post' }), none, at + LINE_BEAT_SECONDS * 1000)).toBe(
       0,
     );
+  });
+
+  it('sends a step before the first day’s count every few seconds, and goes now when that step changes', () => {
+    const counting: Told = { ...last, state: 'working', doing: 'friends' };
+    const reading = (n: number) =>
+      now({
+        state: 'working',
+        doing: 'friends',
+        line: `Reading your friends… ${n} friends so far.`,
+      });
+    expect(beatWait(counting, reading(40), none, at + 1_000)).toBe(
+      PRE_DAY_LINE_SECONDS * 1000 - 1_000,
+    );
+    expect(beatWait(counting, reading(40), none, at + PRE_DAY_LINE_SECONDS * 1000)).toBe(0);
+    expect(beatWait(counting, reading(40), none, at + 1_000)).toBeLessThan(
+      LINE_BEAT_SECONDS * 1000 - 1_000,
+    );
+    expect(beatWait(counting, now({ state: 'working', doing: 'requests' }), none, at)).toBe(0);
+    expect(beatWait(counting, now({ state: 'working' }), none, at)).toBe(0);
   });
 });

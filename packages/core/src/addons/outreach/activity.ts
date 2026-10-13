@@ -5,6 +5,7 @@
  * month. Browser-safe: the extension builds the notes, and the web and the extension draw the panel from these.
  */
 import { z } from 'zod';
+import { relativeTimeAgo } from '../../workflows/approval-words';
 import {
   GROUP_ID,
   GROUP_SLUG,
@@ -24,6 +25,11 @@ export {
   type TouchKind,
   type TouchStep,
 } from './limits';
+
+/** What a step keeps of the post, the comment and why, at most. */
+export const TOUCH_POST_TEXT_MOST = 300;
+export const TOUCH_COMMENT_MOST = 2_000;
+export const TOUCH_WHY_MOST = 160;
 
 /** A group by its number, the name in its link, or both: whichever its links showed. */
 export const GroupRef = z
@@ -56,6 +62,13 @@ export const TouchSaveInput = z.object({
   replying: z.boolean().nullable().default(null),
   /** Taken by the extension on its own (decision 26), not pressed by the person. */
   auto: z.boolean().default(false),
+  /**
+   * For a like or comment the extension made on its own, for the Results tab: what the post said, the AI's comment,
+   * and why it picked that post to like. Never what the person wrote themselves.
+   */
+  postText: z.string().trim().min(1).max(TOUCH_POST_TEXT_MOST).nullable().default(null),
+  commentText: z.string().trim().min(1).max(TOUCH_COMMENT_MOST).nullable().default(null),
+  why: z.string().trim().min(1).max(TOUCH_WHY_MOST).nullable().default(null),
 });
 export type TouchSaveInput = z.input<typeof TouchSaveInput>;
 
@@ -182,3 +195,86 @@ export const ActivityOutput = z.object({
   morePeople: count,
 });
 export type ActivityOutput = z.output<typeof ActivityOutput>;
+
+/** Which steps the list of posts shows: likes and comments, or one of them. */
+export const TOUCHED_POST_KINDS = ['all', 'like', 'comment'] as const;
+/** How many posts the list shows at a time; `before` asks for the ones after. */
+export const TOUCHED_POSTS_PAGE = 50;
+
+export const TouchedPostsInput = z.object({
+  workspaceId: z.uuid(),
+  period: z.enum(ACTIVITY_PERIOD_KEYS).default('week'),
+  /** Everyone's, for owners and admins (`outreach.manage`). Left out: the person's own. */
+  everyone: z.boolean().default(false),
+  kind: z.enum(TOUCHED_POST_KINDS).default('all'),
+  /** The next page: the ones before the last one shown. */
+  before: moment.nullable().default(null),
+});
+export type TouchedPostsInput = z.input<typeof TouchedPostsInput>;
+
+export const TouchedPostsOutput = z.object({
+  from: moment,
+  everyone: z.boolean(),
+  /** The posts liked and commented on in the stretch, the latest first. */
+  posts: z.array(
+    z.object({
+      touchId: z.uuid(),
+      kind: z.enum(['like', 'comment']),
+      at: moment,
+      /** Whose post it was. */
+      profileId: z.uuid(),
+      personId: z.uuid().nullable(),
+      name: z.string(),
+      profileUrl: z.string(),
+      postUrl: z.string().nullable(),
+      /** What the post said, when it was kept: for the extension's own likes and comments, and posts found. */
+      postText: z.string().nullable(),
+      /** The comment the extension posted on its own. The person's own are never kept. */
+      commentText: z.string().nullable(),
+      /** Why the AI picked that post to like. */
+      why: z.string().nullable(),
+      /** Done by the extension on its own, not pressed by the person. */
+      auto: z.boolean(),
+      group: z.object({ name: z.string().nullable(), url: z.string() }).nullable(),
+      /** Who on the team, when the list is everyone's. */
+      by: z.string().nullable(),
+    }),
+  ),
+  /** The time to ask `before` for the next page; null when there are no more. */
+  next: moment.nullable(),
+});
+export type TouchedPostsOutput = z.output<typeof TouchedPostsOutput>;
+
+type TouchedPost = TouchedPostsOutput['posts'][number];
+type TouchedKind = (typeof TOUCHED_POST_KINDS)[number];
+
+/** The words of the Results tab's posts liked and commented on, on the web and the phone. */
+export const TOUCHED_POSTS_WORDS = {
+  title: 'Posts liked and commented on',
+  kinds: { all: 'All', like: 'Likes', comment: 'Comments' } satisfies Record<TouchedKind, string>,
+  latestFirst: (period: ActivityPeriod) => `${ACTIVITY_PERIODS[period].label}, the latest first`,
+  none: (kind: TouchedKind, period: ActivityPeriod) =>
+    `No ${kind === 'all' ? 'likes or comments' : TOUCHED_POSTS_WORDS.kinds[kind].toLowerCase()} noted ${
+      period === 'today' ? 'today' : `in the ${ACTIVITY_PERIODS[period].label.toLowerCase()}`
+    }.`,
+  failed: 'The posts didn’t load. Try again in a minute.',
+  more: 'Show more',
+  openPost: 'Open the post',
+  openProfile: 'Facebook',
+  commentHeading: 'The comment',
+  ownComment: 'Your own comment: its words aren’t kept.',
+  why: (why: string) => `Why this post: ${why}`,
+  /** "12 min ago", "3 d ago", then the day. */
+  when: (at: string, now = Date.now()) => relativeTimeAgo(at, now),
+  /** "Liked", "Commented". */
+  kind: (post: Pick<TouchedPost, 'kind'>) => (post.kind === 'comment' ? 'Commented' : 'Liked'),
+  /** "By the extension · Sam · in Austin Owners". */
+  byLine: (post: Pick<TouchedPost, 'auto' | 'by' | 'group'>) =>
+    [
+      post.auto ? 'By the extension' : 'By hand',
+      post.by,
+      post.group ? `in ${post.group.name ?? 'a group'}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+} as const;

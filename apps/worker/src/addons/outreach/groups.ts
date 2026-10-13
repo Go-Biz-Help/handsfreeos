@@ -48,7 +48,7 @@ export const CHECK_GROUPS_BATCH = 10;
 const HOUR = 3_600_000;
 
 /** The business's playbooks in use, as the AI reads them. */
-async function playbooksOf(tx: Parameters<typeof rows>[0], ws: string) {
+export async function playbooksOf(tx: Parameters<typeof rows>[0], ws: string) {
   const kept = await rows<{ id: string; name: string; details: unknown }>(
     tx,
     sql`select id, name, details from addon_outreach.playbooks

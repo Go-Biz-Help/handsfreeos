@@ -66,9 +66,32 @@ export const neverTwins = (p: string) => sql`select twin.* from addon_outreach.p
   where twin.workspace_id = ${sql.raw(p)}.workspace_id and twin.platform = ${sql.raw(p)}.platform
     and twin.id <> ${sql.raw(p)}.id and ${nameKeyOf('twin')} = ${nameKeyOf(p)} and ${markedNever('twin')}`;
 
-/** A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched. `p` is its alias. */
-export const pitchable = (p: string) =>
-  sql`not ${markedNever(p)} and not exists (${neverTwins(p)})`;
+/**
+ * Every profile marked never pitched, as its workspace, network and name, read once for the whole query. A twin looked
+ * up profile by profile can't use the name index under row-level security (`lower` and `regexp_replace` aren't
+ * leakproof), so each look-up reads every profile: 14 seconds for 1,800, past the API's statement timeout.
+ */
+const neverNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
+  where m.dont_pitch or m.person_id in (
+    select rt.record_id from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
+    where rt.record_type = 'person' and lower(tg.name::text) = lower(${DONT_PITCH_TAG}))`;
+
+/** Whether a profile marked never pitched, itself included, is kept under its name on its network. `p` is its alias. */
+const namedNever = (p: string) =>
+  sql`(${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${neverNames})`;
+
+/**
+ * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched. Once it isn't marked
+ * itself, any profile marked never pitched under its name is a twin. `p` is its alias.
+ */
+export const pitchable = (p: string) => sql`(not ${markedNever(p)} and not ${namedNever(p)})`;
+
+/**
+ * Whether a profile has a twin marked never pitched (`neverTwins`): for one not marked itself, any profile marked
+ * under its name; for the few marked, looked up. `p` is its alias.
+ */
+export const hasNeverTwin = (p: string) =>
+  sql`(case when ${markedNever(p)} then exists (${neverTwins(p)}) else ${namedNever(p)} end)`;
 
 /**
  * A profile still in play for the person `me` (decision 47): not marked not a fit, by them or by the AI's read of their

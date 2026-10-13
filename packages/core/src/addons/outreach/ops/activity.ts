@@ -19,6 +19,9 @@ import {
   ACTIVITY_PERIODS,
   ActivityInput,
   ActivityOutput,
+  TOUCHED_POSTS_PAGE,
+  TouchedPostsInput,
+  TouchedPostsOutput,
   TouchSaveInput,
   TouchSaveOutput,
   type GroupRef,
@@ -287,6 +290,14 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           postUrl: input.postUrl,
           threadKey: input.threadKey,
           auto: input.auto,
+          // Only what the extension did on its own keeps the words: never what the person wrote.
+          ...(input.auto && (input.kind === 'like' || input.kind === 'comment')
+            ? {
+                postText: input.postText,
+                commentText: input.kind === 'comment' ? input.commentText : null,
+                why: input.kind === 'like' ? input.why : null,
+              }
+            : {}),
           at,
         })
         .returning({ id: touches.id });
@@ -608,5 +619,88 @@ export const activity = defineAddonQuery(outreachAddon, {
   },
 });
 
+export const touchedPosts = defineAddonQuery(outreachAddon, {
+  name: 'outreach.activity.posts',
+  description:
+    'The posts the person liked and commented on in a stretch of days, the latest first, as the extension noted them: whose post, a link to it, what it said, and the comment the extension posted on its own and why it picked a post to like. Owners and admins can see everyone’s.',
+  input: TouchedPostsInput,
+  output: TouchedPostsOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = userIdOf(ctx.actor);
+    if (!me) throw HfosError.forbidden('Only a person has outreach of their own.');
+    const ws = ctx.scope.workspaceId!;
+    if (input.everyone && !(await seesEveryone(ctx, me)))
+      throw HfosError.forbidden(
+        'Only owners and admins (Run Social Outreach) see the whole team’s outreach. Yours is under You.',
+        'outreach_activity_everyone',
+      );
+    const from = await periodStart(ctx, ACTIVITY_PERIODS[input.period].days);
+    const whose = input.everyone ? sql`true` : sql`t.user_id = ${me}`;
+    const kinds =
+      input.kind === 'all' ? sql`t.kind in ('like', 'comment')` : sql`t.kind = ${input.kind}`;
+    const before = input.before ? sql`t.at < ${input.before}::timestamptz` : sql`true`;
+    const found = await rows<{
+      id: string;
+      kind: 'like' | 'comment';
+      at: Date | string;
+      profile_id: string;
+      person_id: string | null;
+      name: string;
+      url: string;
+      post_url: string | null;
+      post_text: string | null;
+      comment_text: string | null;
+      why: string | null;
+      auto: boolean;
+      group_name: string | null;
+      group_url: string | null;
+      by: string | null;
+    }>(
+      ctx.tx,
+      // A post found in a group (Find posts) keeps what it said: a comment on one shows it.
+      sql`select t.id, t.kind, t.at, t.profile_id, p.person_id,
+            coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
+            t.post_url, coalesce(t.post_text, left(po.body, 300)) as post_text, t.comment_text, t.why, t.auto,
+            g.name as group_name, g.url as group_url,
+            ${input.everyone ? sql`coalesce(nullif(btrim(u.full_name), ''), u.email)` : sql`null::text`} as by
+          from addon_outreach.touches t
+          join addon_outreach.profiles p on p.id = t.profile_id
+          left join app.people pp on pp.id = p.person_id
+          left join addon_outreach.groups g on g.id = coalesce(t.group_id, p.group_id)
+          left join addon_outreach.posts po on po.workspace_id = t.workspace_id and po.user_id = t.user_id
+            and po.url = t.post_url
+          left join app.users u on u.id = t.user_id
+          where t.workspace_id = ${ws} and ${whose} and ${kinds} and ${before}
+            and t.at >= ${from}::timestamptz
+          order by t.at desc, t.id
+          limit ${TOUCHED_POSTS_PAGE + 1}`,
+    );
+    const shown = found.slice(0, TOUCHED_POSTS_PAGE);
+    return {
+      from,
+      everyone: input.everyone,
+      posts: shown.map((r) => ({
+        touchId: r.id,
+        kind: r.kind,
+        at: iso(r.at),
+        profileId: r.profile_id,
+        personId: r.person_id,
+        name: r.name,
+        profileUrl: r.url,
+        postUrl: r.post_url,
+        postText: r.post_text,
+        commentText: r.comment_text,
+        why: r.why,
+        auto: r.auto,
+        group: r.group_url ? { name: r.group_name, url: r.group_url } : null,
+        by: r.by,
+      })),
+      next: found.length > TOUCHED_POSTS_PAGE ? iso(shown.at(-1)!.at) : null,
+    };
+  },
+});
+
 export const activityCommands = [touchSave] as const;
-export const activityQueries = [activity] as const;
+export const activityQueries = [activity, touchedPosts] as const;

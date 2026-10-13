@@ -1035,6 +1035,14 @@ In the Supabase dashboard, **Authentication** → **Users** shows the deleted pe
 
 The worker needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` for this. Without them the job logs `Deleting an account needs SUPABASE_URL and SUPABASE_SECRET_KEY on the worker, to end sessions and block sign-in`, tries 5 times and stops, and the person can ask again once the key is set. If the person became a business's only owner between asking and the job running, the job changes nothing and logs `an account deletion was not done: the person is now a business’s only owner`.
 
+### Signing in to the extension with a prompt
+
+The Social Outreach extension's **Send me a prompt** (20261027002910, apps/extension/README.md "Signing in with a prompt") asks the person's phone and open HandsFreeOS tabs for the number it shows, then signs the extension in. The worker makes that sign-in with the same `SUPABASE_URL` and `SUPABASE_SECRET_KEY`: a magic link it never emails (`generateLink`), whose hashed token the extension redeems. Nothing to set up in Supabase beyond what account deletion already needs; the link lives as long as Supabase's **Authentication** → **Email** → OTP expiry, and the extension redeems it within seconds.
+
+- Without the key, picking the right number still answers, but the extension says `HandsFreeOS couldn’t finish signing you in just now. Use an emailed code instead.` and the worker logs nothing secret. Set the key, then press **Send me a prompt** again.
+- The extension reaches the worker at `HFOS_WORKER_URL` (the build's), on `POST /public/extension-sign-in/start` and `…/collect`. Starts are limited to 10 a minute per address and 5 in 3 minutes per email, per worker machine.
+- Requests are kept a day at most: each new one tidies away the older ones.
+
 ### Deleting a business
 
 An owner of a business (or an owner of its organization) can delete it, with everything in it, under **Settings** → **Workspace** → **Delete this business**, typing the business's name to confirm (`workspace.delete`). Admins and members don't see the section. It can't be undone. What happens:

@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { addDays, localDateOf } from '../../calendar/engine/zoned';
 import { fmtDateShort, fmtTime } from '../../calendar/when';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
-import { listsWaitWords, ListsSaved } from './lists';
+import { LIST_MARK_KEYS, listsWaitWords, ListsSaved, type ListMark } from './lists';
 import { WarningState } from './tidy';
 
 /** How often the extension says it's there, and how long without that before the app calls the computer offline. */
@@ -30,6 +30,11 @@ export const OFFLINE_MINUTES = 3;
 /** A change to the line alone tells the app at most this often (HandsFreeOS), and is sent at most this often (the extension). */
 export const LINE_TELL_SECONDS = 45;
 export const LINE_BEAT_SECONDS = 20;
+/**
+ * While a step before the first day runs (`doing`), its count goes up on the web and the phone: the line is sent and
+ * told at most this often instead.
+ */
+export const PRE_DAY_LINE_SECONDS = 4;
 /** Feed lines one beat carries, lines the extension keeps unsent, lines the Live tab shows, and days kept. */
 export const LIVE_STEPS_SENT_MOST = 20;
 export const LIVE_STEPS_UNSENT_MOST = 50;
@@ -141,6 +146,8 @@ export const LiveStatus = z.object({
   line: z.string().max(300).nullable(),
   lineAt: moment.nullable(),
   nextAt: moment.nullable(),
+  /** The step before the first day it's doing (./lists.ts), whose progress the line is; null while it does other work. */
+  doing: z.enum(LIST_MARK_KEYS).nullable().default(null),
 });
 export type LiveStatus = z.output<typeof LiveStatus>;
 
@@ -182,6 +189,8 @@ export const LiveBeatInput = z.object({
     line: keptLine.nullable().default(null),
     lineAt: moment.nullable().default(null),
     nextAt: moment.nullable().default(null),
+    /** The step before the first day under way (./lists.ts): the line is its progress. Null for any other work. */
+    doing: z.enum(LIST_MARK_KEYS).nullable().default(null),
   }),
   /** Feed lines since the last beat that was answered, oldest first, each with the extension's own id. */
   steps: z
@@ -304,6 +313,21 @@ export type LiveTeamOutput = z.output<typeof LiveTeamOutput>;
 /** Whether a computer last seen then is offline now. */
 export const isOffline = (lastSeenAt: string | Date | number, now: number): boolean =>
   now - new Date(lastSeenAt).getTime() > OFFLINE_MINUTES * MIN;
+
+/**
+ * What the live checklist before the first day shows under way (./lists.ts, `preDaySteps`), on the web and the phone:
+ * the step the working computer says it's doing, with its line as that step's count, while it works and is online.
+ * Nothing while it does other work, so another job's line never shows under a step.
+ */
+export function preDayNow(
+  live: { readonly computer: ComputerShown | null; readonly status: LiveStatus | null },
+  now: number,
+): { doing: ListMark | null; line: string | null } {
+  const c = live.computer;
+  const working = c !== null && c.state === 'working' && !isOffline(c.lastSeenAt, now);
+  const doing = working ? (live.status?.doing ?? null) : null;
+  return { doing, line: doing ? (live.status?.line ?? null) : null };
+}
 
 /** What the app shows for a person: no computer, signed out, offline, stopped today, not on its own, or as it said. */
 export function shownState(input: {

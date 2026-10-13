@@ -48,6 +48,7 @@ import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonSealedRoutes } from './addon-sealed';
 import { registerAddonPublicRoutes } from './addon-public';
 import { registerAddonSignInRoutes } from './addon-sign-ins';
+import { registerExtensionSignInRoutes } from './extension-sign-in';
 import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
 import { registerFoundingRoutes } from './founding';
@@ -291,6 +292,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
+  // Signing in to the browser extension with a prompt on the phone or the web (20261027002910).
+  await registerExtensionSignInRoutes(app, deps);
   // An add-on's accounts at other services: a pasted key, tried and sealed, and their updates (round five).
   registerAddonConnectionRoutes(app, deps, deps.addonConnections);
   await registerAddonWebhookRoutes(app, deps, deps.addonConnections);

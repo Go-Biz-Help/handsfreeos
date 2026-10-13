@@ -3,7 +3,8 @@
  * Social Outreach's Results tab (docs/outreach.md, decisions 7, 34 and 59): what the browser extension noted as people
  * worked on Facebook (apps/extension/README.md, "What it notes"), over a stretch of days. It leads with what came of
  * it: demos booked, then each step from reached to booked with how many of the step before made it, then what was
- * done along the way, by the group people were found in and person by person. The day against the daily limits is on
+ * done along the way, by the group people were found in and person by person, and the posts liked and commented on
+ * (./touched-posts.tsx). The day against the daily limits is on
  * Today. Owners and admins can see the whole team's. The stretch and whose are in the address (./address.ts), so the
  * page asks HandsFreeOS for them and Back still works.
  */
@@ -23,6 +24,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
+import { TouchedPostsCard } from './touched-posts';
 import type { Activity } from './types';
 
 type Numbers = Activity['numbers'];
@@ -135,6 +137,11 @@ export function ActivityView({
               workspaceId={workspaceId}
               people={activity.people}
               more={activity.morePeople}
+            />
+            <TouchedPostsCard
+              workspaceId={workspaceId}
+              period={period}
+              everyone={activity.everyone}
             />
           </>
         )}

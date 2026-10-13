@@ -448,6 +448,16 @@ button:disabled {
   font-size: 12.5px;
 }
 
+/* The number a sign-in prompt asks the person to pick on their phone or in HandsFreeOS. */
+.sign-in .prompt-number {
+  margin: 8px 0;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .sign-in .error {
   margin: 6px 0 0;
 }

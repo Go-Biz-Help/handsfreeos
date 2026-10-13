@@ -17,6 +17,7 @@ export {
   pushJobKey,
   queuePush,
   queueStaffPush,
+  queuePersonalPush,
   staffPushAudience,
   type PushMoment,
   type PushSendPayload,

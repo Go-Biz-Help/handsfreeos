@@ -17,8 +17,11 @@
  * A push to HandsFreeOS's own support people (`support_ticket`) runs the same way with no business in scope: its
  * phones, and turning off the ones the app is gone from, go through the two database functions made for it
  * (`private.staff_push_devices`, `private.turn_off_staff_push_devices`), since no business's scope can see them.
+ * A push about the person themselves (`extension_sign_in`) does the same through `private.own_push_devices` and
+ * `private.turn_off_own_push_devices`.
  */
 import {
+  isPersonalPush,
   isStaffPush,
   PUSH_BUTTON_IDS,
   PUSH_CATEGORIES,
@@ -98,6 +101,8 @@ const ReceiptsPayload = z.object({
   round: z.number().int().min(0).default(0),
   /** The phones are support people's (a push about no business): turned off through their own function. */
   staff: z.boolean().optional(),
+  /** The phones are one person's own (a sign-in prompt, about no business): turned off through their function. */
+  personal: z.boolean().optional(),
 });
 
 interface Device {
@@ -191,6 +196,36 @@ async function turnOffStaffGone(
   return Number(r?.off ?? 0);
 }
 
+/** A person's own phones that are on, for a push about them alone (a sign-in prompt): no switch applies. */
+async function ownDevices(
+  tx: Tx,
+  _category: PushCategory,
+  userIds: readonly string[],
+): Promise<Device[]> {
+  if (userIds.length === 0) return [];
+  return rows<Device & Record<string, unknown>>(
+    tx,
+    sql`select device_id as id, platform, token
+        from private.own_push_devices(array[${sql.join(
+          userIds.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )}])`,
+  );
+}
+
+/** A person's own phones the app is gone from: off, unless they registered again after `sentAt`. */
+async function turnOffOwnGone(tx: Tx, deviceIds: readonly string[], sentAt: Date): Promise<number> {
+  if (deviceIds.length === 0) return 0;
+  const [r] = await rows<{ off: number }>(
+    tx,
+    sql`select private.turn_off_own_push_devices(array[${sql.join(
+      deviceIds.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )}], ${sentAt.toISOString()}::timestamptz) as off`,
+  );
+  return Number(r?.off ?? 0);
+}
+
 /**
  * Whose phones a push goes to, and how the job reaches them: a business's people from its own scope, or HandsFreeOS's
  * support people, from none, through the functions that may look.
@@ -201,11 +236,16 @@ interface Phones {
   readonly turnOff: (tx: Tx, deviceIds: readonly string[], sentAt: Date) => Promise<number>;
 }
 
-function phonesFor(staff: boolean, jobScope: SystemScope): Phones {
-  return staff
-    ? { scope: {}, find: staffDevices, turnOff: turnOffStaffGone }
-    : { scope: tenantOf(jobScope), find: liveDevices, turnOff: turnOffGone };
+type Whose = 'business' | 'staff' | 'personal';
+
+function phonesFor(whose: Whose, jobScope: SystemScope): Phones {
+  if (whose === 'staff') return { scope: {}, find: staffDevices, turnOff: turnOffStaffGone };
+  if (whose === 'personal') return { scope: {}, find: ownDevices, turnOff: turnOffOwnGone };
+  return { scope: tenantOf(jobScope), find: liveDevices, turnOff: turnOffGone };
 }
+
+const whoseOf = (category: PushCategory): Whose =>
+  isStaffPush(category) ? 'staff' : isPersonalPush(category) ? 'personal' : 'business';
 
 const writeDelivery = (tx: Tx, jobId: string, delivery: Delivery) =>
   tx.execute(
@@ -260,15 +300,15 @@ export const pushSendJob: JobHandler = async (ctx) => {
     );
     return;
   }
-  const staff = isStaffPush(p.category);
-  if (staff !== (p.workspaceId === null)) {
+  const whose = whoseOf(p.category);
+  if ((whose !== 'business') !== (p.workspaceId === null)) {
     ctx.log.warn(
       { notificationId: p.notificationId, category: p.category },
       'a push job’s business doesn’t fit its kind; not sent',
     );
     return;
   }
-  const phones = phonesFor(staff, ctx.scope);
+  const phones = phonesFor(whose, ctx.scope);
   const { scope } = phones;
   const waiting = p.whileWaiting;
   if (waiting && !(await asWorker(ctx.db, scope, (tx) => stillWaiting(tx, waiting)))) {
@@ -343,7 +383,8 @@ export const pushSendJob: JobHandler = async (ctx) => {
             sentAt: startedAt.toISOString(),
             tickets: accepted,
             round: 0,
-            ...(staff ? { staff: true } : {}),
+            ...(whose === 'staff' ? { staff: true } : {}),
+            ...(whose === 'personal' ? { personal: true } : {}),
           },
           workspaceId: scope.workspaceId ?? null,
           organizationId: scope.organizationId ?? null,
@@ -377,7 +418,10 @@ export const pushReceiptsJob: JobHandler = async (ctx) => {
   const provider = ctx.push.provider;
   if (!provider) return;
   const p = parsed.data;
-  const phones = phonesFor(p.staff === true, ctx.scope);
+  const phones = phonesFor(
+    p.staff === true ? 'staff' : p.personal === true ? 'personal' : 'business',
+    ctx.scope,
+  );
   const receipts: Record<string, PushReceipt> = {};
   for (let i = 0; i < p.tickets.length; i += RECEIPT_CHUNK)
     Object.assign(

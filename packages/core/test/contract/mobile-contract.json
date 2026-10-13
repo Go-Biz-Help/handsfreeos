@@ -3886,6 +3886,31 @@
         ]
       }
     },
+    "extension_sign_in.answer": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pick": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 99
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["requestId", "pick"]
+      }
+    },
     "file.begin_upload": {
       "offline": "anytime",
       "input": {
@@ -14593,6 +14618,12 @@
         "required": [
           "workspaceId"
         ]
+      }
+    },
+    "extension_sign_in.pending": {
+      "input": {
+        "type": "object",
+        "properties": {}
       }
     },
     "file.fingerprints": {

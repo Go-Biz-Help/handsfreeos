@@ -60,6 +60,8 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   // A check-in's "Still there?" and a contact's alert: an hour late is too late to matter.
   safety_check: HOUR_S,
   safety_alert: HOUR_S,
+  // A sign-in prompt lasts two minutes: after that it's only noise.
+  extension_sign_in: 120,
 };
 
 /**
@@ -70,6 +72,8 @@ const TIME_SENSITIVE: ReadonlySet<PushCategory> = new Set([
   // Someone alone who hasn't checked out.
   'safety_check',
   'safety_alert',
+  // Someone is waiting at their computer to be let in.
+  'extension_sign_in',
   'customer_waiting',
   'customer_waiting_no_ai',
   'urgent_lead',

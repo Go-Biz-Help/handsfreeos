@@ -1786,7 +1786,20 @@ function scriptedJoinAnswers(message: string) {
   return { answers: questions.map((_, i) => `Answer ${i + 1} from the playbook.`) };
 }
 
+/** Social Outreach's pick of a post to like (decision 33): the first with a picture, or none. */
+function scriptedLikePick(message: string) {
+  const posts = [...message.matchAll(/<post number="(\d+)">\n([\s\S]*?)\n<\/post>/g)];
+  const pictured = posts.find((p) => /^Picture: /m.test(p[2]!));
+  return pictured
+    ? { pick: Number(pictured[1]), about: 'personal', why: 'A photo they shared' }
+    : { pick: null, about: null, why: null };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  {
+    when: /Which post should they like\? Give its number, or none\.$/,
+    json: (message) => scriptedLikePick(message),
+  },
   { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
   {
     when: /Is this post worth a comment from the owner\?$/,
