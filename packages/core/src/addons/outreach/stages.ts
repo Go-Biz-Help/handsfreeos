@@ -17,6 +17,7 @@
  * Each person's own, like their chats. Browser-safe: the web, the phone and the worker read these words and shapes.
  */
 import { z } from 'zod';
+import { CHECK_VERDICT_KEYS } from './checks';
 
 export const STAGES = {
   found: 'Found',
@@ -136,6 +137,14 @@ export const StagesOutput = z.object({
       marked: z.boolean(),
       /** The person marked them as having booked a demo. */
       demoBooked: z.boolean(),
+      /** What the AI made of them when checked (decision 46), for Research on the row (decision 46a). */
+      check: z
+        .object({
+          verdict: z.enum(CHECK_VERDICT_KEYS),
+          playbookName: z.string().nullable(),
+          why: z.array(z.string()),
+        })
+        .nullable(),
     }),
   ),
   page: n.min(1),

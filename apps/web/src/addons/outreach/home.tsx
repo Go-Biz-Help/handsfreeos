@@ -85,6 +85,8 @@ export type OutreachShown =
       readonly board: Board | null;
       readonly show: StageView;
       readonly search: string;
+      /** Research's asks, for the rows: null when they couldn't be had. */
+      readonly asks: Asks | null;
     }
   | {
       readonly view: 'groups';
@@ -231,7 +233,9 @@ export function OutreachHome({
   const tab = tabOf(shown.view);
   const count = shown.view === 'today' && shown.waiting ? shown.waiting.count : waitingCount;
   const asks =
-    'asks' in shown && shown.view !== 'today' && shown.view !== 'live' ? shown.asks : null;
+    'asks' in shown && shown.view !== 'today' && shown.view !== 'live' && shown.view !== 'pipeline'
+      ? shown.asks
+      : null;
   return (
     <div data-testid="outreach-home">
       <PageHeader title={W.title} description={W.pageAbout} />
@@ -342,6 +346,7 @@ export function OutreachHome({
           board={shown.board}
           show={shown.show}
           search={shown.search}
+          asks={shown.asks}
         />
       ) : shown.view === 'groups' ? (
         <GroupsView

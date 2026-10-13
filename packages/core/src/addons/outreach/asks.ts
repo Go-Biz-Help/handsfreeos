@@ -41,6 +41,7 @@ export const ASK_KINDS = {
   cancel: 'Cancel old friend requests',
   unfriend: 'Unfriend the ones you ticked',
   lookup: 'Look someone up before drafting',
+  research: 'Research someone for fit',
 } as const;
 export type AskKind = keyof typeof ASK_KINDS;
 export const ASK_KIND_KEYS = Object.keys(ASK_KINDS) as [AskKind, ...AskKind[]];
@@ -68,7 +69,9 @@ export const ASK_KINDS_FOR = {
     'file_in',
     'cancel',
     'unfriend',
+    'research',
   ],
+  pipeline: ['research'],
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
   chats: ['chats'],
   today: ['lookup', 'members', 'post'],
@@ -245,6 +248,8 @@ export const AskInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('cancel'), profileIds }),
   z.object({ kind: z.literal('unfriend'), profileIds }),
   z.object({ kind: z.literal('lookup'), draft: AskDraft }),
+  /** Research one person (decision 46a): checked for fit next, ahead of the daily order, within the day's checks. */
+  z.object({ kind: z.literal('research'), profileId: z.uuid() }),
 ]);
 export type AskInput = z.input<typeof AskInput>;
 export type AskAsked = z.output<typeof AskInput>;
@@ -290,6 +295,7 @@ export const AskTask = z.discriminatedUnion('kind', [
     profileUrl: z.string().nullable(),
     name: z.string(),
   }),
+  z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
 ]);
 export type AskTask = z.output<typeof AskTask>;
 
@@ -299,6 +305,8 @@ export const AskResult = z.object({
   opener: DraftOpener.nullable().default(null),
   simple: z.boolean().default(false),
   lookedUp: z.boolean().default(false),
+  /** Research with the day's checks used up: the person goes first in tomorrow's checks. */
+  queued: z.boolean().default(false),
 });
 export type AskResult = z.output<typeof AskResult>;
 
@@ -500,6 +508,8 @@ export function askTarget(ask: AskAsked): string {
           : `profile:${draft.profileId}`;
       return `${draft.kind}:${who}`;
     }
+    case 'research':
+      return researchTarget(ask.profileId);
     default:
       return '';
   }
@@ -538,6 +548,7 @@ export function askAbout(
     }
     case 'lookup':
     case 'post':
+    case 'research':
       return named.name ? clip(named.name) : null;
     default:
       return null;
@@ -663,6 +674,7 @@ export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
   group_checks: '0.22.0',
   join: '0.22.0',
   post: '0.24.0',
+  research: '0.27.0',
 };
 
 /** Whether a build of the extension is too old for a kind of ask. One that didn't say its version is. */
@@ -699,13 +711,35 @@ export function computerNoteWords(
 
 /** What a press says once HandsFreeOS has it: asked, and when the computer does it; or that one like it is open. */
 export function askedWords(
-  made: { readonly fresh: boolean; readonly ask: { readonly kind: AskKind } },
+  made: {
+    readonly fresh: boolean;
+    readonly ask: {
+      readonly kind: AskKind;
+      readonly state?: string;
+      readonly line?: string | null;
+    };
+  },
   asks: Pick<AsksOutput, 'computer' | 'timezone'>,
   now: number,
 ): string {
+  // Ended as it was asked (Research with the day's checks used up): its line says what comes of it.
+  if (made.ask.state === 'done' && made.ask.line) return made.ask.line;
   return made.fresh
     ? `Asked. ${askWaitingWords(asks.computer, asks.timezone, now)}`
     : askAgainWords(made.ask.kind);
+}
+
+/** What a Research ask is about: the person. `outreach.checks.next` finds the asks by it. */
+export const researchTarget = (profileId: string): string => `profile:${profileId}`;
+
+/** What the latest Research ask about someone came to, for the row (`researchShown` in ./checks.ts). */
+export function researchAskState(
+  ask: Pick<AskShown, 'state' | 'result'> | null,
+): 'open' | 'tomorrow' | 'failed' | null {
+  if (!ask) return null;
+  if (askOpen(ask.state)) return 'open';
+  if (ask.state === 'done') return ask.result?.queued ? 'tomorrow' : null;
+  return ask.state === 'cancelled' ? null : 'failed';
 }
 
 /** What a button's ask is about, worked out as `outreach.ask.make` does, so it finds its own ask: '' when it can't be. */

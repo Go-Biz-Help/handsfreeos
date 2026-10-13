@@ -57,6 +57,19 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   first, then those who might fit, with the AI's why and first step, and its card says how far it has come ("312 of
   1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. Nobody
   goes in Contacts.
+- **Research one person** (decision 46a, `researchShown` and `RESEARCH_WORDS` in `checks.ts`, the ask kind `research`
+  in `asks.ts`, the web's `research.tsx`, the extension's `research` in `src/jobs/checks.ts`): a **Research** button
+  on each row of the Friends tab (friends, good fits, requests received and sent, kept) and the People tab's pipeline
+  (list and board) asks the person's computer (`outreach.ask.make`, `{ kind: 'research', profileId }`, target
+  `profile:<id>`) to check that one person next, the same way as above. It counts toward the same day's checks
+  (`CHECKS_PER_DAY`): with those used up, the ask ends at once as done, with `result.queued` and the line "That's
+  today's 40 checks. Dana goes first when checking carries on tomorrow.", and the row says **First in line
+  tomorrow**. `outreach.checks.next` puts anyone with a Research ask since they were last read first (reason
+  `asked`), whoever they are to the person (a request, someone found in a group), and lists only them when the
+  extension passes `profileId`. The row shows **Research**, then **Researching…** while the ask is open or the AI is
+  reading what was sent, then the AI's answer (good fit, might fit or not, with the why). No button for someone on
+  Don't pitch or tagged Friend or family (refused with `outreach_research_not_pitched`), nor for someone checked
+  already (`outreach_research_done`). Extension 0.27.0 and later (`ASK_KIND_SINCE`).
 - **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
   phone's `pipeline.tsx`): the **Pipeline** tab, after Today, on the web and the phone, has everyone the person
   reached (a step noted, a chat with words, a good fit or might fit from the checks, a demo, or a mark) by where they
@@ -743,6 +756,11 @@ These are settled too:
     fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts. Friends with a
     chat go first, then friends from the groups, then the rest. It runs with the once-a-day jobs, and from the
     Friends tab's **Check my friends**. Growth part 1. Built.
+    - **46a. Research one person from their row.** The owner asked for a **Research** button on person rows (friends,
+      requests received and sent, the pipeline) for anyone not checked yet: it checks that person next, ahead of the
+      daily order, reading their profile, posts and business page for the AI. The owner decided it **counts toward
+      the same daily check limit**; when the day's checks are used up it says so and they go first tomorrow. Never
+      offered for someone on Don't pitch or tagged Friend or family, since they're never checked. Built.
 47. **Stages, and the moment to pitch.** Each person reached has a stage, worked out from what HandsFreeOS knows:
     found, warming up, friends, talking, ready to pitch, pitched, booked, or not a fit. The AI's read of a chat says
     when the playbook's questions are answered well enough to pitch; Today then offers **Pitch**, with drafts that

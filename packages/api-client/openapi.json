@@ -81448,11 +81448,11 @@
     "/v1/commands/outreach.ask.make": {
       "post": {
         "operationId": "command_outreach_ask_make",
-        "summary": "The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, or look someone up before drafting. The computer that works for them takes it. Asking again while one like it is open answers that one.",
+        "summary": "The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.ask.made.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.ask.made, outreach.ask.ended.",
         "requestBody": {
           "required": true,
           "content": {
@@ -81847,6 +81847,26 @@
                           "kind",
                           "draft"
                         ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "research"
+                            ]
+                          },
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "profileId"
+                        ]
                       }
                     ]
                   }
@@ -81895,7 +81915,8 @@
                             "post",
                             "cancel",
                             "unfriend",
-                            "lookup"
+                            "lookup",
+                            "research"
                           ]
                         },
                         "target": {
@@ -81991,13 +82012,18 @@
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "queued": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "drafts",
                                 "opener",
                                 "simple",
-                                "lookedUp"
+                                "lookedUp",
+                                "queued"
                               ],
                               "additionalProperties": false
                             },
@@ -82174,7 +82200,8 @@
                                 "post",
                                 "cancel",
                                 "unfriend",
-                                "lookup"
+                                "lookup",
+                                "research"
                               ]
                             },
                             "task": {
@@ -82670,6 +82697,31 @@
                                     "name"
                                   ],
                                   "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "research"
+                                      ]
+                                    },
+                                    "profileId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "profileId",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               ]
                             },
@@ -82893,6 +82945,10 @@
                           "lookedUp": {
                             "default": false,
                             "type": "boolean"
+                          },
+                          "queued": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -83025,7 +83081,8 @@
                             "post",
                             "cancel",
                             "unfriend",
-                            "lookup"
+                            "lookup",
+                            "research"
                           ]
                         },
                         "target": {
@@ -83121,13 +83178,18 @@
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "queued": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "drafts",
                                 "opener",
                                 "simple",
-                                "lookedUp"
+                                "lookedUp",
+                                "queued"
                               ],
                               "additionalProperties": false
                             },
@@ -83285,7 +83347,8 @@
                             "post",
                             "cancel",
                             "unfriend",
-                            "lookup"
+                            "lookup",
+                            "research"
                           ]
                         },
                         "target": {
@@ -83381,13 +83444,18 @@
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "queued": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "drafts",
                                 "opener",
                                 "simple",
-                                "lookedUp"
+                                "lookedUp",
+                                "queued"
                               ],
                               "additionalProperties": false
                             },
@@ -165864,7 +165932,8 @@
                                       "post",
                                       "cancel",
                                       "unfriend",
-                                      "lookup"
+                                      "lookup",
+                                      "research"
                                     ]
                                   },
                                   "target": {
@@ -165960,13 +166029,18 @@
                                           "lookedUp": {
                                             "default": false,
                                             "type": "boolean"
+                                          },
+                                          "queued": {
+                                            "default": false,
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
                                           "drafts",
                                           "opener",
                                           "simple",
-                                          "lookedUp"
+                                          "lookedUp",
+                                          "queued"
                                         ],
                                         "additionalProperties": false
                                       },
@@ -166757,7 +166831,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "kinds": {
-                    "maxItems": 18,
+                    "maxItems": 19,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -166779,7 +166853,8 @@
                         "post",
                         "cancel",
                         "unfriend",
-                        "lookup"
+                        "lookup",
+                        "research"
                       ]
                     }
                   }
@@ -166886,7 +166961,8 @@
                               "post",
                               "cancel",
                               "unfriend",
-                              "lookup"
+                              "lookup",
+                              "research"
                             ]
                           },
                           "target": {
@@ -166982,13 +167058,18 @@
                                   "lookedUp": {
                                     "default": false,
                                     "type": "boolean"
+                                  },
+                                  "queued": {
+                                    "default": false,
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
                                   "drafts",
                                   "opener",
                                   "simple",
-                                  "lookedUp"
+                                  "lookedUp",
+                                  "queued"
                                 ],
                                 "additionalProperties": false
                               },
@@ -167325,6 +167406,11 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 40
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -167361,6 +167447,7 @@
                           "reason": {
                             "type": "string",
                             "enum": [
+                              "asked",
                               "prospect",
                               "chat",
                               "chat_only",
@@ -167601,6 +167688,46 @@
                           },
                           "demoBooked": {
                             "type": "boolean"
+                          },
+                          "check": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "verdict": {
+                                    "type": "string",
+                                    "enum": [
+                                      "waiting",
+                                      "good",
+                                      "maybe",
+                                      "not",
+                                      "failed"
+                                    ]
+                                  },
+                                  "playbookName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "why": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "verdict",
+                                  "playbookName",
+                                  "why"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -167614,7 +167741,8 @@
                           "lastAt",
                           "threadKey",
                           "marked",
-                          "demoBooked"
+                          "demoBooked",
+                          "check"
                         ],
                         "additionalProperties": false
                       }

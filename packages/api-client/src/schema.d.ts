@@ -5847,8 +5847,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, or look someone up before drafting. The computer that works for them takes it. Asking again while one like it is open answers that one.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made.
+         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made, outreach.ask.ended.
          */
         post: operations["command_outreach_ask_make"];
         delete?: never;
@@ -32608,7 +32608,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32623,6 +32623,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -32664,6 +32666,8 @@ export interface operations {
                             playbookId: string;
                             text: string;
                         } | null;
+                        /** @default false */
+                        queued?: boolean;
                         /** @default false */
                         simple?: boolean;
                     } | null;
@@ -32772,6 +32776,11 @@ export interface operations {
                         };
                         /** @enum {string} */
                         kind: "lookup";
+                    } | {
+                        /** @enum {string} */
+                        kind: "research";
+                        /** Format: uuid */
+                        profileId: string;
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -32795,7 +32804,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32810,6 +32819,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -32897,7 +32908,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -32912,6 +32923,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -32961,7 +32974,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -33045,6 +33058,12 @@ export interface operations {
                                 kind: "lookup";
                                 name: string;
                                 profileUrl: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "research";
+                                name: string;
+                                /** Format: uuid */
+                                profileId: string;
                             };
                         } | null;
                         waiting: number;
@@ -61154,7 +61173,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -61177,7 +61196,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -61192,6 +61211,8 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                /** @default false */
+                                queued: boolean;
                                 /** @default false */
                                 simple: boolean;
                             } | null;
@@ -61457,6 +61478,8 @@ export interface operations {
                     /** @default 40 */
                     most?: number;
                     /** Format: uuid */
+                    profileId?: string;
+                    /** Format: uuid */
                     workspaceId: string;
                 };
             };
@@ -61474,7 +61497,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "prospect" | "chat" | "chat_only" | "group" | "friend";
+                            reason: "asked" | "prospect" | "chat" | "chat_only" | "group" | "friend";
                             url: string;
                         }[];
                         perDay: number;
@@ -62604,6 +62627,12 @@ export interface operations {
                         page: number;
                         pages: number;
                         people: {
+                            check: {
+                                playbookName: string | null;
+                                /** @enum {string} */
+                                verdict: "waiting" | "good" | "maybe" | "not" | "failed";
+                                why: string[];
+                            } | null;
                             demoBooked: boolean;
                             lastAt: string | null;
                             marked: boolean;
@@ -62784,7 +62813,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
                                 line: string | null;
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
@@ -62799,6 +62828,8 @@ export interface operations {
                                         playbookId: string;
                                         text: string;
                                     } | null;
+                                    /** @default false */
+                                    queued: boolean;
                                     /** @default false */
                                     simple: boolean;
                                 } | null;

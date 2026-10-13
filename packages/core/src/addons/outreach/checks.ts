@@ -51,6 +51,7 @@ export const CHECK_STEP_MOST = 300;
 
 /** Why someone is next to check: the order they go in. */
 export const CHECK_REASONS = {
+  asked: 'You pressed Research',
   prospect: 'Your chat with them looks like a prospect',
   chat: 'You’ve chatted',
   chat_only: 'You’ve chatted, though you’re not friends',
@@ -66,6 +67,8 @@ export const ChecksNextInput = z.object({
   workspaceId: z.uuid(),
   /** How many it wants: at most a day's. */
   most: z.number().int().min(1).max(CHECKS_PER_DAY).default(CHECKS_PER_DAY),
+  /** Only this person, asked with Research (decision 46a): listed when today has room and they're not checked lately. */
+  profileId: z.uuid().optional(),
 });
 export type ChecksNextInput = z.input<typeof ChecksNextInput>;
 
@@ -316,4 +319,45 @@ export function checksWords(s: ChecksSummary): {
       ? `That’s today’s ${s.perDay.toLocaleString('en-US')}. It carries on tomorrow.`
       : `Today: ${s.today.toLocaleString('en-US')} of ${s.perDay.toLocaleString('en-US')}.`;
   return { progress, today };
+}
+
+// ------------------------------------------------------------------------------------------------- Research
+
+/**
+ * **Research** on a person's row (decision 46a): their computer checks that one person next, ahead of the daily
+ * order, and it counts toward the day's checks. When today's are used up, they go first tomorrow.
+ */
+export const RESEARCH_WORDS = {
+  button: 'Research',
+  working: 'Researching…',
+  title: (name: string) =>
+    `Your computer reads ${name}’s profile, latest posts and business page, and the AI says whether they fit your playbooks. It counts toward today’s checks.`,
+  /** The day's checks are used up: the ask ends saying so, and they go first in tomorrow's checks. */
+  tomorrow: (name: string, perDay: number) =>
+    `That’s today’s ${perDay.toLocaleString('en-US')} checks. ${name} goes first when checking carries on tomorrow.`,
+  queued: 'First in line tomorrow',
+  /** Not to be checked now: on Don't pitch, checked lately, or not on Facebook. */
+  gone: (name: string) =>
+    `${name} is checked already or on Don’t pitch now, so there was nothing to research. Refresh the page.`,
+} as const;
+
+/** What the latest Research ask about someone came to: open, ended for tomorrow, ended without a check, or none. */
+export type ResearchAskState = 'open' | 'tomorrow' | 'failed' | null;
+
+/**
+ * What a person's row shows (decision 46a): the AI's answer once they're checked; nothing for someone never pitched
+ * (Don't pitch, Friend or family), since they're never checked; **Researching…** while the ask is open or the AI is
+ * reading what was sent; "First in line tomorrow" when the day's checks were used up; else the **Research** button.
+ */
+export function researchShown(input: {
+  readonly check: { readonly verdict: CheckVerdict } | null;
+  readonly neverPitched: boolean;
+  readonly ask: ResearchAskState;
+}): 'hidden' | 'result' | 'researching' | 'tomorrow' | 'button' {
+  const v = input.check?.verdict ?? null;
+  if (v === 'good' || v === 'maybe' || v === 'not') return 'result';
+  if (input.neverPitched) return 'hidden';
+  if (input.ask === 'open' || v === 'waiting') return 'researching';
+  if (input.ask === 'tomorrow') return 'tomorrow';
+  return 'button';
 }

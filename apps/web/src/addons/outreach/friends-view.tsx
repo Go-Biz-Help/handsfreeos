@@ -49,6 +49,7 @@ import { AskButton, AskLine, latestAsk } from './asks';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
 import { PersonMenu } from './person-menu';
+import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
 import { useAct } from './use-act';
 
@@ -321,6 +322,7 @@ export function FriendsView({
                     workspaceId={workspaceId}
                     friend={f}
                     show={show}
+                    asks={asks}
                     busy={busy === `set:${f.profileId}`}
                     onSet={(change) => void set(f, change)}
                   />
@@ -467,12 +469,14 @@ function FriendRow({
   workspaceId,
   friend: f,
   show,
+  asks,
   busy,
   onSet,
 }: {
   workspaceId: string;
   friend: Friend;
   show: FriendView;
+  asks: Asks;
   busy: boolean;
   onSet: (change: { keep?: boolean; dontPitch?: boolean }) => void;
 }) {
@@ -575,6 +579,17 @@ function FriendRow({
           {f.check.nextStep ? <p className="text-text-2">First step: {f.check.nextStep}</p> : null}
         </div>
       ) : null}
+      {/* Research (decision 46a): the button, Researching…, or the AI's answer where the row doesn't say it. */}
+      <ResearchSlot
+        workspaceId={workspaceId}
+        asks={asks}
+        profileId={f.profileId}
+        name={f.name}
+        check={f.check}
+        neverPitched={f.dontPitch !== null}
+        showResult={show !== 'fits'}
+        badge={f.check?.verdict !== 'good'}
+      />
       {show === 'requests' && f.intro.length ? (
         <p className="mt-1 text-[12.5px] text-text-3">{f.intro.join(' · ')}</p>
       ) : null}
