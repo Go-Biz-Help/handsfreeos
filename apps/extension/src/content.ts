@@ -33,7 +33,7 @@ import {
   type Answered,
   type Step,
 } from './facebook/actions';
-import { likeLatest, writeComment, writeMessage } from './facebook/auto';
+import { likeTheirPost, readTheirPosts, writeComment, writeMessage } from './facebook/auto';
 import { answerJoin, pressJoin } from './facebook/join';
 import { readComments, readReactions, writeGroupPost } from './facebook/compose';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './facebook/browse';
@@ -53,6 +53,7 @@ import {
   type Answer,
   type Ask,
   type AutoAnswer,
+  type PostsAnswer,
   type AutoAsk,
   type BrowseAnswer,
   type BrowseAsk,
@@ -111,12 +112,16 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
 }
 
 /** One of the runner's steps (src/facebook/auto.ts): a like on someone's profile, a comment on a post, or a message. */
-async function autoStep(ask: AutoAsk): Promise<AutoAnswer> {
+async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
   const kind = classifyUrl(location.href).kind;
-  if (ask.type === 'hfos-like-latest') {
+  if (ask.type === 'hfos-their-posts' || ask.type === 'hfos-like-post') {
     if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
-    const liked = await likeLatest(document, location.href, ask.profile, window);
-    return { ok: true, ...liked };
+    if (ask.type === 'hfos-their-posts')
+      return {
+        ok: true,
+        posts: await readTheirPosts(document, location.href, ask.profile, window, ask.most),
+      };
+    return { ok: true, ...(await likeTheirPost(document, location.href, ask.profile, ask)) };
   }
   if (ask.type === 'hfos-message') {
     if (kind !== 'chat' && kind !== 'profile')
@@ -184,11 +189,12 @@ if (!here.hfosSocialListening) {
         return true;
       }
       if (
-        ask.type === 'hfos-like-latest' ||
+        ask.type === 'hfos-their-posts' ||
+        ask.type === 'hfos-like-post' ||
         ask.type === 'hfos-comment' ||
         ask.type === 'hfos-message'
       ) {
-        void autoStep(ask).then(respond as (answer: AutoAnswer) => void);
+        void autoStep(ask).then(respond as (answer: AutoAnswer | PostsAnswer) => void);
         return true;
       }
       if (

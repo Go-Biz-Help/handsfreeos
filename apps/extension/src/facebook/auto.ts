@@ -1,14 +1,14 @@
 /**
  * What the extension presses on its own (docs/outreach.md, decisions 26 to 33), once the person turns it on in the
  * panel: on the profile of someone on their list for today, Add friend, or Confirm on a request they got, or Like on
- * their latest post; and on a post on their list, the comment the AI drafted. The background's runner opens each
+ * the one of their latest posts the AI picked; and on a post on their list, the comment the AI drafted. The background's runner opens each
  * page in a window of its own (src/auto/run.ts), checks it's the right one and where things stand, and asks this
  * script in that tab for one step at a time. A message goes only once it's drafted, and OK'd or let go as it is
  * (packages/core/src/addons/outreach/sends.ts).
  *
  * Add friend and Confirm go the way Cancel request and Unfriend do (./tidy.ts, ./fetch.ts); a like, a comment and a
- * message are their own: the like goes on the first post on the profile that's theirs, and only when it isn't liked
- * already; the comment is typed into the post's own box to comment in (never a reply's), and the message into the
+ * message are their own: the like goes on the post of theirs the AI picked from their latest few (the words alone pick
+ * without it), and only when it isn't liked already; the comment is typed into the post's own box to comment in (never a reply's), and the message into the
  * chat's box (in Messenger, or the chat window their profile's Message opens), and each is sent with its button, or
  * Enter.
  */
@@ -127,42 +127,96 @@ function likeButton(box: Element): Element | null {
   );
 }
 
-/** The first post on the page by the person, as far as the page has drawn. */
-function theirPost(
+/** What a post's pictures show, as Facebook describes them to screen readers: never a face beside a name. */
+function picturesOf(box: Element): string[] {
+  const seen = new Set<string>();
+  for (const img of box.querySelectorAll('img[alt]')) {
+    // A comment's pictures aren't the post's.
+    const article = img.closest('[role="article"]');
+    if (article && box.contains(article) && COMMENT.test(clean(article.getAttribute('aria-label'))))
+      continue;
+    const alt = clean(img.getAttribute('alt'));
+    if (/^(may be |could be |an? |image|photo|no photo description)/i.test(alt)) seen.add(alt);
+  }
+  return [...seen];
+}
+
+/** One of their posts the extension read, to pick one to like (`outreach.like.pick`). */
+export interface TheirPost {
+  readonly url: string | null;
+  readonly when: string | null;
+  readonly text: string;
+  readonly pictures: readonly string[];
+  /** Liked by the person already. */
+  readonly liked: boolean;
+}
+
+/** The posts on the page by the person, as far as the page has drawn, the latest first. */
+function theirPosts(
   doc: Document,
   href: string,
   profile: ProfileRef,
-): { readonly box: Element; readonly url: string | null } | null {
+): { readonly box: Element; readonly post: TheirPost }[] {
+  const found: { readonly box: Element; readonly post: TheirPost }[] = [];
   for (const box of postBoxes(mainOf(doc))) {
     const post = readPost(box, href);
-    if (post?.author && sameRef(post.author.profile, profile)) return { box, url: post.url };
+    if (!post?.author || !sameRef(post.author.profile, profile)) continue;
+    const like = likeButton(box);
+    found.push({
+      box,
+      post: {
+        url: post.url,
+        when: post.when,
+        text: post.text,
+        pictures: picturesOf(box),
+        liked: like !== null && !/^like$/i.test(clean(like.getAttribute('aria-label'))),
+      },
+    });
   }
-  return null;
+  return found;
 }
 
 /**
- * Likes the latest post on someone's profile that's theirs (decision 33): scrolls a little for one when none is drawn
- * yet. The post's address, when the page gave it, for noting.
+ * Reads the latest few posts on someone's profile that are theirs (decision 33), scrolling a little while fewer are
+ * drawn, for the AI to pick one to like.
  */
-export async function likeLatest(
+export async function readTheirPosts(
   doc: Document,
   href: string,
   profile: ProfileRef,
   view: { scrollBy(x: number, y: number): void; readonly innerHeight: number },
-): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
-  let found = theirPost(doc, href, profile);
-  for (let more = 0; !found && more < 4; more++) {
+  most: number,
+): Promise<TheirPost[]> {
+  let found = theirPosts(doc, href, profile);
+  for (let more = 0; found.length < most && more < 4; more++) {
     view.scrollBy(0, view.innerHeight);
     await pause(1_200);
-    found = theirPost(doc, href, profile);
+    found = theirPosts(doc, href, profile);
   }
-  if (!found) return { result: 'none', postUrl: null };
-  const button = likeButton(found.box);
-  if (!button) return { result: 'none', postUrl: found.url };
+  return found.slice(0, most).map((f) => f.post);
+}
+
+/**
+ * Likes the one of their posts picked, by its place among those `readTheirPosts` read, checked by its link when the
+ * page gave one. The post's address, when the page gave it, for noting.
+ */
+export async function likeTheirPost(
+  doc: Document,
+  href: string,
+  profile: ProfileRef,
+  pick: { readonly index: number; readonly url: string | null },
+): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
+  const found = theirPosts(doc, href, profile);
+  const one =
+    (pick.url ? found.find((f) => f.post.url === pick.url) : undefined) ??
+    (pick.url ? undefined : found[pick.index]);
+  if (!one) return { result: 'none', postUrl: pick.url };
+  const button = likeButton(one.box);
+  if (!button) return { result: 'none', postUrl: one.post.url };
   if (!/^like$/i.test(clean(button.getAttribute('aria-label'))))
-    return { result: 'already', postUrl: found.url };
+    return { result: 'already', postUrl: one.post.url };
   (button as HTMLElement).click();
-  return { result: 'done', postUrl: found.url };
+  return { result: 'done', postUrl: one.post.url };
 }
 
 /** The post's own box to comment in, never a reply's. */

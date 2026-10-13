@@ -32,6 +32,21 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
   the group each person was found in, and person by person with how far each has come; and the person's own day
   against the daily limits. Owners and admins can see the whole team's (`?who=everyone`).
+- **Posts liked and commented on** (the Results tab, `outreach.activity.posts`, the web's `touched-posts.tsx`): each
+  post liked or commented on in the stretch, the latest first, All, Likes or Comments, 50 at a time: whose post, a
+  link to it, the group, by hand or by the extension, and who on the team for everyone's. For what the extension did
+  on its own it keeps what the post said, the AI's comment it posted, and why the AI picked that post to like
+  (`touches.post_text`, `comment_text`, `why`); a comment on a post found in a group shows what that post said. What
+  the person wrote themselves is still never kept: their own comments show without the words.
+- **Which post gets the like** (decision 33, `like-pick.ts`, the worker's `likes.ts`, the extension's
+  `readTheirPosts` and `likeTheirPost`): the extension reads up to 6 of the latest posts on their profile that are
+  theirs, what each says and what Facebook says its pictures show ("May be an image of 2 people and dog"), and the AI
+  picks one (`outreach.like.pick`): to do with the business first (its offer, line of work or area), else about them
+  (family, a pet, a hobby, a trip, a win), else a plain friendly one; never one about a death, an illness, an
+  accident, money trouble, politics or religion, or one that's angry or sad, which a list of words also rules out
+  whatever the AI says (`neverLike`). None fit: no like, and the friend request goes without, as with no post. One
+  they liked already counts without asking. Without the AI (its limit, not set up, busy, or out of reach) the words
+  alone pick the first safe post. The feed says why ("Liked a post of Dana's (a photo of their new boat)").
 - **Noting what the person does on Facebook**: signed in, the extension notes each friend request, like, comment and
   message the person sends there themselves, with who it was to and the group they found them in, never what they
   wrote. The Live and Activity tabs show the day so far (apps/extension/README.md, "What it notes").
@@ -526,6 +541,7 @@ Operations, all through the kernel:
 | `outreach.profile.contact`                            | `outreach.use`    | Add to Contacts: a profile kept here becomes a customer (source Facebook), or is tied to the one named                                                                                                                                                                                                                              |
 | `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                                                                                                                                                                                                                                                |
 | `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from                                                                                                                                                                                                                                  |
+| `outreach.activity.posts`                             | `outreach.use`    | The posts liked and commented on over a stretch, the latest first, with what the extension's own said; everyone's for owners, admins. Not them: `outreach_activity_everyone`                                                                                                                                                        |
 | `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins                                                                                                                                                                                                                                  |
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                                                                                                                                                                                                                                        |
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                                                                                                                                                                                                                                               |
@@ -727,7 +743,8 @@ than a store extension, and for more features, and answered the questions the sa
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
     own and **Once a day** is ticked (on to start).
 33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
-    hours after the like; a like over 14 days old doesn't count; no post to like, no wait.
+    hours after the like; a like over 14 days old doesn't count; no post to like, no wait. The post is picked by the
+    AI from their latest few, business first, then personal, never a sensitive one ("Which post gets the like").
 34. **All the features:** results by group, team sharing, an after-demo workflow, birthday and new-job notes, more
     templates, LinkedIn then Instagram, and a weekly report. Automation parts 2, 6 and 7. Built (automation part 2): **results by group**,
     everyone reached counted under the group they were found in, with who wrote back (in a saved chat, a chat read,
