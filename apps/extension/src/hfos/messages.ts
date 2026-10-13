@@ -195,11 +195,27 @@ export interface TodaySoFar {
   readonly steps: readonly { readonly at: string; readonly line: string; readonly kind: string }[];
 }
 
+/** A prompt sent: the number to show, and when it runs out. The secret stays in the background. */
+export interface PromptStarted {
+  readonly requestId: string;
+  readonly number: number;
+  readonly expiresAt: string;
+}
+
+/** A prompt asked about: still waiting, stopped, run out, or signed in. */
+export type PromptState =
+  | { readonly status: 'waiting' | 'refused' | 'expired' }
+  | { readonly status: 'signed-in'; readonly account: Account };
+
 export type HfosAsk =
   | { readonly type: 'hfos-account'; readonly fresh?: boolean }
   | { readonly type: 'hfos-send-code'; readonly email: string }
   | { readonly type: 'hfos-check-code'; readonly email: string; readonly code: string }
   | { readonly type: 'hfos-password'; readonly email: string; readonly password: string }
+  /** Send me a prompt: the person's phone and open HandsFreeOS tabs ask for the number shown (./prompt.ts). */
+  | { readonly type: 'hfos-prompt-start'; readonly email: string }
+  /** Whether the prompt was answered; signed in once the right number was picked. */
+  | { readonly type: 'hfos-prompt-check'; readonly requestId: string }
   | { readonly type: 'hfos-sign-out' }
   | { readonly type: 'hfos-pick'; readonly businessId: string }
   | { readonly type: 'hfos-collect-chats'; readonly input: ChatsCollectInput }
@@ -262,6 +278,8 @@ export interface HfosValues {
   readonly 'hfos-send-code': null;
   readonly 'hfos-check-code': Account;
   readonly 'hfos-password': Account;
+  readonly 'hfos-prompt-start': PromptStarted;
+  readonly 'hfos-prompt-check': PromptState;
   readonly 'hfos-sign-out': Account;
   readonly 'hfos-pick': Account;
   readonly 'hfos-collect-chats': ChatsCollected;
@@ -307,6 +325,8 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-send-code',
   'hfos-check-code',
   'hfos-password',
+  'hfos-prompt-start',
+  'hfos-prompt-check',
   'hfos-sign-out',
   'hfos-pick',
   'hfos-auto',

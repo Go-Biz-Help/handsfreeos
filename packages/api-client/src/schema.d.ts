@@ -2997,6 +2997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/extension_sign_in.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a sign-in to the browser extension with your email: pick the number it shows to let it in, or say it wasn’t you. A wrong number stops it.
+         * @description Risk level 2. Emits extension_sign_in.approved, extension_sign_in.refused.
+         */
+        post: operations["command_extension_sign_in_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/file.begin_upload": {
         parameters: {
             query?: never;
@@ -15257,6 +15277,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/extension_sign_in.pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.
+         * @description Any signed-in user.
+         */
+        post: operations["query_extension_sign_in_pending"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/file.fingerprints": {
         parameters: {
             query?: never;
@@ -26205,6 +26245,37 @@ export interface operations {
                         /** @enum {string} */
                         status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
                         totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_extension_sign_in_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pick: number | null;
+                    /** Format: uuid */
+                    requestId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        outcome: "approved" | "refused";
                     };
                 };
             };
@@ -56575,6 +56646,39 @@ export interface operations {
                             voidedAt: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_extension_sign_in_pending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        requests: {
+                            browser: string;
+                            choices: number[];
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
                     };
                 };
             };

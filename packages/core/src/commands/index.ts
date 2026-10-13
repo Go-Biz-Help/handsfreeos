@@ -410,6 +410,7 @@ import { ownBusinessCommands } from './own-business';
 import { mailFolderCommands } from './mail-folder';
 import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
+import { extensionSignInAnswer } from './extension-sign-in';
 import {
   onboardingAsYouGo,
   onboardingFinish,
@@ -1009,6 +1010,8 @@ export const commands: readonly CommandDef[] = [
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
+  // Approving an extension sign-in from the phone or the web (20261027002910).
+  extensionSignInAnswer,
   ...migrationCommands,
   ...supportTicketCommands,
   ...supportStaffCommands,
@@ -1156,6 +1159,7 @@ export * from './subscription';
 export * from './wallet';
 export * from './money-shared';
 export * from './push-device';
+export * from './extension-sign-in';
 export * from './migration';
 export * from './support';
 export * from './support-staff';

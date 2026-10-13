@@ -17,6 +17,12 @@ export interface AuthAdmin {
   signOutEverywhere(userId: string): Promise<'signed_out' | 'none'>;
   /** Blocks every way of signing in, and takes the person's email and name off the sign-in. */
   blockSignIn(userId: string, deletedEmail: string): Promise<void>;
+  /**
+   * A one-time sign-in for this email, for the extension (20261027002910): the hashed token of a magic link that is
+   * never emailed, which the extension redeems with `verifyOtp({ token_hash, type: 'email' })`. Only after the person
+   * picked the right number on their phone or in HandsFreeOS (http/extension-sign-in.ts).
+   */
+  mintSignIn(email: string): Promise<string>;
 }
 
 /** How long a deleted account stays blocked: a hundred years. */
@@ -51,6 +57,14 @@ export function createAuthAdmin(url: string, secretKey: string): AuthAdmin {
       const out = await admin.auth.admin.signOut(redeemed.data.session.access_token, 'global');
       if (out.error) throw new Error(`could not end the sessions: ${out.error.message}`);
       return 'signed_out';
+    },
+
+    async mintSignIn(email) {
+      const link = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+      const tokenHash = link.data.properties?.hashed_token;
+      if (link.error || !tokenHash)
+        throw new Error(`could not make the sign-in: ${link.error?.message ?? 'no link'}`);
+      return tokenHash;
     },
 
     async blockSignIn(userId, deletedEmail) {

@@ -1,6 +1,8 @@
 import {
   AccountDeleteInput,
   AccountDeleteOutput,
+  ExtensionSignInAnswerInput,
+  ExtensionSignInAnswerOutput,
   ActivityLogInput,
   ActivityLogOutput,
   AddonAlertAcknowledgeInput,
@@ -375,6 +377,12 @@ function command<C extends OfflineClass, I extends Schema, O extends Schema>(
 
 export const PHONE_COMMANDS = {
   'account.delete': command(ONLINE, AccountDeleteInput, AccountDeleteOutput),
+  // Letting the browser extension sign in by picking its number, from the push (20261027002910).
+  'extension_sign_in.answer': command(
+    ONLINE,
+    ExtensionSignInAnswerInput,
+    ExtensionSignInAnswerOutput,
+  ),
   'activity.log': command(ANYTIME, ActivityLogInput, ActivityLogOutput),
   // Social Outreach's business settings (decision 44), for owners and admins. Online: the rest of the form is
   // HandsFreeOS's answer, and a change waiting on the phone could undo someone else's.

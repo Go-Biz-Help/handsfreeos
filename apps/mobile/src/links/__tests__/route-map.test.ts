@@ -284,6 +284,17 @@ describe('the route map', () => {
     });
   });
 
+  it('opens an extension sign-in’s push on its own screen, which belongs to no business', () => {
+    expect(routeFor(`/app/extension-sign-in/${ID}`)).toEqual({
+      kind: 'screen',
+      href: `/app/extension-sign-in/${ID}`,
+      businessId: null,
+      later: null,
+      params: { requestId: ID },
+    });
+    expect(routeFor('/app/extension-sign-in/not-an-id').kind).not.toBe('screen');
+  });
+
   it('opens the support desk’s pages on the phone’s Support desk, which belongs to no business', () => {
     // A new-ticket notification names the web's /admin/tickets/<id>; the phone's desk is /app/admin.
     expect(routeFor(`/admin/tickets/${ID}`)).toEqual({

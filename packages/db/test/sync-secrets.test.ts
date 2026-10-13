@@ -100,6 +100,8 @@ const SECRET_TABLES = [
   'addon_connections',
   'calendar_connections',
   'chat_visitors',
+  // 20261027002910: an extension sign-in prompt keeps only its secret's hash. No phone needs it.
+  'extension_sign_ins',
   // M15: a half-finished answer sheet keeps the hash of the key that reopens it.
   'form_responses',
   // M14 slice B: a connected app's key is kept only as its hash, and no phone ever needs it.

@@ -111,7 +111,12 @@ chrome.runtime.onMessage.addListener(
     ).then((answered) => {
       respond(answered);
       if (WAITING_MOVED.has(ask.type)) waitingSoon();
-      if (!SIGN_INS.has(ask.type)) return;
+      // A prompt answered on the phone or the web signs in like a code does; every other look at it changes nothing.
+      const promptSignedIn =
+        ask.type === 'hfos-prompt-check' &&
+        answered.ok &&
+        (answered.value as { status?: unknown } | null)?.status === 'signed-in';
+      if (!SIGN_INS.has(ask.type) && !promptSignedIn) return;
       // An ask under way for whoever was signed in here before stops.
       void signInChanged();
       void followNow(true, ask.type !== 'hfos-sign-out');

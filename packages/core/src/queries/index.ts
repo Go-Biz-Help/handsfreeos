@@ -85,6 +85,7 @@ import { numberImportList, twilioConnectionList } from './number-import';
 import { attributionList, metaAccountList } from './social';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
+import { extensionSignInPending } from './extension-sign-in';
 import { personGet, personList } from './person';
 import { pipelineList } from './pipeline.list';
 import { taskList } from './task.list';
@@ -240,6 +241,8 @@ export const queries: readonly QueryDef[] = [
   me,
   accountDeletionCheck,
   pushDeviceList,
+  // Approving an extension sign-in from the phone or the web (20261027002910).
+  extensionSignInPending,
   userPhoneGet,
   workspaceGet,
   workspaceMembers,
@@ -430,6 +433,7 @@ export * from './portal';
 export * from './campaign';
 export * from './contact-ai';
 export * from './maintenance';
+export * from './extension-sign-in';
 export * from './template';
 export * from './review';
 export * from './migration';
