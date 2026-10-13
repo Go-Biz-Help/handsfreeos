@@ -134,7 +134,8 @@ describe('extension_sign_in.pending and .answer', () => {
       sql`select event_type, payload from app.events where entity_id = ${r.id}::uuid`,
     );
     expect(e?.event_type).toBe('extension_sign_in.approved');
-    expect(JSON.stringify(e?.payload)).not.toContain('42');
+    // The number never reaches the event: only these three, so a random id that happens to hold "42" can't fail it.
+    expect(e?.payload).toEqual({ picked: true, userId: dale.id, requestId: r.id });
   });
 
   it('refuses on one wrong pick, and on That wasn’t me, for good', async () => {
