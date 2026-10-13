@@ -54,7 +54,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   reads them with the person's own chat with them (the worker's `outreach.check_people`) and says whether they're a
   good fit for a playbook, might fit, or not, why in up to three lines, who they are in one, and a natural first step
   (`outreach.check.save`); the lines are let go once it has. The Friends tab's **Good fits** list has the good fits
-  first, then those who might fit, with the AI's why and first step, and its card says how far it has come ("312 of
+  first, then those who might fit, with the AI's why (its first line, the rest under **More**) and first step; a good fit shows the same why line on the other lists, and its card says how far it has come ("312 of
   1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. Nobody
   goes in Contacts.
 - **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
@@ -147,7 +147,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   sends: the extension notes the step, which takes it off the list. Each person kept as a profile has a menu, here
   (on the web and the phone) and on the Friends tab, the Chats tab and Waiting for you (`person-menu.tsx`): **Add to Contacts** (customers with the
   same name offered first, **It’s them** or **Add as new**; `outreach.profile.contact`), or **In Contacts** once they
-  are; **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab). A group whose admins aren't read yet has
+  are; **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
   requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
