@@ -66,6 +66,8 @@ export const AppointmentLocation = z.object({
   meetingFor: z.string().max(100).nullable().default(null),
   /** Why no link could be made yet, in words for the team ("Dale hasn’t connected Zoom…"). */
   meetingError: z.string().max(500).nullable().default(null),
+  /** Zoom: the call is recorded and transcribed (the customer was told). */
+  record: z.boolean().default(false),
 });
 export type AppointmentLocation = z.infer<typeof AppointmentLocation>;
 

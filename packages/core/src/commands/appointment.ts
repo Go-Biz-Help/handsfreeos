@@ -12,6 +12,7 @@ import {
   appointmentResources,
   appointments,
   appointmentSeries,
+  appointmentTranscripts,
   leads,
   waitlistEntries,
 } from '@hfos/db/schema';
@@ -537,6 +538,62 @@ export const appointmentMakeMeetingLink = defineCommand({
       broadcast: false,
     });
     return { appointmentId: appt.id };
+  },
+});
+
+const AttachTranscriptInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  provider: z.enum(['zoom']),
+  externalId: z.string().trim().min(1).max(200),
+  body: z.string().max(2_000_000),
+});
+const AttachTranscriptOutput = z.object({ appointmentId: uuid, added: z.boolean() });
+
+/**
+ * Worker: what was said on a recorded call, as plain text, kept on its appointment. The same transcript twice (a
+ * repeated webhook) keeps one copy; a new one is what the AI's notes and suggestions start from.
+ */
+export const appointmentAttachTranscript = defineCommand({
+  name: 'appointment.attach_transcript',
+  description: 'Worker: keep a recorded call’s transcript on its appointment.',
+  risk: 1,
+  input: AttachTranscriptInput,
+  output: AttachTranscriptOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.transcript_ready'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [appt] = await ctx.tx
+      .select({ id: appointments.id, title: appointments.title })
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)));
+    if (!appt) return { appointmentId: input.appointmentId, added: false };
+    const [row] = await ctx.tx
+      .insert(appointmentTranscripts)
+      .values({
+        workspaceId: ws,
+        appointmentId: appt.id,
+        provider: input.provider,
+        externalId: input.externalId,
+        body: input.body,
+      })
+      .onConflictDoNothing({
+        target: [appointmentTranscripts.appointmentId, appointmentTranscripts.externalId],
+      })
+      .returning({ id: appointmentTranscripts.id });
+    if (!row) return { appointmentId: appt.id, added: false };
+    // Never the words themselves: the event and the activity log say a transcript arrived.
+    await ctx.emit({
+      type: 'appointment.transcript_ready',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { transcriptId: row.id, provider: input.provider },
+      after: { title: appt.title, provider: input.provider },
+    });
+    return { appointmentId: appt.id, added: true };
   },
 });
 

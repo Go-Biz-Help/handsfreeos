@@ -595,6 +595,11 @@ export function locationFor(
     meetingId: null,
     meetingFor: null,
     meetingError: null,
+    record:
+      k === 'virtual' &&
+      !given?.meetingUrl &&
+      (given?.video ?? option?.video) === 'zoom' &&
+      (given?.record ?? option?.record ?? false),
   };
 }
 

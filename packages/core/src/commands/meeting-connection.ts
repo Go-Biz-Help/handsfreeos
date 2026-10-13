@@ -7,7 +7,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
-import { meetingConnections, users } from '@hfos/db/schema';
+import { appointments, appointmentTranscripts, meetingConnections, users } from '@hfos/db/schema';
 import { z } from 'zod';
 import { userNames } from '../calendar/load';
 import { HfosError } from '../errors';
@@ -453,6 +453,49 @@ export const meetingConnectionList = defineQuery({
         settingsCheckedAt: c.settingsCheckedAt?.toISOString() ?? null,
       })),
     };
+  },
+});
+
+const TranscriptListInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+const TranscriptListOutput = z.object({
+  items: z.array(
+    z.object({ id: uuid, provider: z.string(), createdAt: isoDateTime, body: z.string() }),
+  ),
+});
+
+export const appointmentTranscriptList = defineQuery({
+  name: 'appointment.transcripts',
+  description: 'What was said on an appointment’s recorded calls, newest first.',
+  input: TranscriptListInput,
+  output: TranscriptListOutput,
+  permission: 'workspace.read',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    // Row-level security shows transcripts only for appointments the person can see.
+    const [appt] = await ctx.tx
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.id, input.appointmentId),
+          eq(appointments.workspaceId, input.workspaceId),
+        ),
+      );
+    if (!appt)
+      throw HfosError.notFound(
+        'That appointment isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
+    const list = await ctx.tx
+      .select({
+        id: appointmentTranscripts.id,
+        provider: appointmentTranscripts.provider,
+        createdAt: appointmentTranscripts.createdAt,
+        body: appointmentTranscripts.body,
+      })
+      .from(appointmentTranscripts)
+      .where(eq(appointmentTranscripts.appointmentId, appt.id))
+      .orderBy(desc(appointmentTranscripts.createdAt));
+    return { items: list.map((t) => ({ ...t, createdAt: t.createdAt.toISOString() })) };
   },
 });
 

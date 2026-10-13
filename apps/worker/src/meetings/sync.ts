@@ -194,13 +194,20 @@ export const appointmentMeetingSync: JobHandler = async (ctx) => {
       });
       return;
     }
-    const want = `${a.startsAt.toISOString()}|${a.endsAt.toISOString()}`;
+    // The times and whether it records: a change to either is sent to Zoom.
+    const want = `${a.startsAt.toISOString()}|${a.endsAt.toISOString()}${place.record ? '|record' : ''}`;
     if (place.meetingId && place.meetingFor === want && place.meetingUrl) {
       if (place.meetingError) await save({ meetingError: null });
       return;
     }
     const call = session(ctx, scope, conn!, provider);
-    const m = { appointmentId: a.id, topic: a.title, start: a.startsAt, end: a.endsAt };
+    const m = {
+      appointmentId: a.id,
+      topic: a.title,
+      start: a.startsAt,
+      end: a.endsAt,
+      record: place.record,
+    };
     if (place.meetingId) {
       // Moved: the same meeting moves. One deleted in Zoom (or in someone else's account) is made again.
       const moved = await call((t) => provider.updateMeeting(t, place.meetingId!, m));

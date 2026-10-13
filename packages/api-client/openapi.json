@@ -12607,6 +12607,10 @@
                                     "google_meet",
                                     "zoom"
                                   ]
+                                },
+                                "record": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -15663,6 +15667,10 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "record": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -15965,6 +15973,10 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "record": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -17022,6 +17034,10 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "record": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -17388,6 +17404,10 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "record": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -108027,13 +108047,18 @@
                                           "google_meet",
                                           "zoom"
                                         ]
+                                      },
+                                      "record": {
+                                        "default": false,
+                                        "type": "boolean"
                                       }
                                     },
                                     "required": [
                                       "kind",
                                       "address",
                                       "meetingUrl",
-                                      "video"
+                                      "video",
+                                      "record"
                                     ],
                                     "additionalProperties": false
                                   }
@@ -109376,6 +109401,10 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "record": {
+                                "default": false,
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -109386,7 +109415,8 @@
                               "video",
                               "meetingId",
                               "meetingFor",
-                              "meetingError"
+                              "meetingError",
+                              "record"
                             ],
                             "additionalProperties": false
                           },
@@ -109972,6 +110002,10 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "record": {
+                              "default": false,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -109982,7 +110016,8 @@
                             "video",
                             "meetingId",
                             "meetingFor",
-                            "meetingError"
+                            "meetingError",
+                            "record"
                           ],
                           "additionalProperties": false
                         },
@@ -112391,6 +112426,91 @@
                           "createdAt",
                           "settingsCheckedAt",
                           "settingsProblems"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/appointment.transcripts": {
+      "post": {
+        "operationId": "query_appointment_transcripts",
+        "summary": "What was said on an appointment’s recorded calls, newest first.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "appointmentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "body": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "provider",
+                          "createdAt",
+                          "body"
                         ],
                         "additionalProperties": false
                       }

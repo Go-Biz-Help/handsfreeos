@@ -2653,6 +2653,20 @@ export const calendarBusyBlocks = app.table('calendar_busy_blocks', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/** What was said on a recorded Zoom call, as plain text, kept on its appointment (20261027003400). */
+export const appointmentTranscripts = app.table('appointment_transcripts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  provider: text('provider').notNull(),
+  // Unique with appointmentId in the database: a repeated webhook keeps one copy.
+  externalId: text('external_id').notNull(),
+  body: text('body').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 // ---------- Milestone 6: workflows, agency templates, AI usage and the knowledge base (0021-0025) ----------
 export const workflowStatus = app.enum('workflow_status', [
   'draft',

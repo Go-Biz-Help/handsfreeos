@@ -24,6 +24,16 @@ const API = 'https://api.zoom.us/v2';
  */
 export const ZOOM_NEEDED_SCOPES = ['meeting:write', 'user:read'] as const;
 
+/** Zoom's own download links: https on zoom.us or one of its subdomains. */
+export function isZoomDownload(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && (u.hostname === 'zoom.us' || u.hostname.endsWith('.zoom.us'));
+  } catch {
+    return false;
+  }
+}
+
 export function createZoom(opts: {
   clientId: string | null;
   clientSecret: string | null;
@@ -78,7 +88,11 @@ export function createZoom(opts: {
     duration: Math.max(1, Math.round((m.end.getTime() - m.start.getTime()) / 60_000)),
     timezone: 'UTC',
     agenda: `HandsFreeOS appointment ${m.appointmentId}`,
-    settings: { waiting_room: true, join_before_host: false },
+    settings: {
+      waiting_room: true,
+      join_before_host: false,
+      auto_recording: m.record ? 'cloud' : 'none',
+    },
   });
 
   return {
@@ -149,6 +163,16 @@ export function createZoom(opts: {
       } catch (e) {
         if (!gone(e)) throw e;
       }
+    },
+    async downloadTranscript(accessToken, url) {
+      if (!isZoomDownload(url))
+        throw new MeetingError('That transcript link isn’t one of Zoom’s.', null, true);
+      const res = await f(url, { headers: { authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return providerJson<never>('Zoom', res);
+      const text = await res.text();
+      if (text.length > 4_000_000)
+        throw new MeetingError('The transcript is too long to keep.', null, true);
+      return text;
     },
     async readSettings(accessToken) {
       const me = await api<{ type?: number }>(accessToken, '/users/me');

@@ -14477,6 +14477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/appointment.transcripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What was said on an appointment’s recorded calls, newest first.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_appointment_transcripts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/assistant_thread.get": {
         parameters: {
             query?: never;
@@ -21151,6 +21171,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
                         /** @default null */
                         video?: ("none" | "google_meet" | "zoom") | null;
                     };
@@ -21510,6 +21532,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
                         /** @default null */
                         video?: ("none" | "google_meet" | "zoom") | null;
                     };
@@ -23072,6 +23096,8 @@ export interface operations {
                                 kind: "customer_address" | "business" | "virtual" | "phone";
                                 /** @default null */
                                 meetingUrl?: string | null;
+                                /** @default false */
+                                record?: boolean;
                                 /**
                                  * @default none
                                  * @enum {string}
@@ -46519,6 +46545,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
                         /** @default null */
                         video?: ("none" | "google_meet" | "zoom") | null;
                     };
@@ -46758,6 +46786,8 @@ export interface operations {
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
                         /** @default null */
                         video?: ("none" | "google_meet" | "zoom") | null;
                     };
@@ -52802,6 +52832,8 @@ export interface operations {
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
+                                /** @default false */
+                                record: boolean;
                                 /** @default null */
                                 video: ("none" | "google_meet" | "zoom") | null;
                             };
@@ -52955,6 +52987,8 @@ export interface operations {
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
+                                /** @default false */
+                                record: boolean;
                                 /** @default null */
                                 video: ("none" | "google_meet" | "zoom") | null;
                             };
@@ -52991,6 +53025,44 @@ export interface operations {
                             updatedAt: string;
                         }[];
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_appointment_transcripts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            body: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            provider: string;
+                        }[];
                     };
                 };
             };
@@ -54556,6 +54628,8 @@ export interface operations {
                                         kind: "customer_address" | "business" | "virtual" | "phone";
                                         /** @default null */
                                         meetingUrl: string | null;
+                                        /** @default false */
+                                        record: boolean;
                                         /**
                                          * @default none
                                          * @enum {string}

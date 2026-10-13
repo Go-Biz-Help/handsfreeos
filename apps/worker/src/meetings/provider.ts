@@ -32,6 +32,8 @@ export interface MeetingInput {
   readonly topic: string;
   readonly start: Date;
   readonly end: Date;
+  /** Record to the cloud on its own, so the transcript comes without anyone pressing Record. */
+  readonly record?: boolean;
 }
 
 /** A meeting the provider made: its id there, and the link people join with (passcode included). */
@@ -59,6 +61,11 @@ export interface MeetingProvider {
   updateMeeting(accessToken: string, id: string, m: MeetingInput): Promise<'updated' | null>;
   /** Removes a meeting; one that's already gone counts as removed. */
   deleteMeeting(accessToken: string, id: string): Promise<void>;
+  /**
+   * A transcript file Zoom's webhook pointed at, as text (WebVTT). Only Zoom's own download links are fetched,
+   * with the host's token.
+   */
+  downloadTranscript(accessToken: string, url: string): Promise<string>;
   /** The account's plan and the recording switches transcripts need. */
   readSettings(accessToken: string): Promise<ZoomRecordingSettings>;
 }

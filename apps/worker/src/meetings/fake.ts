@@ -17,6 +17,7 @@ export interface FakeMeeting {
   readonly start: string;
   readonly end: string;
   readonly joinUrl: string;
+  readonly record: boolean;
 }
 
 export interface FakeZoom extends MeetingProvider {
@@ -24,6 +25,8 @@ export interface FakeZoom extends MeetingProvider {
   meetings(account: string): readonly FakeMeeting[];
   /** Someone deleted the meeting in Zoom itself. */
   forget(id: string): void;
+  /** A recorded call ended and Zoom made its transcript: the download link and file id its webhook names. */
+  addTranscript(meetingId: string, vtt: string): { url: string; fileId: string };
   /** Changes the account's plan or recording switches (a paid plan with both on until then). */
   setSettings(account: string, s: Partial<ZoomRecordingSettings>): void;
 }
@@ -35,6 +38,7 @@ const SCOPES = ['meeting:write:meeting', 'meeting:update:meeting', 'user:read:us
 
 export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
   const held = new Map<string, FakeMeeting>();
+  const files = new Map<string, string>();
   const settings = new Map<string, ZoomRecordingSettings>();
   const ALL_ON: ZoomRecordingSettings = {
     planType: 2,
@@ -93,6 +97,7 @@ export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
         start: m.start.toISOString(),
         end: m.end.toISOString(),
         joinUrl,
+        record: !!m.record,
       });
       return { id, joinUrl };
     },
@@ -115,6 +120,18 @@ export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
       [...held.values()].filter((x) => x.account === account.trim().toLowerCase()),
     forget(id: string) {
       held.delete(id);
+    },
+    async downloadTranscript(accessToken, url) {
+      emailOf(accessToken);
+      const text = files.get(url);
+      if (text === undefined) throw new MeetingError('No such transcript.', 404, true);
+      return text;
+    },
+    addTranscript(meetingId: string, vtt: string) {
+      const fileId = `fake-transcript-${meetingId}-${files.size + 1}`;
+      const url = `https://fake.zoom.us/rec/download/${fileId}`;
+      files.set(url, vtt);
+      return { url, fileId };
     },
     async readSettings(accessToken) {
       return settings.get(emailOf(accessToken)) ?? ALL_ON;

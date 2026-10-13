@@ -168,6 +168,11 @@ const Location = z.object({
    * meeting in the host's Zoom account.
    */
   video: VideoProvider.default('none'),
+  /**
+   * Zoom only: record each call to the cloud and keep its transcript on the appointment. Customers are told when
+   * they book, and in their confirmation.
+   */
+  record: z.boolean().default(false),
 });
 
 const Locations = z.object({

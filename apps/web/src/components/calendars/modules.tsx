@@ -727,6 +727,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                           address: null,
                           meetingUrl: null,
                           video: 'none' as const,
+                          record: false,
                         }
                       : x,
                   ),
@@ -829,6 +830,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                     address: null,
                     meetingUrl: null,
                     video: 'none' as const,
+                    record: false,
                   },
                 ])
               }
