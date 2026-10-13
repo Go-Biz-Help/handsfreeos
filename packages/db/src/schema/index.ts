@@ -2631,6 +2631,12 @@ export const meetingConnections = app.table('meeting_connections', {
   connectedAt: ts('connected_at'),
   disconnectedAt: ts('disconnected_at'),
   createdBy: userRef('created_by'),
+  settingsCheckedAt: ts('settings_checked_at'),
+  /** What the account's settings mean for transcripts, as codes (core's meetings words name them). */
+  settingsProblems: text('settings_problems')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   ...timestamps(),
 });
 

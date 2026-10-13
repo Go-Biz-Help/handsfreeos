@@ -16,6 +16,7 @@ import {
   mailboxConnect,
   meetingConnectionConnect,
   meetingConnectionDisconnect,
+  meetingConnectionCheckSettings,
   meetingConnectionList,
   executeQuery,
   organizationCreate,
@@ -42,6 +43,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeCalendarEvent } from '../src/calendar/fake';
 import type { TokenSet } from '../src/calendar/provider';
 import { queueCalendarSync } from '../src/calendar/sync';
+import { queueSettingsCheck } from '../src/meetings/settings';
 import { queueMeetingSync } from '../src/meetings/sync';
 import { processDeliveries } from '../src/deliveries';
 import { handlers } from '../src/handlers/index';
@@ -930,6 +932,57 @@ describe('connecting Zoom', () => {
     expect(row!.location).toMatchObject({ meetingUrl: null });
     expect(String(row!.location['meetingError'])).toContain('hasn’t connected Zoom');
     expect(String(row!.location['meetingError'])).toContain('Settings → My calendar');
+  });
+
+  it('reads the Zoom settings after connecting and on Check again, and keeps what transcripts need', async () => {
+    const zoom = s.calendars.fakeZoom!;
+    const account = 'settings@zoom.fake';
+    zoom.setSettings(account, { cloudRecording: true, audioTranscript: false });
+    const { connectionId } = await connectZoom(tech, account);
+    // Connecting queued the read; the drain ran it.
+    expect(await meeting(connectionId)).toMatchObject({
+      settingsProblems: ['zoom_transcript_off'],
+    });
+    expect((await meeting(connectionId)).settingsCheckedAt).not.toBeNull();
+    const listed = await executeQuery(
+      api(),
+      meetingConnectionList,
+      { workspaceId },
+      actor(tech),
+      meta(),
+    );
+    expect(listed.items.find((c) => c.id === connectionId)).toMatchObject({
+      settingsProblems: ['zoom_transcript_off'],
+    });
+
+    // Fixed in Zoom, then Check again: nothing left to fix.
+    zoom.setSettings(account, { audioTranscript: true });
+    await executeCommand(
+      api(),
+      meetingConnectionCheckSettings,
+      { workspaceId, connectionId },
+      actor(tech),
+      meta(),
+    );
+    await drain();
+    expect((await meeting(connectionId)).settingsProblems).toEqual([]);
+
+    // Downgraded to the free plan: the daily read finds it.
+    zoom.setSettings(account, { planType: 1 });
+    await worker((tx) => queueSettingsCheck(tx, scope(), connectionId));
+    await drain();
+    expect((await meeting(connectionId)).settingsProblems).toEqual(['zoom_basic_plan']);
+
+    // Only the person checks their own.
+    await expect(
+      executeCommand(
+        api(),
+        meetingConnectionCheckSettings,
+        { workspaceId, connectionId },
+        actor(owner),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {

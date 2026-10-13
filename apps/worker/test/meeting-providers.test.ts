@@ -151,4 +151,27 @@ describe('Zoom', () => {
     const down = zoom(() => json({}, 500));
     await expect(down.p.deleteMeeting('at', '857')).rejects.toBeInstanceOf(MeetingError);
   });
+
+  it('reads the plan from the user and the two recording switches from their settings', async () => {
+    const { p, calls } = zoom((c) =>
+      c.url.endsWith('/users/me')
+        ? json({ id: 'u1', type: 1 })
+        : json({ recording: { cloud_recording: false, recording_audio_transcript: true } }),
+    );
+    expect(await p.readSettings('at')).toEqual({
+      planType: 1,
+      cloudRecording: false,
+      audioTranscript: true,
+    });
+    expect(calls.map((c) => c.url)).toEqual([
+      'https://api.zoom.us/v2/users/me',
+      'https://api.zoom.us/v2/users/me/settings',
+    ]);
+    const quiet = zoom(() => json({}));
+    expect(await quiet.p.readSettings('at')).toEqual({
+      planType: null,
+      cloudRecording: null,
+      audioTranscript: null,
+    });
+  });
 });

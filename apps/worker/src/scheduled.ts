@@ -32,6 +32,7 @@ import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
+import { meetingSettingsCheck } from './meetings/settings';
 import { appointmentMeetingSync } from './meetings/sync';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
@@ -512,6 +513,8 @@ export const jobs: JobMap = {
   'appointment.calendar_sync': appointmentCalendarSync,
   // A Zoom appointment's meeting, made, moved or deleted with it.
   'appointment.meeting_sync': appointmentMeetingSync,
+  // A connected Zoom account's recording settings, read once a day.
+  'meeting_connection.settings_check': meetingSettingsCheck,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,

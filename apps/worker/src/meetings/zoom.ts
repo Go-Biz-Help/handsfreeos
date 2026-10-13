@@ -150,6 +150,18 @@ export function createZoom(opts: {
         if (!gone(e)) throw e;
       }
     },
+    async readSettings(accessToken) {
+      const me = await api<{ type?: number }>(accessToken, '/users/me');
+      const settings = await api<{
+        recording?: { cloud_recording?: boolean; recording_audio_transcript?: boolean };
+      }>(accessToken, '/users/me/settings');
+      const flag = (v: unknown) => (typeof v === 'boolean' ? v : null);
+      return {
+        planType: typeof me.type === 'number' ? me.type : null,
+        cloudRecording: flag(settings.recording?.cloud_recording),
+        audioTranscript: flag(settings.recording?.recording_audio_transcript),
+      };
+    },
     missingScopes: (granted) =>
       ZOOM_NEEDED_SCOPES.filter(
         (need) => !granted.some((s) => s === need || s.startsWith(`${need}:`)),

@@ -5,6 +5,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { pkceChallenge } from '../mailbox/provider';
+import type { ZoomRecordingSettings } from '@hfos/core';
 import { MeetingAuthError, MeetingError, type MeetingProvider, type TokenSet } from './provider';
 
 /** A meeting the stand-in holds. */
@@ -23,6 +24,8 @@ export interface FakeZoom extends MeetingProvider {
   meetings(account: string): readonly FakeMeeting[];
   /** Someone deleted the meeting in Zoom itself. */
   forget(id: string): void;
+  /** Changes the account's plan or recording switches (a paid plan with both on until then). */
+  setSettings(account: string, s: Partial<ZoomRecordingSettings>): void;
 }
 
 const enc = (s: string) => Buffer.from(s).toString('base64url');
@@ -32,6 +35,12 @@ const SCOPES = ['meeting:write:meeting', 'meeting:update:meeting', 'user:read:us
 
 export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
   const held = new Map<string, FakeMeeting>();
+  const settings = new Map<string, ZoomRecordingSettings>();
+  const ALL_ON: ZoomRecordingSettings = {
+    planType: 2,
+    cloudRecording: true,
+    audioTranscript: true,
+  };
   let seq = 0;
   const tokens = (email: string): TokenSet => ({
     accessToken: `fake-zoom-access.${enc(email)}.${randomBytes(6).toString('hex')}`,
@@ -106,6 +115,13 @@ export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
       [...held.values()].filter((x) => x.account === account.trim().toLowerCase()),
     forget(id: string) {
       held.delete(id);
+    },
+    async readSettings(accessToken) {
+      return settings.get(emailOf(accessToken)) ?? ALL_ON;
+    },
+    setSettings(account: string, next: Partial<ZoomRecordingSettings>) {
+      const key = account.trim().toLowerCase();
+      settings.set(key, { ...(settings.get(key) ?? ALL_ON), ...next });
     },
   };
   return zoom;

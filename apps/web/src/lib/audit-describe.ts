@@ -666,6 +666,10 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.status) === 'reauth_required'
         ? `recorded that the Zoom account ${s(e.after?.account)} needs reconnecting`
         : `recorded that the Zoom account ${s(e.after?.account)} stopped working${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    case 'meeting_connection.check_settings':
+      return `asked for the Zoom account ${s(e.after?.account)}’s settings to be checked again`;
+    case 'meeting_connection.record_settings':
+      return `checked the Zoom account ${s(e.after?.account)}’s recording settings`;
     case 'appointment.set_meeting_link':
       return 'updated an appointment’s video link';
     case 'appointment.make_meeting_link':

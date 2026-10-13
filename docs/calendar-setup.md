@@ -296,6 +296,15 @@ Zoom needs them to sign in again), the appointment says so and has a **Make link
 makes the links their upcoming appointments are missing. Meetings have a waiting room, and the join link carries
 Zoom's passcode.
 
+The Zoom card also says whether the account's settings allow transcripts after calls. The worker job
+`meeting_connection.settings_check` reads the account's plan (`GET /users/me`, `type`) and its recording switches
+(`GET /users/me/settings`, `recording.cloud_recording` and `recording.recording_audio_transcript`) right after
+it connects, when its person presses **Check again**, and once a day. It stores what they mean as codes
+(`zoom_basic_plan`, `zoom_cloud_recording_off`, `zoom_transcript_off`); the words and fixes are in
+`packages/core/src/meetings/settings.ts`. Zoom links work either way. Zoom doesn't tell a user whether an admin
+locked a switch, so each fix says to ask the Zoom admin if it can't be turned on. These checks need the app's
+`user:read:settings` scope.
+
 Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
 same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
 

@@ -4,6 +4,7 @@
  * the sealed TokenSet JSON) and the error classes are the mailbox's. A fake stands in locally and in tests.
  * Meetings follow their appointments (meetings/sync.ts).
  */
+import type { ZoomRecordingSettings } from '@hfos/core';
 import type { TokenSet } from '../mailbox/provider';
 
 export type { TokenSet };
@@ -58,4 +59,6 @@ export interface MeetingProvider {
   updateMeeting(accessToken: string, id: string, m: MeetingInput): Promise<'updated' | null>;
   /** Removes a meeting; one that's already gone counts as removed. */
   deleteMeeting(accessToken: string, id: string): Promise<void>;
+  /** The account's plan and the recording switches transcripts need. */
+  readSettings(accessToken: string): Promise<ZoomRecordingSettings>;
 }

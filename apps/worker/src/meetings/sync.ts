@@ -69,7 +69,12 @@ export async function queueMeetingSyncForHost(
 }
 
 /** Calls Zoom with a working token: renewed ahead of expiry (and sealed again), and once more after a 401. */
-function session(s: WorkerServices, scope: TenantScope, c: Connection, provider: MeetingProvider) {
+export function session(
+  s: WorkerServices,
+  scope: TenantScope,
+  c: Connection,
+  provider: MeetingProvider,
+) {
   let tokens: TokenSet | null = null;
   const fresh = async (force: boolean): Promise<TokenSet> => {
     if (!c.tokenEnc) throw new MeetingAuthError('The Zoom account has no sign-in.', 'missing');

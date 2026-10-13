@@ -1,5 +1,6 @@
 'use client';
 import { MoreHorizontal, Unplug, Video } from 'lucide-react';
+import { meetingSettingsWords } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -81,6 +82,16 @@ export function MeetingConnectionCard({
     }
   }
   const connect = () => void run('connect', () => connectZoom(workspaceId));
+  const checkAgain = (c: MeetingConnection) =>
+    void run('check', async () => {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/meeting_connection.check_settings', {
+          body: { workspaceId, connectionId: c.id },
+        }),
+      );
+      toast.success('Checking your Zoom settings now.');
+      setBusy(null);
+    });
   const disconnect = (c: MeetingConnection) =>
     void run('disconnect', async () => {
       if (
@@ -163,19 +174,54 @@ export function MeetingConnectionCard({
     <span className="min-w-0 truncate text-[13px] font-medium">{c.accountEmail ?? 'Zoom'}</span>
   );
 
+  const problems = meetingSettingsWords(c.settingsProblems);
   if (c.status === 'active')
-    return box(
+    return (
       <>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex flex-wrap items-center gap-1.5">
-            {account}
-            <Badge variant="ok">Connected</Badge>
-          </span>
-          <span className="text-xs text-text-3">Zoom is ready for online appointments.</span>
-        </span>
-        {menu}
-      </>,
-      'active',
+        {box(
+          <>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex flex-wrap items-center gap-1.5">
+                {account}
+                <Badge variant="ok">Connected</Badge>
+                {problems.length ? <Badge variant="pending">Transcripts off</Badge> : null}
+              </span>
+              <span className="text-xs text-text-3">
+                {problems.length
+                  ? 'Zoom links work. Transcripts after your calls need the changes below.'
+                  : c.settingsCheckedAt
+                    ? 'Zoom is ready for online appointments, and its settings allow transcripts.'
+                    : 'Zoom is ready for online appointments. Checking its settings now.'}
+              </span>
+            </span>
+            {isSelf ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === 'check'}
+                onClick={() => checkAgain(c)}
+                data-testid="zoom-check-again"
+              >
+                Check again
+              </Button>
+            ) : null}
+            {menu}
+          </>,
+          'active',
+        )}
+        {problems.length ? (
+          <ul className="mt-2 flex flex-col gap-1.5" data-testid="zoom-settings-problems">
+            {problems.map((p) => (
+              <li key={p.code} data-code={p.code} className="text-xs">
+                <span className="font-medium text-text">{p.title}</span>{' '}
+                <span className="text-text-3">
+                  {isSelf ? p.fix : `${firstName} needs to change this in their Zoom account.`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </>
     );
 
   return box(

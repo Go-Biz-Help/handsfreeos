@@ -16,6 +16,7 @@ import { defineCommand, defineQuery } from '../kernel/define';
 import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import { email, isoDateTime, uuid } from '../schemas/common';
+import { MEETING_SETTINGS_PROBLEMS } from '../meetings/settings';
 
 export const MeetingProvider = z.enum(['zoom']);
 export type MeetingProvider = z.infer<typeof MeetingProvider>;
@@ -67,6 +68,9 @@ export const MeetingConnectionOut = z.object({
   connectedAt: isoDateTime.nullable(),
   disconnectedAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
+  /** When the account's settings were last read, and what they mean for transcripts (`meetingSettingsWords`). */
+  settingsCheckedAt: isoDateTime.nullable(),
+  settingsProblems: z.array(z.string()),
 });
 const ListInput = z.object({
   workspaceId: uuid,
@@ -322,6 +326,88 @@ export const meetingConnectionFail = defineCommand({
   },
 });
 
+export const meetingConnectionCheckSettings = defineCommand({
+  name: 'meeting_connection.check_settings',
+  description:
+    'Read your Zoom account’s recording and transcript settings again now (after changing them in Zoom).',
+  risk: 1,
+  input: RefInput,
+  output: RefOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['meeting_connection.settings_check_requested'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx);
+    const c = await loadConnection(ctx, input.connectionId);
+    if (c.userId !== me.userId)
+      throw HfosError.forbidden(
+        'You can only check your own Zoom settings. Ask them to press Check again in Settings → My calendar.',
+      );
+    if (c.status !== 'active' && c.status !== 'error')
+      throw HfosError.rule(
+        'meeting_connection_not_active',
+        409,
+        c.status === 'reauth_required'
+          ? 'Zoom needs you to sign in again before its settings can be read. Press Reconnect in Settings → My calendar.'
+          : 'This Zoom account isn’t connected, so its settings can’t be read. Connect Zoom in Settings → My calendar.',
+      );
+    // The worker reads them when it sees this.
+    await ctx.emit({
+      type: 'meeting_connection.settings_check_requested',
+      entityType: 'meeting_connection',
+      entityId: c.id,
+      payload: { provider: c.provider },
+      after: { account: c.accountEmail, provider: c.provider },
+      broadcast: false,
+    });
+    return { connectionId: c.id };
+  },
+});
+
+const RecordSettingsInput = z.object({
+  workspaceId: uuid,
+  connectionId: uuid,
+  problems: z.array(z.enum(MEETING_SETTINGS_PROBLEMS)).max(20),
+});
+
+export const meetingConnectionRecordSettings = defineCommand({
+  name: 'meeting_connection.record_settings',
+  description:
+    'Worker: what a connected Zoom account’s settings mean for transcripts, read just now.',
+  risk: 1,
+  input: RecordSettingsInput,
+  output: SystemOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['meeting_connection.settings_changed'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const c = await loadConnection(ctx, input.connectionId);
+    const [before] = await ctx.tx
+      .select({ problems: meetingConnections.settingsProblems })
+      .from(meetingConnections)
+      .where(eq(meetingConnections.id, c.id));
+    const problems = [...new Set(input.problems)];
+    await ctx.tx
+      .update(meetingConnections)
+      .set({ settingsProblems: problems, settingsCheckedAt: new Date() })
+      .where(eq(meetingConnections.id, c.id));
+    const was = [...(before?.problems ?? [])].sort().join(',');
+    const changed = was !== [...problems].sort().join(',');
+    // Once per change: the daily read of unchanged settings tells nobody anything.
+    if (changed)
+      await ctx.emit({
+        type: 'meeting_connection.settings_changed',
+        entityType: 'meeting_connection',
+        entityId: c.id,
+        payload: { provider: c.provider, userId: c.userId, problems },
+        before: { problems: before?.problems ?? [] },
+        after: { account: c.accountEmail, provider: c.provider, problems },
+      });
+    return { connectionId: c.id, status: c.status, changed };
+  },
+});
+
 export const meetingConnectionList = defineQuery({
   name: 'meeting_connection.list',
   description: 'Zoom connections: your own, or everyone’s for owners and admins.',
@@ -347,6 +433,8 @@ export const meetingConnectionList = defineQuery({
         connectedAt: meetingConnections.connectedAt,
         disconnectedAt: meetingConnections.disconnectedAt,
         createdAt: meetingConnections.createdAt,
+        settingsCheckedAt: meetingConnections.settingsCheckedAt,
+        settingsProblems: meetingConnections.settingsProblems,
       })
       .from(meetingConnections)
       .where(and(...conditions))
@@ -362,6 +450,7 @@ export const meetingConnectionList = defineQuery({
         connectedAt: c.connectedAt?.toISOString() ?? null,
         disconnectedAt: c.disconnectedAt?.toISOString() ?? null,
         createdAt: c.createdAt.toISOString(),
+        settingsCheckedAt: c.settingsCheckedAt?.toISOString() ?? null,
       })),
     };
   },
@@ -373,4 +462,6 @@ export const meetingConnectionCommands = [
   meetingConnectionDisconnect,
   meetingConnectionActivate,
   meetingConnectionFail,
+  meetingConnectionCheckSettings,
+  meetingConnectionRecordSettings,
 ] as const;

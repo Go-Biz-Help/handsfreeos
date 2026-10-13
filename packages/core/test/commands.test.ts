@@ -301,6 +301,8 @@ describe('registry', () => {
       'meeting_connection.disconnect',
       'meeting_connection.activate',
       'meeting_connection.fail',
+      'meeting_connection.check_settings',
+      'meeting_connection.record_settings',
       'attendee.record_reminder',
       'waitlist.promote',
       'waitlist.offer',

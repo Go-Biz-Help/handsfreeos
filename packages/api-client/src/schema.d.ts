@@ -4797,6 +4797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/meeting_connection.check_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read your Zoom account’s recording and transcript settings again now (after changing them in Zoom).
+         * @description Risk level 1. Requires appointments.write. Emits meeting_connection.settings_check_requested.
+         */
+        post: operations["command_meeting_connection_check_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/meeting_connection.connect": {
         parameters: {
             query?: never;
@@ -30103,6 +30123,38 @@ export interface operations {
                         /** Format: uuid */
                         serviceId: string;
                         source: ("customer" | "plan" | "service") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_meeting_connection_check_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
                     };
                 };
             };
@@ -59466,6 +59518,8 @@ export interface operations {
                             /** @enum {string} */
                             provider: "zoom";
                             scopes: string[];
+                            settingsCheckedAt: string | null;
+                            settingsProblems: string[];
                             /** @enum {string} */
                             status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
                             /** Format: uuid */
