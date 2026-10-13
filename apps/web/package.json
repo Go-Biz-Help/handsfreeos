@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3000 --hostname localhost",
-    "build": "next build",
+    "dev": "node ../extension/scripts/download.mjs development && next dev --port 3000 --hostname localhost",
+    "build": "node ../extension/scripts/download.mjs production && next build",
     "start": "next start --port 3000",
     "lint": "eslint . --config ../../eslint.config.js",
     "typecheck": "tsc --noEmit",

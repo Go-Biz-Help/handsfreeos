@@ -15,6 +15,7 @@ import {
   shownState,
   stateTone,
 } from '@hfos/core/addons/outreach/live';
+import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { Clock } from 'lucide-react';
@@ -93,6 +94,15 @@ export function StatusStrip({ workspaceId, live }: { workspaceId: string; live: 
                   ? W.onComputer(computer.name, seenWords(computer.lastSeenAt, tz, now))
                   : W.noComputer)}
             </p>
+            {computer ? null : (
+              <Link
+                href={`${outreachHref(workspaceId, { view: 'settings' })}#computer`}
+                className="text-[13px] font-medium text-accent-text hover:underline"
+                data-testid="today-status-get-extension"
+              >
+                {SETUP_WORDS.download}
+              </Link>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -358,9 +358,11 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   opens it at the first step. Someone who never saved their own settings and never started it is sent there from
   the bare Social Outreach page, and the extension opens it in a tab when they sign in (decision 21a); the
   phone's Social Outreach screen says to set it up on a computer until it's finished (`SETUP_WORDS.onPhone`, while
-  `finishedAt` is empty, whether or not the web's line was hidden). Where the team
-  downloads the extension is the business's setting (**Where your team gets the extension**, Business settings, on
-  the web and the phone): a link to its zip, kept wherever the team keeps files, never in HandsFreeOS's code.
+  `finishedAt` is empty, whether or not the web's line was hidden). The extension downloads from HandsFreeOS itself
+  (decision 60): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
+  version and size, and the steps to load it into Chrome with Developer mode. A business that keeps its own copy
+  pastes its link under **Where your team gets the extension** (Business settings, on the web and the phone), and
+  everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
@@ -607,7 +609,19 @@ openers on group posts") and answered its questions the same day. These are sett
     take turns with them, and a results card shows the replies and demos for each. Built.
 24. **The demo link is built now,** so a booking through it counts by itself. The "Demo booked" mark stays too.
     Built.
-25. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
+
+The owner asked on 12 Oct 2026 for the extension's zip to be in HandsFreeOS for people to download, with the steps to
+install it in Chrome with Developer mode. That replaces "kept wherever the team keeps files, never in HandsFreeOS's
+code" (decision 45's install step). Settled too:
+
+60. **HandsFreeOS hands out the extension.** The web app serves the build its own code makes
+    (`/downloads/hfos-social.zip`): every deploy zips the extension as it builds, so nobody releases or uploads
+    anything by hand, and a deploy always hands out the extension its code has. The setup's install step
+    and Settings → Your computer have **Download HandsFreeOS Social** with its version and size, and the steps:
+    unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
+    Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
+    signed in. A business's own link (**Where your team gets the extension**) still wins when it gives one. Built.
+61. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
     tab, friend requests stay off Today for 2 days, and the extension stops for the day. Built.
 
 They come in three parts: cancelling and unfriending with the warnings (17 and 25); then openers on group posts, help
@@ -890,7 +904,15 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
   or hidden (`showsSetupBanner`). The groups step lists the groups the person is in that the extension saved last
   (`groups.latest`), which **Save my groups** (an ask, there and on the Groups tab) fills from their own groups page
   (facebook.com/groups/joins/), where each group listed is saved as one they're in.
-- **The extension's link is the business's** (`extensionLink` in its Social Outreach settings, a whole https link with
+- **HandsFreeOS hands out the extension** (decision 60): the web app's `build` and `dev` first run the extension's
+  `scripts/download.mjs`, which builds it for the HandsFreeOS the web app's own settings name (`NEXT_PUBLIC_API_URL`,
+  `NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, read as Next.js
+  reads them) and zips it to `apps/web/public/downloads/hfos-social.zip`, which git ignores. `next.config.ts` gives
+  the button its version and size. `apps/web/turbo.json` counts the extension's files in the web build, so a change to
+  them makes a new zip, and keeps the zip with a cached build. Never commit a zip or release one by hand. The zip's
+  name never changes, since Chrome knows an extension loaded by hand by its folder and a newer one unzipped over the
+  same folder keeps the person signed in; the link ends `?v=` and the version so browsers fetch the newer one.
+- **A business's own link wins** (`extensionLink` in its Social Outreach settings, a whole https link with
   a real host only, refused
   with its own words on a save). A stored one that stopped passing reads as none and leaves the other settings as
   saved (`outreachSettings`), and every screen that saves some of the business's settings sends what's kept as it

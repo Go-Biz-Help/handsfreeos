@@ -315,21 +315,34 @@ export const SETUP_WORDS = {
   templates: 'Start from one of ours',
   templateAbout:
     'It opens in the playbook builder with our words filled in, for you to change to your own offer and link.',
-  /** Load unpacked needs the folder that holds manifest.json, so the zip has the build at its top. */
+  /**
+   * Load unpacked needs the folder that holds manifest.json, so the zip has the build at its top. Chrome knows an
+   * extension loaded this way by its folder, so the folder is one to keep: moving it signs the person out.
+   */
   install: [
-    'Download the extension and unzip it into a folder you’ll keep, like Documents.',
+    'Download the extension and unzip it. Move the folder somewhere you’ll keep it, like Documents, and don’t delete it.',
     'In Chrome, go to chrome://extensions and turn on Developer mode, at the top right.',
     'Press Load unpacked and pick the folder that has manifest.json in it.',
     'Pin it: press the puzzle piece beside the address bar, then the pin beside HandsFreeOS Social.',
   ] as const,
+  /** Beside the download: which version, how big, and where it works. */
+  downloadAbout: (version: string, bytes: number | null) =>
+    [
+      `Version ${version}`,
+      bytes ? `${Math.max(0.1, Math.round(bytes / 104_857.6) / 10)} MB` : null,
+      'for Chrome on a computer',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  /** Chrome's own note about extensions loaded by hand, which it shows now and then. */
+  devModeNote:
+    'Chrome may ask you to turn off extensions in developer mode now and then. Keep them on, or the extension stops working.',
+  /** Folded on the Settings tab, under the download. */
+  howToInstall: 'How to install it',
   signInStep: (email: string, business: string) =>
     `Open facebook.com, press the extension’s button, and sign in with ${email}. Pick ${business} if it asks.`,
   update:
-    'For a newer version, download it again, unzip it over the same folder, and press the reload arrow on its card in chrome://extensions.',
-  noLinkManage:
-    'There’s no link to the extension yet. Paste where your team downloads its zip below, and everyone sees it here.',
-  noLinkMember:
-    'There’s no link to the extension yet. Ask an owner or admin of this business to add it under Social Outreach → Settings → Business settings.',
+    'For a newer version, download it again and unzip it, put the new files in place of the old ones in the same folder, and press the reload arrow on its card in chrome://extensions.',
   waiting: 'Waiting for the extension to sign in. This page updates by itself.',
   signedIn: (when: string) => `The extension signed in. It last checked in ${when}.`,
   notChrome: 'The extension works in Chrome on a computer. Open this page there to install it.',
@@ -361,12 +374,12 @@ export const SETUP_WORDS = {
     'Go through the setup again: playbooks, your team’s rules, your settings, the extension and your groups.',
   useTemplate: 'Use this one',
   writeOwn: 'Write your own',
-  download: 'Download the extension',
+  download: 'Download HandsFreeOS Social',
   /** Where the team gets the extension (`extensionLink`): Business settings and the install step, on the web and the phone. */
   link: {
     title: 'Where your team gets the extension',
     about:
-      'The link to the extension’s zip file, wherever your team keeps it. Everyone sees it in the setup, with the steps to load it in Chrome.',
+      'HandsFreeOS hands out the extension itself. Paste a link only if your team keeps its own copy of the zip: everyone’s setup then downloads yours.',
     label: 'Link to the zip',
     saved: 'Saved. Everyone’s setup shows the link.',
     removed: 'The link is taken off.',

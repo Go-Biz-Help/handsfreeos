@@ -81,7 +81,7 @@ export default async function OutreachPage({
       const canManage = got.workspace.permissions.includes('outreach.manage');
       // Someone else's, for owners and admins; anyone else asking sees their own.
       const whose = canManage && shown.for ? shown.for : undefined;
-      const [me, people, business, live] = await Promise.all([
+      const [me, people, business, live, setup] = await Promise.all([
         api
           .POST('/v1/queries/outreach.automation', {
             body: { workspaceId, ...(whose ? { userId: whose } : {}) },
@@ -98,6 +98,11 @@ export default async function OutreachPage({
               .then(unwrapPage)
           : null,
         whose ? null : liveOf(),
+        // Where the team gets the extension: the business's own link, read as everyone reads it.
+        api
+          .POST('/v1/queries/outreach.setup', { body: { workspaceId } })
+          .then((r) => r.data ?? null)
+          .catch(() => null),
       ]);
       const canStartFresh = got.workspace.permissions.includes('addons.purge');
       return (
@@ -115,6 +120,7 @@ export default async function OutreachPage({
             business: business?.settings ?? null,
             canStartFresh,
             live,
+            extensionLink: setup?.extensionLink ?? null,
           }}
         />
       );
