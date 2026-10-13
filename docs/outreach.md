@@ -54,9 +54,22 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   reads them with the person's own chat with them (the worker's `outreach.check_people`) and says whether they're a
   good fit for a playbook, might fit, or not, why in up to three lines, who they are in one, and a natural first step
   (`outreach.check.save`); the lines are let go once it has. The Friends tab's **Good fits** list has the good fits
-  first, then those who might fit, with the AI's why and first step, and its card says how far it has come ("312 of
+  first, then those who might fit, with the AI's why (its first line, the rest under **More**) and first step; a good fit shows the same why line on the other lists, and its card says how far it has come ("312 of
   1,840 checked · 28 good fits"). Each is read again after 90 days, and one Facebook didn't show after a week. Nobody
   goes in Contacts.
+- **Research one person** (decision 46a, `researchShown` and `RESEARCH_WORDS` in `checks.ts`, the ask kind `research`
+  in `asks.ts`, the web's `research.tsx`, the extension's `research` in `src/jobs/checks.ts`): a **Research** button
+  on each row of the Friends tab (friends, good fits, requests received and sent, kept) and the People tab's pipeline
+  (list and board) asks the person's computer (`outreach.ask.make`, `{ kind: 'research', profileId }`, target
+  `profile:<id>`) to check that one person next, the same way as above. It counts toward the same day's checks
+  (`CHECKS_PER_DAY`): with those used up, the ask ends at once as done, with `result.queued` and the line "That's
+  today's 40 checks. Dana goes first when checking carries on tomorrow.", and the row says **First in line
+  tomorrow**. `outreach.checks.next` puts anyone with a Research ask since they were last read first (reason
+  `asked`), whoever they are to the person (a request, someone found in a group), and lists only them when the
+  extension passes `profileId`. The row shows **Research**, then **Researching…** while the ask is open or the AI is
+  reading what was sent, then the AI's answer (good fit, might fit or not, with the why). No button for someone on
+  Don't pitch or tagged Friend or family (refused with `outreach_research_not_pitched`), nor for someone checked
+  already (`outreach_research_done`). Extension 0.27.0 and later (`ASK_KIND_SINCE`).
 - **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
   phone's `pipeline.tsx`): the **Pipeline** tab, after Today, on the web and the phone, has everyone the person
   reached (a step noted, a chat with words, a good fit or might fit from the checks, a demo, or a mark) by where they
@@ -147,7 +160,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   sends: the extension notes the step, which takes it off the list. Each person kept as a profile has a menu, here
   (on the web and the phone) and on the Friends tab, the Chats tab and Waiting for you (`person-menu.tsx`): **Add to Contacts** (customers with the
   same name offered first, **It’s them** or **Add as new**; `outreach.profile.contact`), or **In Contacts** once they
-  are; **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab). A group whose admins aren't read yet has
+  are; **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
   requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
@@ -211,6 +224,23 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   what they said) until the person comments on the post after it; and someone not a friend yet goes first for **Like
   a post first** ("Like one of theirs back") and then a friend request, ahead of anyone from the groups, whatever
   the playbooks say.
+- **Only certain countries, or not them** (decision 61, `countries.ts`, `ops/countries.ts`, the worker's
+  `countries.ts`, the web's `business-settings.tsx`, `country-picker.tsx` and `country-skipped.tsx`): Social
+  Outreach → Settings → Business settings has **Which countries to reach**: **Anywhere** (to start), **Only these
+  countries** or **Not these countries**, with the countries picked by name (ISO two-letter codes underneath, kept in
+  the add-on's settings as `countries`). Each person kept as a profile has a country: the one a line on their profile
+  shows ("Lives in Austin, Texas", then "From Lagos, Nigeria"; `countryFromLines`), **seen**; or, when none does,
+  the AI's guess from their name, posts and groups, **guessed**; or **couldn't tell**. A check of someone (decision 46) reads it with the rest, its lines first (`outreach.check.save`); everyone else found, in a group, asking to be
+  friends, writing a post or engaging, is worked out by the worker's `outreach.guess_countries`, armed when a group's
+  people or friend requests are saved and when the settings are, and only while the setting skips anyone: the lines
+  under their name first, then the AI, 25 to a question, up to 200 a run (`outreach.countries.save`). A guess never
+  replaces a country seen. While the setting skips anyone, Today leaves them out of everything new: Confirm their
+  request, Like a post first, friend requests, Say hi, Pitch, follow-ups, Reconnect, comments and warm leads (a reply
+  owed still shows); so does the extension, which works from Today's list; the Friends tab's good fits leave them out,
+  and so do the Groups tab's people left to reach (`countryLetsSql` in `ops/common.ts`, the one copy of
+  `countryLets`). The Friends tab's **Skipped for country** (`outreach.countries.skipped`) lists them, the latest
+  worked out first, with their country and seen or guessed, and **Unskip** (`outreach.country.unskip`) lets one
+  through from then on whatever the setting says.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
   warn them that day, **Draft a message** or **Draft a comment** on Today asks it (a `lookup` ask): it opens the
   person's profile in a window of its own, reads their intro and latest two posts, follows the link in their lines to
@@ -254,6 +284,19 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   and their members (`outreach.group.save`), then Find posts (`outreach.posts.save`) and Read my chats, up to 60
   (`outreach.chats.collect`). Each reads and saves only, as the same asks from the app do, and a warning stops the
   day.
+- **Lists first** (decision 60, `lists.ts`, `ops/lists.ts`, the extension's `src/auto/lists.ts` and
+  `src/jobs/people.ts`): before anything else in the person's day, the runner saves their own lists to their end:
+  their friends list, the friend requests they've got, and the ones they've sent (it presses **View sent requests**
+  on `/friends/requests`, and nothing else). HandsFreeOS keeps when each was last saved to its end, each person's own
+  (`addon_outreach.list_saves`, `outreach.lists`, `outreach.lists.saved`). The first time, nothing runs until all
+  three are saved: the extension says "Saving your friends list first…", and under **Start my day** the web and the
+  phone say the day starts once they're saved (`dayWords` with `outreach.live`'s `lists`). One that goes wrong is
+  tried again in a few minutes. After that, the requests either way are saved again each morning before the day (they
+  stand for that day's once-a-day friend requests), and the friends list once its last full save is 7 days old
+  (`FRIENDS_AGAIN_DAYS`); a refresh that goes wrong waits for tomorrow and never holds the day up. Right after the
+  first full save it works out the **Tidy up** suggestions (`outreach.friends.tidy`, decisions 10, 12 and 17) and
+  then checks friends for good fits once (decision 46, up to `CHECKS_PER_DAY`), which stands for that day's check;
+  from then on the checks run daily with their cap.
 - **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
   `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the
   extension follows is set here, never in the extension. **My settings** holds what it does on its own, Replies, the
@@ -428,6 +471,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | Waiting for you, and steps it needs you for              | `waiting.ts`, `waiting-words.ts` (no zod of its own), `ops/waiting.ts`, `ops/needs.ts`, `supabase/migrations/20261027001600_outreach_waiting.sql`                                                                                                               |
 | Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                                                                                                                                   |
 | The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                                                                                                                               |
+| Lists first, before the day (decision 60)                | `lists.ts`, `ops/lists.ts`, `apps/extension/src/auto/lists.ts`, `src/jobs/people.ts`, `supabase/migrations/20261027002800_outreach_list_saves.sql`                                                                                                              |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                          |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                        |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                    |
@@ -512,6 +556,7 @@ Operations, all through the kernel:
 | `outreach.wheels.end`                                 | `outreach.manage` | End someone's training wheels early                                                                                                                                                                                                                                                                                                 |
 | `outreach.live.beat`                                  | `outreach.use`    | The extension's beat: this computer, what it's doing, new feed lines; answers whether it works, the day, and how many asks wait. Keeps no receipt                                                                                                                                                                                   |
 | `outreach.day.start`, `outreach.day.stop`             | `outreach.use`    | Start my day or Stop for today, the person's own; an older press never undoes a newer one, and one from another day changes nothing. Start after a warning: `outreach_warned_today`; with nothing on its own: `outreach_sending_off`                                                                                                |
+| `outreach.lists`, `outreach.lists.saved`              | `outreach.use`    | When the person's own friends list, requests got and requests sent were last saved to their end, and the first Tidy up and check after; the extension notes each (Lists first, decision 60)                                                                                                                                         |
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                                                                                                                                                                                                                |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed                                                                                                                                                                                                                      |
 | `outreach.live.team`                                  | `outreach.manage` | Each person's status, computer, counts and how many wait; never their lines or messages                                                                                                                                                                                                                                             |
@@ -757,6 +802,11 @@ These are settled too:
     fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts. Friends with a
     chat go first, then friends from the groups, then the rest. It runs with the once-a-day jobs, and from the
     Friends tab's **Check my friends**. Growth part 1. Built.
+    - **46a. Research one person from their row.** The owner asked for a **Research** button on person rows (friends,
+      requests received and sent, the pipeline) for anyone not checked yet: it checks that person next, ahead of the
+      daily order, reading their profile, posts and business page for the AI. The owner decided it **counts toward
+      the same daily check limit**; when the day's checks are used up it says so and they go first tomorrow. Never
+      offered for someone on Don't pitch or tagged Friend or family, since they're never checked. Built.
 47. **Stages, and the moment to pitch.** Each person reached has a stage, worked out from what HandsFreeOS knows:
     found, warming up, friends, talking, ready to pitch, pitched, booked, or not a fit. The AI's read of a chat says
     when the playbook's questions are answered well enough to pitch; Today then offers **Pitch**, with drafts that
@@ -844,6 +894,19 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
 
     Built.
 
+60. **Lists first, the first day only.** Before someone can start their day, the system first finishes saving their
+    friends list and their friend requests, sent and received; once that's done, the day starts. The first time,
+    Start my day waits until all three are saved. After that, the requests are refreshed each morning before the day
+    starts, and the friends list once a week. Right after the first full save, it works out the friends to unfriend
+    (Tidy up, decisions 10, 12 and 17) and then the good fits among friends (decision 46), once. Built.
+61. **Only certain countries, or not them.** A business can reach anyone (to start), only people in the countries
+    it picks, or everyone but them. Where someone lives is what their profile shows; when it shows none, the AI
+    guesses from their name, posts and groups (the owner's decision), and both are kept, with whether it was seen or
+    guessed. Everyone the setting skips is on a list with their country, and **Unskip** lets that person through from
+    then on, whatever the setting says. Built: the setting, the countries from checks and the worker's guesses, the
+    filter on Today, the good fits and people left to reach, and the Skipped for country list on the Friends tab.
+    Not yet on the phone's Business settings, which keeps the setting as saved.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -918,6 +981,11 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
   saved (`outreachSettings`), and every screen that saves some of the business's settings sends what's kept as it
   reads it (`settingsToSave`), so such a link goes with the next save rather than refusing it. The web's box and the
   phone's check a link as the save does before sending it (`extensionLinkProblem`). Members read it through `outreach.setup`, since `addon.settings` is the managers'.
+- **The country setting skips, it never deletes** (decision 61). Anyone it skips stays kept, on the Skipped for
+  country list. Someone whose country isn't known, yet or at all, is let through: nothing says they're outside. A
+  reply owed is never skipped. Unskip is the business's, per profile (`country_through` in `addon_outreach.profiles`,
+  with who and when), and holds whatever the setting becomes. Every place that picks people for outreach filters
+  with `countryLetsSql`; a new one does too.
 - **Noting a step adds nobody to Contacts.** Someone reached is kept as a profile with no customer, and the group
   they were first found in, until the person saves them; saving keeps their steps. A friend request marks the profile
   "request sent".

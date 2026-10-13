@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.26.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.27.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -238,6 +238,12 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   my chats and checking your friends for good fits, which fill your list, and checking your groups and joining good ones
   when they run low (decisions 32, 46 and 48).
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
+
+Before anything else in your day, it saves your own lists (`src/auto/lists.ts`; docs/outreach.md, decision 60): your
+friends list, the friend requests you've got, and the ones you've sent (it presses **View sent requests** on your
+friend requests page, and nothing else). The first time, your day waits until all three are saved to their end, and
+it says so ("Saving your friends list first…"); then it works out Tidy up's suggestions and checks your friends for
+good fits once. After that it saves the requests again each morning and your friends list once a week.
 
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests

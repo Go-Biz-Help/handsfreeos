@@ -171,7 +171,7 @@ describe('checking friend requests', () => {
     expect(
       (saves[0] as Extract<HfosAsk, { type: 'hfos-save-friends' }>).input.people.map((p) => p.name),
     ).toEqual(['Avery Lane', 'Quinn Harper', 'Rowan Blake']);
-    expect(end).toEqual({ line: 'Saved 3 friend requests, 3 new.', warned: false });
+    expect(end).toEqual({ line: 'Saved 3 friend requests, 3 new.', warned: false, whole: true });
   });
 
   it('stops on a warning from Facebook, noting it, and saves nothing', async () => {

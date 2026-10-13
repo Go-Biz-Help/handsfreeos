@@ -11,6 +11,7 @@ import type { DownloadMessage } from './download-read';
 import type { PlaybookDetails } from './playbooks';
 import { PITCH_READS, STAGE_WHY_MOST } from './stages';
 import { CANCEL_AFTER_WEEKS } from './tidy';
+import { ANYWHERE, CountryRule } from './countries';
 
 /** Where a chat's reading is (`addon_outreach.file_chats.read_state`). */
 export const CHAT_READ_STATES = ['none', 'waiting', 'read', 'skipped', 'failed'] as const;
@@ -46,6 +47,11 @@ export const OutreachSettingsSchema = z.object({
   /** What each person may pick for the extension, their daily limits and where a new person starts (./automation.ts). */
   rules: BusinessRules.default(NO_RULES),
   /**
+   * Which countries the business reaches (decision 61): Anywhere, Only these countries or Not these countries, with
+   * the countries picked. Checked on every save, so an unknown code, or Only with none picked, is refused.
+   */
+  countries: CountryRule.default(ANYWHERE),
+  /**
    * Where the team downloads the extension's zip, a build loaded by hand (./setup.ts); null until an owner or admin
    * gives it. Never a file in the repo: wherever the team keeps it. Checked on every save, so a link that isn't https,
    * or has no real host, is refused with these words.
@@ -62,12 +68,15 @@ export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 export function outreachSettings(saved: unknown): OutreachSettings {
   const parsed = OutreachSettingsSchema.safeParse(saved ?? {});
   if (parsed.success) return parsed.data;
-  // A link that no longer passes reads as none, and leaves the business's other settings as saved.
-  if (saved && typeof saved === 'object' && 'extensionLink' in saved) {
-    const { extensionLink: _, ...rest } = saved as Record<string, unknown>;
-    const again = OutreachSettingsSchema.safeParse(rest);
-    if (again.success) return again.data;
-  }
+  // A link, or a country setting, that no longer passes reads as none (Anywhere), and leaves the business's other
+  // settings as saved.
+  if (saved && typeof saved === 'object')
+    for (const drop of [['extensionLink'], ['countries'], ['extensionLink', 'countries']]) {
+      const rest = { ...(saved as Record<string, unknown>) };
+      for (const key of drop) delete rest[key];
+      const again = OutreachSettingsSchema.safeParse(rest);
+      if (again.success) return again.data;
+    }
   return OutreachSettingsSchema.parse({});
 }
 

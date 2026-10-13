@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, and 20261027002200 for checking and joining groups):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, and 20261027002810 for countries):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -31,6 +31,7 @@ import type { MessageKind, PostingMode, PushMode, ReplyMode, SendingMode } from 
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
+import type { CountryHow } from './countries';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
@@ -153,6 +154,17 @@ export const profiles = addonOutreach.table(
     dontPitchAt: ts('dont_pitch_at'),
     /** When the extension found no post of theirs to like before a friend request (decision 33): it goes without. */
     warmUpMissedAt: ts('warm_up_missed_at'),
+    /**
+     * Where they live (decision 61): a country's two-letter code, seen on their profile or guessed by the AI, or
+     * `unknown` when nothing said; null for both until it's worked out.
+     */
+    country: text('country'),
+    countryHow: text('country_how').$type<CountryHow>(),
+    countryAt: ts('country_at'),
+    /** Let through whatever the business's country setting says (Unskip): by whom and when. */
+    countryThrough: boolean('country_through').notNull().default(false),
+    countryThroughBy: userRef('country_through_by'),
+    countryThroughAt: ts('country_through_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -1061,6 +1073,30 @@ export const engagements = addonOutreach.table(
   ],
 );
 
+/**
+ * When the person's own lists were last saved to their end, before their day (../lists.ts): their friends, the friend
+ * requests they've got and the ones they've sent; and when the first Tidy up and good-fits check after that were done.
+ * Each person's own: one row a person.
+ */
+export const listSaves = addonOutreach.table(
+  'list_saves',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    friendsAt: ts('friends_at'),
+    requestsAt: ts('requests_at'),
+    sentAt: ts('sent_at'),
+    tidyAt: ts('tidy_at'),
+    checksAt: ts('checks_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1080,6 +1116,7 @@ export const OUTREACH_TABLES = {
   imports,
   joins,
   demos,
+  listSaves,
   liveSteps,
   needs,
   openerUses,

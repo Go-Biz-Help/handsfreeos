@@ -24,6 +24,7 @@ import {
 } from '../stages';
 import { profiles, stages } from '../tables';
 import { inWorkspace, pitchable, type Ctx } from './common';
+import type { CheckVerdict } from '../checks';
 
 const DAY = 86_400_000;
 
@@ -114,7 +115,7 @@ function staged(ctx: Ctx, me: string, which: SQL) {
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         g.name as group_name, s.mark, s.marked_by, s.why as mark_why, s.pitched_at,
         c.pitch, c.pitch_why, c.next_step as chat_step, c.thread_key, c.read_state, c.last_at as chat_at,
-        c.last_from_me, ch.verdict, ch.why as check_why, ch.next_step as check_step, f.state as friend_state,
+        c.last_from_me, ch.verdict, cpb.name as check_playbook, ch.why as check_why, ch.next_step as check_step, f.state as friend_state,
         (select max(r.seen_at) from addon_outreach.replies r
           where r.profile_id = p.id and r.user_id = ${me}) as replied_at,
         (select max(t.at) from addon_outreach.touches t
@@ -137,6 +138,7 @@ function staged(ctx: Ctx, me: string, which: SQL) {
         order by c.last_at desc limit 1
       ) c on true
       left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+      left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
       left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
     )
     select facts.*,
@@ -170,7 +172,8 @@ type StagedRow = {
   readonly thread_key: string | null;
   readonly chat_at: Date | string | null;
   readonly last_from_me: boolean | null;
-  readonly verdict: string | null;
+  readonly verdict: CheckVerdict | null;
+  readonly check_playbook: string | null;
   readonly check_why: string[] | null;
   readonly check_step: string | null;
   readonly friend_state: string | null;
@@ -364,6 +367,9 @@ export const stagesList = defineAddonQuery(outreachAddon, {
         threadKey: r.thread_key,
         marked: r.marked_by === 'person',
         demoBooked: r.marked_booked,
+        check: r.verdict
+          ? { verdict: r.verdict, playbookName: r.check_playbook, why: r.check_why ?? [] }
+          : null,
       })),
       page,
       pages,

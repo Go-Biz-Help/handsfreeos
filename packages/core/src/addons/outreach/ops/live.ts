@@ -43,6 +43,7 @@ import { todayLimits } from '../today';
 import { automationOf, everyoneAutomation } from './automation';
 import { asksWaiting } from './ask-rows';
 import { inWorkspace, type Ctx } from './common';
+import { listsOf } from './lists';
 import { businessToday, dayOf, dayShown, keepDay, writeLine } from './day';
 import { dayCounts } from './today';
 import { waitingFor } from './waiting';
@@ -394,13 +395,14 @@ export const live = defineAddonQuery(outreachAddon, {
     const now = Date.now();
     const { today, timezone } = await businessToday(ctx, now);
     const todayStart = await startOfToday(ctx, now);
-    const [warning, auto, all, day, counts, waiting] = await Promise.all([
+    const [warning, auto, all, day, counts, waiting, lists] = await Promise.all([
       warningOf(ctx, me, todayStart, now),
       automationOf(ctx, me, now),
       myComputers(ctx, me),
       dayOf(ctx, me, today),
       dayCounts(ctx, [me], todayStart),
       waitingFor(ctx, [me]),
+      listsOf(ctx, me),
     ]);
     const working = workingOf(all);
     const steps = await ctx.tx
@@ -442,6 +444,7 @@ export const live = defineAddonQuery(outreachAddon, {
       ),
       waiting: waiting.get(me) ?? 0,
       warning,
+      lists,
       steps: steps.map((s) => ({ at: s.at.toISOString(), kind: s.kind, line: s.line })),
     };
   },

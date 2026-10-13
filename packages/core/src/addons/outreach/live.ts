@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { addDays, localDateOf } from '../../calendar/engine/zoned';
 import { fmtDateShort, fmtTime } from '../../calendar/when';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
+import { listsWaitWords, ListsSaved } from './lists';
 import { WarningState } from './tidy';
 
 /** How often the extension says it's there, and how long without that before the app calls the computer offline. */
@@ -261,6 +262,11 @@ export const LiveOutput = z.object({
   /** Everything waiting for the person (Waiting for you, ./waiting.ts), counted as that list counts it. */
   waiting: z.number().int().min(0),
   warning: WarningState.nullable(),
+  /**
+   * When the person's own lists were last saved to their end (./lists.ts): the first time, a day started waits for
+   * them. Missing from an API from before them.
+   */
+  lists: ListsSaved.optional(),
   /** Today's steps, the newest first. */
   steps: z.array(LiveStep),
 });
@@ -348,13 +354,19 @@ export const offlineWords = (lastSeenAt: string | Date, timeZone: string, now: n
 export const standDownWords = (workingName: string | null): string =>
   `${workingName ?? 'Another computer'} is working for you now, so this one stands by. Open the panel here to work from this computer instead.`;
 
-/** Where the day stands, under Start my day and Stop for today: empty when nothing was pressed today. */
-export function dayWords(day: LiveDay, timeZone: string): string {
+/**
+ * Where the day stands, under Start my day and Stop for today: empty when nothing was pressed today. With the person's
+ * lists, a day started the first time says it waits for them to be saved.
+ */
+export function dayWords(day: LiveDay, timeZone: string, lists?: ListsSaved | null): string {
   if (day.state === 'none') return '';
   if (day.why === 'warning') return 'Stopped for today: Facebook showed a warning.';
   const at = day.at ? ` at ${clockWords(day.at, timeZone)}` : '';
   const via = day.via ? ` ${VIA_WORDS[day.via]}` : '';
-  return day.state === 'started' ? `Started${at}${via}.` : `Stopped for today${at}${via}.`;
+  if (day.state !== 'started') return `Stopped for today${at}${via}.`;
+  // The first time, the day waits for the person's lists to be saved (./lists.ts): it says why.
+  const waiting = listsWaitWords(lists, true);
+  return waiting ? `Started${at}${via}. ${waiting}` : `Started${at}${via}.`;
 }
 
 /** The feed's line for a day pressed, which HandsFreeOS writes. */

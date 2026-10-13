@@ -87,6 +87,11 @@ beforeAll(async () => {
     );
     await rows(
       admin(),
+      sql`insert into addon_outreach.list_saves (workspace_id, user_id, friends_at)
+          values (${ws}, ${u.id}, now())`,
+    );
+    await rows(
+      admin(),
       sql`insert into addon_outreach.waiting_pushes (workspace_id, user_id, pushed_at)
           values (${ws}, ${u.id}, now())`,
     );
@@ -106,6 +111,18 @@ describe('computers, days and the feed, on the database', () => {
   it('show a member only their own', async () => {
     for (const table of ['computers', 'days', 'live_steps'])
       expect(await seenBy(riley, table)).toEqual([riley.id]);
+  });
+
+  it('keep when each person’s own lists were saved their own, even from owners', async () => {
+    expect(await seenBy(riley, 'list_saves')).toEqual([riley.id]);
+    expect(await seenBy(owner, 'list_saves')).toEqual([owner.id]);
+    expect(
+      await tried(
+        riley,
+        sql`update addon_outreach.list_saves set sent_at = now()
+            where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
+      ),
+    ).toBe(0);
   });
 
   it('show owners and admins the team’s days, never a colleague’s computer or feed', async () => {

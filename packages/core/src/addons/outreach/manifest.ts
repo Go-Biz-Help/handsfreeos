@@ -102,6 +102,7 @@ export const outreachAddon = defineAddon({
       'outreach.live.changed',
       'outreach.day.started',
       'outreach.day.stopped',
+      'outreach.lists.saved',
       'outreach.computer.renamed',
       'outreach.need.noted',
       'outreach.need.cleared',
@@ -125,6 +126,7 @@ export const outreachAddon = defineAddon({
       'outreach.helpful.skipped',
       'outreach.helpful.posted',
       'outreach.helpful.engaged',
+      'outreach.country.unskipped',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -137,7 +139,8 @@ export const outreachAddon = defineAddon({
     // reach their phone as their pushes setting says (decision 40, ./waiting.ts). An ask that first needs the person
     // pushes to them at once (decision 43, ./asks.ts). A post asking for what the business offers pushes to the person
     // who found it at once (decision 49, ./posts.ts). A helpful post asked for is written by the AI (decision 50,
-    // ./helpful.ts).
+    // ./helpful.ts). People found in a group or asking to be friends, and a change to the country setting, have the AI
+    // work out where they live when the setting skips anyone (decision 61, ./countries.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -154,6 +157,8 @@ export const outreachAddon = defineAddon({
       'outreach.live.changed',
       'outreach.need.noted',
       'outreach.ask.progressed',
+      'outreach.group.saved',
+      'outreach.friends.saved',
     ],
   },
   jobs: [
@@ -166,9 +171,10 @@ export const outreachAddon = defineAddon({
     'outreach.weekly',
     'outreach.live_prune',
     'outreach.waiting_push',
+    'outreach.guess_countries',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
-  // morning push, and the weekly report: Social Outreach → Settings → Business settings.
+  // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → Business settings.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
@@ -188,6 +194,7 @@ export const outreachAddon = defineAddon({
     'helpful',
     'imports',
     'joins',
+    'list_saves',
     'live_steps',
     'my_groups',
     'needs',

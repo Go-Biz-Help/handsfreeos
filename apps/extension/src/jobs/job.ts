@@ -71,6 +71,8 @@ export interface JobEnd {
   readonly line: string;
   readonly warned: boolean;
   readonly failed?: boolean;
+  /** A list read to its very end and saved whole (./people.ts): the friends list, or friend requests either way. */
+  readonly whole?: boolean;
 }
 
 export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));

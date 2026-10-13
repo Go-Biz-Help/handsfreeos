@@ -6947,6 +6947,20 @@
                   }
                 },
                 "required": ["kind", "draft"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "research"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": ["kind", "profileId"]
               }
             ]
           }
@@ -13139,7 +13153,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 18,
+            "maxItems": 19,
             "type": "array",
             "items": {
               "type": "string",
@@ -13161,7 +13175,8 @@
                 "post",
                 "cancel",
                 "unfriend",
-                "lookup"
+                "lookup",
+                "research"
               ]
             }
           }

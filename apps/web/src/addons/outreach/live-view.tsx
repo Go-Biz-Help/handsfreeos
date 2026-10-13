@@ -147,7 +147,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
   const sendingOff = live.sending === 'off';
   const started = live.day.state === 'started';
   const stopped = live.day.state === 'stopped';
-  const said = dayWords(live.day, tz);
+  const said = dayWords(live.day, tz, live.lists);
   const press = (kind: 'start' | 'stop') =>
     void act(
       kind,

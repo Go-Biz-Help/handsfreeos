@@ -15,6 +15,7 @@ import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automa
 import { WATCH_EVERY_MINUTES } from '@hfos/core/addons/outreach/posts';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import type { NeedNoteInput, TodayList, TodayListItem } from '../hfos/messages';
+import type { TriedBefore } from './lists';
 
 /** Where the runner keeps its state, which the panel watches. */
 export const AUTO_STATE_KEY = 'hfos.auto';
@@ -63,6 +64,8 @@ export interface AutoState {
   readonly done: Readonly<Partial<Record<DoneKind, number>>>;
   /** The once-a-day jobs it did today, each with how it went in words. Missing in a state kept by 0.11. */
   readonly daily?: Readonly<Partial<Record<DailyJob, string>>>;
+  /** What it did before the day today (./lists.ts), each with how it went in words. Missing in a state kept by 0.26. */
+  readonly before?: TriedBefore;
   /** When it next looks at the newest posts in the groups (decision 49). Missing in a state kept by 0.22: due now. */
   readonly watchAt?: number | null;
   /**
@@ -95,6 +98,7 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     tried: [],
     done: {},
     daily: {},
+    before: {},
     watchAt: null,
     helpfulAt: null,
     helpfulUp: false,
