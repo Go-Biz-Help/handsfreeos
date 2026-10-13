@@ -228,6 +228,8 @@ export const HELPFUL_SYSTEM = [
   'Write about something the group’s people ask about or struggle with, that the business knows well: a tip, a short how-to, a checklist or a lesson learned, in the owner’s own voice and the playbook’s tone.',
   'Never sell, never mention the offer or the business by name, never add links, hashtags or prices. End with one short question that invites people to share their own experience.',
   'Keep it under 120 words, with no headings.',
+  'Break it into short paragraphs of one to three sentences, with a blank line between each, so it is easy to read on a phone. Put the closing question on its own line.',
+  'Write at a 5th grade reading level or below: short sentences, everyday words, no jargon.',
   PLAIN_WRITING,
   'Read the group’s rules first. When they forbid posts like this from members (only admins post, no tips, a set thread for it), say allowed false and why in one line, with no text.',
   'Give the topic in a few words, and why in one line: what people there ask that it answers.',
