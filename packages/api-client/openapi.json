@@ -7721,6 +7721,9 @@
                           "customer",
                           "business"
                         ]
+                      },
+                      "announceRecording": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -7831,6 +7834,73 @@
                   "required": [
                     "phoneNumberId",
                     "forwardedCallerId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/phone_number.set_recording_notice": {
+      "post": {
+        "operationId": "command_phone_number_set_recording_notice",
+        "summary": "Choose whether customers hear “This call may be recorded.” on this number: callers before it rings, and customers the team calls when they pick up. Every answered call is recorded and transcribed either way.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits phone_number.routing_updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "phoneNumberId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "announceRecording": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "phoneNumberId",
+                  "announceRecording"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "phoneNumberId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "announceRecording": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "phoneNumberId",
+                    "announceRecording"
                   ],
                   "additionalProperties": false
                 }
@@ -97448,6 +97518,9 @@
                                     "customer",
                                     "business"
                                   ]
+                                },
+                                "announceRecording": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -97455,7 +97528,8 @@
                                 "ringSeconds",
                                 "voicemailEnabled",
                                 "voicemailGreeting",
-                                "forwardedCallerId"
+                                "forwardedCallerId",
+                                "announceRecording"
                               ],
                               "additionalProperties": false
                             },
@@ -97595,6 +97669,9 @@
                                   "customer",
                                   "business"
                                 ]
+                              },
+                              "announceRecording": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -97602,7 +97679,8 @@
                               "ringSeconds",
                               "voicemailEnabled",
                               "voicemailGreeting",
-                              "forwardedCallerId"
+                              "forwardedCallerId",
+                              "announceRecording"
                             ],
                             "additionalProperties": false
                           },

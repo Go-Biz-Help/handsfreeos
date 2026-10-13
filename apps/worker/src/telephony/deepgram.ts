@@ -45,8 +45,8 @@ function deepgramError(status: number, body: string): ProviderError {
 }
 
 /**
- * Deepgram's channels are 0-based and the worker's are 1-based: the business's side is 1 and the customer's is 2,
- * which is how `wordsOf` names the speakers. A mono recording is a voicemail, so all of it is the customer.
+ * Deepgram's channels are 0-based and the worker's are 1-based: 1 is the side that ran the `<Dial>` and 2 the phone
+ * it dialed, which `wordsOf` turns into names. A mono recording is a voicemail, so all of it is the customer.
  */
 const channelOf = (raw: number | undefined, channels: 1 | 2): number =>
   channels === 1 ? 2 : (raw ?? 0) + 1;

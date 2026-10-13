@@ -7337,6 +7337,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/phone_number.set_recording_notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose whether customers hear “This call may be recorded.” on this number: callers before it rings, and customers the team calls when they pick up. Every answered call is recorded and transcribed either way.
+         * @description Risk level 1. Requires channels.manage. Emits phone_number.routing_updated.
+         */
+        post: operations["command_phone_number_set_recording_notice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/phone_number.set_routing": {
         parameters: {
             query?: never;
@@ -36400,6 +36420,40 @@ export interface operations {
             };
         };
     };
+    command_phone_number_set_recording_notice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    announceRecording: boolean;
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        announceRecording: boolean;
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
     command_phone_number_set_routing: {
         parameters: {
             query?: never;
@@ -36413,6 +36467,7 @@ export interface operations {
                     /** Format: uuid */
                     phoneNumberId: string;
                     routing: {
+                        announceRecording?: boolean;
                         /** @enum {string} */
                         forwardedCallerId?: "customer" | "business";
                         forwarding: {
@@ -63519,6 +63574,7 @@ export interface operations {
                             numberType: "local" | "toll_free";
                             purchasedAt: string | null;
                             routing: {
+                                announceRecording: boolean;
                                 /** @enum {string} */
                                 forwardedCallerId: "customer" | "business";
                                 forwarding: {
@@ -63546,6 +63602,7 @@ export interface operations {
                             numberType: "local" | "toll_free";
                             purchasedAt: string | null;
                             routing: {
+                                announceRecording: boolean;
                                 /** @enum {string} */
                                 forwardedCallerId: "customer" | "business";
                                 forwarding: {

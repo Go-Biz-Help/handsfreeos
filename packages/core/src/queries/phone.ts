@@ -119,6 +119,7 @@ export const phoneSetupStatus = defineQuery({
         voicemailEnabled: n.routing.voicemailEnabled,
         voicemailGreeting: n.routing.voicemailGreeting,
         forwardedCallerId: n.routing.forwardedCallerId ?? ('customer' as const),
+        announceRecording: n.routing.announceRecording !== false,
       },
       purchasedAt: iso(n.purchasedAt),
       lastError: n.lastError,

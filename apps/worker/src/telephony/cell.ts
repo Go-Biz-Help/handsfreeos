@@ -335,8 +335,8 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
   const askedAt = askedAtOf(ctx, p);
   const { call } = target;
   const stored = !!call.recordingObjectPath;
-  // A bridged call is recorded one side per channel; a voicemail is the caller alone.
-  const channels = call.answeredVia === 'bridge' ? 2 : 1;
+  // An answered call is recorded one side per channel; a voicemail is the caller alone.
+  const channels = call.isVoicemail ? 1 : 2;
 
   let started: TranscribeStarted;
   try {
@@ -399,7 +399,11 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
   );
 };
 
-/** "Dale: … / Mike: …": the business's side is channel 1, the customer's channel 2. */
+/**
+ * "Dale: … / Mike: …". The transcriber says channel 1 for the side that ran the `<Dial>` and 2 for the phone it
+ * dialed: on a call the team placed that is the team, then the customer; on a call the customer placed, the other
+ * way round. A voicemail is the customer alone.
+ */
 async function wordsOf(
   s: WorkerServices,
   scope: TenantScope,
@@ -409,15 +413,16 @@ async function wordsOf(
   const [names] = await asWorker(s.db, scope, (tx) =>
     rows<{ team: string | null; customer: string | null }>(
       tx,
-      sql`select (select nullif(split_part(trim(full_name), ' ', 1), '') from app.users where id = ${call.placedBy}) as team,
+      sql`select (select nullif(split_part(trim(full_name), ' ', 1), '') from app.users where id = ${call.answeredByUserId ?? call.placedBy}) as team,
             (select nullif(trim(first_name), '') from app.people where id = ${call.personId}) as customer`,
     ),
   );
   const team = names?.team ?? 'Team';
   const customer = names?.customer ?? 'Customer';
+  const customerChannel = call.direction === 'inbound' && !call.isVoicemail ? 1 : 2;
   const lines: { who: string; text: string }[] = [];
   for (const sentence of sentences) {
-    const who = sentence.channel === 2 ? customer : team;
+    const who = sentence.channel === customerChannel ? customer : team;
     const last = lines.at(-1);
     if (last?.who === who) last.text = `${last.text} ${sentence.text}`;
     else lines.push({ who, text: sentence.text });

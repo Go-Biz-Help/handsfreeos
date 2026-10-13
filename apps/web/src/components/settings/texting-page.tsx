@@ -1943,6 +1943,11 @@ function Configured({
           display={n.display}
           initial={n.routing.forwardedCallerId}
         />
+        <RecordingCard
+          workspaceId={workspaceId}
+          phoneNumberId={n.id}
+          initial={n.routing.announceRecording}
+        />
         <VoicemailCard
           routing={calls.routing}
           save={calls.save}
@@ -2011,8 +2016,9 @@ function useRouting(workspaceId: string, number: PhoneNumberInfo) {
     }
     const job = queue.current.then(async () => {
       const next = change(saved.current);
-      // What forwarded phones show is its own choice (CallerIdCard): left out, the number keeps it.
-      const { forwardedCallerId: _own, ...routing } = next;
+      // What forwarded phones show and the recording notice are their own choices (CallerIdCard,
+      // RecordingCard): left out, the number keeps them.
+      const { forwardedCallerId: _own, announceRecording: _notice, ...routing } = next;
       try {
         unwrap(
           await apiBrowser().POST('/v1/commands/phone_number.set_routing', {
@@ -2366,6 +2372,72 @@ function CallerIdCard({
           pick the business number here.
         </span>
       </Callout>
+    </Card>
+  );
+}
+
+/**
+ * Every answered call is recorded and transcribed. The business chooses whether customers hear so: some states
+ * need everyone on a call to agree to a recording.
+ */
+function RecordingCard({
+  workspaceId,
+  phoneNumberId,
+  initial,
+}: {
+  workspaceId: string;
+  phoneNumberId: string;
+  initial: boolean;
+}) {
+  const router = useRouter();
+  const [on, setOn] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  async function choose(next: boolean) {
+    if (next === on || busy) return;
+    setOn(next);
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/phone_number.set_recording_notice', {
+          body: { workspaceId, phoneNumberId, announceRecording: next },
+        }),
+      );
+      toast.success(next ? 'Customers hear that calls are recorded' : 'Recording notice off');
+      router.refresh();
+    } catch (e) {
+      setOn(!next);
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-6" data-testid="call-recording">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Call recording</h2>
+          <p className="mt-1 text-[13px] text-text-2">
+            Every answered call is recorded and turned into words, so you can read it back in the
+            inbox. With the notice on, callers hear “This call may be recorded.” before it rings,
+            and customers you call hear it when they pick up.
+          </p>
+        </div>
+        <Switch
+          checked={on}
+          label="Tell customers calls are recorded"
+          onChange={(next) => void choose(next)}
+        />
+      </div>
+      {on ? null : (
+        <Callout tone="warning" icon={Info} className="mt-3">
+          <span className="text-[13px]">
+            Some states, including California, Florida and Washington, need everyone on a call to
+            agree to a recording. Check with a lawyer before turning the notice off.
+          </span>
+        </Callout>
+      )}
     </Card>
   );
 }

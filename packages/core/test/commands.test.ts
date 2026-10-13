@@ -176,6 +176,7 @@ describe('registry', () => {
       'phone_number.release',
       'phone_number.set_routing',
       'phone_number.set_caller_id',
+      'phone_number.set_recording_notice',
       // M17: several numbers, moving one in, who sees which threads, and a business's own domain.
       'phone_number.set_default',
       'phone_number.set_label',
