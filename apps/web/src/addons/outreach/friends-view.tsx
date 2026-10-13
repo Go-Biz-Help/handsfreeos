@@ -50,6 +50,7 @@ import { AskButton, AskLine, latestAsk } from './asks';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
 import { PersonMenu } from './person-menu';
+import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
 
 type Counts = Friends['counts'];
@@ -360,6 +361,7 @@ export function FriendsView({
                     friend={f}
                     show={show}
                     flip={flipped[f.profileId]}
+                    asks={asks}
                     onSet={(change) => void set(f, change)}
                   />
                 ))}
@@ -506,6 +508,7 @@ function FriendRow({
   friend: f,
   show,
   flip,
+  asks,
   onSet,
 }: {
   workspaceId: string;
@@ -513,6 +516,7 @@ function FriendRow({
   show: FriendView;
   /** A switch flipped and not yet reloaded: shown over what the list says. */
   flip: Flip | undefined;
+  asks: Asks;
   onSet: (change: Flip) => void;
 }) {
   const since = sinceWords(f);
@@ -620,6 +624,17 @@ function FriendRow({
           {f.check.nextStep ? <p className="text-text-2">First step: {f.check.nextStep}</p> : null}
         </div>
       ) : null}
+      {/* Research (decision 46a): the button, Researching…, or the AI's answer where the row doesn't say it. */}
+      <ResearchSlot
+        workspaceId={workspaceId}
+        asks={asks}
+        profileId={f.profileId}
+        name={f.name}
+        check={f.check}
+        neverPitched={f.dontPitch !== null}
+        showResult={show !== 'fits'}
+        badge={f.check?.verdict !== 'good'}
+      />
       {show === 'requests' && f.intro.length ? (
         <p className="mt-1 text-[12.5px] text-text-3">{f.intro.join(' · ')}</p>
       ) : null}

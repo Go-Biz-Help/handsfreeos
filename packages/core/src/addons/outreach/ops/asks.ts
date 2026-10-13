@@ -55,7 +55,9 @@ import { ProfileSaveOutput } from '../saves';
 import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
 import { approvedHelpful } from './helpful';
-import { inWorkspace, once, saveProfile, type Ctx } from './common';
+import { CHECK_AGAIN_DAYS, RESEARCH_WORDS } from '../checks';
+import { inWorkspace, once, pitchable, saveProfile, type Ctx } from './common';
+import { perDayFor } from './checks';
 import { businessToday, dayOf } from './day';
 import { myComputers, workingOf } from './live';
 import { startOfToday, warningOf } from './tidy';
@@ -221,6 +223,48 @@ async function taskOf(
         about: askAbout(ask, { name: g?.name ?? null }),
       };
     }
+    case 'research': {
+      // Only someone who can be checked: never yourself, nor anyone not pitched (decision 46).
+      const [who] = await rows<{
+        name: string;
+        url: string;
+        never: boolean;
+        verdict: string | null;
+      }>(
+        ctx.tx,
+        sql`select p.name, p.url, (p.friendship = 'self' or not ${pitchable('p')}) as never, ch.verdict
+            from addon_outreach.profiles p
+            left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+            where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${ask.profileId}`,
+      );
+      if (!who)
+        throw HfosError.notFound(
+          'That person isn’t kept in Social Outreach any more. Refresh the page.',
+        );
+      if (who.never)
+        throw HfosError.rule(
+          'outreach_research_not_pitched',
+          409,
+          `${who.name} is on Don’t pitch or tagged Friend or family, so they’re never checked. Turn off Don’t pitch on their row first if they could be a customer.`,
+        );
+      if (who.verdict === 'good' || who.verdict === 'maybe' || who.verdict === 'not')
+        throw HfosError.rule(
+          'outreach_research_done',
+          409,
+          `${who.name} is checked already: the AI’s answer is on their row. They’re checked again after ${CHECK_AGAIN_DAYS} days.`,
+        );
+      if (!who.url.startsWith('https://www.facebook.com/'))
+        throw HfosError.rule(
+          'outreach_research_no_profile',
+          409,
+          `There’s no Facebook profile kept for ${who.name}, so there’s nothing to read. Save your friends list again to find it.`,
+        );
+      return {
+        task: { kind: 'research', profileId: ask.profileId, name: who.name },
+        target,
+        about: askAbout(ask, { name: who.name }),
+      };
+    }
     case 'cancel':
     case 'unfriend':
       return {
@@ -236,13 +280,13 @@ async function taskOf(
 export const askMake = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.make',
   description:
-    'The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, or look someone up before drafting. The computer that works for them takes it. Asking again while one like it is open answers that one.',
+    'The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.',
   risk: 1,
   input: AskMakeInput,
   output: AskMakeOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.ask.made'],
+  emits: ['outreach.ask.made', 'outreach.ask.ended'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -304,6 +348,38 @@ export const askMake = defineAddonCommand(outreachAddon, {
           409,
           `Your computer has ${ASK_LOOKUPS_MOST} people to look up already. Wait for those drafts, or press Draft from what HandsFreeOS knows.`,
         );
+    }
+
+    // Research counts toward the day's checks (decision 46a): with none left, it ends at once, and they go first in
+    // tomorrow's checks (`outreach.checks.next` finds this ask).
+    if (task.kind === 'research') {
+      const { today, perDay } = await perDayFor(ctx, me, now);
+      if (today >= perDay) {
+        const [row] = await ctx.tx
+          .insert(asks)
+          .values({
+            workspaceId: ws,
+            userId: me,
+            kind: ask.kind,
+            target,
+            task,
+            about,
+            via: viaOf(ctx.meta),
+            askedAt: at,
+            state: 'done',
+            line: RESEARCH_WORDS.tomorrow(task.name, perDay),
+            result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },
+            endedAt: at,
+          })
+          .returning();
+        await ctx.emit({
+          type: 'outreach.ask.ended',
+          entityType: 'outreach_ask',
+          entityId: row!.id,
+          payload: { userId: me, kind: ask.kind, state: 'done' },
+        });
+        return { ask: await shownOne(ctx, row!, now), fresh: true };
+      }
     }
 
     const [row] = await ctx.tx

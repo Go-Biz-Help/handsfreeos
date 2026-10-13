@@ -64,7 +64,7 @@ import { answer, answerWith, Refused, savingTo, type Place } from '../hfos/sessi
 import { POPUP_ID, popUp, waitingSoon } from '../hfos/waiting';
 import { WARNED_KEY, warnedNow } from '../hfos/warned';
 import { chatMemory, readChats } from '../jobs/chats';
-import { checkFriends } from '../jobs/checks';
+import { checkFriends, research } from '../jobs/checks';
 import { getFile } from '../jobs/file';
 import { bringIn } from '../jobs/file-in';
 import { saveGroups } from '../jobs/groups';
@@ -303,6 +303,8 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
       return tidy(job, 'unfriend', task.profileIds);
     case 'lookup':
       return lookupAndDraft(job, task);
+    case 'research':
+      return research(job, task);
     default:
       // A kind HandsFreeOS knows and this build doesn't: it ends saying so, never left hanging at its start.
       return {

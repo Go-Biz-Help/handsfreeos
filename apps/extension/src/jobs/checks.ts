@@ -7,7 +7,13 @@
  * to read with the person's chat with them. Nothing is pressed on Facebook. It goes at a person's pace and stops for
  * the day on any Facebook warning.
  */
-import { CHECK_PACE_SECONDS, CHECKS_WORDS } from '@hfos/core/addons/outreach/checks';
+import type { AskResult } from '@hfos/core/addons/outreach/asks';
+import {
+  CHECK_PACE_SECONDS,
+  CHECKS_WORDS,
+  RESEARCH_WORDS,
+} from '@hfos/core/addons/outreach/checks';
+import type { ChecksNext } from '../hfos/messages';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { samePerson } from '../facebook/auto';
 import { line, linesOf, POSTS_READ } from '../facebook/lookup';
@@ -70,12 +76,44 @@ function summary(sent: number, missing: number): string {
   return parts.join(' ');
 }
 
-/** Checks the next of the person's friends and chats, up to `most` and today's room. */
-export async function checkFriends(job: Job, most: number): Promise<JobEnd> {
-  job.progress('Asking HandsFreeOS who to check…');
+/**
+ * Research on a person's row in HandsFreeOS (decision 46a): that one person, checked as above, within today's checks.
+ * With none left, they go first tomorrow; HandsFreeOS says so.
+ */
+export async function research(
+  job: Job,
+  who: { readonly profileId: string; readonly name: string },
+): Promise<JobEnd & { readonly result?: AskResult }> {
+  job.progress(`Asking HandsFreeOS about ${who.name}…`);
   const next = valueOf(
-    await job.hfos({ type: 'hfos-checks-next', input: { workspaceId: job.businessId, most } }),
+    await job.hfos({
+      type: 'hfos-checks-next',
+      input: { workspaceId: job.businessId, most: 1, profileId: who.profileId },
+    }),
   );
+  if (!next.people.length)
+    return next.today >= next.perDay
+      ? {
+          line: RESEARCH_WORDS.tomorrow(who.name, next.perDay),
+          warned: false,
+          result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },
+        }
+      : { line: RESEARCH_WORDS.gone(who.name), warned: false, failed: true };
+  return checkFriends(job, 1, next);
+}
+
+/** Checks the next of the person's friends and chats, up to `most` and today's room. */
+export async function checkFriends(
+  job: Job,
+  most: number,
+  listed: ChecksNext | null = null,
+): Promise<JobEnd> {
+  job.progress('Asking HandsFreeOS who to check…');
+  const next =
+    listed ??
+    valueOf(
+      await job.hfos({ type: 'hfos-checks-next', input: { workspaceId: job.businessId, most } }),
+    );
   if (!next.people.length)
     return {
       line:

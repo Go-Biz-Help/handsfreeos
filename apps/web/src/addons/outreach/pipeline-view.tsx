@@ -27,6 +27,7 @@ import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useTransition } from 'react';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -37,7 +38,8 @@ import { outreachHref } from './address';
 import { BOARD_STAGES, type Board } from './board';
 import { Pager, SearchBox } from './friends-view';
 import { PersonMenu } from './person-menu';
-import type { Pipeline, PipelinePerson } from './types';
+import { ResearchSlot } from './research';
+import type { Asks, Pipeline, PipelinePerson } from './types';
 import { useAct } from './use-act';
 
 /** Each stage's badge colour. */
@@ -52,6 +54,10 @@ export const STAGE_TONE: Record<Stage, BadgeVariant> = {
   lost: 'danger',
 };
 
+/** The AI's answer for Research's slot: a fit's why is the row's already. */
+const researchCheck = (p: PipelinePerson) =>
+  p.check && { ...p.check, why: p.check.verdict === 'not' ? p.check.why : [] };
+
 /** How many people a column shows before "See all". */
 const COLUMN_MOST = 8;
 
@@ -61,9 +67,12 @@ export function PipelineView({
   board = null,
   show,
   search,
+  asks = null,
 }: {
   workspaceId: string;
   pipeline: Pipeline;
+  /** What the person asked their computer here: Research's asks. Null when they couldn't be had. */
+  asks?: Asks | null;
   /** Everyone in play by stage: shown in place of the list. */
   board?: Board | null;
   show: StageView;
@@ -71,6 +80,8 @@ export function PipelineView({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // A Research ask's progress and end.
+  useLiveRefresh(['outreach_ask'], 800);
   const asked = useRef({ show, search });
   const go = (to: { show?: StageView; search?: string; page?: number }) => {
     asked.current = {
@@ -131,6 +142,7 @@ export function PipelineView({
             workspaceId={workspaceId}
             board={board}
             counts={pipeline.counts}
+            asks={asks}
             busy={busy !== null}
             onMark={(p, m) => void mark(p, m)}
           />
@@ -186,6 +198,14 @@ export function PipelineView({
                       />
                     </span>
                   </div>
+                  <ResearchSlot
+                    workspaceId={workspaceId}
+                    asks={asks}
+                    profileId={p.profileId}
+                    name={p.name}
+                    check={researchCheck(p)}
+                    neverPitched={false}
+                  />
                   {p.nextStep ? (
                     <p className="mt-1 text-[12.5px] text-text-2">
                       {W.nextStepLabel}: {p.nextStep}
@@ -225,12 +245,14 @@ function BoardView({
   workspaceId,
   board,
   counts,
+  asks,
   busy,
   onMark,
 }: {
   workspaceId: string;
   board: Board;
   counts: Pipeline['counts'];
+  asks: Asks | null;
   busy: boolean;
   onMark: (p: PipelinePerson, m: StageMark) => void;
 }) {
@@ -272,6 +294,7 @@ function BoardView({
                     key={p.profileId}
                     workspaceId={workspaceId}
                     person={p}
+                    asks={asks}
                     busy={busy}
                     onMark={onMark}
                   />
@@ -301,11 +324,13 @@ function BoardView({
 function BoardCard({
   workspaceId,
   person: p,
+  asks,
   busy,
   onMark,
 }: {
   workspaceId: string;
   person: PipelinePerson;
+  asks: Asks | null;
   busy: boolean;
   onMark: (p: PipelinePerson, m: StageMark) => void;
 }) {
@@ -348,6 +373,14 @@ function BoardCard({
         </p>
       ) : null}
       {p.lastAt ? <p className="text-[12px] text-text-3">Latest {relativeTime(p.lastAt)}</p> : null}
+      <ResearchSlot
+        workspaceId={workspaceId}
+        asks={asks}
+        profileId={p.profileId}
+        name={p.name}
+        check={researchCheck(p)}
+        neverPitched={false}
+      />
     </article>
   );
 }
