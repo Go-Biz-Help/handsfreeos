@@ -9,7 +9,7 @@ alter table addon_outreach.profiles
   add column country_through boolean not null default false,
   add column country_through_by uuid references app.users (id) on delete set null,
   add column country_through_at timestamptz,
-  add constraint profiles_country_how_check
+  add constraint profiles_country_known_check
     check ((country_how is null) = (country_at is null) and (country is null or country_how in ('seen', 'guessed')));
 
 -- The Skipped for country list and the queries' filter read a business's people by country.
