@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 to 8 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 9 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -54,6 +54,10 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   (`ServiceOverrides`), set under Services & lengths. `locationFor` takes the service's choice over the Online
 >   place's, and the booking page's "recorded" notice follows the chosen service. No migration: it lives in the
 >   calendar's settings.
+> - **Step 9, the phone app.** The appointment screen shows the video call (Join, or why there's no link yet)
+>   and, for a recorded call, the AI's summary, its suggestions (Add task or Send email, and Dismiss; a task's
+>   title can be edited, an email's wording on the web) and what was said. Read from the API when online; nothing
+>   new is synced, so `sync-config.yaml` is unchanged.
 
 ---
 
