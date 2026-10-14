@@ -7,7 +7,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { Ban, CalendarCheck, Ellipsis, UserPlus, UserRound } from '@/components/icons';
+import { Ban, CalendarCheck, Ellipsis, UserPlus, UserRound, UserX } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
@@ -21,7 +21,7 @@ import { NeedsSignal, Note } from './kit';
  * Someone kept in Social Outreach as a profile, on the phone's Today (decision 44), as the web's person menu
  * (apps/web/src/addons/outreach/person-menu.tsx): **Add to Contacts** (customers with the same name offered first,
  * **It’s them** or **Add as new**; `outreach.profile.contact`), or **In Contacts** once they are; **Demo booked**
- * (`outreach.demo.mark`); and **Don’t pitch** (`outreach.friend.set`). Each needs signal: with none, the sheet says so.
+ * (`outreach.demo.mark`); **Don’t pitch** and **Never contact** (`outreach.friend.set`). Each needs signal: with none, the sheet says so.
  * The words are core's (`OUTREACH_WORDS.person`), the web's too.
  */
 
@@ -128,6 +128,12 @@ export function PersonMenu({
             return P.dontPitchDone(who.name);
           })
         }
+        onNeverContact={() =>
+          void run(async () => {
+            await change('outreach.friend.set', { workspaceId, profileId, neverContact: true });
+            return P.neverContactDone(who.name);
+          })
+        }
       />
     </>
   );
@@ -147,6 +153,7 @@ export function PersonMenuSheet({
   onNew,
   onDemo,
   onDontPitch,
+  onNeverContact,
 }: {
   open: boolean;
   who: MenuPerson;
@@ -161,6 +168,7 @@ export function PersonMenuSheet({
   onNew: () => void;
   onDemo: (booked: boolean) => void;
   onDontPitch: () => void;
+  onNeverContact: () => void;
 }) {
   if (same)
     return (
@@ -244,6 +252,15 @@ export function PersonMenuSheet({
           testID="person-dont-pitch"
         >
           {P.dontPitch}
+        </Button>
+        <Button
+          variant="dangerOutline"
+          icon={UserX}
+          disabled={busy || !online}
+          onPress={onNeverContact}
+          testID="person-never-contact"
+        >
+          {P.neverContact}
         </Button>
       </View>
     </Sheet>

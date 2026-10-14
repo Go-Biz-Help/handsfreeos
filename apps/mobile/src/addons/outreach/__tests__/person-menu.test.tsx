@@ -11,7 +11,7 @@ import { id, WS } from './mocks';
 
 /**
  * The person menu on the phone's Today (decision 44), as the web's: Add to Contacts, offering the customers with the
- * same name first; In Contacts once they are; Demo booked; and Don't pitch. Each needs signal.
+ * same name first; In Contacts once they are; Demo booked; Don't pitch and Never contact. Each needs signal.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
@@ -119,7 +119,7 @@ describe('The person menu on the phone', () => {
     expect(screen.queryByText('Is Dana Reyes one of these?')).toBeNull();
   });
 
-  it('marks a demo booked, and puts them on Don’t pitch', async () => {
+  it('marks a demo booked, and puts them on Don’t pitch and Never contact', async () => {
     await open();
     await fireEvent.press(screen.getByTestId('person-demo-mark'));
     await waitFor(() =>
@@ -142,6 +142,18 @@ describe('The person menu on the phone', () => {
     expect(toast.show).toHaveBeenCalledWith(
       'Dana Reyes is on Don’t pitch. Nobody here sends them outreach.',
     );
+    await fireEvent.press(screen.getByTestId('person-menu'));
+    await fireEvent.press(screen.getByTestId('person-never-contact'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.friend.set', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        neverContact: true,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      expect.stringMatching(/^Dana Reyes is on Never contact\./),
+    );
   });
 
   it('opens them in Contacts once they’re there, and takes a demo back', async () => {
@@ -157,6 +169,7 @@ describe('The person menu on the phone', () => {
     expect(screen.getByText(/need signal\. Try again when you’re back online\.$/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('person-add-contact'));
     await fireEvent.press(screen.getByTestId('person-dont-pitch'));
+    await fireEvent.press(screen.getByTestId('person-never-contact'));
     expect(api.POST).not.toHaveBeenCalled();
     expect(change).not.toHaveBeenCalled();
   });

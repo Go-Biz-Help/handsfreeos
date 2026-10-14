@@ -34,7 +34,7 @@ import {
 import { outreachAddon } from '../manifest';
 import { PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
-import { friends, imports, playbooks, profiles } from '../tables';
+import { friends, imports, playbooks, profiles, sends } from '../tables';
 import {
   countryLetsSql,
   countryRuleOf,
@@ -43,6 +43,7 @@ import {
   inWorkspace,
   keepFriendStates,
   keptProfile,
+  neverContactOf,
   once,
   pitchable,
   type Profile,
@@ -272,13 +273,13 @@ export async function profileToSet(
 export const friendSet = defineAddonCommand(outreachAddon, {
   name: 'outreach.friend.set',
   description:
-    'Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or take them off it.',
+    'Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.',
   risk: 1,
   input: FriendSetInput,
   output: FriendSetOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.friend.marked'],
+  emits: ['outreach.friend.marked', 'outreach.send.skipped'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -309,6 +310,51 @@ export const friendSet = defineAddonCommand(outreachAddon, {
           .where(eq(profiles.id, profile.id))
           .returning()) as [Profile];
       }
+      if (input.neverContact !== undefined && input.neverContact !== profile.neverContact) {
+        // As with Don't pitch: taking someone off is for whoever put them on, or an owner or admin.
+        if (
+          !input.neverContact &&
+          profile.neverContactBy &&
+          profile.neverContactBy !== me &&
+          !scopeCan(ctx.scope, 'outreach.manage' as Permission)
+        ) {
+          const was = await neverContactOf(ctx, profile);
+          throw HfosError.forbidden(
+            `${was?.by ?? 'A teammate'} put ${profile.name} on the Never contact list, so only they or an owner or admin can take them off.`,
+            'outreach_never_contact_not_yours',
+          );
+        }
+        [profile] = (await ctx.tx
+          .update(profiles)
+          .set(
+            input.neverContact
+              ? { neverContact: true, neverContactBy: me, neverContactAt: at }
+              : { neverContact: false, neverContactBy: null, neverContactAt: null },
+          )
+          .where(eq(profiles.id, profile.id))
+          .returning()) as [Profile];
+        // Messages drafted for them and not sent yet, anyone's, never go now.
+        if (input.neverContact) {
+          const skipped = await ctx.tx
+            .update(sends)
+            .set({ state: 'skipped', doneAt: at, updatedAt: at })
+            .where(
+              and(
+                eq(sends.workspaceId, ws),
+                eq(sends.profileId, profile.id),
+                inArray(sends.state, ['waiting', 'approved']),
+              ),
+            )
+            .returning({ kind: sends.kind });
+          for (const s of skipped)
+            await ctx.emit({
+              type: 'outreach.send.skipped',
+              entityType: 'outreach_profile',
+              entityId: profile.id,
+              payload: { kind: s.kind },
+            });
+        }
+      }
       const [friend] = await ctx.tx
         .select()
         .from(friends)
@@ -336,13 +382,19 @@ export const friendSet = defineAddonCommand(outreachAddon, {
           });
       }
       const dontPitch = await dontPitchOf(ctx, profile);
+      const neverContact = await neverContactOf(ctx, profile);
       await ctx.emit({
         type: 'outreach.friend.marked',
         entityType: 'outreach_profile',
         entityId: profile.id,
-        payload: { platform: profile.platform, keep, dontPitch: dontPitch !== null },
+        payload: {
+          platform: profile.platform,
+          keep,
+          dontPitch: dontPitch !== null,
+          neverContact: neverContact !== null,
+        },
       });
-      return { profileId: profile.id, keep, dontPitch };
+      return { profileId: profile.id, keep, dontPitch, neverContact };
     });
   },
 });
@@ -359,6 +411,9 @@ type Listed = {
   readonly dont_pitch_by: string | null;
   readonly dont_pitch_at: Date | string | null;
   readonly tagged: boolean;
+  readonly never_contact: boolean;
+  readonly never_contact_by: string | null;
+  readonly never_contact_at: Date | string | null;
   /** Kept twice, and the twin is never pitched (`neverTwins`). */
   readonly twin: boolean;
   readonly mutual_friends: number | null;
@@ -378,11 +433,12 @@ type Listed = {
 const VIEW_WHERE: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
   friends: sql`l.state = 'friends'`,
   // Friends and people chatted with whom the AI found a fit, never anyone not pitched, nor their twin.
-  fits: sql`l.verdict in ('good', 'maybe') and not (l.dont_pitch or l.tagged or l.twin)`,
+  fits: sql`l.verdict in ('good', 'maybe') and not (l.dont_pitch or l.tagged or l.never_contact or l.twin)`,
   requests: sql`l.state = 'request_received'`,
   sent: sql`l.state = 'request_sent'`,
   keep: sql`l.keep`,
   dont_pitch: sql`(l.dont_pitch or l.tagged)`,
+  never_contact: sql`l.never_contact`,
 };
 
 /**
@@ -396,6 +452,7 @@ const VIEW_ORDER: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
   sent: sql`l.since, l.profile_id`,
   keep: sql`lower(l.name), l.profile_id`,
   dont_pitch: sql`l.dont_pitch_at desc nulls last, lower(l.name), l.profile_id`,
+  never_contact: sql`l.never_contact_at desc nulls last, lower(l.name), l.profile_id`,
 };
 
 /** The most requests put in order of fit at once: more than Facebook lets anyone keep waiting. */
@@ -487,7 +544,7 @@ async function latestDownload(ctx: QueryContext, me: string) {
 export const friendsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends',
   description:
-    'The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.',
+    'The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch and Never contact lists.',
   input: FriendsInput,
   output: FriendsOutput,
   permission: 'outreach.use',
@@ -517,17 +574,20 @@ export const friendsList = defineAddonQuery(outreachAddon, {
             count(*) filter (where keep)::int as keep
           from addon_outreach.friends where workspace_id = ${ws} and user_id = ${me}`,
     );
-    const [never] = await rows<{ dont_pitch: number }>(
+    const [never] = await rows<{ dont_pitch: number; never_contact: number }>(
       ctx.tx,
-      sql`select count(*)::int as dont_pitch from addon_outreach.profiles p
-          where p.workspace_id = ${ws} and (p.dont_pitch or ${tagged})`,
+      sql`select count(*) filter (where p.dont_pitch or ${tagged})::int as dont_pitch,
+            count(*) filter (where p.never_contact)::int as never_contact
+          from addon_outreach.profiles p
+          where p.workspace_id = ${ws} and (p.dont_pitch or p.never_contact or ${tagged})`,
     );
 
     const profilesHere = sql`select p.id as profile_id, p.person_id,
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         f.state, f.since, f.keep, p.dont_pitch,
         coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
-        ${tagged} as tagged, ${hasNeverTwin('p')} as twin, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
+        ${tagged} as tagged, p.never_contact, p.never_contact_at,
+        coalesce(nullif(nu.full_name, ''), nu.email::text) as never_contact_by, ${hasNeverTwin('p')} as twin, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url,
         ch.verdict, cpb.name as check_playbook, ch.why as check_why, ch.about as check_about,
         ch.next_step as check_next_step, ch.checked_at, p.country, p.country_through
       from addon_outreach.profiles p
@@ -536,6 +596,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
       left join app.people pp on pp.id = p.person_id
       left join app.users u on u.id = p.dont_pitch_by
+      left join app.users nu on nu.id = p.never_contact_by
       left join addon_outreach.groups g on g.id = p.group_id
       where p.workspace_id = ${ws}`;
     const shown = sql`${VIEW_WHERE[input.view]}
@@ -581,6 +642,9 @@ export const friendsList = defineAddonQuery(outreachAddon, {
                 tagged: l.tagged,
               }
             : null,
+        neverContact: l.never_contact
+          ? { by: l.never_contact_by, at: isoOrNull(l.never_contact_at) }
+          : null,
         mutualFriends: l.mutual_friends,
         intro: l.intro.slice(0, 3),
         group: l.group_url ? { name: l.group_name, url: l.group_url } : null,
@@ -631,6 +695,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         sent: mine?.sent ?? 0,
         keep: mine?.keep ?? 0,
         dontPitch: never?.dont_pitch ?? 0,
+        neverContact: never?.never_contact ?? 0,
       },
       cap: FRIENDS_CAP,
       download: await latestDownload(ctx, me),

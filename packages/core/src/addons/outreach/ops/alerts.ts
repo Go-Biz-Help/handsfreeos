@@ -12,7 +12,7 @@ import { defineAddonCommand } from '../../server';
 import { RepliesNoteInput, RepliesNoteOutput } from '../alerts';
 import { outreachAddon } from '../manifest';
 import { replies } from '../tables';
-import { inWorkspace, profilesFor } from './common';
+import { contactable, inWorkspace, profilesFor } from './common';
 
 /** How long after the person's message a chat still showing theirs last isn't counted as an answer. */
 const CATCH_UP_MS = 30_000;
@@ -51,7 +51,7 @@ export const repliesNote = defineAddonCommand(outreachAddon, {
         sql`select t.profile_id, max(t.at) as last_at, p.name
             from addon_outreach.touches t join addon_outreach.profiles p on p.id = t.profile_id
             where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'message'
-              and (${byProfile} or ${byThread})
+              and (${byProfile} or ${byThread}) and ${contactable('p')}
             group by t.profile_id, p.name
             order by max(t.at) desc limit 1`,
       );

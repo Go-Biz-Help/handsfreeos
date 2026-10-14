@@ -1,13 +1,14 @@
 'use client';
 /**
  * Someone kept in Social Outreach as a profile, wherever the app shows them (docs/outreach.md, decision 43): on Today,
- * the Friends tab, the Chats tab and Waiting for you. Its menu has **Add to Contacts**, **Demo booked** and **Don't
- * pitch**, which the extension's panel had for any profile. Adding to Contacts looks for customers with the same name
+ * the Friends tab, the Chats tab and Waiting for you. Its menu has **Add to Contacts**, **Demo booked**, **Don't
+ * pitch**, which the extension's panel had for any profile, and **Never contact**, which goes further: no reply
+ * either, and their friend requests are never confirmed. Adding to Contacts looks for customers with the same name
  * first (./same-name.tsx), so the person says "It's them" rather than making a second; with none it adds them at once
  * (`outreach.profile.contact`, Facebook as the source).
  */
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
-import { Ban, CalendarCheck, MoreHorizontal, UserPlus, UserRound } from 'lucide-react';
+import { Ban, CalendarCheck, MoreHorizontal, UserPlus, UserRound, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -48,6 +49,7 @@ export function PersonMenu({
   workspaceId,
   who,
   dontPitch = true,
+  neverContact = true,
   moves = [],
   disabled = false,
 }: {
@@ -55,6 +57,8 @@ export function PersonMenu({
   who: MenuPerson;
   /** Offer Don't pitch: left off where the row has its own switch for it. */
   dontPitch?: boolean;
+  /** Offer Never contact: left off where the row has its own switch for it. */
+  neverContact?: boolean;
   /** Stages to move them to, first in the menu (the board's cards and the pipeline's rows). */
   moves?: readonly MenuMove[];
   disabled?: boolean;
@@ -114,6 +118,17 @@ export function PersonMenu({
         ),
       P.dontPitchDone(who.name),
     );
+  const noContact = () =>
+    void act(
+      'never-contact',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.friend.set', {
+            body: { workspaceId, profileId, neverContact: true },
+          }),
+        ),
+      P.neverContactDone(who.name),
+    );
   return (
     <>
       <DropdownMenu>
@@ -171,6 +186,12 @@ export function PersonMenu({
             <DropdownMenuItem danger onSelect={noPitch} data-testid="person-dont-pitch">
               <Ban className="h-4 w-4" strokeWidth={1.5} />
               {P.dontPitch}
+            </DropdownMenuItem>
+          ) : null}
+          {neverContact ? (
+            <DropdownMenuItem danger onSelect={noContact} data-testid="person-never-contact">
+              <UserX className="h-4 w-4" strokeWidth={1.5} />
+              {P.neverContact}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>

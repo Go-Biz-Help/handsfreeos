@@ -260,6 +260,22 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   `countryLets`). The Friends tab's **Skipped for country** (`outreach.countries.skipped`) lists them, the latest
   worked out first, with their country and seen or guessed, and **Unskip** (`outreach.country.unskip`) lets one
   through from then on whatever the setting says.
+- **Never contact, and people only chatted with** (the owner's ask of 14 Oct 2026, `contactable`, `friendOf` and
+  `chatPitchSql` in `ops/common.ts`, `neverContactOf`; `20261027003200_outreach_never_contact.sql`): **Never contact**
+  is a list of the business's, beside Don't pitch and stronger: nobody here sends them a friend request, a like, a
+  comment or a message, not even a reply. It's a switch on each Friends tab row and **Never contact** in the person
+  menu (the web's and the phone's), set with `outreach.friend.set`'s `neverContact`, and the Friends tab lists them
+  (`?show=never_contact`) with who added each and when. Everything Don't pitch leaves out leaves them out too (they
+  aren't `pitchable`), and beyond that their friend requests are never shown under Friend requests to decide (so
+  never confirmed), a reply of theirs pushes nobody (`outreach.replies.note`), drafting a message for them is refused
+  (`outreach.send.queue`, `outreach_never_contact`) and any waiting or OK'd is skipped when they go on it, a step
+  noted to them isn't counted (`outreach_never_contact`), Research is refused, and a chat read never puts them in
+  Contacts. Like Don't pitch it covers a profile kept twice under the same name, and only whoever added someone, or an
+  owner or admin, takes them off (`outreach_never_contact_not_yours`). **Pitch people you've chatted with who aren't
+  your friends** (Business settings, on the web and the phone; `pitchChatsNotFriends`, on to start, as it always
+  was): off, Today's follow-ups, pitches and reconnects go only to the person's friends on Facebook, a friend kept
+  twice under the same name included, and the checks for good fits leave out the people they've only chatted with. A
+  reply they're owed still shows, and so does a pitch to someone the person marked **Ready to pitch** themselves.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
   warn them that day, **Draft a message** or **Draft a comment** on Today asks it (a `lookup` ask): it opens the
   person's profile in a window of its own, reads their intro and latest two posts, follows the link in their lines to
@@ -549,7 +565,7 @@ Operations, all through the kernel:
 | `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins                                                                                                                                                                                                                                  |
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                                                                                                                                                                                                                                        |
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                                                                                                                                                                                                                                               |
-| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                                                                                                                                                                                                                                                 |
+| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own), or Don't pitch or Never contact (the business's), for someone; Never contact skips the messages waiting for them                                                                                                                                                                                           |
 | `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit, the good fits with the AI's check; and how far checking has come                                                                                                                                                                         |
 | `outreach.checks.next`                                | `outreach.use`    | Who the person's computer checks next for a good fit, in order, no more than today has room for                                                                                                                                                                                                                                     |
 | `outreach.check.look`                                 | `outreach.use`    | What someone's profile and business page said as the computer read it, for the AI; or that Facebook showed someone else                                                                                                                                                                                                             |
@@ -1242,6 +1258,14 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
   `ops/common.ts`, the name compared with one space between words and no capitals). A stranger who shares the name is
   left alone too: the safe side. Every list that pitches goes through `pitchable`; the Don't pitch list itself shows
   only who was put on it.
+- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, or kept under its name on its
+  network, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
+  requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
+  people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
+  through.
+- **Only friends, when the business says so** (`pitchChatsNotFriends`, `chatPitchSql`): with it off, a follow-up, a
+  pitch or a reconnect needs the person to be friends with them on Facebook (`friendOf`, by the profile or one kept
+  under its name), never a reply owed and never the person's own Ready to pitch mark.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.

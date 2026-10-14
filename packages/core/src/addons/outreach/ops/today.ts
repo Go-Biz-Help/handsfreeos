@@ -39,10 +39,12 @@ import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
 import {
   chatKey,
+  chatPitchSql,
   countryLetsSql,
   countryRuleOf,
   inPlay,
   inWorkspace,
+  outreachSettingsOf,
   pitchable,
   recentOf,
   type Ctx,
@@ -167,8 +169,12 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
+    const business = await outreachSettingsOf(ctx);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
-    const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+    const lets = countryLetsSql(business.countries, 'p');
+    // Who a pitch, follow-up or reconnect may go to: with the business's setting off, only the person's friends on
+    // Facebook, never someone they've only chatted with. A reply owed still shows.
+    const chatPitch = chatPitchSql(business, me, 'p');
     const pace = {
       messageAfterDays: Math.min(
         ...playbooks.map((p) => p.details.pace.messageAfterDays),
@@ -531,6 +537,7 @@ export const today = defineAddonQuery(outreachAddon, {
             ) c on true
             where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')} and ${lets}
               and (c.pitch = 'ready' or s.mark = 'ready')
+              and ((s.mark = 'ready' and s.marked_by = 'person') or ${chatPitch})
               and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
               and not exists (select 1 from addon_outreach.demos d
                 where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null)
@@ -577,6 +584,7 @@ export const today = defineAddonQuery(outreachAddon, {
           where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
             and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}
               and (not c.last_from_me or ${lets})))
+            and (not c.last_from_me or ${business.pitchChatsNotFriends ? sql`true` : sql`(p.id is not null and ${chatPitch})`})
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.followUpAfterDays)}::timestamptz)
               or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz))
@@ -679,6 +687,7 @@ export const today = defineAddonQuery(outreachAddon, {
             ) c on true
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good'
               and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and ${chatPitch}
               and (c.last_at is null or c.last_at < ${quiet}::timestamptz)
               and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
                 and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)

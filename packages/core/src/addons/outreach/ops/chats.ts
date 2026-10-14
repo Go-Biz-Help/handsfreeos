@@ -122,7 +122,12 @@ export const chatRead = defineAddonCommand(outreachAddon, {
 
     let personId = profile?.personId ?? chat.personId ?? null;
     let addedPerson = false;
-    const takes = profile?.dontPitch ? setting === 'everyone' : goesInContacts(setting, read);
+    // Never contact keeps them out of Contacts whatever the setting; Don't pitch only lets everyone in.
+    const takes = profile?.neverContact
+      ? false
+      : profile?.dontPitch
+        ? setting === 'everyone'
+        : goesInContacts(setting, read);
     if (!personId && takes) {
       const { firstName, lastName } = splitName(chat.name);
       personId = (

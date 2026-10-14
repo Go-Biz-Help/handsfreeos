@@ -38,7 +38,7 @@ import {
 } from '../waiting';
 import { asksNeedingYou } from './ask-rows';
 import { automationOf } from './automation';
-import { inWorkspace, type Ctx } from './common';
+import { contactable, inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed } from './needs';
 import { listed, mine } from './sends';
@@ -105,7 +105,8 @@ async function sendAndNeedKinds(
 /**
  * Each person's friend requests to decide, the newest first: those they got in the last two weeks, not set aside since
  * they asked, that don't fit a playbook (owner answer 13a), or that fit but aren't Today's to confirm because no
- * playbook is in use or the person is on Don't pitch; with why. Good fits Today leaves for a later day stay off.
+ * playbook is in use or the person is on Don't pitch; with why. Good fits Today leaves for a later day stay off, and
+ * so does anyone on Never contact, whose requests are never confirmed.
  */
 export async function requestsToDecide(
   ctx: Ctx,
@@ -127,7 +128,7 @@ export async function requestsToDecide(
           join addon_outreach.profiles p on p.id = f.profile_id
           left join addon_outreach.groups g on g.id = p.group_id
           where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = any (${ids(userIds)}::uuid[])
-            and f.state = 'request_received'
+            and f.state = 'request_received' and ${contactable('p')}
             and f.since >= ${new Date(now - REQUEST_SHOWN_DAYS * DAY).toISOString()}::timestamptz
             and not (f.set_aside_at is not null and f.set_aside_at >= f.since)
         ) r where nth <= ${REQUESTS_MOST}
