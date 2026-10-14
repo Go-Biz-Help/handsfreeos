@@ -5,7 +5,8 @@
  *   Waiting for you tab's address that pushes and links still use, opens it too; `?view=live` is the detail of what
  *   their computer is doing, under the same tab.
  * - **People**: everyone reached by where they stand (`?view=pipeline`, `?show=ready`… for one stage, else the board),
- *   their friends (`?view=friends`, `?show=fits`, `requests`, `sent`, `keep` or `dont_pitch`) and their chats
+ *   their friends (`?view=friends`, `?show=fits`, `requests`, `sent`, `keep`, `dont_pitch` or
+ *   `never_contact`) and their chats
  *   (`?view=chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`).
  * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these).
  * - **Results** (`?view=results`, and the old `?view=activity`): the stretch of days (`?period=today`, `week` or

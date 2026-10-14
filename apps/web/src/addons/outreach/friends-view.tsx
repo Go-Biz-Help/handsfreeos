@@ -4,7 +4,8 @@
  * people, as the browser extension saved and noted it (apps/extension/README.md). Their friends against Facebook's
  * cap, the good fits the AI found among their friends and chats (decision 46, **Check my friends**), the friend
  * requests they've got in order of how each fits the playbooks in use, the requests they sent that nobody has
- * answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list.
+ * answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch and Never contact
+ * lists.
  * Which, a name searched for and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
  * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in from
  * the side (./download-card.tsx), adds since when they've been friends and the latest message.
@@ -32,6 +33,7 @@ import {
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -58,6 +60,7 @@ import { useAct } from './use-act';
 
 type Counts = Friends['counts'];
 type DontPitch = NonNullable<Friend['dontPitch']>;
+type NeverContact = NonNullable<Friend['neverContact']>;
 
 const COUNTED: Record<FriendView, keyof Counts> = {
   friends: 'friends',
@@ -66,6 +69,7 @@ const COUNTED: Record<FriendView, keyof Counts> = {
   sent: 'sent',
   keep: 'keep',
   dont_pitch: 'dontPitch',
+  never_contact: 'neverContact',
 };
 
 /** The order each list is in. */
@@ -76,6 +80,7 @@ const ORDER: Record<FriendView, string> = {
   sent: 'The oldest first',
   keep: 'By name',
   dont_pitch: 'The latest added first',
+  never_contact: 'The latest added first',
 };
 
 const EMPTY: Record<FriendView, { readonly title: string; readonly body: string }> = {
@@ -102,6 +107,10 @@ const EMPTY: Record<FriendView, { readonly title: string; readonly body: string 
   dont_pitch: {
     title: 'Nobody on the Don’t pitch list',
     body: `Turn on Don’t pitch for anyone nobody here should pitch, like family and close friends. Customers tagged ${DONT_PITCH_TAG} in Contacts count too.`,
+  },
+  never_contact: {
+    title: 'Nobody on the Never contact list',
+    body: 'Turn on Never contact for anyone nobody here should deal with at all: no friend request, like, comment or message, not even a reply, and their friend requests are never confirmed.',
   },
 };
 
@@ -169,10 +178,18 @@ function dontPitchWords(d: DontPitch): string {
   return `Tagged ${DONT_PITCH_TAG} in Contacts. Take the tag off there to pitch them.`;
 }
 
-/** Keep or Don't pitch as switched on a row. */
-type Flip = { keep?: boolean; dontPitch?: boolean };
+/** Who put someone on Never contact, and when. */
+function neverContactWords(n: NeverContact): string {
+  return `On Never contact${n.by ? `, added by ${n.by}` : ''}${n.at ? ` · ${relativeTime(n.at)}` : ''}. Nobody here reaches them at all.`;
+}
+
+/** Keep, Don't pitch or Never contact as switched on a row. */
+type Flip = { keep?: boolean; dontPitch?: boolean; neverContact?: boolean };
+const FLIPS = ['keep', 'dontPitch', 'neverContact'] as const;
 
 function doneWords(name: string, change: Flip): string {
+  if (change.neverContact === true) return OUTREACH_WORDS.person.neverContactDone(name);
+  if (change.neverContact === false) return OUTREACH_WORDS.person.neverContactOff(name);
   if (change.dontPitch === true) return `${name} is on the Don’t pitch list.`;
   if (change.dontPitch === false) return `${name} is off the Don’t pitch list.`;
   return change.keep ? `You’ll keep ${name}.` : `${name} is off your Keep list.`;
@@ -241,10 +258,9 @@ export function FriendsView({
       const kept: Record<string, Flip> = {};
       for (const [id, flip] of Object.entries(all)) {
         const still: Flip = {};
-        if (flip.keep !== undefined && waiting.current.get(`${id}:keep`)) still.keep = flip.keep;
-        if (flip.dontPitch !== undefined && waiting.current.get(`${id}:dontPitch`))
-          still.dontPitch = flip.dontPitch;
-        if (still.keep !== undefined || still.dontPitch !== undefined) kept[id] = still;
+        for (const k of FLIPS)
+          if (flip[k] !== undefined && waiting.current.get(`${id}:${k}`)) still[k] = flip[k];
+        if (FLIPS.some((k) => still[k] !== undefined)) kept[id] = still;
       }
       return kept;
     });
@@ -398,7 +414,9 @@ export function FriendsView({
               Your friends and requests are your own: each teammate sees theirs. The Don’t pitch
               list is {businessName}’s, and says who added each person. Nobody here sends friend
               requests, likes, comments or messages to anyone on it, and only whoever added someone,
-              or an owner or admin, takes them off.
+              or an owner or admin, takes them off. Never contact is the business’s too, and goes
+              further: no reply either, their friend requests are never confirmed, and their
+              messages don’t buzz your phone.
             </p>
           </Card>
         </aside>
@@ -526,9 +544,13 @@ function FriendRow({
   const since = sinceWords(f);
   const keep = flip?.keep ?? f.keep;
   const listed = flip?.dontPitch ?? (f.dontPitch !== null && f.dontPitch.at !== null);
-  // Where you stand, where the list doesn't say: Don't pitch, or a friend kept who isn't one now.
+  const off = flip?.neverContact ?? f.neverContact !== null;
+  // Where you stand, where the list doesn't say: Don't pitch, Never contact, or a friend kept who isn't one now.
   const state =
-    f.state && (show === 'dont_pitch' || (show === 'keep' && f.state !== 'friends'))
+    f.state &&
+    (show === 'dont_pitch' ||
+      show === 'never_contact' ||
+      (show === 'keep' && f.state !== 'friends'))
       ? f.state
       : null;
   const mutual = f.fit ? null : f.mutualFriends;
@@ -590,8 +612,17 @@ function FriendRow({
             />
             Don’t pitch
           </span>
-          {/* Add to Contacts and Demo booked; Don't pitch has its switch here. */}
-          <PersonMenu workspaceId={workspaceId} who={f} dontPitch={false} />
+          <span className="inline-flex items-center gap-2">
+            <Switch
+              checked={off}
+              onChange={(neverContact) => onSet({ neverContact })}
+              label={`Never contact ${f.name}`}
+              testId="friend-never-contact"
+            />
+            Never contact
+          </span>
+          {/* Add to Contacts and Demo booked; Don't pitch and Never contact have their switches here. */}
+          <PersonMenu workspaceId={workspaceId} who={f} dontPitch={false} neverContact={false} />
         </div>
       </div>
       {(f.check && (show === 'fits' || f.check.verdict === 'good')) || f.fit || state ? (
@@ -635,7 +666,7 @@ function FriendRow({
         profileId={f.profileId}
         name={f.name}
         check={f.check}
-        neverPitched={f.dontPitch !== null}
+        neverPitched={f.dontPitch !== null || f.neverContact !== null}
         showResult={show !== 'fits'}
         badge={f.check?.verdict !== 'good'}
       />
@@ -644,6 +675,11 @@ function FriendRow({
       ) : null}
       {f.dontPitch ? (
         <p className="mt-1 text-[12.5px] text-text-3">{dontPitchWords(f.dontPitch)}</p>
+      ) : null}
+      {f.neverContact ? (
+        <p className="mt-1 text-[12.5px] text-text-3" data-testid="friend-never-contact-words">
+          {neverContactWords(f.neverContact)}
+        </p>
       ) : null}
     </li>
   );

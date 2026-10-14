@@ -32,7 +32,7 @@ import {
 } from '../sends';
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { automationOf, countWheels } from './automation';
-import { chatKey, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
+import { chatKey, contactable, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
 import { openNeed } from './needs';
 import { notePitched } from './stages';
 
@@ -113,13 +113,21 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       );
     const [had] = await open();
     if (had) return had;
-    const [profile] = await ctx.tx
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
+    const [profile] = await rows<{ id: string; name: string; off: boolean }>(
+      ctx.tx,
+      sql`select p.id, p.name, not ${contactable('p')} as off from addon_outreach.profiles p
+          where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
+    );
     if (!profile)
       throw HfosError.notFound(
         'That person isn’t kept in Social Outreach any more. Refresh your list for today.',
+      );
+    // Never contact: nothing goes to them, not even a reply.
+    if (profile.off)
+      throw HfosError.rule(
+        'outreach_never_contact',
+        422,
+        `${profile.name} is on the Never contact list, so no message goes to them. To write to them, take them off it in Social Outreach → People → Friends.`,
       );
     const [chat] = input.chatId
       ? await ctx.tx

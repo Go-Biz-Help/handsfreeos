@@ -17,9 +17,9 @@ import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { addonTimelineLine } from '../../server';
-import { outreachSettings } from '../chat-read';
+import { outreachSettings, type OutreachSettings } from '../chat-read';
 import { countryRuleOn, type CountryRule } from '../countries';
-import type { DontPitch } from '../friends';
+import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
@@ -72,7 +72,7 @@ export const neverTwins = (p: string) => sql`select twin.* from addon_outreach.p
  * leakproof), so each look-up reads every profile: 14 seconds for 1,800, past the API's statement timeout.
  */
 const neverNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
-  where m.dont_pitch or m.person_id in (
+  where m.dont_pitch or m.never_contact or m.person_id in (
     select rt.record_id from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
     where rt.record_type = 'person' and lower(tg.name::text) = lower(${DONT_PITCH_TAG}))`;
 
@@ -81,10 +81,32 @@ const namedNever = (p: string) =>
   sql`(${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${neverNames})`;
 
 /**
- * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched. Once it isn't marked
- * itself, any profile marked never pitched under its name is a twin. `p` is its alias.
+ * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched, nor on Never contact.
+ * Once it isn't marked itself, any profile marked never pitched under its name is a twin. `p` is its alias.
  */
 export const pitchable = (p: string) => sql`(not ${markedNever(p)} and not ${namedNever(p)})`;
+
+/** Every profile on Never contact, as its workspace, network and name, read once for the whole query (`neverNames`). */
+const offNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
+  where m.never_contact`;
+
+/**
+ * A profile anyone here may contact at all: neither it nor a profile kept under its name on its network is on Never
+ * contact. Stronger than `pitchable`, which leaves them out too: this is for what Don't pitch still allows, like a
+ * friend request to decide, a reply's push or a message drafted. `p` is its alias.
+ */
+export const contactable = (p: string) =>
+  sql`(not ${sql.raw(p)}.never_contact and (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) not in (${offNames}))`;
+
+/**
+ * Whether the person `me` is friends on Facebook with a profile, or with one kept under its name on its network: a
+ * chat's profile and the friends list's can be the same person kept twice (decision 51). `p` is its alias.
+ */
+export const friendOf = (me: string, p: string) =>
+  sql`((${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (
+    select fp.workspace_id, fp.platform, ${nameKeyOf('fp')} from addon_outreach.friends f
+    join addon_outreach.profiles fp on fp.id = f.profile_id
+    where f.user_id = ${me} and f.state = 'friends'))`;
 
 /**
  * Whether a profile has a twin marked never pitched (`neverTwins`): for one not marked itself, any profile marked
@@ -101,14 +123,27 @@ export const inPlay = (me: string, p: string) => sql`not exists (
   select 1 from addon_outreach.stages st
   where st.profile_id = ${sql.raw(p)}.id and st.user_id = ${me} and st.mark = 'lost')`;
 
-/** The business's country setting (decision 61), as it's read: Anywhere when it isn't set. */
-export async function countryRuleOf(ctx: Ctx): Promise<CountryRule> {
+/** The business's Social Outreach settings, as they're read: the defaults where they aren't set. */
+export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
   const [installed] = await rows<{ settings: unknown }>(
     ctx.tx,
     sql`select settings from app.addon_installations
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
   );
-  return outreachSettings(installed?.settings).countries;
+  return outreachSettings(installed?.settings);
+}
+
+/** The business's country setting (decision 61), as it's read: Anywhere when it isn't set. */
+export async function countryRuleOf(ctx: Ctx): Promise<CountryRule> {
+  return (await outreachSettingsOf(ctx)).countries;
+}
+
+/**
+ * Who a follow-up, a pitch or a reconnect may go to for the person `me`, by the business's setting for people they've
+ * only chatted with: anyone, or only their friends on Facebook (`pitchChatsNotFriends` off). `p` is its alias.
+ */
+export function chatPitchSql(settings: OutreachSettings, me: string, p: string) {
+  return settings.pitchChatsNotFriends ? sql`true` : friendOf(me, p);
 }
 
 /**
@@ -478,6 +513,24 @@ export async function dontPitchOf(ctx: Ctx, profile: Profile): Promise<DontPitch
     at: profile.dontPitch ? (profile.dontPitchAt?.toISOString() ?? null) : null,
     tagged,
   };
+}
+
+/**
+ * Whether someone's on the business's Never contact list, or their twin is (kept under the same name on the same
+ * network): who put them on it and when. Null when they aren't.
+ */
+export async function neverContactOf(ctx: Ctx, profile: Profile): Promise<NeverContact | null> {
+  const [on] = await rows<{ by: string | null; at: Date | string | null }>(
+    ctx.tx,
+    sql`select coalesce(nullif(u.full_name, ''), u.email::text) as by, m.never_contact_at as at
+        from addon_outreach.profiles p
+        join addon_outreach.profiles m on m.workspace_id = p.workspace_id and m.platform = p.platform
+          and m.never_contact and (m.id = p.id or ${nameKeyOf('m')} = ${nameKeyOf('p')})
+        left join app.users u on u.id = m.never_contact_by
+        where p.id = ${profile.id}
+        order by (m.id = p.id) desc limit 1`,
+  );
+  return on ? { by: on.by, at: on.at === null ? null : new Date(on.at).toISOString() } : null;
 }
 
 /** A chat to show the latest of: by its own id when it's known, else the person's latest with the profile. */

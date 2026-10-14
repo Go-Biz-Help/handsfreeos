@@ -36,6 +36,7 @@ import type { NeedStep } from '../waiting-words';
 import { groups, threads, touches } from '../tables';
 import {
   dontPitchOf,
+  neverContactOf,
   inWorkspace,
   keepFriendStates,
   keptProfile,
@@ -255,6 +256,13 @@ export const touchSave = defineAddonCommand(outreachAddon, {
         me,
         at,
       );
+      const off = await neverContactOf(ctx, profile);
+      if (off)
+        throw HfosError.rule(
+          'outreach_never_contact',
+          422,
+          `${input.name} is on the Never contact list, so steps to them aren’t counted as outreach. To count them, take them off it in Social Outreach → People → Friends.`,
+        );
       const never = await dontPitchOf(ctx, profile);
       if (never)
         throw HfosError.rule(

@@ -31,7 +31,8 @@ const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
  * settings-link.tsx): who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), and how long a sent friend request waits before it's suggested for cancelling
  * (decision 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), and
- * whether each person gets the weekly report by email (decision 34), and which countries it reaches (decision 61).
+ * whether each person gets the weekly report by email (decision 34), which countries it reaches (decision 61), and
+ * whether people the person has only chatted with, not friends, are pitched.
  * Anyone already in Contacts gets the tags whatever it says.
  */
 export default function OutreachBusinessSettings({ settings, saveSettings }: AddonSettingsProps) {
@@ -41,6 +42,7 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
   const [weeks, setWeeks] = useState(now.cancelRequestsAfterWeeks);
   const [hour, setHour] = useState(now.morningPushHour);
   const [weekly, setWeekly] = useState(now.weeklyReport);
+  const [chatsToo, setChatsToo] = useState(now.pitchChatsNotFriends);
   const [countries, setCountries] = useState<CountryRule>(now.countries);
   const countriesChanged =
     countries.mode !== now.countries.mode ||
@@ -56,7 +58,9 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
         morning push{' '}
         {now.morningPushHour === null ? 'is off' : `comes at ${hourWords(now.morningPushHour)}`},
         and the weekly report {now.weeklyReport ? 'comes by email on Mondays' : 'is off'}. Countries
-        reached: {countryRuleWords(now.countries)}. An owner or admin can change these.
+        reached: {countryRuleWords(now.countries)}. People you’ve only chatted with{' '}
+        {now.pitchChatsNotFriends ? 'are pitched too' : 'aren’t pitched'}. An owner or admin can
+        change these.
       </p>
     );
   return (
@@ -122,6 +126,17 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
         />
         <span className="mt-0.5 block pl-7 text-[13px] text-text-2">{W.abouts.weekly}</span>
       </div>
+      <div>
+        <Checkbox
+          label={<span className="text-[14px] font-semibold">{W.sections.chatsNotFriends}</span>}
+          checked={chatsToo}
+          onChange={(e) => setChatsToo(e.target.checked)}
+          data-testid="outreach-chats-not-friends"
+        />
+        <span className="mt-0.5 block pl-7 text-[13px] text-text-2">
+          {W.abouts.chatsNotFriends}
+        </span>
+      </div>
       <div data-testid="outreach-countries">
         <h3 className="text-[14px] font-semibold">{W.sections.countries}</h3>
         <p className="text-[13px] text-text-2">{W.abouts.countries}</p>
@@ -156,6 +171,7 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
             weeks === now.cancelRequestsAfterWeeks &&
             hour === now.morningPushHour &&
             weekly === now.weeklyReport &&
+            chatsToo === now.pitchChatsNotFriends &&
             !countriesChanged) ||
           countriesProblem !== null ||
           busy !== null
@@ -171,6 +187,7 @@ export default function OutreachBusinessSettings({ settings, saveSettings }: Add
                   cancelRequestsAfterWeeks: weeks,
                   morningPushHour: hour,
                   weeklyReport: weekly,
+                  pitchChatsNotFriends: chatsToo,
                   countries,
                 }),
               ),

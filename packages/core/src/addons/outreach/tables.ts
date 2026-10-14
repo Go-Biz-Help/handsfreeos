@@ -153,6 +153,10 @@ export const profiles = addonOutreach.table(
     dontPitch: boolean('dont_pitch').notNull().default(false),
     dontPitchBy: userRef('dont_pitch_by'),
     dontPitchAt: ts('dont_pitch_at'),
+    /** On the business's Never contact list, stronger than Don't pitch: by whom and when. */
+    neverContact: boolean('never_contact').notNull().default(false),
+    neverContactBy: userRef('never_contact_by'),
+    neverContactAt: ts('never_contact_at'),
     /** When the extension found no post of theirs to like before a friend request (decision 33): it goes without. */
     warmUpMissedAt: ts('warm_up_missed_at'),
     /**

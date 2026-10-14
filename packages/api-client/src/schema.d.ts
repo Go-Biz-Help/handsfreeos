@@ -6227,8 +6227,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or take them off it.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.friend.marked.
+         * Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friend.marked, outreach.send.skipped.
          */
         post: operations["command_outreach_friend_set"];
         delete?: never;
@@ -16587,7 +16587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.
+         * The person’s own friends on a social network as the extension saved them, the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch and Never contact lists.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_friends"];
@@ -34044,6 +34044,7 @@ export interface operations {
                     dontPitch?: boolean;
                     keep?: boolean;
                     name?: string;
+                    neverContact?: boolean;
                     /**
                      * @default facebook
                      * @enum {string}
@@ -34075,6 +34076,10 @@ export interface operations {
                             tagged: boolean;
                         } | null;
                         keep: boolean;
+                        neverContact: {
+                            at: string | null;
+                            by: string | null;
+                        } | null;
                         /** Format: uuid */
                         profileId: string;
                     };
@@ -62034,7 +62039,7 @@ export interface operations {
                      * @default friends
                      * @enum {string}
                      */
-                    view?: "friends" | "fits" | "requests" | "sent" | "keep" | "dont_pitch";
+                    view?: "friends" | "fits" | "requests" | "sent" | "keep" | "dont_pitch" | "never_contact";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -62064,6 +62069,7 @@ export interface operations {
                             fits: number;
                             friends: number;
                             keep: number;
+                            neverContact: number;
                             requests: number;
                             sent: number;
                         };
@@ -62124,6 +62130,10 @@ export interface operations {
                             } | null;
                             mutualFriends: number | null;
                             name: string;
+                            neverContact: {
+                                at: string | null;
+                                by: string | null;
+                            } | null;
                             personId: string | null;
                             /** Format: uuid */
                             profileId: string;

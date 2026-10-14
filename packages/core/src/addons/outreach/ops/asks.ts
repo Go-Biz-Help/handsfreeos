@@ -56,7 +56,7 @@ import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
 import { approvedHelpful } from './helpful';
 import { CHECK_AGAIN_DAYS, RESEARCH_WORDS } from '../checks';
-import { inWorkspace, once, pitchable, saveProfile, type Ctx } from './common';
+import { contactable, inWorkspace, once, pitchable, saveProfile, type Ctx } from './common';
 import { perDayFor } from './checks';
 import { businessToday, dayOf } from './day';
 import { myComputers, workingOf } from './live';
@@ -229,10 +229,12 @@ async function taskOf(
         name: string;
         url: string;
         never: boolean;
+        off: boolean;
         verdict: string | null;
       }>(
         ctx.tx,
-        sql`select p.name, p.url, (p.friendship = 'self' or not ${pitchable('p')}) as never, ch.verdict
+        sql`select p.name, p.url, (p.friendship = 'self' or not ${pitchable('p')}) as never,
+              not ${contactable('p')} as off, ch.verdict
             from addon_outreach.profiles p
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${ask.profileId}`,
@@ -245,7 +247,9 @@ async function taskOf(
         throw HfosError.rule(
           'outreach_research_not_pitched',
           409,
-          `${who.name} is on Don’t pitch or tagged Friend or family, so they’re never checked. Turn off Don’t pitch on their row first if they could be a customer.`,
+          who.off
+            ? `${who.name} is on Never contact, so they’re never checked. Turn off Never contact on their row in Social Outreach → People → Friends first if they could be a customer.`
+            : `${who.name} is on Don’t pitch or tagged Friend or family, so they’re never checked. Turn off Don’t pitch on their row first if they could be a customer.`,
         );
       if (who.verdict === 'good' || who.verdict === 'maybe' || who.verdict === 'not')
         throw HfosError.rule(

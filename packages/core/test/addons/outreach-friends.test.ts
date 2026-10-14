@@ -220,7 +220,12 @@ describe('Keep and Don’t pitch', () => {
 
   it('keeps a friend for the person alone', async () => {
     const kept = await set(owner, { ...avery, keep: true });
-    expect(kept).toEqual({ profileId: expect.any(String), keep: true, dontPitch: null });
+    expect(kept).toEqual({
+      profileId: expect.any(String),
+      keep: true,
+      dontPitch: null,
+      neverContact: null,
+    });
     expect((await stateOf(ws, owner, 'avery.lane.4'))?.keep).toBe(true);
     // A teammate keeping them too keeps their own friend.
     await set(member, { profileId: kept.profileId, keep: true });
@@ -343,6 +348,7 @@ describe('the Friends tab and the look-up', () => {
       sent: 1,
       keep: 0,
       dontPitch: 0,
+      neverContact: 0,
     });
     expect(friends.cap).toBe(5000);
     expect(friends.people.map((p: { name: string }) => p.name)).toEqual([
@@ -362,6 +368,7 @@ describe('the Friends tab and the look-up', () => {
       sent: 0,
       keep: 0,
       dontPitch: 0,
+      neverContact: 0,
     });
   });
 

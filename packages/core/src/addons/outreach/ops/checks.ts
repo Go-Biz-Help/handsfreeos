@@ -31,19 +31,27 @@ import { checkedCountry, countryFromLines } from '../countries';
 import { limitNow } from '../limits';
 import { outreachAddon } from '../manifest';
 import { checks, profiles } from '../tables';
-import { inWorkspace, pitchable, type Ctx } from './common';
+import { friendOf, inWorkspace, outreachSettingsOf, pitchable, type Ctx } from './common';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 
 /**
- * The people there are to check: the person's friends, and anyone they've chatted with that's kept as a profile;
- * never on Don't pitch or tagged Friend or family, and never themselves. `p` is the profile.
+ * The people there are to check: the person's friends, and anyone they've chatted with that's kept as a profile,
+ * unless the business's setting reaches only friends (`pitchChatsNotFriends` off); never on Don't pitch or Never
+ * contact or tagged Friend or family, and never themselves. `p` is the profile.
  */
-const knownToMe = (me: string) => sql`p.friendship <> 'self' and ${pitchable('p')} and (
+const knownToMe = (
+  me: string,
+  chatsToo: boolean,
+) => sql`p.friendship <> 'self' and ${pitchable('p')} and (
   exists (select 1 from addon_outreach.friends f
     where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')
-  or exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}))`;
+  or (${chatsToo ? sql`true` : friendOf(me, 'p')}
+    and exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me})))`;
+
+/** Whether the person's checks take in people they've only chatted with: the business's setting. */
+const chatsToo = async (ctx: Ctx) => (await outreachSettingsOf(ctx)).pitchChatsNotFriends;
 
 /** How many a day the person's computer checks now: halved for a week after a warning from Facebook. */
 export async function perDayFor(ctx: Ctx, me: string, now: number) {
@@ -85,7 +93,7 @@ export async function checksSummary(
           count(*) filter (where ch.again)::int as again
         from addon_outreach.profiles p
         left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
-        where p.workspace_id = ${ws} and ${knownToMe(me)}`,
+        where p.workspace_id = ${ws} and ${knownToMe(me, await chatsToo(ctx))}`,
   );
   return {
     people: counted?.people ?? 0,
@@ -122,7 +130,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
         and (ch.id is null or a.asked_at > ch.looked_at))`;
     const who = input.profileId
       ? sql`p.id = ${input.profileId} and p.friendship <> 'self' and ${pitchable('p')}`
-      : sql`(${knownToMe(me)} or (p.friendship <> 'self' and ${pitchable('p')} and ${asked}))`;
+      : sql`(${knownToMe(me, await chatsToo(ctx))} or (p.friendship <> 'self' and ${pitchable('p')} and ${asked}))`;
     const found = await rows<{ id: string; name: string; url: string; reason: CheckReason }>(
       ctx.tx,
       sql`select x.id, x.name, x.url, x.reason from (

@@ -180,6 +180,17 @@ export const DontPitch = z.object({
 });
 export type DontPitch = z.output<typeof DontPitch>;
 
+/**
+ * Someone on the business's Never contact list, stronger than Don't pitch: no friend request, like, comment or
+ * message from anyone here, not even a reply, and their friend requests never confirmed. By whom and when.
+ */
+export const NeverContact = z.object({
+  /** Who put them on the list: null once they've left the business. */
+  by: z.string().nullable(),
+  at: z.iso.datetime().nullable(),
+});
+export type NeverContact = z.output<typeof NeverContact>;
+
 export const OutreachLookupOutput = z.object({
   profiles: z.array(
     Person.extend({
