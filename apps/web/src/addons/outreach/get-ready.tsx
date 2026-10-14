@@ -294,7 +294,6 @@ function ProfileSheet({
               );
             })}
           </ul>
-          <p className="text-[12px] text-text-3">{R.profile.soon}</p>
           <div className="flex justify-end">
             <Button onClick={onClose} data-testid="ready-profile-done">
               {R.profile.done}

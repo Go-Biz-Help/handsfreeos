@@ -16,8 +16,10 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { dayList } from '../automation';
 import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
+import { ProfileCheck } from '../profile-check';
 import {
   NumbersInput,
+  ProfileCheckSaveInput,
   ProfileTickInput,
   ProfileTicks,
   readinessOf,
@@ -82,6 +84,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
     automationOf(ctx, me),
   ]);
   const profile = ProfileTicks.safeParse(row?.profile ?? {}).data ?? {};
+  const profileCheck = ProfileCheck.safeParse(row?.profileCheck ?? null).data ?? null;
   const numbers = {
     goal: row?.callsGoal ?? null,
     at: row?.numbersAt?.toISOString() ?? null,
@@ -95,6 +98,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
       proof: p.details.proof ?? [],
     })),
     profile,
+    profileCheck,
     numbers,
     canOffer: scopeCan(ctx.scope, 'main_offer.manage' as Permission),
     canPlaybooks: scopeCan(ctx.scope, 'outreach.manage' as Permission),
@@ -105,6 +109,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
     changed: [...r.changed],
     offer: offer ? { version: offer.version, line: offer.line } : null,
     profile,
+    profileCheck,
     numbers: {
       ...numbers,
       days: dayList(auto.settings.hours.days),
@@ -256,5 +261,45 @@ export const readinessNumbers = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const readinessCommands = [readinessProfile, readinessNumbers] as const;
+/**
+ * The AI's check of the person's own profile, which the extension read (../profile-check.ts, decision 64): the worker's
+ * alone, after the AI answers. Only the answer is kept; what the page said never reaches here.
+ */
+export const profileCheckSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.profile.check_save',
+  description:
+    'Keeps the AI’s check of a person’s own Facebook profile, read by their extension: each item right or not and what to change, bios to pick from, a cover line and what to feature.',
+  risk: 0,
+  input: ProfileCheckSaveInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const at = changeMoment(ctx.meta);
+    const [kept] = await ctx.tx
+      .insert(setup)
+      .values({
+        workspaceId: ctx.scope.workspaceId!,
+        userId: input.userId,
+        profileCheck: input.check,
+        updatedAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [setup.workspaceId, setup.userId],
+        set: { profileCheck: input.check, updatedAt: at },
+      })
+      .returning({ id: setup.id });
+    await ctx.emit({
+      type: 'outreach.readiness.saved',
+      entityType: 'outreach_setup',
+      entityId: kept!.id,
+      payload: { userId: input.userId, part: 'profile_check' },
+    });
+    return readinessFor(ctx, input.userId);
+  },
+});
+
+export const readinessCommands = [readinessProfile, readinessNumbers, profileCheckSave] as const;
 export const readinessQueries = [readinessGet] as const;

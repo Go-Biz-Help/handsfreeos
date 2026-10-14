@@ -1809,7 +1809,48 @@ function scriptedNicheFit(message: string) {
     : { fit: 'second_offer', why: 'They’d need another outcome — and price.' };
 }
 
+/**
+ * The AI's check of a person's own profile (outreach.profile.check): an item is right when something was read for it,
+ * the picture only when it's a person and the bio only when it names the offer's line of work; three bios from who
+ * the offer is for, the last too long for Facebook's short bio.
+ */
+function scriptedProfileCheck(message: string) {
+  const offer = unquote(quotedBlock(message, 'main_offer') ?? '');
+  const who = /^Who it’s for: (.*)$/m.exec(offer)?.[1]?.trim() || 'small businesses';
+  const work = who.split(/[ ,]/)[0]!.toLowerCase();
+  const profile = unquote(quotedBlock(message, 'profile') ?? '');
+  const one = (label: string) => new RegExp(`^${label}: (.*)$`, 'm').exec(profile)?.[1] ?? '';
+  /** Whether a list in the profile had nothing read: "featured:\n(nothing read)". */
+  const list = (label: string) => {
+    const at = profile.indexOf(`${label}:\n`);
+    return at < 0 || profile.slice(at + label.length + 2).startsWith('(nothing read)');
+  };
+  const read = (v: string) => v !== '' && v !== '(nothing read)';
+  const item = (ok: boolean, what: string) =>
+    ok
+      ? { ok: true, why: `Your ${what} looks right.`, fix: null }
+      : { ok: false, why: `Your ${what} isn’t there yet.`, fix: `Change your ${what}.` };
+  return {
+    items: {
+      picture: item(/person/i.test(one('picture')), 'picture'),
+      cover: item(read(one('cover')), 'cover'),
+      bio: item(one('bio').toLowerCase().includes(work), 'bio'),
+      work: item(!list('Intro (work)'), 'work line'),
+      featured: item(!list('featured'), 'featured items'),
+      posts: item(!list('posts'), 'posts'),
+    },
+    bios: [
+      `I help ${who} get more booked calls.`,
+      `More booked calls for ${who}.`,
+      `${'Too long '.repeat(15)}`,
+    ],
+    coverLine: `More booked calls for ${work}`,
+    feature: ['A customer’s review', 'Your booking link'],
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
   {
     when: /Which post should they like\? Give its number, or none\.$/,

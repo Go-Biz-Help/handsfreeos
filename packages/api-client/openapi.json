@@ -83404,6 +83404,40 @@
                           "kind",
                           "profileId"
                         ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "profile_read"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "profile_edit"
+                            ]
+                          },
+                          "bio": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 101
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "bio"
+                        ]
                       }
                     ]
                   }
@@ -83453,7 +83487,9 @@
                             "cancel",
                             "unfriend",
                             "lookup",
-                            "research"
+                            "research",
+                            "profile_read",
+                            "profile_edit"
                           ]
                         },
                         "target": {
@@ -83738,7 +83774,9 @@
                                 "cancel",
                                 "unfriend",
                                 "lookup",
-                                "research"
+                                "research",
+                                "profile_read",
+                                "profile_edit"
                               ]
                             },
                             "task": {
@@ -84259,6 +84297,40 @@
                                     "name"
                                   ],
                                   "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "profile_read"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "profile_edit"
+                                      ]
+                                    },
+                                    "bio": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "bio"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               ]
                             },
@@ -84619,7 +84691,9 @@
                             "cancel",
                             "unfriend",
                             "lookup",
-                            "research"
+                            "research",
+                            "profile_read",
+                            "profile_edit"
                           ]
                         },
                         "target": {
@@ -84885,7 +84959,9 @@
                             "cancel",
                             "unfriend",
                             "lookup",
-                            "research"
+                            "research",
+                            "profile_read",
+                            "profile_edit"
                           ]
                         },
                         "target": {
@@ -85611,6 +85687,259 @@
                         "additionalProperties": false
                       }
                     },
+                    "profileCheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "picture": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "cover": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "bio": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "work": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "featured": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "posts": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "picture",
+                                "cover",
+                                "bio",
+                                "work",
+                                "featured",
+                                "posts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "bios": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 101
+                              }
+                            },
+                            "coverLine": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "feature": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "version": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "items",
+                            "bios",
+                            "coverLine",
+                            "feature",
+                            "at",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "numbers": {
                       "type": "object",
                       "properties": {
@@ -85668,6 +85997,7 @@
                     "changed",
                     "offer",
                     "profile",
+                    "profileCheck",
                     "numbers"
                   ],
                   "additionalProperties": false
@@ -85868,6 +86198,259 @@
                         "additionalProperties": false
                       }
                     },
+                    "profileCheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "picture": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "cover": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "bio": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "work": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "featured": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "posts": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "picture",
+                                "cover",
+                                "bio",
+                                "work",
+                                "featured",
+                                "posts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "bios": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 101
+                              }
+                            },
+                            "coverLine": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "feature": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "version": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "items",
+                            "bios",
+                            "coverLine",
+                            "feature",
+                            "at",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "numbers": {
                       "type": "object",
                       "properties": {
@@ -85925,6 +86508,7 @@
                     "changed",
                     "offer",
                     "profile",
+                    "profileCheck",
                     "numbers"
                   ],
                   "additionalProperties": false
@@ -170390,7 +170974,9 @@
                                       "cancel",
                                       "unfriend",
                                       "lookup",
-                                      "research"
+                                      "research",
+                                      "profile_read",
+                                      "profile_edit"
                                     ]
                                   },
                                   "target": {
@@ -171288,7 +171874,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "kinds": {
-                    "maxItems": 19,
+                    "maxItems": 21,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -171311,7 +171897,9 @@
                         "cancel",
                         "unfriend",
                         "lookup",
-                        "research"
+                        "research",
+                        "profile_read",
+                        "profile_edit"
                       ]
                     }
                   }
@@ -171419,7 +172007,9 @@
                               "cancel",
                               "unfriend",
                               "lookup",
-                              "research"
+                              "research",
+                              "profile_read",
+                              "profile_edit"
                             ]
                           },
                           "target": {
@@ -172013,6 +172603,259 @@
                         "additionalProperties": false
                       }
                     },
+                    "profileCheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "picture": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "cover": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "bio": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "work": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "featured": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "posts": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "picture",
+                                "cover",
+                                "bio",
+                                "work",
+                                "featured",
+                                "posts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "bios": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 101
+                              }
+                            },
+                            "coverLine": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "feature": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "version": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "items",
+                            "bios",
+                            "coverLine",
+                            "feature",
+                            "at",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "numbers": {
                       "type": "object",
                       "properties": {
@@ -172070,6 +172913,7 @@
                     "changed",
                     "offer",
                     "profile",
+                    "profileCheck",
                     "numbers"
                   ],
                   "additionalProperties": false

@@ -206,7 +206,6 @@ function ProfileList({
           </Pressable>
         );
       })}
-      <Note>{R.profile.soon}</Note>
     </View>
   );
 }

@@ -26,3 +26,10 @@ alter table addon_outreach.setup
 alter table addon_outreach.setup drop constraint setup_reached_check;
 alter table addon_outreach.setup add constraint setup_reached_check
   check (reached in ('playbooks', 'ready', 'rules', 'settings', 'extension', 'groups'));
+
+-- The AI's latest check of the person's own Facebook profile, read by the extension (decision 64): each item right
+-- or not with what to change, bios to pick from, a cover line and what to feature, when it was read and against
+-- which version of the main offer. What the page said is never kept, only this.
+alter table addon_outreach.setup
+  add column profile_check jsonb
+    check (profile_check is null or (jsonb_typeof(profile_check) = 'object' and octet_length(profile_check::text) <= 12000));

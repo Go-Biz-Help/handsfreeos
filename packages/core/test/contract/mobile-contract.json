@@ -7090,6 +7090,31 @@
                   }
                 },
                 "required": ["kind", "profileId"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "profile_read"
+                  }
+                },
+                "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "profile_edit"
+                  },
+                  "bio": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 101
+                  }
+                },
+                "required": ["kind", "bio"]
               }
             ]
           }
@@ -13396,7 +13421,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 19,
+            "maxItems": 21,
             "type": "array",
             "items": {
               "type": "string",
@@ -13419,7 +13444,9 @@
                 "cancel",
                 "unfriend",
                 "lookup",
-                "research"
+                "research",
+                "profile_read",
+                "profile_edit"
               ]
             }
           }

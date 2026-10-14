@@ -38,24 +38,32 @@ import type { AddonWorkerAction } from '../types';
 export const PLAYBOOK_ASSIST_ACTION = 'outreach.playbook.assist';
 export const NICHE_FIT_ACTION = 'outreach.playbook.niche_fit';
 
-/** The business's live main offer (core's, docs/main-offer.md), as a playbook's AI reads it; null without one. */
-async function liveOffer(
+/**
+ * The business's live main offer (core's, docs/main-offer.md), as the add-on's AI reads it, and its version; null
+ * without one.
+ */
+export async function liveMainOffer(
   ctx: Parameters<AddonWorkerAction['run']>[0],
-): Promise<PlaybookOffer | null> {
+): Promise<{ readonly offer: PlaybookOffer; readonly version: number } | null> {
   const [live] = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ parts: unknown; line: string }>(
+    rows<{ parts: unknown; line: string; version: number }>(
       tx,
-      sql`select v.parts, v.line from app.main_offers o
+      sql`select v.parts, v.line, v.version from app.main_offers o
           join app.main_offer_versions v on v.workspace_id = o.workspace_id and v.version = o.live_version
           where o.workspace_id = ${ctx.scope.workspaceId}`,
     ),
   );
   const parts = live ? MainOfferParts.safeParse(live.parts) : null;
-  return live && parts?.success ? playbookOffer(parts.data, live.line) : null;
+  return live && parts?.success
+    ? { offer: playbookOffer(parts.data, live.line), version: live.version }
+    : null;
 }
 
+const liveOffer = async (ctx: Parameters<AddonWorkerAction['run']>[0]) =>
+  (await liveMainOffer(ctx))?.offer ?? null;
+
 /** The AI's failures, in the words the builder shows. */
-function aiFailure(e: unknown): unknown {
+export function aiFailure(e: unknown): unknown {
   if (!(e instanceof AiAskError)) return e;
   if (e.code === 'budget_reached' || e.code === 'wallet_empty')
     return HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);

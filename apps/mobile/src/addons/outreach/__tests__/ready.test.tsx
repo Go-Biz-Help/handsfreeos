@@ -36,6 +36,7 @@ const notReady: ReadinessOutput = {
   ],
   offer: { version: 1, line: 'We help roofers get booked inspections.' },
   profile: {},
+  profileCheck: null,
   numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
 };
 

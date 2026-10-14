@@ -15,6 +15,7 @@ import {
   tickCounts,
   type ReadyFacts,
 } from '../../src/addons/outreach/readiness';
+import { checkCounts, type ProfileCheck } from '../../src/addons/outreach/profile-check';
 import { MainOfferParts } from '../../src/main-offer/parts';
 
 const parts = MainOfferParts.parse({
@@ -22,12 +23,31 @@ const parts = MainOfferParts.parse({
   price: { amount: '$2,000 a month' },
   line: 'We help roofers with 2 to 3 crews get 10 to 20 booked inspections a month.',
 });
-const allTicked = (version: number | null) =>
-  Object.fromEntries(PROFILE_ITEMS.map((i) => [i, { at: '2026-10-14T10:00:00.000Z', version }]));
+const at = '2026-10-14T10:00:00.000Z';
+const ticked = (items: readonly string[], version: number | null) =>
+  Object.fromEntries(items.map((i) => [i, { at, version }]));
+/** The AI's check, read against `version`: the picture, cover and bio right, the rest to change. */
+const check = (version: number | null): ProfileCheck => ({
+  items: Object.fromEntries(
+    PROFILE_ITEMS.map((i) => [
+      i,
+      ['picture', 'cover', 'bio'].includes(i)
+        ? { ok: true, why: 'Looks right.', fix: null }
+        : { ok: false, why: 'Not there yet.', fix: 'Add it.' },
+    ]),
+  ) as ProfileCheck['items'],
+  bios: ['I help roofers fill their calendars.'],
+  coverLine: 'More booked jobs for roofers',
+  feature: [],
+  at,
+  version,
+});
 const ready: ReadyFacts = {
   offer: { version: 1, parts, before: null },
   playbooks: [{ name: 'Roofers', niche: 'Roofers in Ohio', problem: 'Slow winters', proof: [] }],
-  profile: allTicked(1),
+  // The rest ticked by hand once done.
+  profile: ticked(['work', 'featured', 'posts'], 1),
+  profileCheck: check(1),
   numbers: { goal: 8, at: '2026-10-14T10:00:00.000Z' },
   canOffer: true,
   canPlaybooks: true,
@@ -45,14 +65,13 @@ describe('getting ready', () => {
       ...ready,
       offer: null,
       profile: {},
+      profileCheck: null,
       numbers: { goal: null, at: null },
     });
     expect(r.ready).toBe(false);
     expect(r.next).toBe('offer');
     expect(stateOf({ ...ready, offer: null })).toMatchObject({ offer: 'todo' });
-    expect(r.items.find((i) => i.item === 'profile')!.left).toBe(
-      '6 things left to check on your Facebook profile.',
-    );
+    expect(r.items.find((i) => i.item === 'profile')!.left).toBe(READY_WORDS.left.profileRead);
     expect(notReadyWords(r)).toBe(
       'Your business’s main offer isn’t live yet. Finish it under Get ready on the Today tab.',
     );
@@ -86,6 +105,24 @@ describe('getting ready', () => {
       stateOf({ ...withProof, playbooks: [{ ...ready.playbooks[0]!, proof: ['14 jobs'] }] })
         .playbook,
     ).toBe('done');
+  });
+
+  it('wants the profile read by the extension, each item right by the AI or ticked done', () => {
+    const left = (f: Partial<ReadyFacts>) =>
+      readinessOf({ ...ready, ...f }).items.find((i) => i.item === 'profile')!;
+    // Ticks alone aren't enough: the extension reads it first.
+    expect(left({ profileCheck: null, profile: ticked(PROFILE_ITEMS, 1) })).toMatchObject({
+      state: 'todo',
+      left: READY_WORDS.left.profileRead,
+    });
+    // Read, with three to change and none ticked yet.
+    expect(left({ profile: {} })).toMatchObject({
+      state: 'todo',
+      left: '3 things left to change on your Facebook profile.',
+    });
+    expect(left({}).state).toBe('done');
+    expect(checkCounts(check(null), 1)).toBe(true);
+    expect(checkCounts(check(1), 2)).toBe(false);
   });
 
   it('asks for a look again at the profile when the main offer changes, saying what changed', () => {

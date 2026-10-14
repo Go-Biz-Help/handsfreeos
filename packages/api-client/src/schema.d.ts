@@ -33485,7 +33485,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -33658,6 +33658,13 @@ export interface operations {
                         kind: "research";
                         /** Format: uuid */
                         profileId: string;
+                    } | {
+                        /** @enum {string} */
+                        kind: "profile_read";
+                    } | {
+                        bio: string;
+                        /** @enum {string} */
+                        kind: "profile_edit";
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -33681,7 +33688,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -33785,7 +33792,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -33851,7 +33858,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -33941,6 +33948,13 @@ export interface operations {
                                 name: string;
                                 /** Format: uuid */
                                 profileId: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "profile_read";
+                            } | {
+                                bio: string;
+                                /** @enum {string} */
+                                kind: "profile_edit";
                             };
                         } | null;
                         waiting: number;
@@ -35884,6 +35898,46 @@ export interface operations {
                                 version: number | null;
                             };
                         };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
                         ready: boolean;
                     };
                 };
@@ -35944,6 +35998,46 @@ export interface operations {
                                 version: number | null;
                             };
                         };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
                         ready: boolean;
                     };
                 };
@@ -62898,7 +62992,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -62921,7 +63015,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -64351,6 +64445,46 @@ export interface operations {
                                 version: number | null;
                             };
                         };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
                         ready: boolean;
                     };
                 };
@@ -64710,7 +64844,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                                 line: string | null;
                                 reply: ("carry_on" | "skip") | null;
                                 result: {

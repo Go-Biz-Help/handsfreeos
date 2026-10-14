@@ -9,8 +9,8 @@
  *   an owner's Use it anyway with a reason.
  * - **A playbook with a niche** (the business's): a playbook in use has its niche and the niche's problem, and some
  *   proof when the business has any (none is ever made up).
- * - **Your profile** (each person's): every item on the profile list ticked since the main offer went live. The
- *   extension reading it comes with the plan's step 5.
+ * - **Your profile** (each person's): the extension has read it since the main offer went live (./profile-check.ts,
+ *   decision 64), and every item on the profile list is right by the AI's check of it or ticked done by hand.
  * - **Your numbers** (each person's): a monthly goal for calls booked, and the math seen.
  * - **Your messages** joins with the plan's step 6, which rewrites the first message it shows.
  *
@@ -20,6 +20,7 @@
 import { z } from 'zod';
 import { SCORED_PART_LABELS, SCORED_PARTS, type MainOfferParts } from '../../main-offer/parts';
 import { DAILY_LIMITS } from './limits';
+import { checkCounts, PROFILE_ITEMS, ProfileCheck, type ProfileItem } from './profile-check';
 
 // ------------------------------------------------------------------------------------------------- the items
 
@@ -41,9 +42,8 @@ export const READY_WHOSE: Record<ReadyItem, 'business' | 'person'> = {
 export const READY_STATES = ['done', 'todo', 'look_again', 'waiting'] as const;
 export type ReadyState = (typeof READY_STATES)[number];
 
-/** What a profile needs (the workbook's checklist, made for Facebook): each ticked by hand until the extension reads it. */
-export const PROFILE_ITEMS = ['picture', 'cover', 'bio', 'work', 'featured', 'posts'] as const;
-export type ProfileItem = (typeof PROFILE_ITEMS)[number];
+// What a profile needs (the workbook's checklist, made for Facebook): the AI checks each, and the person can tick one.
+export { PROFILE_ITEMS, type ProfileItem } from './profile-check';
 
 /** A profile item ticked: when, and the main offer's version live then (null with none live yet). */
 export const ProfileTick = z.object({
@@ -80,6 +80,8 @@ export interface ReadyFacts {
     readonly proof: readonly string[];
   }[];
   readonly profile: ProfileTicks;
+  /** The AI's latest check of the person's profile, read by the extension; null until one is. */
+  readonly profileCheck: ProfileCheck | null;
   /** The person's monthly goal, and when they last saw the math; null until they set it. */
   readonly numbers: { readonly goal: number | null; readonly at: string | null };
   /** Owners and admins do the business's items: the main offer, and the playbooks. */
@@ -146,19 +148,28 @@ export function readinessOf(f: ReadyFacts): Readiness {
       ? { item: 'playbook', state: 'todo', whose: 'business', left: playbookLeft() }
       : { item: 'playbook', state: 'waiting', whose: 'business', left: W.playbookWaiting };
 
-  const counted = PROFILE_ITEMS.filter((i) => tickCounts(f.profile[i], live));
-  const stale = PROFILE_ITEMS.filter((i) => f.profile[i] && !tickCounts(f.profile[i], live));
+  // Read since the live version, each item right by the AI's check or ticked done; a read or ticks from an older
+  // version want a look again.
+  const read = checkCounts(f.profileCheck, live) ? f.profileCheck : null;
+  const counted = PROFILE_ITEMS.filter(
+    (i) => tickCounts(f.profile[i], live) || read?.items[i].ok === true,
+  );
+  const stale =
+    (f.profileCheck !== null && !read) ||
+    PROFILE_ITEMS.some((i) => f.profile[i] && !tickCounts(f.profile[i], live));
   const profile: ReadyItemState =
-    counted.length === PROFILE_ITEMS.length
+    read && counted.length === PROFILE_ITEMS.length
       ? { item: 'profile', state: 'done', whose: 'person', left: null }
-      : stale.length
+      : stale && !read
         ? { item: 'profile', state: 'look_again', whose: 'person', left: W.profileAgain }
-        : {
-            item: 'profile',
-            state: 'todo',
-            whose: 'person',
-            left: W.profile(PROFILE_ITEMS.length - counted.length),
-          };
+        : !read
+          ? { item: 'profile', state: 'todo', whose: 'person', left: W.profileRead }
+          : {
+              item: 'profile',
+              state: 'todo',
+              whose: 'person',
+              left: W.profile(PROFILE_ITEMS.length - counted.length),
+            };
 
   const numbers: ReadyItemState =
     f.numbers.goal !== null && f.numbers.at !== null
@@ -207,6 +218,8 @@ export const ReadinessOutput = z.object({
   offer: z.object({ version: z.number().int().min(1), line: z.string() }).nullable(),
   /** The profile items ticked, as kept: `tickCounts` says which count for the live version. */
   profile: ProfileTicks,
+  /** The AI's latest check of the profile, read by the extension: `checkCounts` says whether it's for the live version. */
+  profileCheck: ProfileCheck.nullable(),
   numbers: z.object({
     goal: z.number().int().nullable(),
     at: z.iso.datetime().nullable(),
@@ -217,6 +230,14 @@ export const ReadinessOutput = z.object({
   }),
 });
 export type ReadinessOutput = z.output<typeof ReadinessOutput>;
+
+export const ProfileCheckSaveInput = z.object({
+  workspaceId: z.uuid(),
+  /** Whose profile: the person whose extension read it. */
+  userId: z.uuid(),
+  check: ProfileCheck,
+});
+export type ProfileCheckSaveInput = z.input<typeof ProfileCheckSaveInput>;
 
 export const ProfileTickInput = z.object({
   workspaceId: z.uuid(),
@@ -377,7 +398,9 @@ export const READY_WORDS = {
       `Add proof to ${name}: a real result from your main offer, or one of its own.`,
     playbookWaiting:
       'Waiting on a playbook with a niche. Ask an owner or admin of this business to pick one on the Playbooks tab.',
-    profile: (n: number) => `${plural(n, 'thing')} left to check on your Facebook profile.`,
+    profile: (n: number) => `${plural(n, 'thing')} left to change on your Facebook profile.`,
+    profileRead:
+      'Have the extension read your Facebook profile. The AI says what to change, and writes your bio.',
     profileAgain: 'Your main offer changed. Look at your profile again so it still fits.',
     numbers: 'Set a goal for calls booked a month, and see what it takes each day.',
   },
@@ -391,7 +414,7 @@ export const READY_WORDS = {
   changed: (parts: readonly string[]) => `What changed: ${parts.join(', ')}.`,
   profile: {
     title: 'Check your Facebook profile',
-    hint: 'People look at it before they answer. It doesn’t have to sell; it just shouldn’t put anyone off. Tick each one once it’s right.',
+    hint: 'People look at it before they answer. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change, and you tick each one once it’s right.',
     items: {
       picture: {
         label: 'A clear photo of your face',
@@ -422,7 +445,6 @@ export const READY_WORDS = {
     untick: 'Not yet',
     ticked: (n: number, of: number) => `${n} of ${of} ticked`,
     offer: 'Your main offer',
-    soon: 'Soon the extension reads your profile for you, scores it and writes your bio. Until then, you tick each one.',
     done: 'Done',
   },
   numbers: {

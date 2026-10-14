@@ -12,6 +12,7 @@ import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
+import { PROFILE_CHECK_ACTION, profileCheck } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
@@ -136,6 +137,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
   actions: {
     [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
     [NICHE_FIT_ACTION]: nicheFit,
+    // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
+    [PROFILE_CHECK_ACTION]: profileCheck,
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,

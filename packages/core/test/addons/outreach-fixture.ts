@@ -79,7 +79,8 @@ const READY_OFFER = {
 
 /**
  * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche and its problem on each playbook in use
- * without them, and each person's profile ticked against the live version and a goal set. Safe to run again.
+ * without them, and each person's profile read and checked right, and ticked, against the live version, and a goal set.
+ * Safe to run again.
  */
 export async function getReady(ws: string, userIds: readonly string[]): Promise<void> {
   await rows(
@@ -102,15 +103,20 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
   for (const userId of userIds)
     await rows(
       admin(),
-      sql`insert into addon_outreach.setup (workspace_id, user_id, calls_goal, numbers_at, profile)
+      sql`insert into addon_outreach.setup (workspace_id, user_id, calls_goal, numbers_at, profile, profile_check)
           select ${ws}, ${userId}, 8, now(), jsonb_object_agg(item, jsonb_build_object(
             'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-            'version', (select live_version from app.main_offers where workspace_id = ${ws})))
+            'version', (select live_version from app.main_offers where workspace_id = ${ws}))),
+            jsonb_build_object(
+              'items', jsonb_object_agg(item, jsonb_build_object('ok', true, 'why', 'Looks right.', 'fix', null)),
+              'bios', '[]'::jsonb, 'coverLine', null, 'feature', '[]'::jsonb,
+              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+              'version', (select live_version from app.main_offers where workspace_id = ${ws}))
           from unnest(array['picture', 'cover', 'bio', 'work', 'featured', 'posts']) item
           on conflict (workspace_id, user_id) do update
             set calls_goal = coalesce(addon_outreach.setup.calls_goal, excluded.calls_goal),
               numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
-              profile = excluded.profile`,
+              profile = excluded.profile, profile_check = excluded.profile_check`,
     );
 }
 
@@ -179,3 +185,27 @@ export const refused = (p: Promise<unknown>) =>
     () => 'went through',
     (e: { rule?: string; code?: string }) => e.rule ?? e.code,
   );
+
+/** Runs one of the add-on's commands as its system actor in `ws`, as the worker does. */
+export async function runAsSystem(
+  ws: string,
+  name: string,
+  input: Record<string, unknown>,
+): Promise<Any> {
+  const [w] = await rows<{ organization_id: string }>(
+    admin(),
+    sql`select organization_id from app.workspaces where id = ${ws}`,
+  );
+  return executeCommand(
+    testDbs().worker.db,
+    op(name) as CommandDef,
+    { workspaceId: ws, ...input },
+    {
+      type: 'system',
+      workspaceId: ws,
+      organizationId: w!.organization_id,
+      addon: { id: outreachAddon.id, name: outreachAddon.name, version: outreachAddon.version },
+    },
+    { correlationId: randomUUID(), channel: 'test' },
+  ).then((r) => r.output);
+}

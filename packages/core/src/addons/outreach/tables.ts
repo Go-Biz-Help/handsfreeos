@@ -36,6 +36,7 @@ import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
+import type { ProfileCheck } from './profile-check';
 import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -916,6 +917,8 @@ export const setup = addonOutreach.table(
     callsGoal: smallint('calls_goal'),
     numbersAt: ts('numbers_at'),
     profile: jsonb('profile').$type<ProfileTicks>().notNull().default({}),
+    /** The AI's latest check of their own Facebook profile (../profile-check.ts): never what the page said. */
+    profileCheck: jsonb('profile_check').$type<ProfileCheck>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

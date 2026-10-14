@@ -10,7 +10,23 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { PROFILE_ITEMS } from '../../src/addons/outreach/readiness';
-import { outreachBusiness, refused, runAs } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
+
+/** The AI's check of someone's profile, as the worker keeps it once their extension read it: every item right. */
+const checked = (userId: string, version: number | null) =>
+  runAsSystem(ws, 'outreach.profile.check_save', {
+    userId,
+    check: {
+      items: Object.fromEntries(
+        PROFILE_ITEMS.map((i) => [i, { ok: true, why: 'Looks right.', fix: null }]),
+      ),
+      bios: ['I help roofers fill their calendars.'],
+      coverLine: 'More booked jobs for roofers',
+      feature: ['A customer’s review'],
+      at: new Date().toISOString(),
+      version,
+    },
+  });
 
 const admin = () => testDbs().admin.db;
 
@@ -91,7 +107,12 @@ describe('before they’re ready', () => {
       goal: 8,
       days: [1, 2, 3, 4, 5],
     });
-    expect(states(set)).toMatchObject({ profile: 'done', numbers: 'done' });
+    // Ticked, but not read yet: the extension reads it first.
+    expect(states(set)).toMatchObject({ profile: 'todo', numbers: 'done' });
+    expect(set.items[2].left).toContain('Have the extension read your Facebook profile');
+    const read = await checked(member.id, null);
+    expect(states(read)).toMatchObject({ profile: 'done' });
+    expect(read.profileCheck.bios).toEqual(['I help roofers fill their calendars.']);
     expect(set.numbers).toMatchObject({ goal: 8, days: [1, 2, 3, 4, 5], canSend: 15 });
     expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
   });
@@ -123,8 +144,7 @@ describe('getting ready', () => {
     expect(theirs).toMatchObject({ ready: true, next: null });
 
     // Saturdays too: the goal keeps its days in the owner's working hours.
-    for (const item of PROFILE_ITEMS)
-      await runAs(owner, ws, 'outreach.readiness.profile', { item, done: true });
+    await checked(owner.id, 1);
     const mine = await runAs(owner, ws, 'outreach.readiness.numbers', {
       goal: 12,
       days: [6, 1, 2, 3, 4, 5],
@@ -148,6 +168,14 @@ describe('getting ready', () => {
     const one = await runAs(member, ws, 'outreach.readiness.profile', { item: 'bio', done: true });
     expect(one.profile.bio.version).toBe(2);
     expect(states(one).profile).toBe('look_again');
+  });
+
+  it('keeps the AI’s check only from the worker', async () => {
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.profile.check_save', { userId: owner.id, check: {} }),
+      ),
+    ).toBe('forbidden');
   });
 
   it('keeps a goal to whole calls within its limits', async () => {

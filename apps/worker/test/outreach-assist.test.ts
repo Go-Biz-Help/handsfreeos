@@ -160,3 +160,52 @@ describe('whether a niche fits the main offer', () => {
     expect((await nicheFit(owner, { niche: ' ' })).statusCode).toBe(400);
   });
 });
+
+describe('your profile, checked by the AI', () => {
+  const read = {
+    name: 'Casey Owner',
+    picture: 'May be an image of 1 person, smiling',
+    cover: null,
+    bio: 'I help roofers get booked jobs',
+    intro: ['Owner at Summit Roof Leads', 'Lives in Columbus, Ohio'],
+    featured: [],
+    posts: ['Another roof done before the storm.'],
+  };
+  const check = async (u: TestUser) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.profile.check',
+      headers: { authorization: `Bearer ${await signInTestUser(u)}` },
+      payload: { workspaceId: ws, input: read },
+    });
+
+  it('scores what the extension read against the live main offer, and keeps only its answer', async () => {
+    const res = await check(owner);
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    expect(got.items).toMatchObject({
+      picture: { ok: true },
+      cover: { ok: false, fix: 'Change your cover.' },
+      bio: { ok: true },
+      work: { ok: true },
+      featured: { ok: false },
+    });
+    // The third bio was too long for Facebook's short bio.
+    expect(got.bios).toEqual([
+      'I help Roofers with 2 to 3 crews get more booked calls.',
+      'More booked calls for Roofers with 2 to 3 crews.',
+    ]);
+    expect(got.version).toBe(1);
+    const [kept] = await rows<{ profile_check: unknown }>(
+      testDbs().admin.db,
+      sql`select profile_check from addon_outreach.setup where workspace_id = ${ws} and user_id = ${owner.id}`,
+    );
+    expect(kept!.profile_check).toEqual(got);
+    // What the page said goes no further.
+    expect(JSON.stringify(kept!.profile_check)).not.toContain('Lives in Columbus');
+  });
+
+  it('is for everyone using the add-on, each their own', async () => {
+    expect((await check(member)).statusCode).toBe(200);
+  });
+});
