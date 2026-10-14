@@ -34,6 +34,17 @@ export interface CalendarEvent {
   readonly location: string | null;
   readonly start: Date;
   readonly end: Date;
+  /**
+   * Make a Google Meet link for it (Google only; Outlook ignores it). Asked once: the link comes back from the
+   * write and goes on the appointment, and later writes carry it as the location instead.
+   */
+  readonly addMeet?: boolean;
+}
+
+/** What a write did: the event's id, and the Meet link Google made when `addMeet` asked for one. */
+export interface WrittenEvent {
+  readonly providerEventId: string;
+  readonly meetingUrl?: string | null;
 }
 
 export interface CalendarAccount {
@@ -49,7 +60,13 @@ export interface CalendarProvider {
    * takes them back out; Outlook's are skipped by their extended property.
    */
   readonly busyIncludesOwnEvents: boolean;
-  authorizeUrl(input: { state: string; codeChallenge: string; redirectUri: string }): string;
+  authorizeUrl(input: {
+    state: string;
+    codeChallenge: string;
+    redirectUri: string;
+    /** Permissions beyond the calendar's, asked for on top of what was already granted (Meet transcripts). */
+    extraScopes?: readonly string[];
+  }): string;
   exchangeCode(input: {
     code: string;
     codeVerifier: string;
@@ -69,7 +86,7 @@ export interface CalendarProvider {
     accessToken: string,
     event: CalendarEvent,
     existingId: string | null,
-  ): Promise<{ providerEventId: string }>;
+  ): Promise<WrittenEvent>;
   /** Removes an event; one that is already gone counts as removed. */
   deleteEvent(accessToken: string, providerEventId: string): Promise<void>;
 }

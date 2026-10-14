@@ -260,8 +260,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   `countryLets`). The Friends tab's **Skipped for country** (`outreach.countries.skipped`) lists them, the latest
   worked out first, with their country and seen or guessed, and **Unskip** (`outreach.country.unskip`) lets one
   through from then on whatever the setting says.
-- **Never contact, and people only chatted with** (the owner's ask of 14 Oct 2026, `contactable`, `friendOf` and
-  `chatPitchSql` in `ops/common.ts`, `neverContactOf`; `20261027003500_outreach_never_contact.sql`): **Never contact**
+- **Never contact, and Don't pitch on a chat** (the owner's ask of 14 Oct 2026, `contactable` and `neverContactOf`
+  in `ops/common.ts`; `20261027003500_outreach_never_contact.sql`): **Never contact**
   is a list of the business's, beside Don't pitch and stronger: nobody here sends them a friend request, a like, a
   comment or a message, not even a reply. It's a switch on each Friends tab row and **Never contact** in the person
   menu (the web's and the phone's), set with `outreach.friend.set`'s `neverContact`, and the Friends tab lists them
@@ -271,11 +271,15 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   (`outreach.send.queue`, `outreach_never_contact`) and any waiting or OK'd is skipped when they go on it, a step
   noted to them isn't counted (`outreach_never_contact`), Research is refused, and a chat read never puts them in
   Contacts. Like Don't pitch it covers a profile kept twice under the same name, and only whoever added someone, or an
-  owner or admin, takes them off (`outreach_never_contact_not_yours`). **Pitch people you've chatted with who aren't
-  your friends** (Business settings, on the web and the phone; `pitchChatsNotFriends`, on to start, as it always
-  was): off, Today's follow-ups, pitches and reconnects go only to the person's friends on Facebook, a friend kept
-  twice under the same name included, and the checks for good fits leave out the people they've only chatted with. A
-  reply they're owed still shows, and so does a pitch to someone the person marked **Ready to pitch** themselves.
+  owner or admin, takes them off (`outreach_never_contact_not_yours`). Each row of the Chats tab has the same two
+  switches as a Friends tab row, **Don't pitch** and **Never contact**, for whoever the chat is with
+  (`outreach.chats` says `dontPitch` and `neverContact` for each chat's profile; `ChatMarks` in the web's
+  `chats-view.tsx` and the phone's `chats.tsx`, where they need signal), so
+  someone the person has chatted with but isn't friends with is decided chat by chat. On the phone, People has the Never contact list itself beside Pipeline and Chats
+  (`?view=never_contact`, the phone's `never-contact.tsx`, from `outreach.friends`' `never_contact` view): who's on it,
+  who added them and when, and a switch that takes someone off, with signal. On the web that address opens the Friends
+  tab's Never contact list. A chat with no profile kept yet
+  (one from the file not matched to anyone) has no switches until it's read in Messenger.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
   warn them that day, **Draft a message** or **Draft a comment** on Today asks it (a `lookup` ask): it opens the
   person's profile in a window of its own, reads their intro and latest two posts, follows the link in their lines to
@@ -1263,9 +1267,6 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
   requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
-- **Only friends, when the business says so** (`pitchChatsNotFriends`, `chatPitchSql`): with it off, a follow-up, a
-  pitch or a reconnect needs the person to be friends with them on Facebook (`friendOf`, by the profile or one kept
-  under its name), never a reply owed and never the person's own Ready to pitch mark.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.

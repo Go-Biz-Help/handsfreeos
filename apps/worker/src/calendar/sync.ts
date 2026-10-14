@@ -8,6 +8,7 @@
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import {
+  appointmentSetMeetingLink,
   calendarConnectionFail,
   executeCommand,
   intervals,
@@ -110,7 +111,7 @@ const openTokens = (s: WorkerServices, sealed: string): TokenSet =>
  * Calls the provider with a working token: renewed ahead of expiry (and sealed again), and once more when the
  * provider says it stopped working early.
  */
-function session(
+export function session(
   s: WorkerServices,
   scope: TenantScope,
   c: CalendarConnection,
@@ -382,6 +383,15 @@ function placeOf(location: unknown): string | null {
   );
 }
 
+/** An online appointment set to get its own Google Meet link, still waiting for it. */
+function wantsMeet(location: unknown): boolean {
+  const l = (location && typeof location === 'object' ? location : {}) as Record<string, unknown>;
+  return l['kind'] === 'virtual' && l['video'] === 'google_meet' && !l['meetingUrl'];
+}
+
+/** How long to wait before asking Google again for a Meet link it hasn't finished making. */
+const MEET_PENDING_MS = 30_000;
+
 /** What the person's calendar shows: the appointment, who it's with, where, and a link back. */
 function eventFor(
   webUrl: string,
@@ -431,14 +441,12 @@ async function readAppointment(s: WorkerServices, scope: TenantScope, appointmen
       .select({ config: calendars.config })
       .from(calendars)
       .where(eq(calendars.id, a.calendarId));
-    const staff = new Set(
-      (
-        await tx
-          .select({ userId: appointmentStaff.userId })
-          .from(appointmentStaff)
-          .where(eq(appointmentStaff.appointmentId, a.id))
-      ).map((r) => r.userId),
-    );
+    const staffRows = await tx
+      .select({ userId: appointmentStaff.userId, role: appointmentStaff.role })
+      .from(appointmentStaff)
+      .where(eq(appointmentStaff.appointmentId, a.id));
+    const staff = new Set(staffRows.map((r) => r.userId));
+    const hostId = staffRows.find((r) => r.role === 'host')?.userId ?? null;
     const written = await tx
       .select()
       .from(appointmentCalendarEvents)
@@ -487,6 +495,7 @@ async function readAppointment(s: WorkerServices, scope: TenantScope, appointmen
       a,
       writeEvents: writeEventsOf(cal?.config),
       staff,
+      hostId,
       people,
       written,
       connections,
@@ -563,10 +572,14 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
   // Deleted: its write-through rows went with it.
   if (!seen) return;
   const { a, writeEvents, staff, people, written, connections, earlier } = seen;
-  const event = eventFor(ctx.webUrl, scope.workspaceId, a, seen.attendees);
+  let event = eventFor(ctx.webUrl, scope.workspaceId, a, seen.attendees);
+  // The Meet link is made once, in the first Google calendar written, starting with the host's.
+  let meet = wantsMeet(a.location) && a.status === 'scheduled' && a.binItemId === null;
+  let meetPending = false;
   const refreshes = new Set<string>();
   const transient: string[] = [];
-  for (const userId of people) {
+  const ordered = [...people].sort((x, y) => (x === seen.hostId ? -1 : y === seen.hostId ? 1 : 0));
+  for (const userId of ordered) {
     const conn = connections.find((c) => c.userId === userId) ?? null;
     const row = written.find((w) => w.userId === userId) ?? null;
     const onIt = staff.has(userId);
@@ -593,9 +606,34 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
         // No calendar, or one waiting on a reconnect: the first refresh after connecting catches up.
         if (!conn || !provider || !usable(conn)) continue;
         const call = session(ctx, scope, conn, provider);
-        const { providerEventId } = await call((t) =>
-          provider.upsertEvent(t, event, here ? (row?.providerEventId ?? null) : null),
+        const addMeet = meet && conn.provider === 'google';
+        const { providerEventId, meetingUrl } = await call((t) =>
+          provider.upsertEvent(
+            t,
+            { ...event, addMeet },
+            here ? (row?.providerEventId ?? null) : null,
+          ),
         );
+        if (addMeet) {
+          if (meetingUrl) {
+            meet = false;
+            meetPending = false;
+            await executeCommand(
+              ctx.db,
+              appointmentSetMeetingLink,
+              {
+                workspaceId: scope.workspaceId,
+                appointmentId: a.id,
+                video: 'google_meet',
+                meetingUrl,
+              },
+              systemActor(scope),
+              workerMeta(),
+            );
+            // Everyone else's event shows the same link.
+            event = { ...event, location: meetingUrl };
+          } else meetPending = true;
+        }
         await record(ctx, scope, a.id, userId, conn.id, {
           providerEventId,
           error: null,
@@ -639,6 +677,8 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
     });
   if (transient.length > 0)
     throw new Error(`A calendar didn’t take the change: ${transient.join('; ')}`);
+  // Google is still making the Meet link: ask again shortly, with the same request, to pick it up.
+  if (meetPending) return { rescheduleAt: new Date(Date.now() + MEET_PENDING_MS) };
   // Changed while we were writing: go round again with what it is now.
   if (await changedSince(ctx, scope, a.id, seen.fingerprint)) return { rescheduleAt: new Date() };
 };

@@ -63,6 +63,7 @@ export const OUTREACH_WORDS = {
     pipeline: 'Pipeline',
     groups: 'Groups',
     chats: 'Chats',
+    never_contact: 'Never contact',
     playbooks: 'Playbooks',
     settings: 'Settings',
     activity: 'Activity',
@@ -235,7 +236,39 @@ export const OUTREACH_WORDS = {
     settings: 'Your settings, playbooks and computer',
   },
   /** People's three lists. */
-  peopleParts: { pipeline: 'Pipeline', friends: 'Friends', chats: 'Chats' },
+  peopleParts: {
+    pipeline: 'Pipeline',
+    friends: 'Friends',
+    chats: 'Chats',
+    never_contact: 'Never contact',
+  },
+  /** The business's Never contact list, on the phone's People tab as on the web's Friends tab. */
+  neverContactList: {
+    about:
+      'Nobody here sends anyone on this list a friend request, like, comment or message, not even a reply, and their friend requests are never confirmed. Turn the switch off to take someone off.',
+    empty: {
+      title: 'Nobody on the Never contact list',
+      body: 'Put someone on it from a chat’s Never contact switch, or from the menu beside their name on Today.',
+    },
+    added: (by: string | null, at: string | null) =>
+      [
+        by ? `Added by ${by}` : 'Added',
+        at
+          ? new Date(at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    noMatch: {
+      title: 'Nobody by that name on the list',
+      body: 'Check the spelling and look again.',
+    },
+    openFacebook: 'Facebook',
+  },
   /** The Settings tab's parts. */
   settingsParts: {
     mine: 'My settings',
@@ -302,6 +335,7 @@ export const OUTREACH_WORDS = {
     demoMarked: (name: string) => `Marked: ${name} booked a demo.`,
     demoUnmarked: 'Unmarked.',
     dontPitchDone: (name: string) => `${name} is on Don’t pitch. Nobody here sends them outreach.`,
+    dontPitchOff: (name: string) => `${name} is off the Don’t pitch list.`,
     neverContactDone: (name: string) =>
       `${name} is on Never contact. Nobody here messages, likes, comments on or friends them, and their friend requests wait on Facebook.`,
     neverContactOff: (name: string) => `${name} is off the Never contact list.`,
@@ -480,7 +514,6 @@ export const OUTREACH_WORDS = {
     morning: 'Morning push',
     weekly: 'Weekly report by email',
     countries: 'Which countries to reach',
-    chatsNotFriends: 'Pitch people you’ve chatted with who aren’t your friends',
   },
   abouts: {
     onItsOwn:
@@ -511,8 +544,6 @@ export const OUTREACH_WORDS = {
       'Each person who used the extension that week gets their friend requests, replies and demos, their best group and their best opener, on Monday at the morning push’s hour (8 AM when that’s off).',
     countries:
       'Where people live, from their profile, or the AI’s guess from their name, posts and groups when it doesn’t say. Anyone skipped is on the Friends tab’s Skipped for country list, where Unskip lets them through.',
-    chatsNotFriends:
-      'Turn this off, and follow-ups, pitches and reconnects go only to your friends on Facebook, never to someone you’ve only messaged. A reply they’re owed still shows on Today.',
     notOwner:
       'An owner or admin of this business sets the choices you may pick and your daily limits.',
   },

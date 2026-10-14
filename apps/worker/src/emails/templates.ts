@@ -869,6 +869,36 @@ export function calendarReconnectEmail(input: {
 }
 
 /**
+ * A recorded Zoom call ended two hours ago and no transcript came: once per appointment, to its host, with what
+ * their Zoom settings are known to be missing (or the usual causes when nothing is).
+ */
+export function missingTranscriptEmail(input: {
+  /** "Zoom" or "Google Meet". */
+  provider?: string;
+  title: string;
+  when: string;
+  problems: readonly { title: string; fix: string }[];
+  link: string;
+}): EmailContent {
+  const subject = `No transcript came for ${input.title}`;
+  const provider = input.provider ?? 'Zoom';
+  const lead = `Your ${provider} call for ${input.title} (${input.when}) was set to be recorded and transcribed, but no transcript came from ${provider}.`;
+  const causes = input.problems.length
+    ? input.problems.map((p) => `${p.title} ${p.fix}`)
+    : [
+        `The call may not have been recorded: ${provider} only records when the host starts the call from ${provider}.`,
+        `${provider} can take longer for long calls; if it comes later, it’s added on its own.`,
+      ];
+  const text = `${lead}\n\n${causes.map((c) => `- ${c}`).join('\n')}\n\nCheck your ${provider} settings in HandsFreeOS: ${input.link}`;
+  const html = shell(
+    para(escapeHtml(lead)) +
+      causes.map((c) => para(escapeHtml(c))).join('') +
+      button(input.link, `Check your ${provider} settings`),
+  );
+  return { subject, text, html };
+}
+
+/**
  * "Email me a link" in the phone app: the page that does one Getting started step, to open on a computer. Only ever
  * sent to the person who asked, from their own phone.
  */

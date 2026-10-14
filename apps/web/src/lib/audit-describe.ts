@@ -653,6 +653,37 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.status) === 'reauth_required'
         ? `recorded that the ${calendarName(e)} ${s(e.after?.account)} needs reconnecting`
         : `recorded that the ${calendarName(e)} ${s(e.after?.account)} stopped syncing${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    // Video meetings: people's own Zoom accounts
+    case 'meeting_connection.connect':
+      return 'started connecting a Zoom account';
+    case 'meeting_connection.activate':
+      return `connected the Zoom account ${s(e.after?.account)}`;
+    case 'meeting_connection.disconnect':
+      return s(e.after?.person)
+        ? `disconnected ${s(e.after?.person)}'s Zoom account`
+        : `disconnected the Zoom account ${s(e.after?.account)}`;
+    case 'meeting_connection.fail':
+      return s(e.after?.status) === 'reauth_required'
+        ? `recorded that the Zoom account ${s(e.after?.account)} needs reconnecting`
+        : `recorded that the Zoom account ${s(e.after?.account)} stopped working${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    case 'meeting_connection.revoke':
+      return 'disconnected a Zoom account after the HandsFreeOS app was removed in Zoom';
+    case 'meeting_connection.check_settings':
+      return `asked for the Zoom account ${s(e.after?.account)}’s settings to be checked again`;
+    case 'meeting_connection.record_settings':
+      return `checked the Zoom account ${s(e.after?.account)}’s recording settings`;
+    case 'appointment.set_meeting_link':
+      return 'updated an appointment’s video link';
+    case 'appointment.attach_transcript':
+      return `kept the transcript of the call for ${s(e.after?.title)}`;
+    case 'call_suggestion.record':
+      return `summed up the call for ${s(e.after?.title)}`;
+    case 'call_suggestion.decide':
+      return s(e.after?.decision) === 'approve'
+        ? `approved the AI’s suggested ${s(e.after?.kind) === 'task' ? 'task' : 'follow-up email'} after a call`
+        : `dismissed the AI’s suggested ${s(e.after?.kind) === 'task' ? 'task' : 'follow-up email'} after a call`;
+    case 'appointment.make_meeting_link':
+      return 'asked for an appointment’s Zoom link to be made again';
     // Milestone 5: calendars, their catalogs, people's hours and appointments
     case 'calendar.create':
       return `created the calendar ${name(e)}${s(e.after?.preset) ? ` from the ${s(e.after?.preset)} preset` : ''}`;
@@ -1886,6 +1917,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
 const CALENDAR_PREFIXES = [
   'calendar.',
   'calendar_connection.',
+  'meeting_connection.',
   'service.',
   'resource.',
   'territory.',

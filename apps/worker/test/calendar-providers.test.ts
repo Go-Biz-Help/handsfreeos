@@ -160,17 +160,21 @@ describe('Google Calendar', () => {
     const { p, calls } = google([
       (c) =>
         c.method === 'POST' &&
-        c.url === 'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none'
+        c.url ===
+          'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none&conferenceDataVersion=1'
           ? json({ error: { code: 409, message: 'The requested identifier already exists.' } }, 409)
           : undefined,
       (c) =>
         c.method === 'PATCH' &&
         c.url ===
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${id}?sendUpdates=none`
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${id}?sendUpdates=none&conferenceDataVersion=1`
           ? json({ id })
           : undefined,
     ]);
-    expect(await p.upsertEvent('a', event, null)).toEqual({ providerEventId: id });
+    expect(await p.upsertEvent('a', event, null)).toEqual({
+      providerEventId: id,
+      meetingUrl: null,
+    });
     expect(calls.map((c) => c.method)).toEqual(['POST', 'PATCH']);
     expect(id).toMatch(/^[0-9a-v]{32}$/);
     const made = parsed(calls[0]!);
@@ -183,8 +187,52 @@ describe('Google Calendar', () => {
       extendedProperties: { private: { hfosAppointmentId: APPOINTMENT } },
     });
     expect(made).not.toHaveProperty('attendees');
+    expect(made).not.toHaveProperty('conferenceData');
     // The update also brings back an event the person deleted (Google keeps it as cancelled).
     expect(parsed(calls[1]!)).toMatchObject({ status: 'confirmed' });
+  });
+
+  it('asks for a Meet link with the appointment’s request id, and reads it back', async () => {
+    const id = APPOINTMENT.replace(/-/g, '');
+    const { p, calls } = google([
+      (c) =>
+        c.method === 'POST'
+          ? json({
+              id,
+              conferenceData: {
+                entryPoints: [
+                  { entryPointType: 'phone', uri: 'tel:+1-555-0100' },
+                  { entryPointType: 'video', uri: 'https://meet.google.com/abc-defg-hij' },
+                ],
+              },
+            })
+          : undefined,
+    ]);
+    expect(await p.upsertEvent('a', { ...event, addMeet: true }, null)).toEqual({
+      providerEventId: id,
+      meetingUrl: 'https://meet.google.com/abc-defg-hij',
+    });
+    expect(calls[0]!.url).toContain('conferenceDataVersion=1');
+    expect(parsed(calls[0]!)).toMatchObject({
+      conferenceData: {
+        createRequest: {
+          requestId: `hfos-${APPOINTMENT}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+        },
+      },
+    });
+    expect(parsed(calls[0]!)).not.toHaveProperty('attendees');
+  });
+
+  it('a Meet link still being made comes back as none yet', async () => {
+    const { p } = google([
+      () =>
+        json({ id: 'x', conferenceData: { createRequest: { status: { statusCode: 'pending' } } } }),
+    ]);
+    expect(await p.upsertEvent('a', { ...event, addMeet: true }, 'x')).toEqual({
+      providerEventId: 'x',
+      meetingUrl: null,
+    });
   });
 
   it('an event already gone counts as deleted; anything else is an error', async () => {
@@ -192,7 +240,7 @@ describe('Google Calendar', () => {
     await expect(gone.p.deleteEvent('a', 'abc')).resolves.toBeUndefined();
     expect(gone.calls[0]).toMatchObject({
       method: 'DELETE',
-      url: 'https://www.googleapis.com/calendar/v3/calendars/primary/events/abc?sendUpdates=none',
+      url: 'https://www.googleapis.com/calendar/v3/calendars/primary/events/abc?sendUpdates=none&conferenceDataVersion=1',
     });
     const down = google([() => json({ error: { code: 500 } }, 500)]);
     await expect(down.p.deleteEvent('a', 'abc')).rejects.toBeInstanceOf(CalendarError);

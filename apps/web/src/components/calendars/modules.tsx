@@ -722,7 +722,13 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 set(
                   options.map((x, j) =>
                     j === i
-                      ? { kind: e.target.value as LocationKind, address: null, meetingUrl: null }
+                      ? {
+                          kind: e.target.value as LocationKind,
+                          address: null,
+                          meetingUrl: null,
+                          video: 'none' as const,
+                          record: false,
+                        }
                       : x,
                   ),
                 )
@@ -745,15 +751,76 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 }
               />
             ) : o.kind === 'virtual' ? (
-              <CommitInput
-                label="Meeting link"
-                placeholder="https://"
-                className="min-w-[200px] flex-1"
-                value={o.meetingUrl ?? ''}
-                onCommit={(v) =>
-                  set(options.map((x, j) => (j === i ? { ...x, meetingUrl: v.trim() || null } : x)))
-                }
-              />
+              <>
+                <Select
+                  selectSize="sm"
+                  className="w-[200px]"
+                  aria-label="Video link"
+                  value={o.video}
+                  onChange={(e) =>
+                    set(
+                      options.map((x, j) =>
+                        j === i
+                          ? {
+                              ...x,
+                              video: e.target.value as 'none' | 'google_meet' | 'zoom',
+                              meetingUrl: null,
+                              // Only Zoom records.
+                              record:
+                                e.target.value === 'zoom' || e.target.value === 'google_meet'
+                                  ? x.record
+                                  : false,
+                            }
+                          : x,
+                      ),
+                    )
+                  }
+                >
+                  <option value="none">Use my link</option>
+                  <option value="google_meet">Make a Google Meet link</option>
+                  <option value="zoom">Make a Zoom link</option>
+                </Select>
+                {o.video === 'zoom' || o.video === 'google_meet' ? (
+                  <label className="flex w-full items-center gap-2 text-xs text-text-2">
+                    <input
+                      type="checkbox"
+                      checked={o.record}
+                      data-testid="zoom-record"
+                      onChange={(e) =>
+                        set(
+                          options.map((x, j) => (j === i ? { ...x, record: e.target.checked } : x)),
+                        )
+                      }
+                    />
+                    Record and transcribe calls. Customers are told when they book and in their
+                    confirmation.{' '}
+                    {o.video === 'zoom'
+                      ? 'The host’s Zoom needs a paid plan with cloud recording and audio transcripts on.'
+                      : 'The host needs Google Workspace, Allow Meet transcripts on their Google calendar, and transcripts started in the call (or on by default).'}
+                  </label>
+                ) : null}
+                {o.video !== 'none' ? (
+                  <span className="min-w-[200px] flex-1 text-xs text-text-3">
+                    Each appointment gets its own link, made in the host’s{' '}
+                    {o.video === 'zoom' ? 'Zoom account' : 'Google Calendar'}. They connect it in
+                    Settings → My calendar.
+                  </span>
+                ) : (
+                  <CommitInput
+                    label="Meeting link"
+                    placeholder="https://"
+                    className="min-w-[200px] flex-1"
+                    value={o.meetingUrl ?? ''}
+                    onCommit={(v) =>
+                      set(
+                        options.map((x, j) =>
+                          j === i ? { ...x, meetingUrl: v.trim() || null } : x,
+                        ),
+                      )
+                    }
+                  />
+                )}
+              </>
             ) : (
               <span className="flex-1 text-xs text-text-3">
                 {o.kind === 'customer_address'
@@ -782,7 +849,13 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                 e.target.value &&
                 set([
                   ...options,
-                  { kind: e.target.value as LocationKind, address: null, meetingUrl: null },
+                  {
+                    kind: e.target.value as LocationKind,
+                    address: null,
+                    meetingUrl: null,
+                    video: 'none' as const,
+                    record: false,
+                  },
                 ])
               }
             >

@@ -70,6 +70,7 @@ type StoredLocation = {
   address?: string | null;
   meetingUrl?: string | null;
   postalCode?: string | null;
+  record?: boolean;
 };
 
 /** The street address, with the customer's ZIP when the address doesn't carry it. */
@@ -188,6 +189,7 @@ export async function loadBooking(
     locationKind: location.kind ?? null,
     address: addressOf(location),
     meetingUrl: location.meetingUrl ?? null,
+    recorded: location.record === true,
     staff: staff.firstNames,
   };
   const manageUrl = await manageUrlFor(tx, s.bookingLinks, row.a.id);

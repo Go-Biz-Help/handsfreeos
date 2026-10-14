@@ -1974,7 +1974,35 @@ export const SALESCOACH_RULES: readonly ScriptRule[] = [
   { when: /Write the playbook\.$/, json: (message) => scriptedCoachPlaybook(message) },
 ];
 
+/**
+ * A recorded call's review (meetings/review.ts): the summary names the appointment; a quote someone promised
+ * becomes a task due in two days and a follow-up; a call that promised nothing suggests nothing.
+ */
+function scriptedCallReview(message: string): unknown {
+  const title = /^Appointment: (.*?),/m.exec(message)?.[1] ?? 'the call';
+  const said = quotedBlock(message, 'transcript') ?? '';
+  const quote = /\bquote\b/i.test(said);
+  return {
+    summary: `Call about ${title}. ${said.split('\n')[0] ?? ''}`.trim(),
+    tasks: quote ? [{ title: 'Send the quote', notes: null, dueInDays: 2 }] : [],
+    followUp: quote
+      ? {
+          subject: 'Thanks for the call',
+          body: 'Thanks for your time today. Your quote is on its way.',
+        }
+      : null,
+  };
+}
+
+export const MEETING_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write the call review the instructions above describe\.$/,
+    json: (m) => scriptedCallReview(m),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...MEETING_RULES,
   ...KNOWLEDGE_RULES,
   ...AI_SETUP_RULES,
   ...AUTOMATION_RULES,

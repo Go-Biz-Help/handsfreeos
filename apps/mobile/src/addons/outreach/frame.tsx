@@ -13,7 +13,7 @@ import { openOutreach, switchOutreach, type OutreachTab } from './kit';
 /**
  * Social Outreach's frame on the phone (decision 59): its name, the gear for Settings and Playbooks, and the four tabs
  * the web has, Today, People, Groups and Results, so the add-on is one place rather than a list of screens. People has
- * its own Pipeline and Chats, and Friends, which stays on the web.
+ * its own Pipeline, Chats and the Never contact list, and Friends, which stays on the web.
  */
 
 export type FrameTab = 'today' | 'people' | 'groups' | 'results';
@@ -37,7 +37,7 @@ export function OutreachFrame({
 }: {
   tab: FrameTab;
   /** Which of People's lists, on the People tab. */
-  people?: 'pipeline' | 'chats';
+  people?: 'pipeline' | 'chats' | 'never_contact';
   subtitle?: string;
   testID?: string;
   children?: React.ReactNode;
@@ -80,7 +80,7 @@ export function OutreachFrame({
                 className="flex-1"
                 value={people ?? 'pipeline'}
                 onChange={(v) => switchOutreach(workspaceId, v)}
-                options={(['pipeline', 'chats'] as const).map((v) => ({
+                options={(['pipeline', 'chats', 'never_contact'] as const).map((v) => ({
                   value: v,
                   label: W.peopleParts[v],
                   testID: `outreach-people-${v}`,

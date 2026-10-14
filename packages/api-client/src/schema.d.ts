@@ -797,6 +797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/appointment.make_meeting_link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try again to make the Zoom link for an online appointment, for instance after its host connected Zoom.
+         * @description Risk level 1. Requires appointments.write. Emits appointment.meeting_link_requested.
+         */
+        post: operations["command_appointment_make_meeting_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/appointment.reassign": {
         parameters: {
             query?: never;
@@ -1471,6 +1491,26 @@ export interface paths {
          * @description Risk level 1. Requires calendars.manage. Emits calendar.status_changed.
          */
         post: operations["command_calendar_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/call_suggestion.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or dismiss something the AI suggested after a call. Approving makes the task, or sends the follow-up, as you.
+         * @description Risk level 2. Requires appointments.write. Emits call_suggestion.decided.
+         */
+        post: operations["command_call_suggestion_decide"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4791,6 +4831,66 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits maintenance.schedule_set.
          */
         post: operations["command_maintenance_set_schedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meeting_connection.check_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read your Zoom account’s recording and transcript settings again now (after changing them in Zoom).
+         * @description Risk level 1. Requires appointments.write. Emits meeting_connection.settings_check_requested.
+         */
+        post: operations["command_meeting_connection_check_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meeting_connection.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting your own Zoom account, for video links on your online appointments. Returns a one-time state; the browser signs in to Zoom through the worker.
+         * @description Risk level 2. Requires appointments.write. Emits meeting_connection.connect_started.
+         */
+        post: operations["command_meeting_connection_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meeting_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect a Zoom account: your own, or anyone’s for owners and admins. HandsFreeOS forgets the sign-in; meetings it already made stay in Zoom.
+         * @description Risk level 2. Requires appointments.write. Emits meeting_connection.disconnected.
+         */
+        post: operations["command_meeting_connection_disconnect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14497,6 +14597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/appointment.transcripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What was said on an appointment’s recorded calls, newest first.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_appointment_transcripts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/assistant_thread.get": {
         parameters: {
             query?: never;
@@ -14831,6 +14951,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_calendar_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/call_suggestion.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The AI’s summary of an appointment’s recorded call, and its suggestions with where each stands.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_call_suggestion_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16191,6 +16331,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_maintenance_for_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/meeting_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Zoom connections: your own, or everyone’s for owners and admins.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_meeting_connection_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21262,9 +21422,19 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
+                        /** @default null */
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     /** @default true */
@@ -21347,6 +21517,38 @@ export interface operations {
                         }[];
                         /** Format: date-time */
                         purgeAfter: string;
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_make_meeting_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
                     };
                 };
             };
@@ -21581,9 +21783,19 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
+                        /** @default null */
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     title?: string;
@@ -22827,6 +23039,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    meetTranscripts?: boolean;
                     /** @enum {string} */
                     provider: "google" | "microsoft";
                     /** Format: uuid */
@@ -23144,6 +23358,13 @@ export interface operations {
                                 kind: "customer_address" | "business" | "virtual" | "phone";
                                 /** @default null */
                                 meetingUrl?: string | null;
+                                /** @default false */
+                                record?: boolean;
+                                /**
+                                 * @default none
+                                 * @enum {string}
+                                 */
+                                video?: "none" | "google_meet" | "zoom";
                             }[];
                         };
                         /** @default {} */
@@ -23467,6 +23688,51 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         status: "draft" | "active" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_call_suggestion_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "dismiss";
+                    edits?: {
+                        body?: string;
+                        dueAt?: string | null;
+                        notes?: string | null;
+                        subject?: string;
+                        title?: string;
+                    };
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conversationId: string | null;
+                        /** @enum {string} */
+                        status: "approved" | "dismissed";
+                        /** Format: uuid */
+                        suggestionId: string;
+                        taskId: string | null;
                     };
                 };
             };
@@ -30281,6 +30547,103 @@ export interface operations {
                         /** Format: uuid */
                         serviceId: string;
                         source: ("customer" | "plan" | "service") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_meeting_connection_check_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_meeting_connection_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    provider: "zoom";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_meeting_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
                     };
                 };
             };
@@ -46731,9 +47094,19 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
+                        /** @default null */
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     /** @default false */
@@ -46962,9 +47335,19 @@ export interface operations {
                         /** @default null */
                         kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                         /** @default null */
+                        meetingError?: string | null;
+                        /** @default null */
+                        meetingFor?: string | null;
+                        /** @default null */
+                        meetingId?: string | null;
+                        /** @default null */
                         meetingUrl?: string | null;
                         /** @default null */
                         postalCode?: string | null;
+                        /** @default false */
+                        record?: boolean;
+                        /** @default null */
+                        video?: ("none" | "google_meet" | "zoom") | null;
                     };
                     notes?: string | null;
                     serviceId?: string | null;
@@ -52998,9 +53381,19 @@ export interface operations {
                                 /** @default null */
                                 kind: ("customer_address" | "business" | "virtual" | "phone") | null;
                                 /** @default null */
+                                meetingError: string | null;
+                                /** @default null */
+                                meetingFor: string | null;
+                                /** @default null */
+                                meetingId: string | null;
+                                /** @default null */
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
+                                /** @default false */
+                                record: boolean;
+                                /** @default null */
+                                video: ("none" | "google_meet" | "zoom") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -53143,9 +53536,19 @@ export interface operations {
                                 /** @default null */
                                 kind: ("customer_address" | "business" | "virtual" | "phone") | null;
                                 /** @default null */
+                                meetingError: string | null;
+                                /** @default null */
+                                meetingFor: string | null;
+                                /** @default null */
+                                meetingId: string | null;
+                                /** @default null */
                                 meetingUrl: string | null;
                                 /** @default null */
                                 postalCode: string | null;
+                                /** @default false */
+                                record: boolean;
+                                /** @default null */
+                                video: ("none" | "google_meet" | "zoom") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -53180,6 +53583,44 @@ export interface operations {
                             updatedAt: string;
                         }[];
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_appointment_transcripts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            body: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            provider: string;
+                        }[];
                     };
                 };
             };
@@ -54565,6 +55006,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             lastError: string | null;
+                            meetTranscripts: boolean;
                             nextSyncAt: string | null;
                             /** @enum {string} */
                             provider: "google" | "microsoft";
@@ -54745,6 +55187,13 @@ export interface operations {
                                         kind: "customer_address" | "business" | "virtual" | "phone";
                                         /** @default null */
                                         meetingUrl: string | null;
+                                        /** @default false */
+                                        record: boolean;
+                                        /**
+                                         * @default none
+                                         * @enum {string}
+                                         */
+                                        video: "none" | "google_meet" | "zoom";
                                     }[];
                                 };
                                 notifications: {
@@ -55029,6 +55478,50 @@ export interface operations {
                             id: string;
                             slug: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_call_suggestion_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "task" | "follow_up";
+                            preview: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status: "pending" | "approved" | "dismissed";
+                        }[];
+                        summary: string | null;
                     };
                 };
             };
@@ -59793,6 +60286,59 @@ export interface operations {
             };
         };
     };
+    query_meeting_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeDisconnected?: boolean;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountEmail: string | null;
+                            connectedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            disconnectedAt: string | null;
+                            failures: number;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            /** @enum {string} */
+                            provider: "zoom";
+                            scopes: string[];
+                            settingsCheckedAt: string | null;
+                            settingsProblems: string[];
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_message_get: {
         parameters: {
             query?: never;
@@ -62359,11 +62905,13 @@ export interface operations {
                         chats: {
                             /** Format: uuid */
                             chatId: string;
+                            dontPitch: boolean;
                             /** Format: date-time */
                             lastAt: string;
                             lastFromMe: boolean;
                             messages: number;
                             name: string;
+                            neverContact: boolean;
                             nextStep: string | null;
                             onCard: boolean;
                             personId: string | null;
@@ -70270,6 +70818,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 lastError: string | null;
+                                meetTranscripts: boolean;
                                 nextSyncAt: string | null;
                                 /** @enum {string} */
                                 provider: "google" | "microsoft";

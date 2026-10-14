@@ -1,5 +1,5 @@
 /**
- * Sales Coach's own tables, in its schema `addon_salescoach` (supabase/migrations/20261027003600): the Drizzle mirror
+ * Sales Coach's own tables, in its schema `addon_salescoach` (supabase/migrations/20261027004500): the Drizzle mirror
  * its server code reads and writes through. Server-only. test/addons/salescoach.test.ts holds the mirror to the
  * live columns.
  */
@@ -63,7 +63,7 @@ export const coachedCalls = addonSalescoach.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: workspaceRef(),
-    /** Core's call, or null for a written conversation's write-up (20261027003800). */
+    /** Core's call, or null for a written conversation's write-up (20261027004700). */
     callId: uuid('call_id').references(() => coreCalls.id, { onDelete: 'cascade' }),
     userId: userRef('user_id'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
@@ -82,7 +82,7 @@ export const coachedCalls = addonSalescoach.table(
       onDelete: 'set null',
     }),
     channel: text('channel'),
-    /** A win within a week of it (round four, 20261027003900): when, and which. */
+    /** A win within a week of it (round four, 20261027004800): when, and which. */
     wonAt: ts('won_at'),
     wonHow: text('won_how').$type<WinKind>(),
     startedAt: ts('started_at').notNull().defaultNow(),

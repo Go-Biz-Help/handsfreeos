@@ -51,6 +51,7 @@ import { telHref } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { AddAttendeeDialog } from './add-attendee-dialog';
 import { firstName, holdOf, statusOf, useNow } from './appt';
+import { CallReview } from './call-review';
 import { CancelDialog, tellLabelOf } from './cancel-dialog';
 import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
@@ -248,6 +249,9 @@ export function AppointmentSheet({
   >(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<'sms' | 'email' | null>(null);
+  const [transcripts, setTranscripts] = useState<
+    { id: string; createdAt: string; body: string }[] | null
+  >(null);
 
   const load = useCallback(async () => {
     try {
@@ -265,6 +269,20 @@ export function AppointmentSheet({
   useEffect(() => {
     void load();
   }, [load, version]);
+
+  // A recorded call's transcript, once Zoom has sent it.
+  const isRecorded = appt?.location.record === true;
+  useEffect(() => {
+    if (!isRecorded) return;
+    let cancelled = false;
+    apiBrowser()
+      .POST('/v1/queries/appointment.transcripts', { body: { workspaceId, appointmentId } })
+      .then((r) => !cancelled && setTranscripts(unwrap(r).items))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, appointmentId, isRecorded, version]);
 
   const calendarId = appt?.calendar.id;
   useEffect(() => {
@@ -302,6 +320,24 @@ export function AppointmentSheet({
       router.push(`/app/w/${workspaceId}/money/invoices/${invoiceId}`);
     } catch (e) {
       toast.error(errorMessage(e));
+      setBusy(null);
+    }
+  }
+
+  /** Try the Zoom link again (after the host connected Zoom, say); the worker makes it in a moment. */
+  async function makeMeetingLink() {
+    if (!appt) return;
+    setBusy('meeting');
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/appointment.make_meeting_link', {
+          body: { workspaceId, appointmentId: appt.id },
+        }),
+      );
+      toast.success('Making the Zoom link now.');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
       setBusy(null);
     }
   }
@@ -812,6 +848,57 @@ export function AppointmentSheet({
                       </div>
                     ))}
                   </div>
+                </Section>
+              ) : null}
+
+              {appt.location.video === 'zoom' &&
+              !appt.location.meetingUrl &&
+              appt.status === 'scheduled' ? (
+                <Section label="Zoom link">
+                  <div className="flex items-start gap-2.5 pt-1.5" data-testid="meeting-pending">
+                    <span className="min-w-0 flex-1 text-[13px] text-text-2">
+                      {appt.location.meetingError ?? 'Making the Zoom link now.'}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-none"
+                      loading={busy === 'meeting'}
+                      onClick={() => void makeMeetingLink()}
+                    >
+                      Make link
+                    </Button>
+                  </div>
+                </Section>
+              ) : null}
+
+              {isRecorded && transcripts?.length ? (
+                <Section label="After the call">
+                  <CallReview workspaceId={workspaceId} appointmentId={appt.id} version={version} />
+                </Section>
+              ) : null}
+
+              {isRecorded ? (
+                <Section label="Transcript">
+                  {transcripts?.length ? (
+                    transcripts.map((t) => (
+                      <details key={t.id} className="pt-1.5" data-testid="appointment-transcript">
+                        <summary className="cursor-pointer text-[13px] font-medium">
+                          From the {appt.location.video === 'google_meet' ? 'Google Meet' : 'Zoom'}{' '}
+                          call
+                        </summary>
+                        <p className="mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap text-[13px] text-text-2">
+                          {t.body}
+                        </p>
+                      </details>
+                    ))
+                  ) : (
+                    <p className="pt-1.5 text-[13px] text-text-3">
+                      This call is recorded. Its transcript shows here once{' '}
+                      {appt.location.video === 'google_meet' ? 'Google Meet' : 'Zoom'} has it,
+                      usually within an hour of the call ending.
+                    </p>
+                  )}
                 </Section>
               ) : null}
 

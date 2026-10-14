@@ -99,16 +99,6 @@ export const contactable = (p: string) =>
   sql`(not ${sql.raw(p)}.never_contact and (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) not in (${offNames}))`;
 
 /**
- * Whether the person `me` is friends on Facebook with a profile, or with one kept under its name on its network: a
- * chat's profile and the friends list's can be the same person kept twice (decision 51). `p` is its alias.
- */
-export const friendOf = (me: string, p: string) =>
-  sql`((${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (
-    select fp.workspace_id, fp.platform, ${nameKeyOf('fp')} from addon_outreach.friends f
-    join addon_outreach.profiles fp on fp.id = f.profile_id
-    where f.user_id = ${me} and f.state = 'friends'))`;
-
-/**
  * Whether a profile has a twin marked never pitched (`neverTwins`): for one not marked itself, any profile marked
  * under its name; for the few marked, looked up. `p` is its alias.
  */
@@ -136,14 +126,6 @@ export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
 /** The business's country setting (decision 61), as it's read: Anywhere when it isn't set. */
 export async function countryRuleOf(ctx: Ctx): Promise<CountryRule> {
   return (await outreachSettingsOf(ctx)).countries;
-}
-
-/**
- * Who a follow-up, a pitch or a reconnect may go to for the person `me`, by the business's setting for people they've
- * only chatted with: anyone, or only their friends on Facebook (`pitchChatsNotFriends` off). `p` is its alias.
- */
-export function chatPitchSql(settings: OutreachSettings, me: string, p: string) {
-  return settings.pitchChatsNotFriends ? sql`true` : friendOf(me, p);
 }
 
 /**

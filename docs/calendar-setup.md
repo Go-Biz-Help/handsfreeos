@@ -274,6 +274,96 @@ while you wait.
 
 ---
 
+## Google Meet links
+
+A calendar's **Online** place can be set to **Make a Google Meet link** (Settings → Calendars → Locations). Each
+appointment there then gets its own Meet link, made when HandsFreeOS writes the event into the host's Google
+Calendar (the event asks for `conferenceData` with the appointment's id as its request id, so a retry never makes a
+second link). The worker saves the link on the appointment with `appointment.set_meeting_link`, and reminders, the
+portal and everyone else's calendar event show it. It should need no new scope (`calendar.events.owned` covers conference data on the person’s own events); check it on the first real connection. It only happens when the host (or someone
+on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
+someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
+
+### Meet transcripts
+
+Meet sends no webhook, so HandsFreeOS asks for transcripts. A person turns it on with **Allow Meet transcripts** on
+their Google Calendar card (Settings → My calendar), which asks Google again for
+`https://www.googleapis.com/auth/meetings.space.readonly`. Add that scope to the Google Cloud app's consent screen
+(Data access) first; it's a restricted-style scope, so Google may ask to verify the app again before people outside
+the test users can grant it. With the Meet place set to **Record and transcribe**, the worker looks for the call's
+transcript (by its meeting code) 15 minutes after it ends and every 20 minutes for 4 hours, then attaches it and the
+AI pass runs as for Zoom. Meet can't turn transcription on by itself: the host presses **Transcripts** in the call,
+or turns on automatic transcripts in Google Workspace. Meet transcripts need a Workspace plan that has them.
+
+## Zoom
+
+**Settings** → **My calendar** → **Video meetings** → **Connect Zoom** links a person's own Zoom account. A
+calendar's **Online** place set to **Make a Zoom link** (Settings → Calendars → Locations) then gets a Zoom
+meeting for each appointment, in the host's Zoom account (the host, else the first person on it). The job
+`appointment.meeting_sync` makes it when the appointment is booked, moves it when it moves, makes it again if
+someone deleted it in Zoom, and deletes it when the appointment is cancelled, a no-show or deleted. The link, Zoom's
+meeting id and the times it was set to live on the appointment's place. When the host hasn't connected Zoom (or
+Zoom needs them to sign in again), the appointment says so and has a **Make link** button; connecting Zoom also
+makes the links their upcoming appointments are missing. Meetings have a waiting room, and the join link carries
+Zoom's passcode.
+
+The Zoom card also says whether the account's settings allow transcripts after calls. The worker job
+`meeting_connection.settings_check` reads the account's plan (`GET /users/me`, `type`) and its recording switches
+(`GET /users/me/settings`, `recording.cloud_recording` and `recording.recording_audio_transcript`) right after
+it connects, when its person presses **Check again**, and once a day. It stores what they mean as codes
+(`zoom_basic_plan`, `zoom_cloud_recording_off`, `zoom_transcript_off`); the words and fixes are in
+`packages/core/src/meetings/settings.ts`. Zoom links work either way. Zoom doesn't tell a user whether an admin
+locked a switch, so each fix says to ask the Zoom admin if it can't be turned on. These checks need the app's
+`user:read:settings` scope.
+
+**Record and transcribe** (a checkbox under **Make a Zoom link**) makes each meeting record to the cloud on its
+own (`auto_recording: cloud`). The booking page and the customer's confirmation say "This call is recorded and
+transcribed." When Zoom finishes a transcript it calls `/webhooks/zoom`; the worker checks the signature
+(`x-zm-signature`, HMAC-SHA256 of `v0:<timestamp>:<body>` with `ZOOM_WEBHOOK_SECRET`, refusing anything older than
+five minutes), finds the appointment by the meeting's id, and `appointment.transcript_fetch` downloads the file with
+the host's token (only from `zoom.us`) and keeps it as plain text in `app.appointment_transcripts`, shown on the
+appointment. Two hours after a recorded call is due to end, `appointment.transcript_watch` emails the host once if
+nothing came, with what their Zoom settings are missing. Recordings themselves are never downloaded. Removing the HandsFreeOS app in Zoom sends `app_deauthorized`: the worker
+finds that Zoom user's connections in every business (`private.meeting_connections_by_external_user`) and
+`meeting_connection.revoke` disconnects each one and erases what was kept from Zoom (tokens, the account's email
+and id, scopes and settings). On the Zoom app, subscribe the same endpoint to **App Deauthorized** too.
+
+Then the AI reads it (`appointment.call_review`, counted as AI usage "AI reading a call transcript"). It writes a
+short summary, kept with the transcript and added to the customer's timeline as a note on its own, and suggests
+the tasks the business agreed to and, when one is called for, a follow-up email. Those wait on the appointment
+under **After the call**: **Add task** (made as the person who presses it, assigned to the host) or **Send email**
+(sent as them), each editable first, or **Dismiss**. Nothing is sent or created without that press. The prompt
+and the answer's shape are in `packages/core/src/meetings/review.ts`.
+
+Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
+same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
+
+For production:
+
+1. In the Zoom App Marketplace (marketplace.zoom.us), **Develop** → **Build App** → **General App**, managed by
+   each user (not the account admin).
+2. **OAuth redirect URL** and the allow list: `https://hooks.handsfreeos.com/oauth/zoom/callback`.
+3. **Scopes**: making meetings and reading the user (`meeting:write:meeting`, `meeting:update:meeting`,
+   `meeting:delete:meeting`, `user:read:user`); for the steps after this one, `user:read:settings` and
+   `cloud_recording:read:list_recording_files`. The connection refuses a sign-in that comes back without a
+   `meeting:write…` and a `user:read…` scope.
+4. For transcripts: **Features** → **Access** → turn on **Event subscription**. Endpoint:
+   `https://hooks.handsfreeos.com/webhooks/zoom`. Events: **Recording** → **Recording transcript files have
+   completed**, and **App Deauthorized**. Copy the **Secret Token** shown there. Zoom checks the endpoint when you save, so give the worker
+   the secret (next step) first.
+5. Give the worker the three values, and nothing else:
+
+   ```bash
+   fly secrets set -a handsfreeos-worker ZOOM_OAUTH_CLIENT_ID=… ZOOM_OAUTH_CLIENT_SECRET=… ZOOM_WEBHOOK_SECRET=…
+   ```
+
+   Without them the button ends on "Zoom isn’t set up yet". The API refuses to start with them (any name with
+   `_OAUTH_`), like every other provider key.
+
+6. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
+
+Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
+
 ## If something goes wrong
 
 | What you see                                                    | What it is                                              | Fix                                                                               |

@@ -587,6 +587,19 @@ export function locationFor(
     address: given?.address ?? option?.address ?? null,
     meetingUrl: given?.meetingUrl ?? option?.meetingUrl ?? null,
     postalCode: given?.postalCode ?? null,
+    // A link made per appointment, unless the caller gave one.
+    video:
+      k === 'virtual' && !given?.meetingUrl
+        ? (given?.video ?? (option?.video && option.video !== 'none' ? option.video : null))
+        : null,
+    meetingId: null,
+    meetingFor: null,
+    meetingError: null,
+    record:
+      k === 'virtual' &&
+      !given?.meetingUrl &&
+      ['zoom', 'google_meet'].includes(given?.video ?? option?.video ?? '') &&
+      (given?.record ?? option?.record ?? false),
   };
 }
 

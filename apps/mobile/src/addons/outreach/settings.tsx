@@ -86,7 +86,6 @@ export interface BusinessDraft {
   readonly cancelRequestsAfterWeeks: number;
   readonly morningPushHour: number | null;
   readonly weeklyReport: boolean;
-  readonly pitchChatsNotFriends: boolean;
 }
 
 export const businessDraftOf = (saved: unknown): BusinessDraft => {
@@ -97,7 +96,6 @@ export const businessDraftOf = (saved: unknown): BusinessDraft => {
     cancelRequestsAfterWeeks: s.cancelRequestsAfterWeeks,
     morningPushHour: s.morningPushHour,
     weeklyReport: s.weeklyReport,
-    pitchChatsNotFriends: s.pitchChatsNotFriends,
   };
 };
 
@@ -810,13 +808,6 @@ function BusinessSettings({
         checked={draft.weeklyReport}
         onChange={(on) => setDraft((d) => ({ ...d, weeklyReport: on }))}
         testID="settings-weekly"
-      />
-      <Tick
-        label={W.sections.chatsNotFriends}
-        about={W.abouts.chatsNotFriends}
-        checked={draft.pitchChatsNotFriends}
-        onChange={(on) => setDraft((d) => ({ ...d, pitchChatsNotFriends: on }))}
-        testID="settings-chats-not-friends"
       />
       <SaveButton
         disabled={!online || same(draft, saved)}

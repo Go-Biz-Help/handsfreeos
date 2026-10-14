@@ -82,6 +82,8 @@ export interface BookingInfo {
     readonly kind: LocationKind;
     readonly label: string;
     readonly address: string | null;
+    /** The call is recorded and transcribed; the page says so before booking. */
+    readonly recorded?: boolean;
   }[];
   readonly customerChoosesLocation: boolean;
   readonly intake: readonly IntakeQuestion[];

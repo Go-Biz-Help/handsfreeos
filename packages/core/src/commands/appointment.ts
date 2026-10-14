@@ -6,11 +6,13 @@
  */
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { z } from 'zod';
 import {
   appointmentAttendees,
   appointmentResources,
   appointments,
   appointmentSeries,
+  appointmentTranscripts,
   leads,
   waitlistEntries,
 } from '@hfos/db/schema';
@@ -64,6 +66,7 @@ import { isOptedOut } from '../messaging/store';
 import {
   AppointmentAddAttendeeInput,
   AppointmentAddAttendeeOutput,
+  AppointmentLocation,
   AppointmentCancelInput,
   AppointmentCancelOutput,
   AppointmentCreateInput,
@@ -91,6 +94,7 @@ import {
   WaitlistRemoveInput,
   WaitlistRemoveOutput,
 } from '../schemas/calendar';
+import { uuid } from '../schemas/common';
 import { wantedWindowIssue } from './waitlist-online';
 
 const MIN = 60_000;
@@ -420,6 +424,176 @@ export const appointmentUpdate = defineCommand({
       after: { title, ...after },
     });
     return { appointmentId: appt.id, updated, notApplied };
+  },
+});
+
+const SetMeetingLinkInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** Which kind of link this is for: a change only lands while the appointment still wants that kind. */
+  video: z.enum(['google_meet', 'zoom']),
+  meetingUrl: z.url().max(500).nullable().optional(),
+  meetingId: z.string().max(100).nullable().optional(),
+  meetingFor: z.string().max(100).nullable().optional(),
+  meetingError: z.string().max(500).nullable().optional(),
+});
+const SetMeetingLinkOutput = z.object({ appointmentId: uuid, changed: z.boolean() });
+
+/**
+ * Worker: the video link made for an online appointment (a Google Meet one, or a Zoom meeting), or why it
+ * couldn't be made. Only while the appointment still wants that kind of link; a Meet link only fills an empty one,
+ * so a link a person typed in stays.
+ */
+export const appointmentSetMeetingLink = defineCommand({
+  name: 'appointment.set_meeting_link',
+  description:
+    'Worker: save the video link made for an online appointment, or why it couldn’t be made.',
+  risk: 1,
+  input: SetMeetingLinkInput,
+  output: SetMeetingLinkOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.updated'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [appt] = await ctx.tx
+      .select({
+        id: appointments.id,
+        calendarId: appointments.calendarId,
+        title: appointments.title,
+        location: appointments.location,
+      })
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)))
+      .for('update');
+    if (!appt) return { appointmentId: input.appointmentId, changed: false };
+    const place = AppointmentLocation.parse(appt.location ?? {});
+    if (place.kind !== 'virtual' || place.video !== input.video)
+      return { appointmentId: appt.id, changed: false };
+    if (input.video === 'google_meet' && place.meetingUrl)
+      return { appointmentId: appt.id, changed: false };
+    const location = { ...place };
+    if (input.meetingUrl !== undefined) location.meetingUrl = input.meetingUrl;
+    if (input.meetingId !== undefined) location.meetingId = input.meetingId;
+    if (input.meetingFor !== undefined) location.meetingFor = input.meetingFor;
+    if (input.meetingError !== undefined) location.meetingError = input.meetingError;
+    if (JSON.stringify(location) === JSON.stringify(place))
+      return { appointmentId: appt.id, changed: false };
+    await ctx.tx.update(appointments).set({ location }).where(eq(appointments.id, appt.id));
+    await ctx.emit({
+      type: 'appointment.updated',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { calendarId: appt.calendarId, fields: ['location'] },
+      before: { title: appt.title, location: place },
+      after: { title: appt.title, location },
+    });
+    return { appointmentId: appt.id, changed: true };
+  },
+});
+
+const MakeMeetingLinkInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+const MakeMeetingLinkOutput = z.object({ appointmentId: uuid });
+
+/** Try again to make an online appointment's Zoom link (after its host connected Zoom, say). */
+export const appointmentMakeMeetingLink = defineCommand({
+  name: 'appointment.make_meeting_link',
+  description:
+    'Try again to make the Zoom link for an online appointment, for instance after its host connected Zoom.',
+  risk: 1,
+  input: MakeMeetingLinkInput,
+  output: MakeMeetingLinkOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.meeting_link_requested'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [appt] = await ctx.tx
+      .select({ id: appointments.id, status: appointments.status, location: appointments.location })
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)));
+    if (!appt)
+      throw HfosError.notFound(
+        'That appointment isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
+    const place = AppointmentLocation.parse(appt.location ?? {});
+    if (place.kind !== 'virtual' || place.video !== 'zoom')
+      throw HfosError.rule(
+        'appointment_not_zoom',
+        409,
+        'This appointment doesn’t get a Zoom link. Choose “Make a Zoom link” for the calendar’s Online place in Settings → Calendars → Locations.',
+      );
+    if (appt.status !== 'scheduled')
+      throw HfosError.rule(
+        'appointment_not_scheduled',
+        409,
+        'This appointment isn’t coming up anymore, so it doesn’t need a Zoom link.',
+      );
+    await ctx.emit({
+      type: 'appointment.meeting_link_requested',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: {},
+      broadcast: false,
+    });
+    return { appointmentId: appt.id };
+  },
+});
+
+const AttachTranscriptInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  provider: z.enum(['zoom', 'google_meet']),
+  externalId: z.string().trim().min(1).max(200),
+  body: z.string().max(2_000_000),
+});
+const AttachTranscriptOutput = z.object({ appointmentId: uuid, added: z.boolean() });
+
+/**
+ * Worker: what was said on a recorded call, as plain text, kept on its appointment. The same transcript twice (a
+ * repeated webhook) keeps one copy; a new one is what the AI's notes and suggestions start from.
+ */
+export const appointmentAttachTranscript = defineCommand({
+  name: 'appointment.attach_transcript',
+  description: 'Worker: keep a recorded call’s transcript on its appointment.',
+  risk: 1,
+  input: AttachTranscriptInput,
+  output: AttachTranscriptOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.transcript_ready'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [appt] = await ctx.tx
+      .select({ id: appointments.id, title: appointments.title })
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)));
+    if (!appt) return { appointmentId: input.appointmentId, added: false };
+    const [row] = await ctx.tx
+      .insert(appointmentTranscripts)
+      .values({
+        workspaceId: ws,
+        appointmentId: appt.id,
+        provider: input.provider,
+        externalId: input.externalId,
+        body: input.body,
+      })
+      .onConflictDoNothing({
+        target: [appointmentTranscripts.appointmentId, appointmentTranscripts.externalId],
+      })
+      .returning({ id: appointmentTranscripts.id });
+    if (!row) return { appointmentId: appt.id, added: false };
+    // Never the words themselves: the event and the activity log say a transcript arrived.
+    await ctx.emit({
+      type: 'appointment.transcript_ready',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { transcriptId: row.id, provider: input.provider },
+      after: { title: appt.title, provider: input.provider },
+    });
+    return { appointmentId: appt.id, added: true };
   },
 });
 

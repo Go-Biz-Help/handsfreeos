@@ -23,10 +23,14 @@ export const calendarProviderName = (p: Provider): string =>
   p === 'google' ? 'Google Calendar' : 'Outlook';
 
 /** Starts connecting your own calendar: a one-time state, then Google's or Microsoft's sign-in. */
-export async function connectCalendar(workspaceId: string, provider: Provider): Promise<void> {
+export async function connectCalendar(
+  workspaceId: string,
+  provider: Provider,
+  opts: { meetTranscripts?: boolean } = {},
+): Promise<void> {
   const out = unwrap(
     await apiBrowser().POST('/v1/commands/calendar_connection.connect', {
-      body: { workspaceId, provider },
+      body: { workspaceId, provider, meetTranscripts: opts.meetTranscripts === true },
     }),
   );
   window.location.assign(
@@ -198,35 +202,67 @@ export function CalendarConnectionCard({
     <span className="min-w-0 truncate text-[13px] font-medium">{c.accountEmail ?? name}</span>
   );
 
+  // Google Meet transcripts are opt-in: one more permission, asked only when someone wants them.
+  const meetRow =
+    c.provider === 'google' && c.status === 'active' && isSelf ? (
+      <p className="mt-2 text-xs text-text-3" data-testid="meet-transcripts">
+        {c.meetTranscripts ? (
+          'Google Meet transcripts are allowed: recorded Meet calls get their transcript and an AI summary.'
+        ) : (
+          <>
+            Want transcripts and AI summaries of your recorded Google Meet calls?{' '}
+            <button
+              type="button"
+              className="font-medium text-accent-text hover:underline"
+              disabled={busy === 'meet'}
+              onClick={() =>
+                void run('meet', () =>
+                  connectCalendar(workspaceId, 'google', { meetTranscripts: true }),
+                )
+              }
+              data-testid="allow-meet-transcripts"
+            >
+              Allow Meet transcripts
+            </button>
+          </>
+        )}
+      </p>
+    ) : null;
+
   if (c.status === 'active')
-    return box(
+    return (
       <>
-        {mark(c.provider)}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex flex-wrap items-center gap-1.5">
-            {account}
-            <Badge variant="ok">Connected</Badge>
-          </span>
-          <span className="text-xs text-text-3">
-            {c.busySyncedAt
-              ? `Busy times checked ${relativeTime(c.busySyncedAt)}. Appointments show there as events.`
-              : 'Checking busy times now. Appointments show there as events.'}
-          </span>
-        </span>
-        {isSelf ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={busy === 'sync'}
-            onClick={() => syncNow(c)}
-            data-testid="calendar-sync-now"
-          >
-            Sync now
-          </Button>
-        ) : null}
-        {menu}
-      </>,
-      'active',
+        {box(
+          <>
+            {mark(c.provider)}
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex flex-wrap items-center gap-1.5">
+                {account}
+                <Badge variant="ok">Connected</Badge>
+              </span>
+              <span className="text-xs text-text-3">
+                {c.busySyncedAt
+                  ? `Busy times checked ${relativeTime(c.busySyncedAt)}. Appointments show there as events.`
+                  : 'Checking busy times now. Appointments show there as events.'}
+              </span>
+            </span>
+            {isSelf ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === 'sync'}
+                onClick={() => syncNow(c)}
+                data-testid="calendar-sync-now"
+              >
+                Sync now
+              </Button>
+            ) : null}
+            {menu}
+          </>,
+          'active',
+        )}
+        {meetRow}
+      </>
     );
 
   if (c.status === 'reauth_required')

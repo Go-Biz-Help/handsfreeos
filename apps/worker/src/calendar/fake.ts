@@ -29,6 +29,8 @@ export interface FakeCalendarEvent {
   readonly end: string;
   /** Always empty: HandsFreeOS never invites anyone. */
   readonly attendees: readonly string[];
+  /** The Meet link the Google stand-in made, kept across later writes like Google keeps it. */
+  readonly meetingUrl: string | null;
 }
 
 export interface FakeCalendars {
@@ -73,11 +75,14 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
     return dec(who);
   };
 
+  // Extra permissions a sign-in asked for (Meet transcripts), by its PKCE challenge: granted on Allow.
+  const extraByChallenge = new Map<string, readonly string[]>();
   const provider = (name: CalendarProviderName): CalendarProvider => ({
     name,
     configured: true,
     busyIncludesOwnEvents: name === 'google',
-    authorizeUrl({ state, codeChallenge, redirectUri }) {
+    authorizeUrl({ state, codeChallenge, redirectUri, extraScopes = [] }) {
+      if (extraScopes.length) extraByChallenge.set(codeChallenge, extraScopes);
       const q = new URLSearchParams({
         state,
         code_challenge: codeChallenge,
@@ -93,7 +98,10 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
       if (c.provider !== name || c.challenge !== pkceChallenge(codeVerifier))
         throw new CalendarAuthError('The code verifier does not match.', 'invalid_grant');
       revoked.delete(key(c.email));
-      return tokens(name, c.email);
+      const t = tokens(name, c.email);
+      const extra = extraByChallenge.get(c.challenge) ?? [];
+      extraByChallenge.delete(c.challenge);
+      return { ...t, scopes: [...t.scopes, ...extra] };
     },
     async refresh(current) {
       const email = emailOf(current.refreshToken ?? '');
@@ -132,6 +140,12 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
           : ((existingId && list.has(existingId) ? existingId : null) ??
             [...list.values()].find((x) => x.appointmentId === e.appointmentId)?.id ??
             `fake-outlook-event-${++seq}`);
+      // Google keeps a Meet link once made; the stand-in makes one from the appointment, so a retry gets the same.
+      const meetingUrl =
+        list.get(id)?.meetingUrl ??
+        (name === 'google' && e.addMeet
+          ? `https://meet.google.com/fake-${e.appointmentId.slice(0, 8)}`
+          : null);
       list.set(id, {
         id,
         appointmentId: e.appointmentId,
@@ -141,8 +155,9 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
         start: e.start.toISOString(),
         end: e.end.toISOString(),
         attendees: [],
+        meetingUrl,
       });
-      return { providerEventId: id };
+      return { providerEventId: id, meetingUrl };
     },
     async deleteEvent(accessToken, providerEventId) {
       eventsOf(emailOf(accessToken)).delete(providerEventId);

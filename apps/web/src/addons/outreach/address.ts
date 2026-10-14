@@ -127,6 +127,9 @@ export function readOutreachAddress(
 ): OutreachAddress {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
   const view = one(sp.view);
+  // The phone's Never contact list (`?view=never_contact`) is the Friends tab's list here.
+  if (view === 'never_contact')
+    return readOutreachAddress({ ...sp, view: 'friends', show: 'never_contact' });
   return {
     view: VIEWS.find((v) => v === view) ?? OLD_VIEWS[view] ?? 'today',
     period: ACTIVITY_PERIOD_KEYS.find((k) => k === one(sp.period)) ?? DEFAULT_PERIOD,

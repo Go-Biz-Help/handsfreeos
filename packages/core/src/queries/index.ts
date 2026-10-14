@@ -35,6 +35,8 @@ import {
 import { assistantThreadGet, assistantThreadList } from './assistant';
 import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
+import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
+import { callSuggestionList } from '../commands/call-suggestion';
 import {
   appointmentGet,
   appointmentList,
@@ -193,6 +195,9 @@ export {
   territoryList,
   bookingSiteGet,
   calendarConnectionList,
+  meetingConnectionList,
+  appointmentTranscriptList,
+  callSuggestionList,
 };
 
 export { emailComposeOptions };
@@ -303,6 +308,9 @@ export const queries: readonly QueryDef[] = [
   territoryList,
   bookingSiteGet,
   calendarConnectionList,
+  meetingConnectionList,
+  appointmentTranscriptList,
+  callSuggestionList,
   workflowList,
   workflowGet,
   workflowVersionGet,

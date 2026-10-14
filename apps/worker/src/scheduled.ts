@@ -32,6 +32,11 @@ import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
+import { appointmentMeetTranscriptPoll } from './meetings/meet-poll';
+import { appointmentCallReview } from './meetings/review';
+import { meetingSettingsCheck } from './meetings/settings';
+import { appointmentTranscriptFetch, appointmentTranscriptWatch } from './meetings/transcripts';
+import { appointmentMeetingSync } from './meetings/sync';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
@@ -509,6 +514,17 @@ export const jobs: JobMap = {
   'reviews.sync': reviewsSync,
   'review.reply_post': reviewReplyPost,
   'appointment.calendar_sync': appointmentCalendarSync,
+  // A Zoom appointment's meeting, made, moved or deleted with it.
+  'appointment.meeting_sync': appointmentMeetingSync,
+  // A connected Zoom account's recording settings, read once a day.
+  'meeting_connection.settings_check': meetingSettingsCheck,
+  // A recorded Zoom call's transcript, fetched when Zoom says it's ready; and the check when none came.
+  'appointment.transcript_fetch': appointmentTranscriptFetch,
+  'appointment.transcript_watch': appointmentTranscriptWatch,
+  // What the AI makes of a recorded call: its summary, and tasks and a follow-up that wait for a person.
+  'appointment.call_review': appointmentCallReview,
+  // A recorded Google Meet call's transcript, looked for after it ends.
+  'appointment.meet_transcript_poll': appointmentMeetTranscriptPoll,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,

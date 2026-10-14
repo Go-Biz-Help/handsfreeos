@@ -1346,6 +1346,58 @@
                     "type": "null"
                   }
                 ]
+              },
+              "video": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["none", "google_meet", "zoom"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingId": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingFor": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingError": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "record": {
+                "default": false,
+                "type": "boolean"
               }
             }
           },
@@ -1542,6 +1594,58 @@
                     "type": "null"
                   }
                 ]
+              },
+              "video": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["none", "google_meet", "zoom"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingId": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingFor": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "meetingError": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "record": {
+                "default": false,
+                "type": "boolean"
               }
             }
           },

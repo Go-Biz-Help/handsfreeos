@@ -13,6 +13,7 @@ import { GroupsScreen } from './groups';
 import { TodayHub } from './hub';
 import { isSetUp, outreachPath, useOutreachContext, type OutreachTab, type WebTab } from './kit';
 import { LiveScreen } from './live';
+import { NeverContactScreen } from './never-contact';
 import { PipelineScreen } from './pipeline';
 import { PlaybooksScreen } from './playbooks';
 import { ResultsScreen } from './results';
@@ -21,7 +22,7 @@ import { SettingsScreen } from './settings';
 /**
  * Social Outreach's page on the phone (decisions 44 and 59), by its address's `?view=`, as the web's: four tabs and
  * the gear. Today (no `?view=`, `today`, and the old `waiting`) has what the computer is doing, Needs you and the
- * list; People is the Pipeline and Chats; then Groups and Results; the gear opens Settings, with Playbooks there.
+ * list; People is the Pipeline, Chats and the Never contact list; then Groups and Results; the gear opens Settings, with Playbooks there.
  * `live` is the computer's whole day. Friends, and the old Activity, have a lot to look through, so they stay on the
  * web: a link to them opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here anyway.
  */
@@ -33,6 +34,7 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'pipeline',
   'groups',
   'chats',
+  'never_contact',
   'results',
   'playbooks',
   'settings',
@@ -78,6 +80,8 @@ function OutreachView({
       return <GroupsScreen show={show} q={q} />;
     case 'chats':
       return <ChatsScreen show={show} tag={tag} q={q} />;
+    case 'never_contact':
+      return <NeverContactScreen q={q} />;
     case 'results':
       return <ResultsScreen />;
     case 'playbooks':

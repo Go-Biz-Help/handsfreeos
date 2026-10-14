@@ -1,6 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { calendarConnections, users, workspaces } from '@hfos/db/schema';
 import { queueCalendarSync, scheduleRefresh } from '../calendar/sync';
+import { queueMeetTranscriptPoll } from '../meetings/meet-poll';
+import { queueCallReview } from '../meetings/review';
+import { queueSettingsCheck } from '../meetings/settings';
+import { queueMeetTranscriptWatch } from '../meetings/transcripts';
+import { queueMeetingSync, queueMeetingSyncForHost } from '../meetings/sync';
 import { calendarReconnectEmail } from '../emails/templates';
 import { tenantOf } from '../services';
 import type { EventHandler } from './types';
@@ -55,5 +60,38 @@ export const onAppointmentChanged: EventHandler = async (ctx) => {
     : ctx.event.entityType === 'appointment' && ctx.event.entityId
       ? [ctx.event.entityId]
       : [];
-  for (const id of new Set(ids)) await queueCalendarSync(ctx.tx, scope, id);
+  for (const id of new Set(ids)) {
+    await queueCalendarSync(ctx.tx, scope, id);
+    // Its Zoom meeting follows too, when it has one (queued only for Zoom appointments).
+    await queueMeetingSync(ctx.tx, scope, id);
+    // A recorded Meet call: its transcript is looked for after it ends, and checked on two hours later.
+    await queueMeetTranscriptPoll(ctx.tx, scope, id);
+    await queueMeetTranscriptWatch(ctx.tx, scope, id);
+  }
+};
+
+/** Make link pressed on an appointment: its Zoom meeting is tried again now. */
+export const onMeetingLinkRequested: EventHandler = async (ctx) => {
+  if (ctx.event.entityId) await queueMeetingSync(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId);
+};
+
+/** Someone connected Zoom: their upcoming Zoom appointments without a link get one. */
+export const onMeetingConnected: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const userId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['userId'];
+  if (typeof userId === 'string') await queueMeetingSyncForHost(ctx.tx, scope, userId);
+  // And its settings are read right away, so My calendar can say what transcripts need.
+  if (ctx.event.entityId) await queueSettingsCheck(ctx.tx, scope, ctx.event.entityId);
+};
+
+/** Check again pressed on My calendar: the Zoom account's settings are read now. */
+export const onMeetingSettingsCheckRequested: EventHandler = async (ctx) => {
+  if (ctx.event.entityId) await queueSettingsCheck(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId);
+};
+
+/** A recorded call's transcript arrived: the AI reads it next. */
+export const onTranscriptReady: EventHandler = async (ctx) => {
+  const transcriptId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['transcriptId'];
+  if (ctx.event.entityId && typeof transcriptId === 'string')
+    await queueCallReview(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId, transcriptId);
 };

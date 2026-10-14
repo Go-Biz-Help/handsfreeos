@@ -36,6 +36,24 @@ interface FreeBusy {
   >;
 }
 
+interface GoogleEvent {
+  id?: string;
+  hangoutLink?: string;
+  conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] };
+}
+
+/**
+ * The Meet link Google made, once it's ready. A new one can come back still pending (no link yet); the next write
+ * asks again with the same request id and picks it up.
+ */
+export function meetLinkOf(e: GoogleEvent): string | null {
+  const link =
+    e.hangoutLink ??
+    e.conferenceData?.entryPoints?.find((p) => p.entryPointType === 'video')?.uri ??
+    null;
+  return link && link.startsWith('https://') ? link : null;
+}
+
 export function createGoogleCalendar(opts: {
   clientId: string | null;
   clientSecret: string | null;
@@ -83,8 +101,9 @@ export function createGoogleCalendar(opts: {
   }
 
   const gone = (e: unknown) => e instanceof CalendarError && (e.status === 404 || e.status === 410);
+  // `conferenceDataVersion=1` lets a write make a Meet link; without it Google ignores `conferenceData`.
   const eventUrl = (id: string) =>
-    `/calendars/primary/events/${encodeURIComponent(id)}?sendUpdates=none`;
+    `/calendars/primary/events/${encodeURIComponent(id)}?sendUpdates=none&conferenceDataVersion=1`;
   // Never attendees: the event is for the person's own calendar, and nobody else hears about it. `confirmed`
   // also brings back an event the person deleted (Google keeps it as cancelled).
   const fields = (e: CalendarEvent) => ({
@@ -96,25 +115,43 @@ export function createGoogleCalendar(opts: {
     transparency: 'opaque',
     status: 'confirmed',
     extendedProperties: { private: { hfosAppointmentId: e.appointmentId } },
+    // The request id is the appointment's, so a retry never makes a second Meet link.
+    ...(e.addMeet
+      ? {
+          conferenceData: {
+            createRequest: {
+              requestId: `hfos-${e.appointmentId}`,
+              conferenceSolutionKey: { type: 'hangoutsMeet' },
+            },
+          },
+        }
+      : {}),
+  });
+  const written = (made: GoogleEvent, fallbackId: string) => ({
+    providerEventId: made.id ?? fallbackId,
+    meetingUrl: meetLinkOf(made),
   });
   const patch = async (accessToken: string, id: string, e: CalendarEvent) =>
-    (
-      await api<{ id?: string }>(accessToken, eventUrl(id), {
+    written(
+      await api<GoogleEvent>(accessToken, eventUrl(id), {
         method: 'PATCH',
         body: JSON.stringify(fields(e)),
-      })
-    ).id ?? id;
+      }),
+      id,
+    );
 
   return {
     name: 'google',
     configured: !!(opts.clientId && opts.clientSecret),
     busyIncludesOwnEvents: true,
-    authorizeUrl({ state, codeChallenge, redirectUri }) {
+    authorizeUrl({ state, codeChallenge, redirectUri, extraScopes = [] }) {
       const q = new URLSearchParams({
         client_id: opts.clientId ?? '',
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: SCOPES.join(' '),
+        scope: [...SCOPES, ...extraScopes].join(' '),
+        // Keeps what was granted before, so turning on Meet transcripts never drops the calendar's permissions.
+        include_granted_scopes: 'true',
         // Offline access and the consent screen every time, so a reconnect always brings a refresh token.
         access_type: 'offline',
         prompt: 'consent',
@@ -180,23 +217,23 @@ export function createGoogleCalendar(opts: {
       const id = googleEventId(e.appointmentId);
       if (existingId) {
         try {
-          return { providerEventId: await patch(accessToken, existingId, e) };
+          return await patch(accessToken, existingId, e);
         } catch (err) {
           if (!gone(err)) throw err;
         }
       }
       try {
-        const made = await api<{ id?: string }>(
+        const made = await api<GoogleEvent>(
           accessToken,
-          '/calendars/primary/events?sendUpdates=none',
+          '/calendars/primary/events?sendUpdates=none&conferenceDataVersion=1',
           { method: 'POST', body: JSON.stringify({ id, ...fields(e) }) },
         );
-        return { providerEventId: made.id ?? id };
+        return written(made, id);
       } catch (err) {
         // Our id is taken, so the event is already there (a retry after a lost answer, or one the person
         // deleted): update it instead.
         if (!(err instanceof CalendarError && err.status === 409)) throw err;
-        return { providerEventId: await patch(accessToken, id, e) };
+        return await patch(accessToken, id, e);
       }
     },
     async deleteEvent(accessToken, providerEventId) {
