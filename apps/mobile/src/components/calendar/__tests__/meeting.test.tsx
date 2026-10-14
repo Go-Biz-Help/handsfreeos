@@ -102,6 +102,32 @@ describe('a recorded call', () => {
     expect(toast.show).toHaveBeenCalledWith('Done.');
   });
 
+  it('shows a suggested record update beside what’s on file, and approves it', async () => {
+    answer({
+      summary: null,
+      items: [
+        {
+          id: 's3',
+          kind: 'record_change',
+          status: 'pending',
+          preview: { email: 'rosa@newmail.example', was: { email: 'rosa@old.example' } },
+        },
+      ],
+    });
+    await render(<CallRecord workspaceId={WS} appointmentId={APPT} online />);
+    await waitFor(() =>
+      expect(screen.getByTestId('call-change-email')).toHaveTextContent(
+        /rosa@newmail\.example.*now rosa@old\.example/,
+      ),
+    );
+    await fireEvent.press(screen.getByTestId('call-suggestion-approve'));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/v1/commands/call_suggestion.decide', {
+        body: { workspaceId: WS, suggestionId: 's3', decision: 'approve' },
+      }),
+    );
+  });
+
   it('dismisses a suggested email', async () => {
     answer({
       summary: null,

@@ -1507,7 +1507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Approve or dismiss something the AI suggested after a call. Approving makes the task, or sends the follow-up, as you.
+         * Approve or dismiss something the AI suggested after a call. Approving makes the task, sends the follow-up, or updates the customer’s record, as you.
          * @description Risk level 2. Requires appointments.write. Emits call_suggestion.decided.
          */
         post: operations["command_call_suggestion_decide"];
@@ -23491,7 +23491,12 @@ export interface operations {
                     edits?: {
                         body?: string;
                         dueAt?: string | null;
+                        /** Format: email */
+                        email?: string;
+                        firstName?: string;
+                        lastName?: string;
                         notes?: string | null;
+                        phone?: string;
                         subject?: string;
                         title?: string;
                     };
@@ -55054,7 +55059,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "task" | "follow_up";
+                            kind: "task" | "follow_up" | "record_change";
                             preview: {
                                 [key: string]: unknown;
                             };

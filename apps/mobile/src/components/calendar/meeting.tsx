@@ -76,7 +76,7 @@ export function MeetingLink({ meeting }: { meeting: Meeting }) {
 
 type Suggestion = {
   id: string;
-  kind: 'task' | 'follow_up';
+  kind: 'task' | 'follow_up' | 'record_change';
   status: 'pending' | 'approved' | 'dismissed';
   preview: Record<string, unknown>;
 };
@@ -84,11 +84,23 @@ type Review = { summary: string | null; items: Suggestion[] };
 type Transcript = { id: string; provider: string; createdAt: string; body: string };
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
+const LABEL = {
+  task: 'Suggested task',
+  follow_up: 'Suggested follow-up email',
+  record_change: 'Suggested update to their record',
+};
+const APPROVE = { task: 'Add task', follow_up: 'Send email', record_change: 'Update record' };
+const FIELDS = [
+  ['firstName', 'First name'],
+  ['lastName', 'Last name'],
+  ['email', 'Email'],
+  ['phone', 'Phone'],
+] as const;
 const SHORT = 600;
 
 /**
- * A recorded call, once it's over: the AI's summary, the tasks and follow-up it suggests (each waits for an OK
- * here or on the web), and what was said. Asked for online; nothing of it is kept on the phone.
+ * A recorded call, once it's over: the AI's summary, the tasks, follow-up and record update it suggests (each
+ * waits for an OK here or on the web), and what was said. Asked for online; nothing of it is kept on the phone.
  */
 export function CallRecord({
   workspaceId,
@@ -163,7 +175,8 @@ export function CallRecord({
       ) : null}
       {review?.items.map((s) => {
         const pending = s.status === 'pending';
-        const label = s.kind === 'task' ? 'Suggested task' : 'Suggested follow-up email';
+        const label = LABEL[s.kind];
+        const was = (s.preview.was ?? {}) as Record<string, unknown>;
         return (
           <View
             key={s.id}
@@ -174,7 +187,16 @@ export function CallRecord({
               {label}
               {pending ? '' : s.status === 'approved' ? ' · Done' : ' · Dismissed'}
             </Text>
-            {s.kind === 'task' ? (
+            {s.kind === 'record_change' ? (
+              FIELDS.filter(([k]) => text(s.preview[k])).map(([k, name]) => (
+                <Text key={k} className="text-[15px]" testID={`call-change-${k}`}>
+                  {name}: {text(s.preview[k])}
+                  <Text className="text-[13px] text-text-2">
+                    {text(was[k]) ? ` (now ${text(was[k])})` : ' (none on file)'}
+                  </Text>
+                </Text>
+              ))
+            ) : s.kind === 'task' ? (
               pending ? (
                 <Input
                   aria-label="Task"
@@ -205,7 +227,7 @@ export function CallRecord({
                   onPress={() => void decide(s, 'approve')}
                   testID="call-suggestion-approve"
                 >
-                  {s.kind === 'task' ? 'Add task' : 'Send email'}
+                  {APPROVE[s.kind]}
                 </Button>
                 <Button
                   variant="ghost"

@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 to 10 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 11 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -61,6 +61,10 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 > - **Step 10, the browser test.** `apps/web/e2e/meetings.spec.ts`: connect Zoom on the stand-in, book a recorded
 >   online visit, see its link, end the call with a transcript (`POST /test/zoom/transcript`, stand-in only, then
 >   Zoom's signed webhook), and add the task the scripted AI suggests.
+> - **Step 11, record changes from calls.** The AI's review can name a new or corrected first name, last name,
+>   email or phone the customer gave (`recordChanges`); `call_suggestion.record` keeps it as a `record_change`
+>   suggestion only when it differs from what's on file (20261027004200 allows the kind), showing what it would
+>   replace. Approving runs `person.update` as the person, with their edits. On the web and the phone.
 
 ---
 
