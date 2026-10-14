@@ -176,6 +176,7 @@ describe('Today on the phone', () => {
       messages: [],
       sending: 'off',
       wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
     };
     await render(
       <TodayBody
@@ -209,6 +210,7 @@ describe('Today on the phone', () => {
       messages: [],
       sending: 'off',
       wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
     };
     const helpful: HelpfulListOutput = {
       posts: [

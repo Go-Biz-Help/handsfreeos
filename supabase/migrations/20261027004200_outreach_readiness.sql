@@ -1,0 +1,23 @@
+-- =============================================================================
+-- Social Outreach (outreach): Get ready for your best results
+-- (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, "Getting ready"; docs/outreach.md,
+-- decision 63).
+--
+--        Each person's own part of getting ready, kept on their setup row:
+--        their monthly goal for calls booked and when they last saw what it
+--        takes each day, and the profile items they ticked, each with when
+--        and the main offer's version live then (so a new version asks them
+--        to look again). Whether someone is ready is worked out each time
+--        (outreach.readiness), never kept as a flag.
+--
+-- Only adds: nothing is dropped or changed.
+-- =============================================================================
+
+alter table addon_outreach.setup
+  -- Calls booked a month; null until they set it.
+  add column calls_goal smallint check (calls_goal is null or calls_goal between 1 and 100),
+  -- When they last saved their goal, having seen the math.
+  add column numbers_at timestamptz,
+  -- The profile items ticked: {"picture": {"at": "…", "version": 2}, …}.
+  add column profile jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(profile) = 'object' and octet_length(profile::text) <= 4000);

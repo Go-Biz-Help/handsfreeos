@@ -6817,6 +6817,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.readiness.numbers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person sets their goal for calls booked a month and the days they work (kept in their working hours), having seen what it takes each day.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved, outreach.automation.saved.
+         */
+        post: operations["command_outreach_readiness_numbers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.readiness.profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person ticks an item on their Facebook profile list as done (or takes it back), against the main offer live now.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_readiness_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.replies.note": {
         parameters: {
             query?: never;
@@ -17111,6 +17151,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_playbook_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get ready for your best results: where each of the person’s items stands before the extension reaches anyone for them (the business’s main offer, a playbook with a niche, their profile, their numbers), what’s left of each, and their goal and working days.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_readiness"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35766,6 +35826,125 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_readiness_numbers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    days: number[];
+                    goal: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_readiness_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    done: boolean;
+                    /** @enum {string} */
+                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        ready: boolean;
                     };
                 };
             };
@@ -64121,6 +64300,63 @@ export interface operations {
             };
         };
     };
+    query_outreach_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        ready: boolean;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_sends: {
         parameters: {
             query?: never;
@@ -64408,6 +64644,7 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        ready: boolean;
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warning: {

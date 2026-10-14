@@ -37,8 +37,20 @@ export const fromExtension = () => ({
   occurredAt: new Date(),
 });
 
+/**
+ * Businesses whose people the fixture gets ready (../../src/addons/outreach/readiness.ts, decision 63) just before
+ * Today's list, Start my day or the helpful post: what the add-on's tests of those were written for. A business made
+ * with `{ ready: false }` isn't, for the tests of getting ready.
+ */
+const gettingReady = new Set<string>();
+const GATED = new Set(['outreach.today', 'outreach.day.start', 'outreach.helpful.next']);
+
 /** A new business owned by `u`, with the add-on on. Its id. */
-export async function outreachBusiness(u: TestUser, name: string): Promise<string> {
+export async function outreachBusiness(
+  u: TestUser,
+  name: string,
+  opts: { readonly ready?: boolean } = {},
+): Promise<string> {
   const made = await executeCommand(api(), organizationCreate, { businessName: name }, human(u), {
     correlationId: randomUUID(),
     channel: 'test',
@@ -49,7 +61,57 @@ export async function outreachBusiness(u: TestUser, name: string): Promise<strin
     sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
         values (${id}, 'outreach', 'enabled', ${outreachAddon.version})`,
   );
+  if (opts.ready !== false) gettingReady.add(id);
   return id;
+}
+
+/** The main offer the fixture puts live: version 1, with no proof, so a playbook needs none either. */
+const READY_OFFER = {
+  who: { work: 'Owners of small businesses', problem: 'Too little time to follow up' },
+  outcome: { result: 'More booked calls' },
+  timeframe: { typical: '30 days' },
+  method: { steps: ['Find them', 'Talk to them', 'Book them'] },
+  guarantee: { promise: 'Or you don’t pay' },
+  price: { amount: '$100 a month' },
+  line: 'We help owners of small businesses get more booked calls in 30 days.',
+  inAFewWords: { outcome: 'more booked calls', guarantee: 'you only pay for results' },
+};
+
+/**
+ * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche and its problem on each playbook in use
+ * without them, and each person's profile ticked against the live version and a goal set. Safe to run again.
+ */
+export async function getReady(ws: string, userIds: readonly string[]): Promise<void> {
+  await rows(
+    admin(),
+    sql`with v as (
+          insert into app.main_offer_versions (workspace_id, version, parts, line, score)
+          values (${ws}, 1, ${JSON.stringify(READY_OFFER)}::jsonb, ${READY_OFFER.line}, '{}'::jsonb)
+          on conflict (workspace_id, version) do nothing returning version)
+        insert into app.main_offers (workspace_id, live_version) select ${ws}, version from v
+        on conflict (workspace_id) do nothing`,
+  );
+  await rows(
+    admin(),
+    sql`update addon_outreach.playbooks
+        set details = details || jsonb_strip_nulls(jsonb_build_object(
+          'niche', case when coalesce(details->>'niche', '') = '' then 'Owners of small businesses' end,
+          'problem', case when coalesce(details->>'problem', '') = '' then 'Too little time to follow up' end))
+        where workspace_id = ${ws} and archived_at is null`,
+  );
+  for (const userId of userIds)
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.setup (workspace_id, user_id, calls_goal, numbers_at, profile)
+          select ${ws}, ${userId}, 8, now(), jsonb_object_agg(item, jsonb_build_object(
+            'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'version', (select live_version from app.main_offers where workspace_id = ${ws})))
+          from unnest(array['picture', 'cover', 'bio', 'work', 'featured', 'posts']) item
+          on conflict (workspace_id, user_id) do update
+            set calls_goal = coalesce(addon_outreach.setup.calls_goal, excluded.calls_goal),
+              numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
+              profile = excluded.profile`,
+    );
 }
 
 /** Turns the add-on off or back on in a business. */
@@ -73,7 +135,7 @@ const op = (name: string) =>
  * Runs one of the add-on's operations as `u` in `ws`, from the extension. A command is done now, or at `at`: one that
  * waited to send.
  */
-export function runAs(
+export async function runAs(
   u: TestUser,
   ws: string,
   name: string,
@@ -81,6 +143,7 @@ export function runAs(
   at?: Date,
 ): Promise<Any> {
   const found = op(name);
+  if (GATED.has(name) && gettingReady.has(ws)) await getReady(ws, [u.id]);
   return found.kind === 'command'
     ? executeCommand(api(), found as CommandDef, { workspaceId: ws, ...input }, human(u), {
         ...fromExtension(),
@@ -96,13 +159,14 @@ export function runAs(
  * Runs one of the add-on's commands as `u` in `ws` with the request's details as given: the web (`channel: 'web'`,
  * no id), or the extension with its own clock (`sentAt`).
  */
-export function runWith(
+export async function runWith(
   u: TestUser,
   ws: string,
   name: string,
   input: Record<string, unknown>,
   meta: Partial<RequestMeta> & Pick<RequestMeta, 'channel'>,
 ): Promise<Any> {
+  if (GATED.has(name) && gettingReady.has(ws)) await getReady(ws, [u.id]);
   return executeCommand(api(), op(name) as CommandDef, { workspaceId: ws, ...input }, human(u), {
     correlationId: randomUUID(),
     ...meta,

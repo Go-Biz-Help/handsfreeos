@@ -1,0 +1,161 @@
+/**
+ * Get ready for your best results (decision 63), in a business: until every item is done, Start my day is refused
+ * naming what's left, Today's list is empty with nothing done on its own, and the extension posts no helpful post on
+ * its own. Someone who can't do the business's items waits on them and does their own. A new main offer asks for a
+ * look again at the profile. The goal keeps its working days in the person's settings.
+ */
+import { rows, sql } from '@hfos/db/client';
+import { workspaceMemberships } from '@hfos/db/schema';
+import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { PROFILE_ITEMS } from '../../src/addons/outreach/readiness';
+import { outreachBusiness, refused, runAs } from './outreach-fixture';
+
+const admin = () => testDbs().admin.db;
+
+let owner: TestUser;
+let member: TestUser;
+let ws: string;
+
+const offer = (price: string) => ({
+  who: { work: 'Roofers', slice: 'with 2 to 3 crews', problem: 'No steady jobs' },
+  outcome: { result: '10 to 20 booked inspections a month' },
+  timeframe: { typical: '60 days' },
+  method: { steps: ['Find the homes', 'Run the ads', 'Book the calls'] },
+  guarantee: { promise: 'If you don’t get 10 in 60 days, you don’t pay' },
+  price: { amount: price },
+  line: 'We help roofers with 2 to 3 crews get 10 to 20 booked inspections a month.',
+  inAFewWords: { outcome: '10 to 20 booked inspections', guarantee: 'you only pay for results' },
+});
+
+/** Puts a version of the main offer live, as publishing does. */
+async function goLive(version: number, price: string) {
+  await rows(
+    admin(),
+    sql`insert into app.main_offer_versions (workspace_id, version, parts, line, score)
+        values (${ws}, ${version}, ${JSON.stringify(offer(price))}::jsonb, 'We help roofers.', '{}'::jsonb)`,
+  );
+  await rows(
+    admin(),
+    sql`insert into app.main_offers (workspace_id, live_version) values (${ws}, ${version})
+        on conflict (workspace_id) do update set live_version = excluded.live_version`,
+  );
+}
+
+const states = (r: { items: { item: string; state: string }[] }) =>
+  Object.fromEntries(r.items.map((i) => [i.item, i.state]));
+
+beforeAll(async () => {
+  [owner, member] = await Promise.all([
+    createTestUser('ready-owner', { fullName: 'Casey Owner' }),
+    createTestUser('ready-member', { fullName: 'Jordan Member' }),
+  ]);
+  ws = await outreachBusiness(owner, 'Ready Roofing Co', { ready: false });
+  await testDbs()
+    .admin.db.insert(workspaceMemberships)
+    .values({ workspaceId: ws, userId: member.id, role: 'member' });
+}, 60_000);
+
+afterAll(closeTestDbs);
+
+describe('before they’re ready', () => {
+  it('refuses Start my day naming what’s left, and empties Today’s list', async () => {
+    const r = await runAs(owner, ws, 'outreach.readiness', {});
+    expect(r).toMatchObject({ ready: false, next: 'offer', offer: null });
+    expect(states(r)).toEqual({
+      offer: 'todo',
+      playbook: 'todo',
+      profile: 'todo',
+      numbers: 'todo',
+    });
+
+    const said = await runAs(owner, ws, 'outreach.day.start', {}).catch(
+      (e: { rule?: string; message: string }) => e,
+    );
+    expect(said).toMatchObject({ rule: 'outreach_not_ready' });
+    expect((said as { message: string }).message).toContain('main offer isn’t live yet');
+
+    const today = await runAs(owner, ws, 'outreach.today', {});
+    expect(today).toMatchObject({ ready: false, items: [], auto: [], messages: [] });
+    expect((await runAs(owner, ws, 'outreach.helpful.next', {})).post).toBeNull();
+  });
+
+  it('has a member wait on the business’s items, and do their own meanwhile', async () => {
+    const r = await runAs(member, ws, 'outreach.readiness', {});
+    expect(states(r)).toMatchObject({ offer: 'waiting', playbook: 'waiting' });
+    expect(r.items[0].left).toContain('Ask an owner of this business');
+    for (const item of PROFILE_ITEMS)
+      await runAs(member, ws, 'outreach.readiness.profile', { item, done: true });
+    const set = await runAs(member, ws, 'outreach.readiness.numbers', {
+      goal: 8,
+      days: [1, 2, 3, 4, 5],
+    });
+    expect(states(set)).toMatchObject({ profile: 'done', numbers: 'done' });
+    expect(set.numbers).toMatchObject({ goal: 8, days: [1, 2, 3, 4, 5], canSend: 15 });
+    expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
+  });
+});
+
+describe('getting ready', () => {
+  it('goes ready once the offer is live, a playbook has its niche, and the person’s own are done', async () => {
+    await goLive(1, '$2,000 a month');
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'CRM demos',
+      details: { ...PLAYBOOK_TEMPLATES.crm_demos.details, niche: null },
+    });
+    expect(states(await runAs(owner, ws, 'outreach.readiness', {}))).toMatchObject({
+      offer: 'done',
+      playbook: 'todo',
+    });
+    const [p] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws}`,
+    );
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: p!.id,
+      name: 'CRM demos',
+      details: PLAYBOOK_TEMPLATES.crm_demos.details,
+    });
+
+    // The member ticked theirs before the offer went live: they count for the first version.
+    const theirs = await runAs(member, ws, 'outreach.readiness', {});
+    expect(theirs).toMatchObject({ ready: true, next: null });
+
+    // Saturdays too: the goal keeps its days in the owner's working hours.
+    for (const item of PROFILE_ITEMS)
+      await runAs(owner, ws, 'outreach.readiness.profile', { item, done: true });
+    const mine = await runAs(owner, ws, 'outreach.readiness.numbers', {
+      goal: 12,
+      days: [6, 1, 2, 3, 4, 5],
+    });
+    expect(mine).toMatchObject({ ready: true, numbers: { goal: 12, days: [1, 2, 3, 4, 5, 6] } });
+    const settings = await runAs(owner, ws, 'outreach.automation', {});
+    expect(settings.settings.hours.days).toEqual([1, 2, 3, 4, 5, 6]);
+    expect((await runAs(owner, ws, 'outreach.today', {})).ready).toBe(true);
+    // Past the gate, Start my day refuses only for what it did before: here, Sending is off.
+    expect(await refused(runAs(owner, ws, 'outreach.day.start', {}))).toBe('outreach_sending_off');
+  });
+
+  it('asks everyone to look at their profile again when the main offer changes, saying what changed', async () => {
+    await goLive(2, '$2,500 a month');
+    const r = await runAs(member, ws, 'outreach.readiness', {});
+    expect(r).toMatchObject({ ready: false, next: 'profile', changed: ['Price'] });
+    expect(states(r).profile).toBe('look_again');
+    expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
+    // Taking one back, then ticking it, counts it for the new version; the rest still want a look.
+    await runAs(member, ws, 'outreach.readiness.profile', { item: 'bio', done: false });
+    const one = await runAs(member, ws, 'outreach.readiness.profile', { item: 'bio', done: true });
+    expect(one.profile.bio.version).toBe(2);
+    expect(states(one).profile).toBe('look_again');
+  });
+
+  it('keeps a goal to whole calls within its limits', async () => {
+    expect(
+      await refused(runAs(owner, ws, 'outreach.readiness.numbers', { goal: 0, days: [1] })),
+    ).toBe('validation');
+    expect(
+      await refused(runAs(owner, ws, 'outreach.readiness.numbers', { goal: 8, days: [] })),
+    ).toBe('validation');
+  });
+});
