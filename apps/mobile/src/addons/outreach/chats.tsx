@@ -10,15 +10,18 @@ import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
+import { change, ChangeError } from '@/changes';
 import { ExternalLink, UserRound } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
+import { toast } from '@/components/ui/toast';
 import { openWebPath } from '@/home/open';
-import { api, unwrap } from '@/lib/api';
+import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
 import {
@@ -93,6 +96,11 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
       onRetry={answer.reload}
       onMore={() => setPages((p) => p + 1)}
       onCustomer={(personId) => openWebPath(`/app/w/${ws}/customers/people/${personId}`)}
+      online={ctx.online}
+      onMark={async (profileId, marks) => {
+        await change('outreach.friend.set', { workspaceId: ws, profileId, ...marks });
+        answer.reload();
+      }}
       asks={asks.data}
       actions={actions}
     />
@@ -111,6 +119,8 @@ export function ChatsBody({
   onRetry,
   onMore,
   onCustomer,
+  online = true,
+  onMark,
   asks = null,
   actions,
 }: {
@@ -125,6 +135,10 @@ export function ChatsBody({
   onRetry: () => void;
   onMore: () => void;
   onCustomer: (personId: string) => void;
+  /** With no signal, Don't pitch and Never contact can't be switched: they need it there and then. */
+  online?: boolean;
+  /** Don't pitch or Never contact for who a chat is with (`outreach.friend.set`); left out, the switches don't show. */
+  onMark?: (profileId: string, marks: Marks) => Promise<void>;
   /** What the person asked their computer here, with signal; the button shows once it's known. */
   asks?: AsksOutput | null;
   actions?: AskActions;
@@ -207,6 +221,9 @@ export function ChatsBody({
                   ) : null}
                   {c.tags.length ? <Note>{c.tags.join(' · ')}</Note> : null}
                   {c.nextStep ? <Note>{`${W.nextStepLabel}: ${c.nextStep}`}</Note> : null}
+                  {onMark && c.profileId ? (
+                    <ChatMarks chat={c} online={online} onMark={onMark} />
+                  ) : null}
                   <View className="flex-row flex-wrap gap-2">
                     {link ? (
                       <Button
@@ -249,5 +266,74 @@ export function ChatsBody({
         <NeedsSignal words={error} onRetry={onRetry} testID="chats-needs-signal" />
       ) : null}
     </OutreachFrame>
+  );
+}
+
+/** Don't pitch or Never contact as switched on a chat. */
+type Marks = { dontPitch?: boolean; neverContact?: boolean };
+
+/**
+ * Don't pitch and Never contact for the person a chat is with, as the web's Chats tab and Friends rows have them: each
+ * flips at once and goes to HandsFreeOS (`outreach.friend.set`, with signal only), flipping back with why if it's
+ * refused. The words are core's (`OUTREACH_WORDS.person`).
+ */
+function ChatMarks({
+  chat: c,
+  online,
+  onMark,
+}: {
+  chat: ChatsOutput['chats'][number];
+  online: boolean;
+  onMark: (profileId: string, marks: Marks) => Promise<void>;
+}) {
+  const [flipped, setFlipped] = React.useState<Marks>({});
+  React.useEffect(() => setFlipped({}), [c.dontPitch, c.neverContact]);
+  const set = async (marks: Marks) => {
+    setFlipped((was) => ({ ...was, ...marks }));
+    try {
+      await onMark(c.profileId!, marks);
+      toast.show(
+        marks.neverContact === true
+          ? W.person.neverContactDone(c.name)
+          : marks.neverContact === false
+            ? W.person.neverContactOff(c.name)
+            : marks.dontPitch
+              ? W.person.dontPitchDone(c.name)
+              : W.person.dontPitchOff(c.name),
+      );
+    } catch (e) {
+      setFlipped((was) => {
+        const back = { ...was };
+        for (const k of Object.keys(marks) as (keyof Marks)[]) delete back[k];
+        return back;
+      });
+      toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
+    }
+  };
+  const rows: { key: keyof Marks; label: string; on: boolean }[] = [
+    { key: 'dontPitch', label: W.person.dontPitch, on: flipped.dontPitch ?? c.dontPitch },
+    {
+      key: 'neverContact',
+      label: W.person.neverContact,
+      on: flipped.neverContact ?? c.neverContact,
+    },
+  ];
+  return (
+    <View className="gap-1.5">
+      {rows.map((r) => (
+        <View key={r.key} className="flex-row items-center justify-between gap-3">
+          <Text className="text-[14px]">{r.label}</Text>
+          <Switch
+            size="sm"
+            label={`${r.label} ${c.name}`}
+            checked={r.on}
+            disabled={!online}
+            onCheckedChange={(on) => void set({ [r.key]: on })}
+            testID={r.key === 'dontPitch' ? 'chats-dont-pitch' : 'chats-never-contact'}
+          />
+        </View>
+      ))}
+      {!online ? <Note>{W.person.needsSignal}</Note> : null}
+    </View>
   );
 }

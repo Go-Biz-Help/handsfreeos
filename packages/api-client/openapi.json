@@ -163367,6 +163367,12 @@
                               }
                             ]
                           },
+                          "dontPitch": {
+                            "type": "boolean"
+                          },
+                          "neverContact": {
+                            "type": "boolean"
+                          },
                           "onCard": {
                             "type": "boolean"
                           }
@@ -163385,6 +163391,8 @@
                           "nextStep",
                           "threadKey",
                           "profileId",
+                          "dontPitch",
+                          "neverContact",
                           "onCard"
                         ],
                         "additionalProperties": false

@@ -302,6 +302,7 @@ export const OUTREACH_WORDS = {
     demoMarked: (name: string) => `Marked: ${name} booked a demo.`,
     demoUnmarked: 'Unmarked.',
     dontPitchDone: (name: string) => `${name} is on Don’t pitch. Nobody here sends them outreach.`,
+    dontPitchOff: (name: string) => `${name} is off the Don’t pitch list.`,
     neverContactDone: (name: string) =>
       `${name} is on Never contact. Nobody here messages, likes, comments on or friends them, and their friend requests wait on Facebook.`,
     neverContactOff: (name: string) => `${name} is off the Never contact list.`,
@@ -480,7 +481,6 @@ export const OUTREACH_WORDS = {
     morning: 'Morning push',
     weekly: 'Weekly report by email',
     countries: 'Which countries to reach',
-    chatsNotFriends: 'Pitch people you’ve chatted with who aren’t your friends',
   },
   abouts: {
     onItsOwn:
@@ -511,8 +511,6 @@ export const OUTREACH_WORDS = {
       'Each person who used the extension that week gets their friend requests, replies and demos, their best group and their best opener, on Monday at the morning push’s hour (8 AM when that’s off).',
     countries:
       'Where people live, from their profile, or the AI’s guess from their name, posts and groups when it doesn’t say. Anyone skipped is on the Friends tab’s Skipped for country list, where Unskip lets them through.',
-    chatsNotFriends:
-      'Turn this off, and follow-ups, pitches and reconnects go only to your friends on Facebook, never to someone you’ve only messaged. A reply they’re owed still shows on Today.',
     notOwner:
       'An owner or admin of this business sets the choices you may pick and your daily limits.',
   },

@@ -52,11 +52,6 @@ export const OutreachSettingsSchema = z.object({
    */
   countries: CountryRule.default(ANYWHERE),
   /**
-   * Whether follow-ups, pitches and reconnects go to people the person has chatted with on Facebook but isn't friends
-   * with. Off, they go only to friends; a reply they're owed still shows. On to start, as it always was.
-   */
-  pitchChatsNotFriends: z.boolean().default(true),
-  /**
    * Where the team downloads the extension's zip, a build loaded by hand (./setup.ts); null until an owner or admin
    * gives it. Never a file in the repo: wherever the team keeps it. Checked on every save, so a link that isn't https,
    * or has no real host, is refused with these words.
@@ -334,6 +329,10 @@ export const ChatsOutput = z.object({
       threadKey: z.string().nullable(),
       /** Who it's with, kept as a profile: Add to Contacts, Demo booked and Don't pitch are for them. */
       profileId: z.uuid().nullable(),
+      /** Their profile is on the business's Don't pitch list, switched on the chat's row like a friend's. */
+      dontPitch: z.boolean(),
+      /** Their profile is on the business's Never contact list. */
+      neverContact: z.boolean(),
       /** Saved to the customer's Social card (`outreach.chat.keep`). */
       onCard: z.boolean(),
     }),
