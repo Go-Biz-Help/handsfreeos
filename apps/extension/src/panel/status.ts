@@ -2,7 +2,8 @@
  * Next up, in the side panel (docs/outreach.md, decisions 26 to 33, 41, 43 and 59): how it's doing, in the top bar;
  * what the extension is doing or does next, and why it isn't working when it isn't (another computer works, noting is
  * off, Facebook warned you today); a warning when their own steps today go past a daily limit; today's steps against
- * the limits; **Start my day** and **Stop for today**; and what they asked of it from HandsFreeOS while it goes, with
+ * the limits; **Start my day** and **Stop for today**, or Get ready's items until the person is ready (decision 63);
+ * and what they asked of it from HandsFreeOS while it goes, with
  * **Carry on**, **Skip** and **Stop**. Under the list, Done today, the newest of the day's steps; at the foot, the
  * person's settings in one line (the hours and training wheels in it), with **Change in HandsFreeOS**. Everything else
  * is in HandsFreeOS. The background's runner does the work (src/auto/run.ts), and the asks (src/asks/run.ts).
@@ -18,6 +19,7 @@ import { settingsSummary } from '@hfos/core/addons/outreach/automation';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
 import { REPORTED_STATES, standDownWords, stateTone } from '@hfos/core/addons/outreach/live';
+import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import { AUTO_STATE_KEY, isState } from '../auto/plan';
@@ -201,10 +203,50 @@ export function preDayView(state: AutoStatus['state']): Child {
   );
 }
 
+/**
+ * Get ready (decision 63): until the person is ready, Next up is what's left before the extension reaches anyone,
+ * each item ticked as it's done, and where to finish it. What only reads still goes meanwhile.
+ */
+function readyView(now: AutoStatus): Child[] {
+  const ready = now.ready;
+  if (!ready || ready.ready) return [];
+  const left = ready.items.filter((i) => i.state !== 'done').length;
+  const url = hfosUrl(now, 'today');
+  return [
+    h('p', { class: 'overline' }, W.rightNow),
+    h('p', { class: 'next-title' }, READY_WORDS.title),
+    h('p', { class: 'muted' }, READY_WORDS.cardHint(left)),
+    h(
+      'ol',
+      { class: 'pre-day', 'aria-label': READY_WORDS.title, 'data-testid': 'panel-ready' },
+      ...ready.items.map((i) => {
+        const done = i.state === 'done';
+        return h(
+          'li',
+          { class: done ? 'done' : 'next' },
+          h('span', { class: 'tick', 'aria-hidden': 'true' }, done ? '✓' : '○'),
+          h(
+            'span',
+            {},
+            READY_WORDS.items[i.item].label,
+            h('span', { class: 'sr-only' }, `: ${READY_WORDS.states[i.state]}`),
+          ),
+          i.left ? h('span', { class: 'progress' }, i.left) : null,
+        );
+      }),
+    ),
+    url ? h('div', { class: 'actions' }, hfosLink(READY_WORDS.panelGo, url)) : null,
+    h('p', { class: 'muted' }, READY_WORDS.panelStill),
+  ];
+}
+
 function stateView(now: AutoStatus): Child[] {
   const automation = now.automation;
   const state = now.state;
   if (!automation) return [];
+  // Until they're ready, nothing outreach-like starts: Get ready is what's next (decision 63).
+  if (now.ready && !now.ready.ready && !(state.started && !state.stopped))
+    return [...readyView(now), metersView(now)];
   const settings = automation.settings;
   const off = settings.sending === 'off';
   const standing = now.live !== null && !now.live.working;

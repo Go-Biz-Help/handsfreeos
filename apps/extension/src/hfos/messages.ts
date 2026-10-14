@@ -8,6 +8,7 @@ import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outrea
 import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
+import type { ReadyItem, ReadyState } from '@hfos/core/addons/outreach/readiness';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
 import type { AutoState } from '../auto/plan';
 
@@ -187,6 +188,21 @@ export interface AutoStatus {
    * the latest steps. Null when HandsFreeOS couldn't say; missing from a background before 0.26.
    */
   readonly today?: TodaySoFar | null;
+  /**
+   * Get ready (decision 63): what's left before the extension reaches anyone for the person, for the panel's card.
+   * Null when HandsFreeOS couldn't say; missing from a background before 0.31.
+   */
+  readonly ready?: ReadyShown | null;
+}
+
+/** Get ready's items as the panel shows them (packages/core/src/addons/outreach/readiness.ts). */
+export interface ReadyShown {
+  readonly ready: boolean;
+  readonly items: readonly {
+    readonly item: ReadyItem;
+    readonly state: ReadyState;
+    readonly left: string | null;
+  }[];
 }
 
 /** Today's steps against the daily limits, and the newest of the day's feed. */

@@ -71,7 +71,10 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
   when your own steps today go past a daily limit (`pastLimitWords`: the limits count, they don't stop); today's steps
   against the daily limits, as bars, from `outreach.live`; **Start my day**, and **Stop for today** while the day
   goes, with HandsFreeOS's words when it refuses one; and anything you asked of it from HandsFreeOS while it goes,
-  with **Carry on**, **Skip** and **Stop**.
+  with **Carry on**, **Skip** and **Stop**. Until you're ready (docs/outreach.md, decision 63), Next up is **Get ready
+  for your best results** instead: the main offer, a playbook's niche, your profile and your numbers, each ticked as
+  it's done, from `outreach.readiness`, with **Get ready in HandsFreeOS** (0.31.0). What only reads still goes
+  meanwhile, and replies to people who wrote to you.
 - **Needs you** (`src/panel/waiting.ts`), below: a message shows as the texts it would send, with **Send**, **Edit**
   and **Skip**.
 - **Done today**: the newest of the day's steps, as HandsFreeOS keeps them, with **See all**.

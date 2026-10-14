@@ -445,4 +445,8 @@ export const READY_WORDS = {
   numbersHelps:
     'What helps: more friends to message (Reconnect on Today), helpful posts in your groups that bring people to you, and working Saturdays.',
   waitingBusiness: 'You can do your own items meanwhile: your profile and your numbers.',
+  /** In the extension's panel. */
+  panelGo: 'Get ready in HandsFreeOS',
+  panelStill:
+    'Still going while you get ready: saving your friends and groups, and replies to people who wrote to you.',
 } as const;

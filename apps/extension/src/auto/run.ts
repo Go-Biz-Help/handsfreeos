@@ -60,6 +60,7 @@ import type {
   Drafts,
   HfosAnswer,
   HfosAsk,
+  ReadyShown,
   TodayList,
   TodayListItem,
   TodaySoFar,
@@ -1125,6 +1126,22 @@ async function todayOf(businessId: string): Promise<TodaySoFar | null> {
   }
 }
 
+/** Get ready (decision 63): what's left before the extension reaches anyone for the person. Null when HandsFreeOS can't say. */
+async function readyOf(businessId: string): Promise<ReadyShown | null> {
+  try {
+    const got = await call(
+      api().POST('/v1/queries/outreach.readiness', { body: { workspaceId: businessId } }),
+      businessId,
+    );
+    return {
+      ready: got.ready,
+      items: got.items.map((i) => ({ item: i.item, state: i.state, left: i.left })),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The warning when the person's own steps today go past a daily limit: the limits count, they don't stop, so the
  * panel says so where the steps happen. Null within them, or when HandsFreeOS can't say.
@@ -1160,6 +1177,7 @@ async function status(): Promise<AutoStatus> {
   const kept = await keptFor(to);
   const live = kept ? { working: kept.working, workingName: kept.workingName } : null;
   const today = todayOf(to.businessId);
+  const ready = readyOf(to.businessId);
   try {
     const automation = await automationOf(to.businessId);
     const day = await today;
@@ -1170,6 +1188,7 @@ async function status(): Promise<AutoStatus> {
       live,
       pastLimit: pastLimitOf(day),
       today: day,
+      ready: await ready,
     };
   } catch (error) {
     if (!(error instanceof Refused)) throw error;
