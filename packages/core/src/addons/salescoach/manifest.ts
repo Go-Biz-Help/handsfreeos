@@ -126,7 +126,8 @@ export const salescoachAddon = defineAddon({
     'salescoach.learn',
   ],
   // It hears the calls of people who may be coached.
-  liveCalls: { permission: 'salescoach.use' },
+  // Zoom meetings too: HandsFreeOS's app inside Zoom opens the page's Zoom panel (`?view=zoom`).
+  liveCalls: { permission: 'salescoach.use', zoom: { path: '', query: { view: 'zoom' } } },
   billing: { model: 'free' },
   ui: {
     // One row in the side menu: the page has the live call, the coached calls and the playbooks (`?view=`).

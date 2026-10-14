@@ -1,4 +1,4 @@
-import { SALESCOACH_VIEWS, type SalescoachView } from '@hfos/core/addons/salescoach/words';
+import { SALESCOACH_PAGE_VIEWS, type SalescoachPageView } from '@hfos/core/addons/salescoach/words';
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { SalescoachHome } from '@/addons/salescoach/home';
@@ -11,7 +11,8 @@ const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : u
 /**
  * AI Sales Coach's page (its manifest's `ui.nav` points here), three tabs (`?view=`): the call the coach hears now,
  * for a call on someone's cell (`live`, the bare page); coached calls, each with its write-up (`calls`, and one call
- * with `&call=`); and the playbooks (`playbooks`), which owners and admins write (`salescoach.manage`). It opens
+ * with `&call=`); and the playbooks (`playbooks`), which owners and admins write (`salescoach.manage`). `zoom` is
+ * the panel HandsFreeOS's app opens inside a Zoom meeting (its manifest's `liveCalls.zoom`, by way of /zoom). It opens
  * through the gate: "not available here" while the add-on is off, and not found for someone without
  * `salescoach.use`. Row security keeps each coached call to its rep and whoever reviews (`salescoach.review`).
  */
@@ -25,8 +26,8 @@ export default async function SalescoachPage({
   const { workspaceId } = await params;
   const sp = await searchParams;
   const asked = one(sp['view']);
-  const view: SalescoachView = SALESCOACH_VIEWS.includes(asked as SalescoachView)
-    ? (asked as SalescoachView)
+  const view: SalescoachPageView = SALESCOACH_PAGE_VIEWS.includes(asked as SalescoachPageView)
+    ? (asked as SalescoachPageView)
     : 'live';
   const callId = one(sp['call']);
   return addonPage(workspaceId, 'salescoach', 'salescoach.use', async () => {

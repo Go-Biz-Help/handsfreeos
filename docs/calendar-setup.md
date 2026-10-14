@@ -361,6 +361,22 @@ For production:
    `_OAUTH_`), like every other provider key.
 
 6. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
+7. For AI Sales Coach in meetings (the same app; docs/salescoach.md, "A coached Zoom meeting"):
+   - **Features** → **Surface**: products **Meetings**; **Home URL** `https://app.handsfreeos.com/zoom`; add
+     `app.handsfreeos.com` to the **Domain Allow List**; turn on **Zoom App SDK** and add the APIs
+     `getRunningContext`, `getMeetingContext`, `getMeetingUUID`, `getUserContext`, `startRTMS`, `stopRTMS` and
+     `getRTMSStatus`.
+   - **Scopes**: add `meeting:read:meeting_transcript` (Zoom's live transcript), and the Zoom Apps scopes the SDK
+     APIs above ask for.
+   - **Event subscription**, on the same endpoint: **Meeting** → **RTMS started** and **RTMS stopped**
+     (`meeting.rtms_started`, `meeting.rtms_stopped`).
+   - Realtime Media Streams use **Zoom Developer Pack credits** on Go Biz Help's Zoom account; without them Zoom
+     refuses to start a stream.
+   - People who connected Zoom before these scopes were added connect again (Settings → My calendar → Reconnect) so
+     Zoom asks for the new ones. The worker needs nothing new: it signs the stream with the same client id and
+     secret.
+   - Locally there's no Zoom: the panel says to open it from Zoom, and the tests play Zoom's side of the stream
+     (`apps/worker/test/salescoach-zoom.test.ts`).
 
 Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
 

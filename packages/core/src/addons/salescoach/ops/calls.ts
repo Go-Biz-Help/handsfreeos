@@ -58,6 +58,8 @@ const CallSummary = z.object({
   /** The written conversation it writes up, and its channel; null for a call. */
   conversationId: uuid.nullable(),
   channel: z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']).nullable(),
+  /** Core's live meeting, for a Zoom meeting the coach heard (round three); null otherwise. */
+  liveMeetingId: uuid.nullable(),
   state: z.enum(COACHED_STATES),
   rep: z.object({ id: uuid, name: z.string() }).nullable(),
   person: z.object({ id: uuid, name: z.string() }).nullable(),
@@ -106,6 +108,7 @@ async function summaries(tx: Tx, found: readonly Row[]): Promise<CoachedCallSumm
       callId: r.callId,
       conversationId: r.conversationId,
       channel: (r.channel as CoachedCallSummary['channel']) ?? null,
+      liveMeetingId: r.liveMeetingId,
       state: r.state,
       rep: rep ? { id: rep.id, name: rep.name?.trim() || 'Someone on the team' } : null,
       person: person ? { id: person.id, name: fullName(person.first, person.last) } : null,
@@ -134,14 +137,21 @@ async function loadCoached(tx: Tx, workspaceId: string, coachedCallId: string): 
 export const callBegin = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.call.begin',
   description:
-    'Worker: someone who is coached answered a call, and the coach is listening. Starts the coached call with the usual playbook, or finds the one already started.',
+    'Worker: someone who is coached answered a call or started a Zoom meeting, and the coach is listening. Starts the coached call with the usual playbook, or finds the one already started.',
   risk: 0,
-  input: z.object({
-    workspaceId: uuid,
-    callId: uuid,
-    userId: uuid,
-    personId: uuid.nullable(),
-  }),
+  input: z
+    .object({
+      workspaceId: uuid,
+      /** Core's phone call, or… */
+      callId: uuid.nullable(),
+      /** …core's live Zoom meeting (round three). */
+      liveMeetingId: uuid.nullable().default(null),
+      userId: uuid,
+      personId: uuid.nullable(),
+    })
+    .refine((i) => (i.callId === null) !== (i.liveMeetingId === null), {
+      message: 'A coached call is a phone call or a meeting.',
+    }),
   output: z.object({
     coachedCallId: uuid,
     playbook: z.object({ id: uuid, name: z.string(), details: PlaybookDetails }).nullable(),
@@ -163,22 +173,37 @@ export const callBegin = defineAddonCommand(salescoachAddon, {
       .values({
         workspaceId: ws,
         callId: input.callId,
+        liveMeetingId: input.liveMeetingId,
         userId: input.userId,
         personId: input.personId,
         playbookId: pb?.id ?? null,
         playbookName: pb?.name ?? null,
       })
-      .onConflictDoNothing({ target: coachedCalls.callId })
+      .onConflictDoNothing()
       .returning();
     const c =
       made ??
-      (await ctx.tx.select().from(coachedCalls).where(eq(coachedCalls.callId, input.callId)))[0]!;
+      (
+        await ctx.tx
+          .select()
+          .from(coachedCalls)
+          .where(
+            input.callId
+              ? eq(coachedCalls.callId, input.callId)
+              : eq(coachedCalls.liveMeetingId, input.liveMeetingId!),
+          )
+      )[0]!;
     if (made)
       await ctx.emit({
         type: 'salescoach.call.started',
         entityType: 'salescoach_call',
         entityId: c.id,
-        payload: { callId: c.callId, userId: c.userId, personId: c.personId },
+        payload: {
+          callId: c.callId,
+          liveMeetingId: c.liveMeetingId,
+          userId: c.userId,
+          personId: c.personId,
+        },
       });
     const used = c.playbookId
       ? (await ctx.tx.select().from(playbooks).where(eq(playbooks.id, c.playbookId)))[0]
@@ -318,8 +343,11 @@ async function landWriteUp(
     const made = await executeCommandWithin(ctx, taskCreate, {
       workspaceId: c.workspaceId,
       title: p.what.slice(0, 200),
-      notes:
-        kind === 'call' ? 'Promised on a coached call.' : 'Promised in a coached conversation.',
+      notes: {
+        call: 'Promised on a coached call.',
+        conversation: 'Promised in a coached conversation.',
+        meeting: 'Promised on a coached Zoom call.',
+      }[kind],
       dueAt: p.due ? `${p.due}T12:00:00.000Z` : null,
       allDay: true,
       assigneeUserId: c.userId,
@@ -384,7 +412,13 @@ export const callFinish = defineAddonCommand(salescoachAddon, {
         promises: result.promises.length,
       },
     });
-    const taskIds = await landWriteUp(ctx, c, result, eventId, 'call');
+    const taskIds = await landWriteUp(
+      ctx,
+      c,
+      result,
+      eventId,
+      c.liveMeetingId ? 'meeting' : 'call',
+    );
     return { state: 'done' as const, taskIds };
   },
 });
@@ -539,6 +573,7 @@ const LiveOutput = z.object({
     .object({
       id: uuid,
       callId: uuid.nullable(),
+      liveMeetingId: uuid.nullable(),
       state: z.enum(COACHED_STATES),
       person: z.object({ id: uuid, name: z.string() }).nullable(),
       playbook: z.object({ name: z.string(), details: PlaybookDetails }).nullable(),
@@ -591,6 +626,7 @@ export const live = defineAddonQuery(salescoachAddon, {
       call: {
         id: c.id,
         callId: c.callId,
+        liveMeetingId: c.liveMeetingId,
         state: c.state,
         person: summary?.person ?? null,
         playbook: pb ? { name: pb.name, details: PlaybookDetails.parse(pb.details) } : null,

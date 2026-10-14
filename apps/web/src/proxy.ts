@@ -4,9 +4,10 @@ import { chatWindowProxy } from './lib/chat/frame';
 import { brandedHostProxy } from './lib/hosting/branded-host';
 import { formFrameProxy } from './lib/forms/frame';
 import { sameOriginFrames } from './lib/frames';
+import { zoomAppHeaders } from './lib/zoom-app';
 import { safeNext } from './lib/utils';
 
-const PROTECTED = ['/app', '/onboarding', '/invite', '/chat-preview', '/founding'];
+const PROTECTED = ['/app', '/onboarding', '/invite', '/chat-preview', '/founding', '/zoom'];
 const AUTH_PAGES = ['/sign-in', '/sign-up'];
 
 /** Refreshes the Supabase session cookie on every request and gates protected routes. */
@@ -60,7 +61,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
   // Nothing else is meant to be embedded: no page of the app can be framed by another site (clickjacking).
-  return sameOriginFrames(response);
+  // Inside Zoom, its app pages also carry the headers Zoom requires (lib/zoom-app.ts).
+  return zoomAppHeaders(request, sameOriginFrames(response));
 }
 
 export const config = {

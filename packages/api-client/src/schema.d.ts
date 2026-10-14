@@ -4677,6 +4677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/live_meeting.claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * From HandsFreeOS’s app inside Zoom: this meeting is yours, so the add-ons that listen hear it once Zoom starts its stream. Finds the customer from the appointment the meeting was made for, unless you pick one. Asking again finds the same claim.
+         * @description Risk level 1. Emits live_meeting.claimed.
+         */
+        post: operations["command_live_meeting_claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/look.begin_upload": {
         parameters: {
             query?: never;
@@ -30152,6 +30172,55 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_live_meeting_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    meetingNumber?: string | null;
+                    meetingUuid: string;
+                    personId?: string | null;
+                    /**
+                     * @default zoom
+                     * @enum {string}
+                     */
+                    provider?: "zoom";
+                    /** @default null */
+                    screenName?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointmentId: string | null;
+                        /** Format: uuid */
+                        liveMeetingId: string;
+                        person: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        /** @enum {string} */
+                        state: "waiting" | "live" | "ended";
                     };
                 };
             };
@@ -70440,6 +70509,7 @@ export interface operations {
                                 speaker: "customer" | "team";
                                 text: string;
                             }[];
+                            liveMeetingId: string | null;
                             person: {
                                 /** Format: uuid */
                                 id: string;
@@ -70529,6 +70599,7 @@ export interface operations {
                             endedAt: string | null;
                             /** Format: uuid */
                             id: string;
+                            liveMeetingId: string | null;
                             person: {
                                 /** Format: uuid */
                                 id: string;
@@ -70633,6 +70704,7 @@ export interface operations {
                             }[];
                             /** Format: uuid */
                             id: string;
+                            liveMeetingId: string | null;
                             person: {
                                 /** Format: uuid */
                                 id: string;

@@ -37,9 +37,10 @@ export const afterCall: AddonJobHandler = async (ctx) => {
       playbook_name: string | null;
       details: unknown;
       timezone: string;
+      meeting: boolean;
     }>(
       tx,
-      sql`select c.state, c.lines, c.playbook_name, p.details, w.timezone
+      sql`select c.state, c.lines, c.playbook_name, p.details, w.timezone, c.live_meeting_id is not null as meeting
           from addon_salescoach.calls c
           join app.workspaces w on w.id = c.workspace_id
           left join addon_salescoach.playbooks p on p.id = c.playbook_id
@@ -68,6 +69,7 @@ export const afterCall: AddonJobHandler = async (ctx) => {
             playbook: playbookText(c.playbook_name ?? 'No playbook', details),
             lines: c.lines,
             today: localDateOf(ctx.now, c.timezone),
+            kind: c.meeting ? 'meeting' : 'call',
           }),
         },
       ],

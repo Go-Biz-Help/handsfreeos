@@ -1,5 +1,6 @@
 /**
- * AI Sales Coach's page: its tabs, and the one shown (`?view=`, app/app/w/[workspaceId]/a/salescoach/page.tsx).
+ * AI Sales Coach's page: its tabs, and the one shown (`?view=`, app/app/w/[workspaceId]/a/salescoach/page.tsx); or,
+ * inside a Zoom meeting, the Zoom panel alone (`zoom`).
  */
 import { SALESCOACH_VIEWS, SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
 import Link from 'next/link';
@@ -9,9 +10,11 @@ import { CallDetail, CallsList } from './calls-view';
 import { LiveCoach } from './live-coach';
 import { PlaybooksView } from './playbooks-view';
 import type { CoachedCall, CoachedCallSummary, Playbook } from './types';
+import { ZoomPanel } from './zoom-panel';
 
 export type SalescoachShown =
   | { readonly view: 'live' }
+  | { readonly view: 'zoom' }
   | { readonly view: 'calls'; readonly calls: readonly CoachedCallSummary[] }
   | { readonly view: 'calls'; readonly call: CoachedCall }
   | { readonly view: 'playbooks'; readonly playbooks: readonly Playbook[] };
@@ -31,6 +34,13 @@ export function SalescoachHome({
   /** Sees everyone's coached calls. */
   reviews: boolean;
 }) {
+  // Inside Zoom's narrow side panel: the coach alone, no tabs.
+  if (shown.view === 'zoom')
+    return (
+      <div data-testid="salescoach-home" className="mx-auto max-w-[520px]">
+        <ZoomPanel workspaceId={workspaceId} />
+      </div>
+    );
   return (
     <div data-testid="salescoach-home" className="mx-auto max-w-[920px]">
       <PageHeader title={W.title} description={W.pageAbout} />

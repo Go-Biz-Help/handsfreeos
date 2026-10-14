@@ -16,7 +16,8 @@ under the planned id `salescoach`.
 
 **Where it stands (2026-10-14):** rounds 0, 1 and 2 are built, and round 4's learning from wins, in `development`
 (staff hand it to test businesses), with the differences from this plan noted under "What changed while building".
-`docs/salescoach.md` is the guide for working on it. Round 3 (Zoom), and round 4's trends and Spanish, are next.
+`docs/salescoach.md` is the guide for working on it. Rounds 0 to 3 and round 4's learning from wins are built;
+round 4's trends and Spanish are next.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -123,6 +124,21 @@ under the planned id `salescoach`.
 - The customer is found by the participants' email, or the rep picks them.
 - Zoom reviews the app before anyone outside Go Biz Help's Zoom account can add it. It needs the privacy policy, a
   test login and a demo video, and takes weeks, so it's submitted as soon as round 3 works.
+
+### What changed while building round 3
+
+- **One Zoom app, not a second sign-in.** Main already had a Zoom connection per person (Settings → My calendar, for
+  meeting links and transcripts). The coach uses that same Zoom app and connection, so `app.addon_connections` didn't
+  get a `user_id` and there's no add-on connection: the Zoom app gains the in-meeting surface, the live transcript
+  scope and the RTMS events, and `/webhooks/zoom` (already core's) takes `meeting.rtms_started` and `_stopped`.
+- **Core's live meetings.** Zoom names only the meeting, so the panel first claims it (`app.live_meetings`,
+  `live_meeting.claim`); the worker takes the claim whose person's connected Zoom account started the stream.
+- **Zoom's transcript, not Deepgram.** The stream asks for Zoom's own live transcript, which names each speaker; no
+  audio comes to HandsFreeOS. The rep is told apart by the name they show in the meeting.
+- **The customer** is the appointment's (HandsFreeOS made the meeting), or the rep picks one; participants' emails
+  wait for Zoom's approval of that API.
+- **The panel** is Sales Coach's page with `?view=zoom`, reached from `/zoom` (the Zoom app's Home URL), which finds
+  the add-on from the catalogue's `liveCalls.zoom`. Zoom's required headers are set on Zoom's requests only.
 
 ## Round 4: learning and coaching over time
 

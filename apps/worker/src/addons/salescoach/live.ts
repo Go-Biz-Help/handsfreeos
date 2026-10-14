@@ -1,6 +1,6 @@
 /**
- * Sales Coach on a call as it happens (docs/salescoach.md): the hooks the worker calls with each line it hears
- * (telephony/live.ts).
+ * Sales Coach on a call as it happens (docs/salescoach.md): the hooks the worker calls with each line it hears, on a
+ * phone call (telephony/live.ts) or a Zoom meeting (meetings/live.ts).
  *
  * - **Start**: the coached call begins with the business's usual playbook, and what the business knows is read once.
  * - **Each line**: when the customer has just finished saying something worth answering (coach.ts `cardMoment`), and
@@ -61,13 +61,14 @@ export const salescoachLiveCalls: AddonLiveCalls = {
       {
         workspaceId: ctx.scope.workspaceId,
         callId: call.callId,
+        liveMeetingId: call.liveMeetingId,
         userId: call.teamUserId,
         personId: call.personId,
       },
       ctx.actor,
       ctx.meta,
     );
-    calls.set(call.callId, {
+    calls.set(call.key, {
       coachedCallId: output.coachedCallId,
       playbook: output.playbook,
       business: await businessText(ctx),
@@ -78,7 +79,7 @@ export const salescoachLiveCalls: AddonLiveCalls = {
   },
 
   async onLine(ctx, call, line, lines) {
-    const state = calls.get(call.callId);
+    const state = calls.get(call.key);
     if (!state || state.stopped || state.asking || !cardMoment(line, state.lastAskedAtMs)) return;
     state.asking = true;
     state.lastAskedAtMs = line.atMs;
@@ -95,8 +96,8 @@ export const salescoachLiveCalls: AddonLiveCalls = {
   },
 
   async onEnd(ctx, call, lines) {
-    const state = calls.get(call.callId);
-    calls.delete(call.callId);
+    const state = calls.get(call.key);
+    calls.delete(call.key);
     if (!state) return;
     const { output } = await executeCommand(
       ctx.db,

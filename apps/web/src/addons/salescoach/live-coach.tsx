@@ -121,15 +121,27 @@ function CoachCard({
 export function LiveCoach({
   workspaceId,
   compact = false,
+  idle,
+  ownStop = true,
 }: {
   workspaceId: string;
   /** Above the call bar: the newest cards only, and nothing at all with no call. */
   compact?: boolean;
+  /** What shows before the call is heard, instead of "no call right now" (the Zoom panel, while Zoom starts). */
+  idle?: string;
+  /** Its own button to stop the coach on the call; the Zoom panel stops Zoom's stream instead. */
+  ownStop?: boolean;
 }) {
   const call = useLiveCall(workspaceId);
   if (call === undefined) return null;
   if (!call) {
     if (compact) return null;
+    if (idle)
+      return (
+        <Card className="p-4 text-[13px] text-text-2" data-testid="coach-idle">
+          {idle}
+        </Card>
+      );
     return (
       <Card className="p-6 text-center" data-testid="coach-idle">
         <Headset className="mx-auto mb-2 h-6 w-6 text-text-3" strokeWidth={1.5} aria-hidden />
@@ -190,7 +202,7 @@ export function LiveCoach({
           {call.playbook ? W.live.waiting : W.live.noPlaybook}
         </p>
       ) : null}
-      {call.state === 'live' ? (
+      {call.state === 'live' && ownStop ? (
         <Button variant="ghost" size="sm" onClick={() => void stop()} data-testid="coach-stop">
           {W.live.stop}
         </Button>

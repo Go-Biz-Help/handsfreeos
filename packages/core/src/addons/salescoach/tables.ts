@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   calls as coreCalls,
+  liveMeetings,
   conversations,
   messages,
   people,
@@ -82,6 +83,10 @@ export const coachedCalls = addonSalescoach.table(
       onDelete: 'set null',
     }),
     channel: text('channel'),
+    /** A Zoom meeting the coach heard live (round three, 20261027005000): core's live meeting. */
+    liveMeetingId: uuid('live_meeting_id').references(() => liveMeetings.id, {
+      onDelete: 'cascade',
+    }),
     /** A win within a week of it (round four, 20261027004800): when, and which. */
     wonAt: ts('won_at'),
     wonHow: text('won_how').$type<WinKind>(),

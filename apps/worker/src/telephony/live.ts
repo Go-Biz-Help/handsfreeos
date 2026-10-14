@@ -17,15 +17,15 @@
  * its commands are refused the moment it's turned off. What it hears is billed as live speech, both sides.
  */
 import { ADDON_CATALOG, type AddonManifest } from '@hfos/core/server';
-import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
+import { rows, sql, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
-import { addonScope } from '../addons/context';
+import { LiveFanout, type LiveFanoutDeps } from '../addons/live-fanout';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule, LiveCall, LiveLine } from '../addons/types';
 import type { Sealer } from '../crypto';
 import type { EventHandler } from '../handlers/types';
 import { noteSpeech, speechMinutes } from '../money/speech-usage';
-import { tenantOf, workerMeta, type TenantScope, type WorkerServices } from '../services';
+import { tenantOf, type TenantScope } from '../services';
 import type { HeardWords, Listening, SpeechServices } from '../voice-agent/speech';
 import { loadAccount } from './accounts';
 import { routingOf, voiceUrls } from './voice';
@@ -203,26 +203,23 @@ export function speakerOfTrack(
   return null;
 }
 
-export interface LiveSessionDeps extends WorkerServices {
+export interface LiveSessionDeps extends LiveFanoutDeps {
   /** The speech service that hears each side (the AI teammate's). */
   readonly hearing: SpeechServices;
-  readonly modules?: readonly AddonWorkerModule[];
-  readonly catalog?: readonly AddonManifest[];
 }
 
 /**
- * One call heard live: both sides into words, each finished line handed to every add-on that hears it, in order.
- * An add-on that fails a line is logged and keeps hearing the next; nothing it does holds up the audio.
+ * One call heard live: both sides into words, each finished line handed to every add-on that hears it, in order
+ * (addons/live-fanout.ts).
  */
 export class LiveCallSession {
   private readonly lines: LiveLine[] = [];
   private readonly listening = new Map<LiveLine['speaker'], Listening>();
   private readonly pending = new Map<LiveLine['speaker'], string[]>();
-  private readonly queues = new Map<string, Promise<void>>();
-  private readonly generations = new Map<string, number>();
   private readonly started = Date.now();
   private stopped = false;
   readonly call: LiveCall;
+  private readonly fanout: LiveFanout;
   private readonly log: Logger;
 
   private constructor(
@@ -230,7 +227,10 @@ export class LiveCallSession {
     private readonly ticket: LiveTicket,
   ) {
     this.call = {
+      key: ticket.callId,
+      kind: 'call',
       callId: ticket.callId,
+      liveMeetingId: null,
       callSid: ticket.callSid,
       teamUserId: ticket.teamUserId,
       direction: ticket.direction,
@@ -238,6 +238,7 @@ export class LiveCallSession {
       conversationId: ticket.conversationId,
     };
     this.log = deps.log.child({ callId: ticket.callId });
+    this.fanout = new LiveFanout(deps, this.scope, ticket.addons, this.call, this.log);
   }
 
   /** The session for the ticket's call, or null when one is already running for it. */
@@ -250,57 +251,6 @@ export class LiveCallSession {
 
   private get scope(): TenantScope {
     return { workspaceId: this.ticket.workspaceId, organizationId: this.ticket.organizationId };
-  }
-
-  private modules(): { module: AddonWorkerModule; manifest: AddonManifest }[] {
-    const modules = this.deps.modules ?? ADDON_WORKER_MODULES;
-    const catalog = this.deps.catalog ?? ADDON_CATALOG;
-    return this.ticket.addons.flatMap((id) => {
-      const module = modules.find((m) => m.manifest.id === id);
-      const manifest = catalog.find((m) => m.id === id);
-      return module?.liveCalls && manifest ? [{ module, manifest }] : [];
-    });
-  }
-
-  /** Runs `fn` for each add-on that hears the call, after whatever it's still doing with the line before. */
-  private each(
-    what: string,
-    fn: (
-      hooks: NonNullable<AddonWorkerModule['liveCalls']>,
-      ctx: ReturnType<typeof addonScope>,
-    ) => Promise<void>,
-  ): Promise<void> {
-    const runs = this.modules().map(({ module, manifest }) => {
-      const before = this.queues.get(manifest.id) ?? Promise.resolve();
-      const next = before.then(async () => {
-        const generation = await this.generationOf(manifest.id);
-        const ctx = addonScope(this.deps, manifest, this.scope, generation, workerMeta());
-        try {
-          await fn(module.liveCalls!, ctx);
-        } catch (e) {
-          this.log.warn({ err: e, addon: manifest.id, what }, 'an add-on stumbled on a live call');
-        }
-      });
-      this.queues.set(manifest.id, next);
-      return next;
-    });
-    return Promise.all(runs).then(() => undefined);
-  }
-
-  /** The generation installed in the business, read once per add-on for the call. */
-  private async generationOf(addonId: string): Promise<number> {
-    const known = this.generations.get(addonId);
-    if (known !== undefined) return known;
-    const [row] = await asWorker(this.deps.db, this.scope, (tx) =>
-      rows<{ generation: number | null }>(
-        tx,
-        sql`select generation from app.addon_installations
-             where workspace_id = ${this.scope.workspaceId} and addon_id = ${addonId}`,
-      ),
-    );
-    const generation = row?.generation ?? 1;
-    this.generations.set(addonId, generation);
-    return generation;
   }
 
   /** Opens both sides' listening. False when the speech service can't hear: the call goes on unheard. */
@@ -321,7 +271,7 @@ export class LiveCallSession {
       await this.stop();
       return false;
     }
-    void this.each('start', (hooks, ctx) => hooks.onStart?.(ctx, this.call) ?? Promise.resolve());
+    void this.fanout.start();
     return true;
   }
 
@@ -343,8 +293,7 @@ export class LiveCallSession {
     if (!text) return;
     const line: LiveLine = { speaker, text, atMs: Date.now() - this.started };
     this.lines.push(line);
-    const so = this.lines.slice();
-    void this.each('line', (hooks, ctx) => hooks.onLine(ctx, this.call, line, so));
+    void this.fanout.line(line, this.lines.slice());
   }
 
   /** The call ended, or its stream did: whatever was half-said is finished, and each add-on hears the end. */
@@ -364,7 +313,6 @@ export class LiveCallSession {
           ref: this.ticket.callSid,
         },
       ]);
-    const all = this.lines.slice();
-    await this.each('end', (hooks, ctx) => hooks.onEnd?.(ctx, this.call, all) ?? Promise.resolve());
+    await this.fanout.end(this.lines.slice());
   }
 }

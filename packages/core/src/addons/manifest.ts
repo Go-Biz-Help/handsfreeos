@@ -473,8 +473,15 @@ export interface AddonManifest {
    * It hears the business's phone calls as they happen (Sales Coach). Once a call is answered, the worker streams
    * both sides to it, word by word, while the add-on runs, the number tells callers the call may be recorded, and the
    * person on the call holds `permission`. Its worker half says what it does with them (`liveCalls`).
+   *
+   * `zoom` also hears Zoom meetings (round three): HandsFreeOS's app inside Zoom opens the add-on's page at `path`
+   * (from its `ui.nav` page, '' for the page itself) with `query`, where the person claims the meeting
+   * (`live_meeting.claim`) and Zoom's stream starts. The words come to the same worker hooks.
    */
-  readonly liveCalls?: { readonly permission: string };
+  readonly liveCalls?: {
+    readonly permission: string;
+    readonly zoom?: { readonly path: string; readonly query?: Readonly<Record<string, string>> };
+  };
   readonly billing: AddonBilling;
 }
 
@@ -656,6 +663,17 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
 
   if (m.liveCalls && !m.permissions.some((p) => p.key === m.liveCalls?.permission))
     say(`liveCalls needs permission "${m.liveCalls.permission}", which the add-on doesn't declare`);
+  if (m.liveCalls?.zoom) {
+    const z = m.liveCalls.zoom;
+    if (!/^(|\/[a-z0-9-/]{1,80})$/.test(z.path))
+      say(
+        'liveCalls.zoom.path must be empty or start with "/", in lowercase letters, digits and dashes',
+      );
+    if (!(m.ui?.nav ?? []).length) say('liveCalls.zoom opens one of its pages, so it needs ui.nav');
+    for (const [k, v] of Object.entries(z.query ?? {}))
+      if (!/^[a-z][a-z0-9_]{0,30}$/.test(k) || !/^[a-z0-9_-]{1,40}$/.test(v))
+        say(`liveCalls.zoom.query "${k}" must be a short lowercase name and value`);
+  }
 
   if (m.teammate) {
     const t = m.teammate;

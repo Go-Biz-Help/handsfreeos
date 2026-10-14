@@ -410,7 +410,8 @@ export const AfterCallAnswer = z.object({
 export type AfterCallAnswer = z.infer<typeof AfterCallAnswer>;
 
 /** What's written up: a phone call, or a written conversation that went quiet. */
-export type WriteUpKind = 'call' | 'conversation';
+/** A phone call, a written conversation, or a Zoom meeting (round three). */
+export type WriteUpKind = 'call' | 'conversation' | 'meeting';
 
 export function afterCallPrompt(input: {
   readonly playbook: string;
@@ -422,16 +423,22 @@ export function afterCallPrompt(input: {
   const kind = input.kind ?? 'call';
   return [
     `<today>${input.today}</today>`,
-    `<kind>${kind === 'call' ? 'a phone call' : 'a written conversation'}</kind>`,
+    `<kind>${KIND_WORDS[kind]}</kind>`,
     input.playbook,
     callText(input.lines),
     AFTER_ASK[kind],
   ].join('\n\n');
 }
+const KIND_WORDS: Readonly<Record<WriteUpKind, string>> = {
+  call: 'a phone call',
+  conversation: 'a written conversation',
+  meeting: 'a Zoom video call',
+};
 /** The last line of every write-up ask. */
 export const AFTER_ASK: Readonly<Record<WriteUpKind, string>> = {
   call: 'Write up this call.',
   conversation: 'Write up this conversation.',
+  meeting: 'Write up this video call.',
 };
 export const AFTER_CALL_ASK = AFTER_ASK.call;
 
@@ -564,7 +571,7 @@ export function timelineWords(
   rep: string | null,
   kind: WriteUpKind = 'call',
 ): string {
-  const what = kind === 'call' ? 'call' : 'conversation';
+  const what = { call: 'call', conversation: 'conversation', meeting: 'Zoom call' }[kind];
   return `${rep ? `${rep}’s` : 'A'} ${what} was coached and scored ${a.score.total} out of 100`;
 }
 

@@ -140,11 +140,20 @@ export interface AddonWorkerModule {
 }
 
 /** A call heard live: which, who on the team is on it, and the customer when the call knows them. */
+/** What's heard live: a phone call (core's call), or a Zoom meeting someone claimed (core's live meeting). */
 export interface LiveCall {
-  readonly callId: string;
+  /** The call's or the meeting's id: one of these is heard once at a time. */
+  readonly key: string;
+  readonly kind: 'call' | 'meeting';
+  /** Core's call, for a phone call. */
+  readonly callId: string | null;
+  /** Core's live meeting (`app.live_meetings`), for a Zoom meeting. */
+  readonly liveMeetingId: string | null;
+  /** Twilio's sid for a phone call; Zoom's stream id for a meeting. */
   readonly callSid: string;
   readonly teamUserId: string;
-  readonly direction: 'inbound' | 'outbound';
+  /** Who called whom, on a phone call; null for a meeting. */
+  readonly direction: 'inbound' | 'outbound' | null;
   readonly personId: string | null;
   readonly conversationId: string | null;
 }
