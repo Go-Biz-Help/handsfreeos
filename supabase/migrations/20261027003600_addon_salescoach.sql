@@ -16,7 +16,8 @@
 --        one on the customer's timeline: what was said, the playbook it used,
 --        and after it the summary, the follow-up, the promises and the score.
 --        Only the rep on it and the people who review (`salescoach.review`)
---        see it, and only the worker writes it.
+--        see it. The worker writes it; the rep can only stop the coach on
+--        their own live call.
 --
 --        **Cards** are what the coach showed the rep during the call. Only the
 --        rep sees them, and the rep's only change is to put one away.
@@ -76,7 +77,8 @@ create table addon_salescoach.calls (
   playbook_id uuid,
   -- Its name then, so a call reads the same after the playbook is renamed or archived.
   playbook_name text check (playbook_name is null or length(playbook_name) <= 80),
-  state text not null default 'live' check (state in ('live', 'writing', 'done', 'failed')),
+  -- `stopped`: the rep stopped the coach for this call; nothing more is kept or written.
+  state text not null default 'live' check (state in ('live', 'writing', 'done', 'failed', 'stopped')),
   -- The script step the call is at, while it's live.
   step text check (step is null or step ~ '^s[0-9]{1,3}$'),
   -- What was said, both sides, once it's over.
@@ -100,13 +102,15 @@ create index calls_user_id_idx on addon_salescoach.calls (user_id) where user_id
 create index calls_person_idx on addon_salescoach.calls (person_id) where person_id is not null;
 create index calls_playbook_idx on addon_salescoach.calls (workspace_id, playbook_id) where playbook_id is not null;
 select private.addon_table_policies('addon_salescoach.calls', 'salescoach.use', 'salescoach.use', null, null);
--- The rep on it, and whoever reviews, see it. Only the worker writes it.
+-- The rep on it, and whoever reviews, see it. The worker writes it; the rep's one change is to stop the coach on
+-- their own call while it's live.
 create policy calls_own_read on addon_salescoach.calls as restrictive for select to authenticated
   using (user_id = (select auth.uid()) or private.has_permission(workspace_id, 'salescoach.review'));
 create policy calls_worker_insert on addon_salescoach.calls as restrictive for insert to authenticated
   with check (false);
-create policy calls_worker_update on addon_salescoach.calls as restrictive for update to authenticated
-  using (false);
+create policy calls_own_stop on addon_salescoach.calls as restrictive for update to authenticated
+  using (user_id = (select auth.uid()) and state = 'live')
+  with check (user_id = (select auth.uid()) and state = 'stopped' and result is null);
 
 -- ---------- cards ----------
 create table addon_salescoach.cards (

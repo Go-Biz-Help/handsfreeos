@@ -310,12 +310,16 @@ describe('a coached call', () => {
     expect(card.say).toContain('goes toward the repair');
     expect((await coached(callId))!.step).toBe('s2');
     // The rep's phone hears about an objection too.
-    const [push] = await rows<{ title: string; path: string; user_ids: string[] }>(
-      admin(),
-      sql`select payload->>'title' as title, payload->>'path' as path,
-            array(select jsonb_array_elements_text(payload->'userIds')) as user_ids
-          from app.scheduled_jobs where workspace_id = ${workspaceId} and kind = 'push.send'`,
-    );
+    // The push is queued just after the card is kept.
+    const push = await waitFor('the push', async () => {
+      const [p] = await rows<{ title: string; path: string; user_ids: string[] }>(
+        admin(),
+        sql`select payload->>'title' as title, payload->>'path' as path,
+              array(select jsonb_array_elements_text(payload->'userIds')) as user_ids
+            from app.scheduled_jobs where workspace_id = ${workspaceId} and kind = 'push.send'`,
+      );
+      return p;
+    });
     expect(push).toMatchObject({
       title: card.title,
       path: `/app/w/${workspaceId}/a/salescoach?view=live`,

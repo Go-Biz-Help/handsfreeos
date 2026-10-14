@@ -14,7 +14,9 @@ timeline, turns what the rep promised into tasks, and scores the call against th
 It was two planned add-ons, AI Sales Coach and Live Sales Assist (`salesassist`). They're one add-on now, built
 under the planned id `salescoach`.
 
-**Where it stands (2026-10-14):** planned, with Chris's decisions below. Nothing is built yet.
+**Where it stands (2026-10-14):** rounds 0 and 1 are built, in `development` (staff hand it to test businesses), with
+the differences from this plan noted under "What changed while building". `docs/salescoach.md` is the guide for working
+on it. Rounds 2 to 4 are next.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -74,6 +76,23 @@ under the planned id `salescoach`.
      `/webhooks/addon/<token>` doesn't fit. The worker gets `/webhooks/zoom`: Zoom's URL check, its signature check,
      then each delivery kept once and handed to the add-on whose connection holds that Zoom user.
    - **Zoom's page headers** on the panel's route only, which Zoom requires before it opens an app page.
+
+### What changed while building rounds 0 and 1
+
+- **The stream starts when the call is answered**, through Twilio's REST API (`startCallStream`) on the new
+  `call.answered` event, rather than a `<Start><Stream>` in the TwiML. Only answered calls are heard (no ringing), and
+  the worker knows who on the team is on the call before it listens.
+- **No new API stream.** HandsFreeOS already broadcasts every event's ids to a business's open screens (Supabase
+  Realtime), and the web reads what changed through the API. A new card is an event (`salescoach.card.added`), so the
+  rep's screen reads the cards again within a second. The phone asks every 3 seconds while its live screen is open.
+- **The live transcript doesn't replace the after-call one yet**, so a coached call is transcribed twice for now.
+- **The push about an objection is an add-on notice**, under the `addons` switch, not a category of its own yet.
+- **A coached call is the add-on's own row about core's call**, not a record of its own kind: core's call is already
+  the record on the customer's timeline, and the add-on adds its notes there as a timeline line, and the promises as
+  tasks. The write-up stays private to the rep and the people who review (`salescoach.review`).
+- **`composer.suggestions` waits for round 2**, which uses it.
+- **Stopping the coach for one call** stops the cards and keeps nothing, but the worker still hears the call to its
+  end until core can end one add-on's listening mid-call.
 
 ## Round 1: the add-on, on phone calls
 

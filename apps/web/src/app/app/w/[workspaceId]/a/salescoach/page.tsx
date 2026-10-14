@@ -1,29 +1,78 @@
+import { SALESCOACH_VIEWS, type SalescoachView } from '@hfos/core/addons/salescoach/words';
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
-import { Card } from '@/components/ui/card';
+import { SalescoachHome } from '@/addons/salescoach/home';
+import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'AI Sales Coach' };
 
+const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
+
 /**
- * AI Sales Coach's first page (its manifest's `ui.nav` points here). It opens through the gate: "not available here"
- * while the add-on is off, and not found for someone without `salescoach.use`. Its components go in
- * apps/web/src/addons/salescoach/, which only this add-on's pages and the web's registry may import.
+ * AI Sales Coach's page (its manifest's `ui.nav` points here), three tabs (`?view=`): the call the coach hears now,
+ * for a call on someone's cell (`live`, the bare page); coached calls, each with its write-up (`calls`, and one call
+ * with `&call=`); and the playbooks (`playbooks`), which owners and admins write (`salescoach.manage`). It opens
+ * through the gate: "not available here" while the add-on is off, and not found for someone without
+ * `salescoach.use`. Row security keeps each coached call to its rep and whoever reviews (`salescoach.review`).
  */
 export default async function SalescoachPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
-  return addonPage(workspaceId, 'salescoach', 'salescoach.use', () => (
-    <div className="mx-auto max-w-[720px] py-8">
-      <Card className="p-7">
-        <h1 className="text-xl font-semibold tracking-tight">AI Sales Coach</h1>
-        <p className="mt-2 text-text-2">
-          Coaches your team live on calls: what to say next, answers to objections, and notes,
-          follow-ups and scores after.
-        </p>
-      </Card>
-    </div>
-  ));
+  const sp = await searchParams;
+  const asked = one(sp['view']);
+  const view: SalescoachView = SALESCOACH_VIEWS.includes(asked as SalescoachView)
+    ? (asked as SalescoachView)
+    : 'live';
+  const callId = one(sp['call']);
+  return addonPage(workspaceId, 'salescoach', 'salescoach.use', async () => {
+    const { api } = await apiServer();
+    const got = await api
+      .POST('/v1/queries/workspace.get', { body: { workspaceId } })
+      .then(unwrapPage);
+    const can = (p: string) => got.workspace.permissions.includes(p);
+    const shown =
+      view === 'calls' && callId
+        ? {
+            view,
+            call: (
+              await api
+                .POST('/v1/queries/salescoach.call.get', {
+                  body: { workspaceId, coachedCallId: callId },
+                })
+                .then(unwrapPage)
+            ).call,
+          }
+        : view === 'calls'
+          ? {
+              view,
+              calls: (
+                await api
+                  .POST('/v1/queries/salescoach.call.list', { body: { workspaceId } })
+                  .then(unwrapPage)
+              ).calls,
+            }
+          : view === 'playbooks'
+            ? {
+                view,
+                playbooks: (
+                  await api
+                    .POST('/v1/queries/salescoach.playbook.list', { body: { workspaceId } })
+                    .then(unwrapPage)
+                ).playbooks,
+              }
+            : { view };
+    return (
+      <SalescoachHome
+        workspaceId={workspaceId}
+        shown={shown}
+        canManage={can('salescoach.manage')}
+        reviews={can('salescoach.review')}
+      />
+    );
+  });
 }

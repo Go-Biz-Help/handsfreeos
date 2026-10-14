@@ -52,6 +52,32 @@ export function cardMoment(
   return lastAskedAtMs === null || nowMs - lastAskedAtMs >= CARD_EVERY_MS;
 }
 
+/** The most lines a coached call keeps, and roughly the most characters: about three hours of talking. */
+export const KEPT_LINES = 3000;
+export const KEPT_CHARS = 300_000;
+
+/**
+ * What a coached call keeps of what was said: all of it, or for a very long call its start and its end (who they are
+ * and where it landed matter most), within `KEPT_LINES` and `KEPT_CHARS`.
+ */
+export function keptLines(lines: readonly CallLine[]): CallLine[] {
+  const total = lines.reduce((n, l) => n + l.text.length, 0);
+  if (lines.length <= KEPT_LINES && total <= KEPT_CHARS) return [...lines];
+  const half = (max: number, from: readonly CallLine[]) => {
+    const out: CallLine[] = [];
+    let chars = 0;
+    for (const l of from) {
+      if (out.length >= max / 2 || chars + l.text.length > KEPT_CHARS / 2) break;
+      out.push(l);
+      chars += l.text.length;
+    }
+    return out;
+  };
+  const start = half(KEPT_LINES, lines);
+  const end = half(KEPT_LINES, [...lines].reverse()).reverse();
+  return [...start, ...end.filter((l) => !start.includes(l))];
+}
+
 const who = (l: CallLine) => (l.speaker === 'customer' ? 'Customer' : 'Rep');
 
 /** A call's words as the model reads them, quoted as data. */

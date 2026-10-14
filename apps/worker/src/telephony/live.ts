@@ -219,6 +219,7 @@ export class LiveCallSession {
   private readonly listening = new Map<LiveLine['speaker'], Listening>();
   private readonly pending = new Map<LiveLine['speaker'], string[]>();
   private readonly queues = new Map<string, Promise<void>>();
+  private readonly generations = new Map<string, number>();
   private readonly started = Date.now();
   private stopped = false;
   readonly call: LiveCall;
@@ -272,14 +273,8 @@ export class LiveCallSession {
     const runs = this.modules().map(({ module, manifest }) => {
       const before = this.queues.get(manifest.id) ?? Promise.resolve();
       const next = before.then(async () => {
-        const [row] = await asWorker(this.deps.db, this.scope, (tx) =>
-          rows<{ generation: number | null }>(
-            tx,
-            sql`select generation from app.addon_installations
-                 where workspace_id = ${this.scope.workspaceId} and addon_id = ${manifest.id}`,
-          ),
-        );
-        const ctx = addonScope(this.deps, manifest, this.scope, row?.generation ?? 1, workerMeta());
+        const generation = await this.generationOf(manifest.id);
+        const ctx = addonScope(this.deps, manifest, this.scope, generation, workerMeta());
         try {
           await fn(module.liveCalls!, ctx);
         } catch (e) {
@@ -290,6 +285,22 @@ export class LiveCallSession {
       return next;
     });
     return Promise.all(runs).then(() => undefined);
+  }
+
+  /** The generation installed in the business, read once per add-on for the call. */
+  private async generationOf(addonId: string): Promise<number> {
+    const known = this.generations.get(addonId);
+    if (known !== undefined) return known;
+    const [row] = await asWorker(this.deps.db, this.scope, (tx) =>
+      rows<{ generation: number | null }>(
+        tx,
+        sql`select generation from app.addon_installations
+             where workspace_id = ${this.scope.workspaceId} and addon_id = ${addonId}`,
+      ),
+    );
+    const generation = row?.generation ?? 1;
+    this.generations.set(addonId, generation);
+    return generation;
   }
 
   /** Opens both sides' listening. False when the speech service can't hear: the call goes on unheard. */

@@ -18,12 +18,13 @@ import {
   COACH_SCHEMA,
   COACH_SYSTEM,
   coachPrompt,
+  keptLines,
   playbookText,
 } from '@hfos/core/addons/salescoach/coach';
 import { callBegin, callEnd, cardAdd } from '@hfos/core/addons/salescoach/ops/calls';
 import type { PlaybookDetails } from '@hfos/core/addons/salescoach/playbooks';
 import { executeCommand } from '@hfos/core/server';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { AiAskError, askStructured } from '../../ai/ask';
 import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
@@ -40,6 +41,8 @@ interface CallState {
   readonly business: string;
   lastAskedAtMs: number | null;
   asking: boolean;
+  /** The rep stopped the coach on this call. */
+  stopped: boolean;
 }
 
 const calls = new Map<string, CallState>();
@@ -70,15 +73,21 @@ export const salescoachLiveCalls: AddonLiveCalls = {
       business: await businessText(ctx),
       lastAskedAtMs: null,
       asking: false,
+      stopped: false,
     });
   },
 
   async onLine(ctx, call, line, lines) {
     const state = calls.get(call.callId);
-    if (!state || state.asking || !cardMoment(line, state.lastAskedAtMs)) return;
+    if (!state || state.stopped || state.asking || !cardMoment(line, state.lastAskedAtMs)) return;
     state.asking = true;
     state.lastAskedAtMs = line.atMs;
     try {
+      // The rep may have stopped the coach on this call: then it's quiet for the rest of it.
+      if (!(await stillLive(ctx, state.coachedCallId))) {
+        state.stopped = true;
+        return;
+      }
       await coach(ctx, call, state, lines);
     } finally {
       state.asking = false;
@@ -92,7 +101,11 @@ export const salescoachLiveCalls: AddonLiveCalls = {
     const { output } = await executeCommand(
       ctx.db,
       callEnd,
-      { workspaceId: ctx.scope.workspaceId, coachedCallId: state.coachedCallId, lines },
+      {
+        workspaceId: ctx.scope.workspaceId,
+        coachedCallId: state.coachedCallId,
+        lines: keptLines(lines),
+      },
       ctx.actor,
       ctx.meta,
     );
@@ -113,6 +126,16 @@ export const salescoachLiveCalls: AddonLiveCalls = {
     );
   },
 };
+
+async function stillLive(ctx: AddonScopeContext, coachedCallId: string): Promise<boolean> {
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ state: string }>(
+      tx,
+      sql`select state from addon_salescoach.calls where id = ${coachedCallId}`,
+    ),
+  );
+  return c?.state === 'live';
+}
 
 async function coach(
   ctx: AddonScopeContext,

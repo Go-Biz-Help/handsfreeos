@@ -357,11 +357,13 @@ describe('a coached call', () => {
     const callId = await aCall(rep);
     const begun = await worker('salescoach.call.begin', { callId, userId: rep.id, personId: null });
     expect(
-      await seen(
-        rep,
-        sql`update addon_salescoach.calls set state = 'done' where id = ${begun.coachedCallId} returning id`,
+      await refused(
+        seen(
+          rep,
+          sql`update addon_salescoach.calls set state = 'done' where id = ${begun.coachedCallId} returning id`,
+        ),
       ),
-    ).toEqual([]);
+    ).not.toBe('went through');
     expect(
       await refused(
         seen(
@@ -388,6 +390,44 @@ describe('a coached call', () => {
     expect(
       await worker('salescoach.call.end', { coachedCallId: begun.coachedCallId, lines: [] }),
     ).toEqual({ state: 'failed' });
+  });
+
+  it('stops for one call when its rep asks, and then nothing more is kept', async () => {
+    const callId = await aCall(rep);
+    const begun = await worker('salescoach.call.begin', { callId, userId: rep.id, personId });
+    // Only the rep on it.
+    expect(
+      await refused(as(owner, 'salescoach.call.stop', { coachedCallId: begun.coachedCallId })),
+    ).toBe('salescoach_not_your_call');
+    expect(await as(rep, 'salescoach.call.stop', { coachedCallId: begun.coachedCallId })).toEqual({
+      state: 'stopped',
+    });
+    // No more cards, nothing kept at the end, no write-up.
+    expect(
+      await worker('salescoach.card.add', {
+        coachedCallId: begun.coachedCallId,
+        step: 's1',
+        card: { kind: 'fact', title: 'Late', say: 'Too late.', heard: '', objectionId: null },
+      }),
+    ).toEqual({ cardId: null });
+    expect(
+      await worker('salescoach.call.end', {
+        coachedCallId: begun.coachedCallId,
+        lines: [{ speaker: 'customer', text: 'Still talking', atMs: 1 }],
+      }),
+    ).toEqual({ state: 'stopped' });
+    const [row] = await rows<{ state: string; lines: unknown[] }>(
+      admin(),
+      sql`select state, lines from addon_salescoach.calls where id = ${begun.coachedCallId}`,
+    );
+    expect(row).toEqual({ state: 'stopped', lines: [] });
+    // Row security lets the rep stop their live call and change nothing else.
+    expect(
+      await seen(
+        rep,
+        sql`update addon_salescoach.calls set state = 'live' where id = ${begun.coachedCallId} returning id`,
+      ),
+    ).toEqual([]);
   });
 
   it('stops while the add-on is off', async () => {

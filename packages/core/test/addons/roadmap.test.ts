@@ -23,8 +23,10 @@ import {
 } from '../../src/index';
 
 describe('the planned catalogue', () => {
-  it('holds the owner’s list: 122 add-ons, Real Estate Agent among them', () => {
-    expect(PLANNED_ADDONS).toHaveLength(122);
+  it('holds the owner’s list: 121 add-ons, Real Estate Agent among them', () => {
+    // 122 until Live Sales Assist became part of AI Sales Coach (2026-10-14).
+    expect(PLANNED_ADDONS).toHaveLength(121);
+    expect(PLANNED_ADDONS.find((m) => m.id === 'salesassist')).toBeUndefined();
     expect(PLANNED_ADDONS.find((m) => m.id === 'realestate')?.name).toBe('Real Estate Agent');
     expect(PLANNED_ADDONS.every((m) => m.catalog.status === 'planned')).toBe(true);
   });
@@ -113,7 +115,9 @@ describe('the race', () => {
     expect(race).not.toContain('realestate');
     expect(race).not.toContain('hvac');
     expect(race).toContain('plumbing');
-    expect(race).toHaveLength(120);
+    // AI Sales Coach is being built, so it's out of the race too.
+    expect(race).not.toContain('salescoach');
+    expect(race).toHaveLength(118);
   });
 
   it('keeps a pick Coming soon until it can be added', () => {

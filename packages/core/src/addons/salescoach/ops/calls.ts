@@ -18,13 +18,15 @@ import { requireHuman } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
-import { AfterCall, CallLine, CARD_KINDS, timelineWords } from '../coach';
+import { AfterCall, CallLine, CARD_KINDS, KEPT_LINES, timelineWords } from '../coach';
 import { salescoachAddon } from '../manifest';
 import { PlaybookDetails } from '../playbooks';
 import { cards, coachedCalls, playbooks } from '../tables';
 import { inWorkspace } from './playbooks';
 
 const uuid = z.uuid();
+
+const COACHED_STATES = ['live', 'writing', 'done', 'failed', 'stopped'] as const;
 
 /** How long a call stays "live" on the rep's screen without ending: a stream that never said stop. */
 export const LIVE_FOR_MS = 4 * 60 * 60_000;
@@ -43,7 +45,7 @@ export type CoachCard = z.infer<typeof Card>;
 const CallSummary = z.object({
   id: uuid,
   callId: uuid,
-  state: z.enum(['live', 'writing', 'done', 'failed']),
+  state: z.enum(COACHED_STATES),
   rep: z.object({ id: uuid, name: z.string() }).nullable(),
   person: z.object({ id: uuid, name: z.string() }).nullable(),
   playbookName: z.string().nullable(),
@@ -231,8 +233,12 @@ export const callEnd = defineAddonCommand(salescoachAddon, {
   description:
     'Worker: the coached call ended. Keeps what was said, both sides, and waits for the write-up; a call where nothing was heard ends there.',
   risk: 0,
-  input: z.object({ workspaceId: uuid, coachedCallId: uuid, lines: z.array(CallLine).max(5000) }),
-  output: z.object({ state: z.enum(['writing', 'failed', 'done']) }),
+  input: z.object({
+    workspaceId: uuid,
+    coachedCallId: uuid,
+    lines: z.array(CallLine).max(KEPT_LINES),
+  }),
+  output: z.object({ state: z.enum(['writing', 'failed', 'done', 'stopped']) }),
   permission: 'salescoach.use',
   actors: ['system'],
   scope: inWorkspace,
@@ -280,8 +286,12 @@ export const callFinish = defineAddonCommand(salescoachAddon, {
   emits: ['salescoach.call.finished', 'task.created'],
   async handler(ctx, input) {
     const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
-    if (c.state === 'done' || c.state === 'failed')
-      return { state: c.state, taskIds: [] as string[] };
+    // Finished already (a retry), stopped by the rep, or nothing heard: nothing more to write.
+    if (c.state !== 'writing')
+      return {
+        state: c.state === 'done' ? ('done' as const) : ('failed' as const),
+        taskIds: [] as string[],
+      };
     const result = input.result;
     if (!result) {
       await ctx.tx
@@ -348,6 +358,45 @@ export const callFinish = defineAddonCommand(salescoachAddon, {
 
 // ---------- the rep's ----------
 
+export const callStop = defineAddonCommand(salescoachAddon, {
+  name: 'salescoach.call.stop',
+  description:
+    'Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.',
+  risk: 1,
+  input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
+  output: z.object({ state: z.enum(COACHED_STATES) }),
+  permission: 'salescoach.use',
+  scope: inWorkspace,
+  emits: ['salescoach.call.stopped'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
+    if (c.userId !== me)
+      throw HfosError.rule(
+        'salescoach_not_your_call',
+        403,
+        'Only the person on the call can stop the coach on it.',
+      );
+    if (c.state !== 'live') return { state: c.state };
+    // Row security lets the rep make this one change to their own live call, and no other.
+    await ctx.tx
+      .update(coachedCalls)
+      .set({
+        state: 'stopped',
+        endedAt: changeMoment(ctx.meta),
+        failure: 'You stopped the coach on this call, so nothing from it was kept.',
+      })
+      .where(eq(coachedCalls.id, c.id));
+    await ctx.emit({
+      type: 'salescoach.call.stopped',
+      entityType: 'salescoach_call',
+      entityId: c.id,
+      payload: { callId: c.callId, userId: me },
+    });
+    return { state: 'stopped' as const };
+  },
+});
+
 export const cardDismiss = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.card.dismiss',
   description: 'Put away a card the coach showed you on a call.',
@@ -385,7 +434,7 @@ const LiveOutput = z.object({
     .object({
       id: uuid,
       callId: uuid,
-      state: z.enum(['live', 'writing', 'done', 'failed']),
+      state: z.enum(COACHED_STATES),
       person: z.object({ id: uuid, name: z.string() }).nullable(),
       playbook: z.object({ name: z.string(), details: PlaybookDetails }).nullable(),
       /** The script step the call is at. */
@@ -532,5 +581,12 @@ export const callGet = defineAddonQuery(salescoachAddon, {
   },
 });
 
-export const callCommands = [callBegin, cardAdd, callEnd, callFinish, cardDismiss] as const;
+export const callCommands = [
+  callBegin,
+  cardAdd,
+  callEnd,
+  callFinish,
+  cardDismiss,
+  callStop,
+] as const;
 export const callQueries = [live, callList, callGet] as const;

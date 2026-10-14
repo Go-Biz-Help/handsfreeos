@@ -78,7 +78,8 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   `addon_line`: who did it, or the add-on's name when it did it itself, and its words); deleting the add-on's data
   keeps each line's who and when and drops its words. AI it uses is counted under `app.ai_usage` source `addon`
   with its id, and charged like any other.
-- **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), or Home.
+- **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), Home, or
+  above the web's bar for a call in progress (`call.panels`, AI Sales Coach).
 - **Handing one out to try** (Real Estate step 2): HandsFreeOS staff with `platform.addons.manage` give one business
   an add-on in `development`, `beta` or `built` (or a paid `available` one) from **/admin/businesses/<id>**
   (`addon_grant.give`, kept in `platform.addon_grants`). It's then installable there, listed under Available to add
@@ -238,6 +239,14 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     key it holds; purging its data deletes the rows.
   - Locally and in tests, `ADDON_CONNECTORS=fake` (the default outside production) tells each tester to use its
     stand-in, and nothing leaves the worker; HandsFreeOS's own account works there without a key.
+- **Hearing calls live** (AI Sales Coach, 2026-10-14; docs/salescoach.md): an add-on that says `liveCalls` in its
+  manifest (the permission the person on a call needs) and has `liveCalls` hooks in its worker half (`onStart`,
+  `onLine`, `onEnd`) hears the business's phone calls as they happen. When a call is first answered
+  (`call.answered`), the worker asks Twilio to stream it, both sides, to `/webhooks/twilio/voice/live` with a sealed
+  ticket (apps/worker/src/telephony/live.ts), but only on a number that tells callers calls may be recorded, and only
+  for a person on the team holding the permission, while the add-on runs. Each finished line (`customer` or
+  `team`) reaches the hooks in order, as the system acting for the add-on; a hook that throws is logged and the next
+  line still comes. Listening is billed as live speech. Its panel above the web's call bar is the `call.panels` slot.
 - **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
   worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.
 - **Its lines for the scripted model** (round seven): a worker module's `scriptedTeammate` lists how a customer's

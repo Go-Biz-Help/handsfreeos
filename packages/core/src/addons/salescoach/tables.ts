@@ -17,7 +17,7 @@ const workspaceRef = () =>
     .references(() => workspaces.id, { onDelete: 'cascade' });
 const userRef = (name: string) => uuid(name).references(() => users.id, { onDelete: 'set null' });
 
-export type CoachedCallState = 'live' | 'writing' | 'done' | 'failed';
+export type CoachedCallState = 'live' | 'writing' | 'done' | 'failed' | 'stopped';
 
 /** The scripts, objection answers and talking points the coach says from. */
 export const playbooks = addonSalescoach.table(

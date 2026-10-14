@@ -11937,6 +11937,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/salescoach.call.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.
+         * @description Risk level 1. Requires salescoach.use. Emits salescoach.call.stopped.
+         */
+        post: operations["command_salescoach_call_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/salescoach.card.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put away a card the coach showed you on a call.
+         * @description Risk level 0. Requires salescoach.use. Emits salescoach.card.dismissed.
+         */
+        post: operations["command_salescoach_card_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/salescoach.playbook.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a sales playbook away, or bring an archived one back. Putting the usual one away makes the next one in use the usual one.
+         * @description Risk level 1. Requires salescoach.manage. Emits salescoach.playbook.archived.
+         */
+        post: operations["command_salescoach_playbook_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/salescoach.playbook.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. The first one, or one marked usual, is the one calls use.
+         * @description Risk level 1. Requires salescoach.manage. Emits salescoach.playbook.saved.
+         */
+        post: operations["command_salescoach_playbook_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/schedule.set": {
         parameters: {
             query?: never;
@@ -18571,6 +18651,86 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_safety_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/salescoach.call.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One coached call: what was said, the cards the coach showed, and the write-up with its notes, promises, follow-up, objections, tips and score.
+         * @description Requires salescoach.use.
+         */
+        post: operations["query_salescoach_call_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/salescoach.call.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Coached calls, newest first, with the rep, the customer and the score: your own, or everyone’s for people who review calls.
+         * @description Requires salescoach.use.
+         */
+        post: operations["query_salescoach_call_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/salescoach.live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.
+         * @description Requires salescoach.use.
+         */
+        post: operations["query_salescoach_live"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/salescoach.playbook.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s sales playbooks (script steps, objections with their answers, talking points): the usual one first, then the rest in use, then any archived.
+         * @description Requires salescoach.use.
+         */
+        post: operations["query_salescoach_playbook_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -46161,6 +46321,219 @@ export interface operations {
             };
         };
     };
+    command_salescoach_call_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    coachedCallId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        state: "live" | "writing" | "done" | "failed" | "stopped";
+                    };
+                };
+            };
+        };
+    };
+    command_salescoach_card_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cardId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cardId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_salescoach_playbook_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    archived: boolean;
+                    /** Format: uuid */
+                    playbookId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedAt: string | null;
+                        createdAt: string;
+                        details: {
+                            /** @default [] */
+                            objections: {
+                                answer: string;
+                                id: string;
+                                objection: string;
+                            }[];
+                            /** @default [] */
+                            points: {
+                                fact: string;
+                                id: string;
+                                topic: string;
+                            }[];
+                            /** @default [] */
+                            steps: {
+                                id: string;
+                                /** @default  */
+                                say: string;
+                                title: string;
+                            }[];
+                        };
+                        /** Format: uuid */
+                        id: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        kind: "first_call" | "estimate" | "follow_up" | "any";
+                        name: string;
+                        updatedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_salescoach_playbook_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    details: {
+                        /** @default [] */
+                        objections?: {
+                            answer: string;
+                            id: string;
+                            objection: string;
+                        }[];
+                        /** @default [] */
+                        points?: {
+                            fact: string;
+                            id: string;
+                            topic: string;
+                        }[];
+                        /** @default [] */
+                        steps?: {
+                            id: string;
+                            /** @default  */
+                            say?: string;
+                            title: string;
+                        }[];
+                    };
+                    isDefault?: boolean;
+                    /**
+                     * @default any
+                     * @enum {string}
+                     */
+                    kind?: "first_call" | "estimate" | "follow_up" | "any";
+                    name: string;
+                    /** Format: uuid */
+                    playbookId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedAt: string | null;
+                        createdAt: string;
+                        details: {
+                            /** @default [] */
+                            objections: {
+                                answer: string;
+                                id: string;
+                                objection: string;
+                            }[];
+                            /** @default [] */
+                            points: {
+                                fact: string;
+                                id: string;
+                                topic: string;
+                            }[];
+                            /** @default [] */
+                            steps: {
+                                id: string;
+                                /** @default  */
+                                say: string;
+                                title: string;
+                            }[];
+                        };
+                        /** Format: uuid */
+                        id: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        kind: "first_call" | "estimate" | "follow_up" | "any";
+                        name: string;
+                        updatedAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_schedule_set: {
         parameters: {
             query?: never;
@@ -69371,6 +69744,298 @@ export interface operations {
                         askAfterMinutes: number;
                         safetyPersonName: string | null;
                         safetyUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_call_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    coachedCallId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        call: {
+                            /** Format: uuid */
+                            callId: string;
+                            cards: {
+                                createdAt: string;
+                                heard: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "objection" | "fact" | "step" | "question";
+                                objectionId: string | null;
+                                say: string;
+                                title: string;
+                            }[];
+                            conversationId: string | null;
+                            endedAt: string | null;
+                            failure: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lines: {
+                                atMs: number;
+                                /** @enum {string} */
+                                speaker: "customer" | "team";
+                                text: string;
+                            }[];
+                            person: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            playbookName: string | null;
+                            rep: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                followUp: string;
+                                notes: string[];
+                                objections: {
+                                    answered: boolean;
+                                    said: string;
+                                }[];
+                                promises: {
+                                    due: string | null;
+                                    what: string;
+                                }[];
+                                score: {
+                                    objections: {
+                                        answered: number;
+                                        of: number;
+                                    };
+                                    steps: {
+                                        covered: number;
+                                        of: number;
+                                    } | null;
+                                    talkShare: number;
+                                    total: number;
+                                };
+                                stepsCovered: string[];
+                                summary: string;
+                                tips: string[];
+                            } | null;
+                            score: number | null;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "live" | "writing" | "done" | "failed" | "stopped";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_call_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calls: {
+                            /** Format: uuid */
+                            callId: string;
+                            endedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            playbookName: string | null;
+                            rep: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            score: number | null;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "live" | "writing" | "done" | "failed" | "stopped";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        call: {
+                            /** Format: uuid */
+                            callId: string;
+                            cards: {
+                                createdAt: string;
+                                heard: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "objection" | "fact" | "step" | "question";
+                                objectionId: string | null;
+                                say: string;
+                                title: string;
+                            }[];
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            playbook: {
+                                details: {
+                                    /** @default [] */
+                                    objections: {
+                                        answer: string;
+                                        id: string;
+                                        objection: string;
+                                    }[];
+                                    /** @default [] */
+                                    points: {
+                                        fact: string;
+                                        id: string;
+                                        topic: string;
+                                    }[];
+                                    /** @default [] */
+                                    steps: {
+                                        id: string;
+                                        /** @default  */
+                                        say: string;
+                                        title: string;
+                                    }[];
+                                };
+                                name: string;
+                            } | null;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "live" | "writing" | "done" | "failed" | "stopped";
+                            step: string | null;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_playbook_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        playbooks: {
+                            archivedAt: string | null;
+                            createdAt: string;
+                            details: {
+                                /** @default [] */
+                                objections: {
+                                    answer: string;
+                                    id: string;
+                                    objection: string;
+                                }[];
+                                /** @default [] */
+                                points: {
+                                    fact: string;
+                                    id: string;
+                                    topic: string;
+                                }[];
+                                /** @default [] */
+                                steps: {
+                                    id: string;
+                                    /** @default  */
+                                    say: string;
+                                    title: string;
+                                }[];
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            /** @enum {string} */
+                            kind: "first_call" | "estimate" | "follow_up" | "any";
+                            name: string;
+                            updatedAt: string;
+                        }[];
                     };
                 };
             };

@@ -14,6 +14,8 @@ import {
   cardMoment,
   checkedCard,
   checkedDraft,
+  keptLines,
+  KEPT_LINES,
   scoreCall,
   talkShare,
 } from '../../src/addons/salescoach/coach';
@@ -114,6 +116,19 @@ describe('the coach’s rules', () => {
     });
     const quiet = [{ speaker: 'customer' as const, text: 'hello there', atMs: 0 }];
     expect(scoreCall({ lines: quiet, stepsCovered: [], steps: [], objections: [] }).total).toBe(0);
+  });
+
+  it('keeps a very long call’s start and end', () => {
+    const lines = Array.from({ length: KEPT_LINES + 500 }, (_, i) => ({
+      speaker: 'customer' as const,
+      text: `line ${i}`,
+      atMs: i,
+    }));
+    const kept = keptLines(lines);
+    expect(kept).toHaveLength(KEPT_LINES);
+    expect(kept[0]!.text).toBe('line 0');
+    expect(kept.at(-1)!.text).toBe(`line ${KEPT_LINES + 499}`);
+    expect(keptLines(lines.slice(0, 10))).toHaveLength(10);
   });
 
   it('turns the AI’s playbook into one that saves', () => {
