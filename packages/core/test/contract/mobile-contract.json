@@ -7291,6 +7291,9 @@
           },
           "dontPitch": {
             "type": "boolean"
+          },
+          "neverContact": {
+            "type": "boolean"
           }
         },
         "required": ["workspaceId"]
