@@ -4677,6 +4677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/live_meeting_account.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect your Zoom from HandsFreeOS’s coaching app in this business. Meetings aren’t coached until you connect again.
+         * @description Risk level 1. Emits live_meeting_account.disconnected.
+         */
+        post: operations["command_live_meeting_account_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/live_meeting.claim": {
         parameters: {
             query?: never;
@@ -16331,6 +16351,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_lead_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/live_meeting_account.mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your Zoom linked to HandsFreeOS’s coaching app in this business, if it is.
+         * @description Any signed-in user.
+         */
+        post: operations["query_live_meeting_account_mine"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30172,6 +30212,38 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_live_meeting_account_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    accountId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
                     };
                 };
             };
@@ -60300,6 +60372,43 @@ export interface operations {
                             wonAt: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_live_meeting_account_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        account: {
+                            accountEmail: string | null;
+                            /** Format: date-time */
+                            connectedAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            provider: "zoom";
+                        } | null;
                     };
                 };
             };

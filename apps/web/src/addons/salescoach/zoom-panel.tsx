@@ -17,7 +17,8 @@ import { PersonPicker } from '@/components/money/person-picker';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { errorMessage } from '@/lib/api/errors';
+import { ApiError, errorMessage } from '@/lib/api/errors';
+import { publicEnv } from '@/lib/env';
 import { LiveCoach } from './live-coach';
 
 type Sdk = typeof zoomSdkType;
@@ -40,7 +41,8 @@ type Phase =
   | { k: 'on' }
   | { k: 'stopping' }
   | { k: 'off' }
-  | { k: 'failed'; message: string };
+  | { k: 'failed'; message: string }
+  | { k: 'connect'; message: string };
 
 /** What the app asks Zoom for (also ticked on the Zoom app's Surface → Zoom App SDK list). */
 const CAPABILITIES: Apis[] = [
@@ -51,6 +53,7 @@ const CAPABILITIES: Apis[] = [
   'startRTMS',
   'stopRTMS',
   'getRTMSStatus',
+  'openUrl',
 ];
 
 /** Zoom's own browser says so: anywhere else, nothing here can reach a meeting. */
@@ -124,7 +127,11 @@ export function ZoomPanel({ workspaceId }: { workspaceId: string }) {
         else if (got.person) await start();
         else setPhase({ k: 'pick' });
       } catch (e) {
-        if (current) setPhase({ k: 'failed', message: errorMessage(e) });
+        if (!current) return;
+        // Their Zoom isn't linked to the coaching app yet: connect it in the browser, then come back.
+        if (e instanceof ApiError && e.rule === 'live_meeting_not_connected')
+          setPhase({ k: 'connect', message: errorMessage(e) });
+        else setPhase({ k: 'failed', message: errorMessage(e) });
       }
     })();
     return () => {
@@ -139,6 +146,16 @@ export function ZoomPanel({ workspaceId }: { workspaceId: string }) {
       setPhase({ k: 'ready' });
     } catch (e) {
       setPhase({ k: 'failed', message: errorMessage(e) });
+    }
+  };
+
+  /** Zoom's sign-in opens in the computer's browser, where HandsFreeOS can ask who they are here. */
+  const connect = async () => {
+    const url = `${publicEnv.workerUrl}/oauth/zoom-live/start`;
+    try {
+      await sdk.current!.openUrl({ url });
+    } catch {
+      window.open(url, '_blank', 'noopener');
     }
   };
 
@@ -182,6 +199,19 @@ export function ZoomPanel({ workspaceId }: { workspaceId: string }) {
               {W.zoom.start}
             </Button>
           ) : null}
+        </Card>
+      ) : null}
+      {phase.k === 'connect' ? (
+        <Card className="space-y-2.5 p-4" data-testid="zoom-connect-needed">
+          <p className="text-[13.5px]">{phase.message}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void connect()}>
+              {W.zoom.connect}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+              {W.zoom.connectedTryAgain}
+            </Button>
+          </div>
         </Card>
       ) : null}
       {phase.k === 'pick' ? (

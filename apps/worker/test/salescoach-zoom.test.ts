@@ -15,6 +15,7 @@ import type { AddressInfo } from 'node:net';
 import { salescoachAddon } from '@hfos/core/addons/salescoach/manifest';
 import { playbookSave } from '@hfos/core/addons/salescoach/ops/playbooks';
 import {
+  createTokenVerifier,
   executeCommand,
   liveMeetingClaim,
   organizationCreate,
@@ -22,13 +23,23 @@ import {
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  testEnv,
+  type TestUser,
+} from '@hfos/db/testing';
+import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
-import { FAKE_ZOOM_STREAM } from '../src/meetings/fake';
 import { onStreamStarted, RTMS, rtmsSignature, trustedStreamUrl } from '../src/meetings/live';
+import { FAKE_ZOOM_LIVE, fakeZoomLiveCode } from '../src/meetings/zoom-live';
+import { zoomSignature } from '../src/meetings/routes';
+import { buildHttpServer } from '../src/http/server';
 import { processOnce } from '../src/outbox';
 import { handlers } from '../src/handlers/index';
 import { jobs } from '../src/scheduled';
@@ -91,8 +102,8 @@ async function zoomStream(meetingUuid: string, streamId: string) {
   const port = (server.address() as AddressInfo).port;
   const sent: Record<string, unknown>[] = [];
   const signature = rtmsSignature(
-    FAKE_ZOOM_STREAM.clientId,
-    FAKE_ZOOM_STREAM.clientSecret,
+    FAKE_ZOOM_LIVE.clientId,
+    FAKE_ZOOM_LIVE.clientSecret,
     meetingUuid,
     streamId,
   );
@@ -186,8 +197,8 @@ beforeAll(async () => {
   );
   await rows(
     admin(),
-    sql`insert into app.meeting_connections (workspace_id, user_id, provider, status, external_user_id, connected_at)
-        values (${workspaceId}, ${rep.id}, 'zoom', 'active', 'zoom-marco', now())`,
+    sql`insert into app.live_meeting_accounts (workspace_id, user_id, provider, external_user_id)
+        values (${workspaceId}, ${rep.id}, 'zoom', 'zoom-marco')`,
   );
   rosaId = (
     await executeCommand(
@@ -348,5 +359,103 @@ describe('a Zoom meeting heard live', () => {
     expect(trustedStreamUrl('wss://zoom.us.evil.example/ws')).toBe(false);
     expect(trustedStreamUrl('ws://rtms.zoom.us/ws')).toBe(false);
     expect(trustedStreamUrl('ws://127.0.0.1:9/ws')).toBe(false);
+  });
+});
+
+describe('the coaching Zoom app, installed from Zoom', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    const env = testEnv();
+    app = await buildHttpServer({
+      ...s,
+      httpDb: testDbs().worker.db,
+      verifyToken: createTokenVerifier({
+        jwksUrl: `${env.supabaseUrl}/auth/v1/.well-known/jwks.json`,
+        jwtIssuer: `${env.supabaseUrl}/auth/v1`,
+      }),
+      webOrigins: ['http://localhost:3000'],
+    });
+  });
+  afterAll(() => app.close());
+
+  const hook = (body: Record<string, unknown>, secret: string = FAKE_ZOOM_LIVE.webhookSecret) => {
+    const raw = JSON.stringify(body);
+    const ts = String(Math.floor(Date.now() / 1000));
+    return app.inject({
+      method: 'POST',
+      url: '/webhooks/zoom-live',
+      headers: {
+        'content-type': 'application/json',
+        'x-zm-request-timestamp': ts,
+        'x-zm-signature': zoomSignature(secret, ts, raw),
+      },
+      payload: raw,
+    });
+  };
+
+  it('links the Zoom user to whoever confirms it signed in here, and ends it when the app is removed', async () => {
+    const owner2 = await createTestUser('zoomw-installer', { fullName: 'Ivy Installer' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${owner2.id}, 'member')`,
+    );
+    // Added from Zoom's Marketplace: Zoom comes back with a code and no state of ours.
+    const back = await app.inject({
+      method: 'GET',
+      url: `/oauth/zoom-live/callback?code=${fakeZoomLiveCode('ivy@zoom.example')}`,
+    });
+    expect(back.statusCode).toBe(302);
+    const to = new URL(String(back.headers.location));
+    expect(to.pathname).toBe('/zoom/connect');
+    const ticket = to.searchParams.get('t')!;
+
+    const token = await signInTestUser(owner2);
+    const linkIt = (t: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/zoom-live/link',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { workspaceId, ticket: t },
+      });
+    // A forged ticket links nothing.
+    expect((await linkIt('not-a-ticket')).statusCode).toBe(400);
+    const linked = await linkIt(ticket);
+    expect(linked.json()).toEqual({ linked: true, accountEmail: 'ivy@zoom.example' });
+    const active = () =>
+      rows<{ external_user_id: string }>(
+        admin(),
+        sql`select external_user_id from app.live_meeting_accounts
+             where workspace_id = ${workspaceId} and user_id = ${owner2.id} and status = 'active'`,
+      );
+    const [acct] = await active();
+    expect(acct!.external_user_id).toMatch(/^fake-zoom-live-/);
+
+    // A webhook not signed with the coaching app's own secret is refused.
+    expect((await hook({ event: 'app_deauthorized' }, 'another-secret')).statusCode).toBe(401);
+    // Removed in Zoom: the link ends.
+    const removed = await hook({
+      event: 'app_deauthorized',
+      payload: { user_id: acct!.external_user_id },
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(await active()).toEqual([]);
+  });
+
+  it('starts Connect from HandsFreeOS with a sealed state, and answers Zoom’s URL check', async () => {
+    const start = await app.inject({ method: 'GET', url: '/oauth/zoom-live/start' });
+    expect(start.statusCode).toBe(302);
+    const back = new URL(String(start.headers.location));
+    expect(back.pathname).toBe('/oauth/zoom-live/callback');
+    const done = await app.inject({ method: 'GET', url: `${back.pathname}${back.search}` });
+    expect(new URL(String(done.headers.location)).pathname).toBe('/zoom/connect');
+    // A state that's been tampered with is refused.
+    const bad = await app.inject({
+      method: 'GET',
+      url: `/oauth/zoom-live/callback?code=${fakeZoomLiveCode('x@zoom.example')}&state=forged`,
+    });
+    expect(bad.statusCode).toBe(400);
+    const check = await hook({ event: 'endpoint.url_validation', payload: { plainToken: 'abc' } });
+    expect(check.json()).toMatchObject({ plainToken: 'abc' });
   });
 });

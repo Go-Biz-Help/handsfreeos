@@ -127,10 +127,12 @@ round 4's trends and Spanish are next.
 
 ### What changed while building round 3
 
-- **One Zoom app, not a second sign-in.** Main already had a Zoom connection per person (Settings → My calendar, for
-  meeting links and transcripts). The coach uses that same Zoom app and connection, so `app.addon_connections` didn't
-  get a `user_id` and there's no add-on connection: the Zoom app gains the in-meeting surface, the live transcript
-  scope and the RTMS events, and `/webhooks/zoom` (already core's) takes `meeting.rtms_started` and `_stopped`.
+- **Its own Zoom app, installed from Zoom** (Chris, 2026-10-14: "keep the Zoom coach separate so a slow review
+  doesn't hold up meeting links", and "people install it into their Zoom and connect it to HandsFreeOS so it knows
+  they are an active user"). "HandsFreeOS Sales Coach" has its own keys and webhook (`/webhooks/zoom-live`). Adding
+  it from Zoom's Marketplace (or Connect Zoom in HandsFreeOS) signs in to Zoom, then to HandsFreeOS at
+  `/zoom/connect`, and the worker links the two (`app.live_meeting_accounts`, core). No Zoom token is kept; the link
+  only says who the Zoom user is. `app.addon_connections` didn't get a `user_id`.
 - **Core's live meetings.** Zoom names only the meeting, so the panel first claims it (`app.live_meetings`,
   `live_meeting.claim`); the worker takes the claim whose person's connected Zoom account started the stream.
 - **Zoom's transcript, not Deepgram.** The stream asks for Zoom's own live transcript, which names each speaker; no

@@ -9,28 +9,28 @@ the rep promised, and a score. The decisions and the rounds still to come are in
 **Where it stands (2026-10-14):** rounds 0 to 3 and round 4's learning from wins are built, in `development` (staff
 hand it to test businesses): core's live listening, phone calls, written conversations (suggested replies, and a
 write-up once one goes quiet), Zoom meetings, and lessons from wins. Round 4's trends and Spanish are next. Zoom
-meetings need the Zoom app set up as in "Zoom" in `docs/calendar-setup.md`, and Zoom's review before anyone outside
-Go Biz Help's Zoom account can use it.
+meetings use their own Zoom app, set up as in "The coaching Zoom app" in `docs/calendar-setup.md`, and need Zoom's
+review before anyone outside Go Biz Help's Zoom account can add it.
 
 ## Where things are
 
-| What                                      | Where                                                                                                                                                                                                                                                                            |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                                                                                                               |
-| Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                                                                                                                         |
-| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                                                                                                                      |
-| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`                                                                                                                                          |
-| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                                                                                                                                                   |
-| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                                                                                                                                                       |
-| Hearing a Zoom meeting live (core)        | `packages/core/src/commands/live-meeting.ts` (`live_meeting.claim`), `apps/worker/src/meetings/live.ts` (`RtmsStream`, `ZoomLiveSession`), `meetings/routes.ts` (the webhook)                                                                                                    |
-| The Zoom panel                            | the web's `zoom-panel.tsx` (`?view=zoom`), `app/zoom/page.tsx` (where the Zoom app starts), `lib/zoom-app.ts` (Zoom's required headers)                                                                                                                                          |
-| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                                                                                                                     |
-| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                                                                                                                     |
-| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                                                                                                                                           |
-| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                                                                                                                                                |
-| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                                                                                                                     |
-| Database                                  | `supabase/migrations/20261027004500_addon_salescoach.sql`, `20261027004600_salescoach_suggestions.sql`, `20261027004700_salescoach_conversations.sql`, `20261027004800_salescoach_learning.sql`, core's `20261027004900_live_meetings.sql`, `20261027005000_salescoach_zoom.sql` |
-| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`                                                                     |
+| What                                      | Where                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                                                                                                                                                                  |
+| Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                                                                                                                                                                            |
+| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                                                                                                                                                                         |
+| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`                                                                                                                                                                                             |
+| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                                                                                                                                                                                                      |
+| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                                                                                                                                                                                                          |
+| Hearing a Zoom meeting live (core)        | `packages/core/src/commands/live-meeting.ts` (`live_meeting.claim`), `apps/worker/src/meetings/live.ts` (`RtmsStream`, `ZoomLiveSession`), `zoom-live.ts` (the coaching Zoom app), `live-routes.ts` (its sign-in, link and webhook)                                                                                                 |
+| The Zoom panel                            | the web's `zoom-panel.tsx` (`?view=zoom`), `app/zoom/page.tsx` (where the Zoom app starts), `app/zoom/connect/` (linking Zoom), `components/settings/zoom-coach-card.tsx`, `lib/zoom-app.ts` (Zoom's required headers)                                                                                                              |
+| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                                                                                                                                                                        |
+| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                                                                                                                                                                        |
+| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                                                                                                                                                                                              |
+| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                                                                                                                                                                                                   |
+| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                                                                                                                                                                        |
+| Database                                  | `supabase/migrations/20261027004500_addon_salescoach.sql`, `20261027004600_salescoach_suggestions.sql`, `20261027004700_salescoach_conversations.sql`, `20261027004800_salescoach_learning.sql`, core's `20261027004900_live_meetings.sql`, `20261027005000_salescoach_zoom.sql`, core's `20261027005100_live_meeting_accounts.sql` |
+| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`                                                                                                                        |
 
 ## How a coached call goes
 
@@ -95,6 +95,12 @@ Go Biz Help's Zoom account can use it.
 
 ## A coached Zoom meeting
 
+0. **Adding the app.** Coaching in Zoom uses its own Zoom app, "HandsFreeOS Sales Coach", apart from the one that
+   makes meeting links (Chris, 2026-10-14). A rep adds it from Zoom's App Marketplace, or presses **Connect Zoom** in
+   HandsFreeOS (Settings → My calendar, or the Zoom panel). Zoom signs them in, then `/zoom/connect` asks them to
+   sign in to HandsFreeOS and pick the business, and the worker links the Zoom user to them there
+   (`live_meeting_account.link`, `app.live_meeting_accounts`). That's how HandsFreeOS knows they're an active person
+   here. No Zoom token is kept.
 1. **Opening it.** In a Zoom meeting, the rep opens HandsFreeOS from Zoom's **Apps** button. Zoom loads `/zoom` (the
    Zoom app's Home URL) in its own browser; signed out, it goes through sign-in first (a password or an emailed code;
    Google's sign-in doesn't open inside Zoom). `/zoom` opens the page of an add-on whose manifest says
@@ -102,15 +108,16 @@ Go Biz Help's Zoom account can use it.
    more than one business, the rep picks.
 2. **Claiming it.** The panel (`zoom-panel.tsx`) reads the meeting and the rep through Zoom's app SDK
    (`@zoom/appssdk`: `getMeetingUUID`, `getMeetingContext`, `getUserContext`) and claims the meeting
-   (`live_meeting.claim`, core). That needs an add-on that listens, and the rep's own Zoom connected in Settings → My
-   calendar, which is how the worker knows the stream came from them. It finds the customer from the appointment
+   (`live_meeting.claim`, core). That needs an add-on that listens, and the rep's Zoom linked through the coaching app,
+   which is how the worker knows the stream came from them; without it the panel offers Connect Zoom, which opens
+   the sign-in in the computer's browser. It finds the customer from the appointment
    HandsFreeOS made the meeting for (its first attendee); otherwise the rep picks one, or coaches without one.
 3. **The stream.** With a customer known, the panel asks Zoom to start the meeting's Realtime Media Stream
    (`startRTMS`) at once; otherwise after the rep picks. Zoom shows everyone that an app is listening. Zoom then calls
-   `/webhooks/zoom` with `meeting.rtms_started`; the worker takes the newest waiting claim on that meeting whose
-   rep's connected Zoom account started it (Zoom's `operator_id`), and opens `ZoomLiveSession`.
-4. **Hearing it.** `RtmsStream` connects to Zoom's signaling and media sockets, signs both handshakes with the Zoom
-   app's id and secret, asks only for Zoom's own English transcript, and answers Zoom's keep-alives. Each transcript
+   the coaching app's `/webhooks/zoom-live` with `meeting.rtms_started`; the worker takes the newest waiting claim on
+   that meeting whose rep's linked Zoom account started it (Zoom's `operator_id`), and opens `ZoomLiveSession`.
+4. **Hearing it.** `RtmsStream` connects to Zoom's signaling and media sockets, signs both handshakes with the
+   coaching Zoom app's id and secret, asks only for Zoom's own English transcript, and answers Zoom's keep-alives. Each transcript
    message names its speaker: the rep (by the name they show in the meeting) is the team's side, anyone else the
    customer's. Lines go to the add-ons exactly as a phone call's do (`addons/live-fanout.ts`), so the cards come the
    same way, on the panel and on the Live call tab. No audio reaches HandsFreeOS. It's billed as live listening.
@@ -162,7 +169,7 @@ Go Biz Help's Zoom account can use it.
   its tables reference core's calls and live meetings, never the other way round. `/zoom` finds the add-on's page
   from the catalogue (`liveCalls.zoom`), not by name.
 - **A Zoom stream is heard only for whoever claimed it.** A stream nobody claimed in the last hour, or one started by
-  a Zoom account other than the claimant's connected one, is left alone; and the worker connects only to Zoom's own
+  a Zoom account other than the claimant's linked one, is left alone; and the worker connects only to Zoom's own
   servers (`trustedStreamUrl`).
 
 ## Not yet

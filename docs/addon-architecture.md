@@ -249,8 +249,8 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   `team`) reaches the hooks in order, as the system acting for the add-on; a hook that throws is logged and the next
   line still comes. Listening is billed as live speech. Its panel above the web's call bar is the `call.panels` slot.
   With `liveCalls.zoom` (round three) it hears Zoom meetings too: HandsFreeOS's app in Zoom opens `/zoom`, which opens
-  the add-on's page at that path and query, where the person claims the meeting (`live_meeting.claim`) and Zoom's
-  stream starts; the worker hears Zoom's transcript (apps/worker/src/meetings/live.ts) and the same hooks get the
+  the add-on's page at that path and query, where the person claims the meeting (`live_meeting.claim`; their Zoom linked through
+  core's coaching Zoom app, `app.live_meeting_accounts`) and Zoom's stream starts; the worker hears Zoom's transcript (apps/worker/src/meetings/live.ts) and the same hooks get the
   lines, with `call.kind` `'meeting'` and `call.liveMeetingId` instead of `callId`.
 - **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
   worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.

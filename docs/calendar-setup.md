@@ -361,24 +361,52 @@ For production:
    `_OAUTH_`), like every other provider key.
 
 6. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
-7. For AI Sales Coach in meetings (the same app; docs/salescoach.md, "A coached Zoom meeting"):
-   - **Features** → **Surface**: products **Meetings**; **Home URL** `https://app.handsfreeos.com/zoom`; add
-     `app.handsfreeos.com` to the **Domain Allow List**; turn on **Zoom App SDK** and add the APIs
-     `getRunningContext`, `getMeetingContext`, `getMeetingUUID`, `getUserContext`, `startRTMS`, `stopRTMS` and
-     `getRTMSStatus`.
-   - **Scopes**: add `meeting:read:meeting_transcript` (Zoom's live transcript), and the Zoom Apps scopes the SDK
-     APIs above ask for.
-   - **Event subscription**, on the same endpoint: **Meeting** → **RTMS started** and **RTMS stopped**
-     (`meeting.rtms_started`, `meeting.rtms_stopped`).
-   - Realtime Media Streams use **Zoom Developer Pack credits** on Go Biz Help's Zoom account; without them Zoom
-     refuses to start a stream.
-   - People who connected Zoom before these scopes were added connect again (Settings → My calendar → Reconnect) so
-     Zoom asks for the new ones. The worker needs nothing new: it signs the stream with the same client id and
-     secret.
-   - Locally there's no Zoom: the panel says to open it from Zoom, and the tests play Zoom's side of the stream
-     (`apps/worker/test/salescoach-zoom.test.ts`).
+   Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
 
-Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
+## The coaching Zoom app
+
+AI Sales Coach listens in Zoom meetings through a **second** Zoom app, "HandsFreeOS Sales Coach", apart from the one
+above, so a slow Zoom review of either never holds up the other (Chris, 2026-10-14). See "A coached Zoom meeting" in
+`docs/salescoach.md` for what it does.
+
+**How someone gets it.** They add it from Zoom's App Marketplace (**Add**), or press **Connect Zoom** in HandsFreeOS
+(Settings → My calendar → Coaching in Zoom meetings, or in the Zoom panel). Either way Zoom signs them in and comes
+back to the worker's `/oauth/zoom-live/callback`, which reads who they are in Zoom (`/users/me`, once) and keeps no
+token. The browser goes on to `https://app.handsfreeos.com/zoom/connect`, where they sign in to HandsFreeOS, pick the
+business, and confirm. The worker then links the two (`app.live_meeting_accounts`). That link is how HandsFreeOS
+knows a Zoom user is an active person here, and the only Zoom account whose meeting streams it hears for them.
+Removing the app in Zoom (`app_deauthorized`) ends the link everywhere; **Disconnect** on the card ends it in one
+business.
+
+Locally there is nothing to set up: Connect goes straight back as `owner@zoom.fake`, and the tests play Zoom's side of
+a meeting's stream (`apps/worker/test/salescoach-zoom.test.ts`).
+
+For production:
+
+1. In the Zoom App Marketplace, **Develop** → **Build App** → **General App**, managed by each user. Name it
+   "HandsFreeOS Sales Coach".
+2. **OAuth redirect URL** and the allow list: `https://hooks.handsfreeos.com/oauth/zoom-live/callback`.
+3. **Features** → **Surface**: product **Meetings**; **Home URL** `https://app.handsfreeos.com/zoom`; add
+   `app.handsfreeos.com` and `hooks.handsfreeos.com` to the **Domain Allow List**; turn on **Zoom App SDK** with the
+   APIs `getRunningContext`, `getMeetingContext`, `getMeetingUUID`, `getUserContext`, `startRTMS`, `stopRTMS`,
+   `getRTMSStatus` and `openUrl`.
+4. **Scopes**: `user:read:user` (who signed in), `meeting:read:meeting_transcript` (the live transcript), and the Zoom
+   Apps scopes the SDK APIs above ask for. Nothing that makes meetings.
+5. **Features** → **Access** → **Event subscription**, endpoint `https://hooks.handsfreeos.com/webhooks/zoom-live`:
+   **Meeting** → **RTMS started** and **RTMS stopped**, and **App Deauthorized**. Copy the **Secret Token**. Zoom
+   checks the endpoint when you save, so give the worker the secret (next step) first.
+6. Give the worker the three values:
+
+   ```bash
+   fly secrets set -a handsfreeos-worker ZOOM_LIVE_OAUTH_CLIENT_ID=… ZOOM_LIVE_OAUTH_CLIENT_SECRET=… ZOOM_LIVE_WEBHOOK_SECRET=…
+   ```
+
+   Without them Connect Zoom says it isn't set up yet, and no meeting is heard. The API refuses to start with them.
+
+7. Realtime Media Streams use **Zoom Developer Pack credits** on Go Biz Help's Zoom account; without them Zoom
+   refuses to start a stream.
+8. Until Zoom approves it for the Marketplace, only accounts added as testers on the app can add it. Submit it for
+   review once a test meeting is coached end to end: it needs the privacy policy, a test login and a demo video.
 
 ## If something goes wrong
 

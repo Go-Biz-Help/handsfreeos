@@ -3,12 +3,12 @@
  * HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md.
  *
  * Someone in a meeting opens HandsFreeOS in Zoom's Apps panel. The page claims the meeting for them
- * (`live_meeting.claim`) and asks Zoom to start its Realtime Media Stream. Zoom then calls `/webhooks/zoom` with
- * `meeting.rtms_started`, naming the meeting, the stream and where to connect. `onStreamStarted` takes the newest
- * waiting claim on that meeting whose person's own connected Zoom account started the stream, and opens a
- * `ZoomLiveSession`:
+ * (`live_meeting.claim`) and asks Zoom to start its Realtime Media Stream. Zoom then calls the coaching app's
+ * `/webhooks/zoom-live` with `meeting.rtms_started`, naming the meeting, the stream and where to connect. `onStreamStarted` takes the newest
+ * waiting claim on that meeting whose person's coaching-app Zoom account (`app.live_meeting_accounts`) started the
+ * stream, and opens a `ZoomLiveSession`:
  *
- * 1. **Signaling** (a websocket to `server_urls`): a handshake signed with the Zoom app's id and secret
+ * 1. **Signaling** (a websocket to `server_urls`): a handshake signed with the coaching Zoom app's id and secret
  *    (HMAC-SHA256 of `<client id>,<meeting uuid>,<stream id>`, hex). Zoom answers with the media server.
  * 2. **Media** (a second websocket): the same signed handshake, asking for Zoom's own live transcript only
  *    (`media_type` 8, English). Once Zoom accepts, the signaling socket says ready and the words start.
@@ -37,6 +37,7 @@ import type { AddonWorkerModule, LiveCall, LiveLine } from '../addons/types';
 import { noteSpeech, speechMinutes } from '../money/speech-usage';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { liveListenersFor } from '../telephony/live';
+import type { ZoomLiveApp } from './zoom-live';
 
 /** Zoom's message types on the two sockets (RTMS data types, `msg_type`). */
 export const RTMS = {
@@ -408,21 +409,20 @@ export interface StreamStartedInput {
 }
 
 /**
- * `meeting.rtms_started`: the stream of a meeting someone claimed. The newest waiting claim whose person's connected
+ * `meeting.rtms_started`: the stream of a meeting someone claimed. The newest waiting claim whose person's linked
  * Zoom account started it is heard; a stream nobody claimed (or whose person can't be heard) is left alone.
  */
 export async function onStreamStarted(
   deps: ZoomSessionDeps & {
-    readonly calendars: {
-      readonly zoomStream: { readonly clientId: string; readonly clientSecret: string } | null;
-    };
+    readonly calendars: { readonly zoomLive: ZoomLiveApp | null };
     readonly modules?: readonly AddonWorkerModule[];
     readonly catalog?: readonly AddonManifest[];
   },
   input: StreamStartedInput,
 ): Promise<ZoomLiveSession | null> {
-  const credentials = deps.calendars.zoomStream;
-  if (!credentials) return null;
+  const app = deps.calendars.zoomLive;
+  if (!app) return null;
+  const credentials = { clientId: app.clientId, clientSecret: app.clientSecret };
   if (!trustedStreamUrl(input.serverUrl, Boolean(deps.open))) {
     deps.log.warn('a Zoom stream named a server we don’t connect to');
     return null;
@@ -434,7 +434,7 @@ export async function onStreamStarted(
             from private.live_meetings_waiting('zoom', ${input.meetingUuid})`,
     ),
   );
-  // Only someone whose own Zoom account is connected, and when Zoom names who started it, that very account.
+  // Only someone whose Zoom is linked here, and when Zoom names who started it, that very account.
   const claim = claims.find(
     (c) => c.external_user_id && (!input.operatorId || c.external_user_id === input.operatorId),
   );

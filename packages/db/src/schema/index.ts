@@ -2711,6 +2711,23 @@ export const liveMeetings = app.table('live_meetings', {
   ...timestamps(),
 });
 
+/**
+ * Which HandsFreeOS person a Zoom user is, in one business, for the live coaching Zoom app (20261027005100): made
+ * when they add the app in Zoom and connect it, ended when they disconnect or remove it. No tokens are kept.
+ */
+export const liveMeetingAccounts = app.table('live_meeting_accounts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  provider: text('provider').notNull().default('zoom'),
+  externalUserId: text('external_user_id').notNull(),
+  accountEmail: text('account_email'),
+  status: text('status').notNull().default('active'),
+  connectedAt: ts('connected_at').notNull().defaultNow(),
+  disconnectedAt: ts('disconnected_at'),
+  ...timestamps(),
+});
+
 // ---------- Milestone 6: workflows, agency templates, AI usage and the knowledge base (0021-0025) ----------
 export const workflowStatus = app.enum('workflow_status', [
   'draft',

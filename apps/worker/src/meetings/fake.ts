@@ -36,11 +36,6 @@ const dec = (s: string) => Buffer.from(s, 'base64url').toString('utf8');
 const HOUR = 3_600_000;
 /** What the stand-in's webhooks are signed with (tests sign theirs with it too). Not a secret. */
 export const FAKE_ZOOM_WEBHOOK_SECRET = 'fake-zoom-webhook-secret';
-/** What the stand-in Zoom app signs a meeting's live stream with (meetings/live.ts); tests play Zoom's side. */
-export const FAKE_ZOOM_STREAM = {
-  clientId: 'fake-zoom-client',
-  clientSecret: 'fake-zoom-client-secret',
-} as const;
 const SCOPES = ['meeting:write:meeting', 'meeting:update:meeting', 'user:read:user'];
 
 export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {

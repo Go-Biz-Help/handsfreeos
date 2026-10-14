@@ -59,6 +59,8 @@ export const SALESCOACH_WORDS = {
     startFailed:
       'Zoom didn’t start listening. If you’re not the host, ask the host to let apps listen to the meeting (in Zoom’s settings, under Realtime media streams). Then press Start coaching again.',
     zoomOld: 'Update Zoom to its newest version, then open HandsFreeOS again.',
+    connect: 'Connect Zoom',
+    connectedTryAgain: 'I’ve connected. Try again',
   },
   cardKinds: {
     objection: 'Objection',

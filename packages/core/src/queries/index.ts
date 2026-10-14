@@ -36,6 +36,7 @@ import { assistantThreadGet, assistantThreadList } from './assistant';
 import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
 import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
+import { liveMeetingAccountMine } from '../commands/live-meeting';
 import { callSuggestionList } from '../commands/call-suggestion';
 import {
   appointmentGet,
@@ -196,6 +197,7 @@ export {
   bookingSiteGet,
   calendarConnectionList,
   meetingConnectionList,
+  liveMeetingAccountMine,
   appointmentTranscriptList,
   callSuggestionList,
 };
@@ -309,6 +311,7 @@ export const queries: readonly QueryDef[] = [
   bookingSiteGet,
   calendarConnectionList,
   meetingConnectionList,
+  liveMeetingAccountMine,
   appointmentTranscriptList,
   callSuggestionList,
   workflowList,

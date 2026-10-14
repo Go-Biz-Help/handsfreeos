@@ -13,6 +13,10 @@ import { callBegin } from '../../src/addons/salescoach/ops/calls';
 import {
   addonRef,
   executeCommand,
+  executeQuery,
+  liveMeetingAccountDisconnect,
+  liveMeetingAccountLink,
+  liveMeetingAccountMine,
   liveMeetingClaim,
   liveMeetingEnded,
   liveMeetingStarted,
@@ -57,6 +61,22 @@ const system = (addon = false): SystemActor => ({
   organizationId: orgId,
   ...(addon ? { addon: addonRef(salescoachAddon) } : {}),
 });
+
+/** The worker links a Zoom user to a person, once both sign-ins agree. */
+const link = (u: TestUser, zoomUserId: string) =>
+  executeCommand(
+    testDbs().worker.db,
+    liveMeetingAccountLink,
+    {
+      workspaceId: ws,
+      userId: u.id,
+      provider: 'zoom',
+      externalUserId: zoomUserId,
+      accountEmail: 'rep@zoom.example',
+    },
+    system(),
+    meta(),
+  ).then((r) => r.output.accountId);
 
 beforeAll(async () => {
   [owner, rep] = await Promise.all([createTestUser('zoom-owner'), createTestUser('zoom-rep')]);
@@ -104,7 +124,7 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 describe('claiming a Zoom meeting', () => {
-  it('needs an add-on that listens, then the person’s own Zoom connected', async () => {
+  it('needs an add-on that listens, then the person’s Zoom linked through the coaching app', async () => {
     expect(await refused(claim(rep, {}))).toBe('live_meeting_nobody_listens');
     await rows(
       admin(),
@@ -112,20 +132,41 @@ describe('claiming a Zoom meeting', () => {
           values (${ws}, 'salescoach', 'enabled', ${salescoachAddon.version})`,
     );
     expect(await refused(claim(rep, {}))).toBe('live_meeting_not_connected');
-    const [conn] = await rows<{ id: string }>(
-      admin(),
-      sql`insert into app.meeting_connections (workspace_id, user_id, provider, status, external_user_id, connected_at)
-          values (${ws}, ${rep.id}, 'zoom', 'reauth_required', 'zoom-rep-1', now())
-          returning id`,
-    );
-    expect(await refused(claim(rep, {}))).toBe('live_meeting_reconnect');
-    // Signed in again (the guard lets only the worker change it, so a fresh row stands in).
-    await rows(admin(), sql`delete from app.meeting_connections where id = ${conn!.id}`);
+    // The meeting-link Zoom app's connection isn't the coaching app's: it doesn't count.
     await rows(
       admin(),
       sql`insert into app.meeting_connections (workspace_id, user_id, provider, status, external_user_id, connected_at)
           values (${ws}, ${rep.id}, 'zoom', 'active', 'zoom-rep-1', now())`,
     );
+    expect(await refused(claim(rep, {}))).toBe('live_meeting_not_connected');
+    // Nobody links a Zoom account by hand: only the worker, once both sign-ins agree.
+    const forged = await asUser(api(), rep.claims, (tx) =>
+      rows(
+        tx,
+        sql`insert into app.live_meeting_accounts (workspace_id, user_id, external_user_id)
+            values (${ws}, ${rep.id}, 'zoom-rep-1') returning id`,
+      ),
+    ).then(
+      () => 'went through',
+      () => 'refused',
+    );
+    expect(forged).toBe('refused');
+    const first = await link(rep, 'zoom-rep-1');
+    // Disconnecting it stops the claim; linking again (the same Zoom user moves to whoever linked it last) restores it.
+    await executeCommand(
+      api(),
+      liveMeetingAccountDisconnect,
+      { workspaceId: ws, accountId: first },
+      human(rep),
+      meta(),
+    );
+    expect(await refused(claim(rep, {}))).toBe('live_meeting_not_connected');
+    await link(owner, 'zoom-rep-1');
+    await link(rep, 'zoom-rep-1');
+    const mine = (u: TestUser) =>
+      executeQuery(api(), liveMeetingAccountMine, { workspaceId: ws }, human(u), meta());
+    expect((await mine(rep)).account).toMatchObject({ accountEmail: 'rep@zoom.example' });
+    expect((await mine(owner)).account).toBeNull();
   });
 
   it('finds the customer from the appointment, and asking again finds the same claim', async () => {
