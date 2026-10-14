@@ -3,6 +3,7 @@
  * sign-in and makes every call to HandsFreeOS (./session.ts), so the panels open in different windows share one
  * sign-in and never refresh it twice at once. Both ends are the extension's own; Facebook's tabs never see these.
  */
+import type { ProfileCheck, ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
@@ -245,6 +246,12 @@ export type HfosAsk =
       readonly workspaceId: string;
       readonly input: TodayDraftInput;
     }
+  /** The person's own profile, read here, for the AI's check (decision 64): kept by HandsFreeOS, only its answer. */
+  | {
+      readonly type: 'hfos-profile-check';
+      readonly workspaceId: string;
+      readonly input: ProfileRead;
+    }
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
   | { readonly type: 'hfos-lists'; readonly workspaceId: string }
@@ -305,6 +312,7 @@ export interface HfosValues {
   readonly 'hfos-save-group': GroupSaved;
   readonly 'hfos-groups': GroupsList;
   readonly 'hfos-draft': Drafts;
+  readonly 'hfos-profile-check': ProfileCheck;
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;

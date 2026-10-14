@@ -8,6 +8,7 @@
  * It saves only to businesses where Social Outreach is on and the person may use it: HandsFreeOS refuses the rest
  * (`addon_inactive`), and the panel then asks for the account again, which leaves that business out.
  */
+import type { ProfileCheck } from '@hfos/core/addons/outreach/profile-check';
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
 import { APP_HEADERS, EXTENSION_CLIENT } from '@hfos/core/mobile';
 import { GoTrueClient, isAuthError, isAuthRetryableFetchError } from '@supabase/auth-js';
@@ -512,6 +513,14 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-draft':
       return call(
         workerPost<Drafts>('/v1/addons/outreach/actions/outreach.today.draft', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
+      );
+    case 'hfos-profile-check':
+      return call(
+        workerPost<ProfileCheck>('/v1/addons/outreach/actions/outreach.profile.check', {
           workspaceId: ask.workspaceId,
           input: ask.input,
         }),

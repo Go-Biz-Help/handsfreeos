@@ -21,6 +21,8 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  OwnProfileAnswer,
+  OwnProfileAsk,
 } from '../messages';
 
 /** The Facebook tab a job works in: one of the extension's own (src/tab.ts). */
@@ -36,6 +38,7 @@ export interface JobTab {
   ask(message: FetchAsk): Promise<FetchAnswer>;
   ask(message: JoinAsk): Promise<JoinAnswer>;
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
+  ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */
