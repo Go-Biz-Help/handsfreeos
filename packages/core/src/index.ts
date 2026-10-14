@@ -65,6 +65,8 @@ export * from './workflows/index';
 export * from './forms/index';
 export * from './knowledge/index';
 export * from './main-offer/parts';
+export * from './main-offer/examples';
+export * from './main-offer/assist';
 export * from './writing';
 export * from './ai-team/index';
 // Quick setup: a few simple questions that set up a working AI teammate.
