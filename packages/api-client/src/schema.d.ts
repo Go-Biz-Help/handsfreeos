@@ -23271,8 +23271,11 @@ export interface operations {
                                     bufferBefore?: number;
                                     maxPartySize?: number;
                                     minutes?: number[];
+                                    record?: boolean;
                                     seats?: number;
                                     userIds?: string[];
+                                    /** @enum {string} */
+                                    video?: "none" | "google_meet" | "zoom";
                                 };
                                 /** Format: uuid */
                                 serviceId: string;
@@ -54842,8 +54845,11 @@ export interface operations {
                                             bufferBefore?: number;
                                             maxPartySize?: number;
                                             minutes?: number[];
+                                            record?: boolean;
                                             seats?: number;
                                             userIds?: string[];
+                                            /** @enum {string} */
+                                            video?: "none" | "google_meet" | "zoom";
                                         };
                                         /** Format: uuid */
                                         serviceId: string;
