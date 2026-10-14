@@ -92,5 +92,6 @@ help, and the screens: Settings → Main offer and the builder, from the boards 
 ## Not yet
 
 The warning when a version hasn't had enough messages to judge needs Social Outreach's counts by version, so it comes
-with step 6. Social Outreach hearing `main_offer.published`, and everything it does with the offer, are steps 3 to 8.
+with step 6. Social Outreach's playbooks read the live version (step 3: the niche, the AI's help, whether a niche fits;
+docs/outreach.md, decision 62); hearing `main_offer.published`, and the rest it does with the offer, are steps 4 to 8.
 The phone shows nothing of the main offer yet; its words are core's, ready for it.

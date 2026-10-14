@@ -205,7 +205,10 @@ export interface PlaybookOffer {
 /** The live main offer as a playbook's AI reads it. */
 export function playbookOffer(parts: MainOfferParts, line: string): PlaybookOffer {
   return {
-    who: [parts.who.work, parts.who.slice, parts.who.size].filter((w) => w?.trim()).join(', '),
+    // As the offer's line says it, "Roofers with 2 to 3 crews", and their size after: ", $500k to $2M a year".
+    who: [[parts.who.work, parts.who.slice].filter((w) => w?.trim()).join(' '), parts.who.size]
+      .filter((w) => w?.trim())
+      .join(', '),
     line,
     outcome: parts.inAFewWords.outcome?.trim() || null,
     guarantee: parts.inAFewWords.guarantee?.trim() || null,

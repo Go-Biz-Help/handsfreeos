@@ -31,7 +31,7 @@ const offer = playbookOffer(parts, line);
 describe('the main offer, as a playbook’s AI reads it', () => {
   it('keeps who it’s for, the line, the few words and the real results', () => {
     expect(offer).toEqual({
-      who: 'Roofers, with 2 to 3 crews',
+      who: 'Roofers with 2 to 3 crews',
       line,
       outcome: '10 to 20 booked inspections',
       guarantee: null,
@@ -47,7 +47,7 @@ describe('the main offer, as a playbook’s AI reads it', () => {
     });
     const withOffer = playbookAssistPrompt(input, 'Summit Roof Leads', offer);
     expect(withOffer).toContain('<main_offer>');
-    expect(withOffer).toContain('Who it’s for: Roofers, with 2 to 3 crews');
+    expect(withOffer).toContain('Who it’s for: Roofers with 2 to 3 crews');
     expect(withOffer).toContain('In messages: 10 to 20 booked inspections; (not written)');
     expect(withOffer).toContain('Niche: Roofers in Ohio');
     expect(withOffer).toContain('Their biggest problem: Slow winters');

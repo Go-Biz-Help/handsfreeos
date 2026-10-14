@@ -9,6 +9,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  *   steps, a line put together from the answers, then the score. A part under the bar goes live only with a reason,
  *   kept with the version. Leaving for later keeps the draft.
  * - Changing it makes a draft beside the live version; scored over the bar, it goes live as version 2.
+ * - A Social Outreach playbook narrows it: its niche starts from the offer's who, the AI says whether a niche fits
+ *   inside it or is really a second offer, its proof is picked from the offer's, and its offer starts as the outcome.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -134,4 +136,44 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await builder.getByTestId('offer-go-live').click();
   await expect(page.getByTestId('main-offer-live')).toContainText('Live · version 2');
   await expect(page.getByTestId('main-offer-live')).toContainText('Every part 7 or more');
+
+  // A playbook narrows it: the niche from the offer's who fits, another niche is really a second offer.
+  await page.goto(`/app/w/${workspaceId}/a/outreach/playbooks/new`);
+  const playbook = page.getByTestId('playbook-builder');
+  await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('playbook-main-offer')).toContainText(
+    'Who it’s for: Roofing like your best customer',
+  );
+  await playbook.getByRole('button', { name: /^Roofing like your best customer/ }).click();
+  await playbook.getByTestId('playbook-niche-check').click();
+  await expect(playbook.getByTestId('playbook-niche-fit')).toHaveAttribute('data-fit', 'inside');
+  await playbook.getByTestId('playbook-niche').fill('Dentists in Ohio');
+  await expect(playbook.getByTestId('playbook-niche-fit')).toHaveCount(0);
+  await playbook.getByTestId('playbook-niche-check').click();
+  await expect(playbook.getByTestId('playbook-niche-fit')).toHaveAttribute(
+    'data-fit',
+    'second_offer',
+  );
+  await expect(playbook.getByTestId('playbook-niche-fit')).toContainText('really a second offer');
+  await playbook.getByTestId('playbook-niche').fill('Roofers with 2 to 3 crews');
+  await playbook.getByTestId('playbook-problem').fill('No steady jobs between storms');
+  await playbook
+    .getByRole('button', { name: 'Peak Roofing got 22 inspections in 60 days' })
+    .click();
+  await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('playbook-offer')).toHaveValue('10 to 20 booked inspections');
+  await playbook.getByTestId('playbook-useful-what').fill('A storm-season checklist');
+  await playbook.getByTestId('playbook-useful-link').fill('summit.test/checklist');
+  await playbook.getByTestId('playbook-useful-link').blur();
+  await expect(playbook.getByTestId('playbook-useful-link')).toHaveValue(
+    'https://summit.test/checklist',
+  );
+  for (let i = 0; i < 9; i++) await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
+  await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');
+  await expect(playbook.getByTestId('review-offer')).toContainText(
+    'Useful to send: A storm-season checklist',
+  );
+  await playbook.getByTestId('playbook-save').click();
+  await expect(page.getByText('Book a demo is ready.')).toBeVisible();
 });

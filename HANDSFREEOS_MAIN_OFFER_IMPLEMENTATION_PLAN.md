@@ -377,7 +377,10 @@ Each step ships on its own, with its tests, and leaves the add-on working.
 2. **Core: the builder, on the web. Built.** Settings → Main offer, the builder, the three AI routes, the examples by
    line of work, from the boards in `design/main-offer` (Chris approved them, 2026-10-14: "build it"). The warning
    when a version is too new to judge moves to step 6, which brings the counts it needs.
-3. **Social Outreach: the playbook's niche.** Data version 3, the builder's new steps, the CRM demos template.
+3. **Social Outreach: the playbook's niche. Built.** Data version 3 (niche, problem, proof, something useful to
+   send), the builder's Niche step and the offer step's new parts, the AI's help reading the live main offer,
+   `outreach.playbook.niche_fit`, and the CRM demos template's niche. The video's link and script move to step 7,
+   which writes them, and the new pace to step 6, which uses it, so today's follow-ups keep working until then.
 4. **Social Outreach: getting ready.** `outreach.readiness`, the setup step, the Get ready card on Today, the web and
    the phone and the panel, `outreach_not_ready`, your numbers and their math.
 5. **The extension: your profile.** `profile_read`, the AI's score and bios, `profile_edit`, a new extension build.

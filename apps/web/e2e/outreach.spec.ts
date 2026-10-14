@@ -68,6 +68,9 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   ).toBeVisible();
   await builder.getByTestId('goal-sale').click();
   await next.click();
+  // The niche narrows the main offer; with none live it says where to build one, and carries on without.
+  await expect(builder.getByTestId('playbook-no-main-offer')).toBeVisible();
+  await next.click();
   await builder.getByRole('button', { name: 'A free trial' }).click();
   await expect(builder.getByTestId('playbook-offer')).toHaveValue('A free trial');
   await builder.getByTestId('playbook-link').fill('pinestreet.test/order');
@@ -180,7 +183,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await page.getByTestId('playbook-new').click();
   await page.getByTestId('template-crm_demos').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=crm_demos$`));
-  for (let i = 0; i < 7; i++) await builder.getByTestId('playbook-next').click();
+  for (let i = 0; i < 8; i++) await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
   await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();

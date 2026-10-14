@@ -6,8 +6,13 @@
  * part has its own Change. It's checked as it's written by the same rules the server holds (`PlaybookDetails`), so a
  * step with a problem on it doesn't carry on.
  */
+import { NICHE_FIT_WORDS, type NicheFitOutput } from '@hfos/core/addons/outreach/niche-fit';
 import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
-import type { AssistDraft, AssistQuestion } from '@hfos/core/addons/outreach/playbook-assist';
+import type {
+  AssistDraft,
+  AssistQuestion,
+  PlaybookOffer,
+} from '@hfos/core/addons/outreach/playbook-assist';
 import {
   ANSWER_NEXTS,
   answerNextLabel,
@@ -34,6 +39,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  CheckCircle2,
   Info,
   MessageCircleQuestion,
   Plus,
@@ -54,6 +60,7 @@ import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
+import { workerPost } from '@/lib/api/worker';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -68,6 +75,11 @@ interface Draft {
   goal: PlaybookGoal;
   offer: string;
   link: string;
+  niche: string;
+  problem: string;
+  proof: string[];
+  usefulWhat: string;
+  usefulLink: string;
   audience: string;
   signs: string[];
   skip: string[];
@@ -91,6 +103,11 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   goal: d.goal,
   offer: d.offer ?? '',
   link: d.link ?? '',
+  niche: d.niche ?? '',
+  problem: d.problem ?? '',
+  proof: d.proof ?? [],
+  usefulWhat: d.usefulWhat ?? '',
+  usefulLink: d.usefulLink ?? '',
   audience: d.audience ?? '',
   signs: d.signs,
   skip: d.skip,
@@ -112,7 +129,15 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
 const orNull = (v: string) => v.trim() || null;
 
 /** The lists written a line at a time, in a box with Add. */
-const LIST_KEYS = ['signs', 'skip', 'groupWords', 'tags', 'avoid', 'openerStyles'] as const;
+const LIST_KEYS = [
+  'proof',
+  'signs',
+  'skip',
+  'groupWords',
+  'tags',
+  'avoid',
+  'openerStyles',
+] as const;
 type ListKey = (typeof LIST_KEYS)[number];
 /** The lists of whole messages, each in its own box. */
 type MessageKey = 'samples' | 'ownOpeners';
@@ -137,6 +162,11 @@ const toDetails = (d: Draft): PlaybookDetails => ({
   goal: d.goal,
   offer: orNull(d.offer),
   link: orNull(d.link),
+  niche: orNull(d.niche),
+  problem: orNull(d.problem),
+  proof: d.proof,
+  usefulWhat: orNull(d.usefulWhat),
+  usefulLink: orNull(d.usefulLink),
   audience: orNull(d.audience),
   signs: d.signs,
   skip: d.skip,
@@ -203,6 +233,7 @@ const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 type StepKey =
   | 'goal'
+  | 'niche'
   | 'offer'
   | 'who'
   | 'skip'
@@ -235,11 +266,19 @@ const STEPS: readonly Step[] = [
     fields: ['goal'],
   },
   {
+    key: 'niche',
+    part: 'Niche',
+    title: 'Who in your main offer is this for?',
+    blurb:
+      'One slice of who your main offer is for. A playbook that talks to one kind of person gets more replies.',
+    fields: ['niche', 'problem', 'proof'],
+  },
+  {
     key: 'offer',
     part: 'Offer',
     title: 'What do you offer them?',
     blurb: 'In your own words, and where they book or buy.',
-    fields: ['offer', 'link'],
+    fields: ['offer', 'link', 'usefulWhat', 'usefulLink'],
   },
   {
     key: 'who',
@@ -323,6 +362,7 @@ export function PlaybookBuilder({
   businessTags,
   bookingPages,
   brandedOrigin,
+  mainOffer,
   doneHref,
 }: {
   workspaceId: string;
@@ -336,19 +376,22 @@ export function PlaybookBuilder({
   bookingPages: readonly { readonly name: string; readonly path: string }[];
   /** The business's own domain, when one is serving its public pages. */
   brandedOrigin: string | null;
+  /** The business's live main offer (core's, docs/main-offer.md), which a playbook narrows; null with none live. */
+  mainOffer: PlaybookOffer | null;
   /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
   doneHref?: string;
 }) {
   const router = useRouter();
   const origin = usePublicOrigin(brandedOrigin);
   const home = doneHref ?? outreachHref(workspaceId, { view: 'playbooks' });
-  const [start] = useState<Draft>(() =>
-    playbook
-      ? fromDetails(playbook.name, playbook.details as PlaybookDetails)
-      : template
-        ? fromDetails(PLAYBOOK_TEMPLATES[template].name, PLAYBOOK_TEMPLATES[template].details)
-        : fromDetails('', blankPlaybook()),
-  );
+  const [start] = useState<Draft>(() => {
+    if (playbook) return fromDetails(playbook.name, playbook.details as PlaybookDetails);
+    const d = template
+      ? fromDetails(PLAYBOOK_TEMPLATES[template].name, PLAYBOOK_TEMPLATES[template].details)
+      : fromDetails('', blankPlaybook());
+    // A new one's offer starts as the main offer's outcome, in a few words, to change if it needs to.
+    return d.offer || !mainOffer?.outcome ? d : { ...d, offer: mainOffer.outcome };
+  });
   const [draft, setDraft] = useState(start);
   const [at, setAt] = useState(playbook ? REVIEW : 0);
   /** Reached from the last step's Change: carrying on goes back there. */
@@ -356,6 +399,10 @@ export function PlaybookBuilder({
   const [busy, setBusy] = useState(false);
   const [taken, setTaken] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /** The AI's word on whether the niche fits the main offer, for the niche it read. */
+  const [fit, setFit] = useState<{ niche: string; out: NicheFitOutput } | null>(null);
+  const [checking, setChecking] = useState(false);
+  const offerHref = `/app/w/${workspaceId}/settings/main-offer`;
   /** Typed in a list's box and not added yet: it counts as added, and is added on moving to another step. */
   const [typing, setTyping] = useState<Typing>({});
   const typed = (k: ListKey) => ({
@@ -431,6 +478,8 @@ export function PlaybookBuilder({
     return {
       name: d.name,
       goal: d.goal,
+      niche: d.niche,
+      problem: d.problem,
       offer: d.offer,
       audience: d.audience,
       area: d.area,
@@ -485,7 +534,9 @@ export function PlaybookBuilder({
           },
     );
   /** AI help for one of the parts. */
-  const help = (part: 'offer' | 'audience' | 'area' | 'tone' | 'disclaimer') => (
+  const help = (
+    part: 'niche' | 'problem' | 'offer' | 'audience' | 'area' | 'tone' | 'disclaimer',
+  ) => (
     <AiHelp
       workspaceId={workspaceId}
       part={part}
@@ -494,7 +545,8 @@ export function PlaybookBuilder({
       onWords={(w) => set(part, w)}
     />
   );
-  const listHelp = (k: MultiKey) => (
+  /** Proof has no AI help: a result is real or it isn't there. */
+  const listHelp = (k: Exclude<MultiKey, 'proof'>) => (
     <AiHelp
       workspaceId={workspaceId}
       part={k}
@@ -520,6 +572,24 @@ export function PlaybookBuilder({
 
   const step = STEPS[at]!;
   const stuck = problems(step);
+
+  /** Asks the AI whether the niche is inside the main offer's who. It only says; it never stops the playbook. */
+  const checkFit = async () => {
+    const niche = draft.niche.trim();
+    setChecking(true);
+    try {
+      const out = await workerPost<NicheFitOutput>(
+        '/v1/addons/outreach/actions/outreach.playbook.niche_fit',
+        { workspaceId, input: { niche, problem: draft.problem.trim() } },
+      );
+      setFit({ niche, out });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setChecking(false);
+    }
+  };
+  const fitShown = fit && fit.niche === draft.niche.trim() ? fit.out : null;
 
   const save = async () => {
     setBusy(true);
@@ -567,6 +637,134 @@ export function PlaybookBuilder({
         </div>
       );
       break;
+    case 'niche':
+      body = (
+        <div className="space-y-5">
+          {mainOffer ? (
+            <div
+              className="rounded-card border border-border bg-card-2 p-4 text-[13.5px]"
+              data-testid="playbook-main-offer"
+            >
+              <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">
+                Your main offer
+              </h3>
+              <p className="mt-1">{mainOffer.line}</p>
+              {mainOffer.who ? (
+                <p className="mt-1 text-text-2">Who it’s for: {mainOffer.who}</p>
+              ) : null}
+              <Link
+                href={offerHref}
+                className="mt-2 inline-block text-[13px] text-accent-text hover:underline"
+              >
+                Change it in Settings → Main offer
+              </Link>
+            </div>
+          ) : (
+            <Callout
+              tone="warning"
+              data-testid="playbook-no-main-offer"
+              action={
+                <Link
+                  href={offerHref}
+                  className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                >
+                  Build it
+                </Link>
+              }
+            >
+              {NICHE_FIT_WORDS.no_offer}
+            </Callout>
+          )}
+          <div>
+            <Field
+              label="Niche"
+              htmlFor="pb-niche"
+              hint="One kind of person, like “Roofers with 2 to 3 crews in Ohio”."
+              error={issueAt('niche')}
+            >
+              <Input
+                id="pb-niche"
+                value={draft.niche}
+                maxLength={PLAYBOOK_LIMITS.niche}
+                onChange={(e) => set('niche', e.target.value)}
+                data-testid="playbook-niche"
+              />
+            </Field>
+            {mainOffer?.who ? (
+              <Picks
+                label="From your main offer"
+                options={[mainOffer.who]}
+                on={(o) => draft.niche === o}
+                onPick={(o) => set('niche', o)}
+              />
+            ) : null}
+            {help('niche')}
+            {mainOffer && draft.niche.trim() ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-3"
+                loading={checking}
+                onClick={() => void checkFit()}
+                data-testid="playbook-niche-check"
+              >
+                Check it fits my main offer
+              </Button>
+            ) : null}
+            {fitShown ? (
+              <Callout
+                className="mt-3"
+                tone={fitShown.fit === 'inside' ? 'info' : 'warning'}
+                icon={fitShown.fit === 'inside' ? CheckCircle2 : undefined}
+                data-testid="playbook-niche-fit"
+                data-fit={fitShown.fit}
+              >
+                <div>
+                  {NICHE_FIT_WORDS[fitShown.fit]}
+                  {'why' in fitShown && fitShown.why ? (
+                    <div className="mt-1 text-[13px] opacity-90">{fitShown.why}</div>
+                  ) : null}
+                </div>
+              </Callout>
+            ) : null}
+          </div>
+          <div>
+            <Field
+              label="Their biggest problem"
+              htmlFor="pb-problem"
+              hint="The one that costs them most, as they’d say it. First messages and your video lead with it."
+              error={issueAt('problem')}
+            >
+              <Textarea
+                id="pb-problem"
+                rows={2}
+                maxLength={PLAYBOOK_LIMITS.problem}
+                value={draft.problem}
+                onChange={(e) => set('problem', e.target.value)}
+                data-testid="playbook-problem"
+              />
+            </Field>
+            {help('problem')}
+          </div>
+          <ListField
+            id="pb-proof"
+            {...typed('proof')}
+            label="Proof for this niche (optional)"
+            hint="Real results only, a line each. The AI never makes one up."
+            placeholder="Like “A 3-crew roofer got 14 inspections in 30 days”"
+            items={draft.proof}
+            onChange={(v) => set('proof', v)}
+            suggestions={
+              mainOffer?.proof.length
+                ? [{ label: 'From your main offer', options: mainOffer.proof }]
+                : []
+            }
+            limits={PLAYBOOK_LIMITS.proof}
+            error={issueIn('proof')}
+          />
+        </div>
+      );
+      break;
     case 'offer':
       body = (
         <div className="space-y-5">
@@ -585,6 +783,14 @@ export function PlaybookBuilder({
                 data-testid="playbook-offer"
               />
             </Field>
+            {mainOffer?.outcome ? (
+              <Picks
+                label="From your main offer"
+                options={[mainOffer.outcome]}
+                on={(o) => draft.offer === o}
+                onPick={(o) => set('offer', o)}
+              />
+            ) : null}
             <Picks
               label="Ideas"
               options={PLAYBOOK_SUGGESTIONS.offers[draft.goal]}
@@ -624,6 +830,35 @@ export function PlaybookBuilder({
                 }}
               />
             ) : null}
+          </div>
+          <div className="space-y-3">
+            <Field
+              label="Something useful to send (optional)"
+              htmlFor="pb-useful-what"
+              hint="A guide, a checklist or a video worth having, for someone who never answered."
+              error={issueAt('usefulWhat')}
+            >
+              <Input
+                id="pb-useful-what"
+                value={draft.usefulWhat}
+                placeholder="Like “A storm-season checklist”"
+                maxLength={PLAYBOOK_LIMITS.usefulWhat}
+                onChange={(e) => set('usefulWhat', e.target.value)}
+                data-testid="playbook-useful-what"
+              />
+            </Field>
+            <Field label="Its link" htmlFor="pb-useful-link" error={issueAt('usefulLink')}>
+              <Input
+                id="pb-useful-link"
+                value={draft.usefulLink}
+                placeholder="https://"
+                inputMode="url"
+                maxLength={PLAYBOOK_LIMITS.usefulLink}
+                onChange={(e) => set('usefulLink', e.target.value)}
+                onBlur={() => set('usefulLink', withScheme(draft.usefulLink))}
+                data-testid="playbook-useful-link"
+              />
+            </Field>
           </div>
         </div>
       );
@@ -1369,12 +1604,29 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
   switch (part) {
     case 'goal':
       return PLAYBOOK_GOALS[d.goal];
+    case 'niche':
+      return (
+        <>
+          {d.niche.trim() || <Missing>No niche yet</Missing>}
+          {d.problem.trim() ? (
+            <div className="text-[13px] text-text-2">Their problem: {d.problem.trim()}</div>
+          ) : null}
+          {d.proof.length ? (
+            <div className="text-[13px] text-text-2">
+              {plural(d.proof.length, 'result')} as proof
+            </div>
+          ) : null}
+        </>
+      );
     case 'offer':
       return (
         <>
           {d.offer.trim() || <Missing>No offer written yet</Missing>}
           {d.link.trim() ? (
             <div className="truncate text-[13px] text-text-2">{d.link.trim()}</div>
+          ) : null}
+          {d.usefulWhat.trim() ? (
+            <div className="text-[13px] text-text-2">Useful to send: {d.usefulWhat.trim()}</div>
           ) : null}
         </>
       );

@@ -469,19 +469,29 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   pastes its link under **Where your team gets the extension** (Business settings, on the web and the phone), and
   everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
-  which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
-  to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
-  a disclaimer and the tags. The first template is **CRM demos**; a blank one is always there.
+  which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
+  own proof (decision 62), an offer and link, something useful to send, who it's for, signs to look for and who to
+  skip, where to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words
+  to avoid, a disclaimer and the tags. The first template is **CRM demos**; a blank one is always there.
 - **The playbook builder** (`/a/outreach/playbooks/new`, `/a/outreach/playbooks/<id>`): a playbook asked a step at a
-  time, eleven steps from the goal to a summary, each with ideas to tap and room for the business's own words. The offer
-  step offers the business's booking pages as the link, and the tags step its own tags. A new playbook walks every
-  step; changing one opens on the summary, where each part has its own Change.
+  time, twelve steps from the goal to a summary, each with ideas to tap and room for the business's own words. The
+  niche step shows the live main offer, offers its who and its proof to tap, and **Check it fits my main offer**; with
+  none live it says where to build one, and carries on without. The offer step starts a new playbook's offer as the
+  main offer's outcome in a few words, offers the business's booking pages as the link, and asks for something useful
+  to send; the tags step offers its own tags. A new playbook walks every step; changing one opens on the summary, where
+  each part has its own Change.
 - **AI help on each part of a playbook** (owners and admins): under every part the person writes, **Improve**
   rewrites what's there and **Suggest more** (or **Write it for me**) offers more, from the whole playbook as it
   stands. Words come back three to pick from; list lines to tap in one by one, or a rewritten list to use instead;
   questions with their answers, what each leads to and only the playbook's own tags. Nothing is used until the person
   picks it, and it counts against the business's daily AI limit (`playbook-assist.ts`; the worker's
-  `outreach.playbook.assist` action). The goal, link, steps and pace are choices, not writing, so they have none.
+  `outreach.playbook.assist` action). The AI reads the live main offer with the playbook, so what it writes stays inside
+  the offer's who and in line with its outcome and guarantee. The goal, link, steps and pace are choices, not writing,
+  so they have none; proof has none either, as a result is real or it isn't there.
+- **Whether the niche fits the main offer** (`niche-fit.ts`; the worker's `outreach.playbook.niche_fit` action): the AI
+  says **inside** the offer's who, **really a second offer** (it needs another outcome or price), or **outside** it,
+  with why in a line. It only says; it never stops a playbook being saved. With no live main offer it says so and the
+  AI isn't asked.
 - **The conversation**: the questions to work into a chat, each with the answers people give. An answer can add one of
   the playbook's tags, and says what's next: the next question, a question further down, the offer, checking back
   later, or stopping. A question with no answers is answered in the person's own words.
@@ -980,6 +990,15 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
     filter on Today, the good fits and people left to reach, and the Skipped for country list on the Friends tab.
     Not yet on the phone's Business settings, which keeps the setting as saved.
 
+From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris, 2026-10-14):
+
+62. **A playbook narrows the main offer.** The business has one main offer, in core (docs/main-offer.md); each
+    playbook picks one niche inside its who, with that niche's biggest problem and its own proof, picked from the
+    offer's or its own and never invented. The AI says when a niche looks like a second offer. A playbook's offer
+    starts as the main offer's outcome in a few words, and it keeps something useful to send someone who never
+    answered. Built (data version 3). The short video's link and script, and the new pace, come with the plan's steps
+    7 and 6.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -1373,6 +1392,10 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
 - **Data version 2:** a playbook's questions became questions with answers, and it got a pace. Reading one saved
   before then gives it in today's shape (`upgradePlaybookDetails`, in `outreach.playbook.list`), because a business
   with the add-on on never runs a data step; the worker's step 2 tidies what a reinstall brings back.
+- **Data version 3:** a playbook got a niche, its problem, its proof and something useful to send, empty on one saved
+  before (the same `upgradePlaybookDetails`, and the worker's step 3). The five are optional in `PlaybookDetails`, and
+  a save that leaves one out keeps what's saved (`keptV3` in `ops/playbooks.ts`), so a phone built before them never
+  wipes them; null or an empty list clears one.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
