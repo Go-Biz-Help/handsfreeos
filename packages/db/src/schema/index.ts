@@ -2744,7 +2744,7 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'addon',
   // Reading a recorded call's transcript for its summary and suggestions (20261027003600).
   'meetings',
-  // Building and scoring the business's main offer (20261027004100).
+  // Building and scoring the business's main offer (20261027006100).
   'main_offer',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
@@ -3097,7 +3097,7 @@ export const knowledgeProfiles = app.table('knowledge_profiles', {
 });
 
 /**
- * The business's main offer (20261027004100): the draft being edited, and which version runs. One a business.
+ * The business's main offer (20261027006100): the draft being edited, and which version runs. One a business.
  * Not the promotions under Knowledge (`offers`).
  */
 export const mainOffers = app.table('main_offers', {

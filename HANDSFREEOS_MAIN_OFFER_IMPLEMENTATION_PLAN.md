@@ -19,8 +19,9 @@ calls, coaching) are out of scope; Module 4 is a fit for AI Sales Coach later.
 **Where it stands (2026-10-14):** steps 1 and 2 are built on branch `claude/main-offer-plan` (docs/main-offer.md): the data,
 the commands and queries, showing it only with an add-on that uses it, the AI's help, Settings → Main offer and the
 builder. Current offers are **Promotions** on
-screen. Its migration, `20261027004100_main_offer.sql`, isn't on the hosted database yet. Social Outreach is in
-`development`.
+screen. Its migration, `20261027006100_main_offer.sql`, and Social Outreach's two for steps 4 and 5
+(`20261027006200_outreach_readiness.sql`, `20261027006300_outreach_profile_asks.sql`) are on the hosted database
+(2026-10-14). Social Outreach is in `development`.
 
 ## Decisions (Chris, 2026-10-14)
 

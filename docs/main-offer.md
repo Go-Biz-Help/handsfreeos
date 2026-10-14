@@ -22,7 +22,7 @@ help, and the screens: Settings → Main offer and the builder, from the boards 
 | Schemas                                | `packages/core/src/schemas/main-offer.ts`                                                                                                            |
 | Shown only with an add-on that uses it | `CORE_FEATURES` and the manifest's `uses` (`addons/manifest.ts`); `coreFeatureOn`, `coreFeatureRunning` and `addonsUsing` (`addons/capabilities.ts`) |
 | The plain-writing rules                | `packages/core/src/writing.ts` (`PLAIN_WRITING`, `noDashes`), Social Outreach's before                                                               |
-| Database                               | `20261027004100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`                                                                        |
+| Database                               | `20261027006100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`                                                                        |
 | The AI's help: prompts and checks      | `packages/core/src/main-offer/assist.ts` (the niche finder, Improve and Write it for me, the score)                                                  |
 | The AI's routes                        | `apps/worker/src/main-offer/routes.ts` (`/v1/main-offer/niche`, `/assist`, `/score`); the scripted stand-in's `MAIN_OFFER_RULES`                     |
 | Examples by line of work               | `packages/core/src/main-offer/examples.ts`                                                                                                           |

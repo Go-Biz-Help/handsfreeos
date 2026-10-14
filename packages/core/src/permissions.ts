@@ -49,7 +49,7 @@ export const ROLE_PERMISSIONS = {
     'appointments.write',
     'workflows.manage',
     'knowledge.manage',
-    // The business's main offer (20261027004100), which only shows while an add-on that uses it is on.
+    // The business's main offer (20261027006100), which only shows while an add-on that uses it is on.
     'main_offer.manage',
     'ai_team.manage',
     'money.read',
