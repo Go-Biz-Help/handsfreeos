@@ -1,11 +1,11 @@
 /**
- * Social Outreach: who's never reached (docs/outreach.md, "Never contact, and people only chatted with").
+ * Social Outreach: who's never reached (docs/outreach.md, "Never contact, and Don't pitch on a chat").
  * - Never contact is the business's, and stronger than Don't pitch: no step to them counts, no message is drafted for
  *   them and any waiting is skipped, their friend requests are neither confirmed nor shown to decide, a reply of
  *   theirs is off Today, and only whoever put them on it, or an owner or admin, takes them off. It covers a profile
  *   kept twice under the same name.
- * - With the business's setting off, follow-ups, pitches and reconnects go only to the person's friends on Facebook,
- *   a friend kept twice included; a reply owed still shows, and so does someone the person marked ready themselves.
+ * - Don't pitch and Never contact are switched on a chat's row as on a friend's: each chat says whether who it's
+ *   with is on either list, and Don't pitch takes their follow-ups and pitches off Today until it's switched off.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -240,36 +240,26 @@ describe('Never contact', () => {
   });
 });
 
-describe('people only chatted with', () => {
+describe('Don’t pitch on a chat', () => {
   let ws: string;
   const today = async () =>
     ((await runAs(owner, ws, 'outreach.today', {})).items as { kind: string; name: string }[]).map(
       (i) => `${i.kind}: ${i.name}`,
     );
-  const setting = async (on: boolean) =>
-    rows(
-      admin(),
-      sql`update app.addon_installations
-          set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{pitchChatsNotFriends}', ${JSON.stringify(on)}::jsonb)
-          where workspace_id = ${ws} and addon_id = 'outreach'`,
-    );
+  const chatRows = async () =>
+    (
+      (await runAs(owner, ws, 'outreach.chats', { view: 'read' })).chats as {
+        name: string;
+        profileId: string | null;
+        dontPitch: boolean;
+        neverContact: boolean;
+      }[]
+    ).sort((a, b) => a.name.localeCompare(b.name));
 
   beforeAll(async () => {
     ws = await business('Outreach Chats Co');
-    // Robin is a friend, kept by username from the friends list; Messenger shows them by number.
-    await runAs(owner, ws, 'outreach.friends.save', {
-      list: 'friends',
-      people: [{ profile: fb('robin.ford.8'), name: 'Robin Ford', mutualFriends: 12 }],
-    });
     await chats(ws, [
-      {
-        name: 'Robin Ford',
-        thread: '4000111',
-        profile: byNumber('100088811111'),
-        fromMeLast: true,
-      },
       { name: 'Drew Moss', thread: '4000222', profile: fb('drew.moss.3'), fromMeLast: true },
-      { name: 'Lane Cho', thread: '4000333', profile: fb('lane.cho.1'), fromMeLast: false },
       { name: 'Noor Vale', thread: '4000444', profile: fb('noor.vale.5'), fromMeLast: true },
     ]);
     // Noor's chat reads ready for the offer.
@@ -280,51 +270,36 @@ describe('people only chatted with', () => {
     );
   }, 60_000);
 
-  it('pitches and follows up with them while the setting is on, as it always has', async () => {
+  it('says on each chat whether who it’s with is on Don’t pitch or Never contact', async () => {
+    expect((await chatRows()).map((c) => [c.name, c.dontPitch, c.neverContact])).toEqual([
+      ['Drew Moss', false, false],
+      ['Noor Vale', false, false],
+    ]);
     expect(await today()).toEqual(
-      expect.arrayContaining([
-        'pitch: Noor Vale',
-        'reply: Lane Cho',
-        'follow_up: Robin Ford',
-        'follow_up: Drew Moss',
-      ]),
+      expect.arrayContaining(['follow_up: Drew Moss', 'pitch: Noor Vale']),
     );
   });
 
-  it('follows up and pitches only friends with it off, and still answers a reply', async () => {
-    await setting(false);
+  it('takes someone switched to Don’t pitch from their chat off Today, and back on when switched off', async () => {
+    const [drew, noor] = await chatRows();
+    await runAs(owner, ws, 'outreach.friend.set', { profileId: drew!.profileId, dontPitch: true });
+    await runAs(owner, ws, 'outreach.friend.set', { profileId: noor!.profileId, dontPitch: true });
+    expect((await chatRows()).map((c) => c.dontPitch)).toEqual([true, true]);
     const list = await today();
-    expect(list).toEqual(expect.arrayContaining(['reply: Lane Cho', 'follow_up: Robin Ford']));
     expect(list).not.toContain('follow_up: Drew Moss');
     expect(list).not.toContain('pitch: Noor Vale');
-    // Marked ready by the person themselves, they're pitched anyway.
-    await runAs(owner, ws, 'outreach.stage.mark', {
-      profileId: await profileId(ws, 'Noor Vale'),
-      mark: 'ready',
-    });
-    expect(await today()).toContain('pitch: Noor Vale');
+    await runAs(owner, ws, 'outreach.friend.set', { profileId: drew!.profileId, dontPitch: false });
+    expect((await chatRows())[0]!.dontPitch).toBe(false);
+    expect(await today()).toContain('follow_up: Drew Moss');
   });
 
-  it('leaves them out of reconnects and the checks', async () => {
-    // The AI found Drew a good fit, and the chat has been quiet three months: too long for a follow-up.
-    const drew = await profileId(ws, 'Drew Moss');
-    await rows(
-      admin(),
-      sql`update addon_outreach.file_chats
-          set first_at = ${daysAgo(91)}::timestamptz, last_at = ${daysAgo(90)}::timestamptz
-          where workspace_id = ${ws} and name = 'Drew Moss'`,
-    );
-    await rows(
-      admin(),
-      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, why, looked_at, checked_at)
-          values (${ws}, ${owner.id}, ${drew}, 'good', '{Runs a busy shop}', now(), now())`,
-    );
-    expect(await today()).not.toContain('reconnect: Drew Moss');
-    const next = await runAs(owner, ws, 'outreach.checks.next', { most: 40 });
-    expect(next.people.map((p: { name: string }) => p.name)).not.toContain('Lane Cho');
-    await setting(true);
-    expect(await today()).toContain('reconnect: Drew Moss');
-    const again = await runAs(owner, ws, 'outreach.checks.next', { most: 40 });
-    expect(again.people.map((p: { name: string }) => p.name)).toContain('Lane Cho');
+  it('shows Never contact on the chat too', async () => {
+    const [drew] = await chatRows();
+    await runAs(owner, ws, 'outreach.friend.set', {
+      profileId: drew!.profileId,
+      neverContact: true,
+    });
+    expect((await chatRows())[0]).toMatchObject({ name: 'Drew Moss', neverContact: true });
+    expect(await today()).not.toContain('follow_up: Drew Moss');
   });
 });

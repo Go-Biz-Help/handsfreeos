@@ -61893,11 +61893,13 @@ export interface operations {
                         chats: {
                             /** Format: uuid */
                             chatId: string;
+                            dontPitch: boolean;
                             /** Format: date-time */
                             lastAt: string;
                             lastFromMe: boolean;
                             messages: number;
                             name: string;
+                            neverContact: boolean;
                             nextStep: string | null;
                             onCard: boolean;
                             personId: string | null;

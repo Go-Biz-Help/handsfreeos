@@ -18,11 +18,14 @@ import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
+import { Switch } from '@/components/ui/switch';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -251,11 +254,19 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
           {c.readState === 'waiting' ? <Badge variant="pending">Being read</Badge> : null}
           {c.readState === 'failed' ? <Badge variant="danger">Couldn’t read</Badge> : null}
           {c.onCard ? <Badge variant="gray">On their card</Badge> : null}
-          <PersonMenu
-            workspaceId={workspaceId}
-            who={{ profileId: c.profileId, personId: c.personId, name: c.name }}
-          />
         </div>
+      </div>
+      {/* Don't pitch and Never contact for who it's with, switched here as on a friend's row; the rest in the menu. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-text-2">
+        {c.profileId ? (
+          <ChatMarks workspaceId={workspaceId} profileId={c.profileId} chat={c} />
+        ) : null}
+        <PersonMenu
+          workspaceId={workspaceId}
+          who={{ profileId: c.profileId, personId: c.personId, name: c.name }}
+          dontPitch={false}
+          neverContact={false}
+        />
       </div>
       {c.summary ? (
         <p className="mt-1.5 text-[13px] text-text" data-testid="chat-summary">
@@ -286,5 +297,76 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
         />
       </div>
     </li>
+  );
+}
+
+/** Don't pitch or Never contact as switched on a chat's row. */
+type Marks = { dontPitch?: boolean; neverContact?: boolean };
+
+/**
+ * Don't pitch and Never contact for the person a chat is with, the business's lists, as the Friends tab's rows have
+ * them: each flips at once and sends `outreach.friend.set` in the background, flipping back with why if it's refused.
+ */
+function ChatMarks({
+  workspaceId,
+  profileId,
+  chat: c,
+}: {
+  workspaceId: string;
+  profileId: string;
+  chat: Chat;
+}) {
+  const router = useRouter();
+  const [flipped, setFlipped] = useState<Marks>({});
+  const dontPitch = flipped.dontPitch ?? c.dontPitch;
+  const neverContact = flipped.neverContact ?? c.neverContact;
+  const set = async (change: Marks) => {
+    setFlipped((was) => ({ ...was, ...change }));
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.friend.set', {
+          body: { workspaceId, profileId, ...change },
+        }),
+      );
+      toast.success(
+        change.neverContact === true
+          ? W.person.neverContactDone(c.name)
+          : change.neverContact === false
+            ? W.person.neverContactOff(c.name)
+            : change.dontPitch
+              ? W.person.dontPitchDone(c.name)
+              : W.person.dontPitchOff(c.name),
+      );
+      router.refresh();
+    } catch (e) {
+      setFlipped((was) => {
+        const back = { ...was };
+        for (const k of Object.keys(change) as (keyof Marks)[]) delete back[k];
+        return back;
+      });
+      toast.error(errorMessage(e));
+    }
+  };
+  return (
+    <>
+      <span className="inline-flex items-center gap-2">
+        <Switch
+          checked={dontPitch}
+          onChange={(on) => void set({ dontPitch: on })}
+          label={`Don’t pitch ${c.name}`}
+          testId="chat-dont-pitch"
+        />
+        {W.person.dontPitch}
+      </span>
+      <span className="inline-flex items-center gap-2">
+        <Switch
+          checked={neverContact}
+          onChange={(on) => void set({ neverContact: on })}
+          label={`Never contact ${c.name}`}
+          testId="chat-never-contact"
+        />
+        {W.person.neverContact}
+      </span>
+    </>
   );
 }
