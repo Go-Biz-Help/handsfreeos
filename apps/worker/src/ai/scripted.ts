@@ -1795,7 +1795,63 @@ function scriptedLikePick(message: string) {
     : { pick: null, about: null, why: null };
 }
 
+/**
+ * Whether a playbook's niche fits the main offer: inside when the niche's first word is in the offer's who, else
+ * really a second offer.
+ */
+function scriptedNicheFit(message: string) {
+  const offer = unquote(quotedBlock(message, 'main_offer') ?? '');
+  const who = /^Who it’s for: (.*)$/m.exec(offer)?.[1]?.toLowerCase() ?? '';
+  const niche = unquote(quotedBlock(message, 'niche') ?? '');
+  const first = /^Niche: (\S+)/m.exec(niche)?.[1]?.toLowerCase() ?? '';
+  return first && who.includes(first)
+    ? { fit: 'inside', why: `${first} is in the offer’s who.` }
+    : { fit: 'second_offer', why: 'They’d need another outcome — and price.' };
+}
+
+/**
+ * The AI's check of a person's own profile (outreach.profile.check): an item is right when something was read for it,
+ * the picture only when it's a person and the bio only when it names the offer's line of work; three bios from who
+ * the offer is for, the last too long for Facebook's short bio.
+ */
+function scriptedProfileCheck(message: string) {
+  const offer = unquote(quotedBlock(message, 'main_offer') ?? '');
+  const who = /^Who it’s for: (.*)$/m.exec(offer)?.[1]?.trim() || 'small businesses';
+  const work = who.split(/[ ,]/)[0]!.toLowerCase();
+  const profile = unquote(quotedBlock(message, 'profile') ?? '');
+  const one = (label: string) => new RegExp(`^${label}: (.*)$`, 'm').exec(profile)?.[1] ?? '';
+  /** Whether a list in the profile had nothing read: "featured:\n(nothing read)". */
+  const list = (label: string) => {
+    const at = profile.indexOf(`${label}:\n`);
+    return at < 0 || profile.slice(at + label.length + 2).startsWith('(nothing read)');
+  };
+  const read = (v: string) => v !== '' && v !== '(nothing read)';
+  const item = (ok: boolean, what: string) =>
+    ok
+      ? { ok: true, why: `Your ${what} looks right.`, fix: null }
+      : { ok: false, why: `Your ${what} isn’t there yet.`, fix: `Change your ${what}.` };
+  return {
+    items: {
+      picture: item(/person/i.test(one('picture')), 'picture'),
+      cover: item(read(one('cover')), 'cover'),
+      bio: item(one('bio').toLowerCase().includes(work), 'bio'),
+      work: item(!list('Intro (work)'), 'work line'),
+      featured: item(!list('featured'), 'featured items'),
+      posts: item(!list('posts'), 'posts'),
+    },
+    bios: [
+      `I help ${who} get more booked calls.`,
+      `More booked calls for ${who}.`,
+      `${'Too long '.repeat(15)}`,
+    ],
+    coverLine: `More booked calls for ${work}`,
+    feature: ['A customer’s review', 'Your booking link'],
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
+  { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
   {
     when: /Which post should they like\? Give its number, or none\.$/,
     json: (message) => scriptedLikePick(message),
@@ -1849,8 +1905,90 @@ export const MEETING_RULES: readonly ScriptRule[] = [
   },
 ];
 
+/**
+ * A line of the offer as the prompt shows it (`offerText`), unquoted; '' when it isn't written yet. `nested` lines
+ * sit under another, two spaces in ("  Their line of work: …").
+ */
+function offerLine(message: string, label: string, nested = false): string {
+  const offer = unquote(quotedBlock(message, 'offer') ?? '');
+  const line = offer.split('\n').find((l) => l.startsWith(`${nested ? '  ' : ''}${label}:`));
+  const said = line?.slice(line.indexOf(':') + 1).trim() ?? '';
+  return said.startsWith('(not written yet)') ? '' : said;
+}
+
+/** The main offer's niche finder: their best customer's line of work first, then two more (one repeated, dropped). */
+function scriptedOfferNiche(message: string) {
+  const work = offerLine(message, 'Their line of work', true) || 'Local businesses';
+  const option = (w: string, slice: string) => ({
+    work: w,
+    slice,
+    problem: 'No steady way to find new customers',
+    why: 'You’ve already won with customers just like them.',
+  });
+  return {
+    options: [
+      option(work, 'like your best customer'),
+      option(work, 'like your best customer'),
+      option(`${work} owners`, 'with a small team'),
+    ],
+  };
+}
+
+/** The main offer's help on a part: three options named after it, or for the method three lists of steps. */
+function scriptedOfferAssist(message: string) {
+  const part = unquote(quotedBlock(message, 'part') ?? 'the part');
+  if (part.startsWith('the method'))
+    return {
+      options: [],
+      steps: [
+        ['Look at what they have', 'Make a plan', 'Do the work', 'Check the results'],
+        ['Free call', 'Plan', 'Done for you'],
+        ['Too short'],
+      ],
+    };
+  return { options: [1, 2, 3].map((n) => `Option ${n} for ${part}`), steps: [] };
+}
+
+/**
+ * The main offer's score: 8 for a part that's written, 3 for one that isn't, and 6 for one still holding a
+ * [placeholder], so a draft with brackets falls under the bar.
+ */
+function scriptedOfferScore(message: string) {
+  const offer = unquote(quotedBlock(message, 'offer') ?? '');
+  const steps = offer.slice(offer.indexOf('Method:\n') + 8, offer.indexOf('\n  What’s different'));
+  const scoreOf = (text: string) =>
+    !text.trim() || text.includes('(none yet)') ? 3 : /\[[^\]]+\]/.test(text) ? 6 : 8;
+  const parts = {
+    who: scoreOf(offerLine(message, 'Who').split(';')[0] ?? ''),
+    outcome: scoreOf(offerLine(message, 'Outcome')),
+    timeframe: scoreOf(offerLine(message, 'Timeframe').split(' (why')[0] ?? ''),
+    method: scoreOf(steps),
+    guarantee: scoreOf(offerLine(message, 'Guarantee')),
+    price: scoreOf(offerLine(message, 'Price').split(';')[0] ?? ''),
+  };
+  const weakest = (Object.keys(parts) as (keyof typeof parts)[]).reduce((a, b) =>
+    parts[b] < parts[a] ? b : a,
+  );
+  return {
+    parts: Object.fromEntries(
+      Object.entries(parts).map(([k, score]) => [k, { score, why: `The ${k} as written.` }]),
+    ),
+    weakest,
+    fix: `Make the ${weakest} more specific.`,
+    flags: { vague: parts.outcome < 7, generic: false, hardToBelieve: parts.guarantee < 7 },
+    threeSeconds: parts.outcome >= 7,
+  };
+}
+
+export const MAIN_OFFER_RULES: readonly ScriptRule[] = [
+  { when: /Suggest niches to start with\.$/, json: (m) => scriptedOfferNiche(m) },
+  { when: /Help write this part of the offer\.$/, json: (m) => scriptedOfferAssist(m) },
+  { when: /Score this offer\.$/, json: (m) => scriptedOfferScore(m) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...MEETING_RULES,
+  ...MAIN_OFFER_RULES,
   ...KNOWLEDGE_RULES,
   ...AI_SETUP_RULES,
   ...AUTOMATION_RULES,

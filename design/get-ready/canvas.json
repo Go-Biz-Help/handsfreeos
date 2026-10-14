@@ -1,0 +1,60 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "1 · Today: Get ready, for an owner",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Profile.dc.html",
+      "title": "2 · Your profile: tick each once it’s right",
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Numbers.dc.html",
+      "title": "3 · Your numbers: the goal and what it takes",
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Member.dc.html",
+      "title": "4 · Today: a member waiting on the business",
+      "x": 0,
+      "y": 1320,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Setup.dc.html",
+      "title": "5 · Setup: the Get ready step",
+      "x": 1360,
+      "y": 1320,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Panel.dc.html",
+      "title": "6 · The extension’s panel",
+      "x": 2720,
+      "y": 1320,
+      "w": 400,
+      "h": 760
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "7 · The phone’s Today",
+      "x": 3200,
+      "y": 1320,
+      "w": 390,
+      "h": 844
+    }
+  ]
+}

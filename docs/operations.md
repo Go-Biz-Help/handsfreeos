@@ -8830,13 +8830,13 @@ Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 
 Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`). See "Apply new migrations".
 
-**About an offer**: a campaign can be about one of the business's offers (Knowledge → Offers, live or upcoming). Picking one fills in the goal if it's empty, and the AI writes each text from the offer's own words and says when it ends. An archived offer can't be picked.
+**About a promotion**: a campaign can be about one of the business's promotions (Knowledge → Promotions, live or upcoming; `app.offers` underneath). Picking one fills in the goal if it's empty, and the AI writes each text from the promotion's own words and says when it ends. An archived promotion can't be picked.
 
-### Offer ending
+### Promotion ending
 
-| Row              | What it does                                                                                                                                                                                                                                 | On to begin with |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **Offer ending** | A card on Home from the start of the day three days before an offer's last day, urgent on the last day. **Open the offers** goes to Knowledge → Offers to extend it; it closes when the offer is extended past that window, archived or over | Yes              |
+| Row                  | What it does                                                                                                                                                                                                                                                | On to begin with |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Promotion ending** | A card on Home from the start of the day three days before a promotion's last day, urgent on the last day. **Open the promotions** goes to Knowledge → Promotions to extend it; it closes when the promotion is extended past that window, archived or over | Yes              |
 
 Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind and `campaigns.offer_id`). See "Apply new migrations".
 

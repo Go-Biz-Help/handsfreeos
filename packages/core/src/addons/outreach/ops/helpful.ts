@@ -40,6 +40,7 @@ import { automationOf } from './automation';
 import { inWorkspace, keptProfile, once, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
+import { readinessFor } from './readiness';
 import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
@@ -527,6 +528,8 @@ export const helpfulNext = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const since = new Date(Date.now() - ENGAGED_DAYS * DAY).toISOString();
+    // On its own, it posts nothing until the person is ready (decision 63); one they OK'd and asked for still goes.
+    const holds = !input.helpfulId && !(await readinessFor(ctx, me)).ready;
     const [post] = await rows<{
       id: string;
       group_name: string | null;
@@ -560,14 +563,15 @@ export const helpfulNext = defineAddonQuery(outreachAddon, {
           order by h.posted_at desc limit 14`,
     );
     return {
-      post: post
-        ? {
-            helpfulId: post.id,
-            groupName: post.group_name,
-            groupUrl: post.group_url,
-            text: post.body,
-          }
-        : null,
+      post:
+        post && !holds
+          ? {
+              helpfulId: post.id,
+              groupName: post.group_name,
+              groupUrl: post.group_url,
+              text: post.body,
+            }
+          : null,
       read: read.map((h) => ({
         helpfulId: h.id,
         groupName: h.group_name,

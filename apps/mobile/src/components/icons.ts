@@ -29,6 +29,7 @@ export { default as ChevronDown } from 'lucide-react-native/icons/chevron-down';
 export { default as ChevronLeft } from 'lucide-react-native/icons/chevron-left';
 export { default as ChevronRight } from 'lucide-react-native/icons/chevron-right';
 export { default as ChevronUp } from 'lucide-react-native/icons/chevron-up';
+export { default as Circle } from 'lucide-react-native/icons/circle';
 export { default as CircleAlert } from 'lucide-react-native/icons/circle-alert';
 export { default as CircleCheck } from 'lucide-react-native/icons/circle-check';
 export { default as CircleDollarSign } from 'lucide-react-native/icons/circle-dollar-sign';

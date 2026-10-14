@@ -1,0 +1,474 @@
+/**
+ * Get ready for your best results (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, "Getting ready"; docs/outreach.md,
+ * decision 63): what has to be in place before Social Outreach reaches anyone for a person. Nothing outreach-like
+ * happens until every item is done: Start my day is refused (`outreach_not_ready`), Today's list keeps only replies
+ * owed to people who wrote first (answering isn't reaching out), with Get ready in place of the rest, and the extension
+ * puts up no helpful post on its own.
+ *
+ * - **Your main offer** (the business's): a version is live. Publishing already holds it to every part 7 or more, or
+ *   an owner's Use it anyway with a reason.
+ * - **A playbook with a niche** (the business's): a playbook in use has its niche and the niche's problem, and some
+ *   proof when the business has any (none is ever made up).
+ * - **Your profile** (each person's): the extension has read it since the main offer went live (./profile-check.ts,
+ *   decision 64), and every item on the profile list is right by the AI's check of it or ticked done by hand.
+ * - **Your numbers** (each person's): a monthly goal for calls booked, and the math seen.
+ * - **Your messages** joins with the plan's step 6, which rewrites the first message it shows.
+ *
+ * Worked out each time from what's kept (`outreach.readiness`), never stored as a flag. Browser-safe: the web, the
+ * phone and the extension read the items, the words and the math from here.
+ */
+import { z } from 'zod';
+import { SCORED_PART_LABELS, SCORED_PARTS, type MainOfferParts } from '../../main-offer/parts';
+import { DAILY_LIMITS } from './limits';
+import { checkCounts, PROFILE_ITEMS, ProfileCheck, type ProfileItem } from './profile-check';
+
+// ------------------------------------------------------------------------------------------------- the items
+
+export const READY_ITEMS = ['offer', 'playbook', 'profile', 'numbers'] as const;
+export type ReadyItem = (typeof READY_ITEMS)[number];
+
+/** Whose each item is: the business's, done by an owner or admin, or each person's own. */
+export const READY_WHOSE: Record<ReadyItem, 'business' | 'person'> = {
+  offer: 'business',
+  playbook: 'business',
+  profile: 'person',
+  numbers: 'person',
+};
+
+/**
+ * Where an item stands for the person: done; to do; done before the main offer changed, so look again; or the
+ * business's, to be done by an owner or admin (the person can't do it).
+ */
+export const READY_STATES = ['done', 'todo', 'look_again', 'waiting'] as const;
+export type ReadyState = (typeof READY_STATES)[number];
+
+// What a profile needs (the workbook's checklist, made for Facebook): the AI checks each, and the person can tick one.
+export { PROFILE_ITEMS, type ProfileItem } from './profile-check';
+
+/** A profile item ticked: when, and the main offer's version live then (null with none live yet). */
+export const ProfileTick = z.object({
+  at: z.iso.datetime(),
+  version: z.number().int().min(1).nullable(),
+});
+export type ProfileTick = z.output<typeof ProfileTick>;
+export const ProfileTicks = z.partialRecord(z.enum(PROFILE_ITEMS), ProfileTick);
+export type ProfileTicks = z.output<typeof ProfileTicks>;
+
+/**
+ * Whether a tick counts for the live version: one made while it was live, or one made before any version was live
+ * when this is the first. A tick from an older version means look again.
+ */
+export function tickCounts(tick: ProfileTick | undefined, live: number | null): boolean {
+  if (!tick) return false;
+  if (live === null) return true;
+  return tick.version === live || (tick.version === null && live === 1);
+}
+
+/** What the readiness reads, gathered by `outreach.readiness`. */
+export interface ReadyFacts {
+  /** The main offer's live version, with the one before it to say what changed; null with none live. */
+  readonly offer: {
+    readonly version: number;
+    readonly parts: MainOfferParts;
+    readonly before: MainOfferParts | null;
+  } | null;
+  /** The playbooks in use. */
+  readonly playbooks: readonly {
+    readonly name: string;
+    readonly niche: string | null;
+    readonly problem: string | null;
+    readonly proof: readonly string[];
+  }[];
+  readonly profile: ProfileTicks;
+  /** The AI's latest check of the person's profile, read by the extension; null until one is. */
+  readonly profileCheck: ProfileCheck | null;
+  /** The person's monthly goal, and when they last saw the math; null until they set it. */
+  readonly numbers: { readonly goal: number | null; readonly at: string | null };
+  /** Owners and admins do the business's items: the main offer, and the playbooks. */
+  readonly canOffer: boolean;
+  readonly canPlaybooks: boolean;
+}
+
+export interface ReadyItemState {
+  readonly item: ReadyItem;
+  readonly state: ReadyState;
+  readonly whose: 'business' | 'person';
+  /** What's left, in a line; null when it's done. */
+  readonly left: string | null;
+}
+
+export interface Readiness {
+  readonly ready: boolean;
+  readonly items: readonly ReadyItemState[];
+  /** The first item not done, the one to do next; null when ready. */
+  readonly next: ReadyItem | null;
+  /** The main offer's parts that changed in its live version, by name, when the profile wants a look again. */
+  readonly changed: readonly string[];
+}
+
+const filled = (v: string | null | undefined) => Boolean(v?.trim());
+
+/** The parts a new version changed, as the score names them, and the line. */
+export function changedParts(before: MainOfferParts, now: MainOfferParts): string[] {
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const parts: string[] = SCORED_PARTS.filter((p) => !same(before[p], now[p])).map(
+    (p) => SCORED_PART_LABELS[p],
+  );
+  if (!same(before.proof, now.proof)) parts.push('Proof');
+  if (!same(before.line, now.line) || !same(before.inAFewWords, now.inAFewWords))
+    parts.push('The line');
+  return parts;
+}
+
+/** Where each item stands for the person, and whether they're ready. */
+export function readinessOf(f: ReadyFacts): Readiness {
+  const live = f.offer?.version ?? null;
+  const offerHasProof = (f.offer?.parts.proof ?? []).some(filled);
+  const W = READY_WORDS.left;
+
+  const offer: ReadyItemState = f.offer
+    ? { item: 'offer', state: 'done', whose: 'business', left: null }
+    : f.canOffer
+      ? { item: 'offer', state: 'todo', whose: 'business', left: W.offer }
+      : { item: 'offer', state: 'waiting', whose: 'business', left: W.offerWaiting };
+
+  const withNiche = f.playbooks.find(
+    (p) => filled(p.niche) && filled(p.problem) && (!offerHasProof || p.proof.some(filled)),
+  );
+  const playbookLeft = (): string => {
+    if (!f.playbooks.length) return W.playbookNone;
+    const p = f.playbooks.find((x) => filled(x.niche)) ?? f.playbooks[0]!;
+    if (!filled(p.niche)) return W.playbookNiche(p.name);
+    if (!filled(p.problem)) return W.playbookProblem(p.name);
+    return W.playbookProof(p.name);
+  };
+  const playbook: ReadyItemState = withNiche
+    ? { item: 'playbook', state: 'done', whose: 'business', left: null }
+    : f.canPlaybooks
+      ? { item: 'playbook', state: 'todo', whose: 'business', left: playbookLeft() }
+      : { item: 'playbook', state: 'waiting', whose: 'business', left: W.playbookWaiting };
+
+  // Read since the live version, each item right by the AI's check or ticked done; a read or ticks from an older
+  // version want a look again.
+  const read = checkCounts(f.profileCheck, live) ? f.profileCheck : null;
+  const counted = PROFILE_ITEMS.filter(
+    (i) => tickCounts(f.profile[i], live) || read?.items[i].ok === true,
+  );
+  const stale =
+    (f.profileCheck !== null && !read) ||
+    PROFILE_ITEMS.some((i) => f.profile[i] && !tickCounts(f.profile[i], live));
+  const profile: ReadyItemState =
+    read && counted.length === PROFILE_ITEMS.length
+      ? { item: 'profile', state: 'done', whose: 'person', left: null }
+      : stale && !read
+        ? { item: 'profile', state: 'look_again', whose: 'person', left: W.profileAgain }
+        : !read
+          ? { item: 'profile', state: 'todo', whose: 'person', left: W.profileRead }
+          : {
+              item: 'profile',
+              state: 'todo',
+              whose: 'person',
+              left: W.profile(PROFILE_ITEMS.length - counted.length),
+            };
+
+  const numbers: ReadyItemState =
+    f.numbers.goal !== null && f.numbers.at !== null
+      ? { item: 'numbers', state: 'done', whose: 'person', left: null }
+      : { item: 'numbers', state: 'todo', whose: 'person', left: W.numbers };
+
+  const items = [offer, playbook, profile, numbers];
+  const next = items.find((i) => i.state !== 'done')?.item ?? null;
+  return {
+    ready: next === null,
+    items,
+    next,
+    changed:
+      profile.state === 'look_again' && f.offer?.before
+        ? changedParts(f.offer.before, f.offer.parts)
+        : [],
+  };
+}
+
+/** Why Start my day is refused (`outreach_not_ready`): the first item left, and where to finish it. */
+export function notReadyWords(r: Readiness): string {
+  const first = r.items.find((i) => i.state !== 'done');
+  if (!first) return '';
+  if (first.state === 'waiting') return first.left!;
+  return `${READY_WORDS.notReady[first.item]} Finish it under Get ready on the Today tab.`;
+}
+
+// ------------------------------------------------------------------------------------------------- the shapes
+
+export const ReadinessInput = z.object({ workspaceId: z.uuid() });
+export type ReadinessInput = z.input<typeof ReadinessInput>;
+
+export const ReadinessOutput = z.object({
+  ready: z.boolean(),
+  items: z.array(
+    z.object({
+      item: z.enum(READY_ITEMS),
+      state: z.enum(READY_STATES),
+      whose: z.enum(['business', 'person']),
+      left: z.string().nullable(),
+    }),
+  ),
+  next: z.enum(READY_ITEMS).nullable(),
+  changed: z.array(z.string()),
+  /** The main offer's live version, to show beside the profile and to tick against; null with none live. */
+  offer: z.object({ version: z.number().int().min(1), line: z.string() }).nullable(),
+  /** The profile items ticked, as kept: `tickCounts` says which count for the live version. */
+  profile: ProfileTicks,
+  /** The AI's latest check of the profile, read by the extension: `checkCounts` says whether it's for the live version. */
+  profileCheck: ProfileCheck.nullable(),
+  numbers: z.object({
+    goal: z.number().int().nullable(),
+    at: z.iso.datetime().nullable(),
+    /** The days they work, from their settings' working hours. */
+    days: z.array(z.number().int().min(0).max(6)),
+    /** First messages a day the business's daily limit allows. */
+    canSend: z.number().int().min(0),
+  }),
+});
+export type ReadinessOutput = z.output<typeof ReadinessOutput>;
+
+export const ProfileCheckSaveInput = z.object({
+  workspaceId: z.uuid(),
+  /** Whose profile: the person whose extension read it. */
+  userId: z.uuid(),
+  check: ProfileCheck,
+});
+export type ProfileCheckSaveInput = z.input<typeof ProfileCheckSaveInput>;
+
+export const ProfileTickInput = z.object({
+  workspaceId: z.uuid(),
+  item: z.enum(PROFILE_ITEMS),
+  /** Ticked as done, or taken back. */
+  done: z.boolean(),
+});
+export type ProfileTickInput = z.input<typeof ProfileTickInput>;
+
+// ------------------------------------------------------------------------------------------------- your numbers
+
+/** The video's rates, until the person has numbers of their own: 4 to 8% of first messages get a yes, 1 in 3 books. */
+export const STARTING_RATES = { yes: { low: 0.04, high: 0.08 }, books: 1 / 3 } as const;
+export type NumbersRates = {
+  readonly yes: { readonly low: number; readonly high: number };
+  readonly books: number;
+};
+
+/** The goal's limits: calls booked a month. */
+export const CALLS_GOAL = { min: 1, max: 100 } as const;
+
+export const NumbersInput = z.object({
+  workspaceId: z.uuid(),
+  /** Calls booked a month. */
+  goal: z
+    .number()
+    .int({ error: 'Use a whole number of calls.' })
+    .min(CALLS_GOAL.min, { error: 'Aim for at least one call a month.' })
+    .max(CALLS_GOAL.max, { error: `Aim for ${CALLS_GOAL.max} calls a month at most.` }),
+  /** The days they work, 0 being Sunday: kept in their settings' working hours. */
+  days: z.array(z.number().int().min(0).max(6)).min(1, { error: 'Pick at least one day.' }).max(7),
+});
+export type NumbersInput = z.input<typeof NumbersInput>;
+
+/** Weeks in a month, on average. */
+const WEEKS_A_MONTH = 52 / 12;
+
+export interface NumbersMath {
+  /** Working days a month, from the days a week. */
+  readonly daysAMonth: number;
+  readonly callsADay: number;
+  /** Yeses a day: people who say they're interested. */
+  readonly yesesADay: number;
+  /** First messages a day it takes: at the best rate, and at the worst. */
+  readonly messagesADay: { readonly low: number; readonly high: number };
+  /** First messages Facebook's safe pace allows a day (the business's limit). */
+  readonly canSend: number;
+  /** Calls a month that pace brings, at the worst rate and the best. */
+  readonly pace: { readonly low: number; readonly high: number };
+  /** Within the pace at any rate, only at the better rates, or past it at every rate. */
+  readonly fits: 'yes' | 'maybe' | 'no';
+}
+
+/**
+ * What a monthly goal takes each day, worked as the video works it: calls a month ÷ working days = calls a day; ÷ the
+ * booking rate = yeses a day; ÷ the yes rate = first messages a day. A friend request is never a message. Then the
+ * honest part: what one Facebook account's safe pace (`DAILY_LIMITS.first_message`, or the business's lower one)
+ * brings in a month.
+ */
+export function numbersMath(input: {
+  readonly goal: number;
+  readonly daysAWeek: number;
+  readonly canSend?: number;
+  readonly rates?: NumbersRates;
+}): NumbersMath {
+  const rates = input.rates ?? STARTING_RATES;
+  const canSend = input.canSend ?? DAILY_LIMITS.first_message;
+  const daysAMonth = Math.max(1, Math.round(input.daysAWeek * WEEKS_A_MONTH));
+  const callsADay = input.goal / daysAMonth;
+  const yesesADay = callsADay / rates.books;
+  const messagesADay = {
+    low: Math.ceil(yesesADay / rates.yes.high),
+    high: Math.ceil(yesesADay / rates.yes.low),
+  };
+  const monthly = canSend * daysAMonth * rates.books;
+  const pace = {
+    low: Math.floor(monthly * rates.yes.low),
+    high: Math.floor(monthly * rates.yes.high),
+  };
+  const fits = messagesADay.high <= canSend ? 'yes' : messagesADay.low <= canSend ? 'maybe' : 'no';
+  return { daysAMonth, callsADay, yesesADay, messagesADay, canSend, pace, fits };
+}
+
+/** One decimal, without a trailing .0: 0.4, 1.1, 2. */
+const short = (n: number) => String(Math.round(n * 10) / 10);
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The math as lines, shown as it's worked. */
+export function numbersLines(goal: number, m: NumbersMath): string[] {
+  return [
+    `${plural(goal, 'call')} a month ÷ ${plural(m.daysAMonth, 'working day')} = ${short(m.callsADay)} calls a day`,
+    `${short(m.callsADay)} calls a day ÷ 1 in 3 who say yes book = ${short(m.yesesADay)} yeses a day`,
+    `${short(m.yesesADay)} yeses a day ÷ 4 to 8% of first messages = ${m.messagesADay.low} to ${m.messagesADay.high} first messages a day`,
+  ];
+}
+
+/** What the math says about the goal against Facebook's safe pace, and what helps when it's past it. */
+export function numbersVerdict(m: NumbersMath): string {
+  const pace = `Facebook’s safe pace is ${m.canSend} first messages a day, about ${m.pace.low} to ${m.pace.high} calls a month.`;
+  if (m.fits === 'yes') return `${pace} Your goal fits.`;
+  if (m.fits === 'maybe')
+    return `${pace} Your goal fits only if your messages do well. ${READY_WORDS.numbersHelps}`;
+  return `${pace} Your goal is more than one Facebook account can reach. ${READY_WORDS.numbersHelps}`;
+}
+
+// ------------------------------------------------------------------------------------------------- the words
+
+/** Get ready's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
+export const READY_WORDS = {
+  title: 'Get ready for your best results',
+  hint: 'Four things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked.',
+  /** On Today, in place of the day's list. */
+  card: 'Get ready',
+  cardHint: (left: number) =>
+    `${plural(left, 'thing')} to do before the extension reaches anyone for you.`,
+  ready: 'You’re ready. Start your day when you like.',
+  /** Beside Start my day while it's held. */
+  stripNotReady: 'Get ready first: the extension reaches nobody until the things below are done.',
+  /** Over the replies owed while getting ready. */
+  repliesStill: 'People who wrote to you are still answered while you get ready.',
+  progress: (done: number, of: number) => `${done} of ${of} done`,
+  items: {
+    offer: {
+      label: 'Your main offer',
+      why: 'One clear offer is what people say yes to.',
+      go: 'Build your main offer',
+    },
+    playbook: {
+      label: 'A playbook with a niche',
+      why: 'Talking to one kind of person makes every message fit them.',
+      go: 'Pick your niche',
+    },
+    profile: {
+      label: 'Your profile',
+      why: 'People look at your profile before they answer. It shouldn’t put them off.',
+      go: 'Check your profile',
+    },
+    numbers: {
+      label: 'Your numbers',
+      why: 'A goal for the month says how many people to reach each day.',
+      go: 'Set your goal',
+    },
+  } satisfies Record<ReadyItem, { label: string; why: string; go: string }>,
+  states: {
+    done: 'Done',
+    todo: 'To do',
+    look_again: 'Look again',
+    waiting: 'Waiting on your business',
+  } satisfies Record<ReadyState, string>,
+  left: {
+    offer: 'Build your main offer and put it live in Settings → Main offer.',
+    offerWaiting:
+      'Waiting on your business’s main offer. Ask an owner of this business to finish it under Settings → Main offer.',
+    playbookNone: 'Write a playbook and pick its niche on the Playbooks tab.',
+    playbookNiche: (name: string) => `Pick a niche for ${name} on the Playbooks tab.`,
+    playbookProblem: (name: string) => `Write the niche’s biggest problem in ${name}.`,
+    playbookProof: (name: string) =>
+      `Add proof to ${name}: a real result from your main offer, or one of its own.`,
+    playbookWaiting:
+      'Waiting on a playbook with a niche. Ask an owner or admin of this business to pick one on the Playbooks tab.',
+    profile: (n: number) => `${plural(n, 'thing')} left to change on your Facebook profile.`,
+    profileRead:
+      'Have the extension read your Facebook profile. The AI says what to change, and writes your bio.',
+    profileAgain: 'Your main offer changed. Look at your profile again so it still fits.',
+    numbers: 'Set a goal for calls booked a month, and see what it takes each day.',
+  },
+  /** Why Start my day is refused, by the first item left. */
+  notReady: {
+    offer: 'Your business’s main offer isn’t live yet.',
+    playbook: 'No playbook has a niche yet.',
+    profile: 'Your profile isn’t ready yet.',
+    numbers: 'Your numbers aren’t set yet.',
+  } satisfies Record<ReadyItem, string>,
+  changed: (parts: readonly string[]) => `What changed: ${parts.join(', ')}.`,
+  profile: {
+    title: 'Check your Facebook profile',
+    hint: 'People look at it before they answer. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change, and you tick each one once it’s right.',
+    items: {
+      picture: {
+        label: 'A clear photo of your face',
+        tip: 'Not a logo. People say yes to a person.',
+      },
+      cover: {
+        label: 'A cover that says the result you get people',
+        tip: 'One line on an image, like “More booked jobs for roofers”. Not a sales pitch.',
+      },
+      bio: {
+        label: 'A bio that says what you do and for whom',
+        tip: 'Facebook’s short bio, up to 101 characters, from your main offer.',
+      },
+      work: {
+        label: 'A work line that names your business',
+        tip: 'Under Edit details, add where you work and link your business’s page.',
+      },
+      featured: {
+        label: 'Featured: a result, a review and your booking link',
+        tip: 'Pin a post that shows a result, a review, and where to book.',
+      },
+      posts: {
+        label: 'Posts that show who you are, and some proof',
+        tip: 'Not only selling: your day, your work, a customer’s win.',
+      },
+    } satisfies Record<ProfileItem, { label: string; tip: string }>,
+    tick: 'It’s done',
+    untick: 'Not yet',
+    ticked: (n: number, of: number) => `${n} of ${of} ticked`,
+    offer: 'Your main offer',
+    done: 'Done',
+  },
+  numbers: {
+    title: 'Your numbers',
+    hint: 'Set how many calls you want booked a month and the days you work. You’ll see what it takes each day.',
+    goal: 'Calls booked a month',
+    days: 'The days you work',
+    sunday: 'Sundays rarely work for outreach. It’s your call.',
+    save: 'Save my goal',
+    saved: 'Your goal is saved.',
+    takes: 'What it takes each day',
+    messagesADay: 'first messages a day',
+    yesesADay: 'yeses a day',
+    fewer: 'Fewer calls',
+    more: 'More calls',
+    rates:
+      'Until you have numbers of your own, this uses what’s typical: 4 to 8% of first messages get a yes, and 1 in 3 yeses book a call.',
+    notMessages: 'A friend request is never a message: only first messages count here.',
+  },
+  numbersHelps:
+    'What helps: more friends to message (Reconnect on Today), helpful posts in your groups that bring people to you, and working Saturdays.',
+  waitingBusiness: 'You can do your own items meanwhile: your profile and your numbers.',
+  /** In the extension's panel. */
+  panelGo: 'Get ready in HandsFreeOS',
+  panelStill:
+    'Still going while you get ready: saving your friends and groups, and replies to people who wrote to you.',
+} as const;

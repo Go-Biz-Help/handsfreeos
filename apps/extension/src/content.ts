@@ -40,6 +40,7 @@ import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './fac
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { LOOK_EVERY_MS, lookFor } from './facebook/looking';
 import { outlinePage } from './facebook/outline';
+import { readOwnProfile, writeBio } from './facebook/own-profile';
 import { requestsPage } from './facebook/friends';
 import { tidyPage } from './facebook/tidy';
 import { classifyUrl } from './facebook/urls';
@@ -63,6 +64,8 @@ import {
   type GroupPostAsk,
   type JoinAnswer,
   type JoinAsk,
+  type OwnProfileAnswer,
+  type OwnProfileAsk,
   type TabNote,
 } from './messages';
 
@@ -155,6 +158,15 @@ async function groupPostStep(ask: GroupPostAsk): Promise<GroupPostAnswer> {
   };
 }
 
+/** The person's own profile (src/facebook/own-profile.ts): read it for the AI's check, or put a bio in. */
+async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
+  const address = classifyUrl(location.href);
+  if (address.kind !== 'profile') return { ok: false, error: 'Facebook didn’t open your profile.' };
+  if (ask.type === 'hfos-own-profile')
+    return { ok: true, read: readOwnProfile(document, location.href, address) };
+  return { ok: true, result: await writeBio(document, ask.bio) };
+}
+
 const here = globalThis as { hfosSocialListening?: boolean };
 
 /** Whether a change adds or takes away writing or a link: not a spinner, a picture or a moving progress bar. */
@@ -175,13 +187,17 @@ if (!here.hfosSocialListening) {
   here.hfosSocialListening = true;
   chrome.runtime.onMessage.addListener(
     (
-      ask: Ask | FetchAsk | BrowseAsk | AutoAsk | JoinAsk | GroupPostAsk,
+      ask: Ask | FetchAsk | BrowseAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk,
       sender,
       respond: (answer: Answer) => void,
     ) => {
       if (sender.id !== chrome.runtime.id) return false;
       if (ask.type === 'hfos-join' || ask.type === 'hfos-join-answer') {
         void joinStep(ask).then(respond as (answer: JoinAnswer) => void);
+        return true;
+      }
+      if (ask.type === 'hfos-own-profile' || ask.type === 'hfos-write-bio') {
+        void ownProfileStep(ask).then(respond as (answer: OwnProfileAnswer) => void);
         return true;
       }
       if (ask.type === 'hfos-group-post' || ask.type === 'hfos-engaged') {

@@ -9,6 +9,7 @@ import {
   stateTone,
   type LiveDay,
 } from '@hfos/core/addons/outreach/live';
+import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -35,6 +36,7 @@ import {
 } from './kit';
 import type { LiveBody } from './live';
 import { useLiveProps } from './live';
+import { GetReadyCard, useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
 import { useWaitingProps, WaitingBody } from './waiting';
 
@@ -42,13 +44,20 @@ import { useWaitingProps, WaitingBody } from './waiting';
  * Social Outreach's Today on the phone (decision 59), as the web's: what the person's computer is doing with Start my
  * day and Stop for today in a strip, then everything that needs them (Needs you, which works with no signal), then
  * their list for the day. A message waiting for an OK shows once, under Needs you. Until the person has set Social
- * Outreach up (decision 45), it says to do that on a computer.
+ * Outreach up (decision 45), it says to do that on a computer; until they're ready (decision 63), Get ready shows
+ * above the list (./ready.tsx) and Start my day waits.
  */
 export function TodayHub() {
   const ctx = useOutreachContext();
   const live = useLiveProps(false);
   const waiting = useWaitingProps();
   const today = useTodayProps();
+  // Until the person is ready, Get ready shows above the list; once they are, Today's list and the strip come back.
+  const ready = useReadyProps(() => {
+    today.onRetry();
+    live.onRetry();
+  });
+  const notReady = ready.readiness !== null && !ready.readiness.ready;
   const setup = useOutreachAnswer(
     async () =>
       unwrap(
@@ -77,7 +86,12 @@ export function TodayHub() {
           <Note>{SETUP_WORDS.onPhone}</Note>
         </Card>
       )}
-      <LiveStrip {...live} onDetails={() => openOutreach(ctx.workspaceId, 'live')} />
+      <LiveStrip
+        {...live}
+        ready={!notReady}
+        onDetails={() => openOutreach(ctx.workspaceId, 'live')}
+      />
+      <GetReadyCard {...ready} />
       <Part
         title={count ? `${W.needsYou} · ${count.toLocaleString('en-US')}` : W.needsYou}
         testID="today-needs-you"
@@ -113,10 +127,15 @@ export function LiveStrip({
   onStop,
   onSettings,
   onDetails,
+  ready = true,
 }: Pick<
   React.ComponentProps<typeof LiveBody>,
   'live' | 'error' | 'online' | 'now' | 'pressed' | 'onRetry' | 'onStart' | 'onStop' | 'onSettings'
-> & { onDetails: () => void }) {
+> & {
+  onDetails: () => void;
+  /** Whether the person is ready (decision 63): until they are, Start my day waits and says why. */
+  ready?: boolean;
+}) {
   if (!live)
     return error ? (
       <NeedsSignal words={error} onRetry={onRetry} testID="today-status-signal" />
@@ -216,7 +235,7 @@ export function LiveStrip({
               className="flex-1"
               variant="secondary"
               icon={Play}
-              disabled={live.day.why === 'warning'}
+              disabled={!ready || live.day.why === 'warning'}
               onPress={onStart}
               testID="live-start"
             >
@@ -228,6 +247,7 @@ export function LiveStrip({
           </Button>
         </View>
       )}
+      {ready ? null : <Note testID="live-not-ready">{READY_WORDS.stripNotReady}</Note>}
       {said ? <Note testID="live-day-words">{said}</Note> : null}
       {pressed ? <QueuedNote online={online} /> : null}
     </Card>

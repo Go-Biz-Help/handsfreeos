@@ -11,6 +11,7 @@ export * from './company';
 export * from './person';
 export * from './tag';
 export * from './offer';
+export * from './main-offer';
 export * from './pipeline';
 export * from './lead';
 export * from './task';

@@ -17,8 +17,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   and the latest message with each person; a chat from it goes onto the customer's card from the Chats tab.
  * - The groups tab scores the groups the extension saved, and Today waits for a group's admins before it suggests
  *   anyone from it.
- * - A first-timer is sent to the setup, which remembers where they got to, ticks when the extension signs in, and can
- *   be done again from Settings.
+ * - A first-timer is sent to the setup, which remembers where they got to, says what's left to get ready, ticks when the
+ *   extension signs in, and can be done again from Settings.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -67,6 +67,9 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
     builder.getByRole('heading', { name: 'What do you want from Facebook?' }),
   ).toBeVisible();
   await builder.getByTestId('goal-sale').click();
+  await next.click();
+  // The niche narrows the main offer; with none live it says where to build one, and carries on without.
+  await expect(builder.getByTestId('playbook-no-main-offer')).toBeVisible();
   await next.click();
   await builder.getByRole('button', { name: 'A free trial' }).click();
   await expect(builder.getByTestId('playbook-offer')).toHaveValue('A free trial');
@@ -180,7 +183,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await page.getByTestId('playbook-new').click();
   await page.getByTestId('template-crm_demos').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=crm_demos$`));
-  for (let i = 0; i < 7; i++) await builder.getByTestId('playbook-next').click();
+  for (let i = 0; i < 8; i++) await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
   await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
@@ -580,7 +583,9 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
 
   await page.getByTestId('outreach-tab-today').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=today$`));
-  await expect(page.getByTestId('today-empty')).toBeVisible();
+  // Not ready yet (decision 63): Get ready in place of the list, its playbook still to write.
+  await expect(page.getByTestId('get-ready')).toBeVisible();
+  await expect(page.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'todo');
   await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
   await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
   await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 20');
@@ -596,18 +601,24 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   const setup = page.getByTestId('outreach-setup');
 
   // Carry on from the banner: the playbooks, where a template opens the builder and comes back here.
-  await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 5 done');
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 6 done');
   await page.getByTestId('outreach-setup-carry-on').click();
   // The welcome says what's ahead, then the first step.
   await expect(setup).toHaveAttribute('data-screen', 'welcome');
   await expect(page.getByTestId('outreach-setup-welcome')).toContainText('Your team’s rules');
   await page.getByTestId('outreach-setup-start').click();
   await expect(setup).toHaveAttribute('data-screen', 'playbooks');
-  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 5 · Playbooks');
+  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 6 · Playbooks');
   await expect(page.getByTestId('outreach-setup-template-crm_demos')).toHaveAttribute(
     'href',
     `/app/w/${workspaceId}/a/outreach/playbooks/new?template=crm_demos&from=setup`,
   );
+  await page.getByTestId('outreach-setup-next').click();
+
+  // Get ready (decision 63): what's left before the extension reaches anyone, to do now or later.
+  await expect(setup).toHaveAttribute('data-screen', 'ready');
+  await expect(page.getByTestId('ready-offer')).toHaveAttribute('data-state', 'todo');
+  await expect(page.getByTestId('ready-numbers')).toHaveAttribute('data-state', 'todo');
   await page.getByTestId('outreach-setup-next').click();
 
   // The team's rules, kept as they are; then their own settings.
@@ -642,7 +653,7 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   // Left for later: Today says how far they got, and Carry on opens where they left off.
   await page.getByTestId('outreach-setup-later').click();
   await page.getByTestId('outreach-tab-today').click();
-  await expect(page.getByTestId('outreach-setup-banner')).toContainText('3 of 5 done');
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText('4 of 6 done');
   await page.getByTestId('outreach-setup-carry-on').click();
   await expect(setup).toHaveAttribute('data-screen', 'extension');
   await expect(page.getByTestId('outreach-setup-resumed')).toBeVisible();

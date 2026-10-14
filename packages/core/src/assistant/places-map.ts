@@ -453,7 +453,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     what: 'one-off outreach by text, email or calls, written by the AI and approved by a person',
     where: ['Campaigns'],
     onScreen: [
-      'New campaign: Send as (Texts, Email or Calls), Name, About an offer?, What’s it for?, Who gets it (tags and pipeline stages), and how many an hour; then Write the texts',
+      'New campaign: Send as (Texts, Email or Calls), Name, About a promotion?, What’s it for?, Who gets it (tags and pipeline stages), and how many an hour; then Write the texts',
       'A campaign in review: each message can be edited or removed, then Approve all and send',
       'Once it is going: Pause, Resume, Stop, and Change beside the pace',
     ],

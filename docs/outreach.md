@@ -469,19 +469,29 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   pastes its link under **Where your team gets the extension** (Business settings, on the web and the phone), and
   everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
-  which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
-  to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words to avoid,
-  a disclaimer and the tags. The first template is **CRM demos**; a blank one is always there.
+  which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
+  own proof (decision 62), an offer and link, something useful to send, who it's for, signs to look for and who to
+  skip, where to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words
+  to avoid, a disclaimer and the tags. The first template is **CRM demos**; a blank one is always there.
 - **The playbook builder** (`/a/outreach/playbooks/new`, `/a/outreach/playbooks/<id>`): a playbook asked a step at a
-  time, eleven steps from the goal to a summary, each with ideas to tap and room for the business's own words. The offer
-  step offers the business's booking pages as the link, and the tags step its own tags. A new playbook walks every
-  step; changing one opens on the summary, where each part has its own Change.
+  time, twelve steps from the goal to a summary, each with ideas to tap and room for the business's own words. The
+  niche step shows the live main offer, offers its who and its proof to tap, and **Check it fits my main offer**; with
+  none live it says where to build one, and carries on without. The offer step starts a new playbook's offer as the
+  main offer's outcome in a few words, offers the business's booking pages as the link, and asks for something useful
+  to send; the tags step offers its own tags. A new playbook walks every step; changing one opens on the summary, where
+  each part has its own Change.
 - **AI help on each part of a playbook** (owners and admins): under every part the person writes, **Improve**
   rewrites what's there and **Suggest more** (or **Write it for me**) offers more, from the whole playbook as it
   stands. Words come back three to pick from; list lines to tap in one by one, or a rewritten list to use instead;
   questions with their answers, what each leads to and only the playbook's own tags. Nothing is used until the person
   picks it, and it counts against the business's daily AI limit (`playbook-assist.ts`; the worker's
-  `outreach.playbook.assist` action). The goal, link, steps and pace are choices, not writing, so they have none.
+  `outreach.playbook.assist` action). The AI reads the live main offer with the playbook, so what it writes stays inside
+  the offer's who and in line with its outcome and guarantee. The goal, link, steps and pace are choices, not writing,
+  so they have none; proof has none either, as a result is real or it isn't there.
+- **Whether the niche fits the main offer** (`niche-fit.ts`; the worker's `outreach.playbook.niche_fit` action): the AI
+  says **inside** the offer's who, **really a second offer** (it needs another outcome or price), or **outside** it,
+  with why in a line. It only says; it never stops a playbook being saved. With no live main offer it says so and the
+  AI isn't asked.
 - **The conversation**: the questions to work into a chat, each with the answers people give. An answer can add one of
   the playbook's tags, and says what's next: the next question, a question further down, the offer, checking back
   later, or stopping. A question with no answers is answered in the person's own words.
@@ -980,6 +990,40 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
     filter on Today, the good fits and people left to reach, and the Skipped for country list on the Friends tab.
     Not yet on the phone's Business settings, which keeps the setting as saved.
 
+From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris, 2026-10-14):
+
+62. **A playbook narrows the main offer.** The business has one main offer, in core (docs/main-offer.md); each
+    playbook picks one niche inside its who, with that niche's biggest problem and its own proof, picked from the
+    offer's or its own and never invented. The AI says when a niche looks like a second offer. A playbook's offer
+    starts as the main offer's outcome in a few words, and it keeps something useful to send someone who never
+    answered. Built (data version 3). The short video's link and script, and the new pace, come with the plan's steps
+    7 and 6.
+63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
+    results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
+    live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), every item
+    on the person's Facebook profile list is right since the live version (by the AI's check, decision 64, or their
+    own tick), and they've set a monthly goal for
+    calls booked and seen what it takes each day. Until then Start my day is refused (`outreach_not_ready`, naming the
+    first thing left and where), Today's list keeps only replies owed to people who wrote first, the extension puts up
+    no helpful post on its own, and Today, the phone's Today and the extension's panel show **Get ready** in place of
+    the rest. What only reads goes on (decision 60's lists, groups and checks, asks, Read my chats, Find posts), and
+    joining groups. A member waits on the business's two and does their own meanwhile. A new main offer version asks
+    everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
+    `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
+    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** (the sample
+    messages and the video's link) joins with the plan's steps 6 and 7.
+64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
+    person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
+    it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
+    featured and the latest posts. The worker's AI (`outreach.profile.check`) checks them against the live main offer,
+    item by item, and writes three bios (Facebook's short bio, up to 101 characters), a line for the cover and what to
+    feature. Only its answer is kept, on the person's setup row; what the page said goes no further. An item it says
+    is right counts as done, and the person ticks the rest once they've changed them. **Put this one in**
+    (`profile_edit`) has their computer press Edit bio, put the bio in, save, and read the profile again for a new
+    check; where it can't, it hands the step to them (**Carry on**). The picture, the cover and what's featured stay
+    tips: the extension never changes them. A check of an older main offer version counts for nothing, as old ticks
+    don't. Built on the web, the phone and the extension; tuned from page outlines, not yet tried on a real account.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -1373,6 +1417,18 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
 - **Data version 2:** a playbook's questions became questions with answers, and it got a pace. Reading one saved
   before then gives it in today's shape (`upgradePlaybookDetails`, in `outreach.playbook.list`), because a business
   with the add-on on never runs a data step; the worker's step 2 tidies what a reinstall brings back.
+- **Get ready holds what reaches people, never what reads** (decision 63): a new path that reaches someone (a message,
+  a request, a comment, a post) checks `readinessFor` first, as `outreach.today`, `outreach.day.start` and
+  `outreach.helpful.next` do; a reply to someone who wrote first is never held. The tests' fixture gets a business
+  ready before those three (`getReady` in `outreach-fixture.ts`); one made with `{ ready: false }` isn't.
+- **The profile's check keeps the AI's answer, never the page** (decision 64): what the extension read goes to the
+  worker's `outreach.profile.check` and no further. The check is saved by `outreach.profile.check_save`, which only
+  the system runs, after `checkedProfileCheck`: an item with nothing read is never right, and a bio over 101
+  characters, or one already given, is dropped.
+- **Data version 3:** a playbook got a niche, its problem, its proof and something useful to send, empty on one saved
+  before (the same `upgradePlaybookDetails`, and the worker's step 3). The five are optional in `PlaybookDetails`, and
+  a save that leaves one out keeps what's saved (`keptV3` in `ops/playbooks.ts`), so a phone built before them never
+  wipes them; null or an empty list clears one.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from

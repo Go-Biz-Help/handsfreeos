@@ -127,7 +127,7 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   ai_unreviewed: 'AI not reviewed',
   ai_corrections: 'Something to teach the AI',
   website_changed: 'Website changed',
-  offer_lapsing: 'Offer ending',
+  offer_lapsing: 'Promotion ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alert',
   faq_suggestions: 'Question to answer',

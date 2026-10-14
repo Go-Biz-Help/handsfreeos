@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Check your Facebook profile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-3:0 24px 48px rgba(25,29,37,.18),0 4px 12px rgba(25,29,37,.08);--scrim:rgba(15,19,26,.45);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-3:0 24px 48px rgba(0,0,0,.6);--scrim:rgba(0,0,0,.6);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 12px;font-size:13px}
+.btn-icon{width:36px;padding:0}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.ghostblock{border-radius:12px;background:var(--card);border:1px solid var(--border)}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:480px;max-width:100%;background:var(--card);box-shadow:var(--shadow-3);display:flex;flex-direction:column}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:22px 24px 16px;border-bottom:1px solid var(--border)}
+.check{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid var(--border)}
+.check:first-child{border-top:0}
+.box{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--border-strong);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;margin-top:1px}
+.box:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.box.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text);font-size:13px}
+.bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; position: relative; display: flex;">
+<div style="flex: 1; display: flex; gap: 24px; padding: 32px 40px;" aria-hidden="true">
+<div class="ghostblock" style="flex: 0 1 220px; min-height: 820px;"></div>
+<div class="stack" style="flex: 1; gap: 20px;">
+<div class="ghostblock" style="height: 72px;"></div>
+<div class="ghostblock" style="height: 380px;"></div>
+<div class="ghostblock" style="height: 200px;"></div>
+</div>
+</div>
+<div style="position: absolute; inset: 0; background: var(--scrim);" aria-hidden="true"></div>
+
+<section class="sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+<header class="sheet-head">
+<div class="stack" style="gap: 4px;">
+<h2 id="profile-title" style="font-size: 18px; font-weight: 600; letter-spacing: -0.005em;">Check your Facebook profile</h2>
+<p class="small muted">People look at it before they answer. It doesn’t have to sell; it just shouldn’t put anyone off. Tick each one once it’s right.</p>
+</div>
+<button class="btn btn-ghost btn-icon" type="button" aria-label="Close"><svg class="icon" style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+</header>
+
+<div class="stack" style="flex: 1; overflow: auto; padding: 16px 24px; gap: 14px;">
+<sc-if value="{{ changed }}" hint-placeholder-val="{{ false }}">
+<div class="note" role="status">
+<svg class="icon" style="margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+<div class="stack" style="gap: 2px;"><span style="font-weight: 600;">Your main offer changed. Look at your profile again so it still fits.</span><span>What changed: Price, The line.</span></div>
+</div>
+</sc-if>
+
+<div class="stack" style="gap: 6px;">
+<div class="row" style="justify-content: space-between;"><span class="small muted">Your main offer</span><span class="small muted tnum">{{ ticked }} of 6 ticked</span></div>
+<p class="small" style="font-weight: 500;">“We help roofers with 2 to 3 crews get 10 to 20 booked inspections a month.”</p>
+<div class="bar" role="progressbar" aria-label="Ticked" aria-valuemin="0" aria-valuemax="6" aria-valuenow="{{ ticked }}"><span style="width: {{ pct }};"></span></div>
+</div>
+
+<div class="stack">
+<sc-for list="{{ items }}" as="item" hint-placeholder-count="6">
+<div class="check">
+<button type="button" class="{{ item.boxCls }}" aria-pressed="{{ item.on }}" aria-label="{{ item.aria }}" onClick="{{ item.toggle }}">
+<sc-if value="{{ item.on }}" hint-placeholder-val="{{ false }}"><svg class="icon" style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+</button>
+<div class="stack" style="gap: 2px; min-width: 0;">
+<span style="font-weight: 600;">{{ item.label }}</span>
+<span class="small muted">{{ item.tip }}</span>
+</div>
+</div>
+</sc-for>
+</div>
+<p class="xs faint">Soon the extension reads your profile for you, scores it and writes your bio. Until then, you tick each one.</p>
+</div>
+
+<footer class="row" style="justify-content: flex-end; padding: 14px 24px; border-top: 1px solid var(--border);">
+<button class="btn btn-primary" type="button">Done</button>
+</footer>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"offerChanged":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: { picture: true, cover: false, bio: true, work: false, featured: false, posts: false } };
+  }
+  renderVals() {
+    const list = [
+      ['picture', 'A clear photo of your face', 'Not a logo. People say yes to a person.'],
+      ['cover', 'A cover that says the result you get people', 'One line on an image, like “More booked jobs for roofers”. Not a sales pitch.'],
+      ['bio', 'A bio that says what you do and for whom', 'Facebook’s short bio, up to 101 characters, from your main offer.'],
+      ['work', 'A work line that names your business', 'Under Edit details, add where you work and link your business’s page.'],
+      ['featured', 'Featured: a result, a review and your booking link', 'Pin a post that shows a result, a review, and where to book.'],
+      ['posts', 'Posts that show who you are, and some proof', 'Not only selling: your day, your work, a customer’s win.']
+    ];
+    const changed = this.props.offerChanged ?? false;
+    const on = changed ? {} : this.state.on;
+    const ticked = list.filter(([k]) => on[k]).length;
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      changed,
+      ticked,
+      pct: (ticked / 6) * 100 + '%',
+      items: list.map(([key, label, tip]) => ({
+        label,
+        tip,
+        on: !!on[key],
+        boxCls: 'box' + (on[key] ? ' on' : ''),
+        aria: (on[key] ? 'Ticked: ' : 'Tick: ') + label,
+        toggle: () => this.setState({ on: { ...this.state.on, [key]: !this.state.on[key] } })
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

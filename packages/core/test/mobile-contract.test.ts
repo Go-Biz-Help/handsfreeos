@@ -142,6 +142,9 @@ const ONLINE_COMMANDS = [
   'outreach.helpful.skip',
   // Letting the browser extension sign in by picking its number, from the push (20261027002910).
   'extension_sign_in.answer',
+  // Get ready on Today (decision 63): a profile item ticked, and the goal set.
+  'outreach.readiness.profile',
+  'outreach.readiness.numbers',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -236,6 +239,8 @@ const QUERIES = [
   'outreach.stages',
   // Today's helpful post, and those up lately (decision 50).
   'outreach.helpful',
+  // Get ready on Today: what's left before the extension reaches anyone (decision 63).
+  'outreach.readiness',
   // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
 ];

@@ -276,6 +276,8 @@ async function taskOf(
         target,
         about: askAbout(ask),
       };
+    case 'profile_edit':
+      return { task: { kind: 'profile_edit', bio: ask.bio }, target, about: null };
     default:
       return { task: { kind: ask.kind }, target, about: null };
   }

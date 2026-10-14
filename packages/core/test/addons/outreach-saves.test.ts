@@ -368,6 +368,55 @@ describe('playbooks', () => {
   });
 });
 
+describe('a playbook’s niche, problem, proof and something useful (data version 3)', () => {
+  const crm = PLAYBOOK_TEMPLATES.crm_demos;
+
+  it('keeps them when a save leaves them out, as a phone built before them does, and clears them when asked', async () => {
+    const saved = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Roofers',
+      details: {
+        ...crm.details,
+        niche: 'Roofers with 2 to 3 crews',
+        proof: ['A 3-crew roofer got 14 inspections in 30 days'],
+        usefulWhat: 'A storm-season checklist',
+        usefulLink: 'https://example.com/checklist',
+      },
+    });
+    const { niche, problem, proof, usefulWhat, usefulLink, ...older } = crm.details;
+    void [niche, problem, proof, usefulWhat, usefulLink];
+    const again = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: saved.id,
+      name: 'Roofers',
+      details: { ...older, offer: 'A 15-minute call' },
+    });
+    expect(again.details).toMatchObject({
+      offer: 'A 15-minute call',
+      niche: 'Roofers with 2 to 3 crews',
+      problem: crm.details.problem,
+      proof: ['A 3-crew roofer got 14 inspections in 30 days'],
+      usefulLink: 'https://example.com/checklist',
+    });
+
+    const cleared = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: saved.id,
+      name: 'Roofers',
+      details: { ...again.details, niche: null, proof: [] },
+    });
+    expect(cleared.details).toMatchObject({
+      niche: null,
+      proof: [],
+      usefulWhat: 'A storm-season checklist',
+    });
+
+    // A new one saved without them starts with them empty.
+    const fresh = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Older phone',
+      details: older,
+    });
+    expect(fresh.details).toMatchObject({ niche: null, problem: null, proof: [] });
+  });
+});
+
 describe('with the add-on off', () => {
   it('saves nothing and shows nothing', async () => {
     await setOutreach(ws, 'disabled');

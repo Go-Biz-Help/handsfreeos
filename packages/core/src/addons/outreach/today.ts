@@ -168,6 +168,11 @@ export const TodayOutput = z.object({
   /** Their Sending choice, and their training wheels: while they're on, every message waits and limits are half. */
   sending: z.enum(SENDING_MODE_KEYS),
   wheels: WheelsState,
+  /**
+   * Whether the person is ready (./readiness.ts, decision 63). Until they are, the list keeps only replies owed to
+   * people who wrote to them, and nothing is done on its own: the screens show Get ready in place of the rest.
+   */
+  ready: z.boolean(),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

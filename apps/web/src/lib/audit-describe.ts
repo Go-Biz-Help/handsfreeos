@@ -1008,11 +1008,11 @@ function describeAction(e: AuditEntry): string {
     case 'chat.check_code_for_customer':
       return 'checked the chat visitor’s code: they’re the customer';
     case 'offer.create':
-      return `added the offer “${s(e.after?.name) || 'an offer'}”`;
+      return `added the promotion “${s(e.after?.name) || 'a promotion'}”`;
     case 'offer.update':
-      return 'changed an offer';
+      return 'changed a promotion';
     case 'offer.archive':
-      return `removed the offer “${s(e.after?.name) || 'an offer'}”`;
+      return `removed the promotion “${s(e.after?.name) || 'a promotion'}”`;
     case 'job.set_status':
       return e.after?.note !== undefined && s(e.before?.status) === s(e.after?.status)
         ? `changed the customer’s note on the job ${s(e.after?.title) || ''}`.trim()

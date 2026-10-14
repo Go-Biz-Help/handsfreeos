@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings: main offer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.nav:focus-visible,.tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 12px;font-size:13px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.side{flex:0 1 240px;min-width:200px;background:var(--card);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.nav{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;text-decoration:none}
+.nav:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.nav.on{background:var(--accent-soft);color:var(--accent-text)}
+.nav .icon{width:18px;height:18px}
+.setnav{flex:0 1 220px;min-width:180px;padding:28px 12px;display:flex;flex-direction:column;gap:2px}
+.setnav .grp{padding:14px 10px 4px}
+.setnav a{display:block;padding:7px 10px;border-radius:8px;color:var(--text-2);font-size:13.5px;text-decoration:none}
+.setnav a:hover{background:var(--card-2);color:var(--text)}
+.setnav a.on{background:var(--accent-soft);color:var(--accent-text);font-weight:500}
+.content{flex:999 1 560px;min-width:0;padding:28px 40px 40px;display:flex;flex-direction:column;gap:20px;max-width:980px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}
+.callout{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--accent-soft)}
+.callout .icon{color:var(--accent-text);margin-top:2px}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--border)}
+.tab{height:38px;display:inline-flex;align-items:center;border:0;background:none;padding:0;font:inherit;font-weight:500;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.score{display:grid;grid-template-columns:96px minmax(0,1fr) 48px;align-items:center;gap:12px}
+.bar{height:8px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px}
+.part{padding:14px 16px;border-top:1px solid var(--border);display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:16px;align-items:start}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-wrap: wrap;">
+<aside class="side">
+<div class="brand" style="padding: 4px 10px 16px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Home</a>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Inbox</a>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Customers</a>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>Social Outreach</a>
+<div style="flex: 1;"></div>
+<a class="nav on" href="#" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>Settings</a>
+</aside>
+
+<nav class="setnav" aria-label="Settings">
+<div class="overline grp">Your account</div>
+<a href="#">Account</a>
+<a href="#">My calendar</a>
+<div class="overline grp">Business</div>
+<a href="#">Workspace</a>
+<a class="on" href="#" aria-current="page">Main offer</a>
+<a href="#">Permissions</a>
+<a href="#">Automations</a>
+<div class="overline grp">Messages</div>
+<a href="#">Texting &amp; calls</a>
+<a href="#">Email</a>
+</nav>
+
+<main class="content">
+<div class="row" style="justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+<div class="stack" style="gap: 4px; max-width: 600px;">
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Main offer</h1>
+<p class="muted">Who you help, the result, how fast, how, your guarantee and your price. Social Outreach says it in every first message.</p>
+</div>
+<sc-if value="{{ showLive }}" hint-placeholder-val="{{ true }}">
+<div class="row" style="gap: 8px;">
+<button class="btn btn-primary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>Change your offer</button>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ isNew }}" hint-placeholder-val="{{ false }}">
+<div class="card" style="padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+<div class="stack" style="gap: 6px; max-width: 620px;">
+<h2 style="font-size: 18px; font-weight: 600;">Build your main offer</h2>
+<p class="muted">One clear offer your customers say yes to. It’s the first thing that decides whether outreach works. About 30 minutes, a step at a time, with the AI’s help.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+<div class="stack" style="gap: 4px; padding: 14px; border-radius: 10px; background: var(--card-2);"><span class="overline">1</span><span style="font-weight: 500;">Find your niche</span><span class="small muted">Start from your best customer.</span></div>
+<div class="stack" style="gap: 4px; padding: 14px; border-radius: 10px; background: var(--card-2);"><span class="overline">2</span><span style="font-weight: 500;">Six parts</span><span class="small muted">Who, outcome, timeframe, method, guarantee, price.</span></div>
+<div class="stack" style="gap: 4px; padding: 14px; border-radius: 10px; background: var(--card-2);"><span class="overline">3</span><span style="font-weight: 500;">Score it</span><span class="small muted">Every part needs 7 out of 10.</span></div>
+<div class="stack" style="gap: 4px; padding: 14px; border-radius: 10px; background: var(--card-2);"><span class="overline">4</span><span style="font-weight: 500;">Go live</span><span class="small muted">Social Outreach starts using it.</span></div>
+</div>
+<div class="row"><button class="btn btn-primary">Start building</button><span class="small faint">You can stop any time. Your draft is kept.</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}">
+<div class="callout">
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>
+<div class="stack" style="flex: 1; gap: 2px;">
+<span style="font-weight: 500;">Priya is changing your offer</span>
+<span class="small muted">Saved at 2:14 PM · the guarantee and the price changed · not scored yet. Version 2 keeps running until it’s published.</span>
+</div>
+<button class="btn btn-secondary btn-sm">Open the draft</button>
+<button class="btn btn-ghost btn-sm">Throw it away</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ showLive }}" hint-placeholder-val="{{ true }}">
+<div class="tabs" role="tablist">
+<button class="{{ tabLiveCls }}" role="tab" aria-selected="{{ onLive }}" onClick="{{ showLiveTab }}">Live version</button>
+<button class="{{ tabVersionsCls }}" role="tab" aria-selected="{{ onVersions }}" onClick="{{ showVersionsTab }}">Versions</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ liveTab }}" hint-placeholder-val="{{ true }}">
+<div class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div class="row" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+<span class="overline">Live · version 2 · published Oct 14 by Dale Owner</span>
+<span class="badge badge-ok"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Every part 7 or more</span>
+</div>
+<p style="font-size: 18px; font-weight: 500; line-height: 1.45; letter-spacing: -0.005em;">We help roofers with 2 to 3 crews get 10 to 20 booked roof inspections a month within 60 days, using local ads, a booking page and same-hour follow-up. If you don’t get 10 in 60 days, you don’t pay. $2,000 a month.</p>
+<div class="row" style="flex-wrap: wrap; gap: 8px;">
+<span class="small faint">In messages:</span>
+<span class="badge badge-gray">10 to 20 booked inspections in the next 30 days</span>
+<span class="badge badge-gray">you only pay for results</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px;">
+<div class="card">
+<div class="row" style="padding: 14px 16px; justify-content: space-between;"><span style="font-weight: 600;">Your offer, part by part</span><span class="xs faint">Change any part from Change your offer</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Who</span><span class="small">Roofers with 2 to 3 crews, $500k to $2M a year. Stuck between storms with no steady jobs.</span><span class="badge badge-ok tnum">8</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Outcome</span><span class="small">10 to 20 booked roof inspections a month, counted on their calendar.</span><span class="badge badge-ok tnum">9</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Timeframe</span><span class="small">Within 60 days. Ads take two weeks to find their feet.</span><span class="badge badge-ok tnum">8</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Method</span><span class="small">Find the homes · Run local ads · Book them on your page · Follow up the same hour</span><span class="badge badge-ok tnum">8</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Guarantee</span><span class="small">If you don’t get 10 in 60 days, you don’t pay. For roofers who answer within the hour.</span><span class="badge badge-ok tnum">7</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Price</span><span class="small">$2,000 a month. One roof pays for three months.</span><span class="badge badge-ok tnum">8</span></div>
+<div class="part"><span class="small" style="font-weight: 500;">Proof</span><span class="small">A 3-crew roofer got 14 inspections in 30 days · Booked Peak Roofing 22 inspections after the March hail</span><span></span></div>
+</div>
+
+<div class="stack" style="gap: 20px;">
+<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+<span style="font-weight: 600;">How it scored</span>
+<div class="row small" style="gap: 8px;"><svg class="icon" style="color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>A stranger sees the result in 3 seconds</div>
+<div class="row small" style="gap: 8px;"><svg class="icon" style="color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Specific, not vague</div>
+<div class="row small" style="gap: 8px;"><svg class="icon" style="color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Stands out from others like you</div>
+<div class="row small" style="gap: 8px;"><svg class="icon" style="color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Easy to believe, with proof</div>
+<p class="small muted">Weakest: the guarantee. Say what they have to do for it to apply.</p>
+</div>
+<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-weight: 600;">Who uses it</span>
+<div class="row small" style="gap: 8px; align-items: flex-start;"><svg class="icon" style="color: var(--text-2); margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg><span><b style="font-weight: 500;">Social Outreach</b><br><span class="muted">First messages, your short video and follow-ups.</span></span></div>
+<p class="xs faint">Owners and admins change it. Everyone on the team can see it.</p>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ versionsTab }}" hint-placeholder-val="{{ false }}">
+<div class="card">
+<div class="part" style="border-top: 0; grid-template-columns: 90px minmax(0, 1fr) 150px;"><span class="small" style="font-weight: 500;">Version 2</span><span class="small">We help roofers with 2 to 3 crews get 10 to 20 booked roof inspections a month within 60 days…<br><span class="xs faint">Lowest part 7 · Oct 14 · Dale Owner</span></span><span class="badge badge-ok" style="justify-self: end;">Live</span></div>
+<div class="part" style="grid-template-columns: 90px minmax(0, 1fr) 150px;"><span class="small" style="font-weight: 500;">Version 1</span><span class="small">We help roofers get more jobs with ads. Pay monthly.<br><span class="xs faint">Lowest part 5 · Oct 2 · Dale Owner · went live anyway: “Testing it with past customers first”</span></span><span class="badge badge-wait" style="justify-self: end;">Under the bar</span></div>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"live","options":["live","draft","new"],"section":"State"},"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { tab: 'live' };
+  }
+  renderVals() {
+    const view = this.props.view ?? 'live';
+    const isNew = view === 'new';
+    const tab = this.state.tab;
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      isNew,
+      showLive: !isNew,
+      hasDraft: view === 'draft',
+      liveTab: !isNew && tab === 'live',
+      versionsTab: !isNew && tab === 'versions',
+      onLive: tab === 'live',
+      onVersions: tab === 'versions',
+      tabLiveCls: 'tab' + (tab === 'live' ? ' on' : ''),
+      tabVersionsCls: 'tab' + (tab === 'versions' ? ' on' : ''),
+      showLiveTab: () => this.setState({ tab: 'live' }),
+      showVersionsTab: () => this.setState({ tab: 'versions' })
+    };
+  }
+}
+</script>
+</body>
+</html>

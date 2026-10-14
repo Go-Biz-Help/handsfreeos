@@ -11,7 +11,9 @@ import { isUniqueViolation } from '../../../kernel/pg-errors';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import {
+  blankPlaybook,
   Playbook as PlaybookOut,
+  PLAYBOOK_V3_KEYS,
   PlaybookArchiveInput,
   PlaybookListInput,
   PlaybookListOutput,
@@ -44,6 +46,19 @@ async function loadPlaybook(ctx: Ctx, playbookId: string) {
       'That playbook isn’t there anymore. Refresh the page to see the ones there are.',
     );
   return p;
+}
+
+/**
+ * The parts data version 3 added, as a save leaves them: one it leaves out keeps what's saved (or starts empty), so a
+ * phone built before them never wipes them.
+ */
+function keptV3(details: PlaybookDetails, stored: unknown): PlaybookDetails {
+  const was = (upgradePlaybookDetails(stored) ?? {}) as Record<string, unknown>;
+  const blank = blankPlaybook();
+  const kept = Object.fromEntries(
+    PLAYBOOK_V3_KEYS.filter((k) => details[k] === undefined).map((k) => [k, was[k] ?? blank[k]]),
+  );
+  return { ...details, ...kept };
 }
 
 /** Two playbooks in use never share a name. */
@@ -103,7 +118,12 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
         const was = await loadPlaybook(ctx, input.playbookId);
         const [p] = await ctx.tx
           .update(playbooks)
-          .set({ name: input.name, details, updatedBy: me, updatedAt: at })
+          .set({
+            name: input.name,
+            details: keptV3(details, was.details),
+            updatedBy: me,
+            updatedAt: at,
+          })
           .where(eq(playbooks.id, was.id))
           .returning();
         return p!;
@@ -114,7 +134,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
           workspaceId: ctx.scope.workspaceId!,
           name: input.name,
           template: input.template ?? null,
-          details,
+          details: keptV3(details, null),
           createdBy: me,
           updatedBy: me,
         })

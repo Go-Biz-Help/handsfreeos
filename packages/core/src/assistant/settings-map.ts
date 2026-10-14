@@ -748,7 +748,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'change, publish, archive or bring back an FAQ, fact, article or document',
       'accept, edit or reject suggestions, and answer questions customers asked',
       'scan the website and set its address',
-      'add, change or take off an offer',
+      'add, change or take off a promotion',
     ],
     howTo: [
       'Add an FAQ: Knowledge, press Add an FAQ, then Publish; the same box switches to Article or Fact',
@@ -760,7 +760,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Answer a question the AI couldn’t: Knowledge → Suggestions, type the answer on it, then Save as an FAQ',
       'Stop the AI using an item: open it, then Archive',
       'Test what the AI would say: Knowledge → Overview, Try it, then Ask',
-      'Add a special offer: Knowledge → Offers, Add an offer',
+      'Add a promotion: Knowledge → Promotions, Add a promotion',
     ],
     notHere: ['deleting an item or document (archive it instead)'],
     handovers: [

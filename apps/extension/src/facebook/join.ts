@@ -89,8 +89,11 @@ export async function pressJoin(doc: Document): Promise<JoinStep> {
   return { result: 'asked' };
 }
 
-/** Writes into a box to write in, as typing would: a plain box's value, or the text a rich box holds. */
-function typeInto(doc: Document, box: HTMLElement, text: string): void {
+/**
+ * Writes into a box to write in, as typing would: a plain box's value, or the text a rich box holds. With `replace`,
+ * what a rich box held goes first (a plain box's value is replaced anyway).
+ */
+export function typeInto(doc: Document, box: HTMLElement, text: string, replace = false): void {
   box.focus();
   if (box instanceof doc.defaultView!.HTMLTextAreaElement || box.tagName === 'INPUT') {
     const proto = Object.getPrototypeOf(box) as object;
@@ -99,6 +102,13 @@ function typeInto(doc: Document, box: HTMLElement, text: string): void {
     else (box as HTMLTextAreaElement).value = text;
     box.dispatchEvent(new doc.defaultView!.Event('input', { bubbles: true }));
     return;
+  }
+  if (replace) {
+    const range = doc.createRange();
+    range.selectNodeContents(box);
+    const selection = doc.defaultView!.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
   }
   doc.execCommand('insertText', false, text);
 }

@@ -98,6 +98,15 @@ export const PLAYBOOK_LIMITS = {
   openerStyles: { line: 300, most: 3 },
   /** First messages the business wrote itself, sent as written with their first name filled in. */
   ownOpeners: { line: 600, most: 3 },
+  /** Who in the main offer this playbook is for (data version 3): "Roofers with 2 to 3 crews". */
+  niche: 160,
+  /** That niche's own biggest problem. */
+  problem: 500,
+  /** Real results for this niche, a line each: the main offer's, or its own. */
+  proof: { line: 300, most: 5 },
+  /** Something useful to send someone who never answered: what it is, and its link. */
+  usefulWhat: 160,
+  usefulLink: 500,
 } as const;
 
 const line = (max: number, empty = 'Leave out empty lines.') =>
@@ -114,6 +123,14 @@ const words = (max: number) =>
     .nullable();
 const distinct = <T extends string>(list: readonly T[]) =>
   new Set(list.map((v) => v.toLowerCase())).size === list.length;
+const link = (max: number) =>
+  z
+    .url({
+      protocol: /^https?$/,
+      error: 'Enter the full address, like https://example.com/book.',
+    })
+    .max(max)
+    .nullable();
 
 /** One answer someone might give: "Not really". It may add one of the playbook's tags, and says what's next. */
 export const PlaybookAnswer = z.object({
@@ -145,13 +162,18 @@ export const PlaybookDetails = z
     /** What's offered, in the business's words: "A 20-minute demo". */
     offer: words(PLAYBOOK_LIMITS.offer),
     /** Where people book or buy: a booking link. */
-    link: z
-      .url({
-        protocol: /^https?$/,
-        error: 'Enter the full address, like https://example.com/book.',
-      })
-      .max(PLAYBOOK_LIMITS.link)
-      .nullable(),
+    link: link(PLAYBOOK_LIMITS.link),
+    /**
+     * Who in the business's main offer this playbook is for (data version 3, docs/main-offer.md): one niche inside the
+     * offer's who, its own biggest problem, and its own proof. Left out of a save, each keeps what's saved, so a phone
+     * built before them can't wipe them; null or empty clears one.
+     */
+    niche: words(PLAYBOOK_LIMITS.niche).optional(),
+    problem: words(PLAYBOOK_LIMITS.problem).optional(),
+    proof: lines(PLAYBOOK_LIMITS.proof).refine(distinct, 'Each result once.').optional(),
+    /** Something useful to send someone who never answered (a guide, a checklist, a video): what, and its link. */
+    usefulWhat: words(PLAYBOOK_LIMITS.usefulWhat).optional(),
+    usefulLink: link(PLAYBOOK_LIMITS.usefulLink).optional(),
     /** Who it's for, in plain words. */
     audience: words(PLAYBOOK_LIMITS.audience),
     /** What says someone fits: "Owner" in their intro, posts about missed calls. */
@@ -248,6 +270,11 @@ export const blankPlaybook = (): PlaybookDetails => ({
   goal: 'demo',
   offer: null,
   link: null,
+  niche: null,
+  problem: null,
+  proof: [],
+  usefulWhat: null,
+  usefulLink: null,
   audience: null,
   signs: [],
   skip: [],
@@ -284,6 +311,9 @@ const TEMPLATES = {
       ...blankPlaybook(),
       goal: 'demo',
       offer: 'A demo',
+      niche: 'Owners of home service businesses with 2 to 10 people',
+      problem:
+        'Leads slip through the cracks because follow-ups live in their head, a notebook or a spreadsheet.',
       audience: 'Owners of small businesses that have customers to follow up with.',
       signs: [
         '“Owner”, “Founder” or “CEO” in their intro',
@@ -357,16 +387,23 @@ export const PLAYBOOK_TEMPLATE_KEYS = Object.keys(PLAYBOOK_TEMPLATES) as [
   ...PlaybookTemplateKey[],
 ];
 
+/** The parts data version 3 added: a save that leaves one out keeps what's saved (./ops/playbooks.ts). */
+export const PLAYBOOK_V3_KEYS = ['niche', 'problem', 'proof', 'usefulWhat', 'usefulLink'] as const;
+
 /**
  * A playbook's details as an earlier version saved them, in today's shape. Before data version 2 its questions were
- * lines of words with no answers, and it had no pace. Anything else passes through for the schema to judge.
+ * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send.
+ * Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
   const d = stored as Record<string, unknown>;
   const old = Array.isArray(d['questions']) && d['questions'].some((q) => typeof q === 'string');
-  if (!old && d['pace'] !== undefined) return stored;
+  const before3 = PLAYBOOK_V3_KEYS.some((k) => d[k] === undefined);
+  if (!old && d['pace'] !== undefined && !before3) return stored;
+  const blank = blankPlaybook();
   return {
+    ...Object.fromEntries(PLAYBOOK_V3_KEYS.map((k) => [k, blank[k]])),
     ...d,
     questions: old
       ? (d['questions'] as unknown[]).map((q, i) =>

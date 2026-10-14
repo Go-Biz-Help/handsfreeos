@@ -10,9 +10,10 @@
 import { upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import type { AddonSubscriber, AddonWorkerModule } from '../types';
+import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
-import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
+import { PROFILE_CHECK_ACTION, profileCheck } from './profile';
+import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
@@ -54,6 +55,22 @@ const andWeekly =
     if (p['addonId'] === undefined || p['addonId'] === ctx.manifest.id) await armWeekly(ctx);
   };
 
+/** Every playbook of a business in today's shape (`upgradePlaybookDetails`). */
+const upgradePlaybooks: AddonDataMigration = async ({ tx, scope }) => {
+  const kept = await rows<{ id: string; details: unknown }>(
+    tx,
+    sql`select id, details from addon_outreach.playbooks where workspace_id = ${scope.workspaceId}`,
+  );
+  for (const p of kept) {
+    const details = upgradePlaybookDetails(p.details);
+    if (details !== p.details)
+      await tx.execute(
+        sql`update addon_outreach.playbooks set details = ${JSON.stringify(details)}::jsonb
+            where id = ${p.id}`,
+      );
+  }
+};
+
 /** Two subscribers to one event, one after the other. */
 const both =
   (first: AddonSubscriber, second: AddonSubscriber): AddonSubscriber =>
@@ -65,22 +82,11 @@ const both =
 export const outreachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('outreach'),
   dataMigrations: {
-    // 2: a playbook's questions have answers, and it has a pace. Reading upgrades an older one too
-    // (outreach.playbook.list), so this only tidies what a reinstall brings back.
-    2: async ({ tx, scope }) => {
-      const kept = await rows<{ id: string; details: unknown }>(
-        tx,
-        sql`select id, details from addon_outreach.playbooks where workspace_id = ${scope.workspaceId}`,
-      );
-      for (const p of kept) {
-        const details = upgradePlaybookDetails(p.details);
-        if (details !== p.details)
-          await tx.execute(
-            sql`update addon_outreach.playbooks set details = ${JSON.stringify(details)}::jsonb
-                where id = ${p.id}`,
-          );
-      }
-    },
+    // 2: a playbook's questions have answers, and it has a pace. 3: a niche, its problem and proof, and something
+    // useful to send. Reading upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall
+    // brings back.
+    2: upgradePlaybooks,
+    3: upgradePlaybooks,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
@@ -130,6 +136,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).
   actions: {
     [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
+    [NICHE_FIT_ACTION]: nicheFit,
+    // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
+    [PROFILE_CHECK_ACTION]: profileCheck,
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,

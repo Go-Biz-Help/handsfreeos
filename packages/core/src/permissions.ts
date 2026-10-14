@@ -49,6 +49,8 @@ export const ROLE_PERMISSIONS = {
     'appointments.write',
     'workflows.manage',
     'knowledge.manage',
+    // The business's main offer (20261027006100), which only shows while an add-on that uses it is on.
+    'main_offer.manage',
     'ai_team.manage',
     'money.read',
     'money.bill',
@@ -91,6 +93,7 @@ export const ROLE_PERMISSIONS = {
     'appointments.write',
     'workflows.manage',
     'knowledge.manage',
+    'main_offer.manage',
     'ai_team.manage',
     'money.read',
     'money.bill',
@@ -381,6 +384,13 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         permission: 'workspace.update',
         label: 'Change business settings',
         description: 'Name, time zone and the settings every page shares.',
+        requires: [],
+      },
+      {
+        permission: 'main_offer.manage',
+        label: 'Build the main offer',
+        description:
+          'Who the business helps, the result, the guarantee and the price that its sales add-ons use.',
         requires: [],
       },
       {

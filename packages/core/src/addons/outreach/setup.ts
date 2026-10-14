@@ -1,7 +1,7 @@
 /**
- * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36 and 45; the owner's answers 21a, 22a and
- * 23a): a step at a time, like the main app's onboarding. Pick the playbooks, set the team's rules (owners and admins),
- * choose your own settings, install the extension and sign in, then bring in your groups.
+ * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36, 45 and 63; the owner's answers 21a, 22a and
+ * 23a): a step at a time, like the main app's onboarding. Pick the playbooks, get ready (./readiness.ts), set the team's
+ * rules (owners and admins), choose your own settings, install the extension and sign in, then bring in your groups.
  *
  * - **Each person's own,** and it only moves forward (`laterStep`): `addon_outreach.setup` keeps the furthest step
  *   finished, when they started and finished, and when the extension last said it's signed in for them.
@@ -21,7 +21,14 @@ import { settingsSummary, type AutomationSettings } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
 
 /** The steps, in order. The team's rules come before the person's own, so a rule never quietly steps theirs back. */
-export const SETUP_STEPS = ['playbooks', 'rules', 'settings', 'extension', 'groups'] as const;
+export const SETUP_STEPS = [
+  'playbooks',
+  'ready',
+  'rules',
+  'settings',
+  'extension',
+  'groups',
+] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number];
 /** A screen of the setup: the welcome before the steps, one of the steps, or the end. */
 export type SetupScreen = 'welcome' | SetupStep | 'done';
@@ -263,6 +270,7 @@ export const SETUP_WORDS = {
   /** Each step in a line, on the welcome. */
   stepAbout: {
     playbooks: 'Who you’re looking for, how you sound, and what you offer',
+    ready: 'Your main offer, a niche, your profile and your goal, for your best results',
     rules: 'What your team may do on its own, and how much a day',
     settings: 'What the extension does for you, how the AI writes, and when',
     extension: 'Put the extension in Chrome and sign in',
@@ -278,6 +286,11 @@ export const SETUP_WORDS = {
       hint: 'A playbook says who you’re looking for on Facebook, how you sound and what you offer. Start from one of ours and make it yours, or write your own. Change them any time on the Playbooks tab.',
       hintMember:
         'Your business’s playbooks say who you’re looking for, how you sound and what you offer. An owner or admin writes them.',
+    },
+    ready: {
+      name: 'Get ready',
+      title: 'Get ready for your best results',
+      hint: 'Four things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked. Do them now, or carry on: each waits on Today until it’s done.',
     },
     rules: {
       name: 'Your team’s rules',
@@ -369,9 +382,12 @@ export const SETUP_WORDS = {
   hide: 'Hide',
   again: 'Set up again',
   againAbout:
-    'Go through the setup again: playbooks, your settings, the extension and your groups.',
+    'Go through the setup again: playbooks, getting ready, your settings, the extension and your groups.',
   againAboutManage:
-    'Go through the setup again: playbooks, your team’s rules, your settings, the extension and your groups.',
+    'Go through the setup again: playbooks, getting ready, your team’s rules, your settings, the extension and your groups.',
+  /** Under the Get ready step's items. */
+  readyStill:
+    'Reading your friends and groups goes on while you get ready, so your first day starts with a full list.',
   useTemplate: 'Use this one',
   writeOwn: 'Write your own',
   download: 'Download HandsFreeOS Social',

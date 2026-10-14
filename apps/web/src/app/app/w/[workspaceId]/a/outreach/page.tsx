@@ -344,16 +344,22 @@ export default async function OutreachPage({
     ]);
     if (setup?.firstTime) redirect(outreachSetupPath(workspaceId));
     const canManage = got.workspace.permissions.includes('outreach.manage');
-    // Owners and admins see who's on training wheels, to end them early.
-    const wheels = canManage
-      ? await api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
-      : null;
+    // Owners and admins see who's on training wheels, to end them early; until the person is ready, Get ready shows
+    // in place of the day's list (decision 63).
+    const [wheels, readiness] = await Promise.all([
+      canManage
+        ? api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
+        : null,
+      today.ready
+        ? null
+        : api.POST('/v1/queries/outreach.readiness', { body: { workspaceId } }).then(unwrapPage),
+    ]);
     return (
       <OutreachHome
         workspaceId={workspaceId}
         businessName={got.workspace.name}
         canManage={canManage}
-        shown={{ view: 'today', today, helpful, wheels, asks, live, waiting }}
+        shown={{ view: 'today', today, helpful, wheels, asks, live, waiting, readiness }}
       />
     );
   });

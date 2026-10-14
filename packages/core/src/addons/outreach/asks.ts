@@ -20,6 +20,7 @@ import { JOINS_PER_DAY } from './group-checks';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
+import { FACEBOOK_BIO_MOST } from './profile-check';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
 export const ASK_KINDS = {
@@ -42,6 +43,8 @@ export const ASK_KINDS = {
   unfriend: 'Unfriend the ones you ticked',
   lookup: 'Look someone up before drafting',
   research: 'Research someone for fit',
+  profile_read: 'Read your Facebook profile',
+  profile_edit: 'Put your new bio in',
 } as const;
 export type AskKind = keyof typeof ASK_KINDS;
 export const ASK_KIND_KEYS = Object.keys(ASK_KINDS) as [AskKind, ...AskKind[]];
@@ -74,7 +77,7 @@ export const ASK_KINDS_FOR = {
   pipeline: ['research'],
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
   chats: ['chats'],
-  today: ['lookup', 'members', 'post'],
+  today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit'],
 } as const satisfies Record<string, readonly AskKind[]>;
 
 export const ASK_STATES = {
@@ -250,6 +253,13 @@ export const AskInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('lookup'), draft: AskDraft }),
   /** Research one person (decision 46a): checked for fit next, ahead of the daily order, within the day's checks. */
   z.object({ kind: z.literal('research'), profileId: z.uuid() }),
+  /** Read the person's own profile for the AI's check (decision 64, ./profile-check.ts). */
+  plain('profile_read'),
+  /** Put a bio in on their own profile, one the AI wrote and they picked or changed: then read it again. */
+  z.object({
+    kind: z.literal('profile_edit'),
+    bio: z.string().trim().min(1, 'Pick a bio first.').max(FACEBOOK_BIO_MOST),
+  }),
 ]);
 export type AskInput = z.input<typeof AskInput>;
 export type AskAsked = z.output<typeof AskInput>;
@@ -296,6 +306,8 @@ export const AskTask = z.discriminatedUnion('kind', [
     name: z.string(),
   }),
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
+  plain('profile_read'),
+  z.object({ kind: z.literal('profile_edit'), bio: z.string() }),
 ]);
 export type AskTask = z.output<typeof AskTask>;
 
@@ -452,7 +464,8 @@ export const askNeedsYou = (state: AskShownState): boolean =>
 
 /** What a person may answer a step handed to them: the file's steps go on, a person ticked can be skipped. */
 export function askRepliesFor(kind: AskKind): AskReply[] {
-  if (isFileKind(kind)) return ['carry_on'];
+  // Putting the bio in by hand, where the computer couldn't find Edit bio: they say when it's in.
+  if (isFileKind(kind) || kind === 'profile_edit') return ['carry_on'];
   if ((TIDY_ASK_KINDS as readonly string[]).includes(kind)) return ['carry_on', 'skip'];
   return [];
 }
@@ -675,6 +688,8 @@ export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
   join: '0.22.0',
   post: '0.24.0',
   research: '0.27.0',
+  profile_read: '0.32.0',
+  profile_edit: '0.32.0',
 };
 
 /** Whether a build of the extension is too old for a kind of ask. One that didn't say its version is. */

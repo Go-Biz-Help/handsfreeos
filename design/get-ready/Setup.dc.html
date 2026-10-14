@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Set up Social Outreach: get ready</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 12px;font-size:13px}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--text-2);font-size:13.5px}
+.steps li.on{background:var(--accent-soft);color:var(--accent-text);font-weight:500}
+.num{width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none}
+.steps li.on .num{border-color:var(--accent);color:var(--accent-text)}
+.steps li.ok .num{background:var(--success);border-color:var(--success);color:#fff}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}
+.item{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding:16px 0;border-top:1px solid var(--border)}
+.item .state{width:20px;height:20px;margin-top:1px}
+.done{color:var(--success)}.todo{color:var(--text-3)}
+.callout{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);font-size:13px}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Setting up Social Outreach for Summit Roof Leads</span>
+<a class="btn btn-ghost" href="#">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; gap: 32px; padding: 32px 48px; flex-wrap: wrap; align-items: flex-start; justify-content: center;">
+<nav style="flex: 0 1 240px; min-width: 200px;" aria-label="Setup steps">
+<ol class="steps">
+<li class="ok"><span class="num" aria-hidden="true"><svg class="icon" style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>Playbooks</li>
+<li class="on" aria-current="step"><span class="num" aria-hidden="true">2</span>Get ready</li>
+<li><span class="num" aria-hidden="true">3</span>Your team’s rules</li>
+<li><span class="num" aria-hidden="true">4</span>Your settings</li>
+<li><span class="num" aria-hidden="true">5</span>The extension</li>
+<li><span class="num" aria-hidden="true">6</span>Your groups</li>
+</ol>
+</nav>
+
+<section class="card" style="flex: 999 1 560px; min-width: 0; max-width: 720px; padding: 28px 28px 20px;" aria-labelledby="step-title">
+<p class="xs faint">2 of 6 · Get ready</p>
+<h1 id="step-title" style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px;">Get ready for your best results</h1>
+<p class="muted" style="margin-top: 6px;">Four things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked. Do them now, or carry on: each waits on Today until it’s done.</p>
+
+<div class="stack" style="margin-top: 20px;">
+<div class="item">
+<svg class="state done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<div class="stack" style="gap: 2px;"><span style="font-weight: 600;">Your main offer</span><span class="small muted">One clear offer is what people say yes to.</span></div>
+<span class="badge badge-ok">Done</span>
+</div>
+<div class="item">
+<svg class="state done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<div class="stack" style="gap: 2px;"><span style="font-weight: 600;">A playbook with a niche</span><span class="small muted">CRM demos: owners of home service businesses with 2 to 10 people.</span></div>
+<span class="badge badge-ok">Done</span>
+</div>
+<div class="item">
+<svg class="state todo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="To do"><circle cx="12" cy="12" r="10"></circle></svg>
+<div class="stack" style="gap: 2px;"><span style="font-weight: 600;">Your profile</span><span class="small muted">People look at your profile before they answer. It shouldn’t put them off.</span><span class="small" style="margin-top: 4px;">6 things left to check on your Facebook profile.</span></div>
+<a class="btn btn-secondary btn-sm" href="Profile.dc.html">Check your profile</a>
+</div>
+<div class="item">
+<svg class="state todo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="To do"><circle cx="12" cy="12" r="10"></circle></svg>
+<div class="stack" style="gap: 2px;"><span style="font-weight: 600;">Your numbers</span><span class="small muted">A goal for the month says how many people to reach each day.</span><span class="small" style="margin-top: 4px;">Set a goal for calls booked a month, and see what it takes each day.</span></div>
+<a class="btn btn-secondary btn-sm" href="Numbers.dc.html">Set your goal</a>
+</div>
+</div>
+
+<div class="callout" style="margin-top: 8px;">
+<svg class="icon" style="margin-top: 1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+<span>Reading your friends and groups goes on while you get ready, so your first day starts with a full list.</span>
+</div>
+
+<footer class="row" style="justify-content: space-between; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+<a class="btn btn-secondary" href="#">Back</a>
+<a class="btn btn-primary" href="#">Next</a>
+</footer>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

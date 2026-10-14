@@ -73,6 +73,7 @@ import { joinGroups } from '../jobs/join';
 import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { lookupAndDraft } from '../jobs/lookup';
+import { profileEdit, profileRead } from '../jobs/profile';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
 import { tidy } from '../jobs/tidy';
@@ -305,6 +306,10 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
       return lookupAndDraft(job, task);
     case 'research':
       return research(job, task);
+    case 'profile_read':
+      return profileRead(job);
+    case 'profile_edit':
+      return profileEdit(job, task);
     default:
       // A kind HandsFreeOS knows and this build doesn't: it ends saying so, never left hanging at its start.
       return {

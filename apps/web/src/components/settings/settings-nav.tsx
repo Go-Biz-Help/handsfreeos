@@ -1,5 +1,11 @@
 'use client';
-import { can, type WorkspacePermission } from '@hfos/core';
+import {
+  ADDON_CATALOG,
+  can,
+  coreFeatureRunning,
+  type CoreFeature,
+  type WorkspacePermission,
+} from '@hfos/core';
 import {
   ArrowRightLeft,
   Building2,
@@ -17,6 +23,7 @@ import {
   Network,
   Package,
   ShieldCheck,
+  Target,
   Tag,
   Trash2,
   Upload,
@@ -40,6 +47,8 @@ interface SettingsItem {
   readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   readonly exact?: boolean;
   readonly needs?: WorkspacePermission;
+  /** A part of core only some add-ons use: shown only while one of them is on (the main offer). */
+  readonly feature?: CoreFeature;
 }
 
 /**
@@ -60,6 +69,7 @@ const GROUPS: readonly { readonly label: string; readonly items: readonly Settin
     label: 'Business',
     items: [
       { path: '/workspace', label: 'Workspace', icon: Building2, needs: 'workspace.update' },
+      { path: '/main-offer', label: 'Main offer', icon: Target, feature: 'main_offer' },
       // Who may do what: only an owner sets it.
       {
         path: '/permissions',
@@ -187,12 +197,13 @@ type Group = ReturnType<typeof useSettingsGroups>[number];
 /** The groups and pages this person may see, and which one they're on. */
 function useSettingsGroups(workspaceId: string) {
   const pathname = usePathname();
-  const { permissions } = useWorkspaceShell();
+  const { permissions, addons } = useWorkspaceShell();
   const base = `/app/w/${workspaceId}/settings`;
   return GROUPS.map((g) => ({
     label: g.label,
     items: g.items
       .filter((i) => !i.needs || can(permissions, i.needs))
+      .filter((i) => !i.feature || coreFeatureRunning(ADDON_CATALOG, addons, i.feature))
       .map((i) => {
         const href = `${base}${i.path}`;
         return { ...i, href, active: i.exact ? pathname === href : pathname.startsWith(href) };
