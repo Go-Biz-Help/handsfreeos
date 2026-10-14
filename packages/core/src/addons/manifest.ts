@@ -175,6 +175,8 @@ export const ADDON_SLOTS = [
   'home.cards',
   // Beside a call in progress, for the person on it (Sales Coach: what to say next).
   'call.panels',
+  // Above a conversation's message box: what to write (Sales Coach's suggested replies). It may fill the box.
+  'composer.suggestions',
 ] as const;
 export type AddonSlotName = (typeof ADDON_SLOTS)[number];
 

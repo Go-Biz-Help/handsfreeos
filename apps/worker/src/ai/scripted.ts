@@ -1901,7 +1901,34 @@ function scriptedCoachPlaybook(message: string) {
   };
 }
 
+/**
+ * Sales Coach's replies to suggest (suggest.ts): a customer worried about price gets the playbook's first objection's
+ * answer first; everyone gets a question back and a short "I'll check".
+ */
+function scriptedCoachReplies(message: string, context: string) {
+  const last = [...message.matchAll(/^Customer: (.*)$/gm)].map((m) => unquote(m[1]!)).at(-1) ?? '';
+  const objection = coachParts(context, 'o')[0];
+  const answer = objection?.words.split(' → ')[1];
+  const priced = PRICE_WORDS.test(last) && objection && answer;
+  return {
+    replies: [
+      ...(priced ? [{ label: 'Answer the price worry', text: answer }] : []),
+      {
+        label: 'Ask a question',
+        text: 'Thanks for reaching out! What’s going on, and when works for you?',
+      },
+      { label: 'Check and come back', text: 'Let me check on that and get right back to you.' },
+      { label: 'One too many', text: 'This fourth one is dropped.' },
+    ],
+    objectionId: priced ? objection.id : null,
+  };
+}
+
 export const SALESCOACH_RULES: readonly ScriptRule[] = [
+  {
+    when: /Suggest replies to the customer’s last message\.$/,
+    json: (message, context) => scriptedCoachReplies(message, context),
+  },
   {
     when: /What should the rep see now\?$/,
     json: (message, context) => scriptedCoachCard(message, context),

@@ -79,7 +79,8 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   keeps each line's who and when and drops its words. AI it uses is counted under `app.ai_usage` source `addon`
   with its id, and charged like any other.
 - **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), Home, or
-  above the web's bar for a call in progress (`call.panels`, AI Sales Coach).
+  above the web's bar for a call in progress (`call.panels`, AI Sales Coach), or above a conversation's message box
+  (`composer.suggestions`, handed `onUse` to put words in the box; it never sends).
 - **Handing one out to try** (Real Estate step 2): HandsFreeOS staff with `platform.addons.manage` give one business
   an add-on in `development`, `beta` or `built` (or a paid `available` one) from **/admin/businesses/<id>**
   (`addon_grant.give`, kept in `platform.addon_grants`). It's then installable there, listed under Available to add

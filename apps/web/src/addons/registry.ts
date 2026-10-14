@@ -52,6 +52,12 @@ export type SlotEntities = EverySlot<{
   'home.cards': object;
   /** Above the bar of a call in progress, for the person on it: the customer, when the call knows who it is. */
   'call.panels': { readonly personId: string | null };
+  /** Above a conversation's message box: the channel being written in, and a way to put words in the box. */
+  'composer.suggestions': {
+    readonly conversationId: string;
+    readonly channel: string;
+    readonly onUse: (text: string) => void;
+  };
 }>;
 
 /** What a panel in slot `S` is drawn with. */
@@ -189,6 +195,10 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   salescoach: {
     icon: salescoachAddonIcon,
     // The cards above the call bar while someone is on a call.
-    slots: { 'call.panels': () => import('./salescoach/call-panel') },
+    slots: {
+      'call.panels': () => import('./salescoach/call-panel'),
+      // Replies to suggest above a conversation's message box.
+      'composer.suggestions': () => import('./salescoach/composer-suggestions'),
+    },
   },
 };

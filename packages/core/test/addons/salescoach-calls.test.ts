@@ -449,3 +449,76 @@ describe('a coached call', () => {
     }
   });
 });
+
+describe('suggested replies', () => {
+  async function aThread(): Promise<{
+    conversationId: string;
+    said: (dir: string, body: string) => Promise<string>;
+  }> {
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.conversations (workspace_id, channel, counterpart, person_id)
+          values (${ws}, 'sms', ${`+1713555${String(Math.floor(Math.random() * 9000) + 1000)}`}, ${personId})
+          returning id`,
+    );
+    const conversationId = c!.id;
+    let at = Date.now() - 60_000;
+    return {
+      conversationId,
+      said: async (direction: string, body: string) => {
+        at += 1000;
+        const [m] = await rows<{ id: string }>(
+          admin(),
+          sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, occurred_at)
+              values (${ws}, ${conversationId}, 'sms', ${direction}::app.direction,
+                      ${direction === 'inbound' ? 'received' : 'sent'}::app.message_status, ${body}, ${new Date(at).toISOString()})
+              returning id`,
+        );
+        return m!.id;
+      },
+    };
+  }
+  const replies = [
+    { label: 'Answer the price', text: 'The visit fee goes toward the repair.' },
+    { label: 'Ask when', text: 'When works for a visit?' },
+  ];
+
+  it('are kept for the customer’s newest message, shown with the conversation, and gone once someone replies', async () => {
+    const t = await aThread();
+    const first = await t.said('inbound', 'How much is a tune-up?');
+    const newest = await t.said('inbound', 'That sounds expensive');
+    // Only for the newest message.
+    expect(
+      await worker('salescoach.suggestions.put', {
+        conversationId: t.conversationId,
+        messageId: first,
+        replies,
+        objectionId: null,
+      }),
+    ).toEqual({ kept: false });
+    expect(
+      await worker('salescoach.suggestions.put', {
+        conversationId: t.conversationId,
+        messageId: newest,
+        replies,
+        objectionId: 'o1',
+      }),
+    ).toEqual({ kept: true });
+    expect(await as(rep, 'salescoach.suggestions', { conversationId: t.conversationId })).toEqual({
+      suggestions: { messageId: newest, replies, objectionId: 'o1' },
+    });
+    // Nobody but the worker writes them.
+    expect(
+      await seen(
+        rep,
+        sql`update addon_salescoach.suggestions set objection_id = null
+            where conversation_id = ${t.conversationId} returning id`,
+      ),
+    ).toEqual([]);
+    // Someone replied: they're stale.
+    await t.said('outbound', 'It’s $89, and it goes toward any repair.');
+    expect(await as(rep, 'salescoach.suggestions', { conversationId: t.conversationId })).toEqual({
+      suggestions: null,
+    });
+  });
+});

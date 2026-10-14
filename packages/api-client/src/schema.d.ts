@@ -18737,6 +18737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/salescoach.suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replies the coach suggests for the customer’s newest message in a conversation, until someone replies after it.
+         * @description Requires salescoach.use.
+         */
+        post: operations["query_salescoach_suggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/schedule.team": {
         parameters: {
             query?: never;
@@ -70036,6 +70056,45 @@ export interface operations {
                             name: string;
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_suggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        suggestions: {
+                            /** Format: uuid */
+                            messageId: string;
+                            objectionId: string | null;
+                            replies: {
+                                label: string;
+                                text: string;
+                            }[];
+                        } | null;
                     };
                 };
             };

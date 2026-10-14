@@ -6,24 +6,25 @@ the facts the customer just asked about. After the call it writes the notes, a f
 the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
-**Where it stands (2026-10-14):** round 0 (core's live listening) and round 1 (phone calls) are built, in
-`development`: staff hand it to test businesses. Written conversations (round 2), Zoom (round 3) and learning from
-wins (round 4) are next.
+**Where it stands (2026-10-14):** round 0 (core's live listening), round 1 (phone calls) and round 2's suggested
+replies in written conversations are built, in `development`: staff hand it to test businesses. Round 2's write-up of a
+conversation once it goes quiet, Zoom (round 3) and learning from wins (round 4) are next.
 
 ## Where things are
 
-| What                                      | Where                                                                                                                             |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                |
-| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                    |
-| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                        |
-| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)      |
-| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                      |
-| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                            |
-| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx` |
-| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                      |
-| Database                                  | `supabase/migrations/20261027003600_addon_salescoach.sql`                                                                         |
-| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`           |
+| What                                      | Where                                                                                                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                    |
+| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`               |
+| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                        |
+| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                            |
+| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                          |
+| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                          |
+| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                |
+| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                     |
+| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                          |
+| Database                                  | `supabase/migrations/20261027003600_addon_salescoach.sql`, `20261027003700_salescoach_suggestions.sql`                                                |
+| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts` |
 
 ## How a coached call goes
 
@@ -52,6 +53,25 @@ wins (round 4) are next.
    for the write-up. `checkedAfterCall` holds it to the limits and works out the score; `salescoach.call.finish` puts
    the summary and notes on the customer's timeline and makes a task for each promise, assigned to the rep.
 
+## Suggested replies in a written conversation
+
+1. **A customer writes** (`message.received`: a text, Messenger, Instagram, the website chat, the portal or an email).
+   The add-on's subscriber queues one `salescoach.suggest` job for the conversation two seconds later
+   (`SUGGEST_AFTER_MS`), deduplicated, so a burst of messages gets one set.
+2. **The job reads the conversation as it is then.** Nothing while the AI teammate answers it (`handled_by = 'ai'`: it
+   drafts its own, the owner's decision), for a person's own mail (`private_to`), outside the Inbox, or when the newest
+   message isn't the customer's (someone already replied).
+3. **The fast model** reads the usual playbook, the business's brief and short knowledge answers, and the latest 12
+   messages, and suggests two or three different replies. `checkedSuggestions` holds them to the channel's length
+   (`SUGGEST_CHARS`: a text stays under 320 characters), drops repeats, keeps three at most, and names a playbook
+   objection only when it's there.
+4. **`salescoach.suggestions.put`** keeps them for the customer's newest message only, one set per conversation, and
+   emits `salescoach.suggestions.ready` as a conversation event (the live updates say no more than that, as for any
+   conversation's), so a screen with the conversation open reads them again.
+5. **The web** draws them above the message box (`composer.suggestions`, on the desktop inbox and the phone-sized
+   web). A click puts the words in the box to edit; nothing is sent from here. `salescoach.suggestions` stops
+   answering them once anyone writes after the customer's message.
+
 ## Rules worth knowing before changing anything
 
 - **The coach says only what's in the playbook and the knowledge base.** No prices, promises or facts of its own:
@@ -76,7 +96,8 @@ wins (round 4) are next.
 
 - **Hanging up the stream when the coach is stopped.** A stopped call stops asking the AI, but the worker still
   hears it to the end (and it's billed as live speech) until core can end one add-on's listening mid-call.
-- **Reply suggestions in written conversations** (round 2): a `composer.suggestions` slot above the message box.
+- **A written conversation's write-up** (round 2's second half): the notes, tasks and score once it goes quiet.
+- **Suggested replies in the phone app's message box.** They're on the web (desktop and phone-sized) for now.
 - **Zoom** (round 3): a person's own add-on connection, one Zoom webhook address, the in-meeting app.
 - **Learning from wins, trends, Spanish** (round 4).
 - **The live transcript replacing the after-call one**, so a coached call isn't transcribed twice.

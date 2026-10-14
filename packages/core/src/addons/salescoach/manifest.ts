@@ -89,7 +89,7 @@ export const salescoachAddon = defineAddon({
       requires: ['salescoach.use'],
     },
   ],
-  tables: ['playbooks', 'calls', 'cards'],
+  tables: ['playbooks', 'calls', 'cards', 'suggestions'],
   events: {
     emits: [
       'salescoach.playbook.saved',
@@ -100,18 +100,25 @@ export const salescoachAddon = defineAddon({
       'salescoach.call.ended',
       'salescoach.call.stopped',
       'salescoach.call.finished',
+      'salescoach.suggestions.ready',
     ],
+    // A customer wrote: replies to suggest (round two).
+    consumes: ['message.received'],
   },
-  // After a call: the notes, the follow-up, the tasks and the score.
-  jobs: ['salescoach.after_call'],
+  // After a call: the notes, the follow-up, the tasks and the score. After a customer writes: replies to suggest.
+  jobs: ['salescoach.after_call', 'salescoach.suggest'],
   // It hears the calls of people who may be coached.
   liveCalls: { permission: 'salescoach.use' },
   billing: { model: 'free' },
   ui: {
     // One row in the side menu: the page has the live call, the coached calls and the playbooks (`?view=`).
     nav: [{ key: 'salescoach', label: 'AI Sales Coach', icon: 'headset', path: '' }],
-    // The cards above the web's call bar while someone is on a call.
-    slots: [{ slot: 'call.panels', permission: 'salescoach.use' }],
+    // The cards above the web's call bar while someone is on a call,
+    // and the replies it suggests above the message box in a written conversation.
+    slots: [
+      { slot: 'call.panels', permission: 'salescoach.use' },
+      { slot: 'composer.suggestions', permission: 'salescoach.use' },
+    ],
     // On the phone: the live call (a cell call can't show a bar), from the push or under More.
     phone: [{ path: '', query: ['view'], web: { view: ['calls', 'playbooks'] } }],
   },

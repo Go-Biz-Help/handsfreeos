@@ -4,9 +4,17 @@
  * live columns.
  */
 import { boolean, jsonb, pgSchema, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { calls as coreCalls, people, users, workspaces } from '@hfos/db/schema';
+import {
+  calls as coreCalls,
+  conversations,
+  messages,
+  people,
+  users,
+  workspaces,
+} from '@hfos/db/schema';
 import type { AfterCall, CallLine, CardKind } from './coach';
 import type { PlaybookDetails, PlaybookKind } from './playbooks';
+import type { Suggestion } from './suggest';
 
 export const addonSalescoach = pgSchema('addon_salescoach');
 
@@ -84,4 +92,24 @@ export const cards = addonSalescoach.table(
   (t) => [unique().on(t.workspaceId, t.id)],
 );
 
-export const SALESCOACH_TABLES = { playbooks, calls: coachedCalls, cards } as const;
+/** The newest replies suggested in a written conversation (round two): one set per conversation. */
+export const suggestions = addonSalescoach.table(
+  'suggestions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    replies: jsonb('replies').notNull().$type<Suggestion[]>(),
+    objectionId: text('objection_id'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.conversationId)],
+);
+
+export const SALESCOACH_TABLES = { playbooks, calls: coachedCalls, cards, suggestions } as const;

@@ -64,6 +64,10 @@ export const SALESCOACH_WORDS = {
     noCustomer: 'A caller nobody knows yet',
     openConversation: 'Open the conversation',
   },
+  suggest: {
+    title: 'Suggested replies',
+    hide: 'Hide suggestions',
+  },
   playbooks: {
     about:
       'The coach says only what’s here and what HandsFreeOS knows about the business. The usual playbook is the one calls use.',
