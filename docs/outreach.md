@@ -275,7 +275,10 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   switches as a Friends tab row, **Don't pitch** and **Never contact**, for whoever the chat is with
   (`outreach.chats` says `dontPitch` and `neverContact` for each chat's profile; `ChatMarks` in the web's
   `chats-view.tsx` and the phone's `chats.tsx`, where they need signal), so
-  someone the person has chatted with but isn't friends with is decided chat by chat. A chat with no profile kept yet
+  someone the person has chatted with but isn't friends with is decided chat by chat. On the phone, People has the Never contact list itself beside Pipeline and Chats
+  (`?view=never_contact`, the phone's `never-contact.tsx`, from `outreach.friends`' `never_contact` view): who's on it,
+  who added them and when, and a switch that takes someone off, with signal. On the web that address opens the Friends
+  tab's Never contact list. A chat with no profile kept yet
   (one from the file not matched to anyone) has no switches until it's read in Messenger.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
   warn them that day, **Draft a message** or **Draft a comment** on Today asks it (a `lookup` ask): it opens the
