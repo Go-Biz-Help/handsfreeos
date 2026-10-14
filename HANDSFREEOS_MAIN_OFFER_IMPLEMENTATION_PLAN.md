@@ -381,8 +381,12 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    send), the builder's Niche step and the offer step's new parts, the AI's help reading the live main offer,
    `outreach.playbook.niche_fit`, and the CRM demos template's niche. The video's link and script move to step 7,
    which writes them, and the new pace to step 6, which uses it, so today's follow-ups keep working until then.
-4. **Social Outreach: getting ready.** `outreach.readiness`, the setup step, the Get ready card on Today, the web and
-   the phone and the panel, `outreach_not_ready`, your numbers and their math.
+4. **Social Outreach: getting ready. Built.** `outreach.readiness`, the setup step, the Get ready card on Today, the
+   web and the phone and the panel (extension 0.31.0), `outreach_not_ready`, your numbers and their math, from the
+   boards in `design/get-ready` (Chris approved them, 2026-10-14: "build it"). Built as four items: **Your messages**
+   joins with step 6 (its samples are of the rewritten first message) and its video link with step 7, and the profile
+   is ticked by hand until step 5's extension reads it. Replies owed to people who wrote first stay on Today while
+   someone gets ready, and a playbook needs proof only when the main offer has some (the offer can go live without).
 5. **The extension: your profile.** `profile_read`, the AI's score and bios, `profile_edit`, a new extension build.
 6. **The conversation.** The first message rewritten, the reply read (yes, question, later, no), Send the video, Send
    the link, the follow-up sequence and the monthly check-in, `sends.offer_version`, the comment on their own post.

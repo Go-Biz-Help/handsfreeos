@@ -41,6 +41,9 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   customers with the same name first (`outreach.lookup`, `sameNamePeople`) and offers **It’s them** or **Add as new**
   (`outreach.profile.contact`); **Demo booked** (`outreach.demo.mark`) and **Don’t pitch** (`outreach.friend.set`).
   All three are online commands, so never queued.
+- **Get ready** (decision 63, `ready.tsx`) shows above Today's list until the person is ready, as the web's card,
+  and Start my day waits. Their profile list and their goal are done right there, with signal
+  (`outreach.readiness.profile`, `.numbers`); the main offer and the playbooks are written on a computer.
 - **Everything else** asks HandsFreeOS (`useOutreachAnswer`, on `@/lib/live-answer`), and with no signal says
   "… needs signal. Try again when you're back online." The Live screen asks again every minute
   (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM".

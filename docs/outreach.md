@@ -998,6 +998,20 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     starts as the main offer's outcome in a few words, and it keeps something useful to send someone who never
     answered. Built (data version 3). The short video's link and script, and the new pace, come with the plan's steps
     7 and 6.
+63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
+    results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
+    live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), the person
+    has ticked every item on their Facebook profile list since the live version, and they've set a monthly goal for
+    calls booked and seen what it takes each day. Until then Start my day is refused (`outreach_not_ready`, naming the
+    first thing left and where), Today's list keeps only replies owed to people who wrote first, the extension puts up
+    no helpful post on its own, and Today, the phone's Today and the extension's panel show **Get ready** in place of
+    the rest. What only reads goes on (decision 60's lists, groups and checks, asks, Read my chats, Find posts), and
+    joining groups. A member waits on the business's two and does their own meanwhile. A new main offer version asks
+    everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
+    `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
+    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** (the sample
+    messages and the video's link) joins with the plan's steps 6 and 7, and the extension reading the profile with
+    step 5; until then the profile is ticked by hand.
 
 ## Rules worth knowing before changing anything
 
@@ -1392,6 +1406,10 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
 - **Data version 2:** a playbook's questions became questions with answers, and it got a pace. Reading one saved
   before then gives it in today's shape (`upgradePlaybookDetails`, in `outreach.playbook.list`), because a business
   with the add-on on never runs a data step; the worker's step 2 tidies what a reinstall brings back.
+- **Get ready holds what reaches people, never what reads** (decision 63): a new path that reaches someone (a message,
+  a request, a comment, a post) checks `readinessFor` first, as `outreach.today`, `outreach.day.start` and
+  `outreach.helpful.next` do; a reply to someone who wrote first is never held. The tests' fixture gets a business
+  ready before those three (`getReady` in `outreach-fixture.ts`); one made with `{ ready: false }` isn't.
 - **Data version 3:** a playbook got a niche, its problem, its proof and something useful to send, empty on one saved
   before (the same `upgradePlaybookDetails`, and the worker's step 3). The five are optional in `PlaybookDetails`, and
   a save that leaves one out keeps what's saved (`keptV3` in `ops/playbooks.ts`), so a phone built before them never
