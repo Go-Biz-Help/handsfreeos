@@ -256,3 +256,22 @@ export function offerLineFrom(parts: MainOfferParts): string {
     .filter(Boolean)
     .join(' ');
 }
+
+/** What's written in a box of the offer, by its path (`who.work`, `line`); '' when nothing is. Lists aren't boxes. */
+export function partWords(parts: MainOfferParts, path: string): string {
+  if (path === 'line') return parts.line ?? '';
+  const [part, box] = path.split('.') as [string, string | undefined];
+  const group = (parts as Record<string, unknown>)[part];
+  if (!box || !group || typeof group !== 'object' || Array.isArray(group)) return '';
+  const value = (group as Record<string, unknown>)[box];
+  return typeof value === 'string' ? value : '';
+}
+
+/** The offer with one box changed, by its path; the rest as it was. */
+export function withPart(parts: MainOfferParts, path: string, words: string): MainOfferParts {
+  if (path === 'line') return { ...parts, line: words };
+  const [part, box] = path.split('.') as [keyof MainOfferParts, string | undefined];
+  const group = parts[part];
+  if (!box || !group || typeof group !== 'object' || Array.isArray(group)) return parts;
+  return { ...parts, [part]: { ...group, [box]: words } };
+}

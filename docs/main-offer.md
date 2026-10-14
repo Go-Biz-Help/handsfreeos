@@ -11,8 +11,8 @@ offer** on screen, everywhere.
 
 ## What's built
 
-Step 1 of the plan: the data, the commands and queries, and showing it only with an add-on that uses it. The builder's
-screens and the AI's routes are step 2.
+Steps 1 and 2 of the plan: the data, the commands and queries, showing it only with an add-on that uses it, the AI's
+help, and the screens: Settings → Main offer and the builder, from the boards in `design/main-offer`.
 
 | What                                   | Where                                                                                                                                                |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,7 +23,13 @@ screens and the AI's routes are step 2.
 | Shown only with an add-on that uses it | `CORE_FEATURES` and the manifest's `uses` (`addons/manifest.ts`); `coreFeatureOn`, `coreFeatureRunning` and `addonsUsing` (`addons/capabilities.ts`) |
 | The plain-writing rules                | `packages/core/src/writing.ts` (`PLAIN_WRITING`, `noDashes`), Social Outreach's before                                                               |
 | Database                               | `20261027004100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`                                                                        |
-| Tests                                  | `packages/core/test/main-offer.test.ts`                                                                                                              |
+| The AI's help: prompts and checks      | `packages/core/src/main-offer/assist.ts` (the niche finder, Improve and Write it for me, the score)                                                  |
+| The AI's routes                        | `apps/worker/src/main-offer/routes.ts` (`/v1/main-offer/niche`, `/assist`, `/score`); the scripted stand-in's `MAIN_OFFER_RULES`                     |
+| Examples by line of work               | `packages/core/src/main-offer/examples.ts`                                                                                                           |
+| What the screens say                   | `packages/core/src/main-offer/words.ts`                                                                                                              |
+| Settings → Main offer                  | `apps/web/src/app/app/w/[workspaceId]/settings/main-offer/`, `apps/web/src/components/main-offer/page.tsx`                                           |
+| The builder                            | `apps/web/src/app/app/w/[workspaceId]/main-offer/build/`, `apps/web/src/components/main-offer/builder.tsx`, `box.tsx`, `score.tsx`                   |
+| Tests                                  | `packages/core/test/main-offer.test.ts`, `main-offer-assist.test.ts`; `apps/worker/test/main-offer.test.ts`; `apps/web/e2e/main-offer.spec.ts`       |
 
 - **The parts** (`MainOfferParts`): the niche finder (the best customer ever and who looks like them), then who, outcome,
   timeframe, method, guarantee and price, each with the workbook's follow-ups; proof (real results, a line each, up to
@@ -47,6 +53,19 @@ screens and the AI's routes are step 2.
 ['main_offer']`, Social Outreach's today). Core's capability `sales.main_offer` is in `workspace.get`'s capabilities
   only while one runs, so the screens ask `can('sales.main_offer')`; core never names an add-on.
 
+- **The screens.** Settings → **Main offer** shows only while an add-on that uses it is on (the settings menu's
+  `feature`), to everyone in the business: the first-time card, the draft someone is working on (Open the draft, Throw
+  it away), the live version with its parts, scores and quick checks, and the versions. The builder
+  (`/main-offer/build`, `?step=` for one) opens over the app in the onboarding frame for `main_offer.manage`: the ten
+  steps listed beside it with what's been answered, examples to tap for the business's line of work (`industry`),
+  Improve or Write it for me under every box, and every move saving the draft. A draft opens where it is; with none,
+  changing a live offer starts from it, on Who. The score step scores, then offers Go live, or, under the bar, Change
+  the weakest part and Use it anyway with a reason.
+- **The AI's help** (`/v1/main-offer/*`, `main_offer` usage): the niche finder reads the best customer, or with none
+  suggests niches the business can reach; Improve rewrites what's in a box and Write it for me fills an empty one,
+  three to pick from (for the method, three sets of steps); the score reads the draft as it's kept, never what the
+  screen sends, and keeps it with the revision it read.
+
 ## Rules worth knowing before changing anything
 
 - **One main offer a business** (the owner's decision, 2026-10-14). Each Social Outreach playbook narrows its who to a
@@ -64,11 +83,14 @@ screens and the AI's routes are step 2.
   business reads it: the people reaching out say it.
 - **What the AI writes for a person follows `writing.ts`:** plain words a 10-year-old knows, short sentences, no long
   dash, and `noDashes` on whatever comes back. Social Outreach's `voice.ts` re-exports the same two.
+- **The AI never writes proof.** It tidies results the business typed (`main_offer_no_proof` with none), and its
+  prompts say to put `[brackets]` where a number or name it wasn't given would go.
+- **Examples are to model, never to copy,** and proof's examples are shown as words, not chips to tap: a result that
+  isn't the business's own is no proof.
 - **Not the promotions.** Nothing here reads or writes `app.offers`, and the promotions' commands stay `offer.*`.
 
 ## Not yet
 
-The builder's screens (Settings → Main offer, in the onboarding frame), the AI's three routes (niche finder, Improve
-and Write it for me, the score) with their examples by line of work, and the warning when a version hasn't had enough
-messages to judge are step 2. Social Outreach hearing `main_offer.published`, and everything it does with the offer,
-are steps 3 to 8.
+The warning when a version hasn't had enough messages to judge needs Social Outreach's counts by version, so it comes
+with step 6. Social Outreach hearing `main_offer.published`, and everything it does with the offer, are steps 3 to 8.
+The phone shows nothing of the main offer yet; its words are core's, ready for it.

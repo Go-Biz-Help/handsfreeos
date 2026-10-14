@@ -16,8 +16,9 @@ Where it comes from: the "20 Bookings Per Month" workbook (Agency Growth Partner
 Module 2 (Social Outbound), and the transcripts of the two videos that go with them. Modules 3 to 5 (cold email, sales
 calls, coaching) are out of scope; Module 4 is a fit for AI Sales Coach later.
 
-**Where it stands (2026-10-14):** step 1 is built on branch `claude/main-offer-plan` (docs/main-offer.md): the data,
-the commands and queries, and showing it only with an add-on that uses it. Current offers are **Promotions** on
+**Where it stands (2026-10-14):** steps 1 and 2 are built on branch `claude/main-offer-plan` (docs/main-offer.md): the data,
+the commands and queries, showing it only with an add-on that uses it, the AI's help, Settings → Main offer and the
+builder. Current offers are **Promotions** on
 screen. Its migration, `20261027004100_main_offer.sql`, isn't on the hosted database yet. Social Outreach is in
 `development`.
 
@@ -373,11 +374,9 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    events, the manifest's `uses` and `coreFeatureOn`, the commands' refusal, `PLAIN_WRITING` moved into core
    (`writing.ts`), `pnpm openapi`, and Current offers renamed **Promotions** on screen. Tests: refused with no add-on
    that uses it, publishing needs a score and clears the bar or says why, versions never change.
-2. **Core: the builder, on the web.** Settings → Main offer, the builder, the three AI routes, the examples by line of
-   work. Design boards first, in `design/`, reviewed before the screens are built. **Server side built** (the AI
-   routes in `apps/worker/src/main-offer/routes.ts`, the prompts and checks in `packages/core/src/main-offer/assist.ts`,
-   the examples in `examples.ts`). **The boards are in `design/main-offer`, waiting for Chris's review;** the screens
-   wait for them.
+2. **Core: the builder, on the web. Built.** Settings → Main offer, the builder, the three AI routes, the examples by
+   line of work, from the boards in `design/main-offer` (Chris approved them, 2026-10-14: "build it"). The warning
+   when a version is too new to judge moves to step 6, which brings the counts it needs.
 3. **Social Outreach: the playbook's niche.** Data version 3, the builder's new steps, the CRM demos template.
 4. **Social Outreach: getting ready.** `outreach.readiness`, the setup step, the Get ready card on Today, the web and
    the phone and the panel, `outreach_not_ready`, your numbers and their math.
