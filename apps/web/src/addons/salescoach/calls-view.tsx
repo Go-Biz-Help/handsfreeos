@@ -56,7 +56,12 @@ export function CallsList({
               {c.person?.name ?? W.calls.noCustomer}
             </div>
             <div className="truncate text-[12.5px] text-text-3">
-              {[reviews ? c.rep?.name : null, c.playbookName, relativeTime(c.startedAt)]
+              {[
+                W.calls.channels[c.channel ?? 'call'],
+                reviews ? c.rep?.name : null,
+                c.playbookName,
+                relativeTime(c.startedAt),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
             </div>
@@ -112,7 +117,12 @@ export function CallDetail({ workspaceId, call }: { workspaceId: string; call: C
             )}
           </div>
           <div className="text-[13px] text-text-3">
-            {[call.rep?.name, call.playbookName, relativeTime(call.startedAt)]
+            {[
+              W.calls.channels[call.channel ?? 'call'],
+              call.rep?.name,
+              call.playbookName,
+              relativeTime(call.startedAt),
+            ]
               .filter(Boolean)
               .join(' · ')}
           </div>

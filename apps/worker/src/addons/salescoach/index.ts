@@ -10,6 +10,7 @@ import type { AddonWorkerModule } from '../types';
 import { afterCall } from './after-call';
 import { playbookDraft } from './draft';
 import { AFTER_CALL_JOB, salescoachLiveCalls } from './live';
+import { conversationQuiet, QUIET_JOB } from './quiet';
 import { onCustomerWrote, SUGGEST_JOB, suggestReplies } from './suggest';
 
 export const salescoachAddonWorker: AddonWorkerModule = {
@@ -17,6 +18,11 @@ export const salescoachAddonWorker: AddonWorkerModule = {
   liveCalls: salescoachLiveCalls,
   // A customer wrote: replies to suggest, once the burst settles (./suggest.ts).
   subscribers: { 'message.received': onCustomerWrote },
-  jobs: { [AFTER_CALL_JOB]: afterCall, [SUGGEST_JOB]: suggestReplies },
+  // A customer wrote: replies to suggest, and a write-up once the conversation goes quiet (./quiet.ts).
+  jobs: {
+    [AFTER_CALL_JOB]: afterCall,
+    [SUGGEST_JOB]: suggestReplies,
+    [QUIET_JOB]: conversationQuiet,
+  },
   actions: { 'salescoach.playbook.draft': playbookDraft },
 };

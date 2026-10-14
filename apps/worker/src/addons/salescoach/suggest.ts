@@ -28,6 +28,7 @@ import { AiAskError, askStructured } from '../../ai/ask';
 import { scheduleAddonJob } from '../queue';
 import type { AddonJobHandler, AddonScopeContext, AddonSubscriber } from '../types';
 import { businessText } from './business';
+import { queueQuietCheck } from './quiet';
 
 export const SUGGEST_JOB = 'salescoach.suggest';
 
@@ -35,6 +36,8 @@ export const SUGGEST_JOB = 'salescoach.suggest';
 export const onCustomerWrote: AddonSubscriber = async (ctx) => {
   const conversationId = (ctx.event.payload as { conversationId?: unknown }).conversationId;
   if (typeof conversationId !== 'string') return;
+  // And its write-up once it goes quiet (./quiet.ts).
+  await queueQuietCheck(ctx, conversationId);
   await asWorker(ctx.db, ctx.scope, (tx) =>
     scheduleAddonJob(
       tx,

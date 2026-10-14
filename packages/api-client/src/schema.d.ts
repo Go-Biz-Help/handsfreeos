@@ -69795,8 +69795,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         call: {
-                            /** Format: uuid */
-                            callId: string;
+                            callId: string | null;
                             cards: {
                                 createdAt: string;
                                 heard: string;
@@ -69808,6 +69807,7 @@ export interface operations {
                                 say: string;
                                 title: string;
                             }[];
+                            channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             conversationId: string | null;
                             endedAt: string | null;
                             failure: string | null;
@@ -69897,8 +69897,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         calls: {
-                            /** Format: uuid */
-                            callId: string;
+                            callId: string | null;
+                            channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
+                            conversationId: string | null;
                             endedAt: string | null;
                             /** Format: uuid */
                             id: string;
@@ -69947,8 +69948,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         call: {
-                            /** Format: uuid */
-                            callId: string;
+                            callId: string | null;
                             cards: {
                                 createdAt: string;
                                 heard: string;

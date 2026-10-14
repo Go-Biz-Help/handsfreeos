@@ -522,3 +522,69 @@ describe('suggested replies', () => {
     });
   });
 });
+
+describe('a written conversation’s write-up', () => {
+  it('lands on the timeline and in the rep’s tasks once, and lists beside the calls', async () => {
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.conversations (workspace_id, channel, counterpart, person_id)
+          values (${ws}, 'sms', '+17135559911', ${personId}) returning id`,
+    );
+    const [m] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text)
+          values (${ws}, ${c!.id}, 'sms', 'outbound', 'sent', 'I’ll send the quote tomorrow.') returning id`,
+    );
+    const lines = [
+      { speaker: 'customer', text: 'How much for a new unit?', atMs: 0 },
+      { speaker: 'team', text: 'I’ll send the quote tomorrow.', atMs: 5000 },
+    ];
+    const result = checkedAfterCall(
+      {
+        summary: 'Mike wants a price for a new unit.',
+        notes: ['Wants a new unit'],
+        promises: [{ what: 'Send Mike the quote', due: null }],
+        followUp: 'Hi Mike, the quote is on its way.',
+        objections: [],
+        stepsCovered: [],
+        tips: [],
+      },
+      { steps: [], objections: [], points: [] },
+      lines as Any,
+    );
+    const input = {
+      conversationId: c!.id,
+      throughMessageId: m!.id,
+      channel: 'sms',
+      userId: rep.id,
+      lines,
+      result,
+      startedAt: new Date(Date.now() - 60_000).toISOString(),
+      endedAt: new Date().toISOString(),
+    };
+    const done = await worker('salescoach.conversation.finish', input);
+    expect(done.taskIds).toHaveLength(1);
+    // Once per stretch: a retry adds nothing.
+    expect(await worker('salescoach.conversation.finish', input)).toEqual({
+      coachedCallId: null,
+      taskIds: [],
+    });
+    const [line] = await rows<{ words: string }>(
+      admin(),
+      sql`select meta ->> 'words' as words from app.activities
+          where person_id = ${personId} and subtype = 'addon_line' order by created_at desc limit 1`,
+    );
+    expect(line!.words).toMatch(/conversation was coached and scored \d+ out of 100/);
+    const listed = (await as(rep, 'salescoach.call.list', {})).calls.find(
+      (x: { id: string }) => x.id === done.coachedCallId,
+    );
+    expect(listed).toMatchObject({
+      callId: null,
+      conversationId: c!.id,
+      channel: 'sms',
+      state: 'done',
+    });
+    const got = await as(rep, 'salescoach.call.get', { coachedCallId: done.coachedCallId });
+    expect(got.call.conversationId).toBe(c!.id);
+  });
+});

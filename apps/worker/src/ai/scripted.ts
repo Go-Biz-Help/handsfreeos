@@ -1933,7 +1933,10 @@ export const SALESCOACH_RULES: readonly ScriptRule[] = [
     when: /What should the rep see now\?$/,
     json: (message, context) => scriptedCoachCard(message, context),
   },
-  { when: /Write up this call\.$/, json: (message) => scriptedCoachWriteUp(message) },
+  {
+    when: /Write up this (?:call|conversation)\.$/,
+    json: (message) => scriptedCoachWriteUp(message),
+  },
   { when: /Write the playbook\.$/, json: (message) => scriptedCoachPlaybook(message) },
 ];
 

@@ -101,12 +101,14 @@ export const salescoachAddon = defineAddon({
       'salescoach.call.stopped',
       'salescoach.call.finished',
       'salescoach.suggestions.ready',
+      'salescoach.conversation.finished',
     ],
     // A customer wrote: replies to suggest (round two).
     consumes: ['message.received'],
   },
   // After a call: the notes, the follow-up, the tasks and the score. After a customer writes: replies to suggest.
-  jobs: ['salescoach.after_call', 'salescoach.suggest'],
+  // A written conversation that went quiet: its write-up.
+  jobs: ['salescoach.after_call', 'salescoach.suggest', 'salescoach.conversation_quiet'],
   // It hears the calls of people who may be coached.
   liveCalls: { permission: 'salescoach.use' },
   billing: { model: 'free' },

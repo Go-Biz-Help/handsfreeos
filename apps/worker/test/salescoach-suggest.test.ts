@@ -2,7 +2,7 @@
  * AI Sales Coach's suggested replies (round two, docs/salescoach.md), in the worker against the stand-in model: a
  * customer writes, one job a moment later suggests replies for their newest message (the playbook's answer first when
  * they worry about price), at most three; nothing while the AI teammate answers the conversation, nor once someone
- * has already replied.
+ * has already replied. And a written conversation's write-up once it goes quiet, for the person who answered.
  */
 import { randomUUID } from 'node:crypto';
 import { salescoachAddon } from '@hfos/core/addons/salescoach/manifest';
@@ -12,6 +12,7 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addonScope } from '../src/addons/context';
+import { QUIET_JOB, QUIET_MS } from '../src/addons/salescoach/quiet';
 import { onCustomerWrote, SUGGEST_JOB } from '../src/addons/salescoach/suggest';
 import type { EventRow } from '../src/handlers/types';
 import { processJobs } from '../src/jobs';
@@ -172,5 +173,84 @@ describe('suggested replies', () => {
     await answered.said('outbound', 'Yes, 10am works.');
     await customerWrote(answered.id);
     expect(await suggested(answered.id)).toBeUndefined();
+  });
+});
+
+describe('a written conversation going quiet', () => {
+  /** A stretch of messages ending `agoMs` ago; outbound ones sent by `by` (a person) or nobody (the AI teammate). */
+  async function stretch(agoMs: number, by: string | null): Promise<string> {
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.conversations (workspace_id, channel, counterpart)
+          values (${ws}, 'sms', ${`+1281555${String(Math.floor(Math.random() * 9000) + 1000)}`}) returning id`,
+    );
+    const end = Date.now() - agoMs;
+    const say = (direction: string, body: string, at: number, sentBy: string | null) =>
+      rows(
+        admin(),
+        sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, occurred_at, sent_by)
+            values (${ws}, ${c!.id}, 'sms', ${direction}::app.direction,
+                    ${direction === 'inbound' ? 'received' : 'sent'}::app.message_status, ${body},
+                    ${new Date(at).toISOString()}, ${sentBy})`,
+      );
+    await say('inbound', 'How much is a new unit? Sounds expensive.', end - 60_000, null);
+    await say('outbound', 'No problem. I’ll send the quote tomorrow.', end, by);
+    return c!.id;
+  }
+
+  /** Runs the conversation's quiet check now; its next run, when it waits for more quiet. */
+  async function check(conversationId: string): Promise<Date | null> {
+    await rows(
+      admin(),
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload, addon_id,
+                                          addon_generation, locked_at, locked_by)
+          select ${org}, ${ws}, ${QUIET_JOB}, ${`${QUIET_JOB}:${conversationId}`}, now(),
+                 ${JSON.stringify({ conversationId })}::jsonb, 'salescoach', i.generation, now(), ${WORKER_ID}
+          from app.addon_installations i where i.workspace_id = ${ws} and i.addon_id = 'salescoach'
+          on conflict do nothing`,
+    );
+    const done = await processJobs({
+      ...s,
+      jobs,
+      workerId: WORKER_ID,
+      batchSize: 50,
+      reservedOnly: true,
+    });
+    expect(done.failed + done.retried).toBe(0);
+    const [left] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs
+          where dedupe_key = ${`${QUIET_JOB}:${conversationId}`} and status = 'pending'`,
+    );
+    return left ? new Date(left.run_at) : null;
+  }
+
+  const writeUps = (conversationId: string) =>
+    rows<{ state: string; user_id: string; channel: string }>(
+      admin(),
+      sql`select state, user_id, channel from addon_salescoach.calls where conversation_id = ${conversationId}`,
+    );
+
+  it('is written up once nobody has written for a while, for the person who answered', async () => {
+    const quiet = await stretch(QUIET_MS + 60_000, owner.id);
+    expect(await check(quiet)).toBeNull();
+    expect(await writeUps(quiet)).toEqual([{ state: 'done', user_id: owner.id, channel: 'sms' }]);
+    const [task] = await rows<{ title: string }>(
+      admin(),
+      sql`select title from app.tasks where workspace_id = ${ws} and assignee_user_id = ${owner.id}
+            and title like 'Send the quote tomorrow%'`,
+    );
+    expect(task).toBeTruthy();
+  });
+
+  it('waits while it’s still going, and isn’t written up when only the AI teammate answered', async () => {
+    const going = await stretch(60_000, owner.id);
+    const next = await check(going);
+    expect(next!.getTime()).toBeGreaterThan(Date.now() + QUIET_MS - 5 * 60_000);
+    expect(await writeUps(going)).toEqual([]);
+
+    const ai = await stretch(QUIET_MS + 60_000, null);
+    expect(await check(ai)).toBeNull();
+    expect(await writeUps(ai)).toEqual([]);
   });
 });

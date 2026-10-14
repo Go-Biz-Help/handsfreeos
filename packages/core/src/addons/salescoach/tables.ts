@@ -53,9 +53,8 @@ export const coachedCalls = addonSalescoach.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: workspaceRef(),
-    callId: uuid('call_id')
-      .notNull()
-      .references(() => coreCalls.id, { onDelete: 'cascade' }),
+    /** Core's call, or null for a written conversation's write-up (20261027003800). */
+    callId: uuid('call_id').references(() => coreCalls.id, { onDelete: 'cascade' }),
     userId: userRef('user_id'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
     playbookId: uuid('playbook_id'),
@@ -65,6 +64,14 @@ export const coachedCalls = addonSalescoach.table(
     lines: jsonb('lines').notNull().$type<CallLine[]>().default([]),
     result: jsonb('result').$type<AfterCall>(),
     failure: text('failure'),
+    /** A written conversation's write-up: the conversation, its last message written up, and its channel. */
+    conversationId: uuid('conversation_id').references(() => conversations.id, {
+      onDelete: 'cascade',
+    }),
+    throughMessageId: uuid('through_message_id').references(() => messages.id, {
+      onDelete: 'set null',
+    }),
+    channel: text('channel'),
     startedAt: ts('started_at').notNull().defaultNow(),
     endedAt: ts('ended_at'),
     createdAt: ts('created_at').notNull().defaultNow(),

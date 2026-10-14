@@ -342,12 +342,12 @@ export const AFTER_LIMITS = {
 } as const;
 
 export const AFTER_CALL_SYSTEM = [
-  'You write up a sales call for a small business, for the person on the team who was on it.',
-  'Read the call under <call> and the business’s playbook under <playbook>. Write plainly and briefly, no jargon.',
+  'You write up a sales conversation for a small business, for the person on the team who had it: a phone call, or a written conversation by text, chat, Messenger, Instagram or email (<kind> says which).',
+  'Read what was said under <call> and the business’s playbook under <playbook>. Write plainly and briefly, no jargon.',
   'summary: two or three sentences: who they are, what they want, where it landed.',
   'notes: the facts worth keeping about the customer and what they need, one per line.',
   'promises: what the rep said they would do, with the date it’s due as YYYY-MM-DD when one was said (resolve "Friday" from <today>), else null. Only what the rep promised, never what the customer said.',
-  'followUp: a short, friendly text message the rep could send now, in their voice, that recaps and states the next step. No prices or promises that weren’t said on the call.',
+  'followUp: a short, friendly message the rep could send now, in their voice, that recaps and states the next step (after a written conversation that went quiet, a gentle nudge). No prices or promises that weren’t said.',
   'objections: each concern the customer raised, and whether the rep answered it well enough that the customer moved on.',
   'stepsCovered: the ids of the playbook’s script steps the rep did.',
   'tips: up to three short, kind, specific things the rep could do better next time.',
@@ -396,21 +396,31 @@ export const AfterCallAnswer = z.object({
 });
 export type AfterCallAnswer = z.infer<typeof AfterCallAnswer>;
 
+/** What's written up: a phone call, or a written conversation that went quiet. */
+export type WriteUpKind = 'call' | 'conversation';
+
 export function afterCallPrompt(input: {
   readonly playbook: string;
   readonly lines: readonly CallLine[];
   /** The business's date today, YYYY-MM-DD. */
   readonly today: string;
+  readonly kind?: WriteUpKind;
 }): string {
+  const kind = input.kind ?? 'call';
   return [
     `<today>${input.today}</today>`,
+    `<kind>${kind === 'call' ? 'a phone call' : 'a written conversation'}</kind>`,
     input.playbook,
     callText(input.lines),
-    AFTER_CALL_ASK,
+    AFTER_ASK[kind],
   ].join('\n\n');
 }
 /** The last line of every write-up ask. */
-export const AFTER_CALL_ASK = 'Write up this call.';
+export const AFTER_ASK: Readonly<Record<WriteUpKind, string>> = {
+  call: 'Write up this call.',
+  conversation: 'Write up this conversation.',
+};
+export const AFTER_CALL_ASK = AFTER_ASK.call;
 
 /** How a call went, worked out from what was said: never the model's number. */
 export const CallScore = z.object({
@@ -521,6 +531,29 @@ export function checkedAfterCall(
 }
 
 /** The line on the customer's timeline after a coached call. */
-export function timelineWords(a: Pick<AfterCall, 'score'>, rep: string | null): string {
-  return `${rep ? `${rep}’s` : 'A'} call was coached and scored ${a.score.total} out of 100`;
+export function timelineWords(
+  a: Pick<AfterCall, 'score'>,
+  rep: string | null,
+  kind: WriteUpKind = 'call',
+): string {
+  const what = kind === 'call' ? 'call' : 'conversation';
+  return `${rep ? `${rep}’s` : 'A'} ${what} was coached and scored ${a.score.total} out of 100`;
+}
+
+/** A written conversation's messages as the lines of a write-up: the business's side is the rep's. */
+export function linesOfMessages(
+  messages: readonly {
+    readonly direction: 'inbound' | 'outbound';
+    readonly text: string;
+    readonly at: Date;
+  }[],
+): CallLine[] {
+  const start = messages[0]?.at.getTime() ?? 0;
+  return messages
+    .filter((m) => m.text.trim())
+    .map((m) => ({
+      speaker: m.direction === 'inbound' ? ('customer' as const) : ('team' as const),
+      text: m.text.trim().slice(0, 4000),
+      atMs: Math.max(0, m.at.getTime() - start),
+    }));
 }

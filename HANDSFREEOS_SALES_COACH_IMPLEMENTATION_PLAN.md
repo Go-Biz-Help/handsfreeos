@@ -14,9 +14,9 @@ timeline, turns what the rep promised into tasks, and scores the call against th
 It was two planned add-ons, AI Sales Coach and Live Sales Assist (`salesassist`). They're one add-on now, built
 under the planned id `salescoach`.
 
-**Where it stands (2026-10-14):** rounds 0 and 1 are built, and round 2's suggested replies, in `development` (staff hand it to test businesses), with
-the differences from this plan noted under "What changed while building". `docs/salescoach.md` is the guide for working
-on it. Round 2's write-up of a quiet conversation, and rounds 3 and 4, are next.
+**Where it stands (2026-10-14):** rounds 0, 1 and 2 are built, in `development` (staff hand it to test businesses),
+with the differences from this plan noted under "What changed while building". `docs/salescoach.md` is the guide for
+working on it. Rounds 3 (Zoom) and 4 are next.
 
 ## Decisions (Chris, 2026-10-14)
 

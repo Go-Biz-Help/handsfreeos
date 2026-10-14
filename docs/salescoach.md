@@ -6,15 +6,16 @@ the facts the customer just asked about. After the call it writes the notes, a f
 the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
-**Where it stands (2026-10-14):** round 0 (core's live listening), round 1 (phone calls) and round 2's suggested
-replies in written conversations are built, in `development`: staff hand it to test businesses. Round 2's write-up of a
-conversation once it goes quiet, Zoom (round 3) and learning from wins (round 4) are next.
+**Where it stands (2026-10-14):** rounds 0 to 2 are built, in `development` (staff hand it to test businesses):
+core's live listening, phone calls, and written conversations (suggested replies, and a write-up once a conversation
+goes quiet). Zoom (round 3) and learning from wins (round 4) are next.
 
 ## Where things are
 
 | What                                      | Where                                                                                                                                                 |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                    |
+| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                           |
 | Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`               |
 | What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                        |
 | Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                            |
@@ -72,6 +73,21 @@ conversation once it goes quiet, Zoom (round 3) and learning from wins (round 4)
    web). A click puts the words in the box to edit; nothing is sent from here. `salescoach.suggestions` stops
    answering them once anyone writes after the customer's message.
 
+## A written conversation's write-up
+
+1. **Queued when a customer writes**, beside the suggestions: one `salescoach.conversation_quiet` job per conversation,
+   a quiet spell later (`QUIET_MS`, three hours).
+2. **Still going?** The job reads what was said since the conversation's last write-up. If anyone wrote within the
+   quiet spell, it runs again three hours after the newest message.
+3. **Whose it is.** Only when someone on the team took part (a message with a person as its sender; the AI
+   teammate's have none), and that person (the latest to write) holds `salescoach.use`. Never a person's own mail, nor
+   what isn't in the Inbox.
+4. **The write-up** is a call's (`afterCallPrompt` with `kind: 'conversation'`): the follow-up is a gentle nudge, and
+   the score is worked out the same way. `salescoach.conversation.finish` keeps it as a coached record of the
+   conversation (`calls.conversation_id`, once per stretch, ending at `through_message_id`), puts the summary and notes
+   on the customer's timeline and makes a task for the rep for each promise. The Coached tab lists it beside the calls,
+   with its channel.
+
 ## Rules worth knowing before changing anything
 
 - **The coach says only what's in the playbook and the knowledge base.** No prices, promises or facts of its own:
@@ -96,7 +112,6 @@ conversation once it goes quiet, Zoom (round 3) and learning from wins (round 4)
 
 - **Hanging up the stream when the coach is stopped.** A stopped call stops asking the AI, but the worker still
   hears it to the end (and it's billed as live speech) until core can end one add-on's listening mid-call.
-- **A written conversation's write-up** (round 2's second half): the notes, tasks and score once it goes quiet.
 - **Suggested replies in the phone app's message box.** They're on the web (desktop and phone-sized) for now.
 - **Zoom** (round 3): a person's own add-on connection, one Zoom webhook address, the in-meeting app.
 - **Learning from wins, trends, Spanish** (round 4).

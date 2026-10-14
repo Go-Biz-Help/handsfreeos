@@ -10,7 +10,7 @@ export const SALESCOACH_WORDS = {
   title: 'AI Sales Coach',
   pageAbout:
     'While you’re on a call, the coach listens and shows you what to say next from your playbook. After it, you get notes, a follow-up and a score.',
-  tabs: { live: 'Live call', calls: 'Coached calls', playbooks: 'Playbooks' } as Record<
+  tabs: { live: 'Live call', calls: 'Coached', playbooks: 'Playbooks' } as Record<
     SalescoachView,
     string
   >,
@@ -38,7 +38,17 @@ export const SALESCOACH_WORDS = {
     question: 'Ask this',
   } as Record<CardKind, string>,
   calls: {
-    none: 'No coached calls yet. Once someone on the team who’s coached takes a call, it shows here.',
+    none: 'Nothing coached yet. Calls show here once someone on the team who’s coached takes one, and texts, chats and emails once a conversation they answered goes quiet.',
+    /** Where it happened: a call, or a written conversation's channel. */
+    channels: {
+      call: 'Call',
+      sms: 'Texts',
+      email: 'Email',
+      chat: 'Website chat',
+      portal: 'Portal',
+      messenger: 'Messenger',
+      instagram: 'Instagram',
+    } as Record<string, string>,
     score: 'Score',
     summary: 'Summary',
     notes: 'Notes',

@@ -17,8 +17,16 @@ import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
+import type { CommandContext } from '../../../kernel/types';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
-import { AfterCall, CallLine, CARD_KINDS, KEPT_LINES, timelineWords } from '../coach';
+import {
+  AfterCall,
+  CallLine,
+  CARD_KINDS,
+  KEPT_LINES,
+  timelineWords,
+  type WriteUpKind,
+} from '../coach';
 import { salescoachAddon } from '../manifest';
 import { PlaybookDetails } from '../playbooks';
 import { cards, coachedCalls, playbooks } from '../tables';
@@ -44,7 +52,11 @@ export type CoachCard = z.infer<typeof Card>;
 
 const CallSummary = z.object({
   id: uuid,
-  callId: uuid,
+  /** Core's call, or null for a written conversation's write-up. */
+  callId: uuid.nullable(),
+  /** The written conversation it writes up, and its channel; null for a call. */
+  conversationId: uuid.nullable(),
+  channel: z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']).nullable(),
   state: z.enum(COACHED_STATES),
   rep: z.object({ id: uuid, name: z.string() }).nullable(),
   person: z.object({ id: uuid, name: z.string() }).nullable(),
@@ -89,6 +101,8 @@ async function summaries(tx: Tx, found: readonly Row[]): Promise<CoachedCallSumm
     return {
       id: r.id,
       callId: r.callId,
+      conversationId: r.conversationId,
+      channel: (r.channel as CoachedCallSummary['channel']) ?? null,
       state: r.state,
       rep: rep ? { id: rep.id, name: rep.name?.trim() || 'Someone on the team' } : null,
       person: person ? { id: person.id, name: fullName(person.first, person.last) } : null,
@@ -268,6 +282,50 @@ export const callEnd = defineAddonCommand(salescoachAddon, {
   },
 });
 
+/**
+ * A write-up's place in core: its summary and notes on the customer's timeline, and a task for the rep for each thing
+ * they promised, about the customer when it knew them. The task ids.
+ */
+async function landWriteUp(
+  ctx: CommandContext,
+  c: Row,
+  result: AfterCall,
+  eventId: string,
+  kind: WriteUpKind,
+): Promise<string[]> {
+  const taskIds: string[] = [];
+  if (c.personId) {
+    const [rep] = c.userId
+      ? await ctx.tx.select({ name: users.fullName }).from(users).where(eq(users.id, c.userId))
+      : [];
+    const first = rep?.name?.trim().split(/\s+/)[0] ?? null;
+    const body = [
+      result.summary,
+      ...(result.notes.length ? ['', ...result.notes.map((n) => `• ${n}`)] : []),
+    ].join('\n');
+    await addonTimelineLine(ctx, salescoachAddon, {
+      personId: c.personId,
+      words: timelineWords(result, first, kind),
+      body,
+      eventId,
+    });
+  }
+  for (const p of result.promises) {
+    const made = await executeCommandWithin(ctx, taskCreate, {
+      workspaceId: c.workspaceId,
+      title: p.what.slice(0, 200),
+      notes:
+        kind === 'call' ? 'Promised on a coached call.' : 'Promised in a coached conversation.',
+      dueAt: p.due ? `${p.due}T12:00:00.000Z` : null,
+      allDay: true,
+      assigneeUserId: c.userId,
+      personId: c.personId,
+    });
+    taskIds.push(made.output.taskId);
+  }
+  return taskIds;
+}
+
 export const callFinish = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.call.finish',
   description:
@@ -322,37 +380,80 @@ export const callFinish = defineAddonCommand(salescoachAddon, {
         promises: result.promises.length,
       },
     });
-    const taskIds: string[] = [];
-    if (c.personId) {
-      const [rep] = c.userId
-        ? await ctx.tx.select({ name: users.fullName }).from(users).where(eq(users.id, c.userId))
-        : [];
-      const first = rep?.name?.trim().split(/\s+/)[0] ?? null;
-      const body = [
-        result.summary,
-        ...(result.notes.length ? ['', ...result.notes.map((n) => `• ${n}`)] : []),
-      ].join('\n');
-      await addonTimelineLine(ctx, salescoachAddon, {
-        personId: c.personId,
-        words: timelineWords(result, first),
-        body,
-        eventId,
-      });
-    }
-    // What the rep said they'd do, as their tasks, about the customer when the call knew them.
-    for (const p of result.promises) {
-      const made = await executeCommandWithin(ctx, taskCreate, {
-        workspaceId: c.workspaceId,
-        title: p.what.slice(0, 200),
-        notes: 'Promised on a coached call.',
-        dueAt: p.due ? `${p.due}T12:00:00.000Z` : null,
-        allDay: true,
-        assigneeUserId: c.userId,
-        personId: c.personId,
-      });
-      taskIds.push(made.output.taskId);
-    }
+    const taskIds = await landWriteUp(ctx, c, result, eventId, 'call');
     return { state: 'done' as const, taskIds };
+  },
+});
+
+export const conversationFinish = defineAddonCommand(salescoachAddon, {
+  name: 'salescoach.conversation.finish',
+  description:
+    'Worker: the write-up of a written conversation that went quiet (summary, notes, promises, follow-up, objections, score), through its newest message. The notes go on the customer’s timeline and each promise becomes a task for the rep. Once per stretch.',
+  risk: 1,
+  input: z.object({
+    workspaceId: uuid,
+    conversationId: uuid,
+    throughMessageId: uuid,
+    channel: z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']),
+    userId: uuid,
+    lines: z.array(CallLine).max(KEPT_LINES),
+    result: AfterCall,
+    startedAt: z.iso.datetime(),
+    endedAt: z.iso.datetime(),
+  }),
+  output: z.object({ coachedCallId: uuid.nullable(), taskIds: z.array(uuid) }),
+  permission: 'salescoach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['salescoach.conversation.finished', 'task.created'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [conv] = await rows<{ person_id: string | null }>(
+      ctx.tx,
+      dbSql`select person_id from app.conversations where id = ${input.conversationId} and workspace_id = ${ws}`,
+    );
+    if (!conv)
+      throw HfosError.notFound('That conversation isn’t there anymore, so it can’t be written up.');
+    const [pb] = await ctx.tx
+      .select({ id: playbooks.id, name: playbooks.name })
+      .from(playbooks)
+      .where(and(eq(playbooks.workspaceId, ws), isNull(playbooks.archivedAt)))
+      .orderBy(desc(playbooks.isDefault), playbooks.createdAt)
+      .limit(1);
+    const [made] = await ctx.tx
+      .insert(coachedCalls)
+      .values({
+        workspaceId: ws,
+        conversationId: input.conversationId,
+        throughMessageId: input.throughMessageId,
+        channel: input.channel,
+        userId: input.userId,
+        personId: conv.person_id,
+        playbookId: pb?.id ?? null,
+        playbookName: pb?.name ?? null,
+        state: 'done',
+        lines: input.lines,
+        result: input.result,
+        startedAt: new Date(input.startedAt),
+        endedAt: new Date(input.endedAt),
+      })
+      .onConflictDoNothing()
+      .returning();
+    // Written up already (a retry): nothing twice.
+    if (!made) return { coachedCallId: null, taskIds: [] as string[] };
+    const eventId = await ctx.emit({
+      type: 'salescoach.conversation.finished',
+      entityType: 'salescoach_call',
+      entityId: made.id,
+      payload: {
+        conversationId: input.conversationId,
+        userId: input.userId,
+        score: input.result.score.total,
+        promises: input.result.promises.length,
+      },
+    });
+    const taskIds = await landWriteUp(ctx, made, input.result, eventId, 'conversation');
+    return { coachedCallId: made.id, taskIds };
   },
 });
 
@@ -433,7 +534,7 @@ const LiveOutput = z.object({
   call: z
     .object({
       id: uuid,
-      callId: uuid,
+      callId: uuid.nullable(),
       state: z.enum(COACHED_STATES),
       person: z.object({ id: uuid, name: z.string() }).nullable(),
       playbook: z.object({ name: z.string(), details: PlaybookDetails }).nullable(),
@@ -545,7 +646,6 @@ export const callGet = defineAddonQuery(salescoachAddon, {
       result: AfterCall.nullable(),
       failure: z.string().nullable(),
       cards: z.array(Card),
-      conversationId: uuid.nullable(),
     }),
   }),
   permission: 'salescoach.use',
@@ -564,10 +664,13 @@ export const callGet = defineAddonQuery(salescoachAddon, {
       .from(cards)
       .where(eq(cards.coachedCallId, c.id))
       .orderBy(cards.createdAt);
-    const [core] = await rows<{ conversation_id: string | null }>(
-      ctx.tx,
-      dbSql`select conversation_id from app.calls where id = ${c.callId}`,
-    );
+    // A call's conversation is core's call's; a written conversation's write-up names its own.
+    const [core] = c.callId
+      ? await rows<{ conversation_id: string | null }>(
+          ctx.tx,
+          dbSql`select conversation_id from app.calls where id = ${c.callId}`,
+        )
+      : [{ conversation_id: c.conversationId }];
     return {
       call: {
         ...summary!,
@@ -586,6 +689,7 @@ export const callCommands = [
   cardAdd,
   callEnd,
   callFinish,
+  conversationFinish,
   cardDismiss,
   callStop,
 ] as const;
