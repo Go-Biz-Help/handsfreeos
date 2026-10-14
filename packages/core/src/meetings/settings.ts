@@ -8,6 +8,9 @@ export const MEETING_SETTINGS_PROBLEMS = [
   'zoom_basic_plan',
   'zoom_cloud_recording_off',
   'zoom_transcript_off',
+  // Google Meet (step 7): HandsFreeOS may not read Meet transcripts yet, or the call had none.
+  'meet_not_allowed',
+  'meet_transcript_off',
 ] as const;
 export type MeetingSettingsProblem = (typeof MEETING_SETTINGS_PROBLEMS)[number];
 
@@ -43,6 +46,14 @@ export const MEETING_SETTINGS_WORDS: Record<
   zoom_cloud_recording_off: {
     title: 'Cloud recording is off in your Zoom account.',
     fix: 'Turn on Cloud recording in Zoom: Settings → Recording. If you can’t switch it on, your Zoom admin has locked it; ask them to turn it on.',
+  },
+  meet_not_allowed: {
+    title: 'HandsFreeOS isn’t allowed to read your Google Meet transcripts yet.',
+    fix: 'Press Allow Meet transcripts on your Google calendar in Settings → My calendar, and tick every box Google asks about.',
+  },
+  meet_transcript_off: {
+    title: 'The Meet call had no transcript.',
+    fix: 'Start one in the call: Activities → Transcripts → Start transcription, or ask your Google Workspace admin to turn on automatic transcripts. Personal Gmail accounts can’t make Meet transcripts.',
   },
   zoom_transcript_off: {
     title: 'Audio transcripts are off in your Zoom account.',

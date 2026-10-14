@@ -284,6 +284,17 @@ portal and everyone else's calendar event show it. It should need no new scope (
 on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
 someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
 
+### Meet transcripts
+
+Meet sends no webhook, so HandsFreeOS asks for transcripts. A person turns it on with **Allow Meet transcripts** on
+their Google Calendar card (Settings → My calendar), which asks Google again for
+`https://www.googleapis.com/auth/meetings.space.readonly`. Add that scope to the Google Cloud app's consent screen
+(Data access) first; it's a restricted-style scope, so Google may ask to verify the app again before people outside
+the test users can grant it. With the Meet place set to **Record and transcribe**, the worker looks for the call's
+transcript (by its meeting code) 15 minutes after it ends and every 20 minutes for 4 hours, then attaches it and the
+AI pass runs as for Zoom. Meet can't turn transcription on by itself: the host presses **Transcripts** in the call,
+or turns on automatic transcripts in Google Workspace. Meet transcripts need a Workspace plan that has them.
+
 ## Zoom
 
 **Settings** → **My calendar** → **Video meetings** → **Connect Zoom** links a person's own Zoom account. A

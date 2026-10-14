@@ -547,7 +547,8 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
       label: LOCATION_LABEL[o.kind] ?? o.kind,
       address: o.kind === 'business' ? o.address : null,
       // Said before booking: the call is recorded and transcribed (Zoom with Record and transcribe on).
-      recorded: o.kind === 'virtual' && o.video === 'zoom' && o.record,
+      recorded:
+        o.kind === 'virtual' && (o.video === 'zoom' || o.video === 'google_meet') && o.record,
     })),
     customerChoosesLocation: config.locations.customerChooses,
     intake: config.intake.questions,

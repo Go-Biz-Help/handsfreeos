@@ -598,7 +598,7 @@ export function locationFor(
     record:
       k === 'virtual' &&
       !given?.meetingUrl &&
-      (given?.video ?? option?.video) === 'zoom' &&
+      ['zoom', 'google_meet'].includes(given?.video ?? option?.video ?? '') &&
       (given?.record ?? option?.record ?? false),
   };
 }

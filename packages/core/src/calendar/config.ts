@@ -169,8 +169,9 @@ const Location = z.object({
    */
   video: VideoProvider.default('none'),
   /**
-   * Zoom only: record each call to the cloud and keep its transcript on the appointment. Customers are told when
-   * they book, and in their confirmation.
+   * Zoom or Google Meet: record each call and keep its transcript on the appointment. Zoom records on its own;
+   * Meet needs the host to turn transcripts on (or Workspace to do it). Customers are told when they book, and in
+   * their confirmation.
    */
   record: z.boolean().default(false),
 });

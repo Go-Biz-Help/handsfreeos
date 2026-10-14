@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 to 6 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 7 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -43,6 +43,13 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   dismiss) and listed by `call_suggestion.list`. Smaller than §9: no record changes (a deal's stage, a next
 >   appointment) are suggested yet, and suggestions use their own approve buttons on the appointment rather than
 >   the AI teammate's approvals inbox. `activity.log` now also takes the system actor, for the summary note.
+> - **Step 7, Google Meet transcripts.** Opt-in per Google connection: "Allow Meet transcripts" on the Google
+>   Calendar card asks again with `meetings.space.readonly` (`include_granted_scopes`), kept as
+>   `calendar_connections.meet_transcripts` (20261027004100, which also lets `appointment_transcripts.provider` be
+>   `google_meet`). "Record and transcribe" works on the Meet place too. Meet sends no webhook, so
+>   `appointment.meet_transcript_poll` looks 15 minutes after the end and every 20 minutes for 4 hours; the
+>   transcript then goes through the same attach and AI pass. Meet can't start transcription for the host, so the
+>   watch email says to turn it on in the call (`meet_transcript_off`, or `meet_not_allowed` without the permission).
 
 ---
 
