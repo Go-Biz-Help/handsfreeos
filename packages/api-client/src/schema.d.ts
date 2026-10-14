@@ -35412,6 +35412,7 @@ export interface operations {
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
                             link: string | null;
+                            niche?: string | null;
                             offer: string | null;
                             /** @default [] */
                             openerStyles: string[];
@@ -35422,6 +35423,8 @@ export interface operations {
                                 messageAfterDays: number;
                             };
                             platforms: "facebook"[];
+                            problem?: string | null;
+                            proof?: string[];
                             questions: {
                                 answers: {
                                     label: string;
@@ -35437,6 +35440,8 @@ export interface operations {
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                             tags: string[];
                             tone: string | null;
+                            usefulLink?: string | null;
+                            usefulWhat?: string | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -35468,6 +35473,7 @@ export interface operations {
                         goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                         groupWords: string[];
                         link: string | null;
+                        niche?: string | null;
                         offer: string | null;
                         /** @default [] */
                         openerStyles?: string[];
@@ -35478,6 +35484,8 @@ export interface operations {
                             messageAfterDays: number;
                         };
                         platforms: "facebook"[];
+                        problem?: string | null;
+                        proof?: string[];
                         questions: {
                             answers: {
                                 label: string;
@@ -35493,6 +35501,8 @@ export interface operations {
                         steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                         tags: string[];
                         tone: string | null;
+                        usefulLink?: string | null;
+                        usefulWhat?: string | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -35523,6 +35533,7 @@ export interface operations {
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
                             link: string | null;
+                            niche?: string | null;
                             offer: string | null;
                             /** @default [] */
                             openerStyles: string[];
@@ -35533,6 +35544,8 @@ export interface operations {
                                 messageAfterDays: number;
                             };
                             platforms: "facebook"[];
+                            problem?: string | null;
+                            proof?: string[];
                             questions: {
                                 answers: {
                                     label: string;
@@ -35548,6 +35561,8 @@ export interface operations {
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                             tags: string[];
                             tone: string | null;
+                            usefulLink?: string | null;
+                            usefulWhat?: string | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -64063,6 +64078,7 @@ export interface operations {
                                 goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                                 groupWords: string[];
                                 link: string | null;
+                                niche?: string | null;
                                 offer: string | null;
                                 /** @default [] */
                                 openerStyles: string[];
@@ -64073,6 +64089,8 @@ export interface operations {
                                     messageAfterDays: number;
                                 };
                                 platforms: "facebook"[];
+                                problem?: string | null;
+                                proof?: string[];
                                 questions: {
                                     answers: {
                                         label: string;
@@ -64088,6 +64106,8 @@ export interface operations {
                                 steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                                 tags: string[];
                                 tone: string | null;
+                                usefulLink?: string | null;
+                                usefulWhat?: string | null;
                             };
                             /** Format: uuid */
                             id: string;

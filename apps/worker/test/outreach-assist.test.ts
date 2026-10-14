@@ -1,9 +1,11 @@
 /**
  * Social Outreach's AI help in the playbook builder (`outreach.playbook.assist`), through the worker's actions route
  * against the stand-in model: words to pick from, lines to add that aren't there already, and questions with only
- * the playbook's own tags. Owners and admins only, as they write the playbooks.
+ * the playbook's own tags. Owners and admins only, as they write the playbooks. And whether a playbook's niche fits
+ * the business's main offer (`outreach.playbook.niche_fit`): nothing to check against until one is live.
  */
-import { createTokenVerifier } from '@hfos/core/server';
+import { createTokenVerifier, MainOfferParts } from '@hfos/core/server';
+import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import {
   closeTestDbs,
@@ -29,6 +31,14 @@ const assist = async (u: TestUser, input: Record<string, unknown>) =>
   app.inject({
     method: 'POST',
     url: '/v1/addons/outreach/actions/outreach.playbook.assist',
+    headers: { authorization: `Bearer ${await signInTestUser(u)}` },
+    payload: { workspaceId: ws, input },
+  });
+
+const nicheFit = async (u: TestUser, input: Record<string, unknown>) =>
+  app.inject({
+    method: 'POST',
+    url: '/v1/addons/outreach/actions/outreach.playbook.niche_fit',
     headers: { authorization: `Bearer ${await signInTestUser(u)}` },
     payload: { workspaceId: ws, input },
   });
@@ -105,5 +115,48 @@ describe('AI help on a playbook', () => {
   it('is for owners and admins, who write the playbooks', async () => {
     const res = await assist(member, { part: 'signs', mode: 'suggest', draft });
     expect(res.statusCode).toBe(403);
+  });
+});
+
+describe('whether a niche fits the main offer', () => {
+  it('has nothing to check against until the main offer is live, then says inside or a second offer', async () => {
+    const roofers = {
+      niche: 'Roofers with 2 to 3 crews',
+      problem: 'No steady jobs between storms',
+    };
+    const none = await nicheFit(owner, roofers);
+    expect(none.statusCode).toBe(200);
+    expect(none.json()).toEqual({ fit: 'no_offer' });
+
+    const parts = MainOfferParts.parse({
+      who: { work: 'Roofers', slice: 'with 2 to 3 crews', problem: 'No steady jobs' },
+      line: 'We help roofers with 2 to 3 crews get 10 to 20 booked inspections a month.',
+      inAFewWords: {
+        outcome: '10 to 20 booked inspections',
+        guarantee: 'you only pay for results',
+      },
+    });
+    await rows(
+      testDbs().admin.db,
+      sql`with v as (
+            insert into app.main_offer_versions (workspace_id, version, parts, line, score)
+            values (${ws}, 1, ${JSON.stringify(parts)}::jsonb, ${parts.line}, '{}'::jsonb) returning version)
+          insert into app.main_offers (workspace_id, live_version) select ${ws}, version from v`,
+    );
+
+    expect((await nicheFit(owner, roofers)).json()).toEqual({
+      fit: 'inside',
+      why: 'roofers is in the offer’s who.',
+    });
+    // The model's long dash never reaches the screen.
+    expect((await nicheFit(owner, { niche: 'Dentists in Ohio' })).json()).toEqual({
+      fit: 'second_offer',
+      why: 'They’d need another outcome, and price.',
+    });
+  });
+
+  it('is for owners and admins, and needs a niche', async () => {
+    expect((await nicheFit(member, { niche: 'Roofers' })).statusCode).toBe(403);
+    expect((await nicheFit(owner, { niche: ' ' })).statusCode).toBe(400);
   });
 });

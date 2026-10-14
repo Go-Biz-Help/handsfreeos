@@ -20,8 +20,8 @@ export const outreachAddon = defineAddon({
   version: '0.10.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
-  // has a pace.
-  dataVersion: 2,
+  // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
+  dataVersion: 3,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.

@@ -174,6 +174,21 @@ describe('a playbook’s conversation', () => {
     expect(upgradePlaybookDetails(crm)).toBe(crm);
   });
 
+  it('reads one saved before it had a niche, a problem, proof and something useful, with them empty', () => {
+    const { niche, problem, proof, usefulWhat, usefulLink, ...before } =
+      PLAYBOOK_TEMPLATES.crm_demos.details;
+    void [niche, problem, proof, usefulWhat, usefulLink];
+    const now = PlaybookDetails.parse(upgradePlaybookDetails(before));
+    expect(now).toMatchObject({
+      niche: null,
+      problem: null,
+      proof: [],
+      usefulWhat: null,
+      usefulLink: null,
+    });
+    expect(now.questions).toEqual(PLAYBOOK_TEMPLATES.crm_demos.details.questions);
+  });
+
   it('renames questions q1, q2… in order on saving, with every answer leading where it did', () => {
     const out = renumberQuestions([
       ask('q4', 'Do you use a CRM?', [{ label: 'No', tag: null, next: 'q7' }]),

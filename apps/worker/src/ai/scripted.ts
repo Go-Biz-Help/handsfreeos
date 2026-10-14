@@ -1795,7 +1795,22 @@ function scriptedLikePick(message: string) {
     : { pick: null, about: null, why: null };
 }
 
+/**
+ * Whether a playbook's niche fits the main offer: inside when the niche's first word is in the offer's who, else
+ * really a second offer.
+ */
+function scriptedNicheFit(message: string) {
+  const offer = unquote(quotedBlock(message, 'main_offer') ?? '');
+  const who = /^Who it’s for: (.*)$/m.exec(offer)?.[1]?.toLowerCase() ?? '';
+  const niche = unquote(quotedBlock(message, 'niche') ?? '');
+  const first = /^Niche: (\S+)/m.exec(niche)?.[1]?.toLowerCase() ?? '';
+  return first && who.includes(first)
+    ? { fit: 'inside', why: `${first} is in the offer’s who.` }
+    : { fit: 'second_offer', why: 'They’d need another outcome — and price.' };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
   {
     when: /Which post should they like\? Give its number, or none\.$/,
     json: (message) => scriptedLikePick(message),
