@@ -63,6 +63,7 @@ export const OUTREACH_WORDS = {
     pipeline: 'Pipeline',
     groups: 'Groups',
     chats: 'Chats',
+    never_contact: 'Never contact',
     playbooks: 'Playbooks',
     settings: 'Settings',
     activity: 'Activity',
@@ -235,7 +236,39 @@ export const OUTREACH_WORDS = {
     settings: 'Your settings, playbooks and computer',
   },
   /** People's three lists. */
-  peopleParts: { pipeline: 'Pipeline', friends: 'Friends', chats: 'Chats' },
+  peopleParts: {
+    pipeline: 'Pipeline',
+    friends: 'Friends',
+    chats: 'Chats',
+    never_contact: 'Never contact',
+  },
+  /** The business's Never contact list, on the phone's People tab as on the web's Friends tab. */
+  neverContactList: {
+    about:
+      'Nobody here sends anyone on this list a friend request, like, comment or message, not even a reply, and their friend requests are never confirmed. Turn the switch off to take someone off.',
+    empty: {
+      title: 'Nobody on the Never contact list',
+      body: 'Put someone on it from a chat’s Never contact switch, or from the menu beside their name on Today.',
+    },
+    added: (by: string | null, at: string | null) =>
+      [
+        by ? `Added by ${by}` : 'Added',
+        at
+          ? new Date(at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    noMatch: {
+      title: 'Nobody by that name on the list',
+      body: 'Check the spelling and look again.',
+    },
+    openFacebook: 'Facebook',
+  },
   /** The Settings tab's parts. */
   settingsParts: {
     mine: 'My settings',

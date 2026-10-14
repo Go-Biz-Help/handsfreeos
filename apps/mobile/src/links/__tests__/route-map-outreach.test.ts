@@ -22,6 +22,10 @@ describe('Social Outreach’s links', () => {
       kind: 'screen',
       href: `/app/w/${WS}/a/outreach`,
     });
+    expect(routeFor(`/app/w/${WS}/a/outreach?view=never_contact`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/outreach?view=never_contact`,
+    });
   });
 
   it('open a playbook on the phone', () => {
