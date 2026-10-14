@@ -24,6 +24,7 @@ import {
   type WorkerServices,
 } from '../services';
 import { MeetingAuthError, MeetingError, type MeetingProvider, type TokenSet } from './provider';
+import { queueTranscriptWatch } from './transcripts';
 
 type Connection = typeof meetingConnections.$inferSelect;
 
@@ -169,6 +170,11 @@ export const appointmentMeetingSync: JobHandler = async (ctx) => {
       workerMeta(),
     );
 
+  // A recorded call gets its check two hours after it's due to end, moved along with it.
+  const watchTranscript = async () => {
+    if (place.record)
+      await asWorker(ctx.db, scope, (tx) => queueTranscriptWatch(tx, scope, a.id, a.endsAt));
+  };
   const provider = ctx.calendars.meetings.zoom;
   const usable = !!conn && (conn.status === 'active' || conn.status === 'error') && !!conn.tokenEnc;
   const upcoming = a.status === 'scheduled' && a.binItemId === null;
@@ -213,6 +219,7 @@ export const appointmentMeetingSync: JobHandler = async (ctx) => {
       const moved = await call((t) => provider.updateMeeting(t, place.meetingId!, m));
       if (moved) {
         await save({ meetingFor: want, meetingError: null });
+        await watchTranscript();
         return;
       }
     }
@@ -223,6 +230,7 @@ export const appointmentMeetingSync: JobHandler = async (ctx) => {
       meetingFor: want,
       meetingError: null,
     });
+    await watchTranscript();
   } catch (e) {
     if (e instanceof MeetingAuthError && conn) {
       await executeCommand(

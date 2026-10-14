@@ -305,6 +305,15 @@ it connects, when its person presses **Check again**, and once a day. It stores 
 locked a switch, so each fix says to ask the Zoom admin if it can't be turned on. These checks need the app's
 `user:read:settings` scope.
 
+**Record and transcribe** (a checkbox under **Make a Zoom link**) makes each meeting record to the cloud on its
+own (`auto_recording: cloud`). The booking page and the customer's confirmation say "This call is recorded and
+transcribed." When Zoom finishes a transcript it calls `/webhooks/zoom`; the worker checks the signature
+(`x-zm-signature`, HMAC-SHA256 of `v0:<timestamp>:<body>` with `ZOOM_WEBHOOK_SECRET`, refusing anything older than
+five minutes), finds the appointment by the meeting's id, and `appointment.transcript_fetch` downloads the file with
+the host's token (only from `zoom.us`) and keeps it as plain text in `app.appointment_transcripts`, shown on the
+appointment. Two hours after a recorded call is due to end, `appointment.transcript_watch` emails the host once if
+nothing came, with what their Zoom settings are missing. Recordings themselves are never downloaded.
+
 Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
 same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
 
@@ -317,16 +326,20 @@ For production:
    `meeting:delete:meeting`, `user:read:user`); for the steps after this one, `user:read:settings` and
    `cloud_recording:read:list_recording_files`. The connection refuses a sign-in that comes back without a
    `meeting:write…` and a `user:read…` scope.
-4. Give the worker the two values, and nothing else:
+4. For transcripts: **Features** → **Access** → turn on **Event subscription**. Endpoint:
+   `https://hooks.handsfreeos.com/webhooks/zoom`. Event: **Recording** → **Recording transcript files have
+   completed**. Copy the **Secret Token** shown there. Zoom checks the endpoint when you save, so give the worker
+   the secret (next step) first.
+5. Give the worker the three values, and nothing else:
 
    ```bash
-   fly secrets set -a handsfreeos-worker ZOOM_OAUTH_CLIENT_ID=… ZOOM_OAUTH_CLIENT_SECRET=…
+   fly secrets set -a handsfreeos-worker ZOOM_OAUTH_CLIENT_ID=… ZOOM_OAUTH_CLIENT_SECRET=… ZOOM_WEBHOOK_SECRET=…
    ```
 
    Without them the button ends on "Zoom isn’t set up yet". The API refuses to start with them (any name with
    `_OAUTH_`), like every other provider key.
 
-5. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
+6. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
 
 Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
 

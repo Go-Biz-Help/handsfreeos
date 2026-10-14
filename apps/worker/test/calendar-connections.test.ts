@@ -3,7 +3,7 @@
  * without HandsFreeOS's own events, write-through that creates, moves and removes events and never doubles
  * them, a lost sign-in that emails its person once, and disconnecting.
  */
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import {
   appointmentDelete,
@@ -43,6 +43,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeCalendarEvent } from '../src/calendar/fake';
 import type { TokenSet } from '../src/calendar/provider';
 import { queueCalendarSync } from '../src/calendar/sync';
+import { FAKE_ZOOM_WEBHOOK_SECRET } from '../src/meetings/fake';
+import { zoomSignature } from '../src/meetings/routes';
 import { queueSettingsCheck } from '../src/meetings/settings';
 import { queueMeetingSync } from '../src/meetings/sync';
 import { processDeliveries } from '../src/deliveries';
@@ -983,6 +985,119 @@ describe('connecting Zoom', () => {
         meta(),
       ),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('records the call, takes Zoom’s signed webhook and keeps the transcript once', async () => {
+    const zoom = s.calendars.fakeZoom!;
+    const recordedPlace = { kind: 'virtual', video: 'zoom', record: true };
+    const call = await book('Recorded consult', at(9, 16), at(9, 17), [tech.id], recordedPlace);
+    await worker((tx) => queueMeetingSync(tx, scope(), call));
+    await drain();
+    const [m] = zoom.meetings('settings@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(m).toMatchObject({ record: true });
+    // Its missing-transcript check waits until two hours after the call.
+    const [watch] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs
+          where dedupe_key = ${`appointment.transcript_watch:${call}`} and status = 'pending'`,
+    );
+    expect(new Date(watch!.run_at).toISOString()).toBe(
+      new Date(at(9, 17).getTime() + 2 * 3_600_000).toISOString(),
+    );
+
+    const file = zoom.addTranscript(
+      m!.id,
+      'WEBVTT\n\n1\n00:00:01.000 --> 00:00:03.000\nPriya: Can I send the quote Friday?\n',
+    );
+    const send = (
+      body: unknown,
+      secret = FAKE_ZOOM_WEBHOOK_SECRET,
+      ts = Math.floor(Date.now() / 1000),
+    ) => {
+      const raw = JSON.stringify(body);
+      return app.inject({
+        method: 'POST',
+        url: '/webhooks/zoom',
+        headers: {
+          'content-type': 'application/json',
+          'x-zm-request-timestamp': String(ts),
+          'x-zm-signature': zoomSignature(secret, String(ts), raw),
+        },
+        payload: raw,
+      });
+    };
+    const event = {
+      event: 'recording.transcript_completed',
+      payload: {
+        object: {
+          id: Number(m!.id),
+          recording_files: [{ id: file.fileId, file_type: 'TRANSCRIPT', download_url: file.url }],
+        },
+      },
+    };
+    // Wrong secret, or an old signature: refused, nothing queued.
+    expect((await send(event, 'not-the-secret')).statusCode).toBe(401);
+    expect(
+      (await send(event, FAKE_ZOOM_WEBHOOK_SECRET, Math.floor(Date.now() / 1000) - 3600))
+        .statusCode,
+    ).toBe(401);
+
+    // Zoom checking the URL when the subscription is saved.
+    const check = await send({
+      event: 'endpoint.url_validation',
+      payload: { plainToken: 'abc123' },
+    });
+    expect(check.json()).toEqual({
+      plainToken: 'abc123',
+      encryptedToken: createHmac('sha256', FAKE_ZOOM_WEBHOOK_SECRET).update('abc123').digest('hex'),
+    });
+
+    expect((await send(event)).statusCode).toBe(200);
+    await drain();
+    expect((await send(event)).statusCode).toBe(200);
+    await drain();
+    const kept = await rows<{ body: string; provider: string }>(
+      admin(),
+      sql`select body, provider from app.appointment_transcripts where appointment_id = ${call}`,
+    );
+    expect(kept).toEqual([{ provider: 'zoom', body: 'Priya: Can I send the quote Friday?' }]);
+    const ready = await rows(
+      admin(),
+      sql`select 1 from app.events where event_type = 'appointment.transcript_ready' and entity_id = ${call}`,
+    );
+    expect(ready).toHaveLength(1);
+
+    // A meeting HandsFreeOS didn't make is acknowledged and ignored.
+    expect(
+      (
+        await send({
+          ...event,
+          payload: { object: { ...event.payload.object, id: 99999999999 } },
+        })
+      ).statusCode,
+    ).toBe(200);
+  });
+
+  it('emails the host once when a recorded call’s transcript never came, saying what to fix', async () => {
+    const zoom = s.calendars.fakeZoom!;
+    // Priya's Zoom is settings@zoom.fake by now (the settings test above connected it).
+    zoom.setSettings('settings@zoom.fake', { planType: 2, audioTranscript: false });
+    const call = await book('Silent call', at(-1, 9), at(-1, 10), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    await rows(
+      admin(),
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+          values (${scope().organizationId}, ${workspaceId}, 'appointment.transcript_watch',
+            ${`appointment.transcript_watch:${call}`}, now(), ${JSON.stringify({ appointmentId: call })}::jsonb)`,
+    );
+    await drain();
+    const mail = await waitForMail(tech.email, 'No transcript came for Silent call');
+    expect(mail.Text).toContain('Audio transcripts are off');
+    expect(mail.Text).toContain('/settings/my-calendar');
+    zoom.setSettings('settings@zoom.fake', { audioTranscript: true });
   });
 
   it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {

@@ -33,6 +33,7 @@ import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { meetingSettingsCheck } from './meetings/settings';
+import { appointmentTranscriptFetch, appointmentTranscriptWatch } from './meetings/transcripts';
 import { appointmentMeetingSync } from './meetings/sync';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
@@ -515,6 +516,9 @@ export const jobs: JobMap = {
   'appointment.meeting_sync': appointmentMeetingSync,
   // A connected Zoom account's recording settings, read once a day.
   'meeting_connection.settings_check': meetingSettingsCheck,
+  // A recorded Zoom call's transcript, fetched when Zoom says it's ready; and the check when none came.
+  'appointment.transcript_fetch': appointmentTranscriptFetch,
+  'appointment.transcript_watch': appointmentTranscriptWatch,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,

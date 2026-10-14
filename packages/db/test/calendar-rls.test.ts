@@ -673,6 +673,91 @@ describe('meeting connections (Zoom)', () => {
   });
 });
 
+describe('call transcripts', () => {
+  it('only the worker keeps them; the business reads them, nobody else does; they go with the appointment', async () => {
+    const cal = await calendar(wsA, orgA);
+    const appt = await book(
+      wsA,
+      orgA,
+      cal,
+      member.id,
+      '2026-11-02T15:00:00Z',
+      '2026-11-02T16:00:00Z',
+    );
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+            values (${wsA}, ${appt}, 'zoom', 'f1', 'Mike: hello')`,
+      ),
+    );
+    // The same file twice keeps one copy.
+    const twice = await expectPgError(() =>
+      worker(
+        wsA,
+        orgA,
+      )((tx) =>
+        rows(
+          tx,
+          sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+              values (${wsA}, ${appt}, 'zoom', 'f1', 'again')`,
+        ),
+      ),
+    );
+    expect(twice.code).toBe('23505');
+    const read = (u: TestUser) =>
+      as(u)((tx) =>
+        rows(tx, sql`select body from app.appointment_transcripts where appointment_id = ${appt}`),
+      );
+    expect(await read(teammate)).toEqual([{ body: 'Mike: hello' }]);
+    expect(await read(outsider)).toEqual([]);
+    const written = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+              values (${wsA}, ${appt}, 'zoom', 'f2', 'forged')`,
+        ),
+      ),
+    );
+    expect(written.code).toBe('42501');
+    // Another business's worker can't hang one on this appointment.
+    const crossed = await expectPgError(() =>
+      worker(
+        wsB,
+        orgB,
+      )((tx) =>
+        rows(
+          tx,
+          sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+              values (${wsB}, ${appt}, 'zoom', 'f3', 'x')`,
+        ),
+      ),
+    );
+    expect(crossed.code).toBe('23514');
+    // Zoom's webhook finds the appointment by its meeting only through the worker's lookup.
+    await rows(
+      dbs.admin.db,
+      sql`update app.appointments set location = '{"kind":"virtual","video":"zoom","meetingId":"8123"}'::jsonb
+          where id = ${appt}`,
+    );
+    expect(
+      await unscoped((tx) =>
+        rows(tx, sql`select appointment_id from private.appointment_by_meeting_id('8123')`),
+      ),
+    ).toEqual([{ appointment_id: appt }]);
+    await rows(dbs.admin.db, sql`delete from app.appointments where id = ${appt}`);
+    const [left] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.appointment_transcripts where appointment_id = ${appt}`,
+    );
+    expect(left!.n).toBe(0);
+  });
+});
+
 describe('the booking site', () => {
   let site: string;
 

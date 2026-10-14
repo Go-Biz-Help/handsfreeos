@@ -248,6 +248,9 @@ export function AppointmentSheet({
   >(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<'sms' | 'email' | null>(null);
+  const [transcripts, setTranscripts] = useState<
+    { id: string; createdAt: string; body: string }[] | null
+  >(null);
 
   const load = useCallback(async () => {
     try {
@@ -265,6 +268,20 @@ export function AppointmentSheet({
   useEffect(() => {
     void load();
   }, [load, version]);
+
+  // A recorded call's transcript, once Zoom has sent it.
+  const isRecorded = appt?.location.record === true;
+  useEffect(() => {
+    if (!isRecorded) return;
+    let cancelled = false;
+    apiBrowser()
+      .POST('/v1/queries/appointment.transcripts', { body: { workspaceId, appointmentId } })
+      .then((r) => !cancelled && setTranscripts(unwrap(r).items))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, appointmentId, isRecorded, version]);
 
   const calendarId = appt?.calendar.id;
   useEffect(() => {
@@ -851,6 +868,28 @@ export function AppointmentSheet({
                       Make link
                     </Button>
                   </div>
+                </Section>
+              ) : null}
+
+              {isRecorded ? (
+                <Section label="Transcript">
+                  {transcripts?.length ? (
+                    transcripts.map((t) => (
+                      <details key={t.id} className="pt-1.5" data-testid="appointment-transcript">
+                        <summary className="cursor-pointer text-[13px] font-medium">
+                          From the Zoom call
+                        </summary>
+                        <p className="mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap text-[13px] text-text-2">
+                          {t.body}
+                        </p>
+                      </details>
+                    ))
+                  ) : (
+                    <p className="pt-1.5 text-[13px] text-text-3">
+                      This call is recorded. Its transcript shows here once Zoom sends it, usually
+                      within an hour of the call ending.
+                    </p>
+                  )}
                 </Section>
               ) : null}
 

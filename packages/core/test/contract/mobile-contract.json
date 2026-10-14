@@ -1565,6 +1565,10 @@
                     "type": "null"
                   }
                 ]
+              },
+              "record": {
+                "default": false,
+                "type": "boolean"
               }
             }
           },
@@ -1836,6 +1840,10 @@
                     "type": "null"
                   }
                 ]
+              },
+              "record": {
+                "default": false,
+                "type": "boolean"
               }
             }
           },
@@ -3908,7 +3916,10 @@
             ]
           }
         },
-        "required": ["requestId", "pick"]
+        "required": [
+          "requestId",
+          "pick"
+        ]
       }
     },
     "file.begin_upload": {

@@ -34,6 +34,8 @@ export interface FakeZoom extends MeetingProvider {
 const enc = (s: string) => Buffer.from(s).toString('base64url');
 const dec = (s: string) => Buffer.from(s, 'base64url').toString('utf8');
 const HOUR = 3_600_000;
+/** What the stand-in's webhooks are signed with (tests sign theirs with it too). Not a secret. */
+export const FAKE_ZOOM_WEBHOOK_SECRET = 'fake-zoom-webhook-secret';
 const SCOPES = ['meeting:write:meeting', 'meeting:update:meeting', 'user:read:user'];
 
 export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
@@ -87,7 +89,8 @@ export function createFakeZoom(opts: { publicUrl: string }): FakeZoom {
     },
     missingScopes: () => [],
     async createMeeting(accessToken, m) {
-      const id = String(80_000_000_000 + ++seq);
+      // Unique across runs, like Zoom's own: a test database keeps meetings from earlier runs.
+      const id = String(80_000_000_000 + (Date.now() % 1_000_000_000) * 10 + (++seq % 10));
       const joinUrl = `https://zoom.us/j/${id}?pwd=fake`;
       held.set(id, {
         id,

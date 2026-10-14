@@ -572,6 +572,7 @@ export function BookingFlow({
   const what = service?.name ?? page.calendar.name;
   const needsAddress = locationKind === 'customer_address';
   const locationLabel = info.locations.find((l) => l.kind === locationKind)?.label ?? null;
+  const recorded = info.locations.find((l) => l.kind === locationKind)?.recorded === true;
 
   // When: business-local dates, within the calendar's window.
   const today = localDateOf(Date.now(), tz);
@@ -1178,6 +1179,11 @@ export function BookingFlow({
                   <MapPin size={15} aria-hidden />
                   {locationLabel}
                   {zipRouting && zip ? `, ZIP ${zip}` : ''}
+                </span>
+              ) : null}
+              {recorded ? (
+                <span className="text-[13px] text-text-2" data-testid="booking-recorded">
+                  This call is recorded and transcribed.
                 </span>
               ) : null}
               {back ? (

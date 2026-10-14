@@ -672,6 +672,8 @@ function describeAction(e: AuditEntry): string {
       return `checked the Zoom account ${s(e.after?.account)}’s recording settings`;
     case 'appointment.set_meeting_link':
       return 'updated an appointment’s video link';
+    case 'appointment.attach_transcript':
+      return `kept the transcript of the call for ${s(e.after?.title)}`;
     case 'appointment.make_meeting_link':
       return 'asked for an appointment’s Zoom link to be made again';
     // Milestone 5: calendars, their catalogs, people's hours and appointments

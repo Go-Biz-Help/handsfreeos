@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 to 4 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 5 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -31,6 +31,11 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   problems with their fixes on the Zoom card. Smaller than §7: Zoom's lock settings need an admin's account, so a
 >   locked switch isn't told apart (each fix says to ask the Zoom admin); the push and notification wait for step 5,
 >   when "Record and transcribe" decides who needs them; the Google Meet half waits for step 7.
+> - **Step 5, Zoom transcripts.** "Record and transcribe" on the Zoom place (`record`), the notice on the booking
+>   page and in the confirmation, `auto_recording: cloud`, `POST /webhooks/zoom`, `app.appointment_transcripts`
+>   (20261027003400), `appointment.attach_transcript` (emits `appointment.transcript_ready` for step 6),
+>   `appointment.transcripts`, and the two-hour missing-transcript email. Transcripts are kept as text in their
+>   own table rather than as files.
 
 ---
 

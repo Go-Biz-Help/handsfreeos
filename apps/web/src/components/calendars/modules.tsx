@@ -765,6 +765,8 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                               ...x,
                               video: e.target.value as 'none' | 'google_meet' | 'zoom',
                               meetingUrl: null,
+                              // Only Zoom records.
+                              record: e.target.value === 'zoom' ? x.record : false,
                             }
                           : x,
                       ),
@@ -775,6 +777,23 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                   <option value="google_meet">Make a Google Meet link</option>
                   <option value="zoom">Make a Zoom link</option>
                 </Select>
+                {o.video === 'zoom' ? (
+                  <label className="flex w-full items-center gap-2 text-xs text-text-2">
+                    <input
+                      type="checkbox"
+                      checked={o.record}
+                      data-testid="zoom-record"
+                      onChange={(e) =>
+                        set(
+                          options.map((x, j) => (j === i ? { ...x, record: e.target.checked } : x)),
+                        )
+                      }
+                    />
+                    Record and transcribe calls. Customers are told when they book and in their
+                    confirmation. The host’s Zoom needs a paid plan with cloud recording and audio
+                    transcripts on.
+                  </label>
+                ) : null}
                 {o.video !== 'none' ? (
                   <span className="min-w-[200px] flex-1 text-xs text-text-3">
                     Each appointment gets its own link, made in the host’s{' '}

@@ -135,7 +135,12 @@ describe('Zoom', () => {
       start_time: '2026-10-06T15:00:00Z',
       duration: 45,
       timezone: 'UTC',
-      settings: { waiting_room: true },
+      settings: { waiting_room: true, auto_recording: 'none' },
+    });
+    const recorded = zoom(() => json({ id: 1, join_url: 'https://zoom.us/j/1' }, 201));
+    await recorded.p.createMeeting('at', { ...m, record: true });
+    expect(JSON.parse(recorded.calls[0]!.body)).toMatchObject({
+      settings: { auto_recording: 'cloud' },
     });
 
     const moved = zoom(() => new Response(null, { status: 204 }));
@@ -173,5 +178,15 @@ describe('Zoom', () => {
       cloudRecording: null,
       audioTranscript: null,
     });
+  });
+
+  it('downloads a transcript with the host’s token, and refuses links that aren’t Zoom’s', async () => {
+    const { p, calls } = zoom(() => new Response('WEBVTT\n\nhi', { status: 200 }));
+    expect(await p.downloadTranscript('at', 'https://zoom.us/rec/download/x')).toBe('WEBVTT\n\nhi');
+    expect(calls[0]!.headers['authorization']).toBe('Bearer at');
+    await expect(p.downloadTranscript('at', 'https://example.com/x')).rejects.toBeInstanceOf(
+      MeetingError,
+    );
+    expect(calls).toHaveLength(1);
   });
 });

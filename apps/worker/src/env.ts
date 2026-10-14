@@ -143,6 +143,8 @@ export interface WorkerEnv {
   /** Zoom's Marketplace OAuth app, for people's own Zoom accounts (stand-in with CALENDAR_PROVIDER=fake). */
   readonly zoomClientId: string | null;
   readonly zoomClientSecret: string | null;
+  /** The secret token on the Zoom app's event subscription: Zoom signs its webhooks with it. */
+  readonly zoomWebhookSecret: string | null;
   /**
    * What customers said in public (M16): the Google Business Profile and the Facebook Page the reviews are
    * read from, or the stand-in that serves its own sign-in page on the worker and keeps reviews in memory.
@@ -671,6 +673,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     calendarProvider,
     zoomClientId: env.ZOOM_OAUTH_CLIENT_ID || null,
     zoomClientSecret: env.ZOOM_OAUTH_CLIENT_SECRET || null,
+    zoomWebhookSecret: env.ZOOM_WEBHOOK_SECRET || null,
     googleCalendarClientId,
     googleCalendarClientSecret,
     calendarRefreshMs,
