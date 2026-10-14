@@ -70,6 +70,8 @@ export interface PublicService {
   /** For display only. */
   readonly priceCents: number | null;
   readonly durations: readonly number[];
+  /** Set when the service has its own video choice: whether its online calls are recorded. */
+  readonly recorded?: boolean;
 }
 
 export interface BookingInfo {

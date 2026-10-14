@@ -1982,7 +1982,10 @@ function scriptedCallReview(message: string): unknown {
   const title = /^Appointment: (.*?),/m.exec(message)?.[1] ?? 'the call';
   const said = quotedBlock(message, 'transcript') ?? '';
   const quote = /\bquote\b/i.test(said);
+  // "My new email is …": the customer gave a new address.
+  const email = /\bnew email is ([^\s,]+@[^\s,]+?)[.,]?(?:\s|$)/i.exec(said)?.[1] ?? null;
   return {
+    recordChanges: email ? { firstName: null, lastName: null, email, phone: null } : null,
     summary: `Call about ${title}. ${said.split('\n')[0] ?? ''}`.trim(),
     tasks: quote ? [{ title: 'Send the quote', notes: null, dueInDays: 2 }] : [],
     followUp: quote

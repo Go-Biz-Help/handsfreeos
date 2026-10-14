@@ -1216,6 +1216,118 @@ describe('connecting Zoom', () => {
     expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
   });
 
+  it('suggests the new email the customer gave; approving updates their record, edited', async () => {
+    const call = await book('Email change call', at(-3, 15), at(-3, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const old = `rosa-${randomUUID().slice(0, 8)}@example.com`;
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${workspaceId}, 'Rosa', 'Diaz', ${old}) returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-email',
+        body: 'Rosa: My new email is rosa.diaz@newmail.example, please use that.\nPriya: Will do.',
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    const change = review.items.find((i) => i.kind === 'record_change')!;
+    expect(change).toMatchObject({
+      status: 'pending',
+      preview: { email: 'rosa.diaz@newmail.example', was: { email: old } },
+    });
+    // Nothing changed until someone says so.
+    const [before] = await rows<{ email: string }>(
+      admin(),
+      sql`select email from app.people where id = ${person!.id}`,
+    );
+    expect(before!.email).toBe(old);
+
+    await executeCommand(
+      api(),
+      callSuggestionDecide,
+      {
+        workspaceId,
+        suggestionId: change.id,
+        decision: 'approve',
+        edits: { email: 'rosa@newmail.example' },
+      },
+      actor(tech),
+      meta(),
+    );
+    const [after] = await rows<{ email: string }>(
+      admin(),
+      sql`select email from app.people where id = ${person!.id}`,
+    );
+    expect(after!.email).toBe('rosa@newmail.example');
+  });
+
+  it('suggests no record change when what they said is already on file', async () => {
+    const call = await book('Same email call', at(-4, 15), at(-4, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const email = `same-${randomUUID().slice(0, 8)}@example.com`;
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, email)
+          values (${workspaceId}, 'Sam', ${email}) returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-same',
+        body: `Sam: My new email is ${email.toUpperCase()}, just so you know.`,
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    expect(review.summary).toContain('Same email call');
+    expect(review.items.filter((i) => i.kind === 'record_change')).toHaveLength(0);
+  });
+
   it('removing the app in Zoom disconnects that account and erases what was kept', async () => {
     const { connectionId } = await connectZoom(owner, 'removed@zoom.fake');
     const before = await meeting(connectionId);

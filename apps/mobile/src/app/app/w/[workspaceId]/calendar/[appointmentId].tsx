@@ -37,6 +37,7 @@ import { useCalendarZone } from '@/calendar/use-calendar';
 import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { Check, CircleDollarSign, MapPin, ShieldCheck, Trash, Undo2 } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
+import { CallRecord, MeetingLink, meetingOf } from '@/components/calendar/meeting';
 import { VisitJob } from '@/components/calendar/visit-job';
 import { CheckInSheet } from '@/components/safety/check-in-sheet';
 import { Screen } from '@/components/shell/screen';
@@ -93,6 +94,7 @@ export default function Appointment() {
   const seat = booked.length === 1 ? booked[0]! : null;
   const where = addressOf(null);
   const address = a.address;
+  const meeting = meetingOf(a.location ?? null);
   const deposit = depositInvoiceOf(invoices);
   const job = jobInvoiceOf(invoices);
   const source = sourceLabel(a.source);
@@ -217,7 +219,18 @@ export default function Appointment() {
         </Section>
       ) : null}
 
-      {address ? (
+      {meeting ? (
+        <Section label="Video call">
+          <MeetingLink meeting={meeting} />
+        </Section>
+      ) : null}
+      {meeting?.record ? (
+        <Section label="The call">
+          <CallRecord workspaceId={business.id} appointmentId={appointmentId} online={online} />
+        </Section>
+      ) : null}
+
+      {meeting ? null : address ? (
         <Section label="Where">
           <Text className="text-[15px]">{address}</Text>
           <Button

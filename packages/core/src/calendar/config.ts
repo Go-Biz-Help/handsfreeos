@@ -124,6 +124,10 @@ export const ServiceOverrides = z.object({
   maxPartySize: z.int().min(1).max(500).optional(),
   /** Only these people do this service here. */
   userIds: z.array(id).max(50).optional(),
+  /** Online only: this service's video link instead of the Online place's (none, Google Meet or Zoom). */
+  video: VideoProvider.optional(),
+  /** Online only: whether this service's calls are recorded, instead of the Online place's choice. */
+  record: z.boolean().optional(),
 });
 export type ServiceOverrides = z.infer<typeof ServiceOverrides>;
 
