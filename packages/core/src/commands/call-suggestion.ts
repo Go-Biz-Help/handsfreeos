@@ -1,8 +1,9 @@
 /**
  * What the AI made of a recorded call (HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md §9). `call_suggestion.record`
  * (the worker) keeps the summary on the transcript, writes it to the customer's timeline as a note, and stores the
- * suggested tasks and follow-up, which wait. `call_suggestion.decide` is a person's OK or no: approving runs
- * `task.create` or `message.send` as that person, with what they edited, in the same transaction.
+ * suggested tasks, follow-up and record change, which wait. `call_suggestion.decide` is a person's OK or no:
+ * approving runs `task.create`, `message.send` or `person.update` as that person, with what they edited, in the
+ * same transaction.
  */
 import { and, asc, eq } from 'drizzle-orm';
 import {
@@ -11,6 +12,7 @@ import {
   appointmentStaff,
   appointmentTranscripts,
   callSuggestions,
+  people,
 } from '@hfos/db/schema';
 import { z } from 'zod';
 import { HfosError } from '../errors';
@@ -21,6 +23,7 @@ import { CallReview } from '../meetings/review';
 import { isoDateTime, uuid } from '../schemas/common';
 import { activityLog } from './activity';
 import { messageSend } from './message';
+import { personUpdate } from './person.update';
 import { taskCreate } from './task';
 
 const DAY = 86_400_000;
@@ -38,6 +41,23 @@ const FollowUpPreview = z.object({
   subject: z.string().trim().min(1).max(200),
   body: z.string().trim().min(1).max(4000),
 });
+const CHANGE_FIELDS = ['firstName', 'lastName', 'email', 'phone'] as const;
+type ChangeField = (typeof CHANGE_FIELDS)[number];
+/** The new details, and what the record said when the AI suggested them (`was`), for the person to compare. */
+const RecordChangePreview = z.object({
+  firstName: z.string().trim().min(1).max(80).nullable().default(null),
+  lastName: z.string().trim().min(1).max(80).nullable().default(null),
+  email: z.email().max(254).nullable().default(null),
+  phone: z.string().trim().min(7).max(40).nullable().default(null),
+  was: z.record(z.string(), z.string().nullable()).default({}),
+});
+const same = (a: string | null | undefined, b: string | null | undefined, field: ChangeField) => {
+  const norm = (v: string | null | undefined) =>
+    field === 'phone'
+      ? (v ?? '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '')
+      : (v ?? '').trim().toLowerCase();
+  return norm(a) === norm(b);
+};
 
 /** Who the call was with: its first booked customer, else its lead. */
 async function customerOf(
@@ -60,6 +80,40 @@ async function customerOf(
     .orderBy(asc(appointmentAttendees.createdAt))
     .limit(1);
   return { personId: first?.personId ?? null, leadId: a?.leadId ?? null };
+}
+
+type SuggestionKind = 'task' | 'follow_up' | 'record_change';
+
+/** A record change only when the customer is on file and something actually differs from what's there. */
+async function recordChangeRow(
+  tx: Parameters<typeof executeCommandWithin>[0]['tx'],
+  workspaceId: string,
+  personId: string | null,
+  changes: CallReview['recordChanges'],
+): Promise<{ kind: 'record_change'; preview: Record<string, unknown> }[]> {
+  if (!personId || !changes) return [];
+  const [p] = await tx
+    .select({
+      firstName: people.firstName,
+      lastName: people.lastName,
+      email: people.email,
+      phone: people.phone,
+    })
+    .from(people)
+    .where(and(eq(people.id, personId), eq(people.workspaceId, workspaceId)));
+  if (!p) return [];
+  const preview: Record<string, unknown> = {};
+  const was: Record<string, string | null> = {};
+  for (const f of CHANGE_FIELDS) {
+    const next = changes[f];
+    const now = (p[f] as string | null) ?? null;
+    if (next && !same(next, now, f)) {
+      preview[f] = next;
+      was[f] = now;
+    }
+  }
+  if (!Object.keys(was).length) return [];
+  return [{ kind: 'record_change', preview: { ...preview, was } }];
 }
 
 const RecordInput = z.object({
@@ -124,7 +178,7 @@ export const callSuggestionRecord = defineCommand({
       noted = true;
     }
 
-    const rows: { kind: 'task' | 'follow_up'; preview: Record<string, unknown> }[] = [
+    const rows: { kind: SuggestionKind; preview: Record<string, unknown> }[] = [
       ...review.tasks.map((task) => ({
         kind: 'task' as const,
         preview: {
@@ -140,6 +194,7 @@ export const callSuggestionRecord = defineCommand({
       ...(review.followUp && who.personId
         ? [{ kind: 'follow_up' as const, preview: { ...review.followUp } }]
         : []),
+      ...(await recordChangeRow(ctx.tx, ws, who.personId, review.recordChanges)),
     ];
     for (const r of rows) {
       const [made] = await ctx.tx
@@ -176,6 +231,10 @@ const DecideInput = z.object({
       dueAt: isoDateTime.nullable().optional(),
       subject: z.string().trim().min(1).max(200).optional(),
       body: z.string().trim().min(1).max(4000).optional(),
+      firstName: z.string().trim().min(1).max(80).optional(),
+      lastName: z.string().trim().min(1).max(80).optional(),
+      email: z.email().max(254).optional(),
+      phone: z.string().trim().min(7).max(40).optional(),
     })
     .optional(),
 });
@@ -189,7 +248,7 @@ const DecideOutput = z.object({
 export const callSuggestionDecide = defineCommand({
   name: 'call_suggestion.decide',
   description:
-    'Approve or dismiss something the AI suggested after a call. Approving makes the task, or sends the follow-up, as you.',
+    'Approve or dismiss something the AI suggested after a call. Approving makes the task, sends the follow-up, or updates the customer’s record, as you.',
   risk: 2,
   input: DecideInput,
   output: DecideOutput,
@@ -264,6 +323,23 @@ export const callSuggestionDecide = defineCommand({
           ...(who.leadId ? { leadId: who.leadId } : {}),
         });
         taskId = made.output.taskId;
+      } else if (s.kind === 'record_change') {
+        const p = RecordChangePreview.parse({ ...preview, ...input.edits });
+        preview = p;
+        if (!who.personId)
+          throw HfosError.rule(
+            'call_suggestion_no_customer',
+            409,
+            'This appointment has no customer to update. Add them to the appointment, then try again.',
+          );
+        await executeCommandWithin(ctx, personUpdate, {
+          workspaceId: ws,
+          personId: who.personId,
+          ...(p.firstName ? { firstName: p.firstName } : {}),
+          ...(p.lastName ? { lastName: p.lastName } : {}),
+          ...(p.email ? { email: p.email } : {}),
+          ...(p.phone ? { phone: p.phone } : {}),
+        });
       } else {
         const p = FollowUpPreview.parse({ ...preview, ...input.edits });
         preview = p;
@@ -309,7 +385,7 @@ const ListOutput = z.object({
   items: z.array(
     z.object({
       id: uuid,
-      kind: z.enum(['task', 'follow_up']),
+      kind: z.enum(['task', 'follow_up', 'record_change']),
       status: z.enum(['pending', 'approved', 'dismissed']),
       preview: z.record(z.string(), z.unknown()),
       createdAt: isoDateTime,
@@ -346,7 +422,7 @@ export const callSuggestionList = defineQuery({
       summary: t?.summary ?? null,
       items: list.map((s) => ({
         id: s.id,
-        kind: s.kind as 'task' | 'follow_up',
+        kind: s.kind as SuggestionKind,
         status: s.status as 'pending' | 'approved' | 'dismissed',
         preview: (s.preview ?? {}) as Record<string, unknown>,
         createdAt: s.createdAt.toISOString(),

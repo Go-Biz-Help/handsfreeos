@@ -11,6 +11,7 @@ import {
   binRestore,
   calendarConnectionConnect,
   calendarConnectionDisconnect,
+  calendarConnectionList,
   calendarConnectionSyncNow,
   executeCommand,
   mailboxConnect,
@@ -49,6 +50,7 @@ import { queueCalendarSync } from '../src/calendar/sync';
 import { FAKE_ZOOM_WEBHOOK_SECRET } from '../src/meetings/fake';
 import { zoomSignature } from '../src/meetings/routes';
 import { queueSettingsCheck } from '../src/meetings/settings';
+import { queueMeetTranscriptPoll } from '../src/meetings/meet-poll';
 import { queueMeetingSync } from '../src/meetings/sync';
 import { processDeliveries } from '../src/deliveries';
 import { handlers } from '../src/handlers/index';
@@ -258,11 +260,12 @@ async function connect(
   provider: 'google' | 'microsoft',
   account: string,
   decision: 'allow' | 'deny' = 'allow',
+  meetTranscripts = false,
 ): Promise<{ connectionId: string; state: string; location: string }> {
   const { output } = await executeCommand(
     api(),
     calendarConnectionConnect,
-    { workspaceId, provider },
+    { workspaceId, provider, meetTranscripts },
     actor(user),
     meta(),
   );
@@ -1213,6 +1216,118 @@ describe('connecting Zoom', () => {
     expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
   });
 
+  it('suggests the new email the customer gave; approving updates their record, edited', async () => {
+    const call = await book('Email change call', at(-3, 15), at(-3, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const old = `rosa-${randomUUID().slice(0, 8)}@example.com`;
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${workspaceId}, 'Rosa', 'Diaz', ${old}) returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-email',
+        body: 'Rosa: My new email is rosa.diaz@newmail.example, please use that.\nPriya: Will do.',
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    const change = review.items.find((i) => i.kind === 'record_change')!;
+    expect(change).toMatchObject({
+      status: 'pending',
+      preview: { email: 'rosa.diaz@newmail.example', was: { email: old } },
+    });
+    // Nothing changed until someone says so.
+    const [before] = await rows<{ email: string }>(
+      admin(),
+      sql`select email from app.people where id = ${person!.id}`,
+    );
+    expect(before!.email).toBe(old);
+
+    await executeCommand(
+      api(),
+      callSuggestionDecide,
+      {
+        workspaceId,
+        suggestionId: change.id,
+        decision: 'approve',
+        edits: { email: 'rosa@newmail.example' },
+      },
+      actor(tech),
+      meta(),
+    );
+    const [after] = await rows<{ email: string }>(
+      admin(),
+      sql`select email from app.people where id = ${person!.id}`,
+    );
+    expect(after!.email).toBe('rosa@newmail.example');
+  });
+
+  it('suggests no record change when what they said is already on file', async () => {
+    const call = await book('Same email call', at(-4, 15), at(-4, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const email = `same-${randomUUID().slice(0, 8)}@example.com`;
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, email)
+          values (${workspaceId}, 'Sam', ${email}) returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-same',
+        body: `Sam: My new email is ${email.toUpperCase()}, just so you know.`,
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    expect(review.summary).toContain('Same email call');
+    expect(review.items.filter((i) => i.kind === 'record_change')).toHaveLength(0);
+  });
+
   it('removing the app in Zoom disconnects that account and erases what was kept', async () => {
     const { connectionId } = await connectZoom(owner, 'removed@zoom.fake');
     const before = await meeting(connectionId);
@@ -1266,5 +1381,96 @@ describe('connecting Zoom', () => {
       tokenEnc: null,
       pkceVerifierEnc: null,
     });
+  });
+});
+
+describe('Google Meet transcripts', () => {
+  const code = 'abc-defg-hij';
+  const meetPlace = {
+    kind: 'virtual',
+    video: 'google_meet',
+    record: true,
+    meetingUrl: `https://meet.google.com/${code}`,
+  };
+  const transcriptsOf = (id: string) =>
+    rows<{ provider: string; body: string; summary: string | null }>(
+      admin(),
+      sql`select provider, body, summary from app.appointment_transcripts where appointment_id = ${id}`,
+    );
+  const poll = async (id: string) => {
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now()
+          where dedupe_key = ${`appointment.meet_transcript_poll:${id}`} and status = 'pending'`,
+    );
+    await drain();
+  };
+
+  it('without the Meet permission nothing is read, and the host is told how to allow it', async () => {
+    // Dale's Google calendar, connected the plain way (no Meet permission).
+    await connect(owner, 'google', 'dale.meet@gmail.fake');
+    const call = await book(
+      'Meet call, not allowed',
+      at(-1, 13),
+      at(-1, 14),
+      [owner.id],
+      meetPlace,
+    );
+    await worker((tx) => queueMeetTranscriptPoll(tx, scope(), call));
+    s.calendars.fakeMeet!.finish(code, 'Dale: hello');
+    await poll(call);
+    expect(await transcriptsOf(call)).toEqual([]);
+    await rows(
+      admin(),
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+          values (${scope().organizationId}, ${workspaceId}, 'appointment.transcript_watch',
+            ${`appointment.transcript_watch:${call}`}, now(), ${JSON.stringify({ appointmentId: call })}::jsonb)
+          on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null
+          do update set run_at = now()`,
+    );
+    await drain();
+    const mail = await waitForMail(owner.email, 'No transcript came for Meet call, not allowed');
+    expect(mail.Text).toContain('Allow Meet transcripts');
+  });
+
+  it('Allow Meet transcripts asks Google for one more permission; recorded calls then get their transcript', async () => {
+    const signed = await connect(owner, 'google', 'dale.meet@gmail.fake', 'allow', true);
+    expect(signed.location).toMatch(/\?calendar=connected$/);
+    const listed = await executeQuery(
+      api(),
+      calendarConnectionList,
+      { workspaceId, userId: owner.id },
+      actor(owner),
+      meta(),
+    );
+    expect(listed.items.find((c) => c.id === signed.connectionId)).toMatchObject({
+      meetTranscripts: true,
+    });
+
+    // Ended an hour ago: inside the four hours it keeps looking.
+    const hour = 3_600_000;
+    const call = await book(
+      'Meet quote call',
+      new Date(Date.now() - 2 * hour),
+      new Date(Date.now() - hour),
+      [owner.id],
+      meetPlace,
+    );
+    await worker((tx) => queueMeetTranscriptPoll(tx, scope(), call));
+    // Not ready yet: it looks again later.
+    s.calendars.fakeMeet!.finish(code, null);
+    await poll(call);
+    expect(await transcriptsOf(call)).toEqual([]);
+
+    s.calendars.fakeMeet!.finish(code, 'Dale: I’ll send the quote tomorrow.\nMike: Thanks!');
+    await worker((tx) => queueMeetTranscriptPoll(tx, scope(), call));
+    await poll(call);
+    const [t] = await transcriptsOf(call);
+    expect(t).toMatchObject({
+      provider: 'google_meet',
+      body: expect.stringContaining('send the quote'),
+    });
+    // The AI read it too (step 6).
+    expect(t!.summary).toContain('Meet quote call');
   });
 });

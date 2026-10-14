@@ -126,6 +126,8 @@ export interface PhoneAppointment extends AgendaAppointment {
   readonly notes: string | null;
   readonly kind: string | null;
   readonly bufferBefore: number;
+  /** Where it happens, as stored (JSON): an online one carries its video link (`meetingOf`). */
+  readonly location?: string | null;
   readonly bufferAfter: number;
   readonly seats: readonly SeatRow[];
   readonly config: CalendarConfig | null;
@@ -351,6 +353,7 @@ export function appointmentOf(
     notes: row.notes,
     kind: row.kind,
     bufferBefore: row.buffer_before ?? 0,
+    location: row.location,
     bufferAfter: row.buffer_after ?? 0,
     seats,
     config: row.calendar_config ? safeConfig(row.calendar_config) : null,

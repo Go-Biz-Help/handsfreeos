@@ -19,7 +19,12 @@ import { scopeCan } from '../kernel/execute';
 const calendarProvider = z.enum(['google', 'microsoft']);
 const connectionStatus = z.enum(['pending', 'active', 'reauth_required', 'error', 'disconnected']);
 
-const ConnectInput = z.object({ workspaceId: uuid, provider: calendarProvider });
+const ConnectInput = z.object({
+  workspaceId: uuid,
+  provider: calendarProvider,
+  /** Google only: ask for Meet transcripts too (one more permission, asked only when wanted). */
+  meetTranscripts: z.boolean().default(false),
+});
 /** `state` goes to the worker's /oauth/<provider>/start once; only its hash is stored. */
 const ConnectOutput = z.object({ connectionId: uuid, state: z.string() });
 const RefInput = z.object({ workspaceId: uuid, connectionId: uuid });
@@ -121,6 +126,7 @@ export const calendarConnectionConnect = defineCommand({
         userId: me.userId,
         provider: input.provider,
         status: 'pending',
+        meetTranscripts: input.provider === 'google' && input.meetTranscripts,
         oauthStateHash: sha256Hex(state),
         oauthStateExpiresAt: new Date(Date.now() + STATE_TTL_MS),
         createdBy: me.userId,

@@ -434,12 +434,16 @@ function TeamModule({ draft, patch, catalogs, people, territories }: ModuleProps
 const LENGTHS = [15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300, 360, 480];
 const STEPS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
+type VideoChoice = 'none' | 'google_meet' | 'zoom';
+
 function ServicesModule({ draft, patch, services, resources, workspaceId }: ModuleProps) {
   const mode = draft.services.mode;
   const items = draft.services.items;
   const listed = services.filter((s) => !s.archivedAt || items.some((i) => i.serviceId === s.id));
   const minutes = draft.durations.minutes;
   const resourceName = (id: string) => resources.find((r) => r.id === id)?.name ?? 'a resource';
+  // A service can have its own video link and recording, used when the booking is online.
+  const online = draft.locations.options.find((o) => o.kind === 'virtual');
   return (
     <>
       <Heading
@@ -479,35 +483,79 @@ function ServicesModule({ draft, patch, services, resources, workspaceId }: Modu
           ) : (
             <div className="flex flex-col gap-2">
               {listed.map((s) => {
-                const on = items.some((i) => i.serviceId === s.id);
+                const item = items.find((i) => i.serviceId === s.id);
+                const on = !!item;
+                const own = item?.overrides ?? {};
+                const setOwn = (next: { video?: VideoChoice; record?: boolean }) =>
+                  patch({
+                    services: {
+                      items: items.map((i) =>
+                        i.serviceId === s.id ? { ...i, overrides: { ...i.overrides, ...next } } : i,
+                      ),
+                    },
+                  });
+                const video = own.video ?? online?.video ?? 'none';
                 return (
-                  <Checkbox
-                    key={s.id}
-                    checked={on}
-                    onChange={() =>
-                      patch({
-                        services: {
-                          items: on
-                            ? items.filter((i) => i.serviceId !== s.id)
-                            : [...items, { serviceId: s.id, overrides: {} }],
-                        },
-                      })
-                    }
-                    label={
-                      <span className="flex flex-col">
-                        <span className="font-medium">
-                          {s.name}
-                          {s.archivedAt ? ' (archived)' : ''}
+                  <div key={s.id} className="flex flex-col gap-1.5">
+                    <Checkbox
+                      checked={on}
+                      onChange={() =>
+                        patch({
+                          services: {
+                            items: on
+                              ? items.filter((i) => i.serviceId !== s.id)
+                              : [...items, { serviceId: s.id, overrides: {} }],
+                          },
+                        })
+                      }
+                      label={
+                        <span className="flex flex-col">
+                          <span className="font-medium">
+                            {s.name}
+                            {s.archivedAt ? ' (archived)' : ''}
+                          </span>
+                          <span className="text-xs text-text-3">
+                            {s.durations.map(fmtLength).join(', ')}
+                            {s.resources.length
+                              ? ` · Needs ${s.resources.map((r) => resourceName(r.resourceId)).join(', ')}`
+                              : ''}
+                          </span>
                         </span>
-                        <span className="text-xs text-text-3">
-                          {s.durations.map(fmtLength).join(', ')}
-                          {s.resources.length
-                            ? ` · Needs ${s.resources.map((r) => resourceName(r.resourceId)).join(', ')}`
-                            : ''}
-                        </span>
-                      </span>
-                    }
-                  />
+                      }
+                    />
+                    {on && online ? (
+                      <div
+                        className="ml-7 flex flex-wrap items-center gap-2 text-[13px]"
+                        data-testid={`service-video-${s.id}`}
+                      >
+                        <Select
+                          selectSize="sm"
+                          className="h-[30px] w-[210px] text-[13px]"
+                          aria-label={`Video link for ${s.name}`}
+                          value={own.video ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value as VideoChoice | '';
+                            setOwn({
+                              video: v === '' ? undefined : v,
+                              ...(v === 'none' ? { record: undefined } : {}),
+                            });
+                          }}
+                        >
+                          <option value="">Online: same as the Online place</option>
+                          <option value="none">Online: no video link</option>
+                          <option value="google_meet">Online: a Google Meet link</option>
+                          <option value="zoom">Online: a Zoom link</option>
+                        </Select>
+                        {video === 'zoom' || video === 'google_meet' ? (
+                          <Checkbox
+                            checked={own.record ?? online.record}
+                            onChange={() => setOwn({ record: !(own.record ?? online.record) })}
+                            label="Record and transcribe"
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
@@ -766,7 +814,10 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                               video: e.target.value as 'none' | 'google_meet' | 'zoom',
                               meetingUrl: null,
                               // Only Zoom records.
-                              record: e.target.value === 'zoom' ? x.record : false,
+                              record:
+                                e.target.value === 'zoom' || e.target.value === 'google_meet'
+                                  ? x.record
+                                  : false,
                             }
                           : x,
                       ),
@@ -777,7 +828,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                   <option value="google_meet">Make a Google Meet link</option>
                   <option value="zoom">Make a Zoom link</option>
                 </Select>
-                {o.video === 'zoom' ? (
+                {o.video === 'zoom' || o.video === 'google_meet' ? (
                   <label className="flex w-full items-center gap-2 text-xs text-text-2">
                     <input
                       type="checkbox"
@@ -790,8 +841,10 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                       }
                     />
                     Record and transcribe calls. Customers are told when they book and in their
-                    confirmation. The host’s Zoom needs a paid plan with cloud recording and audio
-                    transcripts on.
+                    confirmation.{' '}
+                    {o.video === 'zoom'
+                      ? 'The host’s Zoom needs a paid plan with cloud recording and audio transcripts on.'
+                      : 'The host needs Google Workspace, Allow Meet transcripts on their Google calendar, and transcripts started in the call (or on by default).'}
                   </label>
                 ) : null}
                 {o.video !== 'none' ? (

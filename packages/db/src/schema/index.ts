@@ -2599,6 +2599,8 @@ export const calendarConnections = app.table('calendar_connections', {
   tokenExpiresAt: ts('token_expires_at'),
   busySyncedAt: ts('busy_synced_at'),
   nextSyncAt: ts('next_sync_at'),
+  /** This sign-in asks Google for Meet transcripts too (20261027004100). */
+  meetTranscripts: boolean('meet_transcripts').notNull().default(false),
   failures: integer('failures').notNull().default(0),
   lastError: text('last_error'),
   connectedAt: ts('connected_at'),

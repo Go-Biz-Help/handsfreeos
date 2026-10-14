@@ -60,7 +60,13 @@ export interface CalendarProvider {
    * takes them back out; Outlook's are skipped by their extended property.
    */
   readonly busyIncludesOwnEvents: boolean;
-  authorizeUrl(input: { state: string; codeChallenge: string; redirectUri: string }): string;
+  authorizeUrl(input: {
+    state: string;
+    codeChallenge: string;
+    redirectUri: string;
+    /** Permissions beyond the calendar's, asked for on top of what was already granted (Meet transcripts). */
+    extraScopes?: readonly string[];
+  }): string;
   exchangeCode(input: {
     code: string;
     codeVerifier: string;

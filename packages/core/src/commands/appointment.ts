@@ -544,7 +544,7 @@ export const appointmentMakeMeetingLink = defineCommand({
 const AttachTranscriptInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,
-  provider: z.enum(['zoom']),
+  provider: z.enum(['zoom', 'google_meet']),
   externalId: z.string().trim().min(1).max(200),
   body: z.string().max(2_000_000),
 });

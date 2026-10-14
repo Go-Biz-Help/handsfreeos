@@ -284,6 +284,17 @@ portal and everyone else's calendar event show it. It should need no new scope (
 on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
 someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
 
+### Meet transcripts
+
+Meet sends no webhook, so HandsFreeOS asks for transcripts. A person turns it on with **Allow Meet transcripts** on
+their Google Calendar card (Settings → My calendar), which asks Google again for
+`https://www.googleapis.com/auth/meetings.space.readonly`. Add that scope to the Google Cloud app's consent screen
+(Data access) first; it's a restricted-style scope, so Google may ask to verify the app again before people outside
+the test users can grant it. With the Meet place set to **Record and transcribe**, the worker looks for the call's
+transcript (by its meeting code) 15 minutes after it ends and every 20 minutes for 4 hours, then attaches it and the
+AI pass runs as for Zoom. Meet can't turn transcription on by itself: the host presses **Transcripts** in the call,
+or turns on automatic transcripts in Google Workspace. Meet transcripts need a Workspace plan that has them.
+
 ## Zoom
 
 **Settings** → **My calendar** → **Video meetings** → **Connect Zoom** links a person's own Zoom account. A
@@ -319,13 +330,19 @@ and id, scopes and settings). On the Zoom app, subscribe the same endpoint to **
 
 Then the AI reads it (`appointment.call_review`, counted as AI usage "AI reading a call transcript"). It writes a
 short summary, kept with the transcript and added to the customer's timeline as a note on its own, and suggests
-the tasks the business agreed to and, when one is called for, a follow-up email. Those wait on the appointment
-under **After the call**: **Add task** (made as the person who presses it, assigned to the host) or **Send email**
-(sent as them), each editable first, or **Dismiss**. Nothing is sent or created without that press. The prompt
+the tasks the business agreed to, a follow-up email when one is called for, and an update to the customer's record
+when they gave a new name, email or phone that differs from what's on file. Those wait on the appointment under
+**After the call** (on the web and in the phone app): **Add task** (made as the person who presses it, assigned to
+the host), **Send email** (sent as them) or **Update record** (shown beside what it replaces), each editable first,
+or **Dismiss**. Nothing is sent or created without that press. The prompt
 and the answer's shape are in `packages/core/src/meetings/review.ts`.
 
 Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
-same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
+same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in. `POST /test/zoom/transcript` (stand-in
+only) ends a fake call with a transcript; `apps/web/e2e/meetings.spec.ts` then sends Zoom's signed webhook.
+
+A service on a calendar can have its own video link and recording (Settings → Calendars → Services & lengths,
+under each service): they win over the Online place's when that service is booked online.
 
 For production:
 

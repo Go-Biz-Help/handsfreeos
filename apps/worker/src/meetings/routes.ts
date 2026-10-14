@@ -140,4 +140,21 @@ export async function registerZoomRoutes(app: FastifyInstance, deps: HttpDeps): 
       return reply.code(200).send({ ok: true });
     });
   });
+
+  // The stand-in only (CALENDAR_PROVIDER=fake): a call on the fake Zoom ends with this transcript. The browser
+  // tests then send Zoom's signed webhook naming the file, as Zoom would.
+  const fake = deps.calendars.fakeZoom;
+  if (fake)
+    app.post('/test/zoom/transcript', async (req, reply) => {
+      const b = (req.body ?? {}) as { meetingId?: unknown; lines?: unknown };
+      const meetingId = typeof b.meetingId === 'string' ? b.meetingId.slice(0, 100) : '';
+      const lines = Array.isArray(b.lines) ? b.lines.filter((l) => typeof l === 'string') : [];
+      if (!meetingId || !lines.length)
+        return reply.code(400).send({ error: 'meetingId and lines are needed' });
+      const cues = lines.slice(0, 25).map((l, i) => {
+        const at = (n: number) => `00:00:${String(n).padStart(2, '0')}.000`;
+        return `${i + 1}\n${at(i * 2)} --> ${at(i * 2 + 2)}\n${l}`;
+      });
+      return reply.send(fake.addTranscript(meetingId, `WEBVTT\n\n${cues.join('\n\n')}\n`));
+    });
 }

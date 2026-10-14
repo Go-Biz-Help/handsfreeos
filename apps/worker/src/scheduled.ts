@@ -32,6 +32,7 @@ import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
+import { appointmentMeetTranscriptPoll } from './meetings/meet-poll';
 import { appointmentCallReview } from './meetings/review';
 import { meetingSettingsCheck } from './meetings/settings';
 import { appointmentTranscriptFetch, appointmentTranscriptWatch } from './meetings/transcripts';
@@ -522,6 +523,8 @@ export const jobs: JobMap = {
   'appointment.transcript_watch': appointmentTranscriptWatch,
   // What the AI makes of a recorded call: its summary, and tasks and a follow-up that wait for a person.
   'appointment.call_review': appointmentCallReview,
+  // A recorded Google Meet call's transcript, looked for after it ends.
+  'appointment.meet_transcript_poll': appointmentMeetTranscriptPoll,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,

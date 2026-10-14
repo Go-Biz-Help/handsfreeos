@@ -1507,7 +1507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Approve or dismiss something the AI suggested after a call. Approving makes the task, or sends the follow-up, as you.
+         * Approve or dismiss something the AI suggested after a call. Approving makes the task, sends the follow-up, or updates the customer’s record, as you.
          * @description Risk level 2. Requires appointments.write. Emits call_suggestion.decided.
          */
         post: operations["command_call_suggestion_decide"];
@@ -22979,6 +22979,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    meetTranscripts?: boolean;
                     /** @enum {string} */
                     provider: "google" | "microsoft";
                     /** Format: uuid */
@@ -23429,8 +23431,11 @@ export interface operations {
                                     bufferBefore?: number;
                                     maxPartySize?: number;
                                     minutes?: number[];
+                                    record?: boolean;
                                     seats?: number;
                                     userIds?: string[];
+                                    /** @enum {string} */
+                                    video?: "none" | "google_meet" | "zoom";
                                 };
                                 /** Format: uuid */
                                 serviceId: string;
@@ -23646,7 +23651,12 @@ export interface operations {
                     edits?: {
                         body?: string;
                         dueAt?: string | null;
+                        /** Format: email */
+                        email?: string;
+                        firstName?: string;
+                        lastName?: string;
                         notes?: string | null;
+                        phone?: string;
                         subject?: string;
                         title?: string;
                     };
@@ -55071,6 +55081,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             lastError: string | null;
+                            meetTranscripts: boolean;
                             nextSyncAt: string | null;
                             /** @enum {string} */
                             provider: "google" | "microsoft";
@@ -55372,8 +55383,11 @@ export interface operations {
                                             bufferBefore?: number;
                                             maxPartySize?: number;
                                             minutes?: number[];
+                                            record?: boolean;
                                             seats?: number;
                                             userIds?: string[];
+                                            /** @enum {string} */
+                                            video?: "none" | "google_meet" | "zoom";
                                         };
                                         /** Format: uuid */
                                         serviceId: string;
@@ -55578,7 +55592,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "task" | "follow_up";
+                            kind: "task" | "follow_up" | "record_change";
                             preview: {
                                 [key: string]: unknown;
                             };
@@ -70883,6 +70897,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 lastError: string | null;
+                                meetTranscripts: boolean;
                                 nextSyncAt: string | null;
                                 /** @enum {string} */
                                 provider: "google" | "microsoft";

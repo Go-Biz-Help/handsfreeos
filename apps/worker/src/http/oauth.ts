@@ -38,6 +38,7 @@ import {
 } from '@hfos/db/schema';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { GOOGLE_MEET_TRANSCRIPT_SCOPE } from '@hfos/core';
 import { CALENDAR_NAME } from '../calendar/provider';
 import { isMeetingProvider, MEETING_NAME, type MeetingProviderName } from '../meetings/provider';
 import { REVIEW_NAME, type ReviewProviderName } from '../reviews/provider';
@@ -457,18 +458,23 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         { href: myCalendarUrl(row.workspace_id), label: 'Back to My calendar' },
       );
     const { verifier, challenge } = pkcePair();
-    await asWorker(deps.httpDb, scopeOf(row), (tx) =>
+    const [asked] = await asWorker(deps.httpDb, scopeOf(row), (tx) =>
       tx
         .update(calendarConnections)
         .set({ pkceVerifierEnc: deps.sealer.seal(verifier) })
-        .where(eq(calendarConnections.id, row.connection_id)),
+        .where(eq(calendarConnections.id, row.connection_id))
+        .returning({ meetTranscripts: calendarConnections.meetTranscripts }),
     );
-    return reply
-      .header('referrer-policy', 'no-referrer')
-      .redirect(
-        p.authorizeUrl({ state, codeChallenge: challenge, redirectUri: callbackUrl(row.provider) }),
-        302,
-      );
+    return reply.header('referrer-policy', 'no-referrer').redirect(
+      p.authorizeUrl({
+        state,
+        codeChallenge: challenge,
+        redirectUri: callbackUrl(row.provider),
+        extraScopes:
+          row.provider === 'google' && asked?.meetTranscripts ? [GOOGLE_MEET_TRANSCRIPT_SCOPE] : [],
+      }),
+      302,
+    );
   }
 
   async function calendarCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
@@ -490,7 +496,10 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     }
     const [c] = await asWorker(deps.httpDb, scope, (tx) =>
       tx
-        .select({ verifier: calendarConnections.pkceVerifierEnc })
+        .select({
+          verifier: calendarConnections.pkceVerifierEnc,
+          meetTranscripts: calendarConnections.meetTranscripts,
+        })
         .from(calendarConnections)
         .where(eq(calendarConnections.id, row.connection_id)),
     );
@@ -502,7 +511,13 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         codeVerifier: deps.sealer.open(c.verifier),
         redirectUri: callbackUrl(provider),
       });
-      if (p.missingScopes(tokens.scopes).length > 0) {
+      if (
+        p.missingScopes(tokens.scopes).length > 0 ||
+        // Asked for Meet transcripts, and that box was left unticked.
+        (provider === 'google' &&
+          c.meetTranscripts &&
+          !tokens.scopes.includes(GOOGLE_MEET_TRANSCRIPT_SCOPE))
+      ) {
         await note('Some permissions were left unticked on the sign-in screen.');
         return back('missing_permissions');
       }

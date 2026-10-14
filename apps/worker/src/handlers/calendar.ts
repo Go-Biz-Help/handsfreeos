@@ -1,8 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { calendarConnections, users, workspaces } from '@hfos/db/schema';
 import { queueCalendarSync, scheduleRefresh } from '../calendar/sync';
+import { queueMeetTranscriptPoll } from '../meetings/meet-poll';
 import { queueCallReview } from '../meetings/review';
 import { queueSettingsCheck } from '../meetings/settings';
+import { queueMeetTranscriptWatch } from '../meetings/transcripts';
 import { queueMeetingSync, queueMeetingSyncForHost } from '../meetings/sync';
 import { calendarReconnectEmail } from '../emails/templates';
 import { tenantOf } from '../services';
@@ -62,6 +64,9 @@ export const onAppointmentChanged: EventHandler = async (ctx) => {
     await queueCalendarSync(ctx.tx, scope, id);
     // Its Zoom meeting follows too, when it has one (queued only for Zoom appointments).
     await queueMeetingSync(ctx.tx, scope, id);
+    // A recorded Meet call: its transcript is looked for after it ends, and checked on two hours later.
+    await queueMeetTranscriptPoll(ctx.tx, scope, id);
+    await queueMeetTranscriptWatch(ctx.tx, scope, id);
   }
 };
 

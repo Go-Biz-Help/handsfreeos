@@ -124,6 +124,10 @@ export const ServiceOverrides = z.object({
   maxPartySize: z.int().min(1).max(500).optional(),
   /** Only these people do this service here. */
   userIds: z.array(id).max(50).optional(),
+  /** Online only: this service's video link instead of the Online place's (none, Google Meet or Zoom). */
+  video: VideoProvider.optional(),
+  /** Online only: whether this service's calls are recorded, instead of the Online place's choice. */
+  record: z.boolean().optional(),
 });
 export type ServiceOverrides = z.infer<typeof ServiceOverrides>;
 
@@ -169,8 +173,9 @@ const Location = z.object({
    */
   video: VideoProvider.default('none'),
   /**
-   * Zoom only: record each call to the cloud and keep its transcript on the appointment. Customers are told when
-   * they book, and in their confirmation.
+   * Zoom or Google Meet: record each call and keep its transcript on the appointment. Zoom records on its own;
+   * Meet needs the host to turn transcripts on (or Workspace to do it). Customers are told when they book, and in
+   * their confirmation.
    */
   record: z.boolean().default(false),
 });

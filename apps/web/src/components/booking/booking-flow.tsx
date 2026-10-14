@@ -572,7 +572,10 @@ export function BookingFlow({
   const what = service?.name ?? page.calendar.name;
   const needsAddress = locationKind === 'customer_address';
   const locationLabel = info.locations.find((l) => l.kind === locationKind)?.label ?? null;
-  const recorded = info.locations.find((l) => l.kind === locationKind)?.recorded === true;
+  const recorded =
+    locationKind === 'virtual' && service?.recorded !== undefined
+      ? service.recorded
+      : info.locations.find((l) => l.kind === locationKind)?.recorded === true;
 
   // When: business-local dates, within the calendar's window.
   const today = localDateOf(Date.now(), tz);

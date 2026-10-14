@@ -508,7 +508,16 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
       const s = await loadCatalogService(tx, ws, id);
       if (!s || s.archived) continue;
       const more = extra.find((x) => x.id === id);
+      // A service with its own video choice says for itself whether its online calls are recorded.
+      const own = config.services.items.find((i) => i.serviceId === id)?.overrides;
+      const online = config.locations.options.find((o) => o.kind === 'virtual');
+      const ownRecorded =
+        online && own && (own.video !== undefined || own.record !== undefined)
+          ? ['zoom', 'google_meet'].includes(own.video ?? online.video) &&
+            (own.record ?? online.record)
+          : undefined;
       serviceList.push({
+        ...(ownRecorded === undefined ? {} : { recorded: ownRecorded }),
         id: s.id,
         name: s.name,
         description: more?.description ?? null,
@@ -547,7 +556,8 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
       label: LOCATION_LABEL[o.kind] ?? o.kind,
       address: o.kind === 'business' ? o.address : null,
       // Said before booking: the call is recorded and transcribed (Zoom with Record and transcribe on).
-      recorded: o.kind === 'virtual' && o.video === 'zoom' && o.record,
+      recorded:
+        o.kind === 'virtual' && (o.video === 'zoom' || o.video === 'google_meet') && o.record,
     })),
     customerChoosesLocation: config.locations.customerChooses,
     intake: config.intake.questions,

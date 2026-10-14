@@ -574,14 +574,26 @@ export interface BookingResult {
   readonly warnings: AppointmentWarning[];
 }
 
-/** Where an appointment happens: what the caller sent, else the calendar's option for that kind. */
+/**
+ * Where an appointment happens: what the caller sent, else the calendar's option for that kind. Online, the
+ * service's own video link and recording choice win over the place's.
+ */
 export function locationFor(
   config: CalendarConfig,
   kind: LocationKind | null,
   given?: Partial<AppointmentLocation>,
+  serviceId?: string | null,
 ): AppointmentLocation {
   const k = given?.kind !== undefined ? given.kind : kind;
-  const option = k ? config.locations.options.find((o) => o.kind === k) : undefined;
+  const place = k ? config.locations.options.find((o) => o.kind === k) : undefined;
+  const own = serviceId
+    ? config.services.items.find((i) => i.serviceId === serviceId)?.overrides
+    : undefined;
+  const option = place && {
+    ...place,
+    video: own?.video ?? place.video,
+    record: own?.record ?? place.record,
+  };
   return {
     kind: k ?? null,
     address: given?.address ?? option?.address ?? null,
@@ -598,7 +610,7 @@ export function locationFor(
     record:
       k === 'virtual' &&
       !given?.meetingUrl &&
-      (given?.video ?? option?.video) === 'zoom' &&
+      ['zoom', 'google_meet'].includes(given?.video ?? option?.video ?? '') &&
       (given?.record ?? option?.record ?? false),
   };
 }
@@ -890,7 +902,12 @@ async function commit(
     throw HfosError.validation([{ path: 'partySize', message: say }], say);
   }
   const title = req.title ?? loaded.service?.name ?? calendar.name;
-  const location = locationFor(loaded.config, loaded.locationKind, req.location);
+  const location = locationFor(
+    loaded.config,
+    loaded.locationKind,
+    req.location,
+    loaded.service?.id,
+  );
   const createdBy = userIdOf(ctx.actor);
   const needs = [...loaded.terms.requiredResources].sort((a, b) =>
     a.resourceId.localeCompare(b.resourceId),
