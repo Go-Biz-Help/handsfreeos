@@ -261,7 +261,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   worked out first, with their country and seen or guessed, and **Unskip** (`outreach.country.unskip`) lets one
   through from then on whatever the setting says.
 - **Never contact, and people only chatted with** (the owner's ask of 14 Oct 2026, `contactable`, `friendOf` and
-  `chatPitchSql` in `ops/common.ts`, `neverContactOf`; `20261027003200_outreach_never_contact.sql`): **Never contact**
+  `chatPitchSql` in `ops/common.ts`, `neverContactOf`; `20261027003500_outreach_never_contact.sql`): **Never contact**
   is a list of the business's, beside Don't pitch and stronger: nobody here sends them a friend request, a like, a
   comment or a message, not even a reply. It's a switch on each Friends tab row and **Never contact** in the person
   menu (the web's and the phone's), set with `outreach.friend.set`'s `neverContact`, and the Friends tab lists them
