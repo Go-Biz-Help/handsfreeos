@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Social Outreach: a member waiting on the business</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.nav:focus-visible,.tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 12px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.side{flex:0 1 240px;min-width:200px;background:var(--card);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.nav{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;text-decoration:none}
+.nav:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.nav.on{background:var(--accent-soft);color:var(--accent-text)}
+.nav .icon{width:18px;height:18px}
+.content{flex:999 1 560px;min-width:0;padding:28px 40px 40px;display:flex;flex-direction:column;gap:20px;max-width:900px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{height:38px;display:inline-flex;align-items:center;border:0;background:none;padding:0;font:inherit;font-weight:500;color:var(--text-2);border-bottom:2px solid transparent;margin-bottom:-1px;text-decoration:none}
+.tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.item{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding:16px 20px;border-top:1px solid var(--border)}
+.item .state{width:20px;height:20px;margin-top:1px}
+.done{color:var(--success)}.todo{color:var(--text-3)}.wait{color:var(--warning)}
+.strip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 18px}
+.dot{width:8px;height:8px;border-radius:999px;background:var(--text-3);flex:none}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-wrap: wrap;">
+<aside class="side">
+<div class="brand" style="padding: 4px 10px 16px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>Contacts</a>
+<a class="nav on" href="#" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"></path><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"></path><path d="m21 3 1 11h-2"></path><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"></path><path d="M3 4h8"></path></svg>Social Outreach</a>
+</aside>
+<main class="content">
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Social Outreach</h1>
+<nav class="tabs" aria-label="Social Outreach">
+<a class="tab on" href="#" aria-current="page">Today</a>
+<a class="tab" href="#">Friends</a>
+<a class="tab" href="#">Chats</a>
+<a class="tab" href="#">Groups</a>
+<a class="tab" href="#">Results</a>
+</nav>
+
+<section class="card strip" aria-label="Your day">
+<div class="row" style="gap: 10px;">
+<span class="dot" aria-hidden="true"></span>
+<div class="stack"><span style="font-weight: 600;">Not started today</span><span class="small muted">Get ready first: the extension reaches nobody until the 4 things below are done.</span></div>
+</div>
+<button class="btn btn-secondary" type="button" disabled>Start my day</button>
+</section>
+
+<section class="card" aria-labelledby="ready-title">
+<div class="stack" style="gap: 12px; padding: 20px 20px 18px;">
+<div class="row" style="justify-content: space-between; align-items: flex-start;">
+<div class="stack" style="gap: 4px;">
+<span class="overline">Get ready</span>
+<h2 id="ready-title" style="font-size: 18px; font-weight: 600; letter-spacing: -0.005em;">Get ready for your best results</h2>
+<p class="muted small">4 things to do before the extension reaches anyone for you. You can do your own items meanwhile: your profile and your numbers.</p>
+</div>
+<span class="small muted tnum" style="white-space: nowrap;">2 of 4 done</span>
+</div>
+<div class="bar" role="progressbar" aria-label="Done" aria-valuemin="0" aria-valuemax="4" aria-valuenow="2"><span style="width: 50%;"></span></div>
+</div>
+
+<div class="item">
+<svg class="state wait" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Waiting"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+<div class="stack" style="gap: 2px; min-width: 0;">
+<span style="font-weight: 600;">Your main offer</span>
+<span class="small" style="margin-top: 2px;">Waiting on your business’s main offer. Ask an owner of this business to finish it under Settings → Main offer.</span>
+</div>
+<span class="badge badge-wait">Waiting on your business</span>
+</div>
+
+<div class="item">
+<svg class="state wait" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Waiting"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+<div class="stack" style="gap: 2px; min-width: 0;">
+<span style="font-weight: 600;">A playbook with a niche</span>
+<span class="small" style="margin-top: 2px;">Waiting on a playbook with a niche. Ask an owner or admin of this business to pick one on the Playbooks tab.</span>
+</div>
+<span class="badge badge-wait">Waiting on your business</span>
+</div>
+
+<div class="item">
+<svg class="state done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<div class="stack" style="gap: 2px; min-width: 0;"><span style="font-weight: 600;">Your profile</span><span class="small muted">Every item ticked.</span></div>
+<span class="badge badge-ok">Done</span>
+</div>
+
+<div class="item">
+<svg class="state done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<div class="stack" style="gap: 2px; min-width: 0;"><span style="font-weight: 600;">Your numbers</span><span class="small muted">8 calls a month, Monday to Friday: 14 to 28 first messages a day.</span></div>
+<span class="badge badge-ok">Done</span>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

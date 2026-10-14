@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The phone: Social Outreach, get ready</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border-radius:10px;border:1px solid transparent;font:inherit;font-weight:500;font-size:15px;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:focus-visible,.tabbar a:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13.5px}.xs{font-size:12.5px}
+.row{display:flex;align-items:center;gap:10px}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.item{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px;padding:14px 16px;border-top:1px solid var(--border)}
+.done{color:var(--success)}.todo{color:var(--text-3)}
+.bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);background:var(--card);padding:6px 4px 20px}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-2);padding:6px 0;border-radius:8px;text-decoration:none}
+.tabbar a.on{color:var(--accent-text)}
+.go{display:inline-flex;align-items:center;gap:4px;font-weight:500;font-size:14px;margin-top:8px;min-height:44px}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 390px; height: 844px; display: flex; flex-direction: column;">
+<header class="row" style="height: 56px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border);">
+<a href="#" aria-label="Back to More" class="row" style="width: 44px; height: 44px; justify-content: center;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+<h1 style="font-size: 17px; font-weight: 600;">Social Outreach</h1>
+</header>
+
+<div class="stack" style="flex: 1; overflow: auto; padding: 16px; gap: 14px;">
+<section class="card row" style="justify-content: space-between; padding: 12px 14px;" aria-label="Your day">
+<div class="stack"><span style="font-weight: 600;">Not started today</span><span class="xs muted">Get ready first.</span></div>
+<button class="btn btn-secondary" type="button" disabled>Start my day</button>
+</section>
+
+<section class="card" aria-labelledby="phone-ready">
+<div class="stack" style="gap: 10px; padding: 16px;">
+<span class="overline">Get ready</span>
+<h2 id="phone-ready" style="font-size: 18px; font-weight: 600;">Get ready for your best results</h2>
+<p class="small muted">2 things to do before the extension reaches anyone for you.</p>
+<div class="bar" role="progressbar" aria-label="Done" aria-valuemin="0" aria-valuemax="4" aria-valuenow="2"><span style="width: 50%;"></span></div>
+</div>
+<div class="item">
+<svg class="icon done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<span style="font-weight: 500;">Your main offer</span>
+</div>
+<div class="item">
+<svg class="icon done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<span style="font-weight: 500;">A playbook with a niche</span>
+</div>
+<div class="item">
+<svg class="icon todo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="To do"><circle cx="12" cy="12" r="10"></circle></svg>
+<div class="stack">
+<span style="font-weight: 600;">Your profile</span>
+<span class="small muted">4 things left to check on your Facebook profile.</span>
+<a class="go" href="#">Check your profile <svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</div>
+</div>
+<div class="item">
+<svg class="icon todo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="To do"><circle cx="12" cy="12" r="10"></circle></svg>
+<div class="stack">
+<span style="font-weight: 600;">Your numbers</span>
+<span class="small muted">Set a goal for calls booked a month, and see what it takes each day.</span>
+<a class="go" href="#">Set your goal <svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</div>
+</div>
+</section>
+<p class="xs faint" style="padding: 0 4px;">Your main offer and playbooks are built on a computer, in HandsFreeOS on the web.</p>
+</div>
+
+<nav class="tabbar" aria-label="Main">
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Inbox</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"></rect><rect x="14" y="3" width="7" height="11" rx="1"></rect></svg>Pipeline</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Calendar</a>
+<a class="on" href="#" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>More</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>
