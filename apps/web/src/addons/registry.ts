@@ -29,6 +29,7 @@ import {
   Wrench as realestateVendorsIcon,
 } from 'lucide-react';
 import { Handshake as outreachAddonIcon } from 'lucide-react';
+import { Box as salescoachAddonIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -49,6 +50,8 @@ export type SlotEntities = EverySlot<{
   };
   'conversation.panels': { readonly conversationId: string };
   'home.cards': object;
+  /** Above the bar of a call in progress, for the person on it: the customer, when the call knows who it is. */
+  'call.panels': { readonly personId: string | null };
 }>;
 
 /** What a panel in slot `S` is drawn with. */
@@ -183,4 +186,5 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
     slots: { 'person.panels': () => import('./outreach/person-panel') },
     settings: () => import('./outreach/settings-link'),
   },
+  salescoach: { icon: salescoachAddonIcon },
 };

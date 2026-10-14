@@ -131,6 +131,47 @@ export interface AddonWorkerModule {
    * browser suite, never production), tried before core's: how a customer's words reach its teammate tools.
    */
   readonly scriptedTeammate?: readonly TeammateRule[];
+  /**
+   * What it does with a call it hears live (its manifest's `liveCalls`; telephony/live.ts): each finished line as
+   * it's said, both sides, in order, as the system acting for it. Nothing here holds up the call; a hook that throws
+   * is logged, and the next line still comes.
+   */
+  readonly liveCalls?: AddonLiveCalls;
+}
+
+/** A call heard live: which, who on the team is on it, and the customer when the call knows them. */
+export interface LiveCall {
+  readonly callId: string;
+  readonly callSid: string;
+  readonly teamUserId: string;
+  readonly direction: 'inbound' | 'outbound';
+  readonly personId: string | null;
+  readonly conversationId: string | null;
+}
+
+/** One thing said on a call heard live. */
+export interface LiveLine {
+  readonly speaker: 'customer' | 'team';
+  readonly text: string;
+  /** How far into the call it was finished, in milliseconds. */
+  readonly atMs: number;
+}
+
+export interface AddonLiveCalls {
+  readonly onStart?: (ctx: AddonScopeContext, call: LiveCall) => Promise<void>;
+  /** `line` was just said; `lines` is everything said so far, it included. */
+  readonly onLine: (
+    ctx: AddonScopeContext,
+    call: LiveCall,
+    line: LiveLine,
+    lines: readonly LiveLine[],
+  ) => Promise<void>;
+  /** The call (or its stream) ended: everything that was said. */
+  readonly onEnd?: (
+    ctx: AddonScopeContext,
+    call: LiveCall,
+    lines: readonly LiveLine[],
+  ) => Promise<void>;
 }
 
 /** The AI teammate's reply an add-on checks (round seven). */

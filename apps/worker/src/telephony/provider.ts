@@ -402,6 +402,16 @@ export interface TelephonyProvider {
    */
   redirectCall(account: ProviderAccount, callSid: string, twiml: string): Promise<void>;
   /**
+   * Starts sending a live call's audio to the worker as it happens, both sides, without changing anything the call
+   * is doing (Twilio's `<Start><Stream>`, through its REST API): what hears a person's call live (telephony/live.ts).
+   * `params` reach the stream's `start` message. One that already ended is fine: there's nothing to hear.
+   */
+  startCallStream(
+    account: ProviderAccount,
+    callSid: string,
+    stream: { readonly url: string; readonly params: Readonly<Record<string, string>> },
+  ): Promise<void>;
+  /**
    * Asks for a whole call recording's words (a voicemail gets its own when it is recorded). The worker reads them
    * with fetchTranscription until they're ready.
    */
