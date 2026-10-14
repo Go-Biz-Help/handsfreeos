@@ -190,7 +190,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
 
   // The profile, ticked an item at a time.
   await ready.getByTestId('ready-open-profile').click();
-  const profile = page.getByTestId('ready-profile');
+  const profile = page.getByTestId('ready-profile-sheet');
   for (const item of ['picture', 'cover', 'bio', 'work', 'featured', 'posts']) {
     await profile.getByTestId(`ready-profile-${item}`).click();
     await expect(profile.getByTestId(`ready-profile-${item}`)).toHaveAttribute(
@@ -203,7 +203,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
 
   // The numbers: the math changes as the goal does, and saving it makes them ready.
   await ready.getByTestId('ready-open-numbers').click();
-  const numbers = page.getByTestId('ready-numbers');
+  const numbers = page.getByTestId('ready-numbers-sheet');
   await expect(numbers.getByTestId('ready-math')).toContainText(
     '8 calls a month ÷ 22 working days = 0.4 calls a day',
   );

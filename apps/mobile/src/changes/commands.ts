@@ -324,6 +324,11 @@ import {
   PlaybookSaveInput,
 } from '@hfos/core/addons/outreach/playbooks';
 import { PostSkipInput, PostSkipOutput } from '@hfos/core/addons/outreach/posts';
+import {
+  NumbersInput,
+  ProfileTickInput,
+  ReadinessOutput,
+} from '@hfos/core/addons/outreach/readiness';
 import { ProfileSaveOutput } from '@hfos/core/addons/outreach/saves';
 import {
   SendApproveInput,
@@ -527,6 +532,9 @@ export const PHONE_COMMANDS = {
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),
   'outreach.post.skip': command(ANYTIME, PostSkipInput, PostSkipOutput),
   'outreach.profile.contact': command(ONLINE, ProfileContactInput, ProfileSaveOutput),
+  // Get ready (decision 63): a profile item ticked and the goal set, on Today, with signal.
+  'outreach.readiness.numbers': command(ONLINE, NumbersInput, ReadinessOutput),
+  'outreach.readiness.profile': command(ONLINE, ProfileTickInput, ReadinessOutput),
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
   'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),

@@ -242,7 +242,7 @@ function ProfileSheet({
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent title={R.profile.title} description={R.profile.hint}>
-        <div className="grid gap-4" data-testid="ready-profile">
+        <div className="grid gap-4" data-testid="ready-profile-sheet">
           {again ? (
             <p
               role="status"
@@ -347,7 +347,7 @@ function NumbersSheet({
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent title={R.numbers.title} description={R.numbers.hint}>
-        <div className="grid gap-6" data-testid="ready-numbers">
+        <div className="grid gap-6" data-testid="ready-numbers-sheet">
           <div className="grid gap-2">
             <span className="text-[13px] font-medium" id="ready-goal">
               {R.numbers.goal}

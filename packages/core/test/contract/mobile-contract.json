@@ -7955,6 +7955,54 @@
         "required": ["workspaceId", "profileId"]
       }
     },
+    "outreach.readiness.numbers": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "days": {
+            "minItems": 1,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            }
+          }
+        },
+        "required": ["workspaceId", "goal", "days"]
+      }
+    },
+    "outreach.readiness.profile": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item": {
+            "type": "string",
+            "enum": ["picture", "cover", "bio", "work", "featured", "posts"]
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "item", "done"]
+      }
+    },
     "outreach.request.set_aside": {
       "offline": "anytime",
       "input": {
@@ -13577,6 +13625,18 @@
       }
     },
     "outreach.playbook.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.readiness": {
       "input": {
         "type": "object",
         "properties": {
