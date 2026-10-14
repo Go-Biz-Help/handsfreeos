@@ -16,7 +16,7 @@ Where it comes from: the "20 Bookings Per Month" workbook (Agency Growth Partner
 Module 2 (Social Outbound), and the transcripts of the two videos that go with them. Modules 3 to 5 (cold email, sales
 calls, coaching) are out of scope; Module 4 is a fit for AI Sales Coach later.
 
-**Where it stands (2026-10-14):** planned, nothing built. Social Outreach is in `development`.
+**Where it stands (2026-10-14):** planned, the questions answered but one (renaming Current offers), nothing built. Social Outreach is in `development`.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -194,7 +194,7 @@ each with why it matters in one line and what's left. Nothing outreach-like happ
 
 | Item                        | Done when                                                                                                                                              | Whose                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| **Your main offer**         | A version is live and its score clears the bar (open question 1).                                                                                      | The business                          |
+| **Your main offer**         | A version is live and every part scores 7 or more, or an owner chose **Use it anyway**.                                                                | The business                          |
 | **A playbook with a niche** | A playbook in use has its niche, the niche's problem and its proof.                                                                                    | The business                          |
 | **Your profile**            | The extension has read their Facebook profile since the offer went live, and every item on the profile list is done or ticked as done by hand (below). | Each person                           |
 | **Your messages**           | They've seen sample first messages and the follow-ups for their playbook and OK'd the style, and the playbook has its video link.                      | Each person, the video the business's |
@@ -251,7 +251,7 @@ How it holds:
   one (the video's first common mistake). One Facebook account's safe pace is far below the video's 100 messages a day
   (`DAILY_LIMITS`: 15 first messages and 20 follow-ups), which comes to roughly 4 to 8 calls a month from first
   messages. A goal above what the limits allow says so plainly, and what helps: more friends to message (Reconnect),
-  helpful posts that bring warm leads, and working Saturdays. Limits aren't raised by this plan (open question 2).
+  helpful posts that bring warm leads, and working Saturdays. Limits aren't raised by this plan; more platforms add their own.
 
 ### The conversation: warm up, ask directly, send the video, send the link, follow up
 
@@ -320,7 +320,7 @@ On the playbook, under **Your short video**:
 - **The link**: Loom, YouTube (unlisted) or Google Drive, an https link checked like the extension link
   (`extensionLinkProblem`'s rules).
 - **Improve** and **Write it again**, as on every other part. It's the business's, one per playbook. Each person
-  using their own video is a later choice (open question 3).
+  using their own video comes later.
 
 ### Tracking: the daily numbers
 
@@ -385,15 +385,21 @@ Each step ships on its own, with its tests, and leaves the add-on working.
 Steps 1 and 2 are core and come first. Steps 3 to 8 are the add-on's, in that order, because the readiness check
 needs the niche and the conversation needs the readiness check.
 
-## Open questions
+## Answered (Chris, 2026-10-14)
 
-1. **The bar for the offer.** Recommended: every part scores 7 or more. Below that, the AI's fix is shown, and an
-   owner can still go ahead with **Use it anyway** and a line on why, kept with the version. Without that, an AI
-   score of 6 could hold a business back for good.
-2. **Facebook's pace.** One account's limits come to roughly 4 to 8 calls a month from first messages. Recommended:
-   keep the limits, show the honest math, and push Reconnect and helpful posts for more. Raising them risks the
-   account.
-3. **One video per playbook, or each person's own?** Recommended: one per playbook now; each person's own later, for
-   teams where each person's face is what sells.
-4. **The day's report.** Recommended: on to start, at the end of the working hours. Off would mean most people never
-   see their numbers.
+1. **The bar for the offer:** every part scores 7 or more. Below that, the AI's fix is shown, and an owner can still
+   go ahead with **Use it anyway** and a line on why, kept with the version, so an AI score can't hold a business
+   back for good.
+2. **Facebook's pace:** the limits stay. The honest math shows, and Reconnect and helpful posts are offered for more.
+   More reach comes from more platforms (LinkedIn, Instagram, TikTok, X, Threads, Alignable and others), each with
+   its own safe pace, so the targets add up across them as they come.
+3. **The short video:** one per playbook now; each person's own later.
+4. **The day's report:** on to start, at the end of the working hours.
+
+## Open question
+
+1. **Renaming Current offers.** "Offers" under Knowledge (`app.offers`: "$50 off a furnace tune-up through October")
+   sits next to the main offer. "Deals" is taken: the Pipeline's leads are deals on screen ("Move deals along for
+   you", the AI teammate's "opens and closes deals"), and Real Estate's deals are a home sale. Recommended:
+   **Promotions** on screen (the campaigns migration already calls them that), keeping `offer` in code, the tables
+   and the commands, since a rename there breaks the running code for no one's benefit.
