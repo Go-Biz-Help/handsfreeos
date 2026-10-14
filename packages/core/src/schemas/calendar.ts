@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 import { JobOut } from './job';
-import { CalendarConfig, LocationKind, WeeklyHours } from '../calendar/config';
+import { CalendarConfig, LocationKind, VideoProvider, WeeklyHours } from '../calendar/config';
 import { RecurrenceRule } from '../calendar/engine/recurrence';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { IMPACT_DECISIONS } from '../calendar/impact';
@@ -58,6 +58,16 @@ export const AppointmentLocation = z.object({
   address: z.string().trim().max(300).nullable().default(null),
   meetingUrl: z.url().max(500).nullable().default(null),
   postalCode: z.string().trim().max(20).nullable().default(null),
+  /** Online only: the link is made for it (`google_meet`, `zoom`), filled in once the host's account has it. */
+  video: VideoProvider.nullable().default(null),
+  /** Zoom: the meeting's id there, so a move or a cancel follows it. */
+  meetingId: z.string().max(100).nullable().default(null),
+  /** Zoom: the times the meeting was last set to (`startsAt|endsAt`), so an unchanged one isn't sent again. */
+  meetingFor: z.string().max(100).nullable().default(null),
+  /** Why no link could be made yet, in words for the team ("Dale hasn’t connected Zoom…"). */
+  meetingError: z.string().max(500).nullable().default(null),
+  /** Zoom: the call is recorded and transcribed (the customer was told). */
+  record: z.boolean().default(false),
 });
 export type AppointmentLocation = z.infer<typeof AppointmentLocation>;
 

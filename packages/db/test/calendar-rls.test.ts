@@ -577,6 +577,241 @@ describe('calendar connections', () => {
   });
 });
 
+describe('meeting connections (Zoom)', () => {
+  it('people connect only their own Zoom, never read its tokens, and can only disconnect it', async () => {
+    const state = `zoom-state-${token()}`;
+    const connect = (u: TestUser, whose: TestUser) =>
+      as(u)((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.meeting_connections (workspace_id, user_id, provider, oauth_state_hash,
+                oauth_state_expires_at, created_by)
+              values (${wsA}, ${whose.id}, 'zoom', ${state}, now() + interval '10 minutes', ${u.id})
+              returning id`,
+        ),
+      );
+    expect((await expectPgError(() => connect(owner, member))).code).toBe('42501');
+    const forged = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.meeting_connections (workspace_id, user_id, provider, token_enc, created_by)
+              values (${wsA}, ${member.id}, 'zoom', 'sealed:v1:forged', ${member.id})`,
+        ),
+      ),
+    );
+    expect(forged.code).toBe('42501');
+    const [c] = await connect(member, member);
+
+    const found = await unscoped((tx) =>
+      rows(
+        tx,
+        sql`select kind, connection_id, workspace_id, user_id, provider
+            from private.oauth_connection_by_state(${state})`,
+      ),
+    );
+    expect(found).toEqual([
+      {
+        kind: 'meeting',
+        connection_id: c!.id,
+        workspace_id: wsA,
+        user_id: member.id,
+        provider: 'zoom',
+      },
+    ]);
+    const startedBy = await unscoped((tx) =>
+      rows(tx, sql`select private.oauth_state_started_by(${state}) as by`),
+    );
+    expect(startedBy).toEqual([{ by: member.id }]);
+
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`update app.meeting_connections set status = 'active', account_email = ${`mike-${token()}@zoom.example`},
+              token_enc = 'sealed:v1:not-a-real-token', connected_at = now()
+            where id = ${c!.id}`,
+      ),
+    );
+    for (const column of [
+      'token_enc',
+      'pkce_verifier_enc',
+      'token_key_id',
+      'oauth_state_hash',
+      'external_user_id',
+    ]) {
+      const sealed = await expectPgError(() =>
+        as(member)((tx) => rows(tx, sql.raw(`select ${column} from app.meeting_connections`))),
+      );
+      expect(sealed.code).toBe('42501');
+    }
+    const byTeammate = await as(teammate)((tx) =>
+      rows(tx, sql`select id from app.meeting_connections where id = ${c!.id}`),
+    );
+    expect(byTeammate).toHaveLength(0);
+    const byOwner = await as(owner)((tx) =>
+      rows(tx, sql`select id from app.meeting_connections where id = ${c!.id}`),
+    );
+    expect(byOwner).toHaveLength(1);
+    const reactivate = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(tx, sql`update app.meeting_connections set status = 'error' where id = ${c!.id}`),
+      ),
+    );
+    expect(reactivate.code).toBe('42501');
+    await as(member)((tx) =>
+      rows(tx, sql`update app.meeting_connections set status = 'disconnected' where id = ${c!.id}`),
+    );
+    const [after] = await rows(
+      dbs.admin.db,
+      sql`select status::text as status, token_enc is null as token_gone, disconnected_at is not null as at
+          from app.meeting_connections where id = ${c!.id}`,
+    );
+    expect(after).toEqual({ status: 'disconnected', token_gone: true, at: true });
+  });
+});
+
+describe('call transcripts', () => {
+  it('only the worker keeps them; the business reads them, nobody else does; they go with the appointment', async () => {
+    const cal = await calendar(wsA, orgA);
+    const appt = await book(
+      wsA,
+      orgA,
+      cal,
+      member.id,
+      '2026-11-02T15:00:00Z',
+      '2026-11-02T16:00:00Z',
+    );
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+            values (${wsA}, ${appt}, 'zoom', 'f1', 'Mike: hello')`,
+      ),
+    );
+    // The same file twice keeps one copy.
+    const twice = await expectPgError(() =>
+      worker(
+        wsA,
+        orgA,
+      )((tx) =>
+        rows(
+          tx,
+          sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+              values (${wsA}, ${appt}, 'zoom', 'f1', 'again')`,
+        ),
+      ),
+    );
+    expect(twice.code).toBe('23505');
+    const read = (u: TestUser) =>
+      as(u)((tx) =>
+        rows(tx, sql`select body from app.appointment_transcripts where appointment_id = ${appt}`),
+      );
+    expect(await read(teammate)).toEqual([{ body: 'Mike: hello' }]);
+    expect(await read(outsider)).toEqual([]);
+    const written = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+              values (${wsA}, ${appt}, 'zoom', 'f2', 'forged')`,
+        ),
+      ),
+    );
+    expect(written.code).toBe('42501');
+    // Another business's worker can't hang one on this appointment.
+    const crossed = await expectPgError(() =>
+      worker(
+        wsB,
+        orgB,
+      )((tx) =>
+        rows(
+          tx,
+          sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+              values (${wsB}, ${appt}, 'zoom', 'f3', 'x')`,
+        ),
+      ),
+    );
+    expect(crossed.code).toBe('23514');
+    // Zoom's webhook finds the appointment by its meeting only through the worker's lookup.
+    await rows(
+      dbs.admin.db,
+      sql`update app.appointments set location = '{"kind":"virtual","video":"zoom","meetingId":"8123"}'::jsonb
+          where id = ${appt}`,
+    );
+    expect(
+      await unscoped((tx) =>
+        rows(tx, sql`select appointment_id from private.appointment_by_meeting_id('8123')`),
+      ),
+    ).toEqual([{ appointment_id: appt }]);
+    await rows(dbs.admin.db, sql`delete from app.appointments where id = ${appt}`);
+    const [left] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.appointment_transcripts where appointment_id = ${appt}`,
+    );
+    expect(left!.n).toBe(0);
+  });
+});
+
+describe('call suggestions', () => {
+  it('the worker writes them; the business sees and decides them; nobody else does', async () => {
+    const cal = await calendar(wsA, orgA);
+    const appt = await book(
+      wsA,
+      orgA,
+      cal,
+      member.id,
+      '2026-11-03T15:00:00Z',
+      '2026-11-03T16:00:00Z',
+    );
+    const [s1] = await worker(
+      wsA,
+      orgA,
+    )(async (tx) => {
+      const [t] = await rows<{ id: string }>(
+        tx,
+        sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+            values (${wsA}, ${appt}, 'zoom', 'cs1', 'hi') returning id`,
+      );
+      return rows<{ id: string }>(
+        tx,
+        sql`insert into app.call_suggestions (workspace_id, appointment_id, transcript_id, kind, preview)
+            values (${wsA}, ${appt}, ${t!.id}, 'task', '{"title":"Send the quote"}') returning id`,
+      );
+    });
+    const seen = (u: TestUser) =>
+      as(u)((tx) => rows(tx, sql`select id from app.call_suggestions where id = ${s1!.id}`));
+    expect(await seen(teammate)).toHaveLength(1);
+    expect(await seen(outsider)).toHaveLength(0);
+    const forged = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.call_suggestions (workspace_id, appointment_id, transcript_id, kind)
+              select ${wsA}, ${appt}, transcript_id, 'task' from app.call_suggestions where id = ${s1!.id}`,
+        ),
+      ),
+    );
+    expect(forged.code).toBe('42501');
+    // Decided once: a decided suggestion can't be changed again.
+    await as(owner)((tx) =>
+      rows(tx, sql`update app.call_suggestions set status = 'dismissed' where id = ${s1!.id}`),
+    );
+    const again = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`update app.call_suggestions set status = 'approved' where id = ${s1!.id} returning id`,
+      ),
+    );
+    expect(again).toHaveLength(0);
+  });
+});
+
 describe('the booking site', () => {
   let site: string;
 

@@ -1,3 +1,4 @@
+import { registerZoomRoutes } from '../meetings/routes';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import {
@@ -264,6 +265,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVoiceAgentRoute(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
+  await registerZoomRoutes(app, deps);
   // Facebook Messenger and Instagram: Meta's webhook, and its deauthorize and data deletion callbacks.
   await registerMetaRoutes(app, deps);
   // Signing in to the CRM a business is leaving (M11).

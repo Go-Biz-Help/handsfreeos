@@ -1990,6 +1990,7 @@ export const waitlistStatus = app.enum('waitlist_status', [
   'removed',
 ]);
 export const calendarProvider = app.enum('calendar_provider', ['google', 'microsoft']);
+export const meetingProvider = app.enum('meeting_provider', ['zoom']);
 export const calendarConnectionStatus = app.enum('calendar_connection_status', [
   'pending',
   'active',
@@ -2606,6 +2607,39 @@ export const calendarConnections = app.table('calendar_connections', {
   ...timestamps(),
 });
 
+/** A person's own video-meeting account (Zoom), for the links on their online appointments. */
+export const meetingConnections = app.table('meeting_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  provider: meetingProvider('provider').notNull(),
+  status: calendarConnectionStatus('status').notNull().default('pending'),
+  accountEmail: text('account_email'),
+  externalUserId: text('external_user_id'),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash').unique(),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  settingsCheckedAt: ts('settings_checked_at'),
+  /** What the account's settings mean for transcripts, as codes (core's meetings words name them). */
+  settingsProblems: text('settings_problems')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  ...timestamps(),
+});
+
 /** Busy times read from a person's calendar: times only, never titles. */
 export const calendarBusyBlocks = app.table('calendar_busy_blocks', {
   id: id(),
@@ -2616,6 +2650,41 @@ export const calendarBusyBlocks = app.table('calendar_busy_blocks', {
   userId: ownerRef(),
   startsAt: ts('starts_at').notNull(),
   endsAt: ts('ends_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** What was said on a recorded Zoom call, as plain text, kept on its appointment (20261027003400). */
+export const appointmentTranscripts = app.table('appointment_transcripts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  provider: text('provider').notNull(),
+  // Unique with appointmentId in the database: a repeated webhook keeps one copy.
+  externalId: text('external_id').notNull(),
+  body: text('body').notNull(),
+  /** The AI's summary of the call (20261027003600). */
+  summary: text('summary'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** What the AI suggested after a call: tasks and a follow-up, waiting for a person (20261027003600). */
+export const callSuggestions = app.table('call_suggestions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  transcriptId: uuid('transcript_id')
+    .notNull()
+    .references(() => appointmentTranscripts.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  preview: jsonb('preview').$type<Json>().notNull().default({}),
+  status: text('status').notNull().default('pending'),
+  result: jsonb('result').$type<Json>(),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
@@ -2673,6 +2742,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'automations',
   // An add-on's own AI use (Real Estate step 6), with the add-on in addon_id.
   'addon',
+  // Reading a recorded call's transcript for its summary and suggestions (20261027003600).
+  'meetings',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

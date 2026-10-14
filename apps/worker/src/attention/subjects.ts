@@ -124,6 +124,9 @@ export const ATTENTION_EVENTS: readonly string[] = [
   // someone said was still going, whose card waits.
   'person.updated',
   'appointment.still_going',
+  // Video meetings: Make link pressed on an online visit.
+  'appointment.meeting_link_requested',
+  'appointment.transcript_ready',
   // Service (Automations 4a): a promise the team made, and a hand-off the owners were told about.
   'promise.found',
   'conversation.handoff_escalated',

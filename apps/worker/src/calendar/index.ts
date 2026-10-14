@@ -3,6 +3,9 @@ import { createFakeCalendars, type FakeCalendars } from './fake';
 import { createGoogleCalendar } from './google';
 import { createGraphCalendar } from './graph';
 import type { CalendarProvider, CalendarProviderName } from './provider';
+import { createFakeZoom, FAKE_ZOOM_WEBHOOK_SECRET, type FakeZoom } from '../meetings/fake';
+import type { MeetingProvider, MeetingProviderName } from '../meetings/provider';
+import { createZoom } from '../meetings/zoom';
 
 /** People's own calendars: the providers, and how often each connected calendar's busy times are read again. */
 export interface CalendarServices {
@@ -10,6 +13,12 @@ export interface CalendarServices {
   /** Local and tests: in-memory calendars, and a sign-in page on the worker. Null with the real providers. */
   readonly fake: FakeCalendars | null;
   readonly refreshEveryMs: number;
+  /** People's own video-meeting accounts (Zoom), signed in to beside their calendar. */
+  readonly meetings: Readonly<Record<MeetingProviderName, MeetingProvider>>;
+  /** Local and tests: the stand-in Zoom, to look at what was made. Null with the real one. */
+  readonly fakeZoom: FakeZoom | null;
+  /** What Zoom's webhooks are signed with; null leaves the webhook refusing everything. */
+  readonly zoomWebhookSecret: string | null;
 }
 
 /** In-memory calendars (local development, tests and the seed). */
@@ -18,7 +27,15 @@ export function fakeCalendarServices(
   refreshEveryMs: number,
 ): CalendarServices & { readonly fake: FakeCalendars } {
   const fake = createFakeCalendars({ publicUrl });
-  return { providers: fake.providers, fake, refreshEveryMs };
+  const fakeZoom = createFakeZoom({ publicUrl });
+  return {
+    providers: fake.providers,
+    fake,
+    refreshEveryMs,
+    meetings: { zoom: fakeZoom },
+    fakeZoom,
+    zoomWebhookSecret: FAKE_ZOOM_WEBHOOK_SECRET,
+  };
 }
 
 export function createCalendars(env: WorkerEnv): CalendarServices {
@@ -39,5 +56,11 @@ export function createCalendars(env: WorkerEnv): CalendarServices {
     },
     fake: null,
     refreshEveryMs: env.calendarRefreshMs,
+    // A Zoom Marketplace OAuth app; without its keys the Zoom button says it isn't set up yet.
+    meetings: {
+      zoom: createZoom({ clientId: env.zoomClientId, clientSecret: env.zoomClientSecret }),
+    },
+    fakeZoom: null,
+    zoomWebhookSecret: env.zoomWebhookSecret,
   };
 }

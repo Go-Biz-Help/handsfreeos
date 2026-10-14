@@ -377,6 +377,11 @@ export const appointmentBookOnline = defineCommand({
               kind: 'customer_address',
               address: input.address ?? null,
               meetingUrl: null,
+              video: null,
+              meetingId: null,
+              meetingFor: null,
+              meetingError: null,
+              record: false,
               postalCode: input.postalCode ?? null,
             }
           : undefined,

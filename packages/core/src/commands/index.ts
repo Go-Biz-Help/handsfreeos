@@ -19,6 +19,9 @@ import {
   appointmentSetStatus,
   appointmentStillGoing,
   appointmentUpdate,
+  appointmentSetMeetingLink,
+  appointmentMakeMeetingLink,
+  appointmentAttachTranscript,
   seriesCancel,
   seriesCreate,
   sessionPublish,
@@ -61,6 +64,8 @@ import {
 } from './calendar-catalog';
 import { scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
 import { calendarConnectionCommands } from './calendar-connection';
+import { meetingConnectionCommands } from './meeting-connection';
+import { callSuggestionCommands } from './call-suggestion';
 import { companyArchive } from './company.archive';
 import {
   conversationAssign,
@@ -639,6 +644,9 @@ export {
   timeOffRemove,
   appointmentCreate,
   appointmentUpdate,
+  appointmentSetMeetingLink,
+  appointmentMakeMeetingLink,
+  appointmentAttachTranscript,
   appointmentReschedule,
   appointmentReassign,
   appointmentCancel,
@@ -834,6 +842,9 @@ export const commands: readonly CommandDef[] = [
   timeOffRemove,
   appointmentCreate,
   appointmentUpdate,
+  appointmentSetMeetingLink,
+  appointmentMakeMeetingLink,
+  appointmentAttachTranscript,
   appointmentReschedule,
   appointmentReassign,
   appointmentCancel,
@@ -853,6 +864,8 @@ export const commands: readonly CommandDef[] = [
   bookingReleaseHold,
   waitlistJoinOnline,
   ...calendarConnectionCommands,
+  ...meetingConnectionCommands,
+  ...callSuggestionCommands,
   attendeeRecordReminder,
   waitlistPromote,
   waitlistOffer,
@@ -1108,6 +1121,8 @@ export { attendeeFromPerson } from './appointment';
 export { validateIntake } from './appointment-online';
 export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-online';
 export * from './calendar-connection';
+export * from './meeting-connection';
+export * from './call-suggestion';
 export * from './number-import';
 export * from './twilio-connection';
 export * from './social';

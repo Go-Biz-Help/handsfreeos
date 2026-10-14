@@ -10,7 +10,7 @@ const DAY = 86_400_000;
 
 /**
  * Everyone's own hours, time off and Google or Outlook connection. Owners and admins open someone else's
- * from Members (`?user=`). Coming back from Google's or Microsoft's sign-in carries `?calendar=`.
+ * from Members (`?user=`). Coming back from Google's or Microsoft's sign-in carries `?calendar=`, and from Zoom's `?meeting=`.
  */
 export default async function MyCalendarPage({
   params,
@@ -20,7 +20,7 @@ export default async function MyCalendarPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
-  const { calendar, user } = await searchParams;
+  const { calendar, meeting, user } = await searchParams;
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = can(got.workspace.permissions, 'calendars.manage');
@@ -33,7 +33,7 @@ export default async function MyCalendarPage({
   );
   if (!known) notFound();
   const now = Date.now();
-  const [team, connections] = await Promise.all([
+  const [team, connections, meetings] = await Promise.all([
     api
       .POST('/v1/queries/schedule.team', {
         body: {
@@ -49,6 +49,11 @@ export default async function MyCalendarPage({
         body: { workspaceId, userId: targetId },
       })
       .then(unwrapPage),
+    api
+      .POST('/v1/queries/meeting_connection.list', {
+        body: { workspaceId, userId: targetId },
+      })
+      .then(unwrapPage),
   ]);
   const person = team.people[0];
   if (!person) notFound();
@@ -58,9 +63,11 @@ export default async function MyCalendarPage({
         workspaceId={workspaceId}
         person={person}
         connection={connections.items.find((c) => c.status !== 'pending') ?? null}
+        meeting={meetings.items.find((c) => c.status !== 'pending') ?? null}
         isSelf={targetId === userId}
         canManage={canManage}
         result={targetId === userId && typeof calendar === 'string' ? calendar : null}
+        meetingResult={targetId === userId && typeof meeting === 'string' ? meeting : null}
       />
     </>
   );

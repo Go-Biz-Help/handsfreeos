@@ -3,7 +3,7 @@
  * without HandsFreeOS's own events, write-through that creates, moves and removes events and never doubles
  * them, a lost sign-in that emails its person once, and disconnecting.
  */
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import {
   appointmentDelete,
@@ -14,6 +14,14 @@ import {
   calendarConnectionSyncNow,
   executeCommand,
   mailboxConnect,
+  meetingConnectionConnect,
+  meetingConnectionDisconnect,
+  meetingConnectionCheckSettings,
+  appointmentAttachTranscript,
+  callSuggestionDecide,
+  callSuggestionList,
+  meetingConnectionList,
+  executeQuery,
   organizationCreate,
   type HumanActor,
 } from '@hfos/core/server';
@@ -23,6 +31,7 @@ import {
   calendarBusyBlocks,
   calendarConnections,
   mailboxConnections,
+  meetingConnections,
 } from '@hfos/db/schema';
 import {
   closeTestDbs,
@@ -37,6 +46,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeCalendarEvent } from '../src/calendar/fake';
 import type { TokenSet } from '../src/calendar/provider';
 import { queueCalendarSync } from '../src/calendar/sync';
+import { FAKE_ZOOM_WEBHOOK_SECRET } from '../src/meetings/fake';
+import { zoomSignature } from '../src/meetings/routes';
+import { queueSettingsCheck } from '../src/meetings/settings';
+import { queueMeetingSync } from '../src/meetings/sync';
 import { processDeliveries } from '../src/deliveries';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
@@ -45,6 +58,8 @@ import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { finishSignIn, testTokenVerifier } from './finish-sign-in';
+import { scriptedAi } from '../src/ai/scripted';
+import { systemActor } from '../src/services';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -172,13 +187,19 @@ async function addBusy(account: string, from: Date, to: Date): Promise<void> {
 }
 
 /** An appointment as the booking engine writes one: the row, then who works it. */
-function book(title: string, from: Date, to: Date, staff: readonly string[]): Promise<string> {
+function book(
+  title: string,
+  from: Date,
+  to: Date,
+  staff: readonly string[],
+  location: Record<string, unknown> = {},
+): Promise<string> {
   return worker(async (tx) => {
     const [a] = await rows<{ id: string }>(
       tx,
-      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at)
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at, location)
           values (${workspaceId}, ${calendarId}, 1, ${title}, ${from.toISOString()}::timestamptz,
-            ${to.toISOString()}::timestamptz)
+            ${to.toISOString()}::timestamptz, ${JSON.stringify(location)}::jsonb)
           returning id`,
     );
     for (const userId of staff)
@@ -328,7 +349,8 @@ beforeAll(async () => {
   calendarId = c!.id;
   google = `dale-${token()}@gmail.fake`;
   outlook = `priya-${token()}@outlook.fake`;
-  s = testServices();
+  // The scripted AI reads recorded calls' transcripts (meetings/review.ts).
+  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
@@ -525,6 +547,53 @@ describe('appointments in people’s calendars', () => {
     expect((await written(visit, owner.id))?.providerEventId).toBeNull();
   });
 
+  it('makes one Google Meet link for an online visit set to get one, and keeps it', async () => {
+    const video = {
+      kind: 'virtual',
+      address: null,
+      meetingUrl: null,
+      postalCode: null,
+      video: 'google_meet',
+    };
+    const call = await book('Video consult', at(5, 16), at(5, 17), [owner.id], video);
+    await sync(call);
+    const [e] = await eventsFor(google, call);
+    const link = `https://meet.google.com/fake-${call.slice(0, 8)}`;
+    expect(e?.meetingUrl).toBe(link);
+    const location = async () =>
+      (
+        await worker((tx) =>
+          rows<{ location: Record<string, unknown> }>(
+            tx,
+            sql`select location from app.appointments where id = ${call}`,
+          ),
+        )
+      )[0]!.location;
+    expect(await location()).toMatchObject({
+      kind: 'virtual',
+      meetingUrl: link,
+      video: 'google_meet',
+    });
+    // Saving the link ran the write-through again: the event now shows the link as its place.
+    expect((await eventsFor(google, call))[0]).toMatchObject({ location: link, meetingUrl: link });
+
+    // Moved: the same link stays.
+    await move(call, at(5, 18), at(5, 19));
+    await sync(call);
+    expect(await location()).toMatchObject({ meetingUrl: link });
+
+    // A visit with a link someone typed in is left alone.
+    const typed = await book('Typed link', at(5, 20), at(5, 21), [owner.id], {
+      ...video,
+      meetingUrl: 'https://zoom.us/j/123',
+    });
+    await sync(typed);
+    expect((await eventsFor(google, typed))[0]).toMatchObject({
+      location: 'https://zoom.us/j/123',
+      meetingUrl: null,
+    });
+  });
+
   it('Outlook finds its event again by our property, and a reassigned visit changes calendars', async () => {
     const signed = await connect(tech, 'microsoft', outlook);
     outlookId = signed.connectionId;
@@ -700,5 +769,502 @@ describe('disconnecting', () => {
         meta(),
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('connecting Zoom', () => {
+  /** Zoom's sign-in through the real routes, the same way a calendar's goes. */
+  async function connectZoom(
+    user: TestUser,
+    account: string,
+    decision: 'allow' | 'deny' = 'allow',
+  ) {
+    const { output } = await executeCommand(
+      api(),
+      meetingConnectionConnect,
+      { workspaceId, provider: 'zoom' },
+      actor(user),
+      meta(),
+    );
+    const start = await get(`/oauth/zoom/start?state=${encodeURIComponent(output.state)}`);
+    expect(start.statusCode).toBe(302);
+    const authorize = new URL(String(start.headers.location));
+    expect(authorize.pathname).toBe('/oauth/fake/zoom/authorize');
+    const page = await get(`${authorize.pathname}${authorize.search}`);
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain('No real Zoom account is touched');
+    const approve = await get(
+      `/oauth/fake/zoom/approve?${new URLSearchParams({
+        state: output.state,
+        code_challenge: authorize.searchParams.get('code_challenge')!,
+        redirect_uri: authorize.searchParams.get('redirect_uri')!,
+        email: account,
+        decision,
+      })}`,
+    );
+    const callback = new URL(String(approve.headers.location));
+    expect(callback.pathname).toBe('/oauth/zoom/callback');
+    const back = await finishSignIn(
+      app,
+      await get(`${callback.pathname}${callback.search}`),
+      await signInTestUser(user),
+    );
+    await drain();
+    return { connectionId: output.connectionId, location: String(back.location) };
+  }
+  const meeting = async (id: string) =>
+    (await admin().select().from(meetingConnections).where(eq(meetingConnections.id, id)))[0]!;
+
+  it('signs in through the stand-in Zoom page and seals the tokens; a reconnect replaces the old one', async () => {
+    const first = await connectZoom(tech, 'priya@zoom.fake');
+    expect(first.location).toMatch(/\/settings\/my-calendar\?meeting=connected$/);
+    const c = await meeting(first.connectionId);
+    expect(c).toMatchObject({
+      status: 'active',
+      provider: 'zoom',
+      accountEmail: 'priya@zoom.fake',
+      oauthStateHash: null,
+      pkceVerifierEnc: null,
+    });
+    expect(c.externalUserId).toMatch(/^fake-zoom-user-/);
+    expect(c.tokenEnc).not.toContain('fake-zoom-access');
+    const opened = JSON.parse(s.sealer.open(c.tokenEnc!)) as TokenSet;
+    expect(opened.accessToken).toMatch(/^fake-zoom-access\./);
+
+    // People see their own, never the tokens; the calendar stays as it was.
+    const output = await executeQuery(
+      api(),
+      meetingConnectionList,
+      { workspaceId },
+      actor(tech),
+      meta(),
+    );
+    expect(output.items).toEqual([
+      expect.objectContaining({
+        id: first.connectionId,
+        status: 'active',
+        fullName: expect.any(String),
+      }),
+    ]);
+    expect(output.items[0]).not.toHaveProperty('tokenEnc');
+
+    const again = await connectZoom(tech, 'priya.new@zoom.fake');
+    expect((await meeting(again.connectionId)).status).toBe('active');
+    expect(await meeting(first.connectionId)).toMatchObject({
+      status: 'disconnected',
+      tokenEnc: null,
+    });
+  });
+
+  it('comes back as cancelled when the person says no', async () => {
+    const { connectionId, location } = await connectZoom(owner, 'dale@zoom.fake', 'deny');
+    expect(location).toMatch(/\?meeting=cancelled$/);
+    expect((await meeting(connectionId)).status).toBe('pending');
+  });
+
+  it('makes the host’s Zoom meeting, moves it with the appointment and deletes it when cancelled', async () => {
+    const zoomPlace = {
+      kind: 'virtual',
+      address: null,
+      meetingUrl: null,
+      postalCode: null,
+      video: 'zoom',
+    };
+    const placeOf = async (id: string) =>
+      (
+        await worker((tx) =>
+          rows<{ location: Record<string, unknown> }>(
+            tx,
+            sql`select location from app.appointments where id = ${id}`,
+          ),
+        )
+      )[0]!.location;
+    const meetingSync = async (id: string) => {
+      await worker((tx) => queueMeetingSync(tx, scope(), id));
+      await drain();
+    };
+    const zoom = s.calendars.fakeZoom!;
+
+    // Priya connected Zoom above (priya.new@zoom.fake).
+    const call = await book('Zoom consult', at(8, 16), at(8, 17), [tech.id], zoomPlace);
+    await meetingSync(call);
+    const [m] = zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(m).toMatchObject({
+      topic: 'Zoom consult',
+      start: at(8, 16).toISOString(),
+      end: at(8, 17).toISOString(),
+    });
+    expect(await placeOf(call)).toMatchObject({
+      video: 'zoom',
+      meetingUrl: m!.joinUrl,
+      meetingId: m!.id,
+      meetingError: null,
+    });
+
+    // Moved: the same meeting moves; run again unchanged, nothing new is made.
+    await move(call, at(8, 18), at(8, 19));
+    await meetingSync(call);
+    await meetingSync(call);
+    const after = zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(after).toEqual([expect.objectContaining({ id: m!.id, start: at(8, 18).toISOString() })]);
+
+    // Deleted in Zoom itself: the next change makes a new one.
+    zoom.forget(m!.id);
+    await move(call, at(8, 19), at(8, 20));
+    await meetingSync(call);
+    const remade = zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(remade).toHaveLength(1);
+    expect(remade[0]!.id).not.toBe(m!.id);
+    expect(await placeOf(call)).toMatchObject({ meetingId: remade[0]!.id });
+
+    // Cancelled: the meeting comes out of Zoom.
+    await setStatus(call, 'cancelled');
+    await meetingSync(call);
+    expect(zoom.meetings('priya.new@zoom.fake').filter((x) => x.appointmentId === call)).toEqual(
+      [],
+    );
+    expect(await placeOf(call)).toMatchObject({ meetingId: null });
+  });
+
+  it('says why there’s no link when the host hasn’t connected Zoom, and Make link tries again', async () => {
+    const zoomPlace = { kind: 'virtual', video: 'zoom' };
+    const call = await book('No Zoom yet', at(8, 9), at(8, 10), [owner.id], zoomPlace);
+    await worker((tx) => queueMeetingSync(tx, scope(), call));
+    await drain();
+    const [row] = await worker((tx) =>
+      rows<{ location: Record<string, unknown> }>(
+        tx,
+        sql`select location from app.appointments where id = ${call}`,
+      ),
+    );
+    expect(row!.location).toMatchObject({ meetingUrl: null });
+    expect(String(row!.location['meetingError'])).toContain('hasn’t connected Zoom');
+    expect(String(row!.location['meetingError'])).toContain('Settings → My calendar');
+  });
+
+  it('reads the Zoom settings after connecting and on Check again, and keeps what transcripts need', async () => {
+    const zoom = s.calendars.fakeZoom!;
+    const account = 'settings@zoom.fake';
+    zoom.setSettings(account, { cloudRecording: true, audioTranscript: false });
+    const { connectionId } = await connectZoom(tech, account);
+    // Connecting queued the read; the drain ran it.
+    expect(await meeting(connectionId)).toMatchObject({
+      settingsProblems: ['zoom_transcript_off'],
+    });
+    expect((await meeting(connectionId)).settingsCheckedAt).not.toBeNull();
+    const listed = await executeQuery(
+      api(),
+      meetingConnectionList,
+      { workspaceId },
+      actor(tech),
+      meta(),
+    );
+    expect(listed.items.find((c) => c.id === connectionId)).toMatchObject({
+      settingsProblems: ['zoom_transcript_off'],
+    });
+
+    // Fixed in Zoom, then Check again: nothing left to fix.
+    zoom.setSettings(account, { audioTranscript: true });
+    await executeCommand(
+      api(),
+      meetingConnectionCheckSettings,
+      { workspaceId, connectionId },
+      actor(tech),
+      meta(),
+    );
+    await drain();
+    expect((await meeting(connectionId)).settingsProblems).toEqual([]);
+
+    // Downgraded to the free plan: the daily read finds it.
+    zoom.setSettings(account, { planType: 1 });
+    await worker((tx) => queueSettingsCheck(tx, scope(), connectionId));
+    await drain();
+    expect((await meeting(connectionId)).settingsProblems).toEqual(['zoom_basic_plan']);
+
+    // Only the person checks their own.
+    await expect(
+      executeCommand(
+        api(),
+        meetingConnectionCheckSettings,
+        { workspaceId, connectionId },
+        actor(owner),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('records the call, takes Zoom’s signed webhook and keeps the transcript once', async () => {
+    const zoom = s.calendars.fakeZoom!;
+    const recordedPlace = { kind: 'virtual', video: 'zoom', record: true };
+    const call = await book('Recorded consult', at(9, 16), at(9, 17), [tech.id], recordedPlace);
+    await worker((tx) => queueMeetingSync(tx, scope(), call));
+    await drain();
+    const [m] = zoom.meetings('settings@zoom.fake').filter((x) => x.appointmentId === call);
+    expect(m).toMatchObject({ record: true });
+    // Its missing-transcript check waits until two hours after the call.
+    const [watch] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs
+          where dedupe_key = ${`appointment.transcript_watch:${call}`} and status = 'pending'`,
+    );
+    expect(new Date(watch!.run_at).toISOString()).toBe(
+      new Date(at(9, 17).getTime() + 2 * 3_600_000).toISOString(),
+    );
+
+    const file = zoom.addTranscript(
+      m!.id,
+      'WEBVTT\n\n1\n00:00:01.000 --> 00:00:03.000\nPriya: Can I send the quote Friday?\n',
+    );
+    const send = (
+      body: unknown,
+      secret = FAKE_ZOOM_WEBHOOK_SECRET,
+      ts = Math.floor(Date.now() / 1000),
+    ) => {
+      const raw = JSON.stringify(body);
+      return app.inject({
+        method: 'POST',
+        url: '/webhooks/zoom',
+        headers: {
+          'content-type': 'application/json',
+          'x-zm-request-timestamp': String(ts),
+          'x-zm-signature': zoomSignature(secret, String(ts), raw),
+        },
+        payload: raw,
+      });
+    };
+    const event = {
+      event: 'recording.transcript_completed',
+      payload: {
+        object: {
+          id: Number(m!.id),
+          recording_files: [{ id: file.fileId, file_type: 'TRANSCRIPT', download_url: file.url }],
+        },
+      },
+    };
+    // Wrong secret, or an old signature: refused, nothing queued.
+    expect((await send(event, 'not-the-secret')).statusCode).toBe(401);
+    expect(
+      (await send(event, FAKE_ZOOM_WEBHOOK_SECRET, Math.floor(Date.now() / 1000) - 3600))
+        .statusCode,
+    ).toBe(401);
+
+    // Zoom checking the URL when the subscription is saved.
+    const check = await send({
+      event: 'endpoint.url_validation',
+      payload: { plainToken: 'abc123' },
+    });
+    expect(check.json()).toEqual({
+      plainToken: 'abc123',
+      encryptedToken: createHmac('sha256', FAKE_ZOOM_WEBHOOK_SECRET).update('abc123').digest('hex'),
+    });
+
+    expect((await send(event)).statusCode).toBe(200);
+    await drain();
+    expect((await send(event)).statusCode).toBe(200);
+    await drain();
+    const kept = await rows<{ body: string; provider: string }>(
+      admin(),
+      sql`select body, provider from app.appointment_transcripts where appointment_id = ${call}`,
+    );
+    expect(kept).toEqual([{ provider: 'zoom', body: 'Priya: Can I send the quote Friday?' }]);
+    const ready = await rows(
+      admin(),
+      sql`select 1 from app.events where event_type = 'appointment.transcript_ready' and entity_id = ${call}`,
+    );
+    expect(ready).toHaveLength(1);
+
+    // A meeting HandsFreeOS didn't make is acknowledged and ignored.
+    expect(
+      (
+        await send({
+          ...event,
+          payload: { object: { ...event.payload.object, id: 99999999999 } },
+        })
+      ).statusCode,
+    ).toBe(200);
+  });
+
+  it('emails the host once when a recorded call’s transcript never came, saying what to fix', async () => {
+    const zoom = s.calendars.fakeZoom!;
+    // Priya's Zoom is settings@zoom.fake by now (the settings test above connected it).
+    zoom.setSettings('settings@zoom.fake', { planType: 2, audioTranscript: false });
+    const call = await book('Silent call', at(-1, 9), at(-1, 10), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    await rows(
+      admin(),
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+          values (${scope().organizationId}, ${workspaceId}, 'appointment.transcript_watch',
+            ${`appointment.transcript_watch:${call}`}, now(), ${JSON.stringify({ appointmentId: call })}::jsonb)`,
+    );
+    await drain();
+    const mail = await waitForMail(tech.email, 'No transcript came for Silent call');
+    expect(mail.Text).toContain('Audio transcripts are off');
+    expect(mail.Text).toContain('/settings/my-calendar');
+    zoom.setSettings('settings@zoom.fake', { audioTranscript: true });
+  });
+
+  it('sums up a recorded call on the customer’s timeline; its task and follow-up wait for a person', async () => {
+    const call = await book('Duct quote call', at(-2, 15), at(-2, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${workspaceId}, 'Mike', 'Johnson', ${`mike-${randomUUID().slice(0, 8)}@example.com`})
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    // As the worker does when Zoom's transcript arrives.
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-1',
+        body: 'Priya: I’ll send you the quote by Friday.\nMike: Great, thanks.',
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    expect(review.summary).toContain('Duct quote call');
+    expect(review.items.map((i) => [i.kind, i.status])).toEqual([
+      ['task', 'pending'],
+      ['follow_up', 'pending'],
+    ]);
+    // The summary is on Mike's timeline already; nothing else ran.
+    const notes = await rows<{ body: string }>(
+      admin(),
+      sql`select body from app.activities where person_id = ${person!.id} and kind = 'note'`,
+    );
+    expect(notes.map((n) => n.body)).toEqual([
+      expect.stringContaining('Call summary: Duct quote call'),
+    ]);
+    const tasksBefore = await rows(
+      admin(),
+      sql`select 1 from app.tasks where person_id = ${person!.id}`,
+    );
+    expect(tasksBefore).toHaveLength(0);
+
+    // Approve the task, renamed; dismiss the email.
+    const task = review.items.find((i) => i.kind === 'task')!;
+    const done = await executeCommand(
+      api(),
+      callSuggestionDecide,
+      {
+        workspaceId,
+        suggestionId: task.id,
+        decision: 'approve',
+        edits: { title: 'Send Mike the duct quote' },
+      },
+      actor(tech),
+      meta(),
+    );
+    expect(done.output.taskId).not.toBeNull();
+    const [made] = await rows<{ title: string; assignee_user_id: string; due_at: Date | null }>(
+      admin(),
+      sql`select title, assignee_user_id, due_at from app.tasks where id = ${done.output.taskId}`,
+    );
+    expect(made).toMatchObject({ title: 'Send Mike the duct quote', assignee_user_id: tech.id });
+    const email = review.items.find((i) => i.kind === 'follow_up')!;
+    await executeCommand(
+      api(),
+      callSuggestionDecide,
+      { workspaceId, suggestionId: email.id, decision: 'dismiss' },
+      actor(tech),
+      meta(),
+    );
+    // Decided once: a second press is refused, and the review isn't run twice.
+    await expect(
+      executeCommand(
+        api(),
+        callSuggestionDecide,
+        { workspaceId, suggestionId: task.id, decision: 'approve' },
+        actor(owner),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ rule: 'call_suggestion_decided' });
+    const after = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
+  });
+
+  it('removing the app in Zoom disconnects that account and erases what was kept', async () => {
+    const { connectionId } = await connectZoom(owner, 'removed@zoom.fake');
+    const before = await meeting(connectionId);
+    expect(before).toMatchObject({ status: 'active' });
+    const raw = JSON.stringify({
+      event: 'app_deauthorized',
+      payload: { user_id: before.externalUserId, account_id: 'acct', client_id: 'zid' },
+    });
+    const ts = String(Math.floor(Date.now() / 1000));
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/zoom',
+      headers: {
+        'content-type': 'application/json',
+        'x-zm-request-timestamp': ts,
+        'x-zm-signature': zoomSignature(FAKE_ZOOM_WEBHOOK_SECRET, ts, raw),
+      },
+      payload: raw,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(await meeting(connectionId)).toMatchObject({
+      status: 'disconnected',
+      tokenEnc: null,
+      accountEmail: null,
+      externalUserId: null,
+      scopes: [],
+      settingsProblems: [],
+    });
+  });
+
+  it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {
+    const mine = await connectZoom(owner, 'dale@zoom.fake');
+    await expect(
+      executeCommand(
+        api(),
+        meetingConnectionDisconnect,
+        { workspaceId, connectionId: mine.connectionId },
+        actor(tech),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    await executeCommand(
+      api(),
+      meetingConnectionDisconnect,
+      { workspaceId, connectionId: mine.connectionId },
+      actor(owner),
+      meta(),
+    );
+    expect(await meeting(mine.connectionId)).toMatchObject({
+      status: 'disconnected',
+      tokenEnc: null,
+      pkceVerifierEnc: null,
+    });
   });
 });

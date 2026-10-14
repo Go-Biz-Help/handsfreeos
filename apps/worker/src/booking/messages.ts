@@ -38,6 +38,8 @@ export interface Visit {
   /** The street address (the customer's, or the business's), when there is one. */
   readonly address: string | null;
   readonly meetingUrl: string | null;
+  /** The call is recorded and transcribed (Zoom with Record and transcribe on): the customer is told. */
+  readonly recorded?: boolean;
   /** First names of the people who come, the host first. */
   readonly staff: readonly string[];
 }
@@ -130,7 +132,8 @@ const be = (staff: readonly string[]) => (staff.length > 1 ? 'are' : 'is');
 export function whereLine(v: Visit): string | null {
   if (v.locationKind === 'customer_address') return v.address ?? 'At your address';
   if (v.locationKind === 'business') return v.address;
-  if (v.locationKind === 'virtual') return v.meetingUrl ? `Online: ${v.meetingUrl}` : 'Online';
+  if (v.locationKind === 'virtual')
+    return `${v.meetingUrl ? `Online: ${v.meetingUrl}` : 'Online'}${v.recorded ? ' (this call is recorded and transcribed)' : ''}`;
   if (v.locationKind === 'phone') return 'By phone';
   return v.address;
 }
