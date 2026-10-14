@@ -326,6 +326,59 @@ export const meetingConnectionFail = defineCommand({
   },
 });
 
+const RevokeInput = z.object({ workspaceId: uuid, connectionId: uuid });
+
+/**
+ * Worker: the person removed the HandsFreeOS app in Zoom. The connection is disconnected and everything kept from
+ * Zoom about the account (tokens, its email and id, scopes, settings) is erased, as Zoom asks of apps.
+ */
+export const meetingConnectionRevoke = defineCommand({
+  name: 'meeting_connection.revoke',
+  description:
+    'Worker: the person removed the HandsFreeOS app in Zoom. Disconnects it and erases what HandsFreeOS kept from Zoom about the account.',
+  risk: 1,
+  input: RevokeInput,
+  output: SystemOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['meeting_connection.disconnected'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const c = await loadConnection(ctx, input.connectionId);
+    await ctx.tx
+      .update(meetingConnections)
+      .set({
+        status: 'disconnected',
+        disconnectedAt: new Date(),
+        tokenEnc: null,
+        tokenKeyId: null,
+        tokenExpiresAt: null,
+        pkceVerifierEnc: null,
+        oauthStateHash: null,
+        oauthStateExpiresAt: null,
+        accountEmail: null,
+        externalUserId: null,
+        scopes: [],
+        settingsProblems: [],
+        settingsCheckedAt: null,
+        lastError: 'The HandsFreeOS app was removed in Zoom.',
+      })
+      .where(eq(meetingConnections.id, c.id));
+    const changed = c.status !== 'disconnected';
+    if (changed)
+      await ctx.emit({
+        type: 'meeting_connection.disconnected',
+        entityType: 'meeting_connection',
+        entityId: c.id,
+        payload: { provider: c.provider, userId: c.userId, reason: 'removed_in_provider' },
+        before: { status: c.status },
+        // The account's email is erased, so it isn't repeated here either.
+        after: { provider: c.provider, status: 'disconnected', removedIn: 'zoom' },
+      });
+    return { connectionId: c.id, status: 'disconnected' as const, changed };
+  },
+});
+
 export const meetingConnectionCheckSettings = defineCommand({
   name: 'meeting_connection.check_settings',
   description:
@@ -507,4 +560,5 @@ export const meetingConnectionCommands = [
   meetingConnectionFail,
   meetingConnectionCheckSettings,
   meetingConnectionRecordSettings,
+  meetingConnectionRevoke,
 ] as const;

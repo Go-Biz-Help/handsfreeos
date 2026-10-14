@@ -304,6 +304,7 @@ describe('registry', () => {
       'meeting_connection.fail',
       'meeting_connection.check_settings',
       'meeting_connection.record_settings',
+      'meeting_connection.revoke',
       'call_suggestion.record',
       'call_suggestion.decide',
       'attendee.record_reminder',

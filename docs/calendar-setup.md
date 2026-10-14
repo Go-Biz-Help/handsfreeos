@@ -312,7 +312,10 @@ transcribed." When Zoom finishes a transcript it calls `/webhooks/zoom`; the wor
 five minutes), finds the appointment by the meeting's id, and `appointment.transcript_fetch` downloads the file with
 the host's token (only from `zoom.us`) and keeps it as plain text in `app.appointment_transcripts`, shown on the
 appointment. Two hours after a recorded call is due to end, `appointment.transcript_watch` emails the host once if
-nothing came, with what their Zoom settings are missing. Recordings themselves are never downloaded.
+nothing came, with what their Zoom settings are missing. Recordings themselves are never downloaded. Removing the HandsFreeOS app in Zoom sends `app_deauthorized`: the worker
+finds that Zoom user's connections in every business (`private.meeting_connections_by_external_user`) and
+`meeting_connection.revoke` disconnects each one and erases what was kept from Zoom (tokens, the account's email
+and id, scopes and settings). On the Zoom app, subscribe the same endpoint to **App Deauthorized** too.
 
 Then the AI reads it (`appointment.call_review`, counted as AI usage "AI reading a call transcript"). It writes a
 short summary, kept with the transcript and added to the customer's timeline as a note on its own, and suggests
@@ -334,8 +337,8 @@ For production:
    `cloud_recording:read:list_recording_files`. The connection refuses a sign-in that comes back without a
    `meeting:write…` and a `user:read…` scope.
 4. For transcripts: **Features** → **Access** → turn on **Event subscription**. Endpoint:
-   `https://hooks.handsfreeos.com/webhooks/zoom`. Event: **Recording** → **Recording transcript files have
-   completed**. Copy the **Secret Token** shown there. Zoom checks the endpoint when you save, so give the worker
+   `https://hooks.handsfreeos.com/webhooks/zoom`. Events: **Recording** → **Recording transcript files have
+   completed**, and **App Deauthorized**. Copy the **Secret Token** shown there. Zoom checks the endpoint when you save, so give the worker
    the secret (next step) first.
 5. Give the worker the three values, and nothing else:
 

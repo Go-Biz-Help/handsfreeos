@@ -2,13 +2,16 @@
  * Zoom's webhook (`POST /webhooks/zoom`, HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md §8). Zoom signs every
  * request with the app's secret token: `x-zm-signature` is `v0=` and the HMAC-SHA256 of
  * `v0:<x-zm-request-timestamp>:<the raw body>`. It also checks the URL when the subscription is saved
- * (`endpoint.url_validation`). A transcript that's ready (`recording.transcript_completed`) is matched to its
+ * (`endpoint.url_validation`). Someone removing the app in Zoom (`app_deauthorized`) disconnects and erases their
+ * Zoom connections here. A transcript that's ready (`recording.transcript_completed`) is matched to its
  * appointment by the meeting's id and handed to `appointment.transcript_fetch`; nothing is downloaded here.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { executeCommand, meetingConnectionRevoke } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import type { HttpDeps } from '../http/common';
+import { systemActor, workerMeta } from '../services';
 import { queueTranscriptFetch } from './transcripts';
 
 const WEBHOOK_MAX_BYTES = 256 * 1024;
@@ -28,6 +31,8 @@ interface ZoomEvent {
   event?: string;
   payload?: {
     plainToken?: string;
+    /** app_deauthorized: the Zoom user who removed the app. */
+    user_id?: string;
     object?: {
       id?: number | string;
       recording_files?: {
@@ -74,6 +79,32 @@ export async function registerZoomRoutes(app: FastifyInstance, deps: HttpDeps): 
           plainToken,
           encryptedToken: createHmac('sha256', secret).update(plainToken).digest('hex'),
         });
+      }
+
+      // Removed in Zoom: that person's Zoom is disconnected in every business here, and what was kept is erased.
+      if (body.event === 'app_deauthorized') {
+        const zoomUser = String(body.payload?.user_id ?? '').slice(0, 200);
+        if (zoomUser) {
+          const found = await asWorker(deps.httpDb, {}, (tx) =>
+            rows<{ connection_id: string; workspace_id: string; organization_id: string }>(
+              tx,
+              sql`select connection_id, workspace_id, organization_id
+                  from private.meeting_connections_by_external_user('zoom', ${zoomUser})`,
+            ),
+          );
+          for (const c of found) {
+            const scope = { workspaceId: c.workspace_id, organizationId: c.organization_id };
+            await executeCommand(
+              deps.httpDb,
+              meetingConnectionRevoke,
+              { workspaceId: c.workspace_id, connectionId: c.connection_id },
+              systemActor(scope),
+              workerMeta(),
+            );
+          }
+          deps.log.info({ connections: found.length }, 'the HandsFreeOS app was removed in Zoom');
+        }
+        return reply.code(200).send({ ok: true });
       }
 
       if (body.event === 'recording.transcript_completed') {

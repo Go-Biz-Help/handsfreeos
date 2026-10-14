@@ -1213,6 +1213,36 @@ describe('connecting Zoom', () => {
     expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
   });
 
+  it('removing the app in Zoom disconnects that account and erases what was kept', async () => {
+    const { connectionId } = await connectZoom(owner, 'removed@zoom.fake');
+    const before = await meeting(connectionId);
+    expect(before).toMatchObject({ status: 'active' });
+    const raw = JSON.stringify({
+      event: 'app_deauthorized',
+      payload: { user_id: before.externalUserId, account_id: 'acct', client_id: 'zid' },
+    });
+    const ts = String(Math.floor(Date.now() / 1000));
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/zoom',
+      headers: {
+        'content-type': 'application/json',
+        'x-zm-request-timestamp': ts,
+        'x-zm-signature': zoomSignature(FAKE_ZOOM_WEBHOOK_SECRET, ts, raw),
+      },
+      payload: raw,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(await meeting(connectionId)).toMatchObject({
+      status: 'disconnected',
+      tokenEnc: null,
+      accountEmail: null,
+      externalUserId: null,
+      scopes: [],
+      settingsProblems: [],
+    });
+  });
+
   it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {
     const mine = await connectZoom(owner, 'dale@zoom.fake');
     await expect(
