@@ -884,7 +884,8 @@ export function AppointmentSheet({
                     transcripts.map((t) => (
                       <details key={t.id} className="pt-1.5" data-testid="appointment-transcript">
                         <summary className="cursor-pointer text-[13px] font-medium">
-                          From the Zoom call
+                          From the {appt.location.video === 'google_meet' ? 'Google Meet' : 'Zoom'}{' '}
+                          call
                         </summary>
                         <p className="mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap text-[13px] text-text-2">
                           {t.body}
@@ -893,8 +894,9 @@ export function AppointmentSheet({
                     ))
                   ) : (
                     <p className="pt-1.5 text-[13px] text-text-3">
-                      This call is recorded. Its transcript shows here once Zoom sends it, usually
-                      within an hour of the call ending.
+                      This call is recorded. Its transcript shows here once{' '}
+                      {appt.location.video === 'google_meet' ? 'Google Meet' : 'Zoom'} has it,
+                      usually within an hour of the call ending.
                     </p>
                   )}
                 </Section>

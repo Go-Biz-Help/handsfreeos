@@ -766,7 +766,10 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                               video: e.target.value as 'none' | 'google_meet' | 'zoom',
                               meetingUrl: null,
                               // Only Zoom records.
-                              record: e.target.value === 'zoom' ? x.record : false,
+                              record:
+                                e.target.value === 'zoom' || e.target.value === 'google_meet'
+                                  ? x.record
+                                  : false,
                             }
                           : x,
                       ),
@@ -777,7 +780,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                   <option value="google_meet">Make a Google Meet link</option>
                   <option value="zoom">Make a Zoom link</option>
                 </Select>
-                {o.video === 'zoom' ? (
+                {o.video === 'zoom' || o.video === 'google_meet' ? (
                   <label className="flex w-full items-center gap-2 text-xs text-text-2">
                     <input
                       type="checkbox"
@@ -790,8 +793,10 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                       }
                     />
                     Record and transcribe calls. Customers are told when they book and in their
-                    confirmation. The host’s Zoom needs a paid plan with cloud recording and audio
-                    transcripts on.
+                    confirmation.{' '}
+                    {o.video === 'zoom'
+                      ? 'The host’s Zoom needs a paid plan with cloud recording and audio transcripts on.'
+                      : 'The host needs Google Workspace, Allow Meet transcripts on their Google calendar, and transcripts started in the call (or on by default).'}
                   </label>
                 ) : null}
                 {o.video !== 'none' ? (

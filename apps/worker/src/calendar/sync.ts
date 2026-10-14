@@ -111,7 +111,7 @@ const openTokens = (s: WorkerServices, sealed: string): TokenSet =>
  * Calls the provider with a working token: renewed ahead of expiry (and sealed again), and once more when the
  * provider says it stopped working early.
  */
-function session(
+export function session(
   s: WorkerServices,
   scope: TenantScope,
   c: CalendarConnection,

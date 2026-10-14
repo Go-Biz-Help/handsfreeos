@@ -10,6 +10,7 @@ export * from './mobile';
 export * from './push';
 export * from './meetings/settings';
 export * from './meetings/review';
+export * from './meetings/google';
 export * from './schemas/index';
 export { slugify } from './slug';
 export const CORE_VERSION = '0.1.0';

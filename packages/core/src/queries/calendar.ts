@@ -60,6 +60,7 @@ import {
 import { parseReminderState } from '../calendar/reminders';
 import { validateCalendar } from '../calendar/rules';
 import { HfosError } from '../errors';
+import { hasMeetTranscripts } from '../meetings/google';
 import { defineQuery } from '../kernel/define';
 import {
   AppointmentGetInput,
@@ -800,6 +801,7 @@ const connectionOut = (c: ConnectionRow, fullName: string) => ({
   connectedAt: c.connectedAt?.toISOString() ?? null,
   disconnectedAt: c.disconnectedAt?.toISOString() ?? null,
   createdAt: c.createdAt.toISOString(),
+  meetTranscripts: c.provider === 'google' && hasMeetTranscripts(c.scopes),
 });
 
 export const scheduleTeam = defineQuery({

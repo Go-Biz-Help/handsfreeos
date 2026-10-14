@@ -596,6 +596,8 @@ export const CalendarConnectionOut = z.object({
   connectedAt: isoDateTime.nullable(),
   disconnectedAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
+  /** Google: this calendar's sign-in also lets HandsFreeOS read Meet transcripts. */
+  meetTranscripts: z.boolean(),
 });
 export const ScheduleTeamOutput = z.object({
   timezone: z.string(),

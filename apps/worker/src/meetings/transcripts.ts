@@ -9,6 +9,7 @@ import {
   AppointmentLocation,
   appointmentAttachTranscript,
   executeCommand,
+  hasMeetTranscripts,
   meetingSettingsWords,
   zoomSettingsProblems,
 } from '@hfos/core/server';
@@ -140,7 +141,9 @@ export const appointmentTranscriptWatch: JobHandler = async (ctx) => {
   if (!seen?.hostId) return;
   const { a } = seen;
   const place = AppointmentLocation.safeParse(a.location ?? {});
-  if (!place.success || place.data.video !== 'zoom' || !place.data.record) return;
+  if (!place.success || !place.data.record) return;
+  const video = place.data.video;
+  if (video !== 'zoom' && video !== 'google_meet') return;
   // Cancelled, a no-show, deleted, or moved later (its own watch comes then).
   if (a.status === 'cancelled' || a.status === 'no_show' || a.binItemId !== null) return;
   if (a.endsAt.getTime() + TRANSCRIPT_GRACE_MS > Date.now() + 60_000) return;
@@ -152,9 +155,21 @@ export const appointmentTranscriptWatch: JobHandler = async (ctx) => {
   );
   if ((had?.n ?? 0) > 0) return;
 
-  // What the host's Zoom settings say now (read fresh: they may have changed since this morning).
-  let problems: string[] = [...(seen.conn?.settingsProblems ?? [])];
-  if (seen.conn?.tokenEnc) {
+  // What the host's Zoom settings say now (read fresh: they may have changed since this morning). For Meet: whether
+  // HandsFreeOS may read the host's transcripts at all, else that the call had none.
+  let problems: string[] = video === 'zoom' ? [...(seen.conn?.settingsProblems ?? [])] : [];
+  if (video === 'google_meet') {
+    const [g] = await asWorker(ctx.db, scope, (tx) =>
+      rows<{ scopes: string[] }>(
+        tx,
+        sql`select scopes from app.calendar_connections
+            where workspace_id = ${scope.workspaceId}::uuid and user_id = ${seen.hostId}::uuid
+              and provider = 'google' and status in ('active', 'error')
+            order by created_at desc limit 1`,
+      ),
+    );
+    problems = [hasMeetTranscripts(g?.scopes ?? []) ? 'meet_transcript_off' : 'meet_not_allowed'];
+  } else if (seen.conn?.tokenEnc) {
     try {
       const provider = ctx.calendars.meetings.zoom;
       const read = await session(ctx, scope, seen.conn, provider)((t) => provider.readSettings(t));
@@ -186,6 +201,7 @@ export const appointmentTranscriptWatch: JobHandler = async (ctx) => {
   await ctx.mailer.send({
     to: String(who.email),
     ...missingTranscriptEmail({
+      provider: video === 'zoom' ? 'Zoom' : 'Google Meet',
       title: a.title,
       when,
       problems: meetingSettingsWords(problems),
@@ -193,3 +209,23 @@ export const appointmentTranscriptWatch: JobHandler = async (ctx) => {
     }),
   });
 };
+
+/** The two-hour check for a recorded Meet call (Zoom's is queued when its meeting is made). */
+export async function queueMeetTranscriptWatch(
+  tx: Tx,
+  scope: TenantScope,
+  appointmentId: string,
+): Promise<void> {
+  await tx.execute(
+    sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+        select ${scope.organizationId}, ${scope.workspaceId}, 'appointment.transcript_watch',
+          ${`appointment.transcript_watch:${appointmentId}`},
+          a.ends_at + make_interval(secs => ${TRANSCRIPT_GRACE_MS / 1000}),
+          ${JSON.stringify({ appointmentId })}::jsonb
+        from app.appointments a
+        where a.id = ${appointmentId}::uuid and a.status = 'scheduled'
+          and a.location ->> 'video' = 'google_meet' and (a.location ->> 'record')::boolean is true
+        on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null
+        do update set run_at = excluded.run_at`,
+  );
+}

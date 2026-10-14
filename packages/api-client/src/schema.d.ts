@@ -22819,6 +22819,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    meetTranscripts?: boolean;
                     /** @enum {string} */
                     provider: "google" | "microsoft";
                     /** Format: uuid */
@@ -54538,6 +54540,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             lastError: string | null;
+                            meetTranscripts: boolean;
                             nextSyncAt: string | null;
                             /** @enum {string} */
                             provider: "google" | "microsoft";
@@ -69968,6 +69971,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 lastError: string | null;
+                                meetTranscripts: boolean;
                                 nextSyncAt: string | null;
                                 /** @enum {string} */
                                 provider: "google" | "microsoft";

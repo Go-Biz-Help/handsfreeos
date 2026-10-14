@@ -144,12 +144,14 @@ export function createGoogleCalendar(opts: {
     name: 'google',
     configured: !!(opts.clientId && opts.clientSecret),
     busyIncludesOwnEvents: true,
-    authorizeUrl({ state, codeChallenge, redirectUri }) {
+    authorizeUrl({ state, codeChallenge, redirectUri, extraScopes = [] }) {
       const q = new URLSearchParams({
         client_id: opts.clientId ?? '',
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: SCOPES.join(' '),
+        scope: [...SCOPES, ...extraScopes].join(' '),
+        // Keeps what was granted before, so turning on Meet transcripts never drops the calendar's permissions.
+        include_granted_scopes: 'true',
         // Offline access and the consent screen every time, so a reconnect always brings a refresh token.
         access_type: 'offline',
         prompt: 'consent',

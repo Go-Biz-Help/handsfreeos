@@ -75,11 +75,14 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
     return dec(who);
   };
 
+  // Extra permissions a sign-in asked for (Meet transcripts), by its PKCE challenge: granted on Allow.
+  const extraByChallenge = new Map<string, readonly string[]>();
   const provider = (name: CalendarProviderName): CalendarProvider => ({
     name,
     configured: true,
     busyIncludesOwnEvents: name === 'google',
-    authorizeUrl({ state, codeChallenge, redirectUri }) {
+    authorizeUrl({ state, codeChallenge, redirectUri, extraScopes = [] }) {
+      if (extraScopes.length) extraByChallenge.set(codeChallenge, extraScopes);
       const q = new URLSearchParams({
         state,
         code_challenge: codeChallenge,
@@ -95,7 +98,10 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
       if (c.provider !== name || c.challenge !== pkceChallenge(codeVerifier))
         throw new CalendarAuthError('The code verifier does not match.', 'invalid_grant');
       revoked.delete(key(c.email));
-      return tokens(name, c.email);
+      const t = tokens(name, c.email);
+      const extra = extraByChallenge.get(c.challenge) ?? [];
+      extraByChallenge.delete(c.challenge);
+      return { ...t, scopes: [...t.scopes, ...extra] };
     },
     async refresh(current) {
       const email = emailOf(current.refreshToken ?? '');
