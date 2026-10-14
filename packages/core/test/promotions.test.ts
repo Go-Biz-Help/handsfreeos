@@ -1,5 +1,5 @@
 /**
- * Promotions, without a database: an offer ending (Automations' "Offer ending") opens a card at the start of the day
+ * Promotions, without a database: an offer ending (Automations' "Promotion ending") opens a card at the start of the day
  * three days before its last day, turns urgent on the last day, and goes when it's over, extended or archived.
  * On the database: the card opens from a real offer and closes once it's archived; a campaign can be about a running
  * offer, never an archived one.
@@ -75,7 +75,7 @@ describe('offer_lapsing', () => {
       },
       'ws',
     );
-    expect(target).toEqual({ href: '/app/w/ws/knowledge/offers', label: 'Open the offers' });
+    expect(target).toEqual({ href: '/app/w/ws/knowledge/offers', label: 'Open the promotions' });
   });
 });
 

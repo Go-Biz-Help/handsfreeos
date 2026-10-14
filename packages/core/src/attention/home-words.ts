@@ -47,7 +47,7 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   ai_corrections: ['lesson', 'lessons'],
   website_changed: ['scan', 'scans'],
   faq_suggestions: ['question', 'questions'],
-  offer_lapsing: ['offer', 'offers'],
+  offer_lapsing: ['promotion', 'promotions'],
   texting_rejected: ['registration', 'registrations'],
   addon_alert: ['alert', 'alerts'],
 };
@@ -519,7 +519,7 @@ export function attentionTargetOf(
     case 'faq_suggestions':
       return { href: `${base}/knowledge/suggestions?reason=gap`, label: 'Open the questions' };
     case 'offer_lapsing':
-      return { href: `${base}/knowledge/offers`, label: 'Open the offers' };
+      return { href: `${base}/knowledge/offers`, label: 'Open the promotions' };
     case 'texting_rejected':
       return { href: `${base}/settings/texting`, label: 'Open Texting & calls' };
     // The add-on's own page, as it named it.
@@ -677,7 +677,7 @@ export function handleButtonOf(
     case 'faq_suggestions':
       return { label: 'Answer', icon: 'message' };
     case 'offer_lapsing':
-      return { label: 'Open the offer', icon: 'file-text' };
+      return { label: 'Open the promotion', icon: 'file-text' };
     case 'texting_rejected':
       return { label: 'Fix and send again', icon: 'message' };
     case 'addon_alert':
@@ -712,7 +712,7 @@ export function letHandleOffReason(
     item.kind === 'faq_suggestions'
   )
     return 'What the AI learns is yours to decide';
-  if (item.kind === 'offer_lapsing') return 'Whether an offer runs longer is your call';
+  if (item.kind === 'offer_lapsing') return 'Whether a promotion runs longer is your call';
   if (item.kind === 'texting_rejected') return 'Only you can fix the details they turned down';
   if (item.kind === 'addon_alert') return 'The add-on says when it’s done';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';

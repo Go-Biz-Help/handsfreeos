@@ -646,9 +646,9 @@ export const AUTOMATIONS = [
   {
     id: 'offer_lapsing',
     group: 'marketing',
-    label: 'Offer ending',
+    label: 'Promotion ending',
     oneLiner:
-      'Reminds you 3 days before an offer ends, so you can extend it or send one last campaign.',
+      'Reminds you 3 days before a promotion ends, so you can extend it or send one last campaign.',
     effect: 'alerts',
     defaultOn: true,
     binding: { store: 'attention_kind', kinds: ['offer_lapsing'] },

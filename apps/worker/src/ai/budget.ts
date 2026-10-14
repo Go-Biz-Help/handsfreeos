@@ -15,7 +15,9 @@ export type AiUsageSource =
   | 'automations'
   | 'addon'
   // A recorded call's summary and suggestions.
-  | 'meetings';
+  | 'meetings'
+  // Building and scoring the business's main offer.
+  | 'main_offer';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -68,6 +70,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   automations: 'AI reading customer messages',
   addon: 'AI in an add-on',
   meetings: 'AI reading a call transcript',
+  main_offer: 'AI building your main offer',
 };
 
 /**

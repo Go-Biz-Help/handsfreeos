@@ -55,6 +55,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   settings and switches, its pages in the side menu and its panels, and one line for the AI. `manifestIssues` and
   `catalogIssues` hold it to the rules (names under its id, the database's own limits, no dependency cycles, a
   planned add-on declares no code); the catalogue tests run them on every build.
+- **Parts of core only some add-ons use** (`uses`, from `CORE_FEATURES`): built in core so add-ons can share them,
+  shown only while an add-on that names one is on. The business's main offer is the first (`uses: ['main_offer']`,
+  docs/main-offer.md): its capability is current only then (`coreFeatureOn`), and its commands refuse otherwise. Core
+  never names an add-on; the add-on names what it uses.
 - **Catalogue status**: `planned` (a promise: never installable, never offered, voted on), `development` (offered nowhere),
   `beta` and `built` (staff hand it out), `available` (anyone who manages add-ons installs it), `deprecated` (runs
   where installed, offered to nobody), `unavailable` (runs nowhere). HandsFreeOS staff can push an add-on down to

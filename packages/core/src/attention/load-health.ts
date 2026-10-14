@@ -519,7 +519,7 @@ export async function loadGaps(
 export type OfferInfo = AttentionFacts<'offer_lapsing'>['offer'];
 
 /**
- * The business's offers with an end date not yet a day behind (Automations' "Offer ending"), and any named even
+ * The business's offers with an end date not yet a day behind (Automations' "Promotion ending"), and any named even
  * archived or over, so their cards can close.
  */
 export async function loadOffers(

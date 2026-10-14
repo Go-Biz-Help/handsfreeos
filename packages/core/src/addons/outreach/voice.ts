@@ -7,6 +7,9 @@
  */
 import { z } from 'zod';
 
+// Core's since the main offer's builder writes the same way (packages/core/src/writing.ts).
+export { noDashes, PLAIN_WRITING } from '../../writing';
+
 export const Voice = z.object({
   /** Short forms like u, ur, thx and pls. */
   shorthand: z.boolean().default(false),
@@ -44,12 +47,6 @@ export function voiceSample(voice: Voice): string[] {
     : 'How are you doing? Saw your new truck, looks great. Hope work’s good!';
   return voice.split ? [greeting, point] : [`${greeting} ${point}`];
 }
-
-/** What every piece of writing for the person is told, whatever their voice. */
-export const PLAIN_WRITING = [
-  'Write the way people really talk: short, everyday words a 10-year-old knows, and short sentences. Relaxed and friendly, never stiff, formal or salesy.',
-  'Never use a long dash (— or –) to join thoughts: use a comma, a period, or a new sentence.',
-].join('\n');
 
 /** What a message or comment is told about the person's own voice. `texts` when it can go as several texts. */
 export function voiceLines(voice: Voice, texts: boolean): string {
@@ -105,20 +102,6 @@ export function gapLine(
 
 /** The most texts one message goes as. */
 export const PARTS_MOST = 3;
-
-/**
- * Writing with no long dashes: one between words becomes a comma, and one between numbers ("9–5") a hyphen. What
- * the AI writes is cleaned this way however it was asked.
- */
-export function noDashes(text: string): string {
-  if (!/[—–]/.test(text)) return text;
-  return text
-    .replace(/(\d)\s*[—–]\s*(\d)/g, '$1-$2')
-    .replace(/[ \t]*[—–][ \t]*(?=\n|$)/g, '')
-    .replace(/(^|\n)[ \t]*[—–][ \t]*/g, '$1')
-    .replace(/[ \t]*[—–]+[ \t]*/g, ', ')
-    .replace(/,\s*([,.!?;:])/g, '$1');
-}
 
 /**
  * The texts a message goes as: each part between blank lines, when the person sends a few (`split`), with any past

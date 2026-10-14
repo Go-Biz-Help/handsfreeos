@@ -2744,6 +2744,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'addon',
   // Reading a recorded call's transcript for its summary and suggestions (20261027003600).
   'meetings',
+  // Building and scoring the business's main offer (20261027004100).
+  'main_offer',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -3092,6 +3094,37 @@ export const knowledgeProfiles = app.table('knowledge_profiles', {
   allowPrices: boolean('allow_prices').notNull().default(false),
   updatedBy: userRef('updated_by'),
   ...timestamps(),
+});
+
+/**
+ * The business's main offer (20261027004100): the draft being edited, and which version runs. One a business.
+ * Not the promotions under Knowledge (`offers`).
+ */
+export const mainOffers = app.table('main_offers', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  draft: jsonb('draft').$type<Json>(),
+  revision: integer('revision').notNull().default(0),
+  score: jsonb('score').$type<Json>(),
+  scoredRevision: integer('scored_revision'),
+  draftBy: userRef('draft_by'),
+  draftAt: ts('draft_at'),
+  liveVersion: integer('live_version'),
+  ...timestamps(),
+});
+
+/** Each version of the main offer published, never changed after; one number a business. */
+export const mainOfferVersions = app.table('main_offer_versions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  version: integer('version').notNull(),
+  parts: jsonb('parts').$type<Json>().notNull(),
+  line: text('line').notNull(),
+  score: jsonb('score').$type<Json>().notNull(),
+  anyway: text('anyway'),
+  publishedBy: userRef('published_by'),
+  publishedAt: ts('published_at').notNull().defaultNow(),
 });
 
 /** An FAQ (title = question, body = answer), article, fact or document. */
@@ -7360,6 +7393,8 @@ export const tables = {
   workflowTemplateInstalls,
   aiUsage,
   knowledgeProfiles,
+  mainOffers,
+  mainOfferVersions,
   knowledgeItems,
   knowledgeSources,
   knowledgeScans,

@@ -138,9 +138,9 @@ export function NewCampaign({
       </Field>
       {offers.length ? (
         <Field
-          label="About an offer?"
+          label="About a promotion?"
           htmlFor="campaign-offer"
-          hint="The AI uses the offer’s own words and says when it ends."
+          hint="The AI uses the promotion’s own words and says when it ends."
         >
           <select
             id="campaign-offer"
@@ -154,7 +154,7 @@ export function NewCampaign({
             className="h-10 w-full rounded-control border border-border-strong bg-card px-3 text-[15px] max-md:text-base"
             data-testid="campaign-offer"
           >
-            <option value="">No offer</option>
+            <option value="">No promotion</option>
             {offers.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}

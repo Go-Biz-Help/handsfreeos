@@ -7,7 +7,11 @@ import { isLocalDate } from '../calendar/engine/zoned';
 import { isoDateTime, uuid } from './common';
 
 const localDate = z.string().refine(isLocalDate, { error: 'Use a date like 2026-10-01.' });
-const name = z.string().trim().min(1, 'Name the offer.').max(120, 'Keep it under 120 characters.');
+const name = z
+  .string()
+  .trim()
+  .min(1, 'Name the promotion.')
+  .max(120, 'Keep it under 120 characters.');
 const details = z.string().trim().max(1000, 'Keep it under 1,000 characters.');
 
 const endsAfterStart = (v: { startsOn?: string | null; endsOn?: string | null }) =>

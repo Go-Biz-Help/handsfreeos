@@ -430,9 +430,9 @@ const startCampaign: SettingsConfirmTool = {
     const [, many] = NOUN[channel];
     const blocked =
       offerId && !offer
-        ? 'That offer isn’t running any more. Offer ids come from list_offers.'
+        ? 'That promotion isn’t running any more. Promotion ids come from list_offers.'
         : offer?.state === 'ended'
-          ? `The offer “${offer.name}” has ended.`
+          ? `The promotion “${offer.name}” has ended.`
           : channel === 'email' && !preview.postalAddress
             ? 'Every campaign email has to show the business address. Add it in Settings → Payments first (I can do that if you tell me the address).'
             : preview.recipients === 0
@@ -455,7 +455,7 @@ const startCampaign: SettingsConfirmTool = {
           { label: 'Who it picks', value: whoLine(who) },
           { label: 'Reaches', value: peopleOf(preview.recipients) },
           { label: 'Left out', value: leftOutLine(preview.skipped) },
-          { label: 'About the offer', value: offer?.name ?? '' },
+          { label: 'About the promotion', value: offer?.name ?? '' },
           { label: 'Pace', value: paceLine({ channel, perHour: Number(args['perHour'] ?? 20) }) },
         ],
         ...orBlocked(
@@ -1892,22 +1892,22 @@ const manageOffer: SettingsConfirmTool = {
     };
     if (act === 'create') {
       const name = str(args['name']);
-      if (!name) throw need('What’s the offer called? Pass name.');
+      if (!name) throw need('What’s the promotion called? Pass name.');
       const startsOn = dateOr(args, 'startsOn', null);
       const endsOn = dateOr(args, 'endsOn', null);
       if (startsOn && endsOn && endsOn < startsOn)
         throw need(
-          `The offer would end (${endsOn}) before it starts (${startsOn}). Give an endsOn on or after startsOn.`,
+          `The promotion would end (${endsOn}) before it starts (${startsOn}). Give an endsOn on or after startsOn.`,
         );
       return {
         card: card(toolCallId, 'manage_offer', {
-          title: `Add the offer “${name}”?`,
+          title: `Add the promotion “${name}”?`,
           fields: [
-            { label: 'Offer', value: name },
+            { label: 'Promotion', value: name },
             { label: 'Details', value: str(args['details']) ?? '' },
             { label: 'Runs', value: runsLine(startsOn, endsOn) },
           ],
-          confirmLabel: 'Add the offer',
+          confirmLabel: 'Add the promotion',
           warnings: [teammate],
         }),
         result: { offer: name },
@@ -1915,13 +1915,14 @@ const manageOffer: SettingsConfirmTool = {
     }
     const offers = await offersOf(db, ctx);
     const o = offers.find((x) => x.id === args['offerId']);
-    if (!o) throw HfosError.notFound('That offer isn’t there. Offer ids come from list_offers.');
+    if (!o)
+      throw HfosError.notFound('That promotion isn’t there. Promotion ids come from list_offers.');
     if (act === 'archive')
       return {
         card: card(toolCallId, 'manage_offer', {
           title: `Take “${o.name}” off the list?`,
           fields: [
-            { label: 'Offer', value: o.name },
+            { label: 'Promotion', value: o.name },
             { label: 'Now', value: OFFER_STATE[o.state] },
           ],
           confirmLabel: 'Take it off',
@@ -1940,14 +1941,14 @@ const manageOffer: SettingsConfirmTool = {
     const endsOn = dateOr(args, 'endsOn', o.endsOn);
     if (startsOn && endsOn && endsOn < startsOn)
       throw need(
-        `The offer would end (${endsOn}) before it starts (${startsOn}). Give an endsOn on or after startsOn.`,
+        `The promotion would end (${endsOn}) before it starts (${startsOn}). Give an endsOn on or after startsOn.`,
       );
     if (name === o.name && details === o.details && startsOn === o.startsOn && endsOn === o.endsOn)
       throw nothingChanges(`“${o.name}” already has that name, details and dates.`);
     const datesChange = startsOn !== o.startsOn || endsOn !== o.endsOn;
     return {
       card: card(toolCallId, 'manage_offer', {
-        title: `Change the offer “${o.name}”?`,
+        title: `Change the promotion “${o.name}”?`,
         fields: [
           ...(name !== o.name
             ? [
@@ -2674,8 +2675,8 @@ export const contentStepLabels: Record<string, string> = {
   list_knowledge_suggestions: 'Looking at suggestions',
   decide_knowledge_suggestion: 'Getting the suggestion ready',
   scan_website: 'Getting the scan ready',
-  list_offers: 'Looking at offers',
-  manage_offer: 'Getting the offer ready',
+  list_offers: 'Looking at promotions',
+  manage_offer: 'Getting the promotion ready',
   manage_workflow: 'Getting the workflow change ready',
   list_workflow_runs: 'Looking at workflow runs',
   manage_workflow_run: 'Looking at the run',

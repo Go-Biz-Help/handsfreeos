@@ -64,6 +64,8 @@ export * from './workflows/index';
 // Forms, surveys and quizzes (M15).
 export * from './forms/index';
 export * from './knowledge/index';
+export * from './main-offer/parts';
+export * from './writing';
 export * from './ai-team/index';
 // Quick setup: a few simple questions that set up a working AI teammate.
 export * from './ai-setup/index';

@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { OfferList } from '@/components/knowledge/offers';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
-export const metadata: Metadata = { title: 'Offers' };
+export const metadata: Metadata = { title: 'Promotions' };
 
-/** What the business is running right now; the AI teammate shares the ones live today (M18). */
+/** Promotions: what the business is running right now; the AI teammate shares the ones live today (M18). */
 export default async function KnowledgeOffersPage({
   params,
 }: {

@@ -65,7 +65,7 @@ export const contentTools: readonly AssistantTool[] = [
       tagIds: z.array(uuid).max(20).default([]),
       stageIds: z.array(uuid).max(20).default([]).describe('Open pipeline stages'),
       perHour: perHour.default(CAMPAIGN_PER_HOUR_DEFAULT),
-      offerId: uuid.optional().describe('An offer from list_offers it is about'),
+      offerId: uuid.optional().describe('A promotion from list_offers it is about'),
     }),
     autonomy: 'confirm',
     permission: 'workflows.manage',
@@ -245,7 +245,7 @@ export const contentTools: readonly AssistantTool[] = [
   define({
     name: 'list_offers',
     description:
-      'The offers the business is running (Knowledge → Offers), with ids, details, dates and whether each runs today. The AI teammate tells customers about the ones running.',
+      'The promotions the business is running (Knowledge → Promotions), with ids, details, dates and whether each runs today. The AI teammate tells customers about the ones running.',
     input: z.object({}),
     autonomy: 'auto',
     permission: 'workspace.read',
@@ -253,7 +253,7 @@ export const contentTools: readonly AssistantTool[] = [
   define({
     name: 'manage_offer',
     description:
-      'Add an offer the business is running, change its name, details or dates, or take it off the list (the AI teammate stops mentioning it at once). Dates are local, like 2026-10-31; null clears one. Offer ids come from list_offers.',
+      'Add a promotion the business is running, change its name, details or dates, or take it off the list (the AI teammate stops mentioning it at once). Dates are local, like 2026-10-31; null clears one. Promotion ids come from list_offers.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive']),
       offerId: uuid.optional(),

@@ -16,7 +16,10 @@ Where it comes from: the "20 Bookings Per Month" workbook (Agency Growth Partner
 Module 2 (Social Outbound), and the transcripts of the two videos that go with them. Modules 3 to 5 (cold email, sales
 calls, coaching) are out of scope; Module 4 is a fit for AI Sales Coach later.
 
-**Where it stands (2026-10-14):** planned, the questions answered but one (renaming Current offers), nothing built. Social Outreach is in `development`.
+**Where it stands (2026-10-14):** step 1 is built on branch `claude/main-offer-plan` (docs/main-offer.md): the data,
+the commands and queries, and showing it only with an add-on that uses it. Current offers are **Promotions** on
+screen. Its migration, `20261027004100_main_offer.sql`, isn't on the hosted database yet. Social Outreach is in
+`development`.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -136,26 +139,27 @@ model, never to copy, and the screen says so.
   live.
 - `app.main_offer_versions`: each published version, never changed after: its number, every part, the one-line offer,
   the short outcome and guarantee, the score, who published it and when.
-- **Commands:** `main_offer.save_draft`, `main_offer.publish`, `main_offer.discard_draft`. Publishing needs a scored
-  draft with every part filled. **Queries:** `main_offer.get` (live version and draft) and
+- **Commands:** `main_offer.save_draft`, `main_offer.publish`, `main_offer.discard_draft`, and the worker's
+  `main_offer.score_save`. Publishing needs a scored draft with every part filled. **Queries:** `main_offer.get` (live version and draft) and
   `main_offer.versions`.
 - **Events:** `main_offer.published` (`{ version }`). Add-ons that use the offer list it under `consumes`.
 - **Too soon to change:** publishing while the live version has fewer than 100 first messages sent, or is under two
   weeks old, warns with the numbers ("Your offer has gone to 34 people. Most need about 100 before you can tell if it
   works."). It never refuses: the owner decides. Each add-on that uses the offer reports its own count through a core
-  query it registers (below), so core never reads an add-on's tables.
+  query it registers, so core never reads an add-on's tables. Built with the builder, in step 2.
 
 ### Who sees it, and only with an add-on that uses it
 
 - **A manifest field, `uses`:** the core features an add-on needs, checked by `manifestIssues`. Social Outreach
   declares `uses: ['main_offer']`; AI Sales Coach will too.
-- **One helper in `@hfos/core`**, `coreFeatureOn(running, 'main_offer')`, from the add-ons running and their
-  manifests. The web's Settings nav, the account menu and the phone all read it. The kernel refuses the commands
-  while no add-on running uses it (`main_offer_not_in_use`, with words saying which add-ons bring it).
+- **A core capability, `sales.main_offer`**, current only while an add-on that uses the offer runs (`coreFeatureOn`,
+  and `coreFeatureRunning` from the add-ons running). `workspace.get` hands it to the screens, so the web's Settings
+  nav, the account menu and the phone ask `can('sales.main_offer')`. Every command refuses while no add-on running
+  uses it (`main_offer_not_in_use`, with words saying which add-ons bring it).
 - **When every add-on that uses it is off:** the offer is kept and hidden, like an uninstalled add-on's data, and comes
   back when one is on again. It goes only with the business.
-- **Permissions:** `main_offer.view` (everyone, to start) and `main_offer.manage` (owners and admins, to start), both
-  customizable. Screens ask for the permission.
+- **Permissions:** everyone in the business reads it (`workspace.read`), and `main_offer.manage` (owners and admins,
+  to start, customizable) edits, discards and publishes it, Use it anyway included. Screens ask for the permission.
 - **Where:** Settings → **Main offer**: the live version, the score, the draft if there is one, and the versions. The
   builder opens over the app in the onboarding frame, a step at a time, as Social Outreach's setup does, with a
   summary beside it.
@@ -365,10 +369,10 @@ in):
 
 Each step ships on its own, with its tests, and leaves the add-on working.
 
-1. **Core: the main offer.** The migration, the Drizzle mirror, the permissions, the commands, queries and event,
-   the manifest's `uses` and `coreFeatureOn`, the kernel's refusal, `PLAIN_WRITING` moved into core, and
-   `pnpm openapi`. Tests: refused with no add-on that uses it, row security, the parity test, publishing needs a
-   score, versions never change.
+1. **Core: the main offer. Built.** The migration, the Drizzle mirror, the permission, the commands, queries and
+   events, the manifest's `uses` and `coreFeatureOn`, the commands' refusal, `PLAIN_WRITING` moved into core
+   (`writing.ts`), `pnpm openapi`, and Current offers renamed **Promotions** on screen. Tests: refused with no add-on
+   that uses it, publishing needs a score and clears the bar or says why, versions never change.
 2. **Core: the builder, on the web.** Settings → Main offer, the builder, the three AI routes, the examples by line of
    work. Design boards first, in `design/`, reviewed before the screens are built.
 3. **Social Outreach: the playbook's niche.** Data version 3, the builder's new steps, the CRM demos template.
@@ -396,10 +400,7 @@ needs the niche and the conversation needs the readiness check.
 3. **The short video:** one per playbook now; each person's own later.
 4. **The day's report:** on to start, at the end of the working hours.
 
-## Open question
+## Answered since
 
-1. **Renaming Current offers.** "Offers" under Knowledge (`app.offers`: "$50 off a furnace tune-up through October")
-   sits next to the main offer. "Deals" is taken: the Pipeline's leads are deals on screen ("Move deals along for
-   you", the AI teammate's "opens and closes deals"), and Real Estate's deals are a home sale. Recommended:
-   **Promotions** on screen (the campaigns migration already calls them that), keeping `offer` in code, the tables
-   and the commands, since a rename there breaks the running code for no one's benefit.
+1. **Renaming Current offers** (Chris, 2026-10-14): **Promotions** on screen, built with step 1. `offer` stays in
+   code, the tables and the commands, and the page keeps its address (`/knowledge/offers`) so old links work.

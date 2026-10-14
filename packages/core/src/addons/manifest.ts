@@ -102,6 +102,14 @@ export interface AddonPermission {
   readonly customizable?: boolean;
 }
 
+/**
+ * Parts of core that only some add-ons need, so they show only while one of those is on: the business's main offer
+ * (docs/main-offer.md) is built in core so Social Outreach and AI Sales Coach can share it, and means nothing to a
+ * business running neither. An add-on names the ones it uses in `uses`; core never names an add-on.
+ */
+export const CORE_FEATURES = ['main_offer'] as const;
+export type CoreFeature = (typeof CORE_FEATURES)[number];
+
 /** Another add-on this one uses. */
 export interface AddonDependency {
   readonly addon: AddonId;
@@ -415,6 +423,8 @@ export interface AddonManifest {
   readonly capabilities: readonly AddonCapability[];
   readonly permissions: readonly AddonPermission[];
   readonly requires?: readonly AddonDependency[];
+  /** The parts of core it uses that show only for add-ons that need them (`CORE_FEATURES`). */
+  readonly uses?: readonly CoreFeature[];
   readonly recordKinds?: readonly AddonRecordKind[];
   readonly relationshipTypes?: readonly AddonRelationshipType[];
   /** Tables in its own schema `addon_<id>`, listed so purge and the database checks can find them. */
@@ -542,6 +552,10 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     'dependency',
     (m.requires ?? []).map((d) => d.addon),
   );
+  for (const f of m.uses ?? [])
+    if (!(CORE_FEATURES as readonly string[]).includes(f))
+      say(`uses "${f}", which isn't one of core's features`);
+  unique('core feature', m.uses ?? []);
 
   // The database's own limits on a kind of record and a relationship type (0100, 0101), checked here so a manifest
   // that breaks one fails in the catalogue's tests, never halfway through a business installing it.

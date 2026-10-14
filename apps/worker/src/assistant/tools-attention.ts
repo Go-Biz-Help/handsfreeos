@@ -73,7 +73,7 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'Something to teach the AI',
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
-  offer_lapsing: 'Offer ending',
+  offer_lapsing: 'Promotion ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alert',
 };
@@ -678,7 +678,7 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'What the AI learns belongs to the business, not to a person.',
   website_changed: 'Only who reviews the updates. Nothing else changes.',
   faq_suggestions: 'Only who answers the question. Nothing else changes.',
-  offer_lapsing: 'Only who looks after the offer. Nothing else changes.',
+  offer_lapsing: 'Only who looks after the promotion. Nothing else changes.',
   texting_rejected: 'The business’s texting is set up by its owners and admins.',
   addon_alert: 'The add-on that raised it decides who it’s for.',
 };

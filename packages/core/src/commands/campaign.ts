@@ -105,7 +105,7 @@ export const campaignCreate = defineCommand({
       );
       if (!offer)
         throw HfosError.notFound(
-          'That offer isn’t running anymore. Pick another offer, or leave it out.',
+          'That promotion isn’t running anymore. Pick another promotion, or leave it out.',
         );
     }
     // The screen offers open stages only: a won or lost deal isn't someone to reach out to.

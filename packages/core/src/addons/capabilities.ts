@@ -18,6 +18,7 @@ import type {
   AddonManifest,
   CapabilityId,
   CatalogStatus,
+  CoreFeature,
   OverrideStatus,
 } from './manifest';
 
@@ -27,6 +28,8 @@ export interface CoreCapability {
   readonly label: string;
   readonly description: string;
   readonly permission?: string;
+  /** A part of core only some add-ons use: there only while one of them is on (`coreFeatureOn`). */
+  readonly feature?: CoreFeature;
 }
 
 /**
@@ -155,6 +158,14 @@ export const CORE_CAPABILITIES: readonly CoreCapability[] = [
     description: 'What the AI answers from: services, prices, policies and documents.',
     permission: 'knowledge.manage',
   },
+  {
+    id: 'sales.main_offer',
+    label: 'Main offer',
+    description:
+      'The business’s main offer: who it helps, the result, how fast, how, the guarantee and the price, built and scored with the AI.',
+    permission: 'workspace.read',
+    feature: 'main_offer',
+  },
 ];
 
 /** The first segments of core's capability ids. No add-on may use one as its id. */
@@ -266,6 +277,30 @@ export function installableHere(ctx: CapabilityContext, id: AddonId): boolean {
 const holds = (ctx: CapabilityContext, permission: string | undefined): boolean =>
   !permission || ctx.permissions === null || ctx.permissions.includes(permission);
 
+/** Whether a part of core only some add-ons use is here: one that uses it runs in this business. */
+export function coreFeatureOn(ctx: CapabilityContext, feature: CoreFeature): boolean {
+  return ctx.catalog.some((m) => m.uses?.includes(feature) && addonRuns(ctx, m.id));
+}
+
+/**
+ * The same from the add-ons running (`loadActiveAddons`, `workspace.addons`), which already has HandsFreeOS's switches
+ * applied: for the kernel's refusal and the screens.
+ */
+export function coreFeatureRunning(
+  catalog: Catalog,
+  running: readonly AddonId[],
+  feature: CoreFeature,
+): boolean {
+  return catalog.some((m) => m.uses?.includes(feature) && running.includes(m.id));
+}
+
+/** The add-ons that bring a part of core, by name, for the words when it isn't here ("Social Outreach"). */
+export function addonsUsing(catalog: Catalog, feature: CoreFeature): string[] {
+  return catalog
+    .filter((m) => m.uses?.includes(feature) && m.catalog.status !== 'planned')
+    .map((m) => m.name);
+}
+
 /** Every capability, sorted into the five sets. Deterministic: core first, then the catalogue's order. */
 export function capabilitySets(ctx: CapabilityContext): CapabilitySets {
   const current: CapabilityView[] = [];
@@ -274,6 +309,8 @@ export function capabilitySets(ctx: CapabilityContext): CapabilitySets {
   const installable: CapabilityView[] = [];
   const planned: CapabilityView[] = [];
   for (const c of CORE_CAPABILITIES) {
+    // A part of core only some add-ons use isn't this business's to see without one of them.
+    if (c.feature && !coreFeatureOn(ctx, c.feature)) continue;
     const view: CapabilityView = {
       id: c.id,
       label: c.label,
@@ -325,6 +362,8 @@ export type CanUse =
  */
 export function canUse(ctx: CapabilityContext, id: CapabilityId): CanUse {
   const core = CORE_CAPABILITIES.find((c) => c.id === id);
+  if (core?.feature && !coreFeatureOn(ctx, core.feature))
+    return { ok: false, reason: 'not_installed' };
   if (core)
     return holds(ctx, core.permission)
       ? { ok: true, provider: 'core' }

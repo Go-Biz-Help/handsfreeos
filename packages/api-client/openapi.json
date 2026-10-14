@@ -1237,6 +1237,7 @@
                           "knowledge.manage",
                           "ai_team.manage",
                           "workspace.update",
+                          "main_offer.manage",
                           "audit.read",
                           "migrations.manage",
                           "addons.manage",
@@ -1356,6 +1357,7 @@
                           "knowledge.manage",
                           "ai_team.manage",
                           "workspace.update",
+                          "main_offer.manage",
                           "audit.read",
                           "migrations.manage",
                           "addons.manage",
@@ -24210,7 +24212,7 @@
     "/v1/commands/offer.create": {
       "post": {
         "operationId": "command_offer_create",
-        "summary": "Add an offer the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.",
+        "summary": "Add a promotion the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.",
         "tags": [
           "commands"
         ],
@@ -24288,7 +24290,7 @@
     "/v1/commands/offer.update": {
       "post": {
         "operationId": "command_offer_update",
-        "summary": "Change an offer’s name, details or dates.",
+        "summary": "Change a promotion’s name, details or dates.",
         "tags": [
           "commands"
         ],
@@ -24375,7 +24377,7 @@
     "/v1/commands/offer.archive": {
       "post": {
         "operationId": "command_offer_archive",
-        "summary": "Take an offer off the list. The AI teammate stops mentioning it at once.",
+        "summary": "Take a promotion off the list. The AI teammate stops mentioning it at once.",
         "tags": [
           "commands"
         ],
@@ -24422,6 +24424,359 @@
                   },
                   "required": [
                     "offerId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/main_offer.save_draft": {
+      "post": {
+        "operationId": "command_main_offer_save_draft",
+        "summary": "Save the main offer’s draft: who it helps, the outcome, timeframe, method, guarantee, price and proof. The live version keeps running until the draft is published.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires main_offer.manage. Emits main_offer.draft_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "parts": {
+                    "type": "object",
+                    "properties": {
+                      "niche": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "bestCustomer": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "theirWork": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "theirSize": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "result": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "howLong": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "lookalikes": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "who": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "work": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "slice": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "size": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "problem": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "outcome": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "result": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "measure": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "why": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "timeframe": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "typical": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "why": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "method": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "steps": {
+                            "maxItems": 5,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "different": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "guarantee": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "promise": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "when": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "qualifies": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "price": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "amount": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "structure": {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          "value": {
+                            "type": "string",
+                            "maxLength": 600
+                          }
+                        }
+                      },
+                      "proof": {
+                        "default": [],
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "line": {
+                        "type": "string",
+                        "maxLength": 600
+                      },
+                      "inAFewWords": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "outcome": {
+                            "type": "string",
+                            "maxLength": 120
+                          },
+                          "guarantee": {
+                            "type": "string",
+                            "maxLength": 120
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "revision",
+                  "parts"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/main_offer.discard_draft": {
+      "post": {
+        "operationId": "command_main_offer_discard_draft",
+        "summary": "Throw away the main offer’s draft. The live version stays as it is.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires main_offer.manage. Emits main_offer.draft_discarded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "discarded": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "discarded",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/main_offer.publish": {
+      "post": {
+        "operationId": "command_main_offer_publish",
+        "summary": "Make the main offer’s scored draft the live version. Everything that uses the offer starts saying it; the version before is kept.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires main_offer.manage. Emits main_offer.published.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "anyway": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "revision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "version"
                   ],
                   "additionalProperties": false
                 }
@@ -117168,6 +117523,1083 @@
                   },
                   "required": [
                     "offers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/main_offer.get": {
+      "post": {
+        "operationId": "query_main_offer_get",
+        "summary": "The business’s main offer: the live version, the draft being edited with its score and what it still needs, and whether an add-on that uses it is on.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "inUse": {
+                      "type": "boolean"
+                    },
+                    "comesWith": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "bar": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "live": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "parts": {
+                              "type": "object",
+                              "properties": {
+                                "niche": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "bestCustomer": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "theirWork": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "theirSize": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "result": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "howLong": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "lookalikes": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "who": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "work": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "slice": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "size": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "problem": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "outcome": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "result": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "measure": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "timeframe": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "typical": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "method": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "steps": {
+                                      "maxItems": 5,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160
+                                      }
+                                    },
+                                    "different": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "guarantee": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "promise": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "when": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "qualifies": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "price": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "structure": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "value": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "proof": {
+                                  "default": [],
+                                  "maxItems": 10,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "line": {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                "inAFewWords": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "outcome": {
+                                      "type": "string",
+                                      "maxLength": 120
+                                    },
+                                    "guarantee": {
+                                      "type": "string",
+                                      "maxLength": 120
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "niche",
+                                "who",
+                                "outcome",
+                                "timeframe",
+                                "method",
+                                "guarantee",
+                                "price",
+                                "proof",
+                                "inAFewWords"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "score": {
+                              "type": "object",
+                              "properties": {
+                                "parts": {
+                                  "type": "object",
+                                  "properties": {
+                                    "who": {
+                                      "type": "object",
+                                      "properties": {
+                                        "score": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "score",
+                                        "why"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "outcome": {
+                                      "type": "object",
+                                      "properties": {
+                                        "score": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "score",
+                                        "why"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "timeframe": {
+                                      "type": "object",
+                                      "properties": {
+                                        "score": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "score",
+                                        "why"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "method": {
+                                      "type": "object",
+                                      "properties": {
+                                        "score": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "score",
+                                        "why"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "guarantee": {
+                                      "type": "object",
+                                      "properties": {
+                                        "score": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "score",
+                                        "why"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "price": {
+                                      "type": "object",
+                                      "properties": {
+                                        "score": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "score",
+                                        "why"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "who",
+                                    "outcome",
+                                    "timeframe",
+                                    "method",
+                                    "guarantee",
+                                    "price"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "weakest": {
+                                  "type": "string",
+                                  "enum": [
+                                    "who",
+                                    "outcome",
+                                    "timeframe",
+                                    "method",
+                                    "guarantee",
+                                    "price"
+                                  ]
+                                },
+                                "fix": {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                "flags": {
+                                  "type": "object",
+                                  "properties": {
+                                    "vague": {
+                                      "type": "boolean"
+                                    },
+                                    "generic": {
+                                      "type": "boolean"
+                                    },
+                                    "hardToBelieve": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "vague",
+                                    "generic",
+                                    "hardToBelieve"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "threeSeconds": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "parts",
+                                "weakest",
+                                "fix",
+                                "flags",
+                                "threeSeconds"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "anyway": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "publishedBy": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "publishedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "version",
+                            "parts",
+                            "line",
+                            "score",
+                            "anyway",
+                            "publishedBy",
+                            "publishedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "draft": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "parts": {
+                              "type": "object",
+                              "properties": {
+                                "niche": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "bestCustomer": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "theirWork": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "theirSize": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "result": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "howLong": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "lookalikes": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "who": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "work": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "slice": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "size": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "problem": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "outcome": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "result": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "measure": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "timeframe": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "typical": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "method": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "steps": {
+                                      "maxItems": 5,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160
+                                      }
+                                    },
+                                    "different": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "guarantee": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "promise": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "when": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "qualifies": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "price": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    "structure": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "value": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "proof": {
+                                  "default": [],
+                                  "maxItems": 10,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "line": {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                "inAFewWords": {
+                                  "default": {},
+                                  "type": "object",
+                                  "properties": {
+                                    "outcome": {
+                                      "type": "string",
+                                      "maxLength": 120
+                                    },
+                                    "guarantee": {
+                                      "type": "string",
+                                      "maxLength": 120
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "niche",
+                                "who",
+                                "outcome",
+                                "timeframe",
+                                "method",
+                                "guarantee",
+                                "price",
+                                "proof",
+                                "inAFewWords"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "by": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "score": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "parts": {
+                                      "type": "object",
+                                      "properties": {
+                                        "who": {
+                                          "type": "object",
+                                          "properties": {
+                                            "score": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            "why": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "score",
+                                            "why"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "outcome": {
+                                          "type": "object",
+                                          "properties": {
+                                            "score": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            "why": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "score",
+                                            "why"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "timeframe": {
+                                          "type": "object",
+                                          "properties": {
+                                            "score": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            "why": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "score",
+                                            "why"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "method": {
+                                          "type": "object",
+                                          "properties": {
+                                            "score": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            "why": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "score",
+                                            "why"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "guarantee": {
+                                          "type": "object",
+                                          "properties": {
+                                            "score": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            "why": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "score",
+                                            "why"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "price": {
+                                          "type": "object",
+                                          "properties": {
+                                            "score": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            "why": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "score",
+                                            "why"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "who",
+                                        "outcome",
+                                        "timeframe",
+                                        "method",
+                                        "guarantee",
+                                        "price"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "weakest": {
+                                      "type": "string",
+                                      "enum": [
+                                        "who",
+                                        "outcome",
+                                        "timeframe",
+                                        "method",
+                                        "guarantee",
+                                        "price"
+                                      ]
+                                    },
+                                    "fix": {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    "flags": {
+                                      "type": "object",
+                                      "properties": {
+                                        "vague": {
+                                          "type": "boolean"
+                                        },
+                                        "generic": {
+                                          "type": "boolean"
+                                        },
+                                        "hardToBelieve": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "vague",
+                                        "generic",
+                                        "hardToBelieve"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "threeSeconds": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "parts",
+                                    "weakest",
+                                    "fix",
+                                    "flags",
+                                    "threeSeconds"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "missing": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "path",
+                                  "label"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "parts",
+                            "by",
+                            "at",
+                            "score",
+                            "missing"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "inUse",
+                    "comesWith",
+                    "bar",
+                    "revision",
+                    "live",
+                    "draft"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/main_offer.versions": {
+      "post": {
+        "operationId": "query_main_offer_versions",
+        "summary": "Every version of the main offer published, the newest first.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "line": {
+                            "type": "string"
+                          },
+                          "lowest": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "anyway": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "publishedBy": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "publishedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "version",
+                          "line",
+                          "lowest",
+                          "anyway",
+                          "publishedBy",
+                          "publishedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "versions"
                   ],
                   "additionalProperties": false
                 }
