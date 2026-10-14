@@ -2664,12 +2664,12 @@ export const appointmentTranscripts = app.table('appointment_transcripts', {
   // Unique with appointmentId in the database: a repeated webhook keeps one copy.
   externalId: text('external_id').notNull(),
   body: text('body').notNull(),
-  /** The AI's summary of the call (20261027003500). */
+  /** The AI's summary of the call (20261027003600). */
   summary: text('summary'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
-/** What the AI suggested after a call: tasks and a follow-up, waiting for a person (20261027003500). */
+/** What the AI suggested after a call: tasks and a follow-up, waiting for a person (20261027003600). */
 export const callSuggestions = app.table('call_suggestions', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -2742,7 +2742,7 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'automations',
   // An add-on's own AI use (Real Estate step 6), with the add-on in addon_id.
   'addon',
-  // Reading a recorded call's transcript for its summary and suggestions (20261027003500).
+  // Reading a recorded call's transcript for its summary and suggestions (20261027003600).
   'meetings',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [

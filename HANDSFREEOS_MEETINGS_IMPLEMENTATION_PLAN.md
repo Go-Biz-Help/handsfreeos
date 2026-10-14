@@ -38,7 +38,7 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   own table rather than as files.
 > - **Step 6, the AI pass.** `appointment.call_review` asks the AI (`packages/core/src/meetings/review.ts`) and
 >   `call_suggestion.record` keeps the answer: the summary on the transcript and, as a note, on the customer's
->   timeline; tasks and a follow-up email in `app.call_suggestions` (20261027003500), decided with
+>   timeline; tasks and a follow-up email in `app.call_suggestions` (20261027003600), decided with
 >   `call_suggestion.decide` (approve, edited or not, runs `task.create` or `message.send` as that person; or
 >   dismiss) and listed by `call_suggestion.list`. Smaller than §9: no record changes (a deal's stage, a next
 >   appointment) are suggested yet, and suggestions use their own approve buttons on the appointment rather than
