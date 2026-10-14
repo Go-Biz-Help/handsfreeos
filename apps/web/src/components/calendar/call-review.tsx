@@ -8,17 +8,29 @@ type Review = {
   summary: string | null;
   items: {
     id: string;
-    kind: 'task' | 'follow_up';
+    kind: 'task' | 'follow_up' | 'record_change';
     status: 'pending' | 'approved' | 'dismissed';
     preview: Record<string, unknown>;
   }[];
 };
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
+const LABEL = {
+  task: 'Suggested task',
+  follow_up: 'Suggested follow-up email',
+  record_change: 'Suggested update to their record',
+};
+const FIELDS = [
+  ['firstName', 'First name'],
+  ['lastName', 'Last name'],
+  ['email', 'Email'],
+  ['phone', 'Phone'],
+] as const;
+const APPROVE = { task: 'Add task', follow_up: 'Send email', record_change: 'Update record' };
 
 /**
- * What the AI made of a recorded call: its summary (already on the customer's timeline), and the tasks and
- * follow-up it suggests, each waiting for someone to approve (as they are, or edited) or dismiss.
+ * What the AI made of a recorded call: its summary (already on the customer's timeline), and the tasks, follow-up
+ * and record update it suggests, each waiting for someone to approve (as they are, or edited) or dismiss.
  */
 export function CallReview({
   workspaceId,
@@ -91,10 +103,29 @@ export function CallReview({
             data-status={s.status}
           >
             <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-              {s.kind === 'task' ? 'Suggested task' : 'Suggested follow-up email'}
+              {LABEL[s.kind]}
               {pending ? '' : s.status === 'approved' ? ' · Done' : ' · Dismissed'}
             </span>
-            {s.kind === 'task' ? (
+            {s.kind === 'record_change' ? (
+              FIELDS.filter(([k]) => text(s.preview[k])).map(([k, label]) => {
+                const was = text((s.preview.was as Record<string, unknown> | undefined)?.[k]);
+                return (
+                  <label key={k} className="flex flex-col gap-0.5 text-[12px] text-text-3">
+                    <span>
+                      {label}
+                      {was ? ` (now ${was})` : ' (none on file)'}
+                    </span>
+                    <input
+                      className="rounded-control border border-border bg-card px-2 py-1 text-[13px] text-text"
+                      aria-label={label}
+                      value={text(p[k])}
+                      disabled={!pending}
+                      onChange={(e) => edit(s.id, k, e.target.value)}
+                    />
+                  </label>
+                );
+              })
+            ) : s.kind === 'task' ? (
               <input
                 className="rounded-control border border-border bg-card px-2 py-1 text-[13px]"
                 aria-label="Task"
@@ -127,7 +158,7 @@ export function CallReview({
                   loading={busy === `${s.id}:approve`}
                   onClick={() => void decide(s.id, 'approve')}
                 >
-                  {s.kind === 'task' ? 'Add task' : 'Send email'}
+                  {APPROVE[s.kind]}
                 </Button>
                 <Button
                   variant="ghost"

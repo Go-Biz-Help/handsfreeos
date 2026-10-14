@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 to 7 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 11 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -50,6 +50,21 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   `appointment.meet_transcript_poll` looks 15 minutes after the end and every 20 minutes for 4 hours; the
 >   transcript then goes through the same attach and AI pass. Meet can't start transcription for the host, so the
 >   watch email says to turn it on in the call (`meet_transcript_off`, or `meet_not_allowed` without the permission).
+> - **Step 8, per-service video.** `video` and `record` on a calendar's per-service settings
+>   (`ServiceOverrides`), set under Services & lengths. `locationFor` takes the service's choice over the Online
+>   place's, and the booking page's "recorded" notice follows the chosen service. No migration: it lives in the
+>   calendar's settings.
+> - **Step 9, the phone app.** The appointment screen shows the video call (Join, or why there's no link yet)
+>   and, for a recorded call, the AI's summary, its suggestions (Add task or Send email, and Dismiss; a task's
+>   title can be edited, an email's wording on the web) and what was said. Read from the API when online; nothing
+>   new is synced, so `sync-config.yaml` is unchanged.
+> - **Step 10, the browser test.** `apps/web/e2e/meetings.spec.ts`: connect Zoom on the stand-in, book a recorded
+>   online visit, see its link, end the call with a transcript (`POST /test/zoom/transcript`, stand-in only, then
+>   Zoom's signed webhook), and add the task the scripted AI suggests.
+> - **Step 11, record changes from calls.** The AI's review can name a new or corrected first name, last name,
+>   email or phone the customer gave (`recordChanges`); `call_suggestion.record` keeps it as a `record_change`
+>   suggestion only when it differs from what's on file (20261027004200 allows the kind), showing what it would
+>   replace. Approving runs `person.update` as the person, with their edits. On the web and the phone.
 
 ---
 
@@ -224,6 +239,13 @@ or dismiss. Nothing risk 4 is offered. The note links back to the transcript.
 5. **Zoom transcripts** (§8) and the webhook; Zoom Marketplace review starts here.
 6. **The AI pass** (§9) and its approvals.
 7. **Google Meet transcripts** (§7 and §8, Meet), after its own Google review.
+8. **Per-service video** (§3): a service on a calendar can pick its own link (none, Meet or Zoom) and recording,
+   over the Online place's.
+9. **The phone app** (§10): the meeting link, the transcript and the call's suggestions, with approve and decline.
+10. **The browser test** (§13): connect Zoom (fake), book, get a fake transcript, approve a suggested task.
+11. **Record changes from calls** (§9): the AI can suggest updating the customer's record; it asks first.
+
+Steps 8 to 11 were added by the owner after step 7 (2026-10-14).
 
 Each step ships on its own. Steps 1 and 2 can run side by side.
 

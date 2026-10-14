@@ -12444,6 +12444,17 @@
                                         "format": "uuid",
                                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                       }
+                                    },
+                                    "video": {
+                                      "type": "string",
+                                      "enum": [
+                                        "none",
+                                        "google_meet",
+                                        "zoom"
+                                      ]
+                                    },
+                                    "record": {
+                                      "type": "boolean"
                                     }
                                   }
                                 }
@@ -18143,7 +18154,7 @@
     "/v1/commands/call_suggestion.decide": {
       "post": {
         "operationId": "command_call_suggestion_decide",
-        "summary": "Approve or dismiss something the AI suggested after a call. Approving makes the task, or sends the follow-up, as you.",
+        "summary": "Approve or dismiss something the AI suggested after a call. Approving makes the task, sends the follow-up, or updates the customer’s record, as you.",
         "tags": [
           "commands"
         ],
@@ -18212,6 +18223,27 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 4000
+                      },
+                      "firstName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "lastName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "email": {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "phone": {
+                        "type": "string",
+                        "minLength": 7,
+                        "maxLength": 40
                       }
                     }
                   }
@@ -108049,6 +108081,17 @@
                                               "format": "uuid",
                                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                             }
+                                          },
+                                          "video": {
+                                            "type": "string",
+                                            "enum": [
+                                              "none",
+                                              "google_meet",
+                                              "zoom"
+                                            ]
+                                          },
+                                          "record": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "additionalProperties": false
@@ -112784,7 +112827,8 @@
                             "type": "string",
                             "enum": [
                               "task",
-                              "follow_up"
+                              "follow_up",
+                              "record_change"
                             ]
                           },
                           "status": {

@@ -330,13 +330,19 @@ and id, scopes and settings). On the Zoom app, subscribe the same endpoint to **
 
 Then the AI reads it (`appointment.call_review`, counted as AI usage "AI reading a call transcript"). It writes a
 short summary, kept with the transcript and added to the customer's timeline as a note on its own, and suggests
-the tasks the business agreed to and, when one is called for, a follow-up email. Those wait on the appointment
-under **After the call**: **Add task** (made as the person who presses it, assigned to the host) or **Send email**
-(sent as them), each editable first, or **Dismiss**. Nothing is sent or created without that press. The prompt
+the tasks the business agreed to, a follow-up email when one is called for, and an update to the customer's record
+when they gave a new name, email or phone that differs from what's on file. Those wait on the appointment under
+**After the call** (on the web and in the phone app): **Add task** (made as the person who presses it, assigned to
+the host), **Send email** (sent as them) or **Update record** (shown beside what it replaces), each editable first,
+or **Dismiss**. Nothing is sent or created without that press. The prompt
 and the answer's shape are in `packages/core/src/meetings/review.ts`.
 
 Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
-same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
+same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in. `POST /test/zoom/transcript` (stand-in
+only) ends a fake call with a transcript; `apps/web/e2e/meetings.spec.ts` then sends Zoom's signed webhook.
+
+A service on a calendar can have its own video link and recording (Settings → Calendars → Services & lengths,
+under each service): they win over the Online place's when that service is booked online.
 
 For production:
 

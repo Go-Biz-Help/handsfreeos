@@ -53,13 +53,22 @@ export const appointmentCallReview: JobHandler = async (ctx) => {
       .select({ name: workspaces.name, timezone: workspaces.timezone })
       .from(workspaces)
       .where(eq(workspaces.id, scope.workspaceId));
-    const [names] = await rows<{ customer: string | null; host: string | null }>(
+    const [names] = await rows<{
+      customer: string | null;
+      on_file: string | null;
+      host: string | null;
+    }>(
       tx,
       sql`select
             (select btrim(concat_ws(' ', p.first_name, p.last_name)) from app.appointment_attendees t
                join app.people p on p.id = t.person_id
                where t.appointment_id = ${appointmentId}::uuid and t.status = 'booked'
                order by t.created_at limit 1) as customer,
+            (select nullif(concat_ws(', ', 'email ' || p.email, 'phone ' || p.phone), '')
+               from app.appointment_attendees t
+               join app.people p on p.id = t.person_id
+               where t.appointment_id = ${appointmentId}::uuid and t.status = 'booked'
+               order by t.created_at limit 1) as on_file,
             (select coalesce(nullif(u.full_name, ''), u.email::text) from app.appointment_staff s
                join app.users u on u.id = s.user_id
                where s.appointment_id = ${appointmentId}::uuid order by s.role limit 1) as host`,
@@ -87,6 +96,7 @@ export const appointmentCallReview: JobHandler = async (ctx) => {
             title: seen.a.title,
             when,
             customer: seen.names?.customer || null,
+            onFile: seen.names?.on_file || null,
             host: seen.names?.host || null,
             transcript: seen.t.body,
           }),
