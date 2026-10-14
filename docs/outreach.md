@@ -273,7 +273,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   Contacts. Like Don't pitch it covers a profile kept twice under the same name, and only whoever added someone, or an
   owner or admin, takes them off (`outreach_never_contact_not_yours`). Each row of the Chats tab has the same two
   switches as a Friends tab row, **Don't pitch** and **Never contact**, for whoever the chat is with
-  (`outreach.chats` says `dontPitch` and `neverContact` for each chat's profile; `chats-view.tsx`'s `ChatMarks`), so
+  (`outreach.chats` says `dontPitch` and `neverContact` for each chat's profile; `ChatMarks` in the web's
+  `chats-view.tsx` and the phone's `chats.tsx`, where they need signal), so
   someone the person has chatted with but isn't friends with is decided chat by chat. A chat with no profile kept yet
   (one from the file not matched to anyone) has no switches until it's read in Messenger.
 - **Looking someone up before drafting** (decision 21): while the person's computer is online and Facebook didn't
