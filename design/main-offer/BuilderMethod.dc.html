@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Main offer: your method</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rs:focus-visible,.ex:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.input{width:100%;height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.input:focus,.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.textarea{width:100%;min-height:72px;padding:10px 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;line-height:1.45;resize:vertical}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px}
+.hint{font-size:12.5px;color:var(--text-3)}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{flex:0 1 300px;min-width:240px;background:var(--card);border-right:1px solid var(--border);padding:24px 14px 20px;display:flex;flex-direction:column;gap:2px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rn.done{border-color:var(--success);background:var(--success);color:#fff}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.pane{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;padding:32px 48px 24px;display:flex;flex-direction:column;gap:24px;max-width:880px}
+.foot{flex:none;min-height:72px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 48px;background:var(--card);border-top:1px solid var(--border)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.step{display:grid;grid-template-columns:20px 28px minmax(0,1fr) 36px;align-items:center;gap:8px}
+.num{width:28px;height:28px;border-radius:999px;background:var(--card-2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text-2)}
+.grip{color:var(--text-3);cursor:grab}
+.ai{color:var(--accent-text)}
+.set{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.set ol{margin:0;padding-left:20px;flex:1;min-width:240px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Building your main offer</span>
+<a class="btn btn-ghost" href="Main.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Your main offer</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 30 minutes. Every answer is kept as you go.</p>
+<a class="rs" href="BuilderNiche.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Your niche</span><span class="rd">Roofers with 2 to 4 crews</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Who</span><span class="rd">No steady jobs between storms</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Outcome</span><span class="rd">10 to 20 booked inspections a month</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Timeframe</span><span class="rd">Within 60 days</span></span></a>
+<a class="rs cur" href="BuilderMethod.dc.html" aria-current="step"><span class="rn">5</span><span class="stack"><span class="rt">Method</span><span class="rd">How you do it, in 3 to 5 steps</span></span></a>
+<a class="rs" href="BuilderPart.dc.html"><span class="rn">6</span><span class="stack"><span class="rt">Guarantee</span><span class="rd">What if it doesn’t work</span></span></a>
+<a class="rs" href="#"><span class="rn">7</span><span class="stack"><span class="rt">Price</span><span class="rd">What it costs, and why it’s worth it</span></span></a>
+<a class="rs" href="#"><span class="rn">8</span><span class="stack"><span class="rt">Proof</span><span class="rd">Real results</span></span></a>
+<a class="rs" href="BuilderLine.dc.html"><span class="rn">9</span><span class="stack"><span class="rt">Put it together</span><span class="rd">Your offer in one line</span></span></a>
+<a class="rs" href="BuilderScore.dc.html"><span class="rn">10</span><span class="stack"><span class="rt">Score and go live</span><span class="rd">Every part needs 7</span></span></a>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">5 of 10</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">How you do it</h1>
+<p class="muted" style="max-width: 660px;">Your system from start to finish, in 3 to 5 steps. It shows you have a plan, and it becomes your short video and your sales calls.</p>
+</div>
+
+<div class="stack" style="gap: 10px;">
+<span class="label" style="margin: 0;">Your steps, in order</span>
+<div class="step"><svg class="icon grip" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg><span class="num">1</span><input class="input" aria-label="Step 1" value="Find the homes that need a roof"><button class="btn btn-ghost btn-sm" aria-label="Take out step 1"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="step"><svg class="icon grip" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg><span class="num">2</span><input class="input" aria-label="Step 2" value="Run local ads after every storm"><button class="btn btn-ghost btn-sm" aria-label="Take out step 2"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="step"><svg class="icon grip" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg><span class="num">3</span><input class="input" aria-label="Step 3" value="Book them straight onto your calendar"><button class="btn btn-ghost btn-sm" aria-label="Take out step 3"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="step"><svg class="icon grip" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg><span class="num">4</span><input class="input" aria-label="Step 4" value="Follow up the same hour"><button class="btn btn-ghost btn-sm" aria-label="Take out step 4"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="row" style="gap: 6px; flex-wrap: wrap;">
+<button class="btn btn-ghost btn-sm"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add a step</button>
+<button class="btn btn-ghost btn-sm"><svg class="icon ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>Improve</button>
+<span class="xs faint">· Example to model: Free inspection, Written quote the same day, Install in one day, Clean up and walk-through</span>
+</div>
+</div>
+
+<div class="panel">
+<div class="row" style="padding: 12px 16px; justify-content: space-between;"><span class="small" style="font-weight: 600;">Pick a set of steps, or keep yours</span><button class="btn btn-ghost btn-sm" aria-label="Close the AI’s options"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="set"><ol><li>Find the homes that need a roof</li><li>Run local ads the week after a storm</li><li>Book them on your page</li><li>Call back within the hour</li></ol><button class="btn btn-secondary btn-sm">Use these steps</button></div>
+<div class="set"><ol><li>Map the storm’s path</li><li>Reach the homes it hit</li><li>Book the inspection</li></ol><button class="btn btn-secondary btn-sm">Use these steps</button></div>
+<div class="set"><ol><li>Set up your booking page</li><li>Run ads to the homes that fit</li><li>Answer and book in the same hour</li><li>Send a weekly report</li></ol><button class="btn btn-secondary btn-sm">Use these steps</button></div>
+</div>
+
+<div>
+<label class="label" for="diff">What’s different about how you do it?</label>
+<textarea id="diff" class="textarea">We only work with roofers, so the ads are built for roofs, not copied from a plumber’s.</textarea>
+<div class="hint" style="margin-top: 6px;">The answer to “How are you different from the others?” before anyone asks it.</div>
+</div>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a>
+<div style="flex: 1;"></div>
+<span class="xs faint">Draft saved 2:26 PM</span>
+<a class="btn btn-primary btn-lg" href="BuilderPart.dc.html">Continue</a>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "1 · Settings → Main offer",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuilderNiche.dc.html",
+      "title": "2 · Builder: find your niche",
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuilderPart.dc.html",
+      "title": "3 · Builder: a part (the guarantee), with examples and the AI's help",
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuilderMethod.dc.html",
+      "title": "4 · Builder: the method's steps",
+      "x": 0,
+      "y": 1020,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuilderLine.dc.html",
+      "title": "5 · Builder: put it together",
+      "x": 1360,
+      "y": 1020,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuilderScore.dc.html",
+      "title": "6 · Builder: score and go live",
+      "x": 2720,
+      "y": 1020,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "UseAnyway.dc.html",
+      "title": "7 · Use it anyway",
+      "x": 0,
+      "y": 2040,
+      "w": 1280,
+      "h": 900
+    }
+  ]
+}

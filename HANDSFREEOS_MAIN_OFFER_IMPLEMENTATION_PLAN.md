@@ -374,7 +374,10 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    (`writing.ts`), `pnpm openapi`, and Current offers renamed **Promotions** on screen. Tests: refused with no add-on
    that uses it, publishing needs a score and clears the bar or says why, versions never change.
 2. **Core: the builder, on the web.** Settings → Main offer, the builder, the three AI routes, the examples by line of
-   work. Design boards first, in `design/`, reviewed before the screens are built.
+   work. Design boards first, in `design/`, reviewed before the screens are built. **Server side built** (the AI
+   routes in `apps/worker/src/main-offer/routes.ts`, the prompts and checks in `packages/core/src/main-offer/assist.ts`,
+   the examples in `examples.ts`). **The boards are in `design/main-offer`, waiting for Chris's review;** the screens
+   wait for them.
 3. **Social Outreach: the playbook's niche.** Data version 3, the builder's new steps, the CRM demos template.
 4. **Social Outreach: getting ready.** `outreach.readiness`, the setup step, the Get ready card on Today, the web and
    the phone and the panel, `outreach_not_ready`, your numbers and their math.

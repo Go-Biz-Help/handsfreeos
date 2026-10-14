@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Main offer: score and go live</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rs:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{flex:0 1 300px;min-width:240px;background:var(--card);border-right:1px solid var(--border);padding:24px 14px 20px;display:flex;flex-direction:column;gap:2px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rn.done{border-color:var(--success);background:var(--success);color:#fff}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.pane{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;padding:32px 48px 24px;display:flex;flex-direction:column;gap:20px;max-width:920px}
+.foot{flex:none;min-height:72px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 48px;background:var(--card);border-top:1px solid var(--border)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}
+.sc{display:grid;grid-template-columns:92px minmax(0,1fr) 54px;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--border)}
+.bar{height:8px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px}
+.fix{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text)}
+.good{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--success-soft);color:var(--success-text)}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Building your main offer</span>
+<a class="btn btn-ghost" href="Main.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Your main offer</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 30 minutes. Every answer is kept as you go.</p>
+<a class="rs" href="BuilderNiche.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Your niche</span><span class="rd">Roofers with 2 to 4 crews</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Who</span><span class="rd">No steady jobs between storms</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Outcome</span><span class="rd">10 to 20 booked inspections a month</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Timeframe</span><span class="rd">Within 60 days</span></span></a>
+<a class="rs" href="BuilderMethod.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Method</span><span class="rd">4 steps</span></span></a>
+<a class="rs" href="BuilderPart.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Guarantee</span><span class="rd">You don’t pay without 10</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Price</span><span class="rd">$2,000 a month</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Proof</span><span class="rd">2 real results</span></span></a>
+<a class="rs" href="BuilderLine.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Put it together</span><span class="rd">Your offer in one line</span></span></a>
+<a class="rs cur" href="BuilderScore.dc.html" aria-current="step"><span class="rn">10</span><span class="stack"><span class="rt">Score and go live</span><span class="rd">Every part needs 7</span></span></a>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">10 of 10</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Score and go live</h1>
+<p class="muted" style="max-width: 660px;">The AI scores each part the way a coach would on a call: honest and specific. Every part needs 7 out of 10, so your outreach starts from an offer people want.</p>
+</div>
+
+<div class="panel" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 8px;">
+<span class="overline">Your offer</span>
+<p style="font-size: 16px; line-height: 1.5;">We help roofers with 2 to 4 crews get 10 to 20 booked roof inspections a month within 60 days, using local ads, a booking page and same-hour follow-up. If you don’t get 10 in 60 days, you don’t pay. $2,000 a month.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px;">
+<div class="panel">
+<div class="row" style="padding: 14px 16px; justify-content: space-between;"><span style="font-weight: 600;">How each part scored</span><span class="xs faint tnum">Scored 2:42 PM</span></div>
+<sc-for list="{{ parts }}" as="p" hint-placeholder-count="6">
+<div class="sc">
+<span class="small" style="font-weight: 500;">{{ p.label }}</span>
+<span class="stack" style="gap: 4px; min-width: 0;">
+<span class="bar" role="img" aria-label="{{ p.aria }}"><span style="{{ p.fill }}"></span></span>
+<span class="xs muted">{{ p.why }}</span>
+</span>
+<span class="{{ p.badge }}" style="justify-self: end;">{{ p.score }}</span>
+</div>
+</sc-for>
+</div>
+
+<div class="stack" style="gap: 16px;">
+<sc-if value="{{ below }}" hint-placeholder-val="{{ true }}">
+<div class="fix">
+<svg class="icon" style="margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+<div class="stack" style="gap: 4px;">
+<span style="font-weight: 600;">Fix the guarantee first</span>
+<span class="small">It scored 5. It promises everyone 10 inspections, but says nothing about who qualifies. Add that they answer new leads within the hour, so a slow roofer can’t hold you to it.</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ clears }}" hint-placeholder-val="{{ false }}">
+<div class="good">
+<svg class="icon" style="margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+<div class="stack" style="gap: 4px;">
+<span style="font-weight: 600;">Every part scores 7 or more</span>
+<span class="small">Weakest is the guarantee at 7. It works; naming what they need to do makes it stronger later.</span>
+</div>
+</div>
+</sc-if>
+<div class="panel" style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-weight: 600;">The quick checks</span>
+<sc-for list="{{ checks }}" as="c" hint-placeholder-count="4">
+<div class="chk"><span class="{{ c.badge }}">{{ c.mark }}</span><span>{{ c.text }}</span></div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="BuilderLine.dc.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a>
+<button class="btn btn-ghost">Score again</button>
+<div style="flex: 1;"></div>
+<sc-if value="{{ below }}" hint-placeholder-val="{{ true }}">
+<div class="row" style="gap: 8px;">
+<a class="btn btn-secondary btn-lg" href="UseAnyway.dc.html">Use it anyway…</a>
+<a class="btn btn-primary btn-lg" href="BuilderPart.dc.html">Change the guarantee</a>
+</div>
+</sc-if>
+<sc-if value="{{ clears }}" hint-placeholder-val="{{ false }}">
+<a class="btn btn-primary btn-lg" href="Main.dc.html">Go live</a>
+</sc-if>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"result":{"editor":"enum","default":"below","options":["below","clears"],"section":"State"},"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const below = (this.props.result ?? 'below') === 'below';
+    const rows = [
+      ['Who', 8, 'One line of work, a size and a real problem.'],
+      ['Outcome', 9, 'Measurable, and something you control.'],
+      ['Timeframe', 8, 'Realistic, with a reason.'],
+      ['Method', 8, 'Four clear steps, and why yours is different.'],
+      ['Guarantee', below ? 5 : 7, below ? 'A real promise, but nothing on who qualifies.' : 'A real promise for roofers who answer fast.'],
+      ['Price', 8, 'Stated, and one roof pays for three months.']
+    ];
+    const checks = [
+      ['A stranger sees the result in 3 seconds', true],
+      ['Specific, not vague', true],
+      ['Stands out from others like you', true],
+      ['Easy to believe', !below]
+    ];
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      below,
+      clears: !below,
+      parts: rows.map(([label, score, why]) => ({
+        label, score, why,
+        aria: `${label}: ${score} out of 10`,
+        fill: `width: ${score * 10}%; background: ${score >= 7 ? 'var(--success)' : 'var(--warning)'};`,
+        badge: 'badge tnum ' + (score >= 7 ? 'badge-ok' : 'badge-wait')
+      })),
+      checks: checks.map(([text, ok]) => ({
+        text,
+        mark: ok ? 'Yes' : 'Not yet',
+        badge: 'badge ' + (ok ? 'badge-ok' : 'badge-wait')
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>
