@@ -3,7 +3,16 @@
  * its server code reads and writes through. Server-only. test/addons/salescoach.test.ts holds the mirror to the
  * live columns.
  */
-import { boolean, jsonb, pgSchema, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgSchema,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import {
   calls as coreCalls,
   conversations,
@@ -14,6 +23,7 @@ import {
 } from '@hfos/db/schema';
 import type { AfterCall, CallLine, CardKind } from './coach';
 import type { PlaybookDetails, PlaybookKind } from './playbooks';
+import type { LessonKind, WinKind } from './learn';
 import type { Suggestion } from './suggest';
 
 export const addonSalescoach = pgSchema('addon_salescoach');
@@ -72,6 +82,9 @@ export const coachedCalls = addonSalescoach.table(
       onDelete: 'set null',
     }),
     channel: text('channel'),
+    /** A win within a week of it (round four, 20261027003900): when, and which. */
+    wonAt: ts('won_at'),
+    wonHow: text('won_how').$type<WinKind>(),
     startedAt: ts('started_at').notNull().defaultNow(),
     endedAt: ts('ended_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -119,4 +132,33 @@ export const suggestions = addonSalescoach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.conversationId)],
 );
 
-export const SALESCOACH_TABLES = { playbooks, calls: coachedCalls, cards, suggestions } as const;
+/** What the coach learned from wins, for owners and admins to use or not (round four). */
+export const lessons = addonSalescoach.table(
+  'lessons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    playbookId: uuid('playbook_id').notNull(),
+    kind: text('kind').notNull().$type<LessonKind>(),
+    objectionId: text('objection_id'),
+    objection: text('objection').notNull(),
+    answer: text('answer').notNull(),
+    wins: integer('wins').notNull(),
+    ofCount: integer('of_count').notNull(),
+    evidence: uuid('evidence').array().notNull().default([]),
+    state: text('state').notNull().$type<'open' | 'used' | 'dismissed'>().default('open'),
+    decidedBy: userRef('decided_by'),
+    decidedAt: ts('decided_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id)],
+);
+
+export const SALESCOACH_TABLES = {
+  playbooks,
+  calls: coachedCalls,
+  cards,
+  suggestions,
+  lessons,
+} as const;

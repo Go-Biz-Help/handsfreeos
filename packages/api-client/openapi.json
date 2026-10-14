@@ -85978,6 +85978,71 @@
         }
       }
     },
+    "/v1/commands/salescoach.lesson.decide": {
+      "post": {
+        "operationId": "command_salescoach_lesson_decide",
+        "summary": "Use a lesson the coach learned from wins, which changes the playbook (a better answer replaces the objection’s, a new objection is added), or dismiss it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.manage. Emits salescoach.lesson.decided, salescoach.playbook.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "lessonId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "use": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "lessonId",
+                  "use"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "used",
+                        "dismissed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -170954,6 +171019,22 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "wonHow": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booked",
+                                  "estimate",
+                                  "paid",
+                                  "deal"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -170967,7 +171048,8 @@
                           "playbookName",
                           "startedAt",
                           "endedAt",
-                          "score"
+                          "score",
+                          "wonHow"
                         ],
                         "additionalProperties": false
                       }
@@ -171163,6 +171245,22 @@
                             }
                           ]
                         },
+                        "wonHow": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "booked",
+                                "estimate",
+                                "paid",
+                                "deal"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "lines": {
                           "type": "array",
                           "items": {
@@ -171242,11 +171340,24 @@
                                       },
                                       "answered": {
                                         "type": "boolean"
+                                      },
+                                      "answer": {
+                                        "default": "",
+                                        "type": "string"
+                                      },
+                                      "objectionId": {
+                                        "default": null,
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
                                       "said",
-                                      "answered"
+                                      "answered",
+                                      "answer",
+                                      "objectionId"
                                     ],
                                     "additionalProperties": false
                                   }
@@ -171419,6 +171530,7 @@
                         "startedAt",
                         "endedAt",
                         "score",
+                        "wonHow",
                         "lines",
                         "result",
                         "failure",
@@ -171531,6 +171643,127 @@
                   },
                   "required": [
                     "suggestions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.lesson.list": {
+      "post": {
+        "operationId": "query_salescoach_lesson_list",
+        "summary": "What the coach learned from wins, waiting for an owner or admin: better answers to the playbooks’ objections, and objections to add.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lessons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "playbookId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "playbookName": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "better_answer",
+                              "new_objection"
+                            ]
+                          },
+                          "objectionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "objection": {
+                            "type": "string"
+                          },
+                          "current": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "answer": {
+                            "type": "string"
+                          },
+                          "wins": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "of": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "playbookId",
+                          "playbookName",
+                          "kind",
+                          "objectionId",
+                          "objection",
+                          "current",
+                          "answer",
+                          "wins",
+                          "of",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "lessons"
                   ],
                   "additionalProperties": false
                 }

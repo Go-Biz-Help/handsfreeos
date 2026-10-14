@@ -1874,9 +1874,15 @@ function scriptedCoachWriteUp(message: string) {
       .flatMap((l) => /\bI(?:’|')ll ([^.]+)/.exec(l)?.[1] ?? [])
       .map((what) => ({ what: what[0]!.toUpperCase() + what.slice(1), due: null })),
     followUp: 'Thanks for the call today. I’ll be in touch with the next step.',
+    // A price worry, answered with the rep's next line, is the playbook's first objection.
     objections: customer
       .filter((l) => PRICE_WORDS.test(l))
-      .map((l) => ({ said: l, answered: true })),
+      .map((l) => ({
+        said: l,
+        answered: true,
+        answer: rep.find((r) => /\bfee|warranty|worth|lasts?\b/i.test(r)) ?? rep.at(-1) ?? '',
+        objectionId: coachParts(message, 'o')[0]?.id ?? null,
+      })),
     stepsCovered: coachParts(message, 's').map((s) => s.id),
     tips: ['Ask for the booking before you hang up.'],
   };
@@ -1924,7 +1930,35 @@ function scriptedCoachReplies(message: string, context: string) {
   };
 }
 
+/**
+ * Sales Coach's lessons (learn.ts): each playbook objection's first winning answer as its better answer, and what
+ * came up in two or more wins, said the same way, as a new objection.
+ */
+function scriptedCoachLessons(message: string) {
+  const winning = quotedBlock(message, 'winning_answers') ?? '';
+  const better = [...winning.matchAll(/^\[(o\d+)\][^\n]*\n- (.*)$/gm)].map((m) => ({
+    objectionId: m[1]!,
+    answer: unquote(m[2]!),
+  }));
+  const fresh = [
+    ...(quotedBlock(message, 'new_in_wins') ?? '').matchAll(
+      /^(\d+)\. They said: (.*) — the rep answered: (.*)$/gm,
+    ),
+  ].map((m) => ({ n: Number(m[1]), said: unquote(m[2]!), answer: unquote(m[3]!) }));
+  const groups = new Map<string, typeof fresh>();
+  for (const f of fresh)
+    groups.set(f.said.toLowerCase(), [...(groups.get(f.said.toLowerCase()) ?? []), f]);
+  const added = [...groups.values()]
+    .filter((g) => g.length >= 2)
+    .map((g) => ({ objection: g[0]!.said, answer: g[0]!.answer, wins: g.map((f) => f.n) }));
+  return { better, added };
+}
+
 export const SALESCOACH_RULES: readonly ScriptRule[] = [
+  {
+    when: /Suggest playbook answers from what won\.$/,
+    json: (message) => scriptedCoachLessons(message),
+  },
   {
     when: /Suggest replies to the customer’s last message\.$/,
     json: (message, context) => scriptedCoachReplies(message, context),

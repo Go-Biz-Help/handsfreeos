@@ -285,7 +285,14 @@ describe('a coached call', () => {
         notes: ['AC blowing warm air'],
         promises: [{ what: 'Text Mike the price', due: '2026-10-16' }],
         followUp: 'Hi Mike, it’s Dana. I’ll text the price by Friday.',
-        objections: [{ said: 'Sounds expensive', answered: true }],
+        objections: [
+          {
+            said: 'Sounds expensive',
+            answered: true,
+            answer: 'It goes toward the repair.',
+            objectionId: 'zz',
+          },
+        ],
         stepsCovered: ['s1', 's2', 'nope'],
         tips: ['Book the visit before hanging up.'],
       },
@@ -586,5 +593,93 @@ describe('a written conversation’s write-up', () => {
     });
     const got = await as(rep, 'salescoach.call.get', { coachedCallId: done.coachedCallId });
     expect(got.call.conversationId).toBe(c!.id);
+  });
+});
+
+describe('learning from wins', () => {
+  async function doneCall(endedAgoMs: number): Promise<string> {
+    const callId = await aCall(rep);
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_salescoach.calls (workspace_id, call_id, user_id, person_id, state, started_at, ended_at)
+          values (${ws}, ${callId}, ${rep.id}, ${personId}, 'done',
+                  ${new Date(Date.now() - endedAgoMs - 60_000).toISOString()}, ${new Date(Date.now() - endedAgoMs).toISOString()})
+          returning id`,
+    );
+    return c!.id;
+  }
+
+  it('marks the customer’s coached records of the week before a win', async () => {
+    const recent = await doneCall(2 * 24 * 60 * 60_000);
+    const old = await doneCall(10 * 24 * 60 * 60_000);
+    expect(
+      await worker('salescoach.win.note', {
+        personIds: [personId],
+        how: 'booked',
+        at: new Date().toISOString(),
+      }),
+    ).toMatchObject({ marked: expect.any(Number) });
+    const marked = await rows<{ id: string; won_how: string | null }>(
+      admin(),
+      sql`select id, won_how from addon_salescoach.calls where id in (${recent}, ${old})`,
+    );
+    expect(Object.fromEntries(marked.map((m) => [m.id, m.won_how]))).toEqual({
+      [recent]: 'booked',
+      [old]: null,
+    });
+  });
+
+  it('keeps lessons for owners and admins, who use or dismiss them', async () => {
+    const [book] = (await as(owner, 'salescoach.playbook.list', {})).playbooks.filter(
+      (p: { archivedAt: string | null }) => !p.archivedAt,
+    );
+    const lesson = {
+      kind: 'better_answer',
+      objectionId: 'o1',
+      objection: 'It’s too expensive',
+      answer: 'I hear you. Most people say it paid for itself in a year.',
+      wins: 6,
+      of: 9,
+      evidence: [],
+    };
+    const fresh = {
+      kind: 'new_objection',
+      objectionId: null,
+      objection: 'How soon can you start?',
+      answer: 'We can start Monday. Want me to hold it?',
+      wins: 2,
+      of: 2,
+      evidence: [],
+    };
+    expect(
+      await worker('salescoach.lessons.put', { playbookId: book.id, lessons: [lesson, fresh] }),
+    ).toEqual({ kept: 2 });
+    // Owners and admins only.
+    expect(await refused(as(rep, 'salescoach.lesson.list', {}))).toBe('forbidden');
+    const listed = (await as(owner, 'salescoach.lesson.list', {})).lessons;
+    expect(listed.map((l: { kind: string }) => l.kind).sort()).toEqual([
+      'better_answer',
+      'new_objection',
+    ]);
+    const better = listed.find((l: { kind: string }) => l.kind === 'better_answer');
+    expect(better).toMatchObject({ wins: 6, of: 9, current: book.details.objections[0].answer });
+
+    // Using the better answer changes the playbook; the new one is dismissed and not suggested again soon.
+    await as(owner, 'salescoach.lesson.decide', { lessonId: better.id, use: true });
+    const added = listed.find((l: { kind: string }) => l.kind === 'new_objection');
+    await as(owner, 'salescoach.lesson.decide', { lessonId: added.id, use: false });
+    const after = (await as(owner, 'salescoach.playbook.list', {})).playbooks.find(
+      (p: { id: string }) => p.id === book.id,
+    );
+    expect(after.details.objections[0].answer).toBe(lesson.answer);
+    expect(after.details.objections).toHaveLength(book.details.objections.length);
+    expect((await as(owner, 'salescoach.lesson.list', {})).lessons).toEqual([]);
+    expect(
+      await worker('salescoach.lessons.put', { playbookId: book.id, lessons: [fresh] }),
+    ).toEqual({ kept: 0 });
+    // Deciding it twice: it isn't waiting anymore.
+    expect(
+      await refused(as(owner, 'salescoach.lesson.decide', { lessonId: better.id, use: true })),
+    ).toBe('not_found');
   });
 });

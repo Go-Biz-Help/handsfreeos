@@ -6,26 +6,27 @@ the facts the customer just asked about. After the call it writes the notes, a f
 the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
-**Where it stands (2026-10-14):** rounds 0 to 2 are built, in `development` (staff hand it to test businesses):
-core's live listening, phone calls, and written conversations (suggested replies, and a write-up once a conversation
-goes quiet). Zoom (round 3) and learning from wins (round 4) are next.
+**Where it stands (2026-10-14):** rounds 0 to 2 and round 4's learning from wins are built, in `development` (staff
+hand it to test businesses): core's live listening, phone calls, written conversations (suggested replies, and a
+write-up once one goes quiet), and lessons from wins. Zoom (round 3), and round 4's trends and Spanish, are next.
 
 ## Where things are
 
-| What                                      | Where                                                                                                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                    |
-| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                           |
-| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`               |
-| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                        |
-| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                            |
-| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                          |
-| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                          |
-| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                |
-| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                     |
-| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                          |
-| Database                                  | `supabase/migrations/20261027003600_addon_salescoach.sql`, `20261027003700_salescoach_suggestions.sql`                                                |
-| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts` |
+| What                                      | Where                                                                                                                                                                             |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                |
+| Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                          |
+| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                       |
+| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`                                           |
+| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                                                    |
+| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                                                        |
+| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                      |
+| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                      |
+| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                                            |
+| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                                                 |
+| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                      |
+| Database                                  | `supabase/migrations/20261027003600_addon_salescoach.sql`, `20261027003700_salescoach_suggestions.sql`                                                                            |
+| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts` |
 
 ## How a coached call goes
 
@@ -87,6 +88,29 @@ goes quiet). Zoom (round 3) and learning from wins (round 4) are next.
    conversation (`calls.conversation_id`, once per stretch, ending at `through_message_id`), puts the summary and notes
    on the customer's timeline and makes a task for the rep for each promise. The Coached tab lists it beside the calls,
    with its channel.
+
+## Learning from wins
+
+1. **A win** (Chris, 2026-10-14) is a job booked (`appointment.booked`), an estimate accepted (`estimate.accepted`),
+   an invoice paid (`invoice.paid`) or a Pipeline deal won (`lead.won`). The add-on hears each and marks the customer's
+   coached calls and conversations from the week before (`WIN_WINDOW_MS`) as won, and how (`salescoach.win.note`).
+   The Coached tab shows it beside the score.
+2. **Every write-up notes how each objection was answered**: the rep's answer, shortened, and which of the
+   playbook's objections it is (`objectionId`, checked against the playbook). Write-ups from before round four have
+   neither, and are read as having none.
+3. **Once a week** (`salescoach.learn`, armed when the add-on turns on, from then) and whenever an owner presses
+   **Look again now** (the `salescoach.learn.now` action), each playbook in use is looked at over the last 90 days.
+   `tallyObjections` counts, for each of its objections, the records it came up in and the wins among them;
+   `newInWins` gathers what came up in wins that the playbook lacks. The AI is asked only when an objection has at
+   least 3 wins (`LESSON_MIN_WINS`) or something new came up in at least 2 (`NEW_MIN_WINS`).
+4. **`checkedLessons`** holds the AI's suggestions to the numbers: a better answer only for an objection with enough
+   wins, never one the playbook already says, and a new objection only when the wins it cites are real and distinct.
+   The numbers are worked out from the records ("came up 9 times, and 6 ended in a win"), never the model's.
+5. **`salescoach.lessons.put`** keeps them, one open per objection (a newer one replaces it), and doesn't suggest one
+   again within 30 days of someone dismissing it.
+6. **Owners and admins decide** (`salescoach.manage`), under Playbooks → **What's working**: **Use it** changes the
+   playbook (a better answer replaces the objection's, a new objection is added) and keeps the lesson as used; **Not
+   now** dismisses it. Nothing in a playbook changes without a person.
 
 ## Rules worth knowing before changing anything
 

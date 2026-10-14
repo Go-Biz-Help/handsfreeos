@@ -3,6 +3,7 @@
  * (`&call=`): the score and what it's made of, the summary and notes, what the rep promised, the follow-up to copy,
  * the objections, tips for next time and what was said.
  */
+import { WIN_LABELS, type WinKind } from '@hfos/core/addons/salescoach/learn';
 import { SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -15,7 +16,25 @@ import { cn, relativeTime } from '@/lib/utils';
 import { salescoachHref } from './home';
 import type { CoachedCall, CoachedCallSummary } from './types';
 
-function StateBadge({ c }: { c: Pick<CoachedCallSummary, 'state' | 'score'> }) {
+function StateBadge({
+  c,
+}: {
+  c: Pick<CoachedCallSummary, 'state' | 'score'> & { wonHow?: WinKind | null };
+}) {
+  const won = c.wonHow ? (
+    <Badge variant="ok" data-testid="coached-won">
+      {WIN_LABELS[c.wonHow]}
+    </Badge>
+  ) : null;
+  return (
+    <span className="flex flex-none items-center gap-1.5">
+      {won}
+      <ScoreBadge c={c} />
+    </span>
+  );
+}
+
+function ScoreBadge({ c }: { c: Pick<CoachedCallSummary, 'state' | 'score'> }) {
   if (c.state === 'done' && c.score !== null)
     return (
       <Badge variant={c.score >= 70 ? 'ok' : c.score >= 45 ? 'pending' : 'danger'}>
@@ -127,6 +146,11 @@ export function CallDetail({ workspaceId, call }: { workspaceId: string; call: C
               .join(' · ')}
           </div>
         </div>
+        {r && call.wonHow ? (
+          <Badge variant="ok" data-testid="coached-won">
+            {WIN_LABELS[call.wonHow]}
+          </Badge>
+        ) : null}
         {r ? (
           <div className="text-right" data-testid="coached-call-score">
             <div className="text-[28px] font-semibold tabular-nums leading-none">
@@ -135,7 +159,7 @@ export function CallDetail({ workspaceId, call }: { workspaceId: string; call: C
             <div className="text-[12px] text-text-3">{W.calls.score}</div>
           </div>
         ) : (
-          <StateBadge c={{ state: call.state, score: null }} />
+          <StateBadge c={{ state: call.state, score: null, wonHow: call.wonHow }} />
         )}
       </Card>
       {call.failure ? <p className="text-[13.5px] text-text-2">{call.failure}</p> : null}

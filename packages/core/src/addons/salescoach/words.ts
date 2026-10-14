@@ -78,6 +78,26 @@ export const SALESCOACH_WORDS = {
     title: 'Suggested replies',
     hide: 'Hide suggestions',
   },
+  learn: {
+    title: 'What’s working',
+    about:
+      'Once a week the coach compares how your reps answered objections on calls and in messages that ended in a win (a job booked, an estimate accepted, a payment, a deal won), and suggests better answers. Nothing changes until you use one.',
+    none: 'Nothing new yet. Suggestions show here once an objection has come up in at least 3 wins.',
+    lookAgain: 'Look again now',
+    looking: 'Looking…',
+    found: (n: number) =>
+      n === 0
+        ? 'Nothing new to suggest yet.'
+        : `${n} new ${n === 1 ? 'suggestion' : 'suggestions'}.`,
+    better: 'Better answer',
+    added: 'New objection',
+    now: 'Now',
+    suggested: 'Suggested',
+    use: 'Use it',
+    dismiss: 'Not now',
+    used: 'Playbook updated.',
+    inPlaybook: (name: string) => `In “${name}”`,
+  },
   playbooks: {
     about:
       'The coach says only what’s here and what HandsFreeOS knows about the business. The usual playbook is the one calls use.',

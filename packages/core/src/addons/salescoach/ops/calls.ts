@@ -27,6 +27,7 @@ import {
   timelineWords,
   type WriteUpKind,
 } from '../coach';
+import { WIN_KINDS } from '../learn';
 import { salescoachAddon } from '../manifest';
 import { PlaybookDetails } from '../playbooks';
 import { cards, coachedCalls, playbooks } from '../tables';
@@ -64,6 +65,8 @@ const CallSummary = z.object({
   startedAt: z.string(),
   endedAt: z.string().nullable(),
   score: z.number().int().nullable(),
+  /** How it was won, within a week of it (round four): a job booked, an estimate accepted, paid, a deal won. */
+  wonHow: z.enum(WIN_KINDS).nullable(),
 });
 export type CoachedCallSummary = z.infer<typeof CallSummary>;
 
@@ -110,6 +113,7 @@ async function summaries(tx: Tx, found: readonly Row[]): Promise<CoachedCallSumm
       startedAt: r.startedAt.toISOString(),
       endedAt: r.endedAt?.toISOString() ?? null,
       score: r.result?.score.total ?? null,
+      wonHow: r.wonHow ?? null,
     };
   });
 }

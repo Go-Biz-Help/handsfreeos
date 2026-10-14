@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
+import { LessonsView } from './lessons-view';
 import type { Playbook } from './types';
 
 interface Draft {
@@ -132,6 +133,7 @@ export function PlaybooksView({
 
   return (
     <div className="space-y-4" data-testid="salescoach-playbooks">
+      {canManage ? <LessonsView workspaceId={workspaceId} /> : null}
       <p className="text-[13.5px] text-text-2">
         {W.playbooks.about} {canManage ? null : W.playbooks.readOnly}
       </p>

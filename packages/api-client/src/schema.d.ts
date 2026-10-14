@@ -11977,6 +11977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/salescoach.lesson.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a lesson the coach learned from wins, which changes the playbook (a better answer replaces the objection’s, a new objection is added), or dismiss it.
+         * @description Risk level 1. Requires salescoach.manage. Emits salescoach.lesson.decided, salescoach.playbook.saved.
+         */
+        post: operations["command_salescoach_lesson_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/salescoach.playbook.archive": {
         parameters: {
             query?: never;
@@ -18691,6 +18711,26 @@ export interface paths {
          * @description Requires salescoach.use.
          */
         post: operations["query_salescoach_call_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/salescoach.lesson.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the coach learned from wins, waiting for an owner or admin: better answers to the playbooks’ objections, and objections to add.
+         * @description Requires salescoach.manage.
+         */
+        post: operations["query_salescoach_lesson_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -46405,6 +46445,39 @@ export interface operations {
             };
         };
     };
+    command_salescoach_lesson_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    lessonId: string;
+                    use: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        state: "used" | "dismissed";
+                    };
+                };
+            };
+        };
+    };
     command_salescoach_playbook_archive: {
         parameters: {
             query?: never;
@@ -69834,7 +69907,11 @@ export interface operations {
                                 followUp: string;
                                 notes: string[];
                                 objections: {
+                                    /** @default  */
+                                    answer: string;
                                     answered: boolean;
+                                    /** @default null */
+                                    objectionId: string | null;
                                     said: string;
                                 }[];
                                 promises: {
@@ -69861,6 +69938,7 @@ export interface operations {
                             startedAt: string;
                             /** @enum {string} */
                             state: "live" | "writing" | "done" | "failed" | "stopped";
+                            wonHow: ("booked" | "estimate" | "paid" | "deal") | null;
                         };
                     };
                 };
@@ -69918,6 +69996,51 @@ export interface operations {
                             startedAt: string;
                             /** @enum {string} */
                             state: "live" | "writing" | "done" | "failed" | "stopped";
+                            wonHow: ("booked" | "estimate" | "paid" | "deal") | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_lesson_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lessons: {
+                            answer: string;
+                            createdAt: string;
+                            current: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "better_answer" | "new_objection";
+                            objection: string;
+                            objectionId: string | null;
+                            of: number;
+                            /** Format: uuid */
+                            playbookId: string;
+                            playbookName: string;
+                            wins: number;
                         }[];
                     };
                 };

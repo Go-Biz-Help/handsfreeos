@@ -19,6 +19,12 @@ import {
   scoreCall,
   talkShare,
 } from '../../src/addons/salescoach/coach';
+import {
+  checkedLessons,
+  lessonWords,
+  newInWins,
+  tallyObjections,
+} from '../../src/addons/salescoach/learn';
 import { salescoachAddon } from '../../src/addons/salescoach/manifest';
 import { PlaybookDetails } from '../../src/addons/salescoach/playbooks';
 import { salescoachAddonServer } from '../../src/addons/salescoach/server';
@@ -147,5 +153,77 @@ describe('the coach’s rules', () => {
     expect(draft.name).toBe('Going over an estimate');
     expect(draft.details.steps).toEqual([{ id: 's1', title: 'Hello', say: 'Hi!' }]);
     expect(PlaybookDetails.safeParse(draft.details).success).toBe(true);
+  });
+});
+
+describe('learning from wins', () => {
+  const book = {
+    steps: [],
+    objections: [
+      { id: 'o1', objection: 'It’s too expensive', answer: 'It’s worth it.' },
+      { id: 'o2', objection: 'I need to ask my wife', answer: 'Of course.' },
+    ],
+    points: [],
+  };
+  const heard = (objectionId: string | null, answer: string, said = 'Too much money') => ({
+    said,
+    answered: true,
+    answer,
+    objectionId,
+  });
+  const records = [
+    { id: 'a', won: true, objections: [heard('o1', 'The fee goes toward the repair.')] },
+    { id: 'b', won: true, objections: [heard('o1', 'It’s credited toward the repair.')] },
+    { id: 'c', won: true, objections: [heard('o1', 'You only pay once for the visit.')] },
+    { id: 'd', won: false, objections: [heard('o1', 'It’s worth it.')] },
+    { id: 'e', won: true, objections: [heard('o2', 'Want me to text her the details?')] },
+    {
+      id: 'f',
+      won: true,
+      objections: [heard(null, 'We can start Monday.', 'How soon can you start?')],
+    },
+    { id: 'g', won: true, objections: [heard(null, 'Monday works.', 'How soon can you start?')] },
+  ];
+
+  it('tallies each playbook objection’s wins, and what wins said that the playbook lacks', () => {
+    const t = tallyObjections(records, book);
+    expect(t.find((x) => x.objectionId === 'o1')).toMatchObject({ of: 4, wins: 3 });
+    expect(t.find((x) => x.objectionId === 'o1')!.winningAnswers).toHaveLength(3);
+    expect(t.find((x) => x.objectionId === 'o2')).toMatchObject({ of: 1, wins: 1 });
+    expect(newInWins(records).map((f) => f.record)).toEqual(['f', 'g']);
+  });
+
+  it('keeps only lessons the numbers back up', () => {
+    const t = tallyObjections(records, book);
+    const fresh = newInWins(records);
+    const lessons = checkedLessons(
+      {
+        better: [
+          { objectionId: 'o1', answer: 'I hear you. The visit fee goes toward the repair.' },
+          // Too few wins, a made-up id, and what the playbook already says: all dropped.
+          { objectionId: 'o2', answer: 'Want me to text her?' },
+          { objectionId: 'o9', answer: 'Nope.' },
+        ],
+        added: [
+          { objection: 'How soon can you start?', answer: 'We can start Monday.', wins: [1, 2] },
+          { objection: 'Do you do roofs?', answer: 'Yes.', wins: [1, 1] },
+        ],
+      },
+      book,
+      t,
+      fresh,
+    );
+    expect(lessons).toEqual([
+      expect.objectContaining({ kind: 'better_answer', objectionId: 'o1', wins: 3, of: 4 }),
+      expect.objectContaining({
+        kind: 'new_objection',
+        objection: 'How soon can you start?',
+        wins: 2,
+        evidence: ['f', 'g'],
+      }),
+    ]);
+    expect(lessonWords(lessons[0]!)).toBe(
+      'Came up 4 times, and 3 ended in a win. This is how the reps answered when they won.',
+    );
   });
 });

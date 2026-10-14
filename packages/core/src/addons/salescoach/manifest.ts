@@ -89,7 +89,7 @@ export const salescoachAddon = defineAddon({
       requires: ['salescoach.use'],
     },
   ],
-  tables: ['playbooks', 'calls', 'cards', 'suggestions'],
+  tables: ['playbooks', 'calls', 'cards', 'suggestions', 'lessons'],
   events: {
     emits: [
       'salescoach.playbook.saved',
@@ -102,13 +102,29 @@ export const salescoachAddon = defineAddon({
       'salescoach.call.finished',
       'salescoach.suggestions.ready',
       'salescoach.conversation.finished',
+      'salescoach.win.noted',
+      'salescoach.lessons.found',
+      'salescoach.lesson.decided',
     ],
     // A customer wrote: replies to suggest (round two).
-    consumes: ['message.received'],
+    // And wins, which it learns from (round four): a job booked, an estimate accepted, an invoice paid, a deal won.
+    consumes: [
+      'message.received',
+      'appointment.booked',
+      'estimate.accepted',
+      'invoice.paid',
+      'lead.won',
+    ],
   },
   // After a call: the notes, the follow-up, the tasks and the score. After a customer writes: replies to suggest.
   // A written conversation that went quiet: its write-up.
-  jobs: ['salescoach.after_call', 'salescoach.suggest', 'salescoach.conversation_quiet'],
+  // Once a week: what it learned from wins.
+  jobs: [
+    'salescoach.after_call',
+    'salescoach.suggest',
+    'salescoach.conversation_quiet',
+    'salescoach.learn',
+  ],
   // It hears the calls of people who may be coached.
   liveCalls: { permission: 'salescoach.use' },
   billing: { model: 'free' },

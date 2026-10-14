@@ -7,11 +7,12 @@
 import type { AddonServerModule } from '../server';
 import { salescoachAddon } from './manifest';
 import { callCommands, callQueries } from './ops/calls';
+import { learningCommands, learningQueries } from './ops/learning';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { suggestionCommands, suggestionQueries } from './ops/suggestions';
 
 export const salescoachAddonServer: AddonServerModule = {
   manifest: salescoachAddon,
-  commands: [...playbookCommands, ...callCommands, ...suggestionCommands],
-  queries: [...playbookQueries, ...callQueries, ...suggestionQueries],
+  commands: [...playbookCommands, ...callCommands, ...suggestionCommands, ...learningCommands],
+  queries: [...playbookQueries, ...callQueries, ...suggestionQueries, ...learningQueries],
 };
