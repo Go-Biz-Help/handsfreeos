@@ -1497,6 +1497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/call_suggestion.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or dismiss something the AI suggested after a call. Approving makes the task, or sends the follow-up, as you.
+         * @description Risk level 2. Requires appointments.write. Emits call_suggestion.decided.
+         */
+        post: operations["command_call_suggestion_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/call.cancel_connect": {
         parameters: {
             query?: never;
@@ -14837,6 +14857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/call_suggestion.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The AI’s summary of an appointment’s recorded call, and its suggestions with where each stands.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_call_suggestion_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/call.log": {
         parameters: {
             query?: never;
@@ -23426,6 +23466,51 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         status: "draft" | "active" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_call_suggestion_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "dismiss";
+                    edits?: {
+                        body?: string;
+                        dueAt?: string | null;
+                        notes?: string | null;
+                        subject?: string;
+                        title?: string;
+                    };
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conversationId: string | null;
+                        /** @enum {string} */
+                        status: "approved" | "dismissed";
+                        /** Format: uuid */
+                        suggestionId: string;
+                        taskId: string | null;
                     };
                 };
             };
@@ -54919,6 +55004,50 @@ export interface operations {
                             id: string;
                             slug: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_call_suggestion_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "task" | "follow_up";
+                            preview: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status: "pending" | "approved" | "dismissed";
+                        }[];
+                        summary: string | null;
                     };
                 };
             };

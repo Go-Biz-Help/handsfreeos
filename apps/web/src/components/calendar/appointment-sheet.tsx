@@ -51,6 +51,7 @@ import { telHref } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { AddAttendeeDialog } from './add-attendee-dialog';
 import { firstName, holdOf, statusOf, useNow } from './appt';
+import { CallReview } from './call-review';
 import { CancelDialog, tellLabelOf } from './cancel-dialog';
 import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
@@ -868,6 +869,12 @@ export function AppointmentSheet({
                       Make link
                     </Button>
                   </div>
+                </Section>
+              ) : null}
+
+              {isRecorded && transcripts?.length ? (
+                <Section label="After the call">
+                  <CallReview workspaceId={workspaceId} appointmentId={appt.id} version={version} />
                 </Section>
               ) : null}
 

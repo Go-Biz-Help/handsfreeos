@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { calendarConnections, users, workspaces } from '@hfos/db/schema';
 import { queueCalendarSync, scheduleRefresh } from '../calendar/sync';
+import { queueCallReview } from '../meetings/review';
 import { queueSettingsCheck } from '../meetings/settings';
 import { queueMeetingSync, queueMeetingSyncForHost } from '../meetings/sync';
 import { calendarReconnectEmail } from '../emails/templates';
@@ -81,4 +82,11 @@ export const onMeetingConnected: EventHandler = async (ctx) => {
 /** Check again pressed on My calendar: the Zoom account's settings are read now. */
 export const onMeetingSettingsCheckRequested: EventHandler = async (ctx) => {
   if (ctx.event.entityId) await queueSettingsCheck(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId);
+};
+
+/** A recorded call's transcript arrived: the AI reads it next. */
+export const onTranscriptReady: EventHandler = async (ctx) => {
+  const transcriptId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['transcriptId'];
+  if (ctx.event.entityId && typeof transcriptId === 'string')
+    await queueCallReview(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId, transcriptId);
 };

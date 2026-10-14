@@ -7,7 +7,7 @@ the transcript, writes a summary note on the customer's timeline, and suggests t
 happen on their own; the rest wait for a person's OK. If the person's Zoom or Google settings mean no transcript
 will come, HandsFreeOS tells them, with the steps to fix it.
 
-> **Status: steps 1 to 5 of §12 are built.** The owner took every pick in §1 (2026-10-13).
+> **Status: steps 1 to 6 of §12 are built.** The owner took every pick in §1 (2026-10-13).
 >
 > - **Step 1, Google Meet links.** Smaller than §3 and §6: the choice lives on the calendar's **Online** place
 >   (Settings → Calendars → Locations, "Make a Google Meet link"), not yet per service; the link goes in the
@@ -36,6 +36,13 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   (20261027003400), `appointment.attach_transcript` (emits `appointment.transcript_ready` for step 6),
 >   `appointment.transcripts`, and the two-hour missing-transcript email. Transcripts are kept as text in their
 >   own table rather than as files.
+> - **Step 6, the AI pass.** `appointment.call_review` asks the AI (`packages/core/src/meetings/review.ts`) and
+>   `call_suggestion.record` keeps the answer: the summary on the transcript and, as a note, on the customer's
+>   timeline; tasks and a follow-up email in `app.call_suggestions` (20261027003500), decided with
+>   `call_suggestion.decide` (approve, edited or not, runs `task.create` or `message.send` as that person; or
+>   dismiss) and listed by `call_suggestion.list`. Smaller than §9: no record changes (a deal's stage, a next
+>   appointment) are suggested yet, and suggestions use their own approve buttons on the appointment rather than
+>   the AI teammate's approvals inbox. `activity.log` now also takes the system actor, for the summary note.
 
 ---
 

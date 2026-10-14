@@ -314,6 +314,13 @@ the host's token (only from `zoom.us`) and keeps it as plain text in `app.appoin
 appointment. Two hours after a recorded call is due to end, `appointment.transcript_watch` emails the host once if
 nothing came, with what their Zoom settings are missing. Recordings themselves are never downloaded.
 
+Then the AI reads it (`appointment.call_review`, counted as AI usage "AI reading a call transcript"). It writes a
+short summary, kept with the transcript and added to the customer's timeline as a note on its own, and suggests
+the tasks the business agreed to and, when one is called for, a follow-up email. Those wait on the appointment
+under **After the call**: **Add task** (made as the person who presses it, assigned to the host) or **Send email**
+(sent as them), each editable first, or **Dismiss**. Nothing is sent or created without that press. The prompt
+and the answer's shape are in `packages/core/src/meetings/review.ts`.
+
 Locally there is nothing to set up: with `CALENDAR_PROVIDER=fake` (the default on a laptop) the button opens the
 same stand-in sign-in page as the calendars, with `owner@zoom.fake` filled in.
 

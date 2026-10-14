@@ -2664,6 +2664,27 @@ export const appointmentTranscripts = app.table('appointment_transcripts', {
   // Unique with appointmentId in the database: a repeated webhook keeps one copy.
   externalId: text('external_id').notNull(),
   body: text('body').notNull(),
+  /** The AI's summary of the call (20261027003500). */
+  summary: text('summary'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** What the AI suggested after a call: tasks and a follow-up, waiting for a person (20261027003500). */
+export const callSuggestions = app.table('call_suggestions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  transcriptId: uuid('transcript_id')
+    .notNull()
+    .references(() => appointmentTranscripts.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  preview: jsonb('preview').$type<Json>().notNull().default({}),
+  status: text('status').notNull().default('pending'),
+  result: jsonb('result').$type<Json>(),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
@@ -2721,6 +2742,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'automations',
   // An add-on's own AI use (Real Estate step 6), with the add-on in addon_id.
   'addon',
+  // Reading a recorded call's transcript for its summary and suggestions (20261027003500).
+  'meetings',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

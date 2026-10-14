@@ -8,7 +8,14 @@ import type { TenantScope } from '../services';
 
 /** Where AI tokens outside the Assistant were spent (app.ai_usage.source). */
 export type AiUsageSource =
-  'workflow' | 'builder' | 'knowledge' | 'teammate' | 'automations' | 'addon';
+  | 'workflow'
+  | 'builder'
+  | 'knowledge'
+  | 'teammate'
+  | 'automations'
+  | 'addon'
+  // A recorded call's summary and suggestions.
+  | 'meetings';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -60,6 +67,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   teammate: 'An AI teammate reply',
   automations: 'AI reading customer messages',
   addon: 'AI in an add-on',
+  meetings: 'AI reading a call transcript',
 };
 
 /**

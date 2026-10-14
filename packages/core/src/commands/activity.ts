@@ -28,7 +28,8 @@ export const activityLog = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['activity.logged'],
-  actors: ['human', 'workflow', 'ai_employee'],
+  // The system too: the summary of a recorded call (call_suggestion.record).
+  actors: ['human', 'workflow', 'ai_employee', 'system'],
   offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;

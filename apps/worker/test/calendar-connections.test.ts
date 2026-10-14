@@ -17,6 +17,9 @@ import {
   meetingConnectionConnect,
   meetingConnectionDisconnect,
   meetingConnectionCheckSettings,
+  appointmentAttachTranscript,
+  callSuggestionDecide,
+  callSuggestionList,
   meetingConnectionList,
   executeQuery,
   organizationCreate,
@@ -55,6 +58,8 @@ import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { finishSignIn, testTokenVerifier } from './finish-sign-in';
+import { scriptedAi } from '../src/ai/scripted';
+import { systemActor } from '../src/services';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -344,7 +349,8 @@ beforeAll(async () => {
   calendarId = c!.id;
   google = `dale-${token()}@gmail.fake`;
   outlook = `priya-${token()}@outlook.fake`;
-  s = testServices();
+  // The scripted AI reads recorded calls' transcripts (meetings/review.ts).
+  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
@@ -1098,6 +1104,113 @@ describe('connecting Zoom', () => {
     expect(mail.Text).toContain('Audio transcripts are off');
     expect(mail.Text).toContain('/settings/my-calendar');
     zoom.setSettings('settings@zoom.fake', { audioTranscript: true });
+  });
+
+  it('sums up a recorded call on the customer’s timeline; its task and follow-up wait for a person', async () => {
+    const call = await book('Duct quote call', at(-2, 15), at(-2, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${workspaceId}, 'Mike', 'Johnson', ${`mike-${randomUUID().slice(0, 8)}@example.com`})
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    // As the worker does when Zoom's transcript arrives.
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-1',
+        body: 'Priya: I’ll send you the quote by Friday.\nMike: Great, thanks.',
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    expect(review.summary).toContain('Duct quote call');
+    expect(review.items.map((i) => [i.kind, i.status])).toEqual([
+      ['task', 'pending'],
+      ['follow_up', 'pending'],
+    ]);
+    // The summary is on Mike's timeline already; nothing else ran.
+    const notes = await rows<{ body: string }>(
+      admin(),
+      sql`select body from app.activities where person_id = ${person!.id} and kind = 'note'`,
+    );
+    expect(notes.map((n) => n.body)).toEqual([
+      expect.stringContaining('Call summary: Duct quote call'),
+    ]);
+    const tasksBefore = await rows(
+      admin(),
+      sql`select 1 from app.tasks where person_id = ${person!.id}`,
+    );
+    expect(tasksBefore).toHaveLength(0);
+
+    // Approve the task, renamed; dismiss the email.
+    const task = review.items.find((i) => i.kind === 'task')!;
+    const done = await executeCommand(
+      api(),
+      callSuggestionDecide,
+      {
+        workspaceId,
+        suggestionId: task.id,
+        decision: 'approve',
+        edits: { title: 'Send Mike the duct quote' },
+      },
+      actor(tech),
+      meta(),
+    );
+    expect(done.output.taskId).not.toBeNull();
+    const [made] = await rows<{ title: string; assignee_user_id: string; due_at: Date | null }>(
+      admin(),
+      sql`select title, assignee_user_id, due_at from app.tasks where id = ${done.output.taskId}`,
+    );
+    expect(made).toMatchObject({ title: 'Send Mike the duct quote', assignee_user_id: tech.id });
+    const email = review.items.find((i) => i.kind === 'follow_up')!;
+    await executeCommand(
+      api(),
+      callSuggestionDecide,
+      { workspaceId, suggestionId: email.id, decision: 'dismiss' },
+      actor(tech),
+      meta(),
+    );
+    // Decided once: a second press is refused, and the review isn't run twice.
+    await expect(
+      executeCommand(
+        api(),
+        callSuggestionDecide,
+        { workspaceId, suggestionId: task.id, decision: 'approve' },
+        actor(owner),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ rule: 'call_suggestion_decided' });
+    const after = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
   });
 
   it('only your own, or anyone’s for owners and admins; disconnecting forgets the sign-in', async () => {

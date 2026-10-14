@@ -674,6 +674,12 @@ function describeAction(e: AuditEntry): string {
       return 'updated an appointment’s video link';
     case 'appointment.attach_transcript':
       return `kept the transcript of the call for ${s(e.after?.title)}`;
+    case 'call_suggestion.record':
+      return `summed up the call for ${s(e.after?.title)}`;
+    case 'call_suggestion.decide':
+      return s(e.after?.decision) === 'approve'
+        ? `approved the AI’s suggested ${s(e.after?.kind) === 'task' ? 'task' : 'follow-up email'} after a call`
+        : `dismissed the AI’s suggested ${s(e.after?.kind) === 'task' ? 'task' : 'follow-up email'} after a call`;
     case 'appointment.make_meeting_link':
       return 'asked for an appointment’s Zoom link to be made again';
     // Milestone 5: calendars, their catalogs, people's hours and appointments

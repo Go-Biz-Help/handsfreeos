@@ -758,6 +758,60 @@ describe('call transcripts', () => {
   });
 });
 
+describe('call suggestions', () => {
+  it('the worker writes them; the business sees and decides them; nobody else does', async () => {
+    const cal = await calendar(wsA, orgA);
+    const appt = await book(
+      wsA,
+      orgA,
+      cal,
+      member.id,
+      '2026-11-03T15:00:00Z',
+      '2026-11-03T16:00:00Z',
+    );
+    const [s1] = await worker(
+      wsA,
+      orgA,
+    )(async (tx) => {
+      const [t] = await rows<{ id: string }>(
+        tx,
+        sql`insert into app.appointment_transcripts (workspace_id, appointment_id, provider, external_id, body)
+            values (${wsA}, ${appt}, 'zoom', 'cs1', 'hi') returning id`,
+      );
+      return rows<{ id: string }>(
+        tx,
+        sql`insert into app.call_suggestions (workspace_id, appointment_id, transcript_id, kind, preview)
+            values (${wsA}, ${appt}, ${t!.id}, 'task', '{"title":"Send the quote"}') returning id`,
+      );
+    });
+    const seen = (u: TestUser) =>
+      as(u)((tx) => rows(tx, sql`select id from app.call_suggestions where id = ${s1!.id}`));
+    expect(await seen(teammate)).toHaveLength(1);
+    expect(await seen(outsider)).toHaveLength(0);
+    const forged = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.call_suggestions (workspace_id, appointment_id, transcript_id, kind)
+              select ${wsA}, ${appt}, transcript_id, 'task' from app.call_suggestions where id = ${s1!.id}`,
+        ),
+      ),
+    );
+    expect(forged.code).toBe('42501');
+    // Decided once: a decided suggestion can't be changed again.
+    await as(owner)((tx) =>
+      rows(tx, sql`update app.call_suggestions set status = 'dismissed' where id = ${s1!.id}`),
+    );
+    const again = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`update app.call_suggestions set status = 'approved' where id = ${s1!.id} returning id`,
+      ),
+    );
+    expect(again).toHaveLength(0);
+  });
+});
+
 describe('the booking site', () => {
   let site: string;
 
