@@ -1000,8 +1000,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     7 and 6.
 63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
     results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
-    live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), the person
-    has ticked every item on their Facebook profile list since the live version, and they've set a monthly goal for
+    live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), every item
+    on the person's Facebook profile list is right since the live version (by the AI's check, decision 64, or their
+    own tick), and they've set a monthly goal for
     calls booked and seen what it takes each day. Until then Start my day is refused (`outreach_not_ready`, naming the
     first thing left and where), Today's list keeps only replies owed to people who wrote first, the extension puts up
     no helpful post on its own, and Today, the phone's Today and the extension's panel show **Get ready** in place of
@@ -1010,8 +1011,18 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
     `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
     days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** (the sample
-    messages and the video's link) joins with the plan's steps 6 and 7, and the extension reading the profile with
-    step 5; until then the profile is ticked by hand.
+    messages and the video's link) joins with the plan's steps 6 and 7.
+64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
+    person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
+    it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
+    featured and the latest posts. The worker's AI (`outreach.profile.check`) checks them against the live main offer,
+    item by item, and writes three bios (Facebook's short bio, up to 101 characters), a line for the cover and what to
+    feature. Only its answer is kept, on the person's setup row; what the page said goes no further. An item it says
+    is right counts as done, and the person ticks the rest once they've changed them. **Put this one in**
+    (`profile_edit`) has their computer press Edit bio, put the bio in, save, and read the profile again for a new
+    check; where it can't, it hands the step to them (**Carry on**). The picture, the cover and what's featured stay
+    tips: the extension never changes them. A check of an older main offer version counts for nothing, as old ticks
+    don't. Built on the web, the phone and the extension; tuned from page outlines, not yet tried on a real account.
 
 ## Rules worth knowing before changing anything
 
@@ -1410,6 +1421,10 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   a request, a comment, a post) checks `readinessFor` first, as `outreach.today`, `outreach.day.start` and
   `outreach.helpful.next` do; a reply to someone who wrote first is never held. The tests' fixture gets a business
   ready before those three (`getReady` in `outreach-fixture.ts`); one made with `{ ready: false }` isn't.
+- **The profile's check keeps the AI's answer, never the page** (decision 64): what the extension read goes to the
+  worker's `outreach.profile.check` and no further. The check is saved by `outreach.profile.check_save`, which only
+  the system runs, after `checkedProfileCheck`: an item with nothing read is never right, and a bio over 101
+  characters, or one already given, is dropped.
 - **Data version 3:** a playbook got a niche, its problem, its proof and something useful to send, empty on one saved
   before (the same `upgradePlaybookDetails`, and the worker's step 3). The five are optional in `PlaybookDetails`, and
   a save that leaves one out keeps what's saved (`keptV3` in `ops/playbooks.ts`), so a phone built before them never

@@ -2,8 +2,9 @@
 /**
  * Get ready for your best results (docs/outreach.md, decision 63; packages/core/src/addons/outreach/readiness.ts): the
  * card on Today while the person isn't ready, and the setup's step. Each item says what's left and opens where it's
- * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own two in a sheet here,
- * their profile list to tick and their goal with the math worked as they change it.
+ * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own two in a sheet here:
+ * their profile, read by their computer and checked by the AI (decision 64), with bios to put in and each item to tick
+ * once it's right; and their goal with the math worked as they change it.
  */
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import {
@@ -17,18 +18,22 @@ import {
   type ReadyItem,
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
+import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import { Check, CheckCircle2, Circle, Clock, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ButtonLink, Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Stepper } from '@/components/ui/stepper';
+import { copyText } from '@/components/ui/copy-field';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import type { Readiness } from './types';
+import { AskButton } from './asks';
+import type { Asks, Readiness } from './types';
 
 /** Monday first, as the working week reads. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0] as const;
@@ -44,10 +49,13 @@ const STATE_ICON: Record<ReadyState, { icon: typeof Circle; className: string }>
 export function ReadyItems({
   workspaceId,
   readiness,
+  asks,
   onChange,
 }: {
   workspaceId: string;
   readiness: Readiness;
+  /** Reading the profile and putting a bio in, asked of the person's computer: null where they can't be asked. */
+  asks: Asks | null;
   /** The person's own two changed: what the server says now. */
   onChange?: (next: Readiness) => void;
 }) {
@@ -133,6 +141,7 @@ export function ReadyItems({
       <ProfileSheet
         workspaceId={workspaceId}
         readiness={readiness}
+        asks={asks}
         open={open === 'profile'}
         onClose={() => setOpen(null)}
         onChange={onChange}
@@ -152,12 +161,17 @@ export function ReadyItems({
 export function GetReadyCard({
   workspaceId,
   readiness: start,
+  asks,
 }: {
   workspaceId: string;
   readiness: Readiness;
+  asks: Asks | null;
 }) {
   const router = useRouter();
+  // The profile read and checked, or a bio put in, on the person's computer: it shows here.
+  useLiveRefresh(['outreach_setup', 'outreach_ask'], 800);
   const [readiness, setReadiness] = useState(start);
+  useEffect(() => setReadiness(start), [start]);
   const done = readiness.items.filter((i) => i.state === 'done').length;
   const of = readiness.items.length;
   const waitingOnBusiness = readiness.items.some((i) => i.state === 'waiting');
@@ -195,6 +209,7 @@ export function GetReadyCard({
         <ReadyItems
           workspaceId={workspaceId}
           readiness={readiness}
+          asks={asks}
           onChange={(next) => {
             setReadiness(next);
             // Ready now: Today's list comes back.
@@ -209,12 +224,14 @@ export function GetReadyCard({
 function ProfileSheet({
   workspaceId,
   readiness,
+  asks,
   open,
   onClose,
   onChange,
 }: {
   workspaceId: string;
   readiness: Readiness;
+  asks: Asks | null;
   open: boolean;
   onClose: () => void;
   onChange?: (next: Readiness) => void;
@@ -222,7 +239,11 @@ function ProfileSheet({
   const [busy, setBusy] = useState<string | null>(null);
   const live = readiness.offer?.version ?? null;
   const on = (item: (typeof PROFILE_ITEMS)[number]) => tickCounts(readiness.profile[item], live);
-  const ticked = PROFILE_ITEMS.filter(on).length;
+  // The AI's check, when it's of the live version: what's right, and what to change.
+  const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
+  const right = (item: (typeof PROFILE_ITEMS)[number]) =>
+    on(item) || check?.items[item].ok === true;
+  const ticked = PROFILE_ITEMS.filter(right).length;
   const again = readiness.items.find((i) => i.item === 'profile')?.state === 'look_again';
   const tick = async (item: (typeof PROFILE_ITEMS)[number]) => {
     setBusy(item);
@@ -263,37 +284,136 @@ function ProfileSheet({
               <p className="text-[13px] font-medium">“{readiness.offer.line}”</p>
             </div>
           ) : null}
+          <div className="grid gap-2 rounded-menu bg-card-2 p-3" data-testid="ready-profile-read">
+            <p className="text-[13px] text-text-2">
+              {check
+                ? P.readAt(
+                    new Date(check.at).toLocaleString([], {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }),
+                  )
+                : P.notRead}
+            </p>
+            {asks ? (
+              <AskButton
+                workspaceId={workspaceId}
+                asks={asks}
+                ask={{ kind: 'profile_read' }}
+                label={check ? P.readAgain : P.read}
+                variant={check ? 'secondary' : 'primary'}
+                testId="ready-profile-read-ask"
+              />
+            ) : null}
+          </div>
           <ul className="divide-y divide-border">
             {PROFILE_ITEMS.map((item) => {
               const words = R.profile.items[item];
               const checked = on(item);
+              const ai = check?.items[item] ?? null;
               return (
                 <li key={item} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 py-3.5">
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={checked}
-                    aria-label={words.label}
-                    disabled={busy !== null}
-                    onClick={() => void tick(item)}
-                    data-testid={`ready-profile-${item}`}
-                    className={cn(
-                      'mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[6px] border-[1.5px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-wait',
-                      checked
-                        ? 'border-accent bg-accent text-white'
-                        : 'border-border-strong bg-card',
-                    )}
-                  >
-                    {checked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
-                  </button>
-                  <div className="min-w-0">
+                  {ai?.ok && !checked ? (
+                    // Right by the AI's check: nothing to tick.
+                    <CheckCircle2
+                      className="mt-0.5 h-5 w-5 text-success"
+                      strokeWidth={1.75}
+                      role="img"
+                      aria-label={P.ok}
+                      data-testid={`ready-profile-${item}-ok`}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={checked}
+                      aria-label={words.label}
+                      disabled={busy !== null}
+                      onClick={() => void tick(item)}
+                      data-testid={`ready-profile-${item}`}
+                      className={cn(
+                        'mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[6px] border-[1.5px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-wait',
+                        checked
+                          ? 'border-accent bg-accent text-white'
+                          : 'border-border-strong bg-card',
+                      )}
+                    >
+                      {checked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
+                    </button>
+                  )}
+                  <div className="min-w-0" data-testid={`ready-profile-ai-${item}`}>
                     <p className="font-semibold">{words.label}</p>
-                    <p className="text-[13px] text-text-2">{words.tip}</p>
+                    {ai ? (
+                      <p
+                        className={cn(
+                          'text-[13px]',
+                          ai.ok ? 'text-success-text' : 'text-warning-text',
+                        )}
+                      >
+                        <span className="font-medium">{ai.ok ? P.ok : P.fix}:</span>{' '}
+                        {ai.ok ? ai.why : (ai.fix ?? ai.why)}
+                      </p>
+                    ) : (
+                      <p className="text-[13px] text-text-2">{words.tip}</p>
+                    )}
                   </div>
                 </li>
               );
             })}
           </ul>
+          {check?.bios.length ? (
+            <div className="grid gap-2" data-testid="ready-bios">
+              <div>
+                <p className="font-semibold">{P.bios}</p>
+                <p className="text-[13px] text-text-2">{P.biosHint}</p>
+              </div>
+              {check.bios.map((bio, i) => (
+                <div key={bio} className="grid gap-2 rounded-menu border border-border p-3">
+                  <p className="text-[14px]">“{bio}”</p>
+                  {asks ? (
+                    <AskButton
+                      workspaceId={workspaceId}
+                      asks={asks}
+                      ask={{ kind: 'profile_edit', bio }}
+                      label={P.useBio}
+                      testId={`ready-bio-use-${i}`}
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {check?.coverLine ? (
+            <div className="grid gap-1">
+              <p className="font-semibold">{P.coverLine}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[14px]">“{check.coverLine}”</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    void copyText(check.coverLine!, 'Copied. Put it on your cover image.')
+                  }
+                  data-testid="ready-cover-copy"
+                >
+                  Copy
+                </Button>
+              </div>
+              <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
+            </div>
+          ) : null}
+          {check?.feature.length ? (
+            <div className="grid gap-1">
+              <p className="font-semibold">{P.feature}</p>
+              <ul className="list-disc pl-5 text-[13.5px]">
+                {check.feature.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="flex justify-end">
             <Button onClick={onClose} data-testid="ready-profile-done">
               {R.profile.done}

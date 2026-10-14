@@ -170,7 +170,9 @@ export function TodayView({
               {wheelsWords(today.wheels)}
             </p>
           ) : null}
-          {readiness ? <GetReadyCard workspaceId={workspaceId} readiness={readiness} /> : null}
+          {readiness ? (
+            <GetReadyCard workspaceId={workspaceId} readiness={readiness} asks={asks} />
+          ) : null}
           {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
           <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
           {items.length ? (

@@ -1,3 +1,4 @@
+import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { PROFILE_ITEMS, type ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
@@ -65,6 +66,66 @@ describe('Get ready on the phone', () => {
     expect(screen.getByText('9 calls a month ÷ 26 working days = 0.3 calls a day')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ready-numbers-save'));
     await waitFor(() => expect(onNumbers).toHaveBeenCalledWith(9, [1, 2, 3, 4, 5, 6]));
+  });
+
+  it('shows the AI’s check, and asks the computer to put a bio in', async () => {
+    const ok = { ok: true, why: 'A clear photo of you.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      profileCheck: {
+        items: {
+          picture: ok,
+          cover: fix('It says nothing about roofs.', 'Put your offer on it.'),
+          bio: fix('It’s about golf.', 'Say who you help.'),
+          work: ok,
+          featured: fix('Nothing featured.', 'Feature a result.'),
+          posts: ok,
+        },
+        bios: ['I help roofers book inspections.', 'Booked inspections for roofers.'],
+        coverLine: 'Roofers: 10 booked inspections a month.',
+        feature: ['A result from a roofer you helped'],
+        at: '2026-10-14T15:00:00.000Z',
+        version: 1,
+      },
+    };
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.32.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-profile'));
+    // Right by the AI: nothing to tick. The rest say what to change, with a tick for when it's done.
+    expect(screen.getByTestId('ready-profile-picture-ok')).toBeTruthy();
+    expect(screen.queryByTestId('ready-profile-picture')).toBeNull();
+    expect(screen.getByText(/Put your offer on it\./)).toBeTruthy();
+    expect(screen.getByTestId('ready-profile-cover')).toBeTruthy();
+    expect(screen.getByText('“Roofers: 10 booked inspections a month.”')).toBeTruthy();
+    expect(screen.getByTestId('ready-profile-read-ask')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ready-bio-use-1'));
+    expect(actions.ask).toHaveBeenCalledWith({
+      kind: 'profile_edit',
+      bio: 'Booked inspections for roofers.',
+    });
   });
 
   it('shows nothing once they’re ready', async () => {

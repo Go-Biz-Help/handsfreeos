@@ -38,10 +38,16 @@ export default async function OutreachSetupPage({
             .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
             .then(unwrapPage)
         : null,
-      // The groups step asks the computer to save the person's groups (decision 43).
-      at === 'groups'
+      // The groups step asks the computer to save the person's groups (decision 43); Get ready to read their profile
+      // and put a bio in (decision 64).
+      at === 'groups' || at === 'ready'
         ? api
-            .POST('/v1/queries/outreach.asks', { body: { workspaceId, kinds: ['groups'] } })
+            .POST('/v1/queries/outreach.asks', {
+              body: {
+                workspaceId,
+                kinds: at === 'groups' ? ['groups'] : ['profile_read', 'profile_edit'],
+              },
+            })
             .then(unwrapPage)
         : null,
       // The Get ready step's items (decision 63).

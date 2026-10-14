@@ -387,7 +387,10 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    joins with step 6 (its samples are of the rewritten first message) and its video link with step 7, and the profile
    is ticked by hand until step 5's extension reads it. Replies owed to people who wrote first stay on Today while
    someone gets ready, and a playbook needs proof only when the main offer has some (the offer can go live without).
-5. **The extension: your profile.** `profile_read`, the AI's score and bios, `profile_edit`, a new extension build.
+5. **The extension: your profile. Built.** `profile_read` and `profile_edit` (extension 0.32.0), the worker's
+   `outreach.profile.check`, and the AI's verdict on each item, three bios, a cover line and what to feature, on the
+   web's and the phone's Get ready (docs/outreach.md, decision 64). An item the AI says is right counts as done; the
+   rest are ticked. Tuned from page outlines, and not yet tried on the owner's account.
 6. **The conversation.** The first message rewritten, the reply read (yes, question, later, no), Send the video, Send
    the link, the follow-up sequence and the monthly check-in, `sends.offer_version`, the comment on their own post.
 7. **The short video.** The script and shot list, the link.

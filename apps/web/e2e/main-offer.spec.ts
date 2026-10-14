@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { WORKER } from './booking-helpers';
+import { signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
@@ -12,7 +12,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * - A Social Outreach playbook narrows it: its niche starts from the offer's who, the AI says whether a niche fits
  *   inside it or is really a second offer, its proof is picked from the offer's, and its offer starts as the outcome.
  * - Get ready (decision 63): with the offer live and a playbook's niche, Today waits on the owner's profile and numbers,
- *   holding Start my day, until both are done.
+ *   holding Start my day, until both are done. The profile is read by their computer and checked by the AI
+ *   (decision 64), and what it says to change is ticked once done.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -188,10 +189,35 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(page.getByTestId('live-start')).toBeDisabled();
   await expect(page.getByTestId('live-not-ready')).toBeVisible();
 
-  // The profile, ticked an item at a time.
+  // The profile: the computer reads it (here, as the extension would, straight to the worker) and the AI checks it;
+  // the two it says to change are ticked once done.
   await ready.getByTestId('ready-open-profile').click();
   const profile = page.getByTestId('ready-profile-sheet');
-  for (const item of ['picture', 'cover', 'bio', 'work', 'featured', 'posts']) {
+  await expect(profile.getByTestId('ready-profile-read')).toContainText('Have the extension read');
+  const { token } = await signInOwner(email);
+  const checked = await page.request.post(
+    `${WORKER}/v1/addons/outreach/actions/outreach.profile.check`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+      data: {
+        workspaceId,
+        input: {
+          name: 'Test Owner',
+          picture: 'May be an image of 1 person, smiling',
+          bio: 'Roofing leads for crews that want steady work',
+          intro: ['Owner at Summit Roof Leads'],
+          posts: ['Another roof done before the storm.'],
+        },
+      },
+    },
+  );
+  expect(checked.status()).toBe(200);
+  await page.reload();
+  await page.getByTestId('get-ready').getByTestId('ready-open-profile').click();
+  await expect(profile.getByTestId('ready-profile-ai-cover')).toContainText('To change');
+  await expect(profile.getByTestId('ready-profile-ai-picture')).toContainText('Looks right');
+  await expect(profile.getByTestId('ready-bios')).toContainText('More booked calls for Roofing');
+  for (const item of ['cover', 'featured']) {
     await profile.getByTestId(`ready-profile-${item}`).click();
     await expect(profile.getByTestId(`ready-profile-${item}`)).toHaveAttribute(
       'aria-checked',

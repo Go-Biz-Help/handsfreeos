@@ -1,4 +1,7 @@
+import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
+import { seenWords } from '@hfos/core/addons/outreach/live';
+import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import {
   CALLS_GOAL,
   numbersLines,
@@ -24,12 +27,15 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+import { AskButton, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
 import { Note, useOutreachAnswer, useOutreachContext } from './kit';
 
 /**
- * Get ready on the phone (docs/outreach.md, decision 63; packages/core/src/addons/outreach/readiness.ts): Today's card
- * while the person isn't ready, as the web's. Their own two are done right here, the profile list to tick and their
- * goal with the math as it changes; the main offer and the playbooks are written on a computer. It needs signal.
+ * Get ready on the phone (docs/outreach.md, decisions 63 and 64; packages/core/src/addons/outreach/readiness.ts):
+ * Today's card while the person isn't ready, as the web's. Their own two are done right here: the profile, read by
+ * their computer and checked by the AI (**Read my profile**, then **Put this one in** for a bio), with a tick for what
+ * the AI can't see; and their goal with the math as it changes. The main offer and the playbooks are written on a
+ * computer. It needs signal.
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -56,12 +62,27 @@ export function useReadyProps(onReady: () => void): React.ComponentProps<typeof 
   );
   const [shown, setShown] = React.useState<ReadinessOutput | null>(null);
   const readiness = shown ?? ready.data;
-  const took = (next: ReadinessOutput) => {
-    setShown(next);
-    if (next.ready) onReady();
-  };
+  const took = (next: ReadinessOutput) => setShown(next);
+  // Ready now, from a tick, the goal, or a profile read on the computer: Today's list comes back.
+  const isReady = readiness?.ready ?? null;
+  const wasReady = React.useRef(isReady);
+  React.useEffect(() => {
+    if (wasReady.current === false && isReady === true) onReady();
+    wasReady.current = isReady;
+  }, [isReady, onReady]);
+  // The profile read and checked, or a bio put in, on the person's computer: once that ask is done, it shows here.
+  const asks = useAsks('today', R.card, readiness !== null && !readiness.ready);
+  const actions = useAskActions(asks.data, asks.reload);
+  const { reload } = ready;
+  const again = React.useCallback(() => {
+    setShown(null);
+    reload();
+  }, [reload]);
+  useDoneReload(asks.data, again);
   return {
     readiness,
+    asks: asks.data,
+    actions,
     onTick: async (item, done) => {
       try {
         took((await change('outreach.readiness.profile', { workspaceId: ws, item, done })).output);
@@ -84,10 +105,15 @@ export function useReadyProps(onReady: () => void): React.ComponentProps<typeof 
 
 export function GetReadyCard({
   readiness,
+  asks = null,
+  actions = null,
   onTick,
   onNumbers,
 }: {
   readiness: ReadinessOutput | null;
+  /** What was asked of the person's computer, for Read my profile and Put this one in; null hides those buttons. */
+  asks?: AsksOutput | null;
+  actions?: AskActions | null;
   onTick: (item: ProfileItem, done: boolean) => Promise<void>;
   onNumbers: (goal: number, days: number[]) => Promise<boolean>;
 }) {
@@ -144,7 +170,7 @@ export function GetReadyCard({
                 </Button>
               ) : null}
               {open === 'profile' && i.item === 'profile' ? (
-                <ProfileList readiness={readiness} onTick={onTick} />
+                <ProfileList readiness={readiness} asks={asks} actions={actions} onTick={onTick} />
               ) : null}
               {open === 'numbers' && i.item === 'numbers' ? (
                 <Numbers
@@ -164,48 +190,148 @@ export function GetReadyCard({
 
 function ProfileList({
   readiness,
+  asks,
+  actions,
   onTick,
 }: {
   readiness: ReadinessOutput;
+  asks: AsksOutput | null;
+  actions: AskActions | null;
   onTick: (item: ProfileItem, done: boolean) => Promise<void>;
 }) {
   const [busy, setBusy] = React.useState<ProfileItem | null>(null);
   const live = readiness.offer?.version ?? null;
+  // The AI's check, when it's of the live version: what's right, and what to change.
+  const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
+  const timeZone = asks?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   return (
-    <View className="mt-1 gap-1" testID="ready-profile-list">
-      {PROFILE_ITEMS.map((item) => {
-        const checked = tickCounts(readiness.profile[item], live);
-        const words = R.profile.items[item];
-        return (
-          <Pressable
-            key={item}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked, busy: busy === item }}
-            accessibilityLabel={words.label}
-            disabled={busy !== null}
-            onPress={async () => {
-              setBusy(item);
-              await onTick(item, !checked);
-              setBusy(null);
-            }}
-            className="min-h-11 flex-row gap-3 py-2"
-            testID={`ready-profile-${item}`}
-          >
-            <View
+    <View className="mt-1 gap-3" testID="ready-profile-list">
+      <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="ready-profile-read">
+        <Text className="text-[13px] leading-[18px] text-text-2">
+          {check ? P.readAt(seenWords(check.at, timeZone, Date.now())) : P.notRead}
+        </Text>
+        {asks && actions ? (
+          <AskButton
+            asks={asks}
+            ask={{ kind: 'profile_read' }}
+            label={check ? P.readAgain : P.read}
+            variant={check ? 'secondary' : 'primary'}
+            actions={actions}
+            testID="ready-profile-read-ask"
+          />
+        ) : null}
+      </View>
+      <View className="gap-1">
+        {PROFILE_ITEMS.map((item) => {
+          const checked = tickCounts(readiness.profile[item], live);
+          const words = R.profile.items[item];
+          const ai = check?.items[item] ?? null;
+          const said = ai ? (
+            <Text
               className={cn(
-                'mt-0.5 size-5 items-center justify-center rounded-[6px] border-[1.5px]',
-                checked ? 'border-accent bg-accent' : 'border-border-strong bg-card',
+                'text-[13px] leading-[18px]',
+                ai.ok ? 'text-success-text' : 'text-warning-text',
               )}
             >
-              {checked ? <Icon as={Check} className="size-3.5 text-white" /> : null}
+              <Text className="text-[13px] font-medium">{ai.ok ? P.ok : P.fix}:</Text>{' '}
+              {ai.ok ? ai.why : (ai.fix ?? ai.why)}
+            </Text>
+          ) : (
+            <Note>{words.tip}</Note>
+          );
+          // Right by the AI's check: nothing to tick.
+          if (ai?.ok && !checked)
+            return (
+              <View
+                key={item}
+                className="min-h-11 flex-row gap-3 py-2"
+                testID={`ready-profile-${item}-ok`}
+              >
+                <Icon
+                  as={CircleCheck}
+                  className="mt-0.5 size-5 text-success"
+                  accessibilityLabel={P.ok}
+                />
+                <View className="min-w-0 flex-1">
+                  <Text className="text-[14px] font-medium">{words.label}</Text>
+                  {said}
+                </View>
+              </View>
+            );
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked, busy: busy === item }}
+              accessibilityLabel={words.label}
+              disabled={busy !== null}
+              onPress={async () => {
+                setBusy(item);
+                await onTick(item, !checked);
+                setBusy(null);
+              }}
+              className="min-h-11 flex-row gap-3 py-2"
+              testID={`ready-profile-${item}`}
+            >
+              <View
+                className={cn(
+                  'mt-0.5 size-5 items-center justify-center rounded-[6px] border-[1.5px]',
+                  checked ? 'border-accent bg-accent' : 'border-border-strong bg-card',
+                )}
+              >
+                {checked ? <Icon as={Check} className="size-3.5 text-white" /> : null}
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text className="text-[14px] font-medium">{words.label}</Text>
+                {said}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {check?.bios.length ? (
+        <View className="gap-2" testID="ready-bios">
+          <View className="gap-0.5">
+            <Text className="text-[14px] font-semibold">{P.bios}</Text>
+            <Note>{P.biosHint}</Note>
+          </View>
+          {check.bios.map((bio, i) => (
+            <View key={bio} className="gap-2 rounded-menu border border-border px-3 py-2.5">
+              <Text selectable className="text-[14px] leading-[20px]">
+                “{bio}”
+              </Text>
+              {asks && actions ? (
+                <AskButton
+                  asks={asks}
+                  ask={{ kind: 'profile_edit', bio }}
+                  label={P.useBio}
+                  actions={actions}
+                  testID={`ready-bio-use-${i}`}
+                />
+              ) : null}
             </View>
-            <View className="min-w-0 flex-1">
-              <Text className="text-[14px] font-medium">{words.label}</Text>
-              <Note>{words.tip}</Note>
-            </View>
-          </Pressable>
-        );
-      })}
+          ))}
+        </View>
+      ) : null}
+      {check?.coverLine ? (
+        <View className="gap-1" testID="ready-cover-line">
+          <Text className="text-[14px] font-semibold">{P.coverLine}</Text>
+          <Text selectable className="text-[14px] leading-[20px]">
+            “{check.coverLine}”
+          </Text>
+          <Note>{P.coverHint}</Note>
+        </View>
+      ) : null}
+      {check?.feature.length ? (
+        <View className="gap-1" testID="ready-feature">
+          <Text className="text-[14px] font-semibold">{P.feature}</Text>
+          {check.feature.map((f) => (
+            <Text key={f} className="text-[13.5px] leading-[19px]">
+              • {f}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

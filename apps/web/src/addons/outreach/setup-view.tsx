@@ -113,7 +113,10 @@ export function SetupView({
   me: Automation;
   /** The business's Social Outreach settings, for owners and admins. */
   business: Readonly<Record<string, unknown>> | null;
-  /** Save my groups, asked of the person's computer (./asks.tsx): the groups step's; null on the others. */
+  /**
+   * Asked of the person's computer (./asks.tsx): the groups step's Save my groups, the Get ready step's profile read
+   * and bio; null on the others.
+   */
   asks: Asks | null;
   /** Get ready's items (decision 63): the Get ready step's; null on the others. */
   readiness: Readiness | null;
@@ -322,7 +325,7 @@ export function SetupView({
     body = (
       <div className="flex flex-col gap-4" data-testid="outreach-setup-ready">
         {ready ? (
-          <ReadyItems workspaceId={workspaceId} readiness={ready} onChange={setReady} />
+          <ReadyItems workspaceId={workspaceId} readiness={ready} asks={asks} onChange={setReady} />
         ) : null}
         <Note>{W.readyStill}</Note>
       </div>
