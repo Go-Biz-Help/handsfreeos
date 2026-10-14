@@ -1,8 +1,9 @@
 'use client';
 /**
  * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36 and 45): a step at a time in the same card
- * as the main app's onboarding, with the summary beside it. Pick the playbooks, set the team's rules (owners and
- * admins), choose your own settings, install the extension and sign in, then bring in your groups. Each step's button
+ * as the main app's onboarding, with the summary beside it. Pick the playbooks, get ready (./get-ready.tsx), set the
+ * team's rules (owners and admins), choose your own settings, install the extension and sign in, then bring in your
+ * groups. Each step's button
  * saves where the person got to (`outreach.setup.save`), so leaving and coming back opens on the next step
  * (`setupOpenAt`, in the page). The extension signing in ticks the install step live.
  *
@@ -39,8 +40,9 @@ import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskButton, ComputerNote } from './asks';
 import { ExtensionDownload } from './extension-download';
+import { ReadyItems } from './get-ready';
 import { ChoicesForm, RulesForm } from './settings-view';
-import type { Asks, Automation, Setup } from './types';
+import type { Asks, Automation, Readiness, Setup } from './types';
 import { useAct } from './use-act';
 
 const W = SETUP_WORDS;
@@ -95,6 +97,7 @@ export function SetupView({
   me,
   business,
   asks,
+  readiness,
 }: {
   workspaceId: string;
   businessName: string;
@@ -112,6 +115,8 @@ export function SetupView({
   business: Readonly<Record<string, unknown>> | null;
   /** Save my groups, asked of the person's computer (./asks.tsx): the groups step's; null on the others. */
   asks: Asks | null;
+  /** Get ready's items (decision 63): the Get ready step's; null on the others. */
+  readiness: Readiness | null;
 }) {
   const router = useRouter();
   // The extension signing in, a playbook written in another tab, or the settings changed: it shows here.
@@ -127,6 +132,7 @@ export function SetupView({
   const { busy, act } = useAct();
   const [value, setValue] = useState<AutomationSettings>(me.settings);
   const [phone, setPhone] = useState(false);
+  const [ready, setReady] = useState(readiness);
   const [chrome, setChrome] = useState(true);
   useEffect(() => setChrome(isDesktopChrome(navigator.userAgent)), []);
 
@@ -312,6 +318,16 @@ export function SetupView({
         {primary('playbooks', setup.playbooks.length || !setup.canManage ? W.next : W.skip)}
       </Footer>
     );
+  } else if (at === 'ready') {
+    body = (
+      <div className="flex flex-col gap-4" data-testid="outreach-setup-ready">
+        {ready ? (
+          <ReadyItems workspaceId={workspaceId} readiness={ready} onChange={setReady} />
+        ) : null}
+        <Note>{W.readyStill}</Note>
+      </div>
+    );
+    footer = <Footer back={back}>{primary('ready', W.next)}</Footer>;
   } else if (at === 'rules') {
     body = business ? (
       <RulesForm

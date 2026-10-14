@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Set up Social Outreach' };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
 /**
- * Social Outreach's setup (docs/outreach.md, decisions 36 and 45), a page of its own like the main app's onboarding:
+ * Social Outreach's setup (docs/outreach.md, decisions 36, 45 and 63), a page of its own like the main app's onboarding:
  * a welcome until a step is finished, then a step at a time. Where the person got to opens unless a step is asked
  * for (`?step=`), saying so; Set up again (`?again=1`) opens the first; the extension's first sign-in opens it with
  * `?from=extension`. Anyone with `outreach.use`; owners and admins also set the team's rules.
@@ -32,7 +32,7 @@ export default async function OutreachSetupPage({
       api.POST('/v1/queries/outreach.automation', { body: { workspaceId } }).then(unwrapPage),
     ]);
     const at = setupOpenAt(setup, one(sp.step), one(sp.again) === '1');
-    const [business, asks] = await Promise.all([
+    const [business, asks, readiness] = await Promise.all([
       setup.canManage
         ? api
             .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
@@ -43,6 +43,10 @@ export default async function OutreachSetupPage({
         ? api
             .POST('/v1/queries/outreach.asks', { body: { workspaceId, kinds: ['groups'] } })
             .then(unwrapPage)
+        : null,
+      // The Get ready step's items (decision 63).
+      at === 'ready'
+        ? api.POST('/v1/queries/outreach.readiness', { body: { workspaceId } }).then(unwrapPage)
         : null,
     ]);
     return (
@@ -60,6 +64,7 @@ export default async function OutreachSetupPage({
         me={mine}
         business={setup.canManage ? (business?.settings ?? {}) : null}
         asks={asks}
+        readiness={readiness}
       />
     );
   });

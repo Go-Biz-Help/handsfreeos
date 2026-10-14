@@ -333,6 +333,11 @@ export const READY_WORDS = {
   cardHint: (left: number) =>
     `${plural(left, 'thing')} to do before the extension reaches anyone for you.`,
   ready: 'You’re ready. Start your day when you like.',
+  /** Beside Start my day while it's held. */
+  stripNotReady: 'Get ready first: the extension reaches nobody until the things below are done.',
+  /** Over the replies owed while getting ready. */
+  repliesStill: 'People who wrote to you are still answered while you get ready.',
+  progress: (done: number, of: number) => `${done} of ${of} done`,
   items: {
     offer: {
       label: 'Your main offer',
@@ -415,6 +420,10 @@ export const READY_WORDS = {
     } satisfies Record<ProfileItem, { label: string; tip: string }>,
     tick: 'It’s done',
     untick: 'Not yet',
+    ticked: (n: number, of: number) => `${n} of ${of} ticked`,
+    offer: 'Your main offer',
+    soon: 'Soon the extension reads your profile for you, scores it and writes your bio. Until then, you tick each one.',
+    done: 'Done',
   },
   numbers: {
     title: 'Your numbers',
@@ -423,6 +432,12 @@ export const READY_WORDS = {
     days: 'The days you work',
     sunday: 'Sundays rarely work for outreach. It’s your call.',
     save: 'Save my goal',
+    saved: 'Your goal is saved.',
+    takes: 'What it takes each day',
+    messagesADay: 'first messages a day',
+    yesesADay: 'yeses a day',
+    fewer: 'Fewer calls',
+    more: 'More calls',
     rates:
       'Until you have numbers of your own, this uses what’s typical: 4 to 8% of first messages get a yes, and 1 in 3 yeses book a call.',
     notMessages: 'A friend request is never a message: only first messages count here.',

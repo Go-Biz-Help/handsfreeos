@@ -11,6 +11,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * - Changing it makes a draft beside the live version; scored over the bar, it goes live as version 2.
  * - A Social Outreach playbook narrows it: its niche starts from the offer's who, the AI says whether a niche fits
  *   inside it or is really a second offer, its proof is picked from the offer's, and its offer starts as the outcome.
+ * - Get ready (decision 63): with the offer live and a playbook's niche, Today waits on the owner's profile and numbers,
+ *   holding Start my day, until both are done.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -176,4 +178,42 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   );
   await playbook.getByTestId('playbook-save').click();
   await expect(page.getByText('Book a demo is ready.')).toBeVisible();
+
+  // Get ready: the offer and the niche are done; Today waits on the owner's profile and numbers.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=today`);
+  const ready = page.getByTestId('get-ready');
+  await expect(ready.getByTestId('ready-offer')).toHaveAttribute('data-state', 'done');
+  await expect(ready.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'done');
+  await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'todo');
+  await expect(page.getByTestId('live-start')).toBeDisabled();
+  await expect(page.getByTestId('live-not-ready')).toBeVisible();
+
+  // The profile, ticked an item at a time.
+  await ready.getByTestId('ready-open-profile').click();
+  const profile = page.getByTestId('ready-profile');
+  for (const item of ['picture', 'cover', 'bio', 'work', 'featured', 'posts']) {
+    await profile.getByTestId(`ready-profile-${item}`).click();
+    await expect(profile.getByTestId(`ready-profile-${item}`)).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  }
+  await page.getByTestId('ready-profile-done').click();
+  await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'done');
+
+  // The numbers: the math changes as the goal does, and saving it makes them ready.
+  await ready.getByTestId('ready-open-numbers').click();
+  const numbers = page.getByTestId('ready-numbers');
+  await expect(numbers.getByTestId('ready-math')).toContainText(
+    '8 calls a month ÷ 22 working days = 0.4 calls a day',
+  );
+  await numbers.getByTestId('ready-goal').getByRole('button', { name: /^More/ }).click();
+  await numbers.getByTestId('ready-day-6').click();
+  await expect(numbers.getByTestId('ready-math')).toContainText(
+    '9 calls a month ÷ 26 working days',
+  );
+  await expect(numbers.getByTestId('ready-verdict')).toContainText('Facebook’s safe pace');
+  await numbers.getByTestId('ready-numbers-save').click();
+  await expect(page.getByTestId('get-ready')).toHaveCount(0);
+  await expect(page.getByTestId('live-not-ready')).toHaveCount(0);
 });

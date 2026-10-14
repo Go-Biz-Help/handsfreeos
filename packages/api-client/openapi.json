@@ -85190,6 +85190,7 @@
                     "type": "string",
                     "enum": [
                       "playbooks",
+                      "ready",
                       "rules",
                       "settings",
                       "extension",
@@ -85242,6 +85243,7 @@
                         "type": "string",
                         "enum": [
                           "playbooks",
+                          "ready",
                           "rules",
                           "settings",
                           "extension",
@@ -85255,6 +85257,7 @@
                           "type": "string",
                           "enum": [
                             "playbooks",
+                            "ready",
                             "rules",
                             "settings",
                             "extension",
@@ -171658,6 +171661,7 @@
                         "type": "string",
                         "enum": [
                           "playbooks",
+                          "ready",
                           "rules",
                           "settings",
                           "extension",
@@ -171671,6 +171675,7 @@
                           "type": "string",
                           "enum": [
                             "playbooks",
+                            "ready",
                             "rules",
                             "settings",
                             "extension",

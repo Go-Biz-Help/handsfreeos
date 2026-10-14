@@ -36235,7 +36235,7 @@ export interface operations {
                     /** @enum {boolean} */
                     hideBanner?: true;
                     /** @enum {string} */
-                    reached?: "playbooks" | "rules" | "settings" | "extension" | "groups";
+                    reached?: "playbooks" | "ready" | "rules" | "settings" | "extension" | "groups";
                     /** @enum {boolean} */
                     started?: true;
                     /** Format: uuid */
@@ -36272,10 +36272,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -64469,10 +64469,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
                     };
                 };
             };

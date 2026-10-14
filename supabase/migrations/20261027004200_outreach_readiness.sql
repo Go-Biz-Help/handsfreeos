@@ -21,3 +21,8 @@ alter table addon_outreach.setup
   -- The profile items ticked: {"picture": {"at": "…", "version": 2}, …}.
   add column profile jsonb not null default '{}'::jsonb
     check (jsonb_typeof(profile) = 'object' and octet_length(profile::text) <= 4000);
+
+-- Get ready is a step of the setup, after the playbooks: the furthest step finished may be it.
+alter table addon_outreach.setup drop constraint setup_reached_check;
+alter table addon_outreach.setup add constraint setup_reached_check
+  check (reached in ('playbooks', 'ready', 'rules', 'settings', 'extension', 'groups'));
