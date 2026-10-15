@@ -1,8 +1,8 @@
 'use client';
 /**
- * Social Outreach's Results tab (docs/outreach.md, decisions 7, 34 and 59): what the browser extension noted as people
- * worked on Facebook (apps/extension/README.md, "What it notes"), over a stretch of days. It leads with what came of
- * it: demos booked, then each step from reached to booked with how many of the step before made it, then what was
+ * Social Outreach's Results tab (docs/outreach.md, decisions 7, 34, 59 and 70): what the browser extension noted as
+ * people worked on Facebook (apps/extension/README.md, "What it notes"), over a stretch of days. It leads with the three
+ * numbers to watch every day and the week's review (./tracking-view.tsx), then what came of it: demos booked, then each step from reached to booked with how many of the step before made it, then what was
  * done along the way, by the group people were found in and person by person, and the posts liked and commented on
  * (./touched-posts.tsx). The day against the daily limits is on
  * Today. Owners and admins can see the whole team's. The stretch and whose are in the address (./address.ts), so the
@@ -25,7 +25,8 @@ import { Segmented } from '@/components/ui/segmented';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { TouchedPostsCard } from './touched-posts';
-import type { Activity } from './types';
+import { TrackingSection } from './tracking-view';
+import type { Activity, Tracking } from './types';
 
 type Numbers = Activity['numbers'];
 type Group = Activity['groups'][number];
@@ -69,11 +70,14 @@ const groupName = (g: { readonly name: string | null; readonly url: string }) =>
 export function ActivityView({
   workspaceId,
   activity,
+  tracking,
   period,
   canManage,
 }: {
   workspaceId: string;
   activity: Activity;
+  /** The three numbers on top (./tracking-view.tsx): null when they didn't load. */
+  tracking: Tracking | null;
   period: ActivityPeriod;
   /** Owners and admins can see everyone's steps. */
   canManage: boolean;
@@ -107,7 +111,7 @@ export function ActivityView({
         />
         {canManage ? (
           <Segmented
-            ariaLabel="Whose steps"
+            ariaLabel="Whose numbers"
             value={activity.everyone ? 'everyone' : 'you'}
             onChange={(who) => go({ everyone: who === 'everyone' })}
             options={[
@@ -121,6 +125,7 @@ export function ActivityView({
         className={cn('space-y-4 transition-opacity', pending && 'opacity-60')}
         aria-busy={pending || undefined}
       >
+        <TrackingSection tracking={tracking} period={period} />
         {nothing ? null : <Funnel numbers={activity.numbers} />}
         {nothing ? (
           <Card data-testid="activity-empty">

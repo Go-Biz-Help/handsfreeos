@@ -539,8 +539,10 @@ export const OUTREACH_WORDS = {
       'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.',
     extension:
       'What it does while you use Facebook yourself, on every computer you’re signed in on.',
-    pushes: 'How you hear about messages and steps waiting for you.',
+    pushes: 'How you hear about messages and steps waiting for you, and your numbers.',
     pushesAlways: 'A reply handed over to you always comes at once.',
+    /** Under the day's report. */
+    weekReview: 'Your week’s review comes on Monday morning, on Results and in a push.',
     when: (timeZone: string) =>
       `On your business’s clock (${timeZone}), at random times spread over the hours.`,
     allowed:
@@ -593,6 +595,10 @@ export const OUTREACH_WORDS = {
     markPosts: [
       'Look for posts as I scroll a group',
       'Posts worth a comment go on your list for today.',
+    ],
+    dayReport: [
+      'The day’s report',
+      'A push at the end of your working hours with the day’s numbers: messages sent, yeses and calls booked, and how far you are from your target. Only on a day you sent something.',
     ],
   } as const,
   /** On the Add-ons page, which points to Social Outreach's own Settings tab. */

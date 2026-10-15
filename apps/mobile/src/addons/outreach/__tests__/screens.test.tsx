@@ -580,11 +580,15 @@ describe('Social Outreach’s settings on the phone', () => {
     await fireEvent.press(screen.getByTestId('settings-my-sending-steps'));
     await fireEvent.press(screen.getByTestId('settings-my-pushes-each'));
     await fireEvent.press(screen.getByTestId('settings-my-start-up'));
+    // The day's report is on to start; they turn it off.
+    expect(screen.getByText('The day’s report')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
     await fireEvent.press(screen.getByTestId('settings-my-save'));
     expect(p.onSaveMine).toHaveBeenCalledWith({
       ...AUTOMATION_DEFAULTS,
       sending: 'steps',
       pushes: 'each',
+      dayReport: false,
       hours: { ...AUTOMATION_DEFAULTS.hours, start: 10 },
     });
   });

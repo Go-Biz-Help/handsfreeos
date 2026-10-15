@@ -211,6 +211,14 @@ test('the Results tab counts what the extension noted, by group and person, over
   await expect(page.getByTestId('activity-empty')).toContainText(
     'Nothing noted in the last 7 days',
   );
+  // The three numbers lead, with no goal set yet and no review before the first Monday.
+  await expect(page.getByTestId('tracking-numbers')).toContainText(
+    'No first messages in the last 7 days.',
+  );
+  await expect(page.getByTestId('tracking-no-goal')).toBeVisible();
+  await expect(page.getByTestId('tracking-review-none')).toContainText(
+    'Your first review comes on Monday morning',
+  );
 
   // What the extension sends as the owner works on Facebook: made-up people, found in two groups and in a chat.
   const { token } = await signInOwner(email);
@@ -256,6 +264,12 @@ test('the Results tab counts what the extension noted, by group and person, over
   await expect(numbers.getByTestId('activity-number-likes')).toContainText('1');
   await expect(numbers.getByTestId('activity-number-comments')).toContainText('1');
   await expect(numbers.getByTestId('activity-number-chatsStarted')).toContainText('1');
+  // The first message to Dana counts as a message sent, with no playbook's opener behind it.
+  await expect(page.getByTestId('tracking-number-messages')).toContainText('1');
+  await expect(page.getByTestId('tracking-number-positive')).toContainText('0');
+  await expect(page.getByTestId('tracking-rate-yes')).toContainText('0 of 1 message, 0%');
+  await expect(page.getByTestId('tracking-rate-yes')).toContainText('Too few to tell yet');
+  await expect(page.getByTestId('tracking-playbooks-row')).toContainText('No playbook');
 
   // By group: the one whose name hasn't been seen goes by its link.
   const groups = page.getByTestId('activity-group');
@@ -280,6 +294,22 @@ test('the Results tab counts what the extension noted, by group and person, over
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results&period=today&who=everyone$`));
   await expect(page.getByTestId('activity-who-everyone')).toHaveAttribute('aria-selected', 'true');
   await expect(people).toHaveCount(3);
+  await expect(page.getByTestId('tracking-numbers')).toContainText('The team’s numbers');
+  await expect(page.getByTestId('tracking-review-none')).toHaveCount(0);
+
+  // The day's report is on to start; turned off in My settings, it stays off.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  const dayReport = page.getByTestId('outreach-my-dayReport');
+  await expect(dayReport).toBeChecked();
+  await expect(page.getByTestId('outreach-my-day-report-sample')).toContainText(
+    'Today: 14 messages, 2 said yes, 1 booked. 1 more message hits your target.',
+  );
+  await dayReport.uncheck();
+  await expect(page.getByTestId('outreach-my-day-report-sample')).toHaveCount(0);
+  await page.getByTestId('outreach-my-save').click();
+  await expect(page.getByTestId('outreach-my-save')).toBeDisabled();
+  await page.reload();
+  await expect(page.getByTestId('outreach-my-dayReport')).not.toBeChecked();
 
   // The owner's day against the limits is at the top of Today.
   await page.getByTestId('outreach-tab-today').click();

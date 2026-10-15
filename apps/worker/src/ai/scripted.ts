@@ -1961,7 +1961,28 @@ function scriptedVideoScript(message: string) {
   };
 }
 
+/**
+ * The week's review (`outreach.review`): the one thing it was told to fix first, with the first messages sent, and two
+ * things to do.
+ */
+function scriptedReview(message: string) {
+  const fix = /^Fix first: (\w+)/m.exec(message)?.[1] ?? 'volume';
+  const sent = /^First messages sent: (\d+)/m.exec(message)?.[1] ?? '0';
+  const headline: Record<string, string> = {
+    volume: 'Send more first messages this week',
+    message: 'Make your first message ask straight out',
+    video: 'Follow up after the video',
+    on_track: 'Keep the same pace',
+  };
+  return {
+    headline: headline[fix] ?? headline['volume']!,
+    why: `You sent ${sent} first messages last week.`,
+    steps: ['Start your day on each working day.', 'Look at Results at the end of each day.'],
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the week’s review\.$/, json: (message) => scriptedReview(message) },
   { when: /Write the video script\.$/, json: (message) => scriptedVideoScript(message) },
   { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },

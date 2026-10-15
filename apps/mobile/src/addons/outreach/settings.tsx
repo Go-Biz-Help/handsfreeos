@@ -602,6 +602,14 @@ export function ChoicesForm({
           />
         ))}
         <Note>{W.abouts.pushesAlways}</Note>
+        <Tick
+          label={W.ticks.dayReport[0]}
+          about={W.ticks.dayReport[1]}
+          checked={value.dayReport}
+          onChange={(on) => set({ dayReport: on })}
+          testID={`${testID}-dayReport`}
+        />
+        <Note>{W.abouts.weekReview}</Note>
       </Part>
       <Part title={W.sections.when} about={W.abouts.when(timezone)}>
         <View className="gap-2">

@@ -66,6 +66,7 @@ const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSetti
           readChats: row.readChats,
           markPosts: row.markPosts,
           pushes: row.pushes,
+          dayReport: row.dayReport,
           voice: {
             shorthand: row.voiceShorthand,
             acronyms: row.voiceAcronyms,
@@ -302,10 +303,12 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const rules = await rulesOf(ctx);
     const before = await rowOf(ctx, whose);
-    // A screen from before the voice sends none: the one kept stays.
+    // A screen from before the voice, or the day's report, sends none: the one kept stays.
+    const kept = settingsOf(before, rules);
     const s: AutomationSettings = {
       ...input.settings,
-      voice: input.settings.voice ?? settingsOf(before, rules).voice,
+      voice: input.settings.voice ?? kept.voice,
+      dayReport: input.settings.dayReport ?? kept.dayReport,
     };
     const refused = notAllowedWords(s, rules);
     if (refused) throw HfosError.rule('not_allowed', 403, refused);
@@ -328,6 +331,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       readChats: s.readChats,
       markPosts: s.markPosts,
       pushes: s.pushes,
+      dayReport: s.dayReport,
       voiceShorthand: s.voice.shorthand,
       voiceAcronyms: s.voice.acronyms,
       voiceEmoji: s.voice.emoji,

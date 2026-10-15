@@ -132,6 +132,8 @@ export const AutomationSettings = z.object({
   markPosts: z.boolean().default(true),
   /** How the phone hears about messages waiting for their OK. */
   pushes: z.enum(PUSH_MODE_KEYS).default('bundled'),
+  /** The day's report: a push at the end of their working hours with the day's numbers (./tracking.ts). On to start. */
+  dayReport: z.boolean().default(true),
   /** How the AI writes for them (./voice.ts): plain words always, and their own short forms, acronyms and emoji. */
   voice: Voice.default(VOICE_DEFAULTS),
 });
@@ -151,6 +153,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   readChats: true,
   markPosts: true,
   pushes: 'bundled',
+  dayReport: true,
   voice: VOICE_DEFAULTS,
 };
 
@@ -370,8 +373,11 @@ export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Someone else's, for an owner or admin; the person's own when left out. */
   userId: z.uuid().optional(),
-  /** The voice left out (a screen from before it) keeps the one kept. */
-  settings: AutomationSettings.extend({ voice: Voice.optional() }),
+  /** The voice and the day's report left out (a screen from before them) keep the ones kept. */
+  settings: AutomationSettings.extend({
+    voice: Voice.optional(),
+    dayReport: z.boolean().optional(),
+  }),
 });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
 

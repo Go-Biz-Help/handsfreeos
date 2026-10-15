@@ -234,6 +234,7 @@ export const readinessNumbers = defineAddonCommand(outreachAddon, {
           readChats: s.readChats,
           markPosts: s.markPosts,
           pushes: s.pushes,
+          dayReport: s.dayReport,
           voiceShorthand: s.voice.shorthand,
           voiceAcronyms: s.voice.acronyms,
           voiceEmoji: s.voice.emoji,

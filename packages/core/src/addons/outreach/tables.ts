@@ -48,6 +48,7 @@ import type { PostCheck, PostFound } from './posts';
 import type { SendState } from './sends';
 import type { NeedState, NeedStep } from './waiting-words';
 import type { SetupStep } from './setup';
+import type { ReviewFix, TrackingNumbers } from './tracking';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -672,6 +673,8 @@ export const automation = addonOutreach.table(
     readChats: boolean('read_chats').notNull().default(true),
     markPosts: boolean('mark_posts').notNull().default(true),
     pushes: text('pushes').notNull().default('bundled').$type<PushMode>(),
+    /** The day's report: a push at the end of their working hours with the day's numbers (../tracking.ts). */
+    dayReport: boolean('day_report').notNull().default(true),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
@@ -1045,6 +1048,33 @@ export const followUps = addonOutreach.table(
       foreignColumns: [profiles.workspaceId, profiles.id],
     }).onDelete('cascade'),
   ],
+);
+
+/**
+ * Each person's week's review (../tracking.ts, decision 70): what to fix first, in the video's order, the week's
+ * numbers, and the words the AI wrote from them, or the numbers' own. One a person a week, each person's own.
+ */
+export const reviews = addonOutreach.table(
+  'reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The Monday the week began, in the business's time zone. */
+    week: date('week', { mode: 'string' }).notNull(),
+    fix: text('fix').notNull().$type<ReviewFix>(),
+    numbers: jsonb('numbers').notNull().$type<TrackingNumbers>(),
+    target: integer('target'),
+    headline: text('headline').notNull(),
+    why: text('why').notNull(),
+    steps: jsonb('steps').notNull().$type<string[]>(),
+    by: text('by').notNull().$type<'ai' | 'rules'>(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.week)],
 );
 
 /** Each person's asks to join a group (decision 31), with the AI's answers to its questions. Each person's own. */
