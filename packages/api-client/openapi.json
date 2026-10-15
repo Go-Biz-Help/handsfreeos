@@ -87569,6 +87569,14 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
+                  },
                   "item": {
                     "type": "string",
                     "enum": [
@@ -87577,7 +87585,8 @@
                       "bio",
                       "work",
                       "featured",
-                      "posts"
+                      "posts",
+                      "about"
                     ]
                   },
                   "done": {
@@ -87601,6 +87610,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin"
+                      ]
+                    },
                     "ready": {
                       "type": "boolean"
                     },
@@ -87709,7 +87725,8 @@
                           "bio",
                           "work",
                           "featured",
-                          "posts"
+                          "posts",
+                          "about"
                         ]
                       },
                       "additionalProperties": {
@@ -87921,6 +87938,35 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "about": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -87938,8 +87984,19 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "maxLength": 101
+                                "maxLength": 220
                               }
+                            },
+                            "aboutDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 1200
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "coverLine": {
                               "anyOf": [
@@ -88265,6 +88322,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin"
+                      ]
+                    },
                     "ready": {
                       "type": "boolean"
                     },
@@ -88373,7 +88437,8 @@
                           "bio",
                           "work",
                           "featured",
-                          "posts"
+                          "posts",
+                          "about"
                         ]
                       },
                       "additionalProperties": {
@@ -88585,6 +88650,35 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "about": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -88602,8 +88696,19 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "maxLength": 101
+                                "maxLength": 220
                               }
+                            },
+                            "aboutDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 1200
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "coverLine": {
                               "anyOf": [
@@ -88912,6 +89017,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin"
+                      ]
+                    },
                     "ready": {
                       "type": "boolean"
                     },
@@ -89020,7 +89132,8 @@
                           "bio",
                           "work",
                           "featured",
-                          "posts"
+                          "posts",
+                          "about"
                         ]
                       },
                       "additionalProperties": {
@@ -89232,6 +89345,35 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "about": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -89249,8 +89391,19 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "maxLength": 101
+                                "maxLength": 220
                               }
+                            },
+                            "aboutDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 1200
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "coverLine": {
                               "anyOf": [
@@ -173199,6 +173352,34 @@
                     },
                     "ready": {
                       "type": "boolean"
+                    },
+                    "week": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "done": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "most": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "done",
+                            "most"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -173211,7 +173392,8 @@
                     "messages",
                     "sending",
                     "wheels",
-                    "ready"
+                    "ready",
+                    "week"
                   ],
                   "additionalProperties": false
                 }
@@ -177695,6 +177877,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -177712,6 +177902,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin"
+                      ]
+                    },
                     "ready": {
                       "type": "boolean"
                     },
@@ -177820,7 +178017,8 @@
                           "bio",
                           "work",
                           "featured",
-                          "posts"
+                          "posts",
+                          "about"
                         ]
                       },
                       "additionalProperties": {
@@ -178032,6 +178230,35 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "about": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -178049,8 +178276,19 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "maxLength": 101
+                                "maxLength": 220
                               }
+                            },
+                            "aboutDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 1200
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "coverLine": {
                               "anyOf": [
@@ -178459,6 +178697,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [

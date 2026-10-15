@@ -37081,6 +37081,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -37089,12 +37091,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -37199,6 +37207,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -37207,12 +37217,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -37264,7 +37280,12 @@ export interface operations {
                 "application/json": {
                     done: boolean;
                     /** @enum {string} */
-                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts";
+                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts" | "about";
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -37318,6 +37339,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -37326,12 +37349,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -65356,6 +65385,11 @@ export interface operations {
                 "application/json": {
                     /** @default 40 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     profileId?: string;
                     /** Format: uuid */
@@ -66518,6 +66552,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66571,6 +66610,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -66579,12 +66620,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -66924,6 +66971,11 @@ export interface operations {
                             slowerUntil: string;
                             today: boolean;
                             words: string;
+                        } | null;
+                        /** @default null */
+                        week: {
+                            done: number;
+                            most: number;
                         } | null;
                         wheels: {
                             daysLeft: number;

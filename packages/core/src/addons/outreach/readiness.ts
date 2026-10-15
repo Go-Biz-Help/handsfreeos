@@ -23,7 +23,15 @@ import { z } from 'zod';
 import { SCORED_PART_LABELS, SCORED_PARTS, type MainOfferParts } from '../../main-offer/parts';
 import { DAILY_LIMITS } from './limits';
 import { MessageSamples } from './conversation';
-import { checkCounts, PROFILE_ITEMS, ProfileCheck, type ProfileItem } from './profile-check';
+import { NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
+import {
+  ALL_PROFILE_ITEMS,
+  checkCounts,
+  PROFILE_ITEMS_ON,
+  ProfileCheck,
+  type AnyProfileItem,
+  type ProfileItem,
+} from './profile-check';
 
 // ------------------------------------------------------------------------------------------------- the items
 
@@ -47,7 +55,13 @@ export const READY_STATES = ['done', 'todo', 'look_again', 'waiting'] as const;
 export type ReadyState = (typeof READY_STATES)[number];
 
 // What a profile needs (the workbook's checklist, made for Facebook): the AI checks each, and the person can tick one.
-export { PROFILE_ITEMS, type ProfileItem } from './profile-check';
+export {
+  ALL_PROFILE_ITEMS,
+  PROFILE_ITEMS,
+  PROFILE_ITEMS_ON,
+  type AnyProfileItem,
+  type ProfileItem,
+} from './profile-check';
 
 /** A profile item ticked: when, and the main offer's version live then (null with none live yet). */
 export const ProfileTick = z.object({
@@ -55,7 +69,7 @@ export const ProfileTick = z.object({
   version: z.number().int().min(1).nullable(),
 });
 export type ProfileTick = z.output<typeof ProfileTick>;
-export const ProfileTicks = z.partialRecord(z.enum(PROFILE_ITEMS), ProfileTick);
+export const ProfileTicks = z.partialRecord(z.enum(ALL_PROFILE_ITEMS), ProfileTick);
 export type ProfileTicks = z.output<typeof ProfileTicks>;
 
 /**
@@ -88,6 +102,8 @@ export interface ReadyFacts {
   readonly profile: ProfileTicks;
   /** The AI's latest check of the person's profile, read by the extension; null until one is. */
   readonly profileCheck: ProfileCheck | null;
+  /** The network whose profile it is: Facebook unless said. Each network's profile is its own (Chris's rule). */
+  readonly platform?: Platform;
   /** When the person OK'd how their messages read, and the main offer's version then; null until they did. */
   readonly messages: { readonly at: string; readonly version: number | null } | null;
   /** The person's monthly goal, and when they last saw the math; null until they set it. */
@@ -158,25 +174,33 @@ export function readinessOf(f: ReadyFacts): Readiness {
 
   // Read since the live version, each item right by the AI's check or ticked done; a read or ticks from an older
   // version want a look again.
+  // The network's own profile and its own items: LinkedIn's has its headline and About.
+  const platform = f.platform ?? 'facebook';
+  const profileItems = PROFILE_ITEMS_ON[platform];
   const read = checkCounts(f.profileCheck, live) ? f.profileCheck : null;
-  const counted = PROFILE_ITEMS.filter(
-    (i) => tickCounts(f.profile[i], live) || read?.items[i].ok === true,
+  const counted = profileItems.filter(
+    (i) => tickCounts(f.profile[i], live) || read?.items[i]?.ok === true,
   );
   const stale =
     (f.profileCheck !== null && !read) ||
-    PROFILE_ITEMS.some((i) => f.profile[i] && !tickCounts(f.profile[i], live));
+    profileItems.some((i) => f.profile[i] && !tickCounts(f.profile[i], live));
   const profile: ReadyItemState =
-    read && counted.length === PROFILE_ITEMS.length
+    read && counted.length === profileItems.length
       ? { item: 'profile', state: 'done', whose: 'person', left: null }
       : stale && !read
         ? { item: 'profile', state: 'look_again', whose: 'person', left: W.profileAgain }
         : !read
-          ? { item: 'profile', state: 'todo', whose: 'person', left: W.profileRead }
+          ? {
+              item: 'profile',
+              state: 'todo',
+              whose: 'person',
+              left: platform === 'facebook' ? W.profileRead : W.profileReadOn(platform),
+            }
           : {
               item: 'profile',
               state: 'todo',
               whose: 'person',
-              left: W.profile(PROFILE_ITEMS.length - counted.length),
+              left: W.profile(profileItems.length - counted.length, platform),
             };
 
   // OK'd since the live version, with a playbook's short video linked (decision 69, the business's: an owner or admin
@@ -218,19 +242,30 @@ export function readinessOf(f: ReadyFacts): Readiness {
 }
 
 /** Why Start my day is refused (`outreach_not_ready`): the first item left, and where to finish it. */
-export function notReadyWords(r: Readiness): string {
+export function notReadyWords(r: Readiness & { readonly platform?: Platform }): string {
   const first = r.items.find((i) => i.state !== 'done');
   if (!first) return '';
   if (first.state === 'waiting') return first.left!;
-  return `${READY_WORDS.notReady[first.item]} Finish it under Get ready on the Today tab.`;
+  // Another network's own profile says which: "Your LinkedIn profile isn't ready yet."
+  const words =
+    first.item === 'profile' && r.platform && r.platform !== 'facebook'
+      ? `Your ${NETWORKS[r.platform].name} profile isn’t ready yet.`
+      : READY_WORDS.notReady[first.item];
+  return `${words} Finish it under Get ready on the Today tab.`;
 }
 
 // ------------------------------------------------------------------------------------------------- the shapes
 
-export const ReadinessInput = z.object({ workspaceId: z.uuid() });
+export const ReadinessInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network whose profile counts: each network's is its own. Facebook unless said. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type ReadinessInput = z.input<typeof ReadinessInput>;
 
 export const ReadinessOutput = z.object({
+  /** The network it's for: its profile, its items and its words. Facebook when left out. */
+  platform: z.enum(PLATFORM_KEYS).optional(),
   ready: z.boolean(),
   items: z.array(
     z.object({
@@ -269,16 +304,24 @@ export const ProfileCheckSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Whose profile: the person whose extension read it. */
   userId: z.uuid(),
+  /** The network the profile is on. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   check: ProfileCheck,
 });
 export type ProfileCheckSaveInput = z.input<typeof ProfileCheckSaveInput>;
 
-export const ProfileTickInput = z.object({
-  workspaceId: z.uuid(),
-  item: z.enum(PROFILE_ITEMS),
-  /** Ticked as done, or taken back. */
-  done: z.boolean(),
-});
+export const ProfileTickInput = z
+  .object({
+    workspaceId: z.uuid(),
+    /** The network whose profile it is: Facebook unless said. */
+    platform: z.enum(PLATFORM_KEYS).default('facebook'),
+    item: z.enum(ALL_PROFILE_ITEMS),
+    /** Ticked as done, or taken back. */
+    done: z.boolean(),
+  })
+  .refine((i) => PROFILE_ITEMS_ON[i.platform].includes(i.item), {
+    error: 'That isn’t on this network’s profile list.',
+  });
 export type ProfileTickInput = z.input<typeof ProfileTickInput>;
 
 // ------------------------------------------------------------------------------------------------- your numbers
@@ -439,7 +482,10 @@ export const READY_WORDS = {
       `Add proof to ${name}: a real result from your main offer, or one of its own.`,
     playbookWaiting:
       'Waiting on a playbook with a niche. Ask an owner or admin of this business to pick one on the Playbooks tab.',
-    profile: (n: number) => `${plural(n, 'thing')} left to change on your Facebook profile.`,
+    profile: (n: number, platform: Platform = 'facebook') =>
+      `${plural(n, 'thing')} left to change on your ${NETWORKS[platform].name} profile.`,
+    profileReadOn: (platform: Platform) =>
+      `Have the extension read your ${NETWORKS[platform].name} profile. The AI says what to change, and writes your headline and About.`,
     profileRead:
       'Have the extension read your Facebook profile. The AI says what to change, and writes your bio.',
     profileAgain: 'Your main offer changed. Look at your profile again so it still fits.',
@@ -525,6 +571,45 @@ export const READY_WORDS = {
     tick: 'It’s done',
     untick: 'Not yet',
     ticked: (n: number, of: number) => `${n} of ${of} ticked`,
+    /** Another network's profile: its title, hint and items, LinkedIn's headline and About among them. */
+    on: {
+      linkedin: {
+        title: 'Check your LinkedIn profile',
+        hint: 'People look at it before they accept or answer. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change, and you tick each one once it’s right.',
+        items: {
+          picture: {
+            label: 'A clear photo of your face',
+            tip: 'Not a logo. People say yes to a person.',
+          },
+          cover: {
+            label: 'A banner that says the result you get people',
+            tip: 'One line on an image, like “More booked jobs for roofers”. Not a sales pitch.',
+          },
+          bio: {
+            label: 'A headline that says who you help and the result',
+            tip: 'LinkedIn’s headline, up to 220 characters, from your main offer. Not only your job title.',
+          },
+          about: {
+            label: 'An About that says who you help and how to book',
+            tip: 'Its first lines show before See more: who you help, the result, and how to book a call.',
+          },
+          work: {
+            label: 'Experience that names your business',
+            tip: 'Your current position, at your business, with its page linked.',
+          },
+          featured: {
+            label: 'Featured: a result, a review and your booking link',
+            tip: 'Feature a post that shows a result, a review, and where to book.',
+          },
+          posts: {
+            label: 'Activity that shows who you are, and some proof',
+            tip: 'Not only selling: your work, what you’ve learned, a customer’s win.',
+          },
+        } satisfies Record<AnyProfileItem, { label: string; tip: string }>,
+        about: 'An About to start from',
+        aboutHint: 'Paste it under About on your profile, and change anything that isn’t you.',
+      },
+    } satisfies Partial<Record<Platform, unknown>>,
     offer: 'Your main offer',
     done: 'Done',
   },

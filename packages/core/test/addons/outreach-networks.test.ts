@@ -20,7 +20,9 @@ import {
 import { preDaySteps } from '../../src/addons/outreach/lists';
 import { networkOfLink, NETWORKS, profileMisfit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
+import { notReadyWords, readinessOf } from '../../src/addons/outreach/readiness';
+import { PROFILE_ITEMS, PROFILE_ITEMS_ON } from '../../src/addons/outreach/profile-check';
+import { outreachBusiness, refused, runAs, runAsSystem, runWith } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 
@@ -534,5 +536,273 @@ describe('each network’s own lists, asks and Today', () => {
     expect(await refused(ask(old, 'linkedin', { kind: 'friends' }))).toBe(
       'outreach_extension_too_old',
     );
+  });
+});
+
+describe('one person on two networks', () => {
+  const at = () => new Date().toISOString();
+  const reach = async (
+    u: TestUser,
+    platform: 'facebook' | 'linkedin',
+    profile: { id: string | null; username: string; url: string },
+    name: string,
+  ) =>
+    (
+      await runAs(u, ws, 'outreach.touch.save', {
+        platform,
+        kind: 'friend_request',
+        profile,
+        name,
+        at: at(),
+      })
+    ).profileId as string;
+  const like = (
+    u: TestUser,
+    platform: 'facebook' | 'linkedin',
+    profile: { id: string | null; username: string; url: string },
+    name: string,
+  ) => runAs(u, ws, 'outreach.touch.save', { platform, kind: 'like', profile, name, at: at() });
+  /** Ties a profile to a customer in Contacts: a new one, or the one named. Their id. */
+  const contact = async (u: TestUser, profileId: string, personId: string | null = null) =>
+    (await runWith(u, ws, 'outreach.profile.contact', { profileId, personId }, { channel: 'web' }))
+      .personId as string;
+  const linkedIn = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.linkedin.com/in/${slug}/`,
+  });
+  const facebook = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.facebook.com/${slug}`,
+  });
+
+  it('covers every profile on a customer with Don’t pitch and Never contact, and never a name alone', async () => {
+    const pat = await teammate('Pat Morgan');
+    const fb = facebook('jordan.blake.3');
+    const li = linkedIn('jordan-blake-cpa');
+    const namesake = linkedIn('jordan-blake-9');
+    const onFacebook = await reach(pat, 'facebook', fb, 'Jordan Blake');
+    const onLinkedIn = await reach(pat, 'linkedin', li, 'Jordan B.');
+    await reach(pat, 'linkedin', namesake, 'Jordan Blake');
+    await contact(pat, onLinkedIn, await contact(pat, onFacebook));
+
+    // Don't pitch on their Facebook covers their LinkedIn: the same customer. Another Jordan Blake there isn't them.
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onFacebook, dontPitch: true });
+    expect(await refused(like(pat, 'linkedin', li, 'Jordan B.'))).toBe('outreach_dont_pitch');
+    await like(pat, 'linkedin', namesake, 'Jordan Blake');
+    const [listed] = await rows<{ twin: boolean }>(
+      admin(),
+      sql`select exists (select 1 from addon_outreach.profiles tw
+            where tw.person_id = p.person_id and tw.id <> p.id and tw.dont_pitch) as twin
+          from addon_outreach.profiles p where p.id = ${onLinkedIn}`,
+    );
+    expect(listed!.twin).toBe(true);
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onFacebook, dontPitch: false });
+    await like(pat, 'linkedin', li, 'Jordan B.');
+
+    // Never contact on their LinkedIn covers their Facebook.
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onLinkedIn, neverContact: true });
+    expect(await refused(like(pat, 'facebook', fb, 'Jordan Blake'))).toBe('outreach_never_contact');
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onLinkedIn, neverContact: false });
+    await like(pat, 'facebook', fb, 'Jordan Blake');
+  });
+
+  it('doesn’t start someone again on LinkedIn once they were pitched or booked on Facebook', async () => {
+    const lee = await teammate('Lee Harper');
+    const onFacebook = await reach(lee, 'facebook', facebook('casey.north.4'), 'Casey North');
+    const onLinkedIn = await reach(lee, 'linkedin', linkedIn('casey-north'), 'Casey North');
+    await contact(lee, onLinkedIn, await contact(lee, onFacebook));
+    // The AI found Casey a good fit among Lee's LinkedIn connections: Reconnect.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, why, looked_at)
+          values (${ws}, ${lee.id}, ${onLinkedIn}, 'good', array['Runs a small accounting firm'], now())`,
+    );
+    const onLinkedInToday = async () =>
+      (await runAs(lee, ws, 'outreach.today', { platform: 'linkedin' })).items
+        .filter((i: { name: string }) => i.name === 'Casey North')
+        .map((i: { kind: string }) => i.kind);
+    expect(await onLinkedInToday()).toEqual(['reconnect']);
+
+    await runAs(lee, ws, 'outreach.stage.mark', { profileId: onFacebook, mark: 'pitched' });
+    expect(await onLinkedInToday()).toEqual([]);
+    await runAs(lee, ws, 'outreach.stage.mark', { profileId: onFacebook, mark: 'open' });
+    expect(await onLinkedInToday()).toEqual(['reconnect']);
+
+    // Booked on Facebook, by anyone here: the same.
+    await runAs(lee, ws, 'outreach.demo.mark', { profileId: onFacebook, booked: true });
+    expect(await onLinkedInToday()).toEqual([]);
+    await runAs(lee, ws, 'outreach.demo.mark', { profileId: onFacebook, booked: false });
+    expect(await onLinkedInToday()).toEqual(['reconnect']);
+  });
+});
+
+describe('each network’s own limits', () => {
+  it('keep LinkedIn’s invitations under 80 in any 7 days, and Facebook’s as they were', async () => {
+    const kim = await teammate('Kim Park');
+    // 70 invitations over the last six days, none of them today.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          select ${ws}, 'linkedin', 'kim-invite-' || i, 'https://www.linkedin.com/in/kim-invite-' || i || '/', 'Invite ' || i
+          from generate_series(1, 70) i`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
+          select ${ws}, p.id, ${kim.id}, 'friend_request', now() - interval '2 days' - (row_number() over () * interval '1 hour')
+          from addon_outreach.profiles p where p.workspace_id = ${ws} and p.username like 'kim-invite-%'`,
+    );
+    const linkedIn = await runAs(kim, ws, 'outreach.today', { platform: 'linkedin' });
+    expect(linkedIn.week).toEqual({ done: 70, most: 80 });
+    expect(linkedIn.limits.friend_request).toEqual({ done: 0, most: 10 });
+    const facebook = await runAs(kim, ws, 'outreach.today', {});
+    expect(facebook.week).toBeNull();
+    expect(facebook.limits.friend_request.most).toBe(NETWORKS.facebook.dailyLimits.friend_request);
+  });
+
+  it('keep each network’s checks to its own people and its own profiles read a day', async () => {
+    const lou = await teammate('Lou Grant');
+    const known = async (profileId: string) =>
+      rows(
+        admin(),
+        sql`insert into addon_outreach.friends (workspace_id, user_id, profile_id, state, since, seen_at)
+            values (${ws}, ${lou.id}, ${profileId}, 'friends', now(), now())
+            on conflict (workspace_id, user_id, profile_id) do update set state = 'friends'`,
+      );
+    const onLinkedIn = await linkedInProfile('Ari Moss');
+    await known(onLinkedIn);
+    const onFacebook = await runAs(lou, ws, 'outreach.touch.save', {
+      kind: 'friend_request',
+      profile: { id: null, username: 'ari.moss.5', url: 'https://www.facebook.com/ari.moss.5' },
+      name: 'Ari Moss',
+      at: new Date().toISOString(),
+    });
+    await known(onFacebook.profileId);
+    const next = async (platform?: 'linkedin') =>
+      (await runAs(lou, ws, 'outreach.checks.next', platform ? { platform } : {})) as {
+        people: { profileId: string }[];
+        today: number;
+        perDay: number;
+      };
+    expect((await next('linkedin')).people.map((p) => p.profileId)).toEqual([onLinkedIn]);
+    expect((await next()).people.map((p) => p.profileId)).toEqual([onFacebook.profileId]);
+
+    // A LinkedIn profile read today counts on LinkedIn alone.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, looked_at)
+          values (${ws}, ${lou.id}, ${onLinkedIn}, 'waiting', now())`,
+    );
+    expect(await next('linkedin')).toMatchObject({
+      today: 1,
+      perDay: NETWORKS.linkedin.checksPerDay,
+    });
+    expect(await next()).toMatchObject({ today: 0 });
+    // A LinkedIn warning halves LinkedIn's, never Facebook's.
+    await warn(lou, 'linkedin', 'Your account has been restricted');
+    expect((await next('linkedin')).perDay).toBe(NETWORKS.linkedin.checksPerDay / 2);
+    expect((await next()).perDay).toBe(NETWORKS.facebook.checksPerDay);
+  });
+});
+
+describe('each network’s own profile in Get ready', () => {
+  /** The AI's check of someone's profile on a network, as the worker keeps it: every item right. */
+  const checked = (userId: string, platform: 'facebook' | 'linkedin', version: number | null) =>
+    runAsSystem(ws, 'outreach.profile.check_save', {
+      userId,
+      platform,
+      check: {
+        items: Object.fromEntries(
+          PROFILE_ITEMS_ON[platform].map((i) => [i, { ok: true, why: 'Looks right.', fix: null }]),
+        ),
+        bios: [
+          platform === 'linkedin'
+            ? 'I help owners of small businesses book more calls in 30 days, or they don’t pay'
+            : 'I help owners book more calls.',
+        ],
+        coverLine: 'More booked calls',
+        feature: [],
+        at: new Date().toISOString(),
+        version,
+      },
+    });
+  const profileItem = async (u: TestUser, platform?: 'linkedin') =>
+    (
+      (await runAs(u, ws, 'outreach.readiness', platform ? { platform } : {})) as {
+        platform: string;
+        items: { item: string; state: string; left: string | null }[];
+        offer: { version: number } | null;
+      }
+    ).items.find((i) => i.item === 'profile')!;
+
+  it('keeps LinkedIn’s profile apart from Facebook’s, with its headline and About', async () => {
+    const sky = await teammate('Sky Turner');
+    // Today on Facebook readies the business's offer and playbook, and Sky's Facebook profile, as the fixture does.
+    await runAs(sky, ws, 'outreach.today', {});
+    await rows(
+      admin(),
+      sql`update addon_outreach.setup set network_profiles = '{}'::jsonb
+          where workspace_id = ${ws} and user_id = ${sky.id}`,
+    );
+    const offer = (await runAs(sky, ws, 'outreach.readiness', {})) as {
+      offer: { version: number } | null;
+    };
+    expect((await profileItem(sky)).state).toBe('done');
+    expect(await profileItem(sky, 'linkedin')).toEqual({
+      item: 'profile',
+      state: 'todo',
+      whose: 'person',
+      left: 'Have the extension read your LinkedIn profile. The AI says what to change, and writes your headline and About.',
+    });
+
+    // The worker keeps LinkedIn's check: LinkedIn's profile is right, and Facebook's as it was.
+    await checked(sky.id, 'linkedin', offer.offer?.version ?? null);
+    expect((await profileItem(sky, 'linkedin')).state).toBe('done');
+    expect((await profileItem(sky)).state).toBe('done');
+
+    // About is LinkedIn's alone: ticked there, refused on Facebook.
+    await runAs(sky, ws, 'outreach.readiness.profile', {
+      platform: 'linkedin',
+      item: 'about',
+      done: true,
+    });
+    const [kept] = await rows<{
+      network_profiles: { linkedin: { ticks: Record<string, unknown> } };
+    }>(
+      admin(),
+      sql`select network_profiles from addon_outreach.setup
+          where workspace_id = ${ws} and user_id = ${sky.id}`,
+    );
+    expect(Object.keys(kept!.network_profiles.linkedin.ticks)).toEqual(['about']);
+    expect(
+      await refused(runAs(sky, ws, 'outreach.readiness.profile', { item: 'about', done: true })),
+    ).toBe('validation');
+  });
+
+  it('says which network’s profile isn’t ready', () => {
+    const facts = {
+      offer: null,
+      playbooks: [],
+      profile: {},
+      profileCheck: null,
+      messages: null,
+      numbers: { goal: null, at: null },
+      canOffer: true,
+      canPlaybooks: true,
+    };
+    const onLinkedIn = readinessOf({ ...facts, platform: 'linkedin' });
+    expect(onLinkedIn.items.find((i) => i.item === 'profile')!.left).toContain('LinkedIn profile');
+    expect(
+      notReadyWords({
+        ...onLinkedIn,
+        items: onLinkedIn.items.map((i) => (i.item === 'profile' ? i : { ...i, state: 'done' })),
+        platform: 'linkedin',
+      }),
+    ).toBe('Your LinkedIn profile isn’t ready yet. Finish it under Get ready on the Today tab.');
+    // LinkedIn's checklist has About; Facebook's doesn't.
+    expect(PROFILE_ITEMS_ON.linkedin).toContain('about');
+    expect(PROFILE_ITEMS).not.toContain('about');
   });
 });
