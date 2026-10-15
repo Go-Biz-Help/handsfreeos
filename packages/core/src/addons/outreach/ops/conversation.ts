@@ -5,7 +5,6 @@
  */
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { mainOffers } from '@hfos/db/schema';
-import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -31,7 +30,9 @@ import {
 import { outreachAddon } from '../manifest';
 import { paceOf, type Pace } from '../playbooks';
 import { followUps, playbooks, profiles, stages } from '../tables';
+import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
+import { numbersIn } from './tracking';
 
 /**
  * The pace a conversation keeps: the first playbook in use with one, by name, as Today's demo link is picked; the
@@ -378,29 +379,26 @@ export const offerVersions = defineAddonQuery(outreachAddon, {
     const me = userIdOf(ctx.actor);
     if (!me) throw HfosError.forbidden('Only a person sees how the offer is doing.');
     const everyone = scopeCan(ctx.scope, 'outreach.manage' as Permission);
-    const found = await rows<{
-      version: number;
-      messages: number;
-      positive: number;
-      booked: number;
-    }>(
-      ctx.tx,
-      sql`select f.offer_version as version, count(*)::int as messages,
-            count(s.positive_at)::int as positive,
-            count(*) filter (where exists (select 1 from addon_outreach.demos d
-              where d.profile_id = f.profile_id and d.user_id = f.user_id and d.undone_at is null))::int as booked
-          from addon_outreach.follow_ups f
-          left join addon_outreach.stages s on s.profile_id = f.profile_id and s.user_id = f.user_id
-          where f.workspace_id = ${ctx.scope.workspaceId} and f.offer_version is not null
-            and (${everyone} or f.user_id = ${me})
-          group by f.offer_version order by f.offer_version desc`,
-    );
+    // Counted as Results counts them (./tracking.ts): everyone's answers are each person's own.
+    const counted = await numbersIn(ctx, { me, everyone }, EVER, 'infinity');
+    const byVersion = new Map<number, { messages: number; positive: number; booked: number }>();
+    for (const c of counted) {
+      if (c.offer_version === null) continue;
+      const n = byVersion.get(c.offer_version) ?? { messages: 0, positive: 0, booked: 0 };
+      byVersion.set(c.offer_version, {
+        messages: n.messages + c.messages,
+        positive: n.positive + c.positive,
+        booked: n.booked + c.booked,
+      });
+    }
     const [offer] = await ctx.tx
       .select({ live: mainOffers.liveVersion })
       .from(mainOffers)
       .where(eq(mainOffers.workspaceId, ctx.scope.workspaceId!));
     return {
-      versions: found,
+      versions: [...byVersion.entries()]
+        .sort(([a], [b]) => b - a)
+        .map(([version, n]) => ({ version, ...n })),
       everyone,
       judgeAfter: JUDGE_AFTER_MESSAGES,
       live: offer?.live ?? null,
