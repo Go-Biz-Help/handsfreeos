@@ -33,12 +33,18 @@
  *   (`BusinessRules`): the choices it allows, its own daily limits under the starting ones, and the defaults a new
  *   person starts with. Owners and admins can change anyone's; the person sees who did.
  *
- * Every step keeps the daily limits, goes at a person's pace, and stops for the day on any Facebook warning.
+ * - **Each network on its own** (Chris, 2026-10-15; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): the choices
+ *   above are Facebook's; each other network has the same choices of its own (`NetworkChoices`, in `networks`), off to
+ *   start, inside the same rules and the networks the business allows, with its own daily limits and training wheels.
+ *   The working hours, the switches, the pushes, the day's report and the voice stay the person's, for every network.
+ *
+ * Every step keeps the daily limits, goes at a person's pace, and stops for the day on any warning from its network.
  * Browser-safe: the extension, the web and the API read it.
  */
 import { z } from 'zod';
 import { localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
-import { DAILY_LIMITS } from './limits';
+import { DAILY_LIMITS, DAILY_STEPS, type DailyStep } from './limits';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import type { TodayKind } from './today';
 import { Voice, VOICE_DEFAULTS } from './voice';
 
@@ -103,6 +109,38 @@ export const WorkingHours = z
   });
 export type WorkingHours = z.output<typeof WorkingHours>;
 
+/**
+ * A network's own choices of what the extension does there on its own (Chris, 2026-10-15: the same choices as
+ * Facebook, each network's own). Facebook's are the person's choices in `AutomationSettings`; each other network keeps
+ * its own in `networks`, off to start.
+ */
+export const NetworkChoices = z.object({
+  /** The person works this network: while it's off, nothing runs, reads or shows there. */
+  on: z.boolean().default(false),
+  sending: z.enum(SENDING_MODE_KEYS).default('off'),
+  replies: z.enum(REPLY_MODE_KEYS).default('draft'),
+  warmUp: z.boolean().default(true),
+  confirmRequests: z.boolean().default(true),
+  collect: z.boolean().default(true),
+  joinGroups: z.boolean().default(true),
+  watchPosts: z.boolean().default(true),
+  posting: z.enum(POSTING_MODE_KEYS).default('after_ok'),
+});
+export type NetworkChoices = z.output<typeof NetworkChoices>;
+export const NETWORK_CHOICES_DEFAULTS: NetworkChoices = NetworkChoices.parse({});
+
+/** The networks besides Facebook, each with its choices in `networks`. */
+export type OtherPlatform = Exclude<Platform, 'facebook'>;
+export const OTHER_PLATFORMS = PLATFORM_KEYS.filter((p) => p !== 'facebook') as OtherPlatform[];
+
+/** Which networks the person works, and each other network's choices. Facebook's choices are the ones beside it. */
+export const NetworksSettings = z.object({
+  facebook: z.object({ on: z.boolean().default(true) }).default({ on: true }),
+  linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
+});
+export type NetworksSettings = z.output<typeof NetworksSettings>;
+export const NETWORKS_DEFAULTS: NetworksSettings = NetworksSettings.parse({});
+
 export const AutomationSettings = z.object({
   sending: z.enum(SENDING_MODE_KEYS),
   /** Replies (decision 27): every one waits until a person picks otherwise, and from builds before 0.15. */
@@ -136,8 +174,28 @@ export const AutomationSettings = z.object({
   dayReport: z.boolean().default(true),
   /** How the AI writes for them (./voice.ts): plain words always, and their own short forms, acronyms and emoji. */
   voice: Voice.default(VOICE_DEFAULTS),
+  /** The networks they work, and each other network's choices: Facebook on and the rest off, to start. */
+  networks: NetworksSettings.default(NETWORKS_DEFAULTS),
 });
 export type AutomationSettings = z.output<typeof AutomationSettings>;
+
+/** A person's choices on one network: Facebook's from the settings themselves, any other's from `networks`. */
+export function choicesFor(settings: AutomationSettings, platform: Platform): NetworkChoices {
+  if (platform !== 'facebook') return settings.networks[platform];
+  const { sending, replies, warmUp, confirmRequests, collect, joinGroups, watchPosts, posting } =
+    settings;
+  return {
+    on: settings.networks.facebook.on,
+    sending,
+    replies,
+    warmUp,
+    confirmRequests,
+    collect,
+    joinGroups,
+    watchPosts,
+    posting,
+  };
+}
 
 export const AUTOMATION_DEFAULTS: AutomationSettings = {
   sending: 'off',
@@ -155,9 +213,10 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   pushes: 'bundled',
   dayReport: true,
   voice: VOICE_DEFAULTS,
+  networks: NETWORKS_DEFAULTS,
 };
 
-/** The daily limits a business can set, each at most the starting one (./limits.ts). */
+/** The daily limits a business can set on Facebook, each at most the starting one (./limits.ts). */
 export const BusinessLimits = z
   .object({
     friend_request: z.number().int().min(0).max(DAILY_LIMITS.friend_request),
@@ -168,6 +227,21 @@ export const BusinessLimits = z
   })
   .partial();
 export type BusinessLimits = z.output<typeof BusinessLimits>;
+
+/** The daily limits a business can set on another network, each at most that network's starting one (./networks.ts). */
+const limitsOn = (platform: Platform) =>
+  z
+    .object(
+      Object.fromEntries(
+        DAILY_STEPS.map((step) => [
+          step,
+          z.number().int().min(0).max(NETWORKS[platform].dailyLimits[step]),
+        ]),
+      ) as Record<DailyStep, z.ZodNumber>,
+    )
+    .partial();
+export const NetworkLimits = z.object({ linkedin: limitsOn('linkedin') }).partial();
+export type NetworkLimits = z.output<typeof NetworkLimits>;
 
 /**
  * What owners and admins set for everyone (decision 38): the Sending and Replies choices people may pick (doing
@@ -189,10 +263,24 @@ export const BusinessRules = z.object({
     .default([...POSTING_MODE_KEYS])
     .transform((modes) => POSTING_MODE_KEYS.filter((m) => m === 'copy' || modes.includes(m))),
   dailyLimits: BusinessLimits.default({}),
+  /** The networks people may turn on: every one to start. Facebook is always allowed. */
+  networksAllowed: z
+    .array(z.enum(PLATFORM_KEYS))
+    .default([...PLATFORM_KEYS])
+    .transform((nets) => PLATFORM_KEYS.filter((p) => p === 'facebook' || nets.includes(p))),
+  /** Each other network's daily limits under its starting ones; Facebook's are `dailyLimits`. */
+  networkLimits: NetworkLimits.default({}),
   defaults: AutomationSettings.default(AUTOMATION_DEFAULTS),
 });
 export type BusinessRules = z.output<typeof BusinessRules>;
 export const NO_RULES: BusinessRules = BusinessRules.parse({});
+
+/** The business's own daily limits on a network: Facebook's `dailyLimits`, or the network's in `networkLimits`. */
+export const businessLimitsOn = (
+  rules: Pick<BusinessRules, 'dailyLimits' | 'networkLimits'>,
+  platform: Platform,
+): Partial<Readonly<Record<DailyStep, number>>> =>
+  platform === 'facebook' ? rules.dailyLimits : (rules.networkLimits[platform] ?? {});
 
 /** The nearest choice the business allows, at or before this one: a choice it stopped allowing steps back. */
 function allowedOf<T extends string>(order: readonly T[], allowed: readonly T[], want: T): T {
@@ -200,7 +288,22 @@ function allowedOf<T extends string>(order: readonly T[], allowed: readonly T[],
   return order[0]!;
 }
 
-/** A person's choices as they stand inside the business's rules. */
+/** A network's choices as they stand inside the business's rules: off when the business doesn't allow the network. */
+function choicesWithin(
+  choices: NetworkChoices,
+  rules: BusinessRules,
+  platform: Platform,
+): NetworkChoices {
+  return {
+    ...choices,
+    on: choices.on && rules.networksAllowed.includes(platform),
+    sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, choices.sending),
+    replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, choices.replies),
+    posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, choices.posting),
+  };
+}
+
+/** A person's choices as they stand inside the business's rules, on every network. */
 export function withinRules(
   settings: AutomationSettings,
   rules: BusinessRules,
@@ -210,27 +313,52 @@ export function withinRules(
     sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, settings.sending),
     replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, settings.replies),
     posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, settings.posting),
+    networks: {
+      facebook: settings.networks.facebook,
+      linkedin: choicesWithin(settings.networks.linkedin, rules, 'linkedin'),
+    },
   };
 }
 
+/** The choices of these the business doesn't allow, quoted; empty when it allows them all. */
+const notAllowedOf = (c: NetworkChoices, rules: BusinessRules): string[] =>
+  [
+    rules.sendingAllowed.includes(c.sending) ? null : `“${SENDING_MODES[c.sending]}”`,
+    rules.repliesAllowed.includes(c.replies) ? null : `“${REPLY_MODES[c.replies]}”`,
+    rules.postingAllowed.includes(c.posting) ? null : `“${POSTING_MODES[c.posting]}”`,
+  ].filter((w): w is string => w !== null);
+
 /** What the business doesn't allow of these choices, in words to refuse them with; null when it's all allowed. */
 export function notAllowedWords(settings: AutomationSettings, rules: BusinessRules): string | null {
-  const off = [
-    rules.sendingAllowed.includes(settings.sending) ? null : `“${SENDING_MODES[settings.sending]}”`,
-    rules.repliesAllowed.includes(settings.replies) ? null : `“${REPLY_MODES[settings.replies]}”`,
-    rules.postingAllowed.includes(settings.posting) ? null : `“${POSTING_MODES[settings.posting]}”`,
-  ].filter(Boolean);
-  return off.length
-    ? `Your business doesn’t allow ${off.join(' or ')}. Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.`
-    : null;
+  const fix =
+    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.';
+  const offNetworks = OTHER_PLATFORMS.filter(
+    (p) => settings.networks[p].on && !rules.networksAllowed.includes(p),
+  );
+  if (offNetworks.length)
+    return `Your business doesn’t use ${offNetworks.map((p) => PLATFORMS[p]).join(' or ')} for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.`;
+  const facebook = notAllowedOf(choicesFor(settings, 'facebook'), rules);
+  if (facebook.length) return `Your business doesn’t allow ${facebook.join(' or ')}. ${fix}`;
+  for (const p of OTHER_PLATFORMS) {
+    const off = notAllowedOf(settings.networks[p], rules);
+    if (off.length)
+      return `Your business doesn’t allow ${off.join(' or ')} on ${PLATFORMS[p]}. ${fix}`;
+  }
+  return null;
 }
+
+/** The choices that say what the extension does on its own on a network: a network's, or Facebook's settings. */
+type DoesChoices = Pick<NetworkChoices, 'sending' | 'confirmRequests' | 'warmUp'> & {
+  readonly on?: boolean;
+};
 
 /**
  * The kinds on the list for today the extension does on its own for someone, in the order it does them: requests
- * to confirm first, then likes, friend requests and comments. Messages go their own way (`MESSAGE_KINDS`).
+ * to confirm first, then likes, friend requests and comments. Messages go their own way (`MESSAGE_KINDS`). None on a
+ * network the person doesn't work.
  */
-export function autoKinds(settings: AutomationSettings): TodayKind[] {
-  if (settings.sending === 'off') return [];
+export function autoKinds(settings: DoesChoices): TodayKind[] {
+  if (settings.sending === 'off' || settings.on === false) return [];
   return [
     ...(settings.confirmRequests ? (['confirm'] as const) : []),
     ...(settings.warmUp ? (['warm_up'] as const) : []),
@@ -251,9 +379,9 @@ export const MESSAGE_KINDS = [
 ] as const satisfies readonly TodayKind[];
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
-/** The messages the extension drafts for the person: none while it's off. */
-export const messageKinds = (settings: AutomationSettings): MessageKind[] =>
-  settings.sending === 'off' ? [] : [...MESSAGE_KINDS];
+/** The messages the extension drafts for the person: none while it's off, or on a network they don't work. */
+export const messageKinds = (settings: Pick<DoesChoices, 'sending' | 'on'>): MessageKind[] =>
+  settings.sending === 'off' || settings.on === false ? [] : [...MESSAGE_KINDS];
 
 /** What choosing Sending (b), or Replies (b) or (c), means, said where it's chosen. */
 export const WHEELS_START_WORDS =
@@ -352,8 +480,10 @@ export const AutomationOutput = z.object({
   startedAt: z.iso.datetime().nullable().default(null),
   /** Whether the person has saved their own yet: until then, these are the defaults. */
   saved: z.boolean(),
-  /** Their training wheels. */
+  /** Their training wheels on Facebook. */
   wheels: WheelsState,
+  /** Their training wheels on each other network: each network's own, as its choices are. */
+  networkWheels: z.object({ linkedin: WheelsState }),
   /** Whose they are. */
   userId: z.uuid(),
   name: z.string(),
@@ -365,6 +495,8 @@ export const AutomationOutput = z.object({
     repliesAllowed: z.array(z.enum(REPLY_MODE_KEYS)),
     postingAllowed: z.array(z.enum(POSTING_MODE_KEYS)),
     dailyLimits: BusinessLimits,
+    networksAllowed: z.array(z.enum(PLATFORM_KEYS)),
+    networkLimits: NetworkLimits,
   }),
 });
 export type AutomationOutput = z.output<typeof AutomationOutput>;
@@ -373,26 +505,39 @@ export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Someone else's, for an owner or admin; the person's own when left out. */
   userId: z.uuid().optional(),
-  /** The voice and the day's report left out (a screen from before them) keep the ones kept. */
+  /** The voice, the day's report and the networks left out (a screen from before them) keep the ones kept. */
   settings: AutomationSettings.extend({
     voice: Voice.optional(),
     dayReport: z.boolean().optional(),
+    networks: NetworksSettings.optional(),
   }),
 });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
 
 export const AutomationSaveOutput = AutomationOutput;
 
-/** An owner or admin ends someone's training wheels early. */
-export const WheelsEndInput = z.object({ workspaceId: z.uuid(), userId: z.uuid() });
+/** An owner or admin ends someone's training wheels early, on one network (Facebook's when left out). */
+export const WheelsEndInput = z.object({
+  workspaceId: z.uuid(),
+  userId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type WheelsEndInput = z.input<typeof WheelsEndInput>;
 export const WheelsEndOutput = z.object({ userId: z.uuid(), ended: z.boolean() });
 
 export const WheelsListInput = z.object({ workspaceId: z.uuid() });
 export type WheelsListInput = z.input<typeof WheelsListInput>;
-/** Everyone in the business on training wheels now, for owners and admins. */
+/** Everyone in the business on training wheels now, on each network, for owners and admins. */
 export const WheelsListOutput = z.object({
-  people: z.array(z.object({ userId: z.uuid(), name: z.string(), wheels: WheelsState })),
+  people: z.array(
+    z.object({
+      userId: z.uuid(),
+      name: z.string(),
+      /** The network they're on training wheels on: one row for each. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
+      wheels: WheelsState,
+    }),
+  ),
 });
 export type WheelsListOutput = z.output<typeof WheelsListOutput>;
 

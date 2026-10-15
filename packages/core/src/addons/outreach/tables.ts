@@ -27,7 +27,14 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
-import type { MessageKind, PostingMode, PushMode, ReplyMode, SendingMode } from './automation';
+import type {
+  MessageKind,
+  OtherPlatform,
+  PostingMode,
+  PushMode,
+  ReplyMode,
+  SendingMode,
+} from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
@@ -680,12 +687,28 @@ export const automation = addonOutreach.table(
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
     voiceEmoji: boolean('voice_emoji').notNull().default(false),
     voiceSplit: boolean('voice_split').notNull().default(true),
+    /**
+     * Which networks they work, and each other network's own choices (../automation.ts, `NetworksSettings`): read with
+     * the defaults filling in what's left out. Facebook's choices are the columns above.
+     */
+    networks: jsonb('networks').notNull().default({}).$type<Record<string, unknown>>(),
+    /** Each other network's training wheels, as Facebook's are the wheels columns above (`NetworkWheelsKept`). */
+    networkWheels: jsonb('network_wheels').notNull().default({}).$type<NetworkWheelsKept>(),
     changedBy: uuid('changed_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
+
+/** A network's training wheels as kept in `automation.network_wheels`: when they started, OKs, edits, when done. */
+export interface NetworkWheelKept {
+  readonly from: string | null;
+  readonly ok: number;
+  readonly edits: readonly boolean[];
+  readonly doneAt: string | null;
+}
+export type NetworkWheelsKept = Partial<Record<OtherPlatform, NetworkWheelKept>>;
 
 /**
  * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27): the words that go and the

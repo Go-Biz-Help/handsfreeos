@@ -10,6 +10,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
+import type { Platform } from '../networks';
 import type { DraftOpener } from '../openers';
 import {
   changed,
@@ -114,9 +115,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       );
     const [had] = await open();
     if (had) return had;
-    const [profile] = await rows<{ id: string; name: string; off: boolean }>(
+    const [profile] = await rows<{ id: string; name: string; platform: Platform; off: boolean }>(
       ctx.tx,
-      sql`select p.id, p.name, not ${contactable('p')} as off from addon_outreach.profiles p
+      sql`select p.id, p.name, p.platform, not ${contactable('p')} as off from addon_outreach.profiles p
           where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
     );
     if (!profile)
@@ -136,7 +137,8 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
           .from(fileChats)
           .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
       : [];
-    const { settings, wheels } = await automationOf(ctx, me);
+    // The person's choices and training wheels on the network the message goes on: each network's are its own.
+    const { choices: settings, wheels } = await automationOf(ctx, me, Date.now(), profile.platform);
     const at = changeMoment(ctx.meta);
     // A reply goes on its own only to what HandsFreeOS saw them write, and never to someone who needs the person.
     const theirs =
@@ -282,8 +284,28 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         payload: { kind: s.kind, changed: edits[edits.length - 1] },
       });
     }
-    const wheels = await countWheels(ctx, me, edits);
-    return { approved: waiting.map((s) => s.id), wheels };
+    // Each network's training wheels count its own messages OK'd.
+    const platforms = waiting.length
+      ? await ctx.tx
+          .select({ id: profiles.id, platform: profiles.platform })
+          .from(profiles)
+          .where(inArray(profiles.id, [...new Set(waiting.map((s) => s.profileId))]))
+      : [];
+    const platformOf = new Map(platforms.map((p) => [p.id, p.platform]));
+    const byNetwork = new Map<Platform, boolean[]>();
+    waiting.forEach((s, i) => {
+      const platform = platformOf.get(s.profileId) ?? 'facebook';
+      byNetwork.set(platform, [...(byNetwork.get(platform) ?? []), edits[i]!]);
+    });
+    let wheels = null;
+    for (const [platform, changes] of byNetwork) {
+      const state = await countWheels(ctx, me, changes, platform);
+      if (!wheels || platform === 'facebook') wheels = state;
+    }
+    return {
+      approved: waiting.map((s) => s.id),
+      wheels: wheels ?? (await countWheels(ctx, me, [])),
+    };
   },
 });
 

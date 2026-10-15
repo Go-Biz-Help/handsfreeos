@@ -7339,6 +7339,78 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "networks": {
+                "type": "object",
+                "properties": {
+                  "facebook": {
+                    "default": {
+                      "on": true
+                    },
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": true,
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "linkedin": {
+                    "default": {
+                      "on": false,
+                      "sending": "off",
+                      "replies": "draft",
+                      "warmUp": true,
+                      "confirmRequests": true,
+                      "collect": true,
+                      "joinGroups": true,
+                      "watchPosts": true,
+                      "posting": "after_ok"
+                    },
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "default": "off",
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      }
+                    }
+                  }
+                }
               }
             },
             "required": ["sending", "warmUp", "confirmRequests", "hours"]
@@ -8299,6 +8371,11 @@
           "userId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId", "userId"]

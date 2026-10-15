@@ -31,6 +31,7 @@ import {
   LiveTeamOutput,
   numberedName,
   sendingOffWords,
+  networkOffWords,
   shownState,
   warnedTodayWords,
   type ComputerShown,
@@ -273,10 +274,12 @@ async function setDay(
     const kept = await dayOf(ctx, me, platform, today);
     if (warning?.today || kept.why === 'warning')
       throw HfosError.rule('outreach_warned_today', 409, warnedTodayWords(platform));
+    // A network the person doesn't work has no day to start.
+    const { choices: settings, rules } = await automationOf(ctx, me, Date.now(), platform);
+    if (!settings.on) throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
     // Nothing outreach-like until they're ready (decision 63): the first item left says where to finish it.
     const ready = await readinessFor(ctx, me);
     if (!ready.ready) throw HfosError.rule('outreach_not_ready', 409, notReadyWords(ready));
-    const { settings, rules } = await automationOf(ctx, me);
     if (settings.sending === 'off')
       throw HfosError.rule(
         'outreach_sending_off',

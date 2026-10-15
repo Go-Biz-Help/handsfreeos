@@ -7,7 +7,9 @@
  */
 import {
   DAILY_LIMITS,
+  DAILY_STEPS,
   FRIENDS_CAP,
+  limitNow,
   PROFILE_ID,
   THREAD_KEY,
   TIDY_LIMITS,
@@ -101,6 +103,26 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     },
   },
 };
+
+/**
+ * A network's daily limits as they stand for the person: the business's own on that network, each at most the
+ * network's starting one, halved (never below one) after a warning there or on training wheels there.
+ */
+export function networkLimitsNow(
+  platform: Platform,
+  slower: boolean,
+  business: Partial<Readonly<Record<DailyStep, number>>> = {},
+): Record<DailyStep, number> {
+  const starting = NETWORKS[platform].dailyLimits;
+  return Object.fromEntries(
+    DAILY_STEPS.map((step) => [
+      step,
+      business[step] === 0
+        ? 0
+        : limitNow(Math.min(starting[step], business[step] ?? Infinity), slower),
+    ]),
+  ) as Record<DailyStep, number>;
+}
 
 /** The network a link is on, or null when it's on none the add-on knows. */
 export function networkOfLink(url: string): Platform | null {

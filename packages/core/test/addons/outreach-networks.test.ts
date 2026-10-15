@@ -12,7 +12,11 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
+import {
+  AUTOMATION_DEFAULTS,
+  NETWORK_CHOICES_DEFAULTS,
+  NETWORKS_DEFAULTS,
+} from '../../src/addons/outreach/automation';
 import { networkOfLink, NETWORKS, profileMisfit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
@@ -119,7 +123,8 @@ describe('each network on its own', () => {
     // LinkedIn: halved, its invitations off the list, its day stopped, Start refused in LinkedIn's words.
     const linkedIn = await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' });
     expect(linkedIn.warning?.today).toBe(true);
-    expect(linkedIn.limits.friend_request.most).toBe(10);
+    // LinkedIn's own starting limit (15), halved.
+    expect(linkedIn.limits.friend_request.most).toBe(7);
     const [day] = await rows<{ platform: string; state: string; why: string }>(
       admin(),
       sql`select platform, state, why from addon_outreach.days
@@ -164,7 +169,14 @@ describe('each network on its own', () => {
   it('keeps each network’s day: a stop or a warning on LinkedIn leaves Facebook’s day going', async () => {
     const dana = await teammate('Harper Lane');
     await runAs(dana, ws, 'outreach.automation.save', {
-      settings: { ...AUTOMATION_DEFAULTS, sending: 'steps' },
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        sending: 'steps',
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          linkedin: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: 'steps' },
+        },
+      },
     });
     expect(await runAs(dana, ws, 'outreach.day.start', {})).toMatchObject({ state: 'started' });
     expect(await runAs(dana, ws, 'outreach.day.start', { platform: 'linkedin' })).toMatchObject({
@@ -215,7 +227,7 @@ describe('each network on its own', () => {
     expect(await refused(runAs(dana, ws, 'outreach.day.start', {}))).toBe('outreach_warned_today');
     const linkedIn = await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' });
     expect(linkedIn.warning).toBeNull();
-    expect(linkedIn.limits.friend_request.most).toBe(20);
+    expect(linkedIn.limits.friend_request.most).toBe(15);
   });
 });
 
@@ -299,5 +311,103 @@ describe('each network’s own shapes', () => {
         }),
       ),
     ).toBe('outreach_wrong_network');
+  });
+});
+
+describe('each network’s own choices', () => {
+  const linkedIn = (more: Record<string, unknown> = {}) => ({
+    ...AUTOMATION_DEFAULTS,
+    networks: {
+      ...NETWORKS_DEFAULTS,
+      linkedin: { ...NETWORK_CHOICES_DEFAULTS, on: true, ...more },
+    },
+  });
+  const setRules = (rules: Record<string, unknown>) =>
+    runAs(owner, ws, 'addon.save_settings', { addonId: 'outreach', settings: { rules } });
+
+  it('keep LinkedIn off to start, and its choices apart from Facebook’s', async () => {
+    const dana = await teammate('Jesse Park');
+    const fresh = await runAs(dana, ws, 'outreach.automation', {});
+    expect(fresh.settings.networks).toEqual(NETWORKS_DEFAULTS);
+    expect(fresh.settings.networks.linkedin.on).toBe(false);
+    // Off, LinkedIn has no day to start, and the extension does nothing there on its own.
+    expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'linkedin' }))).toBe(
+      'outreach_network_off',
+    );
+    expect((await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).auto).toEqual([]);
+
+    const saved = await runAs(dana, ws, 'outreach.automation.save', {
+      settings: linkedIn({ sending: 'steps', warmUp: false }),
+    });
+    expect(saved.settings.sending).toBe('off');
+    expect(saved.settings.networks.linkedin).toMatchObject({
+      on: true,
+      sending: 'steps',
+      warmUp: false,
+    });
+    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first.
+    expect((await runAs(dana, ws, 'outreach.today', {})).auto).toEqual([]);
+    expect((await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).auto).toEqual([
+      'confirm',
+      'friend_request',
+      'comment',
+    ]);
+    // A screen from before networks sends none: the ones kept stay.
+    const { networks: _left, ...before } = AUTOMATION_DEFAULTS;
+    const again = await runAs(dana, ws, 'outreach.automation.save', { settings: before });
+    expect(again.settings.networks.linkedin).toMatchObject({ on: true, sending: 'steps' });
+  });
+
+  it('keep each network’s training wheels its own', async () => {
+    const dana = await teammate('Morgan Ellis');
+    const saved = await runAs(dana, ws, 'outreach.automation.save', {
+      settings: linkedIn({ sending: 'everything' }),
+    });
+    expect(saved.networkWheels.linkedin.on).toBe(true);
+    expect(saved.wheels.on).toBe(false);
+    // Halved on LinkedIn for the wheels; Facebook as it was.
+    expect(
+      (await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).limits.like.most,
+    ).toBe(15);
+    expect((await runAs(dana, ws, 'outreach.today', {})).limits.like.most).toBe(40);
+    // An owner ends LinkedIn's early; a LinkedIn warning puts them back on, and only LinkedIn's.
+    expect(
+      await runAs(owner, ws, 'outreach.wheels.end', { userId: dana.id, platform: 'linkedin' }),
+    ).toEqual({ userId: dana.id, ended: true });
+    expect((await runAs(dana, ws, 'outreach.automation', {})).networkWheels.linkedin.on).toBe(
+      false,
+    );
+    await warn(dana, 'linkedin', 'We restrict accounts that send too many invitations');
+    const after = await runAs(dana, ws, 'outreach.automation', {});
+    expect(after.networkWheels.linkedin.on).toBe(true);
+    expect(after.wheels.on).toBe(false);
+    const listed = await runAs(owner, ws, 'outreach.wheels', {});
+    expect(
+      listed.people
+        .filter((p: { userId: string }) => p.userId === dana.id)
+        .map((p: { platform: string }) => p.platform),
+    ).toEqual(['linkedin']);
+  });
+
+  it('keep to the networks and limits the business allows', async () => {
+    const dana = await teammate('Riley Fox');
+    await setRules({ networksAllowed: ['facebook'], networkLimits: { linkedin: { like: 12 } } });
+    expect(
+      await refused(runAs(dana, ws, 'outreach.automation.save', { settings: linkedIn() })),
+    ).toBe('not_allowed');
+    await setRules({ networkLimits: { linkedin: { like: 12 } } });
+    await runAs(dana, ws, 'outreach.automation.save', { settings: linkedIn() });
+    expect(
+      (await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).limits.like.most,
+    ).toBe(12);
+    // The business stops allowing LinkedIn: theirs reads as off, and its day won't start.
+    await setRules({ networksAllowed: ['facebook'] });
+    expect((await runAs(dana, ws, 'outreach.automation', {})).settings.networks.linkedin.on).toBe(
+      false,
+    );
+    expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'linkedin' }))).toBe(
+      'outreach_network_off',
+    );
+    await setRules({});
   });
 });

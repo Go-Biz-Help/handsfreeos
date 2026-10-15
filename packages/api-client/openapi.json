@@ -82523,6 +82523,91 @@
                             "type": "boolean"
                           }
                         }
+                      },
+                      "networks": {
+                        "type": "object",
+                        "properties": {
+                          "facebook": {
+                            "default": {
+                              "on": true
+                            },
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "default": true,
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "linkedin": {
+                            "default": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            },
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "default": "off",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "default": "draft",
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "default": "after_ok",
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              }
+                            }
+                          }
+                        }
                       }
                     },
                     "required": [
@@ -82685,6 +82770,128 @@
                             "split"
                           ],
                           "additionalProperties": false
+                        },
+                        "networks": {
+                          "default": {
+                            "facebook": {
+                              "on": true
+                            },
+                            "linkedin": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            }
+                          },
+                          "type": "object",
+                          "properties": {
+                            "facebook": {
+                              "default": {
+                                "on": true
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": true,
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "on"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "linkedin": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "facebook",
+                            "linkedin"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -82702,7 +82909,8 @@
                         "markPosts",
                         "pushes",
                         "dayReport",
-                        "voice"
+                        "voice",
+                        "networks"
                       ],
                       "additionalProperties": false
                     },
@@ -82765,6 +82973,58 @@
                         "ok",
                         "daysLeft",
                         "edits"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "networkWheels": {
+                      "type": "object",
+                      "properties": {
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "daysLeft": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "edits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "ok",
+                            "daysLeft",
+                            "edits"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "linkedin"
                       ],
                       "additionalProperties": false
                     },
@@ -82849,13 +83109,62 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "networksAllowed": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          }
+                        },
+                        "networkLimits": {
+                          "type": "object",
+                          "properties": {
+                            "linkedin": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "sendingAllowed",
                         "repliesAllowed",
                         "postingAllowed",
-                        "dailyLimits"
+                        "dailyLimits",
+                        "networksAllowed",
+                        "networkLimits"
                       ],
                       "additionalProperties": false
                     }
@@ -82866,6 +83175,7 @@
                     "startedAt",
                     "saved",
                     "wheels",
+                    "networkWheels",
                     "userId",
                     "name",
                     "changedBy",
@@ -82941,7 +83251,7 @@
     "/v1/commands/outreach.wheels.end": {
       "post": {
         "operationId": "command_outreach_wheels_end",
-        "summary": "An owner or admin ends someone’s training wheels early: their messages go without waiting for them, and their daily limits are full again.",
+        "summary": "An owner or admin ends someone’s training wheels early on one network: their messages there go without waiting for them, and their daily limits there are full again.",
         "tags": [
           "commands"
         ],
@@ -82962,6 +83272,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -173503,6 +173821,128 @@
                             "split"
                           ],
                           "additionalProperties": false
+                        },
+                        "networks": {
+                          "default": {
+                            "facebook": {
+                              "on": true
+                            },
+                            "linkedin": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            }
+                          },
+                          "type": "object",
+                          "properties": {
+                            "facebook": {
+                              "default": {
+                                "on": true
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": true,
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "on"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "linkedin": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "facebook",
+                            "linkedin"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -173520,7 +173960,8 @@
                         "markPosts",
                         "pushes",
                         "dayReport",
-                        "voice"
+                        "voice",
+                        "networks"
                       ],
                       "additionalProperties": false
                     },
@@ -173583,6 +174024,58 @@
                         "ok",
                         "daysLeft",
                         "edits"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "networkWheels": {
+                      "type": "object",
+                      "properties": {
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "daysLeft": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "edits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "ok",
+                            "daysLeft",
+                            "edits"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "linkedin"
                       ],
                       "additionalProperties": false
                     },
@@ -173667,13 +174160,62 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "networksAllowed": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          }
+                        },
+                        "networkLimits": {
+                          "type": "object",
+                          "properties": {
+                            "linkedin": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "sendingAllowed",
                         "repliesAllowed",
                         "postingAllowed",
-                        "dailyLimits"
+                        "dailyLimits",
+                        "networksAllowed",
+                        "networkLimits"
                       ],
                       "additionalProperties": false
                     }
@@ -173684,6 +174226,7 @@
                     "startedAt",
                     "saved",
                     "wheels",
+                    "networkWheels",
                     "userId",
                     "name",
                     "changedBy",
@@ -173746,6 +174289,14 @@
                           "name": {
                             "type": "string"
                           },
+                          "platform": {
+                            "default": "facebook",
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
                           "wheels": {
                             "type": "object",
                             "properties": {
@@ -173793,6 +174344,7 @@
                         "required": [
                           "userId",
                           "name",
+                          "platform",
                           "wheels"
                         ],
                         "additionalProperties": false

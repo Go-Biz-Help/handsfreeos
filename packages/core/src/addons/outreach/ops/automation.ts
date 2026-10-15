@@ -20,9 +20,14 @@ import {
   AutomationOutput,
   AutomationSaveInput,
   AutomationSaveOutput,
+  businessLimitsOn,
+  choicesFor,
   dayList,
+  NETWORKS_DEFAULTS,
+  NetworksSettings,
   notAllowedWords,
   NO_WHEELS,
+  OTHER_PLATFORMS,
   WHEELS,
   WarmUpMissedInput,
   WarmUpMissedOutput,
@@ -36,17 +41,25 @@ import {
   withinRules,
   type AutomationSettings,
   type BusinessRules,
+  type NetworkChoices,
+  type OtherPlatform,
   type WheelsKept,
   type WheelsState,
 } from '../automation';
 import { outreachSettings } from '../chat-read';
 import type { Voice } from '../voice';
-import { dailyLimitsNow } from '../limits';
 import { outreachAddon } from '../manifest';
-import { automation, profiles, setup } from '../tables';
+import { networkLimitsNow, type Platform } from '../networks';
+import { automation, profiles, setup, type NetworkWheelKept } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
 type Row = typeof automation.$inferSelect;
+
+/** Which networks the person works and each other network's choices, as kept: the defaults fill in what isn't. */
+function networksOf(row: Row): NetworksSettings {
+  const read = NetworksSettings.safeParse(row.networks ?? {});
+  return read.success ? read.data : NETWORKS_DEFAULTS;
+}
 
 /** A person's choices as kept, or the business's defaults until they save their own; inside its rules either way. */
 const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =>
@@ -73,6 +86,7 @@ const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSetti
             emoji: row.voiceEmoji,
             split: row.voiceSplit,
           },
+          networks: networksOf(row),
         }
       : rules.defaults,
     rules,
@@ -88,13 +102,45 @@ export async function rulesOf(ctx: Ctx): Promise<BusinessRules> {
   return outreachSettings(installed?.settings).rules;
 }
 
-const keptOf = (row: Row | undefined): WheelsKept =>
-  row
-    ? { from: row.wheelsFrom, ok: row.wheelsOk, edits: row.wheelsEdits, doneAt: row.wheelsDoneAt }
-    : NO_WHEELS;
+/** A person's training wheels on a network, as kept: Facebook's in the wheels columns, any other's in `network_wheels`. */
+const keptOf = (row: Row | undefined, platform: Platform = 'facebook'): WheelsKept => {
+  if (!row) return NO_WHEELS;
+  if (platform === 'facebook')
+    return {
+      from: row.wheelsFrom,
+      ok: row.wheelsOk,
+      edits: row.wheelsEdits,
+      doneAt: row.wheelsDoneAt,
+    };
+  return row.networkWheels[platform] ?? NO_WHEELS;
+};
 
-const stateOf = (row: Row | undefined, rules: BusinessRules, now: number): WheelsState =>
-  wheelsState(keptOf(row), now, wheelsMatter(settingsOf(row, rules)));
+const stateOf = (
+  row: Row | undefined,
+  rules: BusinessRules,
+  now: number,
+  platform: Platform = 'facebook',
+): WheelsState =>
+  wheelsState(
+    keptOf(row, platform),
+    now,
+    wheelsMatter(choicesFor(settingsOf(row, rules), platform)),
+  );
+
+/** Each other network's training wheels, as the settings show them. */
+const networkWheelsOf = (row: Row | undefined, rules: BusinessRules, now: number) =>
+  Object.fromEntries(OTHER_PLATFORMS.map((p) => [p, stateOf(row, rules, now, p)])) as Record<
+    OtherPlatform,
+    WheelsState
+  >;
+
+/** A network's training wheels kept anew: `network_wheels` with that network's changed. */
+const withWheels = (row: Row, platform: OtherPlatform, kept: NetworkWheelKept) => ({
+  ...row.networkWheels,
+  [platform]: kept,
+});
+
+const iso = (at: Date | string | null) => (at === null ? null : new Date(at).toISOString());
 
 async function rowOf(ctx: Ctx, userId: string): Promise<Row | undefined> {
   const [row] = await ctx.tx
@@ -104,22 +150,29 @@ async function rowOf(ctx: Ctx, userId: string): Promise<Row | undefined> {
   return row;
 }
 
-/** A person's own choices in the business, the defaults until they save theirs, and their training wheels. */
+/**
+ * A person's own choices in the business, the defaults until they save theirs; and on one network (Facebook when left
+ * out), their choices there and their training wheels there.
+ */
 export async function automationOf(
   ctx: Ctx,
   userId: string,
   now = Date.now(),
+  platform: Platform = 'facebook',
 ): Promise<{
   settings: AutomationSettings;
+  choices: NetworkChoices;
   saved: boolean;
   wheels: WheelsState;
   rules: BusinessRules;
 }> {
   const [row, rules] = await Promise.all([rowOf(ctx, userId), rulesOf(ctx)]);
+  const settings = settingsOf(row, rules);
   return {
-    settings: settingsOf(row, rules),
+    settings,
+    choices: choicesFor(settings, platform),
     saved: row !== undefined,
-    wheels: stateOf(row, rules, now),
+    wheels: stateOf(row, rules, now, platform),
     rules,
   };
 }
@@ -156,63 +209,123 @@ export async function everyoneAutomation(ctx: Ctx, now = Date.now()) {
   ]);
   return {
     rules,
-    of(userId: string): { settings: AutomationSettings; wheels: WheelsState } {
+    of(
+      userId: string,
+      platform: Platform = 'facebook',
+    ): { settings: AutomationSettings; wheels: WheelsState } {
       const row = kept.find((k) => k.userId === userId);
-      return { settings: settingsOf(row, rules), wheels: stateOf(row, rules, now) };
+      return { settings: settingsOf(row, rules), wheels: stateOf(row, rules, now, platform) };
     },
   };
 }
 
 /**
- * Whether the person's daily limits are half now: after a warning from Facebook (decision 25), or on training wheels.
+ * Whether the person's daily limits on a network are half now: after a warning there (decision 25), or on training
+ * wheels there.
  */
-export async function slowerFor(ctx: Ctx, userId: string, warned: boolean, now = Date.now()) {
-  return warned || (await automationOf(ctx, userId, now)).wheels.on;
+export async function slowerFor(
+  ctx: Ctx,
+  userId: string,
+  warned: boolean,
+  now = Date.now(),
+  platform: Platform = 'facebook',
+) {
+  return warned || (await automationOf(ctx, userId, now, platform)).wheels.on;
 }
 
-/** The person's daily limits now: the business's own, halved after a warning or on training wheels. */
-export async function limitsFor(ctx: Ctx, userId: string, warned: boolean, now = Date.now()) {
-  const { wheels, rules } = await automationOf(ctx, userId, now);
-  return dailyLimitsNow(warned || wheels.on, rules.dailyLimits);
+/** The person's daily limits on a network now: the business's own there, halved after a warning or on training wheels. */
+export async function limitsFor(
+  ctx: Ctx,
+  userId: string,
+  warned: boolean,
+  now = Date.now(),
+  platform: Platform = 'facebook',
+) {
+  const { wheels, rules } = await automationOf(ctx, userId, now, platform);
+  return networkLimitsNow(platform, warned || wheels.on, businessLimitsOn(rules, platform));
 }
 
-/** One message OK'd on training wheels: it counts toward the 25, and whether it was changed toward the last 10. */
-export async function countWheels(ctx: Ctx, userId: string, edits: readonly boolean[]) {
+/**
+ * One message OK'd on training wheels on a network: it counts toward the 25, and whether it was changed toward the
+ * last 10. Each network's wheels are its own.
+ */
+export async function countWheels(
+  ctx: Ctx,
+  userId: string,
+  edits: readonly boolean[],
+  platform: Platform = 'facebook',
+) {
   const [row, rules] = await Promise.all([rowOf(ctx, userId), rulesOf(ctx)]);
   const now = Date.now();
-  if (!row || !edits.length || !wheelsMatter(settingsOf(row, rules)) || !wheelsOn(keptOf(row), now))
-    return stateOf(row, rules, now);
+  const kept = keptOf(row, platform);
+  if (
+    !row ||
+    !edits.length ||
+    !wheelsMatter(choicesFor(settingsOf(row, rules), platform)) ||
+    !wheelsOn(kept, now)
+  )
+    return stateOf(row, rules, now, platform);
+  const at = changeMoment(ctx.meta);
+  const counted = {
+    ok: kept.ok + edits.length,
+    edits: [...kept.edits, ...edits].slice(-WHEELS.last),
+  };
+  if (platform === 'facebook') {
+    const [after] = await ctx.tx
+      .update(automation)
+      .set({ wheelsOk: counted.ok, wheelsEdits: counted.edits, updatedAt: at })
+      .where(eq(automation.id, row.id))
+      .returning();
+    // Earned: they stay off from now on, whatever comes of the next ones.
+    const state = stateOf(after, rules, now);
+    if (!state.on)
+      await ctx.tx.update(automation).set({ wheelsDoneAt: at }).where(eq(automation.id, row.id));
+    return state;
+  }
+  const next = { from: iso(kept.from), ok: counted.ok, edits: counted.edits, doneAt: null };
+  const earned = !wheelsOn(next, now);
   const [after] = await ctx.tx
     .update(automation)
     .set({
-      wheelsOk: row.wheelsOk + edits.length,
-      wheelsEdits: [...row.wheelsEdits, ...edits].slice(-WHEELS.last),
-      updatedAt: changeMoment(ctx.meta),
+      networkWheels: withWheels(row, platform, {
+        ...next,
+        doneAt: earned ? at.toISOString() : null,
+      }),
+      updatedAt: at,
     })
     .where(eq(automation.id, row.id))
     .returning();
-  // Earned: they stay off from now on, whatever comes of the next ones.
-  const state = stateOf(after, rules, now);
-  if (!state.on)
-    await ctx.tx
-      .update(automation)
-      .set({ wheelsDoneAt: changeMoment(ctx.meta) })
-      .where(eq(automation.id, row.id));
-  return state;
+  return stateOf(after, rules, now, platform);
 }
 
-/** A warning from Facebook puts training wheels back on for 7 days, for anyone who ever had them. */
-export async function wheelsBackOn(ctx: Ctx, userId: string) {
+/**
+ * A warning puts training wheels back on for 7 days on the network that showed it, for anyone who ever had them
+ * there. The person's other networks keep theirs as they were.
+ */
+export async function wheelsBackOn(ctx: Ctx, userId: string, platform: Platform = 'facebook') {
+  const at = changeMoment(ctx.meta);
+  if (platform === 'facebook') {
+    await ctx.tx
+      .update(automation)
+      .set({ wheelsFrom: at, wheelsDoneAt: null })
+      .where(
+        and(
+          eq(automation.workspaceId, ctx.scope.workspaceId!),
+          eq(automation.userId, userId),
+          isNotNull(automation.wheelsFrom),
+        ),
+      );
+    return;
+  }
+  const row = await rowOf(ctx, userId);
+  const kept = row?.networkWheels[platform];
+  if (!row || !kept?.from) return;
   await ctx.tx
     .update(automation)
-    .set({ wheelsFrom: changeMoment(ctx.meta), wheelsDoneAt: null })
-    .where(
-      and(
-        eq(automation.workspaceId, ctx.scope.workspaceId!),
-        eq(automation.userId, userId),
-        isNotNull(automation.wheelsFrom),
-      ),
-    );
+    .set({
+      networkWheels: withWheels(row, platform, { ...kept, from: at.toISOString(), doneAt: null }),
+    })
+    .where(eq(automation.id, row.id));
 }
 
 /** Whose choices a request is for: the person's own, or for an owner or admin, anyone's here. */
@@ -253,10 +366,12 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
     sql`select installed_at as at from app.addon_installations
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
   );
+  const now = Date.now();
   return {
     settings: settingsOf(row, rules),
     saved: row !== undefined,
-    wheels: stateOf(row, rules, Date.now()),
+    wheels: stateOf(row, rules, now),
+    networkWheels: networkWheelsOf(row, rules, now),
     timezone: await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
     startedAt: installed ? new Date(installed.at).toISOString() : null,
     userId: whose,
@@ -267,6 +382,8 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
       repliesAllowed: rules.repliesAllowed,
       postingAllowed: rules.postingAllowed,
       dailyLimits: rules.dailyLimits,
+      networksAllowed: rules.networksAllowed,
+      networkLimits: rules.networkLimits,
     },
   };
 }
@@ -303,19 +420,26 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const rules = await rulesOf(ctx);
     const before = await rowOf(ctx, whose);
-    // A screen from before the voice, or the day's report, sends none: the one kept stays.
+    // A screen from before the voice, the day's report or the networks sends none: the ones kept stay.
     const kept = settingsOf(before, rules);
     const s: AutomationSettings = {
       ...input.settings,
       voice: input.settings.voice ?? kept.voice,
       dayReport: input.settings.dayReport ?? kept.dayReport,
+      networks: input.settings.networks ?? kept.networks,
     };
     const refused = notAllowedWords(s, rules);
     if (refused) throw HfosError.rule('not_allowed', 403, refused);
-    // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once.
+    // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once, on each network on its own.
     const wheels = wheelsMatter(s) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
+    const networkWheels = { ...(before?.networkWheels ?? {}) };
+    for (const p of OTHER_PLATFORMS)
+      if (wheelsMatter(s.networks[p]) && !networkWheels[p]?.from)
+        networkWheels[p] = { from: at.toISOString(), ok: 0, edits: [], doneAt: null };
     const values = {
       ...wheels,
+      networks: s.networks,
+      networkWheels,
       sending: s.sending,
       replies: s.replies,
       warmUp: s.warmUp,
@@ -365,6 +489,9 @@ export const automationSave = defineAddonCommand(outreachAddon, {
         warmUp: s.warmUp,
         confirmRequests: s.confirmRequests,
         collect: s.collect,
+        networks: Object.fromEntries(
+          (['facebook', ...OTHER_PLATFORMS] as const).map((p) => [p, choicesFor(s, p).on]),
+        ),
         byOther: whose !== me,
       },
     });
@@ -407,7 +534,7 @@ export const warmUpMissed = defineAddonCommand(outreachAddon, {
 export const wheelsEnd = defineAddonCommand(outreachAddon, {
   name: 'outreach.wheels.end',
   description:
-    'An owner or admin ends someone’s training wheels early: their messages go without waiting for them, and their daily limits are full again.',
+    'An owner or admin ends someone’s training wheels early on one network: their messages there go without waiting for them, and their daily limits there are full again.',
   risk: 1,
   input: WheelsEndInput,
   output: WheelsEndOutput,
@@ -416,26 +543,42 @@ export const wheelsEnd = defineAddonCommand(outreachAddon, {
   emits: ['outreach.wheels.ended'],
   async handler(ctx, input) {
     requireHuman(ctx);
-    const [row] = await ctx.tx
+    const at = changeMoment(ctx.meta);
+    const ended = async (id: string) => {
+      await ctx.emit({
+        type: 'outreach.wheels.ended',
+        entityType: 'outreach_automation',
+        entityId: id,
+        payload: { userId: input.userId, platform: input.platform },
+      });
+      return { userId: input.userId, ended: true };
+    };
+    if (input.platform === 'facebook') {
+      const [row] = await ctx.tx
+        .update(automation)
+        .set({ wheelsDoneAt: at, updatedAt: at })
+        .where(
+          and(
+            eq(automation.workspaceId, ctx.scope.workspaceId!),
+            eq(automation.userId, input.userId),
+            isNotNull(automation.wheelsFrom),
+            sql`${automation.wheelsDoneAt} is null`,
+          ),
+        )
+        .returning({ id: automation.id });
+      return row ? ended(row.id) : { userId: input.userId, ended: false };
+    }
+    const row = await rowOf(ctx, input.userId);
+    const kept = row?.networkWheels[input.platform];
+    if (!row || !kept?.from || kept.doneAt) return { userId: input.userId, ended: false };
+    await ctx.tx
       .update(automation)
-      .set({ wheelsDoneAt: changeMoment(ctx.meta), updatedAt: changeMoment(ctx.meta) })
-      .where(
-        and(
-          eq(automation.workspaceId, ctx.scope.workspaceId!),
-          eq(automation.userId, input.userId),
-          isNotNull(automation.wheelsFrom),
-          sql`${automation.wheelsDoneAt} is null`,
-        ),
-      )
-      .returning({ id: automation.id });
-    if (!row) return { userId: input.userId, ended: false };
-    await ctx.emit({
-      type: 'outreach.wheels.ended',
-      entityType: 'outreach_automation',
-      entityId: row.id,
-      payload: { userId: input.userId },
-    });
-    return { userId: input.userId, ended: true };
+      .set({
+        networkWheels: withWheels(row, input.platform, { ...kept, doneAt: at.toISOString() }),
+        updatedAt: at,
+      })
+      .where(eq(automation.id, row.id));
+    return ended(row.id);
   },
 });
 
@@ -454,18 +597,19 @@ export const wheelsList = defineAddonQuery(outreachAddon, {
       .select({ row: automation, fullName: users.fullName, email: users.email })
       .from(automation)
       .innerJoin(users, eq(users.id, automation.userId))
-      .where(
-        and(eq(automation.workspaceId, ctx.scope.workspaceId!), isNotNull(automation.wheelsFrom)),
-      );
+      .where(eq(automation.workspaceId, ctx.scope.workspaceId!));
     return {
       people: kept
-        .map(({ row, fullName, email }) => ({
-          userId: row.userId,
-          name: fullName || email,
-          wheels: stateOf(row, rules, now),
-        }))
+        .flatMap(({ row, fullName, email }) =>
+          (['facebook', ...OTHER_PLATFORMS] as const).map((platform) => ({
+            userId: row.userId,
+            name: fullName || email,
+            platform,
+            wheels: stateOf(row, rules, now, platform),
+          })),
+        )
         .filter((p) => p.wheels.on)
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => a.name.localeCompare(b.name) || a.platform.localeCompare(b.platform)),
     };
   },
 });

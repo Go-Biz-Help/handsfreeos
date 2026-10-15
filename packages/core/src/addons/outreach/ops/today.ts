@@ -15,12 +15,14 @@ import {
   WARM_UP_WAIT_HOURS,
   WARM_UP_WINDOW_DAYS,
   autoKinds,
+  businessLimitsOn,
   messageKinds,
 } from '../automation';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
-import { dailyLimitsNow, type DailyStep } from '../limits';
+import { type DailyStep } from '../limits';
+import { networkLimitsNow } from '../networks';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -177,11 +179,16 @@ export const today = defineAddonQuery(outreachAddon, {
     // The network's own warning and steps: another network's never slow this one or use up its limits.
     const warning = await warningOf(ctx, me, input.platform, todayStart, now);
     const done = (await dayCounts(ctx, [me], input.platform, todayStart)).get(me)!;
-    const { settings, wheels, rules } = await automationOf(ctx, me, now);
-    // The business's own, halved after a warning from Facebook, and on training wheels.
+    // The person's choices, training wheels and limits on this network: each network's are its own.
+    const { choices: settings, wheels, rules } = await automationOf(ctx, me, now, input.platform);
+    // The business's own on this network, halved after a warning there, and on training wheels there.
     const limits = todayLimits(
       done,
-      dailyLimitsNow(slowsNow(warning, now) || wheels.on, rules.dailyLimits),
+      networkLimitsNow(
+        input.platform,
+        slowsNow(warning, now) || wheels.on,
+        businessLimitsOn(rules, input.platform),
+      ),
     );
     // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
     // done on its own: Get ready shows in place of the rest.
