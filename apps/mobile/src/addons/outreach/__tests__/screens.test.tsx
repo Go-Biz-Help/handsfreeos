@@ -159,6 +159,7 @@ const post = (n: number, name: string, asking: boolean): TodayItem => ({
   nextStep: null,
   playbookName: null,
   demoLink: null,
+  videoLink: null,
   send: null,
   personId: null,
   demoBooked: false,

@@ -52,6 +52,7 @@ const item = (more: Partial<TodayListItem>): TodayListItem => ({
   nextStep: null,
   playbookName: null,
   demoLink: null,
+  videoLink: null,
   send: null,
   personId: null,
   demoBooked: false,

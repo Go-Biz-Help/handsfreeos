@@ -79,7 +79,8 @@ const READY_OFFER = {
 
 /**
  * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche and its problem on each playbook in use
- * without them, and each person's profile read and checked right, and ticked, against the live version, and a goal set.
+ * without them, and each person's profile read and checked right, and ticked, against the live version, their messages
+ * OK'd, and a goal set.
  * Safe to run again.
  */
 export async function getReady(ws: string, userIds: readonly string[]): Promise<void> {
@@ -118,6 +119,14 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
               numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
               profile = excluded.profile, profile_check = excluded.profile_check`,
     );
+  // Their messages OK'd against the live version (Your messages).
+  await rows(
+    admin(),
+    sql`update addon_outreach.setup
+        set messages_at = now(),
+          messages_version = (select live_version from app.main_offers where workspace_id = ${ws})
+        where workspace_id = ${ws} and user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
+  );
 }
 
 /** Turns the add-on off or back on in a business. */

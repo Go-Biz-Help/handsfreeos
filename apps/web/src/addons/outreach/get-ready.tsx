@@ -2,9 +2,10 @@
 /**
  * Get ready for your best results (docs/outreach.md, decision 63; packages/core/src/addons/outreach/readiness.ts): the
  * card on Today while the person isn't ready, and the setup's step. Each item says what's left and opens where it's
- * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own two in a sheet here:
+ * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own three in a sheet here:
  * their profile, read by their computer and checked by the AI (decision 64), with bios to put in and each item to tick
- * once it's right; and their goal with the math worked as they change it.
+ * once it's right; their messages, samples the AI writes for their playbook in their voice, to OK (decisions 65 to 67);
+ * and their goal with the math worked as they change it.
  */
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import {
@@ -18,8 +19,10 @@ import {
   type ReadyItem,
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
+import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
 import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
-import { Check, CheckCircle2, Circle, Clock, RefreshCw } from 'lucide-react';
+import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -29,6 +32,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Stepper } from '@/components/ui/stepper';
 import { copyText } from '@/components/ui/copy-field';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -45,7 +49,7 @@ const STATE_ICON: Record<ReadyState, { icon: typeof Circle; className: string }>
   waiting: { icon: Clock, className: 'text-warning' },
 };
 
-/** The four items, each with what's left and where it's done. Used on Today's card and in the setup's step. */
+/** The five items, each with what's left and where it's done. Used on Today's card and in the setup's step. */
 export function ReadyItems({
   workspaceId,
   readiness,
@@ -59,7 +63,7 @@ export function ReadyItems({
   /** The person's own two changed: what the server says now. */
   onChange?: (next: Readiness) => void;
 }) {
-  const [open, setOpen] = useState<'profile' | 'numbers' | null>(null);
+  const [open, setOpen] = useState<'profile' | 'messages' | 'numbers' | null>(null);
   const go = (item: ReadyItem): ReactNode => {
     const label = R.items[item].go;
     if (item === 'offer')
@@ -117,7 +121,9 @@ export function ReadyItems({
                   <p className="text-[13px] text-text-2">{R.items[i.item].why}</p>
                 )}
                 {i.left ? <p className="mt-1 text-[13px]">{i.left}</p> : null}
-                {i.item === 'profile' && i.state === 'look_again' && readiness.changed.length ? (
+                {(i.item === 'profile' || i.item === 'messages') &&
+                i.state === 'look_again' &&
+                readiness.changed.length ? (
                   <p className="text-[13px] text-text-2">{R.changed(readiness.changed)}</p>
                 ) : null}
               </div>
@@ -143,6 +149,13 @@ export function ReadyItems({
         readiness={readiness}
         asks={asks}
         open={open === 'profile'}
+        onClose={() => setOpen(null)}
+        onChange={onChange}
+      />
+      <MessagesSheet
+        workspaceId={workspaceId}
+        readiness={readiness}
+        open={open === 'messages'}
         onClose={() => setOpen(null)}
         onChange={onChange}
       />
@@ -418,6 +431,183 @@ function ProfileSheet({
             <Button onClick={onClose} data-testid="ready-profile-done">
               {R.profile.done}
             </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * Your messages: samples the AI writes for the person's playbook, in their voice, to someone made up (the worker's
+ * `outreach.messages.samples`). The first messages, the video, the link, the follow-ups in turn and a check-in, each as
+ * it would read in Messenger; They read right OKs them against the main offer live now.
+ */
+function MessagesSheet({
+  workspaceId,
+  readiness,
+  open,
+  onClose,
+  onChange,
+}: {
+  workspaceId: string;
+  readiness: Readiness;
+  open: boolean;
+  onClose: () => void;
+  onChange?: (next: Readiness) => void;
+}) {
+  const M = R.messages;
+  const [samples, setSamples] = useState<MessageSamples | null>(readiness.messages.samples);
+  useEffect(() => setSamples(readiness.messages.samples), [readiness.messages.samples]);
+  const [busy, setBusy] = useState<'write' | 'ok' | null>(null);
+  const live = readiness.offer?.version ?? null;
+  const again = readiness.items.find((i) => i.item === 'messages')?.state === 'look_again';
+  // Written for an earlier version: shown, but written again before they're OK'd.
+  const older = samples !== null && live !== null && samples.version !== live;
+  const write = async () => {
+    setBusy('write');
+    try {
+      setSamples(
+        await workerPost<MessageSamples>('/v1/addons/outreach/actions/outreach.messages.samples', {
+          workspaceId,
+          input: {},
+        }),
+      );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const ok = async () => {
+    setBusy('ok');
+    try {
+      const next = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.readiness.messages', {
+          body: { workspaceId },
+        }),
+      );
+      toast.success(M.okd);
+      onChange?.(next);
+      onClose();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const bubble = (text: string, key?: string) => (
+    <p
+      key={key}
+      className="max-w-[88%] whitespace-pre-wrap rounded-[14px] bg-accent-soft px-3 py-2 text-[13.5px]"
+      data-testid="ready-message-sample"
+    >
+      {text}
+    </p>
+  );
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent title={M.title} description={M.hint}>
+        <div className="grid gap-4" data-testid="ready-messages-sheet">
+          {samples ? (
+            <p className="text-[12.5px] text-text-3">
+              {M.about(samples.playbookName, samples.version)}
+            </p>
+          ) : null}
+          {again ? (
+            <p
+              role="status"
+              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
+            >
+              <span className="font-semibold">{R.left.messagesAgain}</span>
+              {readiness.changed.length ? ` ${R.changed(readiness.changed)}` : null}
+            </p>
+          ) : older ? (
+            <p
+              role="status"
+              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
+            >
+              {M.older}
+            </p>
+          ) : null}
+          {busy === 'write' ? (
+            <p className="flex items-center gap-2 text-[13px] text-text-2" role="status">
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+              {M.writing}
+            </p>
+          ) : null}
+          {samples ? (
+            <div className="divide-y divide-border" data-testid="ready-messages-samples">
+              <section className="grid gap-2 pb-4">
+                <h3 className="font-semibold">{M.first}</h3>
+                {samples.first.map((t) => bubble(t, t))}
+              </section>
+              <section className="grid gap-2 py-4">
+                <h3 className="font-semibold">{M.video}</h3>
+                {samples.video ? (
+                  bubble(samples.video)
+                ) : (
+                  <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.noVideo}</p>
+                )}
+              </section>
+              {samples.link ? (
+                <section className="grid gap-2 py-4">
+                  <h3 className="font-semibold">{M.link}</h3>
+                  {bubble(samples.link)}
+                </section>
+              ) : null}
+              {samples.followUps.length ? (
+                <section className="grid gap-2 py-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="font-semibold">{M.followUps(samples.followUps.length)}</h3>
+                    <Link
+                      href={outreachHref(workspaceId, { view: 'playbooks' })}
+                      className="text-[13px] font-medium text-accent-text hover:underline"
+                    >
+                      {M.changeHowMany}
+                    </Link>
+                  </div>
+                  {samples.followUps.map((t, i) => (
+                    <div key={t} className="grid gap-1">
+                      <span className="text-[11.5px] tabular-nums text-text-3">
+                        {M.later(samples.followUpGaps[i] ?? 1)}
+                      </span>
+                      {bubble(t)}
+                    </div>
+                  ))}
+                </section>
+              ) : null}
+              {samples.checkIn ? (
+                <section className="grid gap-2 pt-4">
+                  <h3 className="font-semibold">{M.checkIn}</h3>
+                  {bubble(samples.checkIn)}
+                </section>
+              ) : null}
+            </div>
+          ) : busy !== 'write' ? (
+            <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.none}</p>
+          ) : null}
+          <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
+            <Button
+              variant={samples ? 'secondary' : 'primary'}
+              onClick={() => void write()}
+              loading={busy === 'write'}
+              disabled={busy !== null || live === null}
+              data-testid="ready-messages-write"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {samples ? M.again : M.write}
+            </Button>
+            {samples && !older ? (
+              <Button
+                onClick={() => void ok()}
+                loading={busy === 'ok'}
+                disabled={busy !== null}
+                data-testid="ready-messages-ok"
+              >
+                {M.ok}
+              </Button>
+            ) : null}
           </div>
         </div>
       </SheetContent>

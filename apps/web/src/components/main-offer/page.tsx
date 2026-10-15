@@ -12,6 +12,7 @@ import { Check, Megaphone, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AddonSlot } from '@/components/addons/slot';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -163,6 +164,8 @@ export function MainOfferPage({
           </TabsList>
           <TabsContent value="live" className="mt-5 flex flex-col gap-5">
             <LiveVersion live={live} comesWith={offer.comesWith} />
+            {/* How it's doing in the add-ons that use it (Social Outreach's first messages, yeses and calls). */}
+            <AddonSlot name="main_offer.panels" workspaceId={workspaceId} />
           </TabsContent>
           <TabsContent value="versions" className="mt-5">
             <Card data-testid="main-offer-versions">

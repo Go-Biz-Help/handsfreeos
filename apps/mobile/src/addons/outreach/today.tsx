@@ -363,6 +363,7 @@ function ItemCard({
         {menu?.(item)}
       </View>
       {item.why.length ? <Note>{item.why.join(' · ')}</Note> : null}
+      {item.kind === 'video' && !item.send ? <Note>{W.videoNext}</Note> : null}
       {item.summary ? <Text className="text-[14px] leading-[20px]">{item.summary}</Text> : null}
       {item.nextStep ? <Note>{`${W.nextStepLabel}: ${item.nextStep}`}</Note> : null}
       {item.post ? (

@@ -15,6 +15,8 @@ import { outreachAddon } from '../../src/addons/outreach/manifest';
 import {
   answerNextLabel,
   blankPlaybook,
+  followUpGapsFor,
+  paceOf,
   nextQuestionId,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
@@ -168,7 +170,11 @@ describe('a playbook’s conversation', () => {
     const old = { ...rest, questions: ['Do you use a CRM?', 'Which one?'] };
     const now = PlaybookDetails.parse(upgradePlaybookDetails(old));
     expect(now.questions).toEqual([ask('q1', 'Do you use a CRM?'), ask('q2', 'Which one?')]);
-    expect(now.pace).toEqual({ messageAfterDays: 1, followUpAfterDays: 3 });
+    expect(now.pace).toEqual({
+      messageAfterDays: 1,
+      followUps: 6,
+      followUpGaps: [1, 1, 1, 2, 2, 2],
+    });
     // One in today's shape comes back as it was.
     const crm = PLAYBOOK_TEMPLATES.crm_demos.details;
     expect(upgradePlaybookDetails(crm)).toBe(crm);
@@ -209,19 +215,45 @@ describe('a playbook’s conversation', () => {
     expect(answerNextLabel('q5', qs)).toBe('A question that isn’t here anymore');
   });
 
-  it('keeps the pace to whole days within its limits', () => {
+  it('keeps the pace to whole days within its limits, with 5 to 7 follow-ups', () => {
     const pace = (p: object) =>
       PlaybookDetails.safeParse({ ...blankPlaybook(), pace: p }).error?.issues.map((i) =>
         i.path.join('.'),
       );
-    expect(pace({ messageAfterDays: 0, followUpAfterDays: 30 })).toBeUndefined();
-    expect(pace({ messageAfterDays: 15, followUpAfterDays: 0 })).toEqual([
+    expect(
+      pace({ messageAfterDays: 0, followUps: 5, followUpGaps: [1, 1, 1, 2, 14] }),
+    ).toBeUndefined();
+    expect(pace({ messageAfterDays: 15, followUps: 8 })).toEqual([
       'pace.messageAfterDays',
-      'pace.followUpAfterDays',
+      'pace.followUps',
     ]);
-    expect(pace({ messageAfterDays: 1.5, followUpAfterDays: 3 })).toEqual([
-      'pace.messageAfterDays',
+    expect(pace({ messageAfterDays: 1.5, followUps: 6 })).toEqual(['pace.messageAfterDays']);
+    expect(pace({ messageAfterDays: 1, followUps: 6, followUpGaps: [1, 1, 1, 2, 2] })).toEqual([
+      'pace.followUpGaps',
     ]);
+    expect(pace({ messageAfterDays: 1, followUps: 5, followUpGaps: [1, 1, 0, 2, 2] })).toEqual([
+      'pace.followUpGaps.2',
+    ]);
+  });
+
+  it('moves the follow-ups saved as one number into 6, keeping a pace the business changed', () => {
+    // Left at the start (3 days): the new pace, a day apart for three, then two.
+    expect(paceOf({ messageAfterDays: 2, followUpAfterDays: 3 })).toEqual({
+      messageAfterDays: 2,
+      followUps: 6,
+      followUpGaps: [1, 1, 1, 2, 2, 2],
+    });
+    // Changed to 5: every follow-up 5 quiet days apart, as the business had it.
+    expect(paceOf({ messageAfterDays: 1, followUpAfterDays: 5 }).followUpGaps).toEqual([
+      5, 5, 5, 5, 5, 5,
+    ]);
+    // A save that leaves the follow-ups out is read with the starting ones.
+    expect(paceOf({ messageAfterDays: 1 })).toEqual({
+      messageAfterDays: 1,
+      followUps: 6,
+      followUpGaps: [1, 1, 1, 2, 2, 2],
+    });
+    expect(followUpGapsFor(7)).toEqual([1, 1, 1, 2, 2, 2, 2]);
   });
 });
 

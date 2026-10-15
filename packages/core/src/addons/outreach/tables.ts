@@ -31,6 +31,7 @@ import type { MessageKind, PostingMode, PushMode, ReplyMode, SendingMode } from 
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
+import type { Answer, ConversationStep, FollowUpNext, MessageSamples } from './conversation';
 import type { CountryHow } from './countries';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
@@ -366,6 +367,8 @@ export const fileChats = addonOutreach.table(
     /** The AI's read of whether it's time to offer (decision 47), with why. */
     pitch: text('pitch').$type<PitchRead>(),
     pitchWhy: text('pitch_why'),
+    /** What their last message answers to the person's last step (../conversation.ts, 20261027006400). */
+    reply: text('reply').$type<Answer>(),
     readAt: ts('read_at'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
     /** The chat's number from its link, once it's been read in Messenger. */
@@ -709,6 +712,8 @@ export const sends = addonOutreach.table(
     /** Who it's to and their profile's link, kept by triggers from `profiles` for phones (20261027001800). */
     name: text('name'),
     profileUrl: text('profile_url'),
+    /** The main offer's version it went with (../conversation.ts): what's sent after keeps the first one's. */
+    offerVersion: integer('offer_version'),
     approvedAt: ts('approved_at'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -919,6 +924,10 @@ export const setup = addonOutreach.table(
     profile: jsonb('profile').$type<ProfileTicks>().notNull().default({}),
     /** The AI's latest check of their own Facebook profile (../profile-check.ts): never what the page said. */
     profileCheck: jsonb('profile_check').$type<ProfileCheck>(),
+    /** When they OK'd how their messages read (Get ready's Your messages), the offer's version then, and the samples. */
+    messagesAt: ts('messages_at'),
+    messagesVersion: integer('messages_version'),
+    messageSamples: jsonb('message_samples').$type<MessageSamples>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -986,6 +995,45 @@ export const stages = addonOutreach.table(
     why: text('why'),
     markedAt: ts('marked_at'),
     pitchedAt: ts('pitched_at'),
+    /** When they first said yes: a positive reply (../conversation.ts), counted on Results. */
+    positiveAt: ts('positive_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Where each person's conversation with someone is (../conversation.ts, decisions 65 to 67): the last step sent, the
+ * follow-ups since and when the next is due, their latest answer, and the main offer's version they were first pitched
+ * with. A no stops it. Each person's own.
+ */
+export const followUps = addonOutreach.table(
+  'follow_ups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    step: text('step').notNull().$type<ConversationStep>(),
+    stepAt: ts('step_at').notNull(),
+    sent: smallint('sent').notNull().default(0),
+    lastAt: ts('last_at').notNull(),
+    next: text('next').$type<FollowUpNext>(),
+    dueAt: ts('due_at'),
+    answer: text('answer').$type<Answer>(),
+    answeredAt: ts('answered_at'),
+    offerVersion: integer('offer_version'),
+    stoppedAt: ts('stopped_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

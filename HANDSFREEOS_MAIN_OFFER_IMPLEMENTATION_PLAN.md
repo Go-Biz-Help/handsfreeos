@@ -392,8 +392,14 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    `outreach.profile.check`, and the AI's verdict on each item, three bios, a cover line and what to feature, on the
    web's and the phone's Get ready (docs/outreach.md, decision 64). An item the AI says is right counts as done; the
    rest are ticked. Tuned from page outlines, and not yet tried on the owner's account.
-6. **The conversation.** The first message rewritten, the reply read (yes, question, later, no), Send the video, Send
-   the link, the follow-up sequence and the monthly check-in, `sends.offer_version`, the comment on their own post.
+6. **The conversation. Built.** The first message rewritten, the reply read (yes, question, later, no), Send the
+   video, Send the link, the follow-up sequence and the monthly check-in, `sends.offer_version`, the comment on their
+   own post (extension 0.33.0), from the boards in `design/conversation` (Chris approved them, 2026-10-15: "boards
+   look good"). Get ready's **Your messages** joined (five items), and the main offer's page shows how the live version
+   is doing, too new to judge before 100 first messages, through a panel slot core gained (`main_offer.panels`).
+   Data version 4 (the pace's follow-ups and the gaps between them, the video link). Each person's conversation is kept
+   in `addon_outreach.follow_ups` (migration `20261027006400`). docs/outreach.md, decisions 65 to 68. The playbook's
+   video link has no field until step 7, so a yes gets the link for now.
 7. **The short video.** The script and shot list, the link.
 8. **Tracking.** The numbers on Results, by playbook and version, the day's report, the week's review.
 9. **Docs.** `docs/main-offer.md` (new, with its rules worth knowing), docs/outreach.md (what's built, the

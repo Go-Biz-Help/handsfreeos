@@ -314,6 +314,11 @@ export type AskTask = z.output<typeof AskTask>;
 /** What came of it beyond the line: a look-up's drafts. */
 export const AskResult = z.object({
   drafts: z.array(z.string().max(2_000)).max(5),
+  /**
+   * What the drafts are for, when it isn't the kind asked: a reply to someone who said yes becomes Send the video or
+   * Send the link (`TodayDraftOutput.kind`). Null from extensions before 0.33.0.
+   */
+  kind: z.enum(DRAFT_KINDS).nullable().default(null),
   opener: DraftOpener.nullable().default(null),
   simple: z.boolean().default(false),
   lookedUp: z.boolean().default(false),

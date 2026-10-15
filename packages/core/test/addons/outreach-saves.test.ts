@@ -343,7 +343,11 @@ describe('playbooks', () => {
       { id: 'q1', text: 'Do you use a CRM?', answers: [] },
       { id: 'q2', text: 'Which one?', answers: [] },
     ]);
-    expect(got.details.pace).toEqual({ messageAfterDays: 1, followUpAfterDays: 3 });
+    expect(got.details.pace).toEqual({
+      messageAfterDays: 1,
+      followUps: 6,
+      followUpGaps: [1, 1, 1, 2, 2, 2],
+    });
 
     // Saved with the last question moved to the front: names follow the order, and "No" still leads to it.
     const moved = [questions[3]!, ...questions.slice(0, 3)];

@@ -6,6 +6,8 @@
 import { sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
+import { workspaceTimezone } from '../../../crm/records';
+import { intlTimeZone } from '../../../intl/engine-zones';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
 import {
@@ -21,8 +23,16 @@ import type { GroupCheckState } from '../group-checks';
 import { dailyLimitsNow, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
-  DEFAULT_PACE,
+  ANSWERS,
+  CONVERSATION_STEPS,
+  type Answer,
+  type ConversationStep,
+  type FollowUpNext,
+} from '../conversation';
+import { paceOf } from '../playbooks';
+import {
   leftToday,
+  TODAY_KIND_KEYS,
   TODAY_MOST,
   TODAY_WINDOW_DAYS,
   TodayInput,
@@ -37,6 +47,7 @@ import { WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
+import { conversationPace } from './conversation';
 import {
   chatKey,
   countryLetsSql,
@@ -55,6 +66,8 @@ import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
+/** A message the person wrote to someone themselves this lately puts their next follow-up off. */
+const MANUAL_QUIET_HOURS = 20;
 
 const NONE_DONE: Record<DailyStep, number> = {
   friend_request: 0,
@@ -173,15 +186,12 @@ export const today = defineAddonQuery(outreachAddon, {
     const playbooks = await playbooksInUse(ctx);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
     const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+    // The soonest any playbook in use goes: a first message so many days after they accept, and a follow-up in a chat
+    // that started another way so many quiet days after the person wrote.
+    const paces = (playbooks.length ? playbooks.map((p) => p.details.pace) : [null]).map(paceOf);
     const pace = {
-      messageAfterDays: Math.min(
-        ...playbooks.map((p) => p.details.pace.messageAfterDays),
-        playbooks.length ? Infinity : DEFAULT_PACE.messageAfterDays,
-      ),
-      followUpAfterDays: Math.min(
-        ...playbooks.map((p) => p.details.pace.followUpAfterDays),
-        playbooks.length ? Infinity : DEFAULT_PACE.followUpAfterDays,
-      ),
+      messageAfterDays: Math.min(...paces.map((p) => p.messageAfterDays)),
+      firstGap: Math.min(...paces.map((p) => p.followUpGaps[0] ?? 1)),
     };
     const ago = (days: number) => new Date(now - days * DAY).toISOString();
     const items: TodayItem[] = [];
@@ -200,6 +210,7 @@ export const today = defineAddonQuery(outreachAddon, {
       nextStep: null,
       playbookName: null,
       demoLink: null,
+      videoLink: null,
       send: null,
       personId: null,
       demoBooked: false,
@@ -212,6 +223,11 @@ export const today = defineAddonQuery(outreachAddon, {
       .find((p) => p.details.link);
     const demoFor = (profileId: string | null) =>
       linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
+    // The short video for Send the video (decision 66): the first playbook in use with one, by name, likewise.
+    const videoed = [...playbooks]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .find((p) => p.details.videoLink);
+    const hasVideo = Boolean(videoed);
 
     // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30). The rest lately are
     // theirs to decide, in Waiting for you.
@@ -476,7 +492,7 @@ export const today = defineAddonQuery(outreachAddon, {
       }
     }
 
-    // Say hi: new friends who accepted the person's request, without a message yet.
+    // First message (decision 65): new friends who accepted the person's request, without a message yet.
     const openersLeft = leftToday(limits, 'opener');
     if (openersLeft) {
       const accepted = await rows<{ id: string; name: string; url: string; since: Date | string }>(
@@ -493,6 +509,8 @@ export const today = defineAddonQuery(outreachAddon, {
                 and t.kind = 'message')
               and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
                 and c.user_id = ${me})
+              and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
+                and fu.user_id = ${me})
             order by f.since desc limit ${openersLeft}`,
       );
       for (const p of accepted)
@@ -508,10 +526,23 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
-    // Pitch (decision 47): people whose chat the AI read as ready for the offer, or the person marked ready, until a
-    // pitch goes, they're booked or not a fit, or the person writes to them again. They count against the follow-ups.
-    const pitchLeft = leftToday(limits, 'pitch');
-    if (pitchLeft) {
+    // Send the link, Send the video, follow-ups and check-ins share the follow-ups' limit, in that order (the main
+    // offer plan's "The conversation", ../conversation.ts).
+    let followLeft = leftToday(limits, 'follow_up');
+    const nowAt = new Date(now).toISOString();
+    // The latest chat with someone, for where it's going: the person's own.
+    const latestChat = (p: string) => sql`left join lateral (
+        select c.id, c.thread_key, c.summary, c.next_step, c.pitch, c.pitch_why, c.last_at, c.last_from_me
+        from addon_outreach.file_chats c where c.profile_id = ${sql.raw(p)}.id and c.user_id = ${me}
+        order by c.last_at desc limit 1
+      ) c on true`;
+    const notBooked = (p: string) => sql`not exists (select 1 from addon_outreach.demos d
+        where d.profile_id = ${sql.raw(p)}.id and d.user_id = ${me} and d.undone_at is null)`;
+
+    // Send the link (decisions 47 and 66): someone who said yes to the video, or to the first message when there's no
+    // video; or, in a chat that started another way, whose chat the AI read as ready for the offer, or the person
+    // marked ready. Until the link goes, they're booked or not a fit, or the person writes to them again.
+    if (followLeft > 0) {
       const ready = await rows<{
         id: string;
         name: string;
@@ -522,28 +553,30 @@ export const today = defineAddonQuery(outreachAddon, {
         next_step: string | null;
         pitch_why: string | null;
         marked: boolean;
+        step: ConversationStep | null;
+        said_yes: boolean;
       }>(
         ctx.tx,
         sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step, c.pitch_why,
-              coalesce(s.mark = 'ready', false) as marked
+              coalesce(s.mark = 'ready', false) as marked, f.step,
+              coalesce(f.answer = 'yes' and f.stopped_at is null, false) as said_yes
             from addon_outreach.profiles p
             left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
-            left join lateral (
-              select c.id, c.thread_key, c.summary, c.next_step, c.pitch, c.pitch_why, c.last_at
-              from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}
-              order by c.last_at desc limit 1
-            ) c on true
+            left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
+            ${latestChat('p')}
             where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')} and ${lets}
-              and (c.pitch = 'ready' or s.mark = 'ready')
+              and (c.pitch = 'ready' or s.mark = 'ready'
+                or (f.answer = 'yes' and f.stopped_at is null
+                  and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))
               and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
-              and not exists (select 1 from addon_outreach.demos d
-                where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null)
+              and ${notBooked('p')}
               and not exists (select 1 from addon_outreach.touches t
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                  and t.at > greatest(c.last_at, s.marked_at))
-            order by greatest(c.last_at, s.marked_at) desc nulls last, p.id
-            limit ${pitchLeft}`,
+                  and t.at > greatest(c.last_at, s.marked_at, f.answered_at))
+            order by greatest(c.last_at, s.marked_at, f.answered_at) desc nulls last, p.id
+            limit ${followLeft}`,
       );
+      followLeft -= ready.length;
       for (const p of ready)
         items.push(
           item({
@@ -553,16 +586,139 @@ export const today = defineAddonQuery(outreachAddon, {
             profileUrl: p.url,
             chatId: p.chat_id,
             threadKey: p.thread_key,
-            why: [p.marked ? 'You marked them ready' : (p.pitch_why ?? 'Ready for your offer')],
+            why: [
+              p.said_yes
+                ? p.step === 'video'
+                  ? 'Said yes after your video'
+                  : 'Said yes to your first message'
+                : p.marked
+                  ? 'You marked them ready'
+                  : (p.pitch_why ?? 'Ready for your offer'),
+            ],
             summary: p.summary,
             nextStep: p.next_step,
             demoLink: demoFor(p.id),
           }),
         );
     }
-    const pitching = new Set(items.filter((i) => i.kind === 'pitch').map((i) => i.profileId));
 
-    // Follow-ups and replies: likely prospects in the person's chats.
+    // Send the video (decision 66): someone who said yes to the first message, when a playbook has a video.
+    if (videoed && followLeft > 0) {
+      const yes = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        chat_id: string | null;
+        thread_key: string | null;
+        summary: string | null;
+        next_step: string | null;
+      }>(
+        ctx.tx,
+        sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step
+            from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
+            ${latestChat('p')}
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.step = 'first' and f.answer = 'yes'
+              and f.stopped_at is null
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets} and ${notBooked('p')}
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > f.answered_at)
+            order by f.answered_at desc, p.id
+            limit ${followLeft}`,
+      );
+      followLeft -= yes.length;
+      for (const p of yes)
+        items.push(
+          item({
+            kind: 'video',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            chatId: p.chat_id,
+            threadKey: p.thread_key,
+            why: ['Said yes to your first message'],
+            summary: p.summary,
+            nextStep: p.next_step,
+            videoLink: videoed.details.videoLink ?? null,
+            demoLink: demoFor(p.id),
+          }),
+        );
+    }
+
+    // Follow-ups and check-ins (decision 67): whoever went quiet after a step, when the next one is due, until they
+    // answer, say no or are marked not a fit. A reply seen or a newer message of theirs waits for the person instead;
+    // a message the person wrote to them themselves lately puts it off a day.
+    if (followLeft > 0) {
+      const quiet = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        chat_id: string | null;
+        thread_key: string | null;
+        summary: string | null;
+        next_step: string | null;
+        next: FollowUpNext;
+        step: ConversationStep;
+        sent: number;
+        last_at: Date | string;
+        answer: Answer | null;
+      }>(
+        ctx.tx,
+        sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step, f.next, f.step,
+              f.sent, f.last_at, f.answer
+            from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
+            ${latestChat('p')}
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.stopped_at is null
+              and f.due_at <= ${nowAt}::timestamptz
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets} and ${notBooked('p')}
+              and not exists (select 1 from addon_outreach.replies r
+                where r.profile_id = f.profile_id and r.user_id = ${me} and r.seen_at > f.last_at)
+              and (c.id is null or c.last_from_me or c.last_at <= f.last_at)
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                  and t.at > greatest(f.last_at, ${ago(MANUAL_QUIET_HOURS / 24)}::timestamptz))
+            order by f.due_at, p.id
+            limit ${followLeft}`,
+      );
+      followLeft -= quiet.length;
+      // Which follow-up of how many, and since when a check-in's been quiet, on the business's calendar.
+      const { followUps: of } = await conversationPace(ctx);
+      const zone = quiet.length ? await workspaceTimezone(ctx.tx, ws) : 'UTC';
+      const day = (at: Date | string) =>
+        new Date(at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          timeZone: intlTimeZone(zone),
+        });
+      for (const f of quiet)
+        items.push(
+          item({
+            kind: f.next,
+            name: f.name,
+            profileId: f.id,
+            profileUrl: f.url,
+            chatId: f.chat_id,
+            threadKey: f.thread_key,
+            why:
+              f.next === 'check_in'
+                ? [
+                    f.answer === 'later' ? 'Said not now' : `No answer since ${day(f.last_at)}`,
+                    'once a month',
+                  ]
+                : [
+                    `${CONVERSATION_STEPS[f.step]}, no answer yet`,
+                    `${Math.min(f.sent + 1, of)} of ${of}`,
+                  ],
+            summary: f.summary,
+            nextStep: f.next_step,
+            demoLink: demoFor(f.id),
+          }),
+        );
+    }
+    const conversing = new Set(items.map((i) => i.profileId).filter(Boolean));
+
+    // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
+    // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
+    // follow-up starts a conversation; and those who wrote last, lately.
     const chats = await rows<{
       id: string;
       name: string;
@@ -582,20 +738,21 @@ export const today = defineAddonQuery(outreachAddon, {
             and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}
               and (not c.last_from_me or ${lets})))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
-                  and ${ago(pace.followUpAfterDays)}::timestamptz)
+                  and ${ago(pace.firstGap)}::timestamptz
+                  and not exists (select 1 from addon_outreach.follow_ups f
+                    where f.profile_id = c.profile_id and f.user_id = ${me}))
               or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz))
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = c.profile_id and t.user_id = ${me} and t.kind = 'message'
                 and t.at > c.last_at)
           order by c.last_at desc limit ${TODAY_MOST * 2}`,
     );
-    let followUps = leftToday(limits, 'follow_up') - pitching.size;
     let replies = TODAY_MOST;
     for (const c of chats) {
-      // Someone to pitch is on the list for that: the pitch answers where the chat left off.
-      if (c.profile_id && pitching.has(c.profile_id)) continue;
+      // Someone on the list already for the next step: that answers where the chat left off.
+      if (c.profile_id && conversing.has(c.profile_id)) continue;
       const kind = c.last_from_me ? 'follow_up' : 'reply';
-      if (kind === 'follow_up' ? followUps-- <= 0 : replies-- <= 0) continue;
+      if (kind === 'follow_up' ? followLeft-- <= 0 : replies-- <= 0) continue;
       items.push(
         item({
           kind,
@@ -776,13 +933,21 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list.
     const drafted = await sendsToday(ctx, me, todayFrom);
-    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each.
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. And what
+    // the AI read in an answer of theirs not answered yet, for a reply's why.
     const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
     const known = profileIds.length
-      ? await rows<{ id: string; person_id: string | null; marked: boolean }>(
+      ? await rows<{
+          id: string;
+          person_id: string | null;
+          marked: boolean;
+          answer: Answer | null;
+        }>(
           ctx.tx,
           sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
-                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked
+                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
+                (select f.answer from addon_outreach.follow_ups f
+                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer
               from addon_outreach.profiles p
               where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
         )
@@ -792,13 +957,21 @@ export const today = defineAddonQuery(outreachAddon, {
     const isMessage = (i: TodayItem) => (MESSAGE_KINDS as readonly string[]).includes(i.kind);
     const recent = await recentOf(ctx, me, items.filter(isMessage));
     // A post asking for what the business offers tops the list (decision 49): answered fast, before anything else.
-    const listedItems = [...items.filter((i) => i.asking), ...items.filter((i) => !i.asking)]
+    // The rest go in the kinds' order (../today.ts `TODAY_KINDS`), each kind as it was worked out.
+    const order = new Map(TODAY_KIND_KEYS.map((k, i) => [k, i] as const));
+    const byKind = (a: TodayItem, b: TodayItem) => order.get(a.kind)! - order.get(b.kind)!;
+    const listedItems = [
+      ...items.filter((i) => i.asking),
+      ...items.filter((i) => !i.asking).sort(byKind),
+    ]
       .filter((i) => !drafted.off(i.profileId, i.kind))
       .map((i) => {
         const send = drafted.open(i.profileId, i.kind);
         const k = i.profileId ? knownOf.get(i.profileId) : undefined;
+        const answer = i.kind === 'reply' ? k?.answer : null;
         return {
           ...i,
+          ...(answer ? { why: [ANSWERS[answer], ...i.why] } : {}),
           personId: k?.person_id ?? null,
           demoBooked: k?.marked ?? false,
           recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],

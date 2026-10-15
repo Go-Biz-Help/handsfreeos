@@ -96,7 +96,14 @@ export async function research(
       ? {
           line: RESEARCH_WORDS.tomorrow(who.name, next.perDay),
           warned: false,
-          result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },
+          result: {
+            drafts: [],
+            kind: null,
+            opener: null,
+            simple: false,
+            lookedUp: false,
+            queued: true,
+          },
         }
       : { line: RESEARCH_WORDS.gone(who.name), warned: false, failed: true };
   return checkFriends(job, 1, next);

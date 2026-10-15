@@ -24,6 +24,7 @@ import {
 } from '../stages';
 import { profiles, stages } from '../tables';
 import { inWorkspace, pitchable, type Ctx } from './common';
+import { noteSent, offerVersionFor, restartConversation } from './conversation';
 import type { CheckVerdict } from '../checks';
 
 const DAY = 86_400_000;
@@ -276,6 +277,13 @@ export const stageMark = defineAddonCommand(outreachAddon, {
         break;
       case 'pitched':
         await keepMarks(ctx, me, profile.id, { pitchedAt: at });
+        // The link went (a draft copied, or marked): follow-ups come after it, as they would after one sent.
+        await noteSent(ctx, me, {
+          profileId: profile.id,
+          kind: 'pitch',
+          at,
+          offerVersion: await offerVersionFor(ctx, me, profile.id),
+        });
         break;
       case 'lost':
         await keepMarks(ctx, me, profile.id, {
@@ -293,6 +301,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
           markedAt: null,
           pitchedAt: null,
         });
+        await restartConversation(ctx, me, profile.id, at);
         break;
     }
     await ctx.emit({

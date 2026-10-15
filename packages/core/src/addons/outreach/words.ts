@@ -43,7 +43,8 @@ const paceMessage = (n: number) =>
   n === 0
     ? 'First message the day they accept'
     : `First message ${days(n, 'day', 'days')} after they accept`;
-const paceFollowUp = (n: number) => `Follow up after ${days(n, 'quiet day', 'quiet days')}`;
+const paceFollowUp = (n: number) =>
+  `${days(n, 'follow-up', 'follow-ups')} until they answer, then a check-in each month`;
 
 const things = (n: number, one: string, many: string) =>
   n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`;
@@ -210,6 +211,17 @@ export const OUTREACH_WORDS = {
   askingAbout: 'Answer these first, while they’re fresh.',
   notForMe: 'Not for me',
   notForMeDone: 'Put aside. It won’t be on your list again.',
+  /** The conversation's steps on Today (decisions 65 to 67). */
+  copyLinkOnly: 'Copy the link only',
+  linkCopied:
+    'Copied your link for them. Paste it in Messenger: a booking through it counts by itself.',
+  copyVideoLink: 'Copy the video link',
+  videoCopied: 'Copied your video’s link. Paste it in Messenger.',
+  /** The phone's Send the video: the computer drafts it. */
+  videoNext: 'Your computer drafts it next, with your video’s link.',
+  stopCheckIns: 'Stop checking in',
+  checkInsStopped: (name: string) =>
+    `No more check-ins to ${name}. They start again if you two talk again.`,
   wheelsTitle: 'On training wheels',
   wheelsNone: 'Nobody is on training wheels.',
   endNow: 'End now',
@@ -454,16 +466,17 @@ export const OUTREACH_WORDS = {
   addsTag: 'Adds the tag',
   theySay: 'They say',
   noTag: 'No tag',
-  /** How fast, for the steps it takes: null for a step it doesn't (a first message, a follow-up). */
-  pace: (messageAfterDays: number | null, followUpAfterDays: number | null) => {
+  /** How fast, for the steps it takes: null for a step it doesn't (a first message, follow-ups). */
+  pace: (messageAfterDays: number | null, followUps: number | null) => {
     const said = [
       messageAfterDays === null ? null : paceMessage(messageAfterDays),
-      followUpAfterDays === null ? null : paceFollowUp(followUpAfterDays),
+      followUps === null ? null : paceFollowUp(followUps),
     ].filter(Boolean);
     return said.length ? `${said.join('. ')}.` : '';
   },
   messageAfter: 'First message, days after they accept',
-  followUpAfter: 'Follow up after this many quiet days',
+  followUpAfter: 'Follow-ups before the monthly check-in',
+  followUpGap: (n: number) => `Follow-up ${n}, quiet days after the last message`,
   playbookSections: {
     goal: 'Goal',
     offer: 'The offer and its link',

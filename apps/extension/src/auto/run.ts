@@ -67,6 +67,7 @@ import type {
 } from '../hfos/messages';
 import { config } from '../hfos/config';
 import { follow, loadSettings } from '../hfos/follow';
+import { chatCollect } from '../hfos/saves';
 import {
   beatSoon,
   dayChange,
@@ -336,10 +337,14 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   return { done: true, line: `Sent ${item.name} a friend request` };
 }
 
+/** Comments the day's limit still has room for, as the list said this pass: a warm-up comment takes one. */
+let commentsLeft = 0;
+
 /**
  * Likes one of their latest posts, a day before their friend request (decision 33): the AI picks one to do with the
  * business, else about them, never one about grief, illness or trouble (`outreach.like.pick`; the words alone pick
- * when it can't be asked). None, or none fit: the request goes without.
+ * when it can't be asked). None, or none fit: the request goes without. A post to do with the business gets the AI's
+ * short comment under it too, while the day's comments have room (the main offer plan's warm-up).
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
   const opened = await openProfile(item, businessId);
@@ -369,7 +374,8 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
   // One they liked already warms them up as well as a new one.
   const likedAlready = theirs.posts.findIndex((p) => p.liked);
   let pick: LikePickOutput;
-  if (likedAlready >= 0) pick = { pick: likedAlready, about: null, why: null, by: 'words' };
+  if (likedAlready >= 0)
+    pick = { pick: likedAlready, about: null, why: null, by: 'words', comment: null };
   else {
     const asked = await answer({
       type: 'hfos-like-pick',
@@ -413,13 +419,63 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     at: now(),
   });
   const about = pick.why ? ` (${pick.why.replace(/[.!]$/, '')})` : '';
+  const commented =
+    pick.comment && commentsLeft > 0
+      ? await warmComment(item, businessId, opened.noted, {
+          url: liked.postUrl ?? chosen.url ?? null,
+          text: pick.comment,
+          postText: likedText(chosen),
+        })
+      : null;
+  if (commented && 'stop' in commented) return commented;
   return {
     done: true,
     line:
       liked.result === 'already'
         ? `${item.name}’s post was liked already: their friend request comes tomorrow`
-        : `Liked a post of ${item.name}’s${about}: their friend request comes tomorrow`,
+        : commented
+          ? `Liked and commented on a post of ${item.name}’s${about}: their friend request comes tomorrow`
+          : `Liked a post of ${item.name}’s${about}: their friend request comes tomorrow`,
   };
+}
+
+/**
+ * The warm-up comment under the post just liked, noted as a comment like any other (it counts against the day's
+ * comments). Null when it couldn't go: the like stands on its own.
+ */
+async function warmComment(
+  item: TodayListItem,
+  businessId: string,
+  author: ProfileRef,
+  post: { readonly url: string | null; readonly text: string; readonly postText: string | null },
+): Promise<{ readonly stop: string } | { readonly done: true } | null> {
+  if (!post.url) return null;
+  await tab.open(post.url);
+  await setState({ tabId: tab.tabId });
+  const stop = await warnedOn(await read(), businessId);
+  if (stop) return { stop };
+  const wrote = await tab.ask({ type: 'hfos-comment', text: post.text });
+  if (!wrote.ok || wrote.result !== 'done') return null;
+  await pause(SETTLE_MS);
+  const after = await warnedOn(await read(), businessId);
+  if (after) return { stop: after };
+  commentsLeft--;
+  await takeNote({
+    type: 'hfos-noted',
+    step: {
+      kind: 'comment',
+      to: { name: item.name, profile: author },
+      group: null,
+      postUrl: post.url,
+      thread: null,
+      replying: null,
+      auto: true,
+      postText: post.postText,
+      commentText: post.text,
+    },
+    at: now(),
+  });
+  return { done: true };
 }
 
 /** Writes the AI's comment under a good post in their groups (decision 20). */
@@ -502,20 +558,54 @@ async function lookUpIn(
 }
 
 /**
- * Drafts a message to someone on the list with the AI, after looking them up, and hands it to HandsFreeOS: it waits
- * for the person's OK, or goes as it is.
+ * Their chat as it is now, before a reply to them is drafted (docs/outreach.md, decisions 65 to 67): opened in
+ * Messenger and brought into HandsFreeOS, so the AI reads what they answered. A reply seen in the list carries no
+ * words (src/hfos/replies.ts), so this is where they come from. One that can't be opened is drafted from what
+ * HandsFreeOS has; a warning stops it.
+ */
+async function bringInChat(
+  item: TodayListItem,
+  businessId: string,
+): Promise<{ readonly stop: string } | null> {
+  if (!item.threadKey) return null;
+  const opened = await openChat(item, businessId);
+  if ('outcome' in opened) return 'stop' in opened.outcome ? opened.outcome : null;
+  const page = await read();
+  const built = page.chat ? chatCollect(page.chat, new Date(), null) : null;
+  if (built)
+    await answer({
+      type: 'hfos-collect-chats',
+      input: { workspaceId: businessId, platform: 'facebook', chats: [built] },
+    });
+  return null;
+}
+
+/**
+ * Drafts a message to someone on the list with the AI, after looking them up (and, for a reply, bringing in their
+ * chat), and hands it to HandsFreeOS: it waits for the person's OK, or goes as it is. A reply to someone who said yes
+ * comes back as the next step, the video or the link, and goes as that.
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.kind === 'reply') {
+    const stopped = await bringInChat(item, businessId);
+    if (stopped) return stopped;
+  }
   const looked = await lookUpIn(item, businessId);
   if ('stop' in looked) return looked;
-  const kind = item.kind as MessageKind;
   const drafted = await answer({
     type: 'hfos-draft',
     workspaceId: businessId,
-    input: { kind, profileId: item.profileId, chatId: item.chatId, lookup: looked.lines },
+    input: {
+      kind: item.kind as MessageKind,
+      profileId: item.profileId,
+      chatId: item.chatId,
+      lookup: looked.lines,
+    },
   });
   if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
-  const { drafts, opener, simple } = drafted.value as Drafts;
+  const { drafts, opener, simple, kind: draftedKind } = drafted.value as Drafts;
+  // What the drafts are for: the kind asked for, or after a yes, the next step.
+  const kind = (draftedKind ?? item.kind) as MessageKind;
   const text = drafts[0];
   if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
   const queued = await call(
@@ -988,6 +1078,7 @@ async function go(): Promise<void> {
   );
   const left = workLeft(list, state.tried);
   const work = left[0];
+  commentsLeft = Math.max(0, list.limits.comment.most - list.limits.comment.done);
   if (!work) {
     await closeWindow();
     await say(

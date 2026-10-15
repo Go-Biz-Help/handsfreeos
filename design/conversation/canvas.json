@@ -1,0 +1,27 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-15T01:33:45Z" },
+  "title": "Conversation boards",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 1180, "title": "1 · Today: the conversation, in its new order" },
+    "Messages.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 1180, "title": "2 · Get ready: Your messages" },
+    "Pace.dc.html": { "x": 2720, "y": 0, "w": 1280, "h": 900, "title": "3 · Playbook: follow-ups, then a monthly check-in" },
+    "Offer.dc.html": { "x": 0, "y": 1300, "w": 1280, "h": 900, "title": "4 · Main offer: how this version is doing" },
+    "Phone.dc.html": { "x": 1360, "y": 1300, "w": 390, "h": 844, "title": "5 · The phone’s Today" }
+  },
+  "order": ["Main.dc.html", "Messages.dc.html", "Pace.dc.html", "Offer.dc.html", "Phone.dc.html"],
+  "notes": {
+    "row1": { "x": 0, "y": -260, "text": "Step 6: the conversation", "kind": "title1", "maxW": 4000 }
+  },
+  "designSystems": [
+    {
+      "title": "HandsFreeOS",
+      "namespace": "handsfreeos",
+      "artifact": "https://claude.ai/artifact/Wg4vApwZ5jowNZ2NdSDN7P",
+      "version": null,
+      "copiedAt": "2026-10-15T01:33:45Z"
+    }
+  ]
+}

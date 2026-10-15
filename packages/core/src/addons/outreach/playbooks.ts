@@ -61,16 +61,36 @@ export const ANSWER_NEXT_KEYS = Object.keys(ANSWER_NEXTS) as [AnswerNext, ...Ans
 const QUESTION_ID = /^q[0-9]{1,3}$/;
 const questionId = z.string().regex(QUESTION_ID, 'Pick a question from this playbook.');
 
-/** How fast the steps go. */
+/**
+ * How fast the steps go (data version 4, docs/outreach.md decision 67): the first message this many days after they
+ * accept, then follow-ups until they answer, 5 to 7 of them, each a few quiet days after the last (1 day apart for the
+ * first three, then 2, to start), then a check-in once a month.
+ */
 export const PACE_LIMITS = {
   messageAfterDays: { min: 0, max: 14, start: 1 },
-  followUpAfterDays: { min: 1, max: 30, start: 3 },
+  followUps: { min: 5, max: 7, start: 6 },
+  followUpGap: { min: 1, max: 14 },
 } as const;
-const days = (k: keyof typeof PACE_LIMITS) =>
+/** The days between follow-ups to start: 1 for the first three, then 2. */
+export const followUpGapsFor = (followUps: number): number[] =>
+  Array.from({ length: followUps }, (_, i) => (i < 3 ? 1 : 2));
+const days = (k: 'messageAfterDays' | 'followUpGap') =>
   z
     .int('Use whole days.')
     .min(PACE_LIMITS[k].min, `Use ${PACE_LIMITS[k].min} days or more.`)
     .max(PACE_LIMITS[k].max, `Use ${PACE_LIMITS[k].max} days or fewer.`);
+const followUpCount = z
+  .int('Use a whole number.')
+  .min(PACE_LIMITS.followUps.min, `Send at least ${PACE_LIMITS.followUps.min} follow-ups.`)
+  .max(PACE_LIMITS.followUps.max, `Send at most ${PACE_LIMITS.followUps.max} follow-ups.`);
+
+/** A playbook's pace in full: one saved before data version 4, or left out of a save, has the starting follow-ups. */
+export interface Pace {
+  readonly messageAfterDays: number;
+  readonly followUps: number;
+  /** The quiet days before each follow-up: as many as `followUps`. */
+  readonly followUpGaps: readonly number[];
+}
 
 /**
  * How much a playbook holds: the most characters each part takes, and for a list, the most characters a line takes
@@ -107,6 +127,8 @@ export const PLAYBOOK_LIMITS = {
   /** Something useful to send someone who never answered: what it is, and its link. */
   usefulWhat: 160,
   usefulLink: 500,
+  /** The short video's link (data version 4): Loom, YouTube or Google Drive. */
+  videoLink: 500,
 } as const;
 
 const line = (max: number, empty = 'Leave out empty lines.') =>
@@ -174,6 +196,11 @@ export const PlaybookDetails = z
     /** Something useful to send someone who never answered (a guide, a checklist, a video): what, and its link. */
     usefulWhat: words(PLAYBOOK_LIMITS.usefulWhat).optional(),
     usefulLink: link(PLAYBOOK_LIMITS.usefulLink).optional(),
+    /**
+     * The playbook's short video (data version 4, decision 66): Send the video carries it to someone who said yes,
+     * before the booking link. Left out of a save, it keeps what's saved, like the parts version 3 added.
+     */
+    videoLink: link(PLAYBOOK_LIMITS.videoLink).optional(),
     /** Who it's for, in plain words. */
     audience: words(PLAYBOOK_LIMITS.audience),
     /** What says someone fits: "Owner" in their intro, posts about missed calls. */
@@ -189,11 +216,33 @@ export const PlaybookDetails = z
     /** What to search for when looking for groups: "small business owners". */
     groupWords: lines(PLAYBOOK_LIMITS.groupWords),
     steps: z.array(z.enum(PLAYBOOK_STEP_KEYS)).refine(distinct, 'Each step once.'),
-    /** How fast: the first message this many days after they accept, a follow-up after this many quiet days. */
-    pace: z.object({
-      messageAfterDays: days('messageAfterDays'),
-      followUpAfterDays: days('followUpAfterDays'),
-    }),
+    /**
+     * How fast (`PACE_LIMITS`): the first message this many days after they accept, then the follow-ups and the
+     * quiet days before each. Left out of a save, the follow-ups keep what's saved (./ops/playbooks.ts), so a phone
+     * built before data version 4 can't wipe them; `paceOf` reads it in full.
+     */
+    pace: z
+      .object({
+        messageAfterDays: days('messageAfterDays'),
+        followUps: followUpCount.optional(),
+        followUpGaps: z
+          .array(days('followUpGap'))
+          .min(PACE_LIMITS.followUps.min)
+          .max(PACE_LIMITS.followUps.max)
+          .optional(),
+        /**
+         * Before data version 4, the quiet days before a follow-up. Still taken from phones built before it, so their
+         * saves go through, and let go: the follow-ups saved stay as they are.
+         */
+        followUpAfterDays: z.int().min(1).max(30).optional(),
+      })
+      .refine(
+        (p) =>
+          p.followUps === undefined ||
+          p.followUpGaps === undefined ||
+          p.followUpGaps.length === p.followUps,
+        { error: 'Say how many days before each follow-up.', path: ['followUpGaps'] },
+      ),
     /** How it sounds: "Friendly, one owner to another. No hard sell." */
     tone: words(PLAYBOOK_LIMITS.tone),
     /** A few of the business's own messages, for the AI to sound like. */
@@ -275,6 +324,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   proof: [],
   usefulWhat: null,
   usefulLink: null,
+  videoLink: null,
   audience: null,
   signs: [],
   skip: [],
@@ -284,7 +334,8 @@ export const blankPlaybook = (): PlaybookDetails => ({
   steps: ['connect', 'engage', 'message', 'follow_up'],
   pace: {
     messageAfterDays: PACE_LIMITS.messageAfterDays.start,
-    followUpAfterDays: PACE_LIMITS.followUpAfterDays.start,
+    followUps: PACE_LIMITS.followUps.start,
+    followUpGaps: followUpGapsFor(PACE_LIMITS.followUps.start),
   },
   tone: null,
   samples: [],
@@ -389,28 +440,65 @@ export const PLAYBOOK_TEMPLATE_KEYS = Object.keys(PLAYBOOK_TEMPLATES) as [
 
 /** The parts data version 3 added: a save that leaves one out keeps what's saved (./ops/playbooks.ts). */
 export const PLAYBOOK_V3_KEYS = ['niche', 'problem', 'proof', 'usefulWhat', 'usefulLink'] as const;
+/** The parts data version 4 added, kept the same way. */
+export const PLAYBOOK_V4_KEYS = ['videoLink'] as const;
+/** What a save that leaves a part out keeps. */
+export const PLAYBOOK_KEPT_KEYS = [...PLAYBOOK_V3_KEYS, ...PLAYBOOK_V4_KEYS] as const;
+
+/** The days before follow-ups when they were one number (before data version 4) and the business changed it. */
+const OLD_FOLLOW_UP_START = 3;
+
+/** A pace in full, as saved in any version: one with no follow-ups yet gets the starting ones. */
+export function paceOf(pace: unknown): Pace {
+  const p = (typeof pace === 'object' && pace !== null ? pace : {}) as Record<string, unknown>;
+  const after = typeof p['messageAfterDays'] === 'number' ? p['messageAfterDays'] : null;
+  const count =
+    typeof p['followUps'] === 'number'
+      ? Math.min(PACE_LIMITS.followUps.max, Math.max(PACE_LIMITS.followUps.min, p['followUps']))
+      : PACE_LIMITS.followUps.start;
+  const gaps = Array.isArray(p['followUpGaps'])
+    ? (p['followUpGaps'] as unknown[]).filter((g): g is number => typeof g === 'number')
+    : null;
+  // Before data version 4, one number: the quiet days before each follow-up. A business that changed it keeps that
+  // spacing; one left at the start gets the new one.
+  const old = typeof p['followUpAfterDays'] === 'number' ? p['followUpAfterDays'] : null;
+  const spaced =
+    gaps && gaps.length === count
+      ? gaps
+      : old !== null && old !== OLD_FOLLOW_UP_START
+        ? Array.from({ length: count }, () => Math.min(PACE_LIMITS.followUpGap.max, old))
+        : followUpGapsFor(count);
+  return {
+    messageAfterDays: after ?? PACE_LIMITS.messageAfterDays.start,
+    followUps: count,
+    followUpGaps: spaced,
+  };
+}
 
 /**
  * A playbook's details as an earlier version saved them, in today's shape. Before data version 2 its questions were
- * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send.
- * Anything else passes through for the schema to judge.
+ * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send;
+ * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link. Anything else
+ * passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
   const d = stored as Record<string, unknown>;
   const old = Array.isArray(d['questions']) && d['questions'].some((q) => typeof q === 'string');
-  const before3 = PLAYBOOK_V3_KEYS.some((k) => d[k] === undefined);
-  if (!old && d['pace'] !== undefined && !before3) return stored;
+  const beforeKeys = PLAYBOOK_KEPT_KEYS.some((k) => d[k] === undefined);
+  const pace = d['pace'] as Record<string, unknown> | undefined;
+  const before4 = pace === undefined || pace['followUps'] === undefined;
+  if (!old && !before4 && !beforeKeys) return stored;
   const blank = blankPlaybook();
   return {
-    ...Object.fromEntries(PLAYBOOK_V3_KEYS.map((k) => [k, blank[k]])),
+    ...Object.fromEntries(PLAYBOOK_KEPT_KEYS.map((k) => [k, blank[k]])),
     ...d,
     questions: old
       ? (d['questions'] as unknown[]).map((q, i) =>
           typeof q === 'string' ? { id: `q${i + 1}`, text: q, answers: [] } : q,
         )
       : d['questions'],
-    pace: d['pace'] ?? blankPlaybook().pace,
+    pace: pace === undefined ? blank.pace : paceOf(pace),
   };
 }
 

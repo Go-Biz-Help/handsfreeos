@@ -58,6 +58,7 @@ export type SlotEntities = EverySlot<{
     readonly channel: string;
     readonly onUse: (text: string) => void;
   };
+  'main_offer.panels': object;
 }>;
 
 /** What a panel in slot `S` is drawn with. */
@@ -189,7 +190,10 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   },
   outreach: {
     icon: outreachAddonIcon,
-    slots: { 'person.panels': () => import('./outreach/person-panel') },
+    slots: {
+      'person.panels': () => import('./outreach/person-panel'),
+      'main_offer.panels': () => import('./outreach/offer-panel'),
+    },
     settings: () => import('./outreach/settings-link'),
   },
   salescoach: {

@@ -177,8 +177,11 @@ describe('the extension on its own', () => {
       admin(),
       sql`update addon_outreach.touches set at = at - interval '21 hours' where workspace_id = ${ws}`,
     );
-    expect(await kinds()).toEqual(['friend_request: Jules Ortiz', 'warm_up: Noor Haddad']);
-    expect((await list()).items[0].why).toContain('You liked a post of theirs');
+    // Likes go before friend requests on the list (the main offer plan's order).
+    expect(await kinds()).toEqual(['warm_up: Noor Haddad', 'friend_request: Jules Ortiz']);
+    expect(
+      (await list()).items.find((i: { kind: string }) => i.kind === 'friend_request')?.why,
+    ).toContain('You liked a post of theirs');
 
     // No post of Noor's to like: the request goes without.
     const [noor] = await rows<{ id: string }>(

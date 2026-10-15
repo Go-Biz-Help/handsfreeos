@@ -227,6 +227,17 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await page.getByTestId('ready-profile-done').click();
   await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'done');
 
+  // Your messages: the AI writes samples for the playbook in the owner's voice, and they OK how they read.
+  await ready.getByTestId('ready-open-messages').click();
+  const messages = page.getByTestId('ready-messages-sheet');
+  await messages.getByTestId('ready-messages-write').click();
+  const samples = messages.getByTestId('ready-messages-samples');
+  await expect(samples).toContainText('First message, once they accept');
+  await expect(samples).toContainText('If they go quiet: 6 follow-ups');
+  await expect(samples).toContainText('Your playbook has no video yet');
+  await messages.getByTestId('ready-messages-ok').click();
+  await expect(ready.getByTestId('ready-messages')).toHaveAttribute('data-state', 'done');
+
   // The numbers: the math changes as the goal does, and saving it makes them ready.
   await ready.getByTestId('ready-open-numbers').click();
   const numbers = page.getByTestId('ready-numbers-sheet');
@@ -242,4 +253,12 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await numbers.getByTestId('ready-numbers-save').click();
   await expect(page.getByTestId('get-ready')).toHaveCount(0);
   await expect(page.getByTestId('live-not-ready')).toHaveCount(0);
+
+  // The main offer's page: how the live version is doing in Social Outreach, too new to judge with no messages yet.
+  await page.goto(`/app/w/${workspaceId}/settings/main-offer`);
+  const doing = page.getByTestId('outreach-offer-panel');
+  await expect(doing).toContainText('How version 2 is doing');
+  await expect(doing.getByTestId('outreach-offer-too-new')).toContainText(
+    'Give it 100 more first messages',
+  );
 });

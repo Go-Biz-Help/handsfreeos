@@ -7029,7 +7029,9 @@
                           "opener",
                           "reconnect",
                           "pitch",
+                          "video",
                           "follow_up",
+                          "check_in",
                           "reply",
                           "comment",
                           "warm_lead"
@@ -7698,6 +7700,18 @@
                   }
                 ]
               },
+              "videoLink": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "audience": {
                 "anyOf": [
                   {
@@ -7772,13 +7786,28 @@
                     "minimum": 0,
                     "maximum": 14
                   },
+                  "followUps": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 7
+                  },
+                  "followUpGaps": {
+                    "minItems": 5,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14
+                    }
+                  },
                   "followUpAfterDays": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 30
                   }
                 },
-                "required": ["messageAfterDays", "followUpAfterDays"]
+                "required": ["messageAfterDays"]
               },
               "tone": {
                 "anyOf": [
@@ -7978,6 +8007,19 @@
           }
         },
         "required": ["workspaceId", "profileId"]
+      }
+    },
+    "outreach.readiness.messages": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
       }
     },
     "outreach.readiness.numbers": {

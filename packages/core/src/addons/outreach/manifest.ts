@@ -21,7 +21,8 @@ export const outreachAddon = defineAddon({
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
-  dataVersion: 3,
+  // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
+  dataVersion: 4,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
@@ -191,6 +192,7 @@ export const outreachAddon = defineAddon({
     'engagements',
     'file_chats',
     'file_people',
+    'follow_ups',
     'friend_ends',
     'friends',
     'group_people',
@@ -245,8 +247,11 @@ export const outreachAddon = defineAddon({
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
-    // A customer's Facebook profile and the chats saved with them.
-    slots: [{ slot: 'person.panels', permission: 'outreach.use' }],
+    // A customer's Facebook profile and the chats saved with them; and how the main offer's live version is doing.
+    slots: [
+      { slot: 'person.panels', permission: 'outreach.use' },
+      { slot: 'main_offer.panels', permission: 'outreach.use' },
+    ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; and a playbook. The activity and friends stay
     // on the web, and their links open it.

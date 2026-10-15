@@ -80,6 +80,13 @@ export async function lookupAndDraft(
         : `${wrote} from what HandsFreeOS knows: Facebook didn’t show their profile.`,
     warned: false,
     failed: !n,
-    result: { drafts, opener: drafted.opener, simple: drafted.simple, lookedUp, queued: false },
+    result: {
+      drafts,
+      kind: drafted.kind,
+      opener: drafted.opener,
+      simple: drafted.simple,
+      lookedUp,
+      queued: false,
+    },
   };
 }

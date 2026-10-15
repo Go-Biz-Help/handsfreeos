@@ -41,6 +41,7 @@ import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
+  BellOff,
   CalendarCheck,
   Check,
   CheckCheck,
@@ -48,6 +49,7 @@ import {
   Copy,
   Loader2,
   Sparkles,
+  Video,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -89,7 +91,9 @@ const KIND_BADGE = {
   opener: 'ok',
   reconnect: 'ok',
   pitch: 'accent',
+  video: 'accent',
   follow_up: 'gray',
+  check_in: 'gray',
   reply: 'pending',
   comment: 'accent',
   warm_lead: 'ok',
@@ -522,6 +526,8 @@ function Drafts({
   const [drafted, setDrafted] = useState<readonly string[]>([]);
   /** The opener the drafts were written with, for a first message. */
   const [draftedOpener, setOpener] = useState<DraftOpener | null>(null);
+  /** What they were written as: a reply to a yes comes back as Send the video or Send the link. */
+  const [draftedAs, setDraftedAs] = useState<DraftKind | null>(null);
   // Looked up on Facebook first, while the computer is online and Facebook didn't warn them today.
   const lookup = {
     kind: 'lookup' as const,
@@ -537,6 +543,7 @@ function Drafts({
   const fromLookup = !drafted.length && looked?.state === 'done' ? looked.result : null;
   const drafts = fromLookup?.drafts ?? drafted;
   const opener = fromLookup ? fromLookup.opener : draftedOpener;
+  const as = (fromLookup ? fromLookup.kind : draftedAs) ?? kind;
   const lookingUp = looked !== null && askOpen(looked.state);
   const skipping = useAct();
   const skip = (postId: string) =>
@@ -563,6 +570,7 @@ function Drafts({
       if (!out.drafts.length) toast.message('The AI had nothing to suggest. Try again.');
       setDrafted(out.drafts);
       setOpener(out.opener);
+      setDraftedAs(out.kind);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -570,9 +578,37 @@ function Drafts({
     }
   };
   /**
-   * Copying a first message notes which opener it was, and copying a pitch moves them on to pitched (decision 47);
-   * that it couldn't is no reason to stop them.
+   * Copying a message notes it as sent, so its follow-ups come in turn (decision 67): the link moves them on to
+   * pitched (decision 47), and a first message also notes which opener it was. That it couldn't is no reason to stop
+   * them.
    */
+  const noteSent = async (sent: DraftKind) => {
+    const profileId = item.profileId;
+    if (!profileId) return;
+    const api = apiBrowser();
+    if (sent === 'pitch')
+      await api
+        .POST('/v1/commands/outreach.stage.mark', {
+          body: { workspaceId, profileId, mark: 'pitched' },
+        })
+        .catch(() => undefined);
+    else if (
+      sent === 'opener' ||
+      sent === 'video' ||
+      sent === 'follow_up' ||
+      sent === 'check_in' ||
+      sent === 'reply'
+    )
+      await api
+        .POST('/v1/commands/outreach.conversation.note', {
+          body: { workspaceId, profileId, kind: sent },
+        })
+        .catch(() => undefined);
+    if (sent !== 'opener' || !opener) return;
+    await api
+      .POST('/v1/commands/outreach.opener.use', { body: { workspaceId, profileId, opener } })
+      .catch(() => undefined);
+  };
   const copy = async (text: string, part?: { readonly n: number; readonly of: number }) => {
     await copyText(
       text,
@@ -584,19 +620,20 @@ function Drafts({
     );
     // A message copied a text at a time counts once, with its first.
     if (part && part.n > 1) return;
-    if (kind === 'pitch' && item.profileId)
-      await apiBrowser()
-        .POST('/v1/commands/outreach.stage.mark', {
-          body: { workspaceId, profileId: item.profileId, mark: 'pitched' },
-        })
-        .catch(() => undefined);
-    if (!opener || !item.profileId) return;
-    await apiBrowser()
-      .POST('/v1/commands/outreach.opener.use', {
-        body: { workspaceId, profileId: item.profileId, opener },
-      })
-      .catch(() => undefined);
+    await noteSent(as);
   };
+  const stopping = useAct();
+  const stopCheckIns = (profileId: string) =>
+    stopping.act(
+      'stop',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.conversation.stop', {
+            body: { workspaceId, profileId },
+          }),
+        ),
+      W.checkInsStopped(item.name),
+    );
   return (
     <div className="mt-2">
       {!online && drafted.length ? (
@@ -694,21 +731,50 @@ function Drafts({
               ? 'Draft a comment'
               : 'Draft a message'}
       </Button>
-      {item.demoLink ? (
+      {kind === 'video' && item.videoLink ? (
         <Button
           variant="ghost"
           size="sm"
           className="ml-1.5 mt-1.5"
           onClick={() =>
-            void copyText(
-              item.demoLink!,
-              'Copied your demo link for them. A booking through it counts by itself.',
-            )
+            void copyText(item.videoLink!, W.videoCopied).then(() => noteSent('video'))
+          }
+          data-testid="today-video-link"
+        >
+          <Video className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {W.copyVideoLink}
+        </Button>
+      ) : null}
+      {item.demoLink && kind !== 'video' ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-1.5 mt-1.5"
+          onClick={() =>
+            kind === 'pitch'
+              ? void copyText(item.demoLink!, W.linkCopied).then(() => noteSent('pitch'))
+              : void copyText(
+                  item.demoLink!,
+                  'Copied your demo link for them. A booking through it counts by itself.',
+                )
           }
           data-testid="today-demo-link"
         >
           <CalendarCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Copy demo link
+          {kind === 'pitch' ? W.copyLinkOnly : 'Copy demo link'}
+        </Button>
+      ) : null}
+      {kind === 'check_in' && item.profileId ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-1.5 mt-1.5"
+          disabled={stopping.busy !== null}
+          onClick={() => void stopCheckIns(item.profileId!)}
+          data-testid="today-stop-check-ins"
+        >
+          <BellOff className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {W.stopCheckIns}
         </Button>
       ) : null}
       {item.postId ? (

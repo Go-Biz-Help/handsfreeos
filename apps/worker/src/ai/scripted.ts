@@ -1642,6 +1642,7 @@ function scriptedChatRead(message: string) {
     : /\b(not interested|no thanks|stop)\b/.test(theirs)
       ? 'not_interested'
       : 'not_yet';
+  const last = chat.split('\n').at(-1) ?? '';
   return {
     summary: `A chat of ${chat.split('\n').length} messages.`,
     tags,
@@ -1654,7 +1655,19 @@ function scriptedChatRead(message: string) {
         : pitch === 'not_interested'
           ? 'Said no thanks'
           : null,
+    // What their last message answers to the owner's last (the conversation, decisions 65 to 67).
+    reply: /\] Them: /.test(last) ? scriptedAnswer(last.split('] Them: ')[1] ?? '') : 'none',
   };
+}
+
+/** Someone's answer to the owner's last message, by its words: yes, a question, not now, or no. */
+function scriptedAnswer(text: string): string {
+  const t = text.toLowerCase();
+  if (/\b(not interested|no thanks|stop)\b/.test(t)) return 'no';
+  if (/\b(later|not now|busy)\b/.test(t)) return 'later';
+  if (t.includes('?')) return 'question';
+  if (/\b(sure|yes|sounds good|send it|interested)\b/.test(t)) return 'yes';
+  return 'none';
 }
 
 /**
@@ -1684,14 +1697,31 @@ function scriptedPlaybookAssist(message: string) {
 
 /**
  * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. A reply is
- * simple when their last message asks nothing.
+ * simple when their last message asks nothing, and says what they answered; the video and the link say which they
+ * are, for the checks to find their links on the end.
  */
 function scriptedTodayDraft(message: string) {
   const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
   const first = unquote(name).split(' ')[0];
   const theirs = [...message.matchAll(/^Them: (.*)$/gm)].at(-1)?.[1] ?? '';
+  const last = [...message.matchAll(/^(Owner|Them): /gm)].at(-1)?.[1];
+  const reply = message.includes('They wrote last. Write the owner’s reply');
+  const answer = reply && last === 'Them' ? scriptedAnswer(theirs) : 'none';
+  if (message.includes('Write a short message with the short video'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [`Great, ${first}! Here’s a short video on how it works.`],
+    };
+  if (message.includes('gives the link to book a quick call'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [`Here’s my link to book a quick call, ${first}.`],
+    };
   return {
     simple: theirs !== '' && !theirs.includes('?'),
+    answer,
     drafts: [
       `Hi ${first}, thanks for adding me! How’s business going?`,
       `Hey ${first}, good to connect. What keeps you busiest these days?`,
@@ -1789,10 +1819,19 @@ function scriptedJoinAnswers(message: string) {
 /** Social Outreach's pick of a post to like (decision 33): the first with a picture, or none. */
 function scriptedLikePick(message: string) {
   const posts = [...message.matchAll(/<post number="(\d+)">\n([\s\S]*?)\n<\/post>/g)];
+  // A post about their work: liked, with a warm-up comment under it.
+  const work = posts.find((p) => /\b(crew|customers?)\b/i.test(p[2]!));
+  if (work)
+    return {
+      pick: Number(work[1]),
+      about: 'business',
+      why: 'About their work',
+      comment: 'Great work, that looks sharp!',
+    };
   const pictured = posts.find((p) => /^Picture: /m.test(p[2]!));
   return pictured
-    ? { pick: Number(pictured[1]), about: 'personal', why: 'A photo they shared' }
-    : { pick: null, about: null, why: null };
+    ? { pick: Number(pictured[1]), about: 'personal', why: 'A photo they shared', comment: null }
+    : { pick: null, about: null, why: null, comment: null };
 }
 
 /**
@@ -1849,7 +1888,28 @@ function scriptedProfileCheck(message: string) {
   };
 }
 
+/**
+ * Sample messages for Your messages (Get ready): two first messages (one twice, for the check to drop), the video only
+ * when the playbook has one, the link, a follow-up more than the pace sends (for the check to cut), and a check-in.
+ */
+function scriptedSamples(message: string) {
+  const video = message.includes('- video: the message after they say yes');
+  const many = Number(/- followUps: (\d+) short follow-ups/.exec(message)?.[1] ?? 6);
+  return {
+    first: [
+      'Hi Sam! Open to more booked calls on a results guarantee? If so, I’ll send more info.',
+      'Hi Sam! Open to more booked calls on a results guarantee? If so, I’ll send more info.',
+      'Hey Sam, would more booked calls with a guarantee be worth a look? Happy to send details.',
+    ],
+    video: video ? 'Great! Here’s a short video on how it works: [video link]' : null,
+    link: 'Here’s my link to book a quick call: [booking link]',
+    followUps: Array.from({ length: many + 1 }, (_, i) => `Follow-up ${i + 1}: just checking in.`),
+    checkIn: 'Thought you might like this checklist. No need to reply.',
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
   {
