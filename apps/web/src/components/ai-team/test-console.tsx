@@ -46,7 +46,15 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { CustomerPicker, type PickedCustomer } from '@/components/calendar/customer-picker';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -54,6 +62,7 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { checkViews, firstName, plural, toolName } from '@/lib/ai-team/describe';
+import { feedbackActions, feedbackOn, myFeedback, useReplyFeedback } from '@/lib/ai-team/feedback';
 import { LiveTestCall, type LiveCallSnapshot } from '@/lib/ai-team/test-call';
 import {
   streamTest,
@@ -71,6 +80,7 @@ import { clockSeconds } from '@/lib/workflows/run-words';
 import { LiveCallBar } from './live-call-bar';
 import { LogRow, type LogLine, type LogTone } from './log';
 import { AiTile, TeammateMark } from './mark';
+import { ReplyFeedback, type Coaching } from './reply-feedback';
 
 /** A written message and its reply, a turn of a call, or the call's greeting (no words of theirs). */
 type TurnKind = 'written' | 'call' | 'greeting';
@@ -78,6 +88,8 @@ type TurnKind = 'written' | 'call' | 'greeting';
 /** One message from the manager and how the teammate handled it. */
 interface Turn {
   readonly id: string;
+  /** The test run that wrote the reply, for feedback on it. */
+  readonly runId: string | null;
   readonly kind: TurnKind;
   /** What they wrote or said; empty for a call's greeting. */
   readonly customer: string;
@@ -113,6 +125,7 @@ interface Turn {
 function newTurn(id: string, kind: TurnKind, customer: string, opened: LogLine): Turn {
   return {
     id,
+    runId: null,
     kind,
     customer,
     reply: '',
@@ -218,7 +231,7 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
   const now = new Date().toISOString();
   switch (e.type) {
     case 'started':
-      return t;
+      return { ...t, runId: e.runId };
     case 'delta':
       return { ...t, reply: t.reply + e.text };
     // The words it's saying show as they're said; the reply replaces them once it's done.
@@ -466,8 +479,16 @@ export function TestConsole({
     };
   }
 
-  /** Sends a message (or, on a call, what they say); with no words on a call, starts it. */
-  async function run(raw: string, restart = false) {
+  /**
+   * Sends a message (or, on a call, what they say); with no words on a call, starts it. `again` is "Retry with the
+   * fix": the same message after the turns before it, with the feedback on the reply it gave, and the turns after it
+   * go.
+   */
+  async function run(
+    raw: string,
+    restart = false,
+    again?: { readonly before: readonly Turn[]; readonly coaching: Coaching },
+  ) {
     const message = raw.trim();
     const kind: TurnKind = phone ? (message ? 'call' : 'greeting') : 'written';
     if ((kind !== 'greeting' && !message) || (busy && !restart)) return;
@@ -476,7 +497,7 @@ export function TestConsole({
     if (voice.phase === 'listening' || voice.phase === 'speaking') voice.quiet();
     voice.thinking();
     const id = crypto.randomUUID();
-    const before = restart ? [] : turns;
+    const before = again ? again.before : restart ? [] : turns;
     const history: TestMessage[] = before.flatMap((t) => [
       ...(t.customer ? [{ from: 'customer' as const, text: t.customer }] : []),
       ...(t.reply.trim() ? [{ from: 'teammate' as const, text: t.reply }] : []),
@@ -495,7 +516,16 @@ export function TestConsole({
             `${person ? firstName(person.fullName) : 'They'} ${testVerb(channel)}`,
             { quote: message },
           );
-    const turn = newTurn(id, kind, message, opened);
+    const turn = newTurn(
+      id,
+      kind,
+      message,
+      again
+        ? lineAt(nowIso, timeZone, 'ai', RotateCcw, 'Tried again with your feedback', {
+            detail: [again.coaching.better, again.coaching.why].filter(Boolean).join(' · ') || null,
+          })
+        : opened,
+    );
     setTurns([...before, turn]);
     setText('');
     setBusy(true);
@@ -514,6 +544,7 @@ export function TestConsole({
             ...history,
             ...(message ? [{ from: 'customer' as const, text: message }] : []),
           ].slice(-40),
+          coaching: again?.coaching ?? null,
         },
         (e) => update(id, (t) => step(t, e, timeZone)),
         ctrl.signal,
@@ -534,6 +565,19 @@ export function TestConsole({
   }
 
   const send = (raw: string) => void run(raw);
+  /** "Retry with the fix": that turn again, with the feedback on its reply; the turns after it go. */
+  const retry = (t: Turn, coaching: Coaching) => {
+    const at = turns.findIndex((x) => x.id === t.id);
+    if (at < 0 || busy) return;
+    void run(t.customer, false, { before: turns.slice(0, at), coaching });
+  };
+  const feedbackApi = useMemo(() => feedbackActions(workspaceId), [workspaceId]);
+  const feedback = useReplyFeedback(
+    workspaceId,
+    { runIds: turns.flatMap((t) => (t.runId && t.done ? [t.runId] : [])) },
+    // The console needs ai_team.manage, so whoever tests may save what it learns.
+    { list: [], canSaveRules: true },
+  );
   const startCall = () => void run('', true);
 
   const liveTurnId = (n: number) => `live-${n}`;
@@ -1023,6 +1067,23 @@ export function TestConsole({
                                   </Tag>
                                 ))}
                               </span>
+                            ) : null}
+                            {t.done && t.runId && t.reply.trim() && !t.live ? (
+                              <ReplyFeedback
+                                workspaceId={workspaceId}
+                                actions={feedbackApi}
+                                reply={t.reply}
+                                runId={t.runId}
+                                asked={t.customer || null}
+                                mine={myFeedback(feedback, { runId: t.runId })}
+                                all={feedbackOn(feedback, { runId: t.runId })}
+                                canSaveRules={feedback.canSaveRules}
+                                slow={feedback.slow}
+                                onChange={feedback.put}
+                                onRetry={
+                                  t.kind === 'written' && !busy ? (c) => retry(t, c) : undefined
+                                }
+                              />
                             ) : null}
                           </div>
                         )}

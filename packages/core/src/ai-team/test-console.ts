@@ -19,6 +19,9 @@
  *     messages     { from: 'customer' | 'teammate', text: string }[]
  *                  the test so far, oldest first, ending with the customer's new message (at most 40). A phone test
  *                  starts with none: the call is picked up (or placed) and the teammate says its greeting.
+ *     coaching     { reply, better, why } | null
+ *                  "Retry with the fix": the same turn again, with what the person said about the reply it gave
+ *                  (`reply`): what it should have said and why. Used for this turn only.
  *
  *   A refusal before the stream starts is the API's JSON error, { error: { code, message, rule } }: 403
  *   without ai_team.manage, 429 when the AI limit is reached, 409 when an outgoing call has nothing to be about
@@ -64,6 +67,14 @@ export const TEST_CALL_GOAL_MAX = 300;
 /** How many messages one test sends: the newest are kept. */
 export const TEST_MESSAGES_MAX = 40;
 
+/** "Retry with the fix": the reply a person gave feedback on, what it should have said, and why. */
+export const TestCoaching = z.object({
+  reply: z.string().trim().max(4000).nullable().default(null),
+  better: z.string().trim().max(2000).nullable().default(null),
+  why: z.string().trim().max(500).nullable().default(null),
+});
+export type TestCoaching = z.infer<typeof TestCoaching>;
+
 const TestCall = z.object({
   direction: z.enum(TEST_CALL_DIRECTIONS),
   /** Why it calls them; an outgoing call only. */
@@ -95,6 +106,8 @@ export const TestConsoleInput = z
         }),
       )
       .max(TEST_MESSAGES_MAX),
+    /** "Retry with the fix": feedback on the reply this turn gave before, for this turn only. */
+    coaching: TestCoaching.nullable().default(null),
   })
   .superRefine((v, ctx) => {
     if (v.channel !== 'phone') {

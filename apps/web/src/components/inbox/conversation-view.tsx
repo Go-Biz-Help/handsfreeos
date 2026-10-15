@@ -1,5 +1,6 @@
 'use client';
 import {
+  aiWroteIt,
   ALL_LINES_WORDS,
   assigneeShort,
   BIN_WORDS,
@@ -58,7 +59,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useAssistant } from '@/components/assistant/assistant-provider';
 import { AttentionWaitingChip, useRecordAttention } from '@/components/attention/bits';
@@ -77,6 +78,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { feedbackActions, feedbackOn, myFeedback, useReplyFeedback } from '@/lib/ai-team/feedback';
 import { handlingOf, type TeammateDraft } from '@/lib/ai-team/inbox-types';
 import { teammateCommands, useConversationDrafts } from '@/lib/ai-team/use-inbox';
 import type {
@@ -116,6 +118,7 @@ import { useConversationActions, useCustomerNotes, useThread } from './hooks';
 import { useInbox } from './inbox-shell';
 import { LinkPersonDialog } from './link-person-dialog';
 import { MessageLog } from './message-log';
+import { ReplyFeedback } from '@/components/ai-team/reply-feedback';
 import { SocialMark } from './social-bits';
 
 /** How long an approved draft's message may take to arrive before the thread stops saying "Sending…". */
@@ -214,6 +217,13 @@ export function ConversationView({
   // Edit on an Assistant text or email card for a number that isn't in Contacts lands here.
   const handedDraft = useComposerDraft(c.id);
   const t = useThread(workspaceId, c.id, thread, allLanes);
+  // Thumbs on what the AI teammate wrote here, and what came of them.
+  const aiMessageIds = t.items
+    .filter(aiWroteIt)
+    .map((i) => i.id)
+    .slice(-100);
+  const feedback = useReplyFeedback(workspaceId, { messageIds: aiMessageIds });
+  const feedbackApi = useMemo(() => feedbackActions(workspaceId), [workspaceId]);
   // The customer's own notes, shown in the thread as the phone shows them (M10 step 15).
   const notes = useCustomerNotes(workspaceId, person?.id ?? null);
   // Only this customer's lanes and this customer: another conversation's news is the list's, not this page's.
@@ -1054,6 +1064,20 @@ export function ConversationView({
               onCancelScheduled={(id) => void cancelHeld(id)}
               tail={tail}
               timeZone={timezone}
+              aiFeedback={(item) => (
+                <ReplyFeedback
+                  workspaceId={workspaceId}
+                  actions={feedbackApi}
+                  reply={item.body ?? ''}
+                  messageId={item.id}
+                  mine={myFeedback(feedback, { messageId: item.id })}
+                  all={feedbackOn(feedback, { messageId: item.id })}
+                  canSaveRules={feedback.canSaveRules}
+                  slow={feedback.slow}
+                  onChange={feedback.put}
+                  align="end"
+                />
+              )}
             />
             {phone && waiting ? (
               <PhoneDraftBar d={decision} progress={tm?.progress ?? null} />

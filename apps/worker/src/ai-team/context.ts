@@ -359,6 +359,8 @@ export interface RunContext {
     readonly industry?: string | null;
   };
   readonly grounding: Grounding;
+  /** The team's instructions, oldest first: the AI teammate follows every one (20261027006500). */
+  readonly instructions?: readonly string[];
   readonly conversation: {
     /** Null for a first message to someone with no conversation yet: sending it starts one. */
     readonly id: string | null;
@@ -436,6 +438,16 @@ export interface LoadInput {
   readonly now: number;
 }
 
+/** The teammate's Instructions list, oldest first. */
+export async function instructionsOf(tx: Tx, teammateId: string): Promise<string[]> {
+  const list = await rows<{ body: string }>(
+    tx,
+    sql`select body from app.teammate_instructions where teammate_id = ${teammateId}
+        order by created_at, id`,
+  );
+  return list.map((i) => i.body);
+}
+
 export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunContext> {
   const ws = input.scope.workspaceId;
   const [w] = await rows<{
@@ -456,6 +468,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   // M18: a chat whose visitor typed back the code sent to the customer on file counts as theirs, like a text.
   const unverifiedChat = channel === 'chat' && !(conv && (await chatVerified(tx, conv)));
   const grounding = await loadGrounding(tx, ws);
+  const instructions = await instructionsOf(tx, input.teammate.id);
   const customer = personId ? await customerOf(tx, personId) : null;
   // An unverified chat works only on a customer the chat itself added: someone already on file, and their lead
   // (whenever it was opened), are theirs to read and change once the visitor proves who they are.
@@ -523,6 +536,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       industry: w.industry,
     },
     grounding,
+    instructions,
     conversation: {
       id: conv?.id ?? null,
       channel,

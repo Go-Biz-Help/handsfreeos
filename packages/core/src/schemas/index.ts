@@ -36,6 +36,7 @@ export * from './attention';
 export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
+export * from './teammate-feedback';
 export * from './campaign';
 export * from './contact-ai';
 export * from './maintenance';

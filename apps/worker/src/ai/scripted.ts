@@ -1033,15 +1033,33 @@ export function scriptedPromise(message: string): Record<string, unknown> {
  * comes from the corrections whose reasons share a word (of five letters or more) with it. What
  * the AI knows says otherwise when a line under one of its labels shares a word (of five letters or more) with the
  * reason: that line is the old words, and the reason takes their place.
+ *
+ * Feedback that only says what the reply should have said is unclear: it asks whether that's for every customer,
+ * once. "Just this one" teaches nothing; any other answer makes what it should have said the line.
  */
 export function scriptedLesson(message: string): Record<string, unknown> {
-  const none = { teach: false, line: null, why: null, from: [], conflict: null };
+  const none = { teach: false, line: null, why: null, from: [], conflict: null, ask: null };
   // Each correction's reason, by its number ("Correction 2:" … "Why: …").
   const reasons = new Map<number, string>();
   const parts = unquote(quotedBlock(message, 'corrections') ?? '').split(/^Correction (\d+):$/m);
   for (let i = 1; i + 1 < parts.length; i += 2) {
     const why = /^Why: (.+)$/m.exec(parts[i + 1]!)?.[1];
     if (why) reasons.set(Number(parts[i]), why.trim());
+  }
+  const newest = parts[2] ?? '';
+  const better = /^Should have said: (.+)$/m.exec(newest)?.[1]?.trim();
+  const answered = /^They answered: (.+)$/m.exec(newest)?.[1]?.trim();
+  if (!reasons.get(1) && better) {
+    if (!answered)
+      return {
+        ...none,
+        ask: {
+          question: 'Should it say this to every customer, or just this one?',
+          choices: ['Every customer', 'Just this one'],
+        },
+      };
+    if (/just this one/i.test(answered)) return { ...none, why: 'It only fits that one customer.' };
+    reasons.set(1, better);
   }
   const reason = reasons.get(1);
   if (!reason) return none;
@@ -1053,7 +1071,8 @@ export function scriptedLesson(message: string): Record<string, unknown> {
       .trim();
   const knows = unquote(quotedBlock(message, 'what_the_ai_knows') ?? '');
   const waiting = unquote(quotedBlock(message, 'already_suggested') ?? '');
-  if (flat(`${knows}\n${waiting}`).includes(flat(line))) return none;
+  if (flat(`${knows}\n${waiting}`).includes(flat(line)))
+    return { ...none, why: 'The AI already knows this.' };
   const wordsOf = (t: string) => new Set(t.toLowerCase().match(/[a-z]{5,}/g) ?? ([] as string[]));
   const said = wordsOf(line);
   const from = [...reasons]

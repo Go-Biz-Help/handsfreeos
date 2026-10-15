@@ -597,6 +597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/ai_teammate.answer_feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the question the AI asked about your feedback on one of its replies. It reads the feedback again with your answer and suggests one rule, or says there’s nothing to learn.
+         * @description Risk level 1. Requires inbox.use. Emits ai_teammate.feedback_answered.
+         */
+        post: operations["command_ai_teammate_answer_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_teammate.create": {
         parameters: {
             query?: never;
@@ -631,6 +651,26 @@ export interface paths {
          * @description Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_ai_teammate_decide_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_teammate.give_feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a thumbs up or down on a reply the AI teammate wrote, in a test or for real, with what it should have said and why. A thumbs down with words is read into one rule for a person to OK, or one question back. One per person per reply; giving it again replaces it.
+         * @description Risk level 1. Requires inbox.use. Emits ai_teammate.feedback_given.
+         */
+        post: operations["command_ai_teammate_give_feedback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13297,6 +13337,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/teammate_instruction.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an instruction to the AI teammate’s list, which it reads in full on every reply, call and test (after its fixed rules, which always win). At most 50.
+         * @description Risk level 2. Requires ai_team.manage. Emits teammate_instruction.created.
+         */
+        post: operations["command_teammate_instruction_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_instruction.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one of the AI teammate’s instructions off its list. It stops following it from its next reply.
+         * @description Risk level 2. Requires ai_team.manage. Emits teammate_instruction.deleted.
+         */
+        post: operations["command_teammate_instruction_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_instruction.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the words of one of the AI teammate’s instructions.
+         * @description Risk level 2. Requires ai_team.manage. Emits teammate_instruction.updated.
+         */
+        post: operations["command_teammate_instruction_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/teammate_lesson.apply": {
         parameters: {
             query?: never;
@@ -13307,10 +13407,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add the line of guidance made of corrections to the AI teammate to the business’s policies, which the AI reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.
-         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated, knowledge_item.updated.
+         * Save the line of guidance made of a correction or feedback to the AI teammate’s Instructions list, which it reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.
+         * @description Risk level 1. Requires ai_team.manage. Emits teammate_lesson.applied, teammate_instruction.created, teammate_instruction.updated, teammate_instruction.deleted, knowledge.profile_updated, knowledge_item.updated.
          */
         post: operations["command_teammate_lesson_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_lesson.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn down a line of guidance the AI suggested from a correction or feedback. Nothing changes in what the AI knows.
+         * @description Risk level 1. Requires ai_team.manage. Emits teammate_lesson.dismissed.
+         */
+        post: operations["command_teammate_lesson_dismiss"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14737,6 +14857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/ai_teammate.feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The feedback people gave on these replies of the AI teammate, with what the AI made of it: a rule waiting for an OK, a question, or nothing to learn.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_ai_teammate_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_teammate.get": {
         parameters: {
             query?: never;
@@ -14751,6 +14891,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_ai_teammate_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/ai_teammate.review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the AI teammate sent on its own (no person approved it), newest first, with what the customer said and any feedback on it; by default only replies nobody has rated yet.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_ai_teammate_review"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19497,6 +19657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/teammate_instruction.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The AI teammate’s Instructions list, oldest first: the rules it reads in full on every reply, call and test, and where each came from.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_teammate_instruction_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/teammate_view.current": {
         parameters: {
             query?: never;
@@ -21374,6 +21554,80 @@ export interface operations {
             };
         };
     };
+    command_ai_teammate_answer_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answer: string;
+                    /** Format: uuid */
+                    feedbackId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        feedback: {
+                            answer: string | null;
+                            betterReply: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            choices: string[];
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            /** @enum {string} */
+                            learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                            learnWhy: string | null;
+                            lesson: {
+                                conflict: {
+                                    existing: string;
+                                    explain: string;
+                                    itemId: string | null;
+                                    /** @enum {string} */
+                                    place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                    replacement: string;
+                                    where: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                line: string;
+                                /** @enum {string} */
+                                status: "open" | "applied" | "dismissed";
+                                why: string | null;
+                            } | null;
+                            messageId: string | null;
+                            mine: boolean;
+                            note: string | null;
+                            question: string | null;
+                            /** @enum {string} */
+                            rating: "good" | "bad";
+                            /** Format: uuid */
+                            runId: string;
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_ai_teammate_create: {
         parameters: {
             query?: never;
@@ -21460,6 +21714,86 @@ export interface operations {
                         };
                         /** @enum {string} */
                         status: "approved" | "rejected";
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_give_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    asked?: string | null;
+                    betterReply?: string | null;
+                    /** Format: uuid */
+                    messageId?: string;
+                    note?: string | null;
+                    /** @enum {string} */
+                    rating: "good" | "bad";
+                    /** Format: uuid */
+                    runId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        feedback: {
+                            answer: string | null;
+                            betterReply: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            choices: string[];
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            /** @enum {string} */
+                            learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                            learnWhy: string | null;
+                            lesson: {
+                                conflict: {
+                                    existing: string;
+                                    explain: string;
+                                    itemId: string | null;
+                                    /** @enum {string} */
+                                    place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                    replacement: string;
+                                    where: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                line: string;
+                                /** @enum {string} */
+                                status: "open" | "applied" | "dismissed";
+                                why: string | null;
+                            } | null;
+                            messageId: string | null;
+                            mine: boolean;
+                            note: string | null;
+                            question: string | null;
+                            /** @enum {string} */
+                            rating: "good" | "bad";
+                            /** Format: uuid */
+                            runId: string;
+                            updatedAt: string;
+                        };
                     };
                 };
             };
@@ -49797,6 +50131,126 @@ export interface operations {
             };
         };
     };
+    command_teammate_instruction_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        instruction: {
+                            body: string;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "person" | "lesson";
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_instruction_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    instructionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        instructionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_instruction_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    instructionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        instruction: {
+                            body: string;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "person" | "lesson";
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_teammate_lesson_apply: {
         parameters: {
             query?: never;
@@ -49825,6 +50279,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** Format: uuid */
+                        instructionId: string;
+                        /** Format: uuid */
                         lessonId: string;
                         line: string;
                         replaced: {
@@ -49832,6 +50288,38 @@ export interface operations {
                             before: string;
                             where: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_lesson_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    lessonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        lessonId: string;
                     };
                 };
             };
@@ -54065,6 +54553,88 @@ export interface operations {
             };
         };
     };
+    query_ai_teammate_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    messageIds?: string[];
+                    /** @default [] */
+                    runIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canSaveRules: boolean;
+                        feedback: {
+                            answer: string | null;
+                            betterReply: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            choices: string[];
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            /** @enum {string} */
+                            learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                            learnWhy: string | null;
+                            lesson: {
+                                conflict: {
+                                    existing: string;
+                                    explain: string;
+                                    itemId: string | null;
+                                    /** @enum {string} */
+                                    place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                    replacement: string;
+                                    where: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                line: string;
+                                /** @enum {string} */
+                                status: "open" | "applied" | "dismissed";
+                                why: string | null;
+                            } | null;
+                            messageId: string | null;
+                            mine: boolean;
+                            note: string | null;
+                            question: string | null;
+                            /** @enum {string} */
+                            rating: "good" | "bad";
+                            /** Format: uuid */
+                            runId: string;
+                            updatedAt: string;
+                        }[];
+                        messageRuns: {
+                            /** Format: uuid */
+                            messageId: string;
+                            /** Format: uuid */
+                            runId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_ai_teammate_get: {
         parameters: {
             query?: never;
@@ -54222,6 +54792,105 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_ai_teammate_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /**
+                     * @default unrated
+                     * @enum {string}
+                     */
+                    show?: "unrated" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canSaveRules: boolean;
+                        items: {
+                            asked: string | null;
+                            channel: string | null;
+                            conversationId: string | null;
+                            feedback: {
+                                answer: string | null;
+                                betterReply: string | null;
+                                by: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                choices: string[];
+                                createdAt: string;
+                                /** Format: uuid */
+                                id: string;
+                                isTest: boolean;
+                                /** @enum {string} */
+                                learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                                learnWhy: string | null;
+                                lesson: {
+                                    conflict: {
+                                        existing: string;
+                                        explain: string;
+                                        itemId: string | null;
+                                        /** @enum {string} */
+                                        place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                        replacement: string;
+                                        where: string;
+                                    } | null;
+                                    /** Format: uuid */
+                                    id: string;
+                                    line: string;
+                                    /** @enum {string} */
+                                    status: "open" | "applied" | "dismissed";
+                                    why: string | null;
+                                } | null;
+                                messageId: string | null;
+                                mine: boolean;
+                                note: string | null;
+                                question: string | null;
+                                /** @enum {string} */
+                                rating: "good" | "bad";
+                                /** Format: uuid */
+                                runId: string;
+                                updatedAt: string;
+                            }[];
+                            messageId: string | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reply: string;
+                            /** Format: uuid */
+                            runId: string;
+                            sentAt: string;
+                            /** @enum {string} */
+                            why: "answer" | "first_message" | "follow_up" | "other";
+                        }[];
+                        nextCursor: string | null;
+                        unrated: number;
                     };
                 };
             };
@@ -73087,6 +73756,52 @@ export interface operations {
                         }[];
                         nextCursor: string | null;
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_teammate_instruction_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canManage: boolean;
+                        instructions: {
+                            body: string;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "person" | "lesson";
+                            updatedAt: string;
+                        }[];
+                        max: number;
+                        name: string | null;
+                        teammateId: string | null;
                     };
                 };
             };

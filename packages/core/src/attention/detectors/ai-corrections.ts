@@ -1,8 +1,8 @@
 /**
  * The AI was corrected (Automations' "Learn from corrections"): someone edited or rejected one of the AI teammate's
- * replies, and the worker made one line of guidance of it (app.teammate_lessons) — from the first correction that
- * teaches it something, not the third. The card offers it: "Add to what the AI knows" puts it in the business's
- * policies, which the AI reads; dismissing says no. When the line goes against what the AI already knows, the card
+ * replies, or gave it a thumbs down, and the worker made one line of guidance of it (app.teammate_lessons) — from the
+ * first correction that teaches it something, not the third. The card offers it: "Add to its instructions" puts it
+ * on the AI teammate's Instructions list, which it reads on every reply; dismissing says no. When the line goes against what the AI already knows, the card
  * says where and asks which is right: "Use the new one" changes the old words, and dismissing keeps them. Either
  * way it's done.
  */

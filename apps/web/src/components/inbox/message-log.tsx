@@ -1,5 +1,6 @@
 'use client';
 import {
+  aiWroteIt,
   ALL_LINES_WORDS,
   arrived,
   clockTime,
@@ -60,8 +61,11 @@ export function MessageLog({
   compact,
   tail,
   timeZone,
+  aiFeedback,
 }: {
   items: ThreadItem[];
+  /** Under each message the AI teammate wrote: the thumbs and what came of them. */
+  aiFeedback?: (item: ThreadItem) => ReactNode;
   /** The notes the business wrote about this customer, folded into the thread by time (M10 step 15). */
   notes?: readonly NoteEntry[];
   pending: PendingText[];
@@ -130,6 +134,7 @@ export function MessageLog({
               onRetry={onRetry}
               onCancelScheduled={onCancelScheduled}
               timeZone={timeZone}
+              aiFeedback={aiFeedback}
             />
           ),
         )}
@@ -172,6 +177,7 @@ function ThreadEntry({
   onRetry,
   onCancelScheduled,
   timeZone,
+  aiFeedback,
 }: {
   item: ThreadItem;
   day: string | null;
@@ -182,6 +188,7 @@ function ThreadEntry({
   onRetry?: (messageId: string) => void;
   onCancelScheduled?: (messageId: string) => void;
   timeZone: string;
+  aiFeedback?: (item: ThreadItem) => ReactNode;
 }) {
   return (
     <>
@@ -213,6 +220,11 @@ function ThreadEntry({
           timeZone={timeZone}
         />
       )}
+      {aiFeedback && aiWroteIt(item) && !item.scheduledFor ? (
+        <div className="mt-0.5 flex justify-end" data-testid={`ai-feedback-${item.id}`}>
+          {aiFeedback(item)}
+        </div>
+      ) : null}
     </>
   );
 }

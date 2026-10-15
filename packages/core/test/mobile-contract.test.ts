@@ -146,6 +146,11 @@ const ONLINE_COMMANDS = [
   'outreach.readiness.profile',
   'outreach.readiness.numbers',
   'outreach.readiness.messages',
+  // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
+  // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
+  'ai_teammate.give_feedback',
+  'ai_teammate.answer_feedback',
+  'teammate_lesson.dismiss',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -244,6 +249,8 @@ const QUERIES = [
   'outreach.readiness',
   // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
+  // The feedback on the AI teammate's replies on a screen, and what came of it, asked again while it's being read.
+  'ai_teammate.feedback',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

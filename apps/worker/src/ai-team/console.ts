@@ -123,6 +123,7 @@ import {
   rewriteFeedback,
   TEAMMATE_SYSTEM,
 } from './prompt';
+import { coachingLines } from './turns';
 import { checkReply, closeRun, immediateHandOff } from './run';
 import { newRunState, timeKey, toolDefinition, type RunState } from './tools';
 
@@ -1710,7 +1711,10 @@ export async function runTest(
       system: TEAMMATE_SYSTEM,
       // A call's lasting part was read at pickup and is ready; each turn adds only the time and its knowledge.
       ...(brief ? { lasting: brief.lasting } : {}),
-      context: brief ? callTurnContext(rc, brief.faqIds) : contextText(rc),
+      context: [
+        brief ? callTurnContext(rc, brief.faqIds) : contextText(rc),
+        ...coachingLines(t.input.coaching),
+      ].join('\n'),
       maxTokens: phone ? PHONE_MAX_TOKENS : MAX_TOKENS,
       execute: simulator(hands, tools),
       onText: (text: string) => send({ type: 'delta', text }),

@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useTransition, type ReactNode } from 'react';
+import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { teammateActions } from '@/lib/ai-team/actions';
+import { feedbackActions, feedbackOn, myFeedback, useReplyFeedback } from '@/lib/ai-team/feedback';
 import {
   CHANNEL_NAMES,
   checksOf,
@@ -55,6 +56,7 @@ import { dateOf, fmtMonthDay, fmtTime, todayIn } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
 import { CheckChips, KnowledgeChips } from './chips';
 import { LogRow } from './log';
+import { ReplyFeedback } from './reply-feedback';
 
 type Filter = 'all' | 'handed_off' | 'drafted';
 
@@ -424,6 +426,34 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Thumbs on the reply a run wrote, and what came of them. */
+function RunFeedback({
+  workspaceId,
+  runId,
+  reply,
+}: {
+  workspaceId: string;
+  runId: string;
+  reply: string;
+}) {
+  const actions = useMemo(() => feedbackActions(workspaceId), [workspaceId]);
+  const feedback = useReplyFeedback(workspaceId, { runIds: [runId] });
+  return (
+    <ReplyFeedback
+      className="mt-2"
+      workspaceId={workspaceId}
+      actions={actions}
+      reply={reply}
+      runId={runId}
+      mine={myFeedback(feedback, { runId })}
+      all={feedbackOn(feedback, { runId })}
+      canSaveRules={feedback.canSaveRules}
+      slow={feedback.slow}
+      onChange={feedback.put}
+    />
+  );
+}
+
 /** One run: what started it, each tool call, the knowledge, the safety check, and how it came out. */
 function RunSheet({
   run,
@@ -545,6 +575,9 @@ function RunSheet({
               <p className="mt-[5px] whitespace-pre-wrap rounded-control bg-card-2 px-2.5 py-[7px] text-[12.5px] leading-[1.45] [overflow-wrap:anywhere]">
                 {run.replyText}
               </p>
+            ) : null}
+            {run.replyText && !run.isTest ? (
+              <RunFeedback workspaceId={workspaceId} runId={run.id} reply={run.replyText} />
             ) : null}
             {run.error ? <p className="mt-1.5 text-[13px] text-danger-text">{run.error}</p> : null}
             {!run.summary && !run.replyText && !run.error ? (

@@ -288,7 +288,7 @@ export function useItemActions(o: {
     }
 
     /**
-     * The line made of a correction goes into what the AI knows. When what it knows said otherwise, the card asked
+     * The line made of a correction goes on the AI teammate's instructions. When what it knows said otherwise, the card asked
      * which is right and this is "Use the new one": the new words take the old ones' place (dismissing keeps them).
      */
     async function addLesson(item: AttentionItem) {
@@ -302,12 +302,12 @@ export function useItemActions(o: {
         );
         toast.success(
           out.replaced
-            ? `Changed ${out.replaced.where} to the new words.`
-            : 'Added to what the AI knows.',
+            ? `Added to its instructions, and changed ${out.replaced.where} to match.`
+            : 'Added to its instructions.',
           {
             action: {
               label: 'See it',
-              onClick: () => router.push(`${base}/knowledge/profile`),
+              onClick: () => router.push(`${base}/ai-team/instructions`),
             },
           },
         );

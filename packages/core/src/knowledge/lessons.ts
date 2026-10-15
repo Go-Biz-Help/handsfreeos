@@ -4,7 +4,10 @@
  * there; teammate_lesson.apply swaps them when a person picks the new one. Browser-safe.
  */
 
-/** The profile's plain-text fields a lesson can go against, and a knowledge item's text. */
+/**
+ * The profile's plain-text fields a lesson can go against, a knowledge item's text, and one of the AI teammate's
+ * instructions (20261027006500).
+ */
 export const LESSON_PLACES = [
   'description',
   'serviceArea',
@@ -13,9 +16,10 @@ export const LESSON_PLACES = [
   'tone',
   'signature',
   'item',
+  'instruction',
 ] as const;
 export type LessonPlace = (typeof LESSON_PLACES)[number];
-export type LessonProfilePlace = Exclude<LessonPlace, 'item'>;
+export type LessonProfilePlace = Exclude<LessonPlace, 'item' | 'instruction'>;
 
 /** What the business calls each place on "What the AI knows". */
 export const LESSON_PLACE_NAMES: Readonly<Record<LessonProfilePlace, string>> = {
@@ -30,9 +34,9 @@ export const LESSON_PLACE_NAMES: Readonly<Record<LessonProfilePlace, string>> = 
 /** A lesson that goes against what the AI knows: the words there now, and what they'd become. */
 export interface LessonConflict {
   readonly place: LessonPlace;
-  /** The knowledge item, when the words are in one. */
+  /** The knowledge item or the instruction, when the words are in one. */
   readonly itemId: string | null;
-  /** Where, as the business would say it: "Hours", or the item's title. */
+  /** Where, as the business would say it: "Hours", the item's title, or "An instruction". */
   readonly where: string;
   /** The words there now that the correction goes against, as they are written. */
   readonly existing: string;

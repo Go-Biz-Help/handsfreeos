@@ -4,7 +4,8 @@
  * (@hfos/core's ai-team/test-console.ts); a booking is only described, and nothing is sent, booked or stored
  * but the test run and its tokens; it tests the builder's unsaved settings; an emergency gets the safety text;
  * it plays incoming and outgoing phone calls, greeting first, with the phone's tools and a goodbye or a hand-off
- * that ends the call; and at the AI limit it refuses with 429.
+ * that ends the call; it reads the team's instructions, and "Retry with the fix" coaches that turn alone; and at the AI
+ * limit it refuses with 429.
  */
 import {
   appointmentCreate,
@@ -184,6 +185,38 @@ describe('the test console', () => {
     });
     expect(bad.statusCode).toBe(400);
     expect(JSON.stringify(bad.json())).toContain('config.limits.dailySharePercent');
+  });
+
+  it('reads the team’s instructions, and retries a turn with the fix for that turn only', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.teammate_instructions (workspace_id, teammate_id, body)
+          values (${w.workspaceId}, ${w.teammateId}, 'Always mention our 90-day warranty.')`,
+    );
+    const asked = teammateRequests(w).length;
+    await test(ownerToken, {
+      ...says('Do you fix furnaces?'),
+      coaching: {
+        reply: 'Yes, we do.',
+        better: 'Yes! We fix every make, with a 90-day warranty.',
+        why: 'Say the warranty',
+      },
+    });
+    const [retry] = teammateRequests(w).slice(asked);
+    const brief = [retry!.lasting, retry!.context].filter(Boolean).join('\n');
+    expect(brief).toContain('<instructions>');
+    expect(brief).toContain('Always mention our 90-day warranty.');
+    expect(brief).toContain(
+      'What they’d rather you said: Yes! We fix every make, with a 90-day warranty.',
+    );
+    expect(brief).toContain('Why: Say the warranty');
+    await test(ownerToken, says('Do you fix furnaces?'));
+    const plain = teammateRequests(w).at(-1)!;
+    expect(plain.context).not.toContain('What they’d rather you said');
+    await rows(
+      admin(),
+      sql`delete from app.teammate_instructions where teammate_id = ${w.teammateId}`,
+    );
   });
 
   it('answers an emergency with the safety text, never asking the model', async () => {

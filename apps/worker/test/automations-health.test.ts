@@ -2,8 +2,8 @@
  * Settings → Automations' health and quality (stage 4b), on the real database:
  * - a payment connection that needs signing in again is an urgent card at once, and its owners get a push;
  * - a channel that usually gets texts and has gone quiet gets a card;
- * - a rejection of the AI teammate's draft becomes a line to add to what it knows at once (not after three), adding it
- *   puts it in the policies and clears the card, and one that goes against what the AI knows asks which is right and
+ * - a rejection of the AI teammate's draft becomes a line to add to its instructions at once (not after three), adding
+ *   it puts it on the list and clears the card, and one that goes against what the AI knows asks which is right and
  *   swaps the old words for the new ones;
  * - drafts nobody looked at for a week get a card;
  * - the weekly re-read of the website starts a scan of its own, and its waiting updates get a card;
@@ -168,6 +168,14 @@ describe('the AI teammate', () => {
             where workspace_id = ${t.workspaceId}`,
       )
     )[0]?.policies ?? '';
+  const instructions = async () =>
+    (
+      await rows<{ body: string }>(
+        admin(),
+        sql`select body from app.teammate_instructions where teammate_id = ${t.teammateId}
+            order by created_at`,
+      )
+    ).map((i) => i.body);
 
   it('offers a line from the first correction, not the third, and adding it clears the card', async () => {
     await rejectWith(
@@ -202,7 +210,8 @@ describe('the AI teammate', () => {
     );
     expect(out.output.replaced).toBeNull();
     await drain(t);
-    expect(await policies()).toContain('We don’t work Sundays, offer Monday instead.');
+    expect(await instructions()).toEqual(['We don’t work Sundays, offer Monday instead.']);
+    expect(await policies()).not.toContain('Sundays');
     expect((await itemOf(t, lesson!.id, 'ai_corrections')).state).toBe('resolved');
   });
 
@@ -214,10 +223,10 @@ describe('the AI teammate', () => {
   it('asks which is right when what the AI knows says otherwise, and the new words take the old ones’ place', async () => {
     await rows(
       admin(),
-      sql`update app.knowledge_profiles
-          set profile = jsonb_set(profile, '{policies}',
-            to_jsonb((profile ->> 'policies') || ${'\n- Saturday visits cost the same as weekdays.'}))
-          where workspace_id = ${t.workspaceId}`,
+      sql`insert into app.knowledge_profiles (workspace_id, profile)
+          values (${t.workspaceId}, ${JSON.stringify({ policies: 'Deposits are 20%.\n- Saturday visits cost the same as weekdays.' })}::jsonb)
+          on conflict (workspace_id) do update set profile = jsonb_set(app.knowledge_profiles.profile, '{policies}',
+            to_jsonb(coalesce(app.knowledge_profiles.profile ->> 'policies', '') || ${'\n- Saturday visits cost the same as weekdays.'}))`,
     );
     await rejectWith('Sat0', 'Can you come out Saturday?', 'Saturday visits cost extra');
     const lesson = (await lessons()).at(-1)!;
@@ -262,16 +271,19 @@ describe('the AI teammate', () => {
       owner(t),
       meta(),
     );
+    // The old words come out of the policies, and the new line goes on the instructions.
     expect(out.output.replaced).toEqual({
       where: 'Policies',
       before: 'Saturday visits cost the same as weekdays.',
-      after: 'Saturday visits cost extra.',
+      after: '',
     });
     await drain(t);
     const now = await policies();
-    expect(now).toContain('- Saturday visits cost extra.');
-    expect(now).not.toContain('cost the same as weekdays');
-    expect(now).toContain('We don’t work Sundays, offer Monday instead.');
+    expect(now).not.toContain('Saturday');
+    expect(await instructions()).toEqual([
+      'We don’t work Sundays, offer Monday instead.',
+      'Saturday visits cost extra.',
+    ]);
     expect((await itemOf(t, lesson.id, 'ai_corrections')).state).toBe('resolved');
   });
 
@@ -306,7 +318,7 @@ describe('the AI teammate', () => {
       sql`select body from app.knowledge_items where id = ${itemId}`,
     );
     expect(item?.body).toBe('Dryer vent cleaning costs $89 on its own.');
-    expect(await policies()).toContain('Dryer vent cleaning costs $89 on its own.');
+    expect(await instructions()).toContain('Dryer vent cleaning costs $89 on its own.');
   });
 
   it('flags a week of drafts nobody looked at', async () => {

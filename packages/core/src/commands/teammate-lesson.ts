@@ -1,34 +1,37 @@
 /**
- * Automations' "Learn from corrections": the card's one press. The line of guidance the worker made of corrections
- * to the AI teammate goes at the end of the business's policies in the knowledge profile, which the AI reads on
- * every reply, and the lesson is marked applied, which clears the card. A lesson that goes against what the AI
- * already knows waits for a person to say which is right: `replace` puts the new words in place of the old ones
- * (in the profile, or in the knowledge item that says otherwise), and dismissing the card keeps the old ones.
+ * Automations' "Learn from corrections", and feedback on the AI teammate's replies: saving the line of guidance the
+ * worker made of a correction. It goes on the teammate's Instructions list, which the AI reads in full on every
+ * reply (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), and the lesson is marked applied, which clears the card.
+ * A lesson that goes against what the AI already knows waits for a person to say which is right: `replace` puts
+ * the new words in place of the old ones (in the profile, a knowledge item or another instruction), and dismissing
+ * it keeps the old ones.
  */
 import { and, eq } from 'drizzle-orm';
-import { knowledgeItems, knowledgeProfiles, teammateLessons } from '@hfos/db/schema';
+import {
+  knowledgeItems,
+  knowledgeProfiles,
+  teammateInstructions,
+  teammateLessons,
+} from '@hfos/db/schema';
+import { requireTeammate } from '../ai-team/load';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { scopeCan } from '../kernel/execute';
 import { LESSON_PLACE_NAMES, swapWords, type LessonConflict } from '../knowledge/lessons';
 import { emptyKnowledgeProfile, KnowledgeProfile } from '../knowledge/profile';
 import {
   LessonConflictSchema,
   TeammateLessonApplyInput,
   TeammateLessonApplyOutput,
+  TeammateLessonDismissInput,
+  TeammateLessonDismissOutput,
 } from '../schemas/teammate-lesson';
+import { addInstruction } from './teammate-instruction';
 
-/** The policies field's own limit. */
-const POLICIES_MAX = 3000;
-
-/** The policies with one more line, or null when it would no longer fit. */
-export function withLesson(policies: string, line: string): string | null {
-  const clean = line.replace(/\s+/g, ' ').trim();
-  const lines = policies.split('\n').map((l) => l.trim());
-  if (lines.some((l) => l.replace(/^[-•]\s*/, '') === clean)) return policies;
-  const next = policies.trim() ? `${policies.trimEnd()}\n${clean}` : clean;
-  return next.length > POLICIES_MAX ? null : next;
-}
+/** The same words, spaces and case aside. */
+const sameWords = (a: string, b: string): boolean =>
+  a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
 
 /** A lesson's stored conflict, or null when it has none (or it doesn't read). */
 export function lessonConflictOf(value: unknown): LessonConflict | null {
@@ -42,16 +45,36 @@ export function lessonConflictWords(c: Pick<LessonConflict, 'where' | 'existing'
   return `${c.where} says “${c.existing}”`;
 }
 
+const lessonGone = () =>
+  HfosError.notFound(
+    'That suggestion isn’t there anymore. It may have been dealt with already. Refresh to see what’s left.',
+  );
+
+const lessonDecided = (status: string) =>
+  HfosError.conflict(
+    status === 'applied'
+      ? 'That’s already been added to the AI teammate’s instructions, so there’s nothing more to do.'
+      : 'Someone already turned that suggestion down, so there’s nothing more to do.',
+    'lesson_decided',
+  );
+
 export const teammateLessonApply = defineCommand({
   name: 'teammate_lesson.apply',
   description:
-    'Add the line of guidance made of corrections to the AI teammate to the business’s policies, which the AI reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.',
+    'Save the line of guidance made of a correction or feedback to the AI teammate’s Instructions list, which it reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.',
   risk: 1,
   input: TeammateLessonApplyInput,
   output: TeammateLessonApplyOutput,
-  permission: 'knowledge.manage',
+  permission: 'ai_team.manage',
   scope: (i) => ({ kind: 'workspace' as const, workspaceId: i.workspaceId }),
-  emits: ['teammate_lesson.applied', 'knowledge.profile_updated', 'knowledge_item.updated'],
+  emits: [
+    'teammate_lesson.applied',
+    'teammate_instruction.created',
+    'teammate_instruction.updated',
+    'teammate_instruction.deleted',
+    'knowledge.profile_updated',
+    'knowledge_item.updated',
+  ],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -60,17 +83,8 @@ export const teammateLessonApply = defineCommand({
       .from(teammateLessons)
       .where(and(eq(teammateLessons.id, input.lessonId), eq(teammateLessons.workspaceId, ws)))
       .for('update');
-    if (!lesson)
-      throw HfosError.notFound(
-        'That suggestion isn’t there anymore. It may have been dealt with already. Refresh to see what’s left.',
-      );
-    if (lesson.status !== 'open')
-      throw HfosError.conflict(
-        lesson.status === 'applied'
-          ? 'That’s already been added to what the AI knows, so there’s nothing more to do.'
-          : 'Someone already turned that suggestion down, so there’s nothing more to do.',
-        'lesson_decided',
-      );
+    if (!lesson) throw lessonGone();
+    if (lesson.status !== 'open') throw lessonDecided(lesson.status);
     const conflict = lessonConflictOf(lesson.conflict);
     // Two things the AI would read that say opposite things: a person picks, it never quietly keeps both.
     if (conflict && input.replace !== true)
@@ -78,25 +92,57 @@ export const teammateLessonApply = defineCommand({
         `This goes against what the AI knows: ${lessonConflictWords(conflict)}. Use the new one to change it, or dismiss this to keep it.`,
         'lesson_conflict',
       );
-    const line = input.line ?? lesson.line;
-    const [current] = await ctx.tx
-      .select()
-      .from(knowledgeProfiles)
-      .where(eq(knowledgeProfiles.workspaceId, ws))
-      .for('update');
-    const stored = current ? KnowledgeProfile.safeParse(current.profile) : null;
-    const before: KnowledgeProfile = {
-      ...(stored?.success ? stored.data : emptyKnowledgeProfile()),
-      allowPrices: current?.allowPrices ?? false,
-    };
-    let profile = before;
-    const changed = new Set<keyof KnowledgeProfile>();
+    if (conflict && conflict.place !== 'instruction' && !scopeCan(ctx.scope, 'knowledge.manage'))
+      throw HfosError.forbidden(
+        `Saving this changes ${conflict.where} in what the AI knows, which only people who manage the knowledge base can do. Ask an owner or admin to save it.`,
+        'needs_knowledge_manage',
+      );
+    const teammate = await requireTeammate(ctx.tx, ws, lesson.teammateId);
+    const line = (input.line ?? lesson.line).replace(/\s+/g, ' ').trim();
     let replaced: { where: string; before: string; after: string } | null = null;
-    let addLine = true;
 
     // The old words give way to the new ones where they are. Words nobody's left there (someone changed them
     // since) no longer say otherwise, so the line is simply added.
-    if (conflict?.place === 'item' && conflict.itemId) {
+    if (conflict?.place === 'instruction' && conflict.itemId) {
+      const [other] = await ctx.tx
+        .select()
+        .from(teammateInstructions)
+        .where(
+          and(
+            eq(teammateInstructions.id, conflict.itemId),
+            eq(teammateInstructions.workspaceId, ws),
+          ),
+        )
+        .for('update');
+      // The new line says it now: the old one keeps whatever else it said, or goes.
+      const body = other ? swapWords(other.body, conflict.existing, '') : null;
+      if (other && body !== null) {
+        if (body.trim()) {
+          await ctx.tx
+            .update(teammateInstructions)
+            .set({ body: body.slice(0, 300), updatedBy: me })
+            .where(eq(teammateInstructions.id, other.id));
+          await ctx.emit({
+            type: 'teammate_instruction.updated',
+            entityType: 'teammate_instruction',
+            entityId: other.id,
+            payload: { instructionId: other.id, teammateId: other.teammateId },
+            before: { instruction: other.body },
+            after: { instruction: body },
+          });
+        } else {
+          await ctx.tx.delete(teammateInstructions).where(eq(teammateInstructions.id, other.id));
+          await ctx.emit({
+            type: 'teammate_instruction.deleted',
+            entityType: 'teammate_instruction',
+            entityId: other.id,
+            payload: { instructionId: other.id, teammateId: other.teammateId },
+            before: { instruction: other.body },
+          });
+        }
+        replaced = { where: 'An instruction', before: conflict.existing, after: line };
+      }
+    } else if (conflict?.place === 'item' && conflict.itemId) {
       const [item] = await ctx.tx
         .select()
         .from(knowledgeItems)
@@ -118,53 +164,54 @@ export const teammateLessonApply = defineCommand({
         });
         replaced = { where: item.title, before: conflict.existing, after: conflict.replacement };
       }
-    } else if (conflict && conflict.place !== 'item') {
+    } else if (conflict && conflict.place !== 'item' && conflict.place !== 'instruction') {
       const place = conflict.place;
-      // In the policies the new line itself takes the old words' place.
-      const put = place === 'policies' ? line : conflict.replacement;
-      const next = swapWords(profile[place], conflict.existing, put);
-      if (next !== null) {
-        profile = { ...profile, [place]: next };
-        if (next !== before[place]) changed.add(place);
-        if (place === 'policies') addLine = false;
+      const [current] = await ctx.tx
+        .select()
+        .from(knowledgeProfiles)
+        .where(eq(knowledgeProfiles.workspaceId, ws))
+        .for('update');
+      const stored = current ? KnowledgeProfile.safeParse(current.profile) : null;
+      const before: KnowledgeProfile = {
+        ...(stored?.success ? stored.data : emptyKnowledgeProfile()),
+        allowPrices: current?.allowPrices ?? false,
+      };
+      // Lessons read before the Instructions list put the line itself in the policies; it's on the list now.
+      const put =
+        place === 'policies' && sameWords(conflict.replacement, line) ? '' : conflict.replacement;
+      const next = swapWords(before[place], conflict.existing, put);
+      if (next !== null && next !== before[place]) {
+        const profile = { ...before, [place]: next };
+        if (!KnowledgeProfile.safeParse(profile).success)
+          throw HfosError.conflict(
+            `${LESSON_PLACE_NAMES[place]} would be too long with the new words. Change it yourself in Knowledge → Business profile instead.`,
+            'lesson_too_long',
+          );
+        const values = {
+          profile: profile as unknown as Record<string, unknown>,
+          allowPrices: profile.allowPrices,
+          updatedBy: me,
+        };
+        await ctx.tx
+          .insert(knowledgeProfiles)
+          .values({ workspaceId: ws, ...values })
+          .onConflictDoUpdate({ target: knowledgeProfiles.workspaceId, set: values });
+        await ctx.emit({
+          type: 'knowledge.profile_updated',
+          entityType: 'knowledge_profile',
+          entityId: ws,
+          payload: { fields: [place], allowPrices: profile.allowPrices },
+          after: { changed: place },
+        });
         replaced = { where: LESSON_PLACE_NAMES[place], before: conflict.existing, after: put };
       }
     }
-    if (addLine) {
-      const policies = withLesson(profile.policies, line);
-      if (policies === null)
-        throw HfosError.conflict(
-          'Your policies are full, so this can’t be added. Shorten them under Policies in Knowledge → Business profile, then add it again.',
-          'policies_full',
-        );
-      if (policies !== profile.policies) {
-        profile = { ...profile, policies };
-        changed.add('policies');
-      }
-    }
-    if (!KnowledgeProfile.safeParse(profile).success)
-      throw HfosError.conflict(
-        `${replaced?.where ?? 'What the AI knows'} would be too long with the new words. Change it yourself in Knowledge → Business profile instead.`,
-        'lesson_too_long',
-      );
-    if (changed.size) {
-      const values = {
-        profile: profile as unknown as Record<string, unknown>,
-        allowPrices: profile.allowPrices,
-        updatedBy: me,
-      };
-      await ctx.tx
-        .insert(knowledgeProfiles)
-        .values({ workspaceId: ws, ...values })
-        .onConflictDoUpdate({ target: knowledgeProfiles.workspaceId, set: values });
-      await ctx.emit({
-        type: 'knowledge.profile_updated',
-        entityType: 'knowledge_profile',
-        entityId: ws,
-        payload: { fields: [...changed], allowPrices: profile.allowPrices },
-        after: { changed: [...changed].join(', ') },
-      });
-    }
+    const { row } = await addInstruction(ctx, {
+      teammateId: teammate.id,
+      teammateName: teammate.name,
+      body: line,
+      lessonId: lesson.id,
+    });
     await ctx.tx
       .update(teammateLessons)
       .set({ status: 'applied', decidedBy: me, decidedAt: new Date() })
@@ -173,10 +220,50 @@ export const teammateLessonApply = defineCommand({
       type: 'teammate_lesson.applied',
       entityType: 'lesson',
       entityId: lesson.id,
-      payload: { lessonId: lesson.id, teammateId: lesson.teammateId, replaced: replaced !== null },
+      payload: {
+        lessonId: lesson.id,
+        teammateId: lesson.teammateId,
+        instructionId: row.id,
+        replaced: replaced !== null,
+      },
       ...(replaced ? { before: { [replaced.where]: replaced.before } } : {}),
       after: { line, ...(replaced ? { [replaced.where]: replaced.after } : {}) },
     });
-    return { lessonId: lesson.id, line, replaced };
+    return { lessonId: lesson.id, line, instructionId: row.id, replaced };
+  },
+});
+
+export const teammateLessonDismiss = defineCommand({
+  name: 'teammate_lesson.dismiss',
+  description:
+    'Turn down a line of guidance the AI suggested from a correction or feedback. Nothing changes in what the AI knows.',
+  risk: 1,
+  input: TeammateLessonDismissInput,
+  output: TeammateLessonDismissOutput,
+  permission: 'ai_team.manage',
+  scope: (i) => ({ kind: 'workspace' as const, workspaceId: i.workspaceId }),
+  emits: ['teammate_lesson.dismissed'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const [lesson] = await ctx.tx
+      .select()
+      .from(teammateLessons)
+      .where(and(eq(teammateLessons.id, input.lessonId), eq(teammateLessons.workspaceId, ws)))
+      .for('update');
+    if (!lesson) throw lessonGone();
+    if (lesson.status !== 'open') throw lessonDecided(lesson.status);
+    await ctx.tx
+      .update(teammateLessons)
+      .set({ status: 'dismissed', decidedBy: me, decidedAt: new Date() })
+      .where(eq(teammateLessons.id, lesson.id));
+    await ctx.emit({
+      type: 'teammate_lesson.dismissed',
+      entityType: 'lesson',
+      entityId: lesson.id,
+      payload: { lessonId: lesson.id, teammateId: lesson.teammateId },
+      after: { line: lesson.line },
+    });
+    return { lessonId: lesson.id };
   },
 });
