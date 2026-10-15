@@ -87,8 +87,12 @@ export async function postHelpful(job: Job, helpfulId: string | null): Promise<H
       warned: false,
     };
   const group = post.groupName ?? 'the group';
+  // Facebook's are each in a group; one on a feed of its own is its network's to post.
+  const groupUrl = post.groupUrl;
+  if (!groupUrl)
+    return { line: 'That helpful post goes on your own feed, not in a group.', warned: false };
   job.progress(`Putting your helpful post up in ${group}…`);
-  await job.tab.open(post.groupUrl);
+  await job.tab.open(groupUrl);
   const page = await readIn(job.tab);
   const warned = await warnedOn(job, page);
   if (warned) return warned;
@@ -114,7 +118,7 @@ export async function postHelpful(job: Job, helpfulId: string | null): Promise<H
   let url: string | null = null;
   if (result === 'done') {
     await pause(SETTLE_MS);
-    await job.tab.open(newestUrl(post.groupUrl));
+    await job.tab.open(newestUrl(groupUrl));
     const after = await readIn(job.tab);
     const warnedAfter = await warnedOn(job, after);
     if (warnedAfter) {
@@ -146,6 +150,7 @@ export async function readEngaged(job: Job): Promise<JobEnd> {
     job.progress(`Reading who engaged with your post in ${p.groupName ?? 'a group'}…`);
     let url = p.postUrl;
     if (!url) {
+      if (!p.groupUrl) continue;
       await job.tab.open(newestUrl(p.groupUrl));
       const feed = await readIn(job.tab);
       const warned = await warnedOn(job, feed);

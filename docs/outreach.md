@@ -1293,6 +1293,13 @@ code" (decision 45's install step). Settled too:
   Facebook's in their columns as before; `outreach.readiness.profile` and `outreach.profile.check_save` take the
   network, and `ProfileRead` says which network the extension read. The not-ready words name it: "Your LinkedIn
   profile isn’t ready yet."
+- **Growing on LinkedIn** (the plan's part 6). A post LinkedIn's post search finds is kept in no group
+  (`outreach.posts.save` with `found: 'search'` and no `group`, refused on Facebook), checked by the AI and offered to
+  comment on like a group's. The helpful post goes on the person's own feed: `outreach.helpful.ask` with
+  `platform: 'linkedin'` takes no group (`helpful.platform`, a null `group_id` there only, 20261027007500), one a day
+  on each network, each network's posting choice; its AI (`LINKEDIN_HELPFUL_SYSTEM`) writes for their connections and
+  followers from what the posts their search found asked. `outreach.helpful` and `outreach.helpful.next` take the
+  network, and whoever engages with it is a warm lead on that network's Today.
 - **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
   they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
   a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook

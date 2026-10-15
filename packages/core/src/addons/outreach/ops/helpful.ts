@@ -40,6 +40,7 @@ import { automationOf } from './automation';
 import { inWorkspace, keptProfile, once, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
+import { NETWORKS, type Platform } from '../networks';
 import { readinessFor } from './readiness';
 import { startOfToday } from './tidy';
 
@@ -64,14 +65,20 @@ async function mine(ctx: Ctx, me: string, helpfulId: string) {
   return row;
 }
 
-/** The person's helpful posts, as the app shows them: today's, then the last fortnight's posted. */
-async function shownOf(ctx: Ctx, me: string, todayFrom: Date): Promise<HelpfulShown[]> {
+/** The person's helpful posts on a network, as the app shows them: today's, then the last fortnight's posted. */
+async function shownOf(
+  ctx: Ctx,
+  me: string,
+  todayFrom: Date,
+  platform: Platform,
+): Promise<HelpfulShown[]> {
   const since = new Date(todayFrom.getTime() - ENGAGED_DAYS * DAY).toISOString();
   const found = await rows<{
     id: string;
-    group_id: string;
+    platform: Platform;
+    group_id: string | null;
     group_name: string | null;
-    group_url: string;
+    group_url: string | null;
     playbook_name: string | null;
     state: HelpfulState;
     how: HelpfulShown['how'];
@@ -85,16 +92,16 @@ async function shownOf(ctx: Ctx, me: string, todayFrom: Date): Promise<HelpfulSh
     reactions: number;
   }>(
     ctx.tx,
-    sql`select h.id, h.group_id, g.name as group_name, g.url as group_url, pb.name as playbook_name, h.state,
-          h.how, h.topic, h.body, h.post_url, h.why_not, h.asked_at, h.posted_at,
+    sql`select h.id, h.platform, h.group_id, g.name as group_name, g.url as group_url, pb.name as playbook_name,
+          h.state, h.how, h.topic, h.body, h.post_url, h.why_not, h.asked_at, h.posted_at,
           (select count(*)::int from addon_outreach.engagements e
             where e.helpful_id = h.id and e.kind = 'comment') as comments,
           (select count(*)::int from addon_outreach.engagements e
             where e.helpful_id = h.id and e.kind = 'reaction') as reactions
         from addon_outreach.helpful h
-        join addon_outreach.groups g on g.id = h.group_id
+        left join addon_outreach.groups g on g.id = h.group_id
         left join addon_outreach.playbooks pb on pb.id = h.playbook_id
-        where h.workspace_id = ${ctx.scope.workspaceId!} and h.user_id = ${me}
+        where h.workspace_id = ${ctx.scope.workspaceId!} and h.user_id = ${me} and h.platform = ${platform}
           and (h.asked_at >= ${todayFrom.toISOString()}::timestamptz
             or (h.state = 'posted' and h.posted_at >= ${since}::timestamptz))
         order by h.asked_at desc limit 30`,
@@ -102,6 +109,7 @@ async function shownOf(ctx: Ctx, me: string, todayFrom: Date): Promise<HelpfulSh
   const iso = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
   return found.map((h) => ({
     helpfulId: h.id,
+    platform: h.platform,
     groupId: h.group_id,
     groupName: h.group_name,
     groupUrl: h.group_url,
@@ -135,16 +143,16 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const now = at.getTime();
     return once(async () => {
-      // Two presses at once make one: the second finds the first.
+      // Two presses at once make one: the second finds the first. Each network's day is its own.
       await ctx.tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended(${`outreach.helpful:${ws}:${me}`}, 0))`,
+        sql`select pg_advisory_xact_lock(hashtextextended(${`outreach.helpful:${ws}:${me}:${input.platform}`}, 0))`,
       );
       const todayFrom = await startOfToday(ctx, now);
       const today = await rows<{ id: string; state: HelpfulState; group_name: string | null }>(
         ctx.tx,
         sql`select h.id, h.state, g.name as group_name from addon_outreach.helpful h
-            join addon_outreach.groups g on g.id = h.group_id
-            where h.workspace_id = ${ws} and h.user_id = ${me}
+            left join addon_outreach.groups g on g.id = h.group_id
+            where h.workspace_id = ${ws} and h.user_id = ${me} and h.platform = ${input.platform}
               and h.asked_at >= ${todayFrom.toISOString()}::timestamptz
             order by h.asked_at desc`,
       );
@@ -154,8 +162,36 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
         throw HfosError.rule(
           'outreach_helpful_today',
           409,
-          'Today’s helpful post is up. The next one comes tomorrow: one a day keeps Facebook and the groups happy.',
+          input.platform === 'facebook'
+            ? 'Today’s helpful post is up. The next one comes tomorrow: one a day keeps Facebook and the groups happy.'
+            : `Today’s helpful post on ${NETWORKS[input.platform].name} is up. The next one comes tomorrow: one a day keeps your feed welcome.`,
         );
+      // Off Facebook it goes on the person's own feed: no group to pick, the playbook in use first.
+      if (input.platform !== 'facebook') {
+        const playbooks = await playbooksInUse(ctx);
+        const { choices } = await automationOf(ctx, me, now, input.platform);
+        const [row] = await ctx.tx
+          .insert(helpful)
+          .values({
+            workspaceId: ws,
+            userId: me,
+            platform: input.platform,
+            groupId: null,
+            playbookId: playbooks[0]?.id ?? null,
+            state: 'drafting',
+            how: choices.posting,
+            askedAt: at,
+            updatedAt: at,
+          })
+          .returning({ id: helpful.id });
+        await ctx.emit({
+          type: 'outreach.helpful.asked',
+          entityType: 'workspace',
+          entityId: ws,
+          payload: { helpfulId: row!.id, groupId: null, userId: me, platform: input.platform },
+        });
+        return { helpfulId: row!.id, groupName: null, fresh: true };
+      }
 
       const weekAgo = new Date(now - HELPFUL_GROUP_DAYS * DAY).toISOString();
       const candidates = await rows<{
@@ -173,7 +209,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
         ctx.tx,
         sql`select g.id, g.name, g.detail, g.members, g.privacy, g.check_state, g.check_why, g.check_playbook_id,
               exists (select 1 from addon_outreach.helpful h
-                where h.group_id = g.id and h.user_id = ${me}
+                where h.group_id = g.id and h.user_id = ${me} and h.platform = 'facebook'
                   and h.state in ('drafting', 'draft', 'approved', 'posted')
                   and h.asked_at >= ${weekAgo}::timestamptz) as posted_lately,
               (select count(*)::int from addon_outreach.posts po
@@ -456,7 +492,7 @@ export const helpfulEngaged = defineAddonCommand(outreachAddon, {
       for (const { e, kind } of seen) {
         const profile = await keptProfile(
           ctx,
-          { platform: 'facebook', profile: e.profile, name: e.name },
+          { platform: row.platform, profile: e.profile, name: e.name },
           me,
           at,
           { groupId: row.groupId },
@@ -499,12 +535,12 @@ export const helpfulList = defineAddonQuery(outreachAddon, {
   output: HelpfulListOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  async handler(ctx) {
+  async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
     const todayFrom = await startOfToday(ctx, now);
-    const posts = await shownOf(ctx, me, todayFrom);
-    const { settings } = await automationOf(ctx, me, now);
+    const posts = await shownOf(ctx, me, todayFrom, input.platform);
+    const { choices: settings } = await automationOf(ctx, me, now, input.platform);
     return {
       posts,
       today: posts.filter(
@@ -529,17 +565,18 @@ export const helpfulNext = defineAddonQuery(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const since = new Date(Date.now() - ENGAGED_DAYS * DAY).toISOString();
     // On its own, it posts nothing until the person is ready (decision 63); one they OK'd and asked for still goes.
-    const holds = !input.helpfulId && !(await readinessFor(ctx, me)).ready;
+    const holds = !input.helpfulId && !(await readinessFor(ctx, me, input.platform)).ready;
     const [post] = await rows<{
       id: string;
       group_name: string | null;
-      group_url: string;
+      group_url: string | null;
       body: string;
     }>(
       ctx.tx,
       sql`select h.id, g.name as group_name, g.url as group_url, h.body from addon_outreach.helpful h
-          join addon_outreach.groups g on g.id = h.group_id
+          left join addon_outreach.groups g on g.id = h.group_id
           where h.workspace_id = ${ws} and h.user_id = ${me} and h.body is not null
+            and h.platform = ${input.platform}
             and ${
               input.helpfulId
                 ? sql`h.id = ${input.helpfulId} and h.state = 'approved'`
@@ -550,15 +587,16 @@ export const helpfulNext = defineAddonQuery(outreachAddon, {
     const read = await rows<{
       id: string;
       group_name: string | null;
-      group_url: string;
+      group_url: string | null;
       post_url: string | null;
       body: string;
     }>(
       ctx.tx,
       sql`select h.id, g.name as group_name, g.url as group_url, h.post_url, h.body
           from addon_outreach.helpful h
-          join addon_outreach.groups g on g.id = h.group_id
+          left join addon_outreach.groups g on g.id = h.group_id
           where h.workspace_id = ${ws} and h.user_id = ${me} and h.state = 'posted'
+            and h.platform = ${input.platform}
             and h.posted_at >= ${since}::timestamptz
           order by h.posted_at desc limit 14`,
     );

@@ -806,3 +806,120 @@ describe('each network’s own profile in Get ready', () => {
     expect(PROFILE_ITEMS).not.toContain('about');
   });
 });
+
+describe('growing on LinkedIn', () => {
+  const linkedIn = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.linkedin.com/in/${slug}/`,
+  });
+
+  it('keeps posts found by LinkedIn’s search, in no group, and never Facebook’s without one', async () => {
+    const ana = await teammate('Ana Ruiz');
+    const saved = (await runAs(ana, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      found: 'search',
+      posts: [
+        {
+          url: 'https://www.linkedin.com/feed/update/urn:li:activity:7100000000000000001/',
+          author: linkedIn('jo-park-ops'),
+          name: 'Jo Park',
+          text: 'Can anyone recommend a CRM for a small team? Looking for something simple.',
+        },
+      ],
+    })) as { groupId: string | null; posts: { check: string | null }[] };
+    expect(saved.groupId).toBeNull();
+    expect(saved.posts[0]!.check).toBe('waiting');
+    const [kept] = await rows<{ group_id: string | null; found: string; platform: string }>(
+      admin(),
+      sql`select po.group_id, po.found, pr.platform from addon_outreach.posts po
+          join addon_outreach.profiles pr on pr.id = po.profile_id
+          where po.workspace_id = ${ws} and po.user_id = ${ana.id}`,
+    );
+    expect(kept).toEqual({ group_id: null, found: 'search', platform: 'linkedin' });
+    expect(
+      await refused(
+        runAs(ana, ws, 'outreach.posts.save', {
+          posts: [
+            {
+              url: 'https://www.facebook.com/groups/1/posts/2/',
+              author: {
+                id: null,
+                username: 'jo.park.1',
+                url: 'https://www.facebook.com/jo.park.1',
+              },
+              name: 'Jo Park',
+              text: 'Can anyone recommend a CRM?',
+            },
+          ],
+        }),
+      ),
+    ).toBe('validation');
+  });
+
+  it('writes LinkedIn’s helpful post for the person’s own feed, its day apart from Facebook’s', async () => {
+    const rae = await teammate('Rae Kim');
+    const asked = (await runAs(rae, ws, 'outreach.helpful.ask', { platform: 'linkedin' })) as {
+      helpfulId: string;
+      groupName: string | null;
+      fresh: boolean;
+    };
+    expect(asked).toMatchObject({ groupName: null, fresh: true });
+    expect(await runAs(rae, ws, 'outreach.helpful.ask', { platform: 'linkedin' })).toMatchObject({
+      helpfulId: asked.helpfulId,
+      fresh: false,
+    });
+    // Facebook's is its own: Rae is in no group there, so none goes up.
+    expect(await refused(runAs(rae, ws, 'outreach.helpful.ask', {}))).toBe(
+      'outreach_helpful_no_group',
+    );
+    expect(
+      await refused(
+        runAs(rae, ws, 'outreach.helpful.ask', { platform: 'linkedin', groupId: randomUUID() }),
+      ),
+    ).toBe('validation');
+    const list = (await runAs(rae, ws, 'outreach.helpful', { platform: 'linkedin' })) as {
+      posts: { platform: string; groupId: string | null; state: string }[];
+    };
+    expect(list.posts).toEqual([
+      expect.objectContaining({ platform: 'linkedin', groupId: null, state: 'drafting' }),
+    ]);
+    expect(((await runAs(rae, ws, 'outreach.helpful', {})) as { posts: unknown[] }).posts).toEqual(
+      [],
+    );
+
+    // Written, posted on the feed, and whoever comments is a warm lead on LinkedIn's Today alone.
+    await runAsSystem(ws, 'outreach.helpful.draft', {
+      helpfulId: asked.helpfulId,
+      draft: {
+        allowed: true,
+        topic: 'Following up',
+        text: 'Most deals are lost in the follow-up.\n\nWhat’s your best follow-up tip?',
+        why: 'People ask how to follow up',
+      },
+    });
+    await runAs(rae, ws, 'outreach.helpful.posted', {
+      helpfulId: asked.helpfulId,
+      posted: true,
+      url: 'https://www.linkedin.com/feed/update/urn:li:activity:7100000000000000002/',
+    });
+    expect(
+      await runAs(rae, ws, 'outreach.helpful.engaged', {
+        helpfulId: asked.helpfulId,
+        comments: [
+          {
+            profile: linkedIn('mo-lane-cpa'),
+            name: 'Mo Lane',
+            comment: 'Great tip, we struggle with this too.',
+          },
+        ],
+      }),
+    ).toMatchObject({ added: 1 });
+    const today = async (platform?: 'linkedin') =>
+      (await runAs(rae, ws, 'outreach.today', platform ? { platform } : {})).items.map(
+        (i: { kind: string; name: string }) => `${i.kind}: ${i.name}`,
+      );
+    expect(await today('linkedin')).toContain('warm_lead: Mo Lane');
+    expect(await today()).not.toContain('warm_lead: Mo Lane');
+  });
+});
