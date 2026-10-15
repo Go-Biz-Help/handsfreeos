@@ -76760,6 +76760,11 @@
                               "minimum": 1,
                               "maximum": 14
                             }
+                          },
+                          "followUpAfterDays": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 30
                           }
                         },
                         "required": [
@@ -77168,6 +77173,11 @@
                                 "minimum": 1,
                                 "maximum": 14
                               }
+                            },
+                            "followUpAfterDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 30
                             }
                           },
                           "required": [
@@ -77650,6 +77660,11 @@
                                 "minimum": 1,
                                 "maximum": 14
                               }
+                            },
+                            "followUpAfterDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 30
                             }
                           },
                           "required": [
@@ -166006,6 +166021,11 @@
                                       "minimum": 1,
                                       "maximum": 14
                                     }
+                                  },
+                                  "followUpAfterDays": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 30
                                   }
                                 },
                                 "required": [

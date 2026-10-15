@@ -35596,6 +35596,7 @@ export interface operations {
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
+                                followUpAfterDays?: number;
                                 followUpGaps?: number[];
                                 followUps?: number;
                                 messageAfterDays: number;
@@ -35659,6 +35660,7 @@ export interface operations {
                         /** @default [] */
                         ownOpeners?: string[];
                         pace: {
+                            followUpAfterDays?: number;
                             followUpGaps?: number[];
                             followUps?: number;
                             messageAfterDays: number;
@@ -35721,6 +35723,7 @@ export interface operations {
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
+                                followUpAfterDays?: number;
                                 followUpGaps?: number[];
                                 followUps?: number;
                                 messageAfterDays: number;
@@ -64655,6 +64658,7 @@ export interface operations {
                                 /** @default [] */
                                 ownOpeners: string[];
                                 pace: {
+                                    followUpAfterDays?: number;
                                     followUpGaps?: number[];
                                     followUps?: number;
                                     messageAfterDays: number;

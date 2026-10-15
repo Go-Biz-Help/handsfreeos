@@ -230,6 +230,11 @@ export const PlaybookDetails = z
           .min(PACE_LIMITS.followUps.min)
           .max(PACE_LIMITS.followUps.max)
           .optional(),
+        /**
+         * Before data version 4, the quiet days before a follow-up. Still taken from phones built before it, so their
+         * saves go through, and let go: the follow-ups saved stay as they are.
+         */
+        followUpAfterDays: z.int().min(1).max(30).optional(),
       })
       .refine(
         (p) =>
