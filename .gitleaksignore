@@ -18,3 +18,5 @@ d65446e2c04528027c877d7d5469865a9f520ad6:packages/core/test/number-import.test.t
 d65446e2c04528027c877d7d5469865a9f520ad6:packages/core/test/number-import.test.ts:generic-api-key:132
 # A made-up founding claim token in a phone test, renamed in the next commit so no key-shaped literal is in the source.
 7d2349fd316788e6700ac8d75cd68661d9b4e6b6:apps/mobile/src/admin/__tests__/votes-rates-founding.test.tsx:generic-api-key:182
+# A made-up LinkedIn chat id in a test (it looks random, as LinkedIn's do), rewritten in the next commit.
+9260366d66faf7d992babeca6a15e4827e032ae3:packages/core/test/addons/outreach-networks.test.ts:generic-api-key:258

@@ -219,6 +219,9 @@ describe('each network on its own', () => {
   });
 });
 
+/** A LinkedIn chat's id in its link's shape: "2-", then letters and numbers, ending "==". Made up. */
+const CHAT_ID = '2-aaaabbbbcccc==';
+
 describe('each network’s own shapes', () => {
   const dana = {
     id: 'ACoAABx9-Kq_7',
@@ -255,7 +258,7 @@ describe('each network’s own shapes', () => {
       kind: 'message',
       profile: dana,
       name: 'Dana Reyes',
-      threadKey: '2-MDA0ZTQ1YjctYTNiMy00ZjQx==',
+      threadKey: CHAT_ID,
       at: new Date().toISOString(),
     });
     const [kept] = await rows<{ platform: string; platform_id: string; username: string }>(
@@ -272,7 +275,7 @@ describe('each network’s own shapes', () => {
       admin(),
       sql`select thread_key from addon_outreach.touches where profile_id = ${saved.profileId}`,
     );
-    expect(touch!.thread_key).toBe('2-MDA0ZTQ1YjctYTNiMy00ZjQx==');
+    expect(touch!.thread_key).toBe(CHAT_ID);
 
     // A LinkedIn page sent as Facebook's, or a Facebook one as LinkedIn's, is refused with what to send.
     expect(
