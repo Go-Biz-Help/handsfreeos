@@ -376,7 +376,7 @@ function aboutLines(rc: RunContext, opts: { readonly channelLines?: readonly str
   return lines;
 }
 
-/** The team's Instructions list (20261027006600), every one, in the order they were given. */
+/** The team's Instructions list (20261027006700), every one, in the order they were given. */
 export function instructionLines(list: readonly string[]): string[] {
   if (!list.length) return [];
   return ['<instructions>', ...list.map((i) => `- ${quoteData(i)}`), '</instructions>'];

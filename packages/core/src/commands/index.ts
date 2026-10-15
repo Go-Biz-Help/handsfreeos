@@ -1012,7 +1012,7 @@ export const commands: readonly CommandDef[] = [
   referralCreateLead,
   teammateLessonApply,
   teammateLessonDismiss,
-  // Feedback on the AI teammate's replies, and its Instructions list (20261027006600).
+  // Feedback on the AI teammate's replies, and its Instructions list (20261027006700).
   aiTeammateGiveFeedback,
   aiTeammateAnswerFeedback,
   teammateInstructionCreate,

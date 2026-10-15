@@ -1,5 +1,5 @@
 /**
- * Coaching the AI teammate (20261027006600): the Instructions list, feedback on its replies, and lessons already in
+ * Coaching the AI teammate (20261027006700): the Instructions list, feedback on its replies, and lessons already in
  * Policies moving to the list.
  */
 import { readFileSync } from 'node:fs';
@@ -259,7 +259,7 @@ describe('lessons already in Policies', () => {
     );
     const migration = readFileSync(
       fileURLToPath(
-        new URL('../../../supabase/migrations/20261027006600_ai_feedback.sql', import.meta.url),
+        new URL('../../../supabase/migrations/20261027006700_ai_feedback.sql', import.meta.url),
       ),
       'utf8',
     );
