@@ -635,3 +635,72 @@ describe('one person on two networks', () => {
     expect(await onLinkedInToday()).toEqual(['reconnect']);
   });
 });
+
+describe('each network’s own limits', () => {
+  it('keep LinkedIn’s invitations under 80 in any 7 days, and Facebook’s as they were', async () => {
+    const kim = await teammate('Kim Park');
+    // 70 invitations over the last six days, none of them today.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          select ${ws}, 'linkedin', 'kim-invite-' || i, 'https://www.linkedin.com/in/kim-invite-' || i || '/', 'Invite ' || i
+          from generate_series(1, 70) i`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
+          select ${ws}, p.id, ${kim.id}, 'friend_request', now() - interval '2 days' - (row_number() over () * interval '1 hour')
+          from addon_outreach.profiles p where p.workspace_id = ${ws} and p.username like 'kim-invite-%'`,
+    );
+    const linkedIn = await runAs(kim, ws, 'outreach.today', { platform: 'linkedin' });
+    expect(linkedIn.week).toEqual({ done: 70, most: 80 });
+    expect(linkedIn.limits.friend_request).toEqual({ done: 0, most: 10 });
+    const facebook = await runAs(kim, ws, 'outreach.today', {});
+    expect(facebook.week).toBeNull();
+    expect(facebook.limits.friend_request.most).toBe(NETWORKS.facebook.dailyLimits.friend_request);
+  });
+
+  it('keep each network’s checks to its own people and its own profiles read a day', async () => {
+    const lou = await teammate('Lou Grant');
+    const known = async (profileId: string) =>
+      rows(
+        admin(),
+        sql`insert into addon_outreach.friends (workspace_id, user_id, profile_id, state, since, seen_at)
+            values (${ws}, ${lou.id}, ${profileId}, 'friends', now(), now())
+            on conflict (workspace_id, user_id, profile_id) do update set state = 'friends'`,
+      );
+    const onLinkedIn = await linkedInProfile('Ari Moss');
+    await known(onLinkedIn);
+    const onFacebook = await runAs(lou, ws, 'outreach.touch.save', {
+      kind: 'friend_request',
+      profile: { id: null, username: 'ari.moss.5', url: 'https://www.facebook.com/ari.moss.5' },
+      name: 'Ari Moss',
+      at: new Date().toISOString(),
+    });
+    await known(onFacebook.profileId);
+    const next = async (platform?: 'linkedin') =>
+      (await runAs(lou, ws, 'outreach.checks.next', platform ? { platform } : {})) as {
+        people: { profileId: string }[];
+        today: number;
+        perDay: number;
+      };
+    expect((await next('linkedin')).people.map((p) => p.profileId)).toEqual([onLinkedIn]);
+    expect((await next()).people.map((p) => p.profileId)).toEqual([onFacebook.profileId]);
+
+    // A LinkedIn profile read today counts on LinkedIn alone.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, looked_at)
+          values (${ws}, ${lou.id}, ${onLinkedIn}, 'waiting', now())`,
+    );
+    expect(await next('linkedin')).toMatchObject({
+      today: 1,
+      perDay: NETWORKS.linkedin.checksPerDay,
+    });
+    expect(await next()).toMatchObject({ today: 0 });
+    // A LinkedIn warning halves LinkedIn's, never Facebook's.
+    await warn(lou, 'linkedin', 'Your account has been restricted');
+    expect((await next('linkedin')).perDay).toBe(NETWORKS.linkedin.checksPerDay / 2);
+    expect((await next()).perDay).toBe(NETWORKS.facebook.checksPerDay);
+  });
+});

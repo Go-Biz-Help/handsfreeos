@@ -1252,7 +1252,10 @@ code" (decision 45's install step). Settled too:
   network to the next goes there, never into an `if`. Saves take a link and ids of any network it knows
   (`NetworkUrl`, `ThreadKey`), and every save that keeps a profile refuses one that isn't on the network named
   (`requireFits`, `profileMisfit`, `outreach_wrong_network`). The database keeps ids to short, plain characters
-  (20261027006900).
+  (20261027006900). A network's cap on requests in any 7 days (`weeklyRequests`, LinkedIn's 80 invitations) holds
+  Today's `friend_request` limit to what's left, and Today says it (`week`). Checks go by network too:
+  `outreach.checks.next` takes a `platform`, lists that network's people, and keeps to its own profiles read a day
+  (`checksPerDay`), halved by a warning there alone.
 - **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
   they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
   a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook
