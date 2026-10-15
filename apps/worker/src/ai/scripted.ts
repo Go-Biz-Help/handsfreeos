@@ -1820,7 +1820,7 @@ function scriptedJoinAnswers(message: string) {
 function scriptedLikePick(message: string) {
   const posts = [...message.matchAll(/<post number="(\d+)">\n([\s\S]*?)\n<\/post>/g)];
   // A post about their work: liked, with a warm-up comment under it.
-  const work = posts.find((p) => /\b(business|shop|crew|job|customers?)\b/i.test(p[2]!));
+  const work = posts.find((p) => /\b(crew|customers?)\b/i.test(p[2]!));
   if (work)
     return {
       pick: Number(work[1]),
