@@ -11,6 +11,7 @@ import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outrea
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
 import type { ReadyItem, ReadyState } from '@hfos/core/addons/outreach/readiness';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { AutoState } from '../auto/plan';
 
 type Body<P extends keyof paths> = paths[P] extends {
@@ -252,7 +253,8 @@ export type HfosAsk =
       readonly workspaceId: string;
       readonly input: ProfileRead;
     }
-  | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
+  /** The people to tidy on a network (Facebook's unless said): requests to cancel, LinkedIn's invitations to withdraw. */
+  | { readonly type: 'hfos-tidy'; readonly workspaceId: string; readonly platform?: Platform }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
   | { readonly type: 'hfos-lists'; readonly workspaceId: string }
   | { readonly type: 'hfos-lists-saved'; readonly workspaceId: string; readonly list: ListMark }

@@ -1,7 +1,7 @@
 /**
  * The networks the extension works on, a kit each (./kit.ts; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "How
- * it fits: one add-on, a kit per network"): Facebook (./facebook/), and LinkedIn (./linkedin/), whose readers and the
- * person's own steps are built. A tab's kit is found by its address, so the content script reads and notes by its
+ * it fits: one add-on, a kit per network"): Facebook (./facebook/), and LinkedIn (./linkedin/), whose readers, the
+ * person's own steps and the asks' steps are built. A tab's kit is found by its address, so the content script reads and notes by its
  * own network's rules, and the background takes a tab's notes only from a network it knows, as that network's.
  */
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -10,7 +10,7 @@ import type { Kit } from './kit';
 import { linkedin } from './linkedin/kit';
 
 export type * from './kit';
-export { isLinkedInRead } from './kit';
+export { isLinkedInRead, platformOf } from './kit';
 
 export const KITS: Readonly<Record<Platform, Kit>> = { facebook, linkedin };
 /** The kits in the order the add-on names its networks. */

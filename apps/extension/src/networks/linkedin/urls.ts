@@ -103,6 +103,15 @@ export function profileKey(profile: ProfileRef): string {
 }
 
 /**
+ * Whether two links are to the same member: by the name in their addresses when both have one, else by LinkedIn's
+ * id when both have it. A name alone, as people write it, is never enough.
+ */
+export function sameMember(a: ProfileRef, b: ProfileRef): boolean {
+  if (a.username && b.username) return a.username.toLowerCase() === b.username.toLowerCase();
+  return !!a.id && !!b.id && a.id === b.id;
+}
+
+/**
  * The member whose profile an address is, or a part of: /in/<name>/, /in/<name>/details/experience/,
  * /in/<name>/overlay/contact-info/, or /in/ACoAA…/ where a link has only the id. Your own /in/me/ names nobody.
  */
@@ -217,6 +226,8 @@ export function classifyUrl(href: string): PageAddress {
     return { kind: thread ? 'chat' : 'messaging', ...none, thread };
   }
   if (first === 'notifications') return { kind: 'notifications', ...none };
+  // A company's page and its tabs: its About is where it says the most about itself.
+  if (first === 'company' && companyFromUrl(url)) return { kind: 'company', ...none };
   if (first === 'groups') {
     // A group's own page shows its posts; its members and settings are other pages.
     const group = groupFromUrl(url);

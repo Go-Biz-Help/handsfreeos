@@ -5,13 +5,18 @@
  * loaded reads nothing, notes nothing and answers nothing but to say so. It answers only the extension.
  *
  * It reads the page when the background asks (the runner that works on its own, what the person asks of the
- * extension from HandsFreeOS, and the panel's page outline). The runner's and the asks' other steps are Facebook's
- * for now (src/networks/facebook/work.ts): on Facebook's own download pages, the buttons that ask for the person's
- * file; in Messenger, opening their chats one at a time and scrolling the list; scrolling a group's feed, a list of
- * people or of groups; on the profiles of people they ticked, Cancel request or Unfriend; once they let the extension
- * work on its own (src/auto/run.ts), Add friend, Confirm and Like on the profiles of people on their list for today,
- * the comment the AI drafted, and the messages they OK'd; Join group and its questions (decision 48); a helpful post;
- * and their own profile's bio. No other network's tab does any of these.
+ * extension from HandsFreeOS, and the panel's page outline). The runner's and the asks' other steps are each
+ * network's own (its kit's `work`), and a tab does only its own network's:
+ *
+ * - On Facebook (src/networks/facebook/work.ts): on Facebook's own download pages, the buttons that ask for the
+ *   person's file; in Messenger, opening their chats one at a time and scrolling the list; scrolling a group's feed, a
+ *   list of people or of groups; on the profiles of people they ticked, Cancel request or Unfriend; once they let the
+ *   extension work on its own (src/auto/run.ts), Add friend, Confirm and Like on the profiles of people on their list
+ *   for today, the comment the AI drafted, and the messages they OK'd; Join group and its questions (decision 48); a
+ *   helpful post; and their own profile's bio.
+ * - On LinkedIn (src/networks/linkedin/work.ts), only what they asked from HandsFreeOS: scrolling their connections,
+ *   invitations, a search's results and messaging's list, and opening a conversation from it; their own profile's
+ *   headline; and, on Sent invitations, withdrawing the ones they ticked.
  *
  * As the person works, it notices the steps they take themselves (a friend request or an invitation to connect, a
  * like, a comment, a message, and their answer to a request they got: src/networks/facebook/actions.ts,
@@ -129,7 +134,11 @@ if (kit && !here.hfosSocialListening) {
         return false;
       }
       const going = kit.work(ask as { readonly type: string });
-      if (!going) return false;
+      if (!going) {
+        // Another network's step, or one this build doesn't know: said, never left unanswered.
+        respond({ ok: false, error: `The extension doesn’t do that on ${name} pages.` });
+        return false;
+      }
       void going.then(respond);
       return true;
     },

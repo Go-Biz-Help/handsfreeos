@@ -34737,6 +34737,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId: string;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     underway?: string | null;
                     /** Format: uuid */
@@ -34828,6 +34830,8 @@ export interface operations {
                                 }[] | null;
                                 /** @enum {string} */
                                 kind: "posts";
+                                /** @default [] */
+                                words: string[];
                             } | {
                                 /** @enum {string} */
                                 kind: "cancel";
@@ -36875,7 +36879,7 @@ export interface operations {
                         name?: string | null;
                         slug: string | null;
                         url: string;
-                    };
+                    } | null;
                     /**
                      * @default facebook
                      * @enum {string}
@@ -36911,8 +36915,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         checking: number;
-                        /** Format: uuid */
-                        groupId: string;
+                        groupId: string | null;
                         posts: {
                             check: ("waiting" | "good" | "not" | "failed") | null;
                             done: boolean;

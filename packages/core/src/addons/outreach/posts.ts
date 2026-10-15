@@ -176,14 +176,22 @@ export const PostIn = z.object({
 });
 export type PostIn = z.input<typeof PostIn>;
 
-export const PostsSaveInput = z.object({
-  workspaceId: z.uuid(),
-  platform: z.enum(PLATFORM_KEYS).default('facebook'),
-  /** The group the feed is: posts are kept only from a group. */
-  group: GroupRef,
-  posts: z.array(PostIn).min(1).max(POSTS_SAVE_MOST),
-  found: z.enum(POST_FOUND).default('scroll'),
-});
+export const PostsSaveInput = z
+  .object({
+    workspaceId: z.uuid(),
+    platform: z.enum(PLATFORM_KEYS).default('facebook'),
+    /**
+     * The group the feed is. On Facebook posts are kept only from a group; on LinkedIn they're found by its post
+     * search too, in no group (null).
+     */
+    group: GroupRef.nullable(),
+    posts: z.array(PostIn).min(1).max(POSTS_SAVE_MOST),
+    found: z.enum(POST_FOUND).default('scroll'),
+  })
+  .refine((p) => p.group !== null || p.platform !== 'facebook', {
+    error: 'Send the group the posts are in: on Facebook they’re kept only from a group.',
+    path: ['group'],
+  });
 export type PostsSaveInput = z.input<typeof PostsSaveInput>;
 
 /** How a post the page shows stands, for the extension to mark it. */
@@ -198,7 +206,8 @@ export const PostMark = z.object({
 export type PostMark = z.output<typeof PostMark>;
 
 export const PostsSaveOutput = z.object({
-  groupId: z.uuid(),
+  /** The group they're in: null for posts found in no group (LinkedIn's post search). */
+  groupId: z.uuid().nullable(),
   /** Each post sent, in the order sent. */
   posts: z.array(PostMark),
   /** How many went to the AI to check just now. */
@@ -238,6 +247,39 @@ export const postCheckSystem = (platform: Platform = 'facebook') => {
   const name = NETWORKS[platform].name;
   return system.replace(`posts in ${name} groups`, `posts on ${name}`);
 };
+
+/** The most searches one Find posts makes on a network's post search. */
+export const POST_SEARCHES_MOST = 5;
+
+/**
+ * What to search a network's posts with (LinkedIn's post search, latest first): the words the playbooks quote in
+ * their signs ("“Owner”, “Founder” or “CEO” in their intro"), then their words for groups, each once, the playbooks
+ * that work on the network first (all of them when none says). The posts found are kept only when they say a sign or
+ * ask for help (`postLook`), as a group's are.
+ */
+export function postSearchWords(
+  playbooks: readonly {
+    readonly details: Pick<PlaybookDetails, 'signs' | 'groupWords'> & {
+      readonly platforms?: readonly Platform[];
+    };
+  }[],
+  platform: Platform,
+): string[] {
+  const named = playbooks.filter((p) => p.details.platforms?.includes(platform));
+  const these = named.length ? named : playbooks;
+  const seen = new Set<string>();
+  const words: string[] = [];
+  for (const word of [
+    ...these.flatMap((p) => p.details.signs.flatMap(quoted)),
+    ...these.flatMap((p) => p.details.groupWords),
+  ]) {
+    const clean = word.replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
+    if (!clean || seen.has(clean.toLowerCase())) continue;
+    seen.add(clean.toLowerCase());
+    words.push(clean);
+  }
+  return words.slice(0, POST_SEARCHES_MOST);
+}
 
 export function postCheckPrompt(input: {
   readonly business: string;

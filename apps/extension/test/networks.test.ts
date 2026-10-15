@@ -138,9 +138,9 @@ describe('a kit per network', () => {
       optional: true,
       hosts: ['https://www.linkedin.com/*'],
     });
-    // Only Facebook's tabs do the runner's and the asks' steps, for now.
+    // Each network's tabs do its own steps: LinkedIn's, the asks' since 0.40.0.
     expect(facebook.work).toBeDefined();
-    expect(linkedin.work).toBeUndefined();
+    expect(linkedin.work).toBeDefined();
   });
 });
 
@@ -360,11 +360,25 @@ describe('the person’s steps on LinkedIn, noted as LinkedIn’s', () => {
   });
 });
 
-describe('the asks, Facebook’s for now', () => {
-  it('ends an ask on another network at once, saying how to get a build that does it', () => {
-    expect(notHereWords({ platform: 'facebook' })).toBeNull();
-    expect(notHereWords({ platform: 'linkedin' })).toContain(
-      'This build of the extension can’t do that on LinkedIn yet.',
+describe('the asks on each network', () => {
+  it('goes on a network that’s on and allowed, and ends one that isn’t, saying how to turn it on', () => {
+    const both = {
+      facebook: { on: true, allowed: true },
+      linkedin: { on: true, allowed: true },
+    };
+    expect(notHereWords({ platform: 'facebook' }, both)).toBeNull();
+    expect(notHereWords({ platform: 'linkedin' }, both)).toBeNull();
+    // A build before networks never said: Facebook's.
+    expect(notHereWords({} as { platform: Platform }, both)).toBeNull();
+    expect(
+      notHereWords({ platform: 'linkedin' }, { ...both, linkedin: { on: false, allowed: true } }),
+    ).toBe(
+      'LinkedIn is off for you, so the extension does nothing on it. Turn it on under Social Outreach → Settings in HandsFreeOS, then ask again.',
+    );
+    expect(
+      notHereWords({ platform: 'linkedin' }, { ...both, linkedin: { on: true, allowed: false } }),
+    ).toBe(
+      'Chrome hasn’t let the extension on LinkedIn yet. Press Allow on LinkedIn in the extension’s panel, then ask again.',
     );
   });
 });

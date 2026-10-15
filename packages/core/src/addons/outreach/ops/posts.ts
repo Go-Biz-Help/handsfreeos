@@ -41,7 +41,8 @@ export const postsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     return once(async () => {
-      const groupId = await keepGroup(ctx, input.platform, input.group);
+      // On Facebook always a group; LinkedIn's post search finds posts in none.
+      const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
       const playbooks = await playbooksInUse(ctx);
       const urls = [...new Set(input.posts.map((p) => p.url))];
       const kept = await ctx.tx

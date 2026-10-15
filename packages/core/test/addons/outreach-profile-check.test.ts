@@ -12,8 +12,10 @@ import {
 } from '../../src/addons/outreach/asks';
 import { playbookOffer } from '../../src/addons/outreach/playbook-assist';
 import {
+  BIO_MOST_ON,
   checkedProfileCheck,
   FACEBOOK_BIO_MOST,
+  PROFILE_BIO_MOST,
   PROFILE_CHECK_ASK,
   PROFILE_CHECK_SYSTEM,
   PROFILE_ITEMS,
@@ -109,9 +111,11 @@ describe('the asks', () => {
   it('reads the profile, and puts a bio in that fits, on a build that can', () => {
     expect(AskInput.safeParse({ kind: 'profile_read' }).success).toBe(true);
     expect(AskInput.safeParse({ kind: 'profile_edit', bio: ' ' }).success).toBe(false);
+    // The longest any network takes (LinkedIn's headline); each network's own is held when it's asked.
     expect(
-      AskInput.safeParse({ kind: 'profile_edit', bio: 'x'.repeat(FACEBOOK_BIO_MOST + 1) }).success,
+      AskInput.safeParse({ kind: 'profile_edit', bio: 'x'.repeat(PROFILE_BIO_MOST + 1) }).success,
     ).toBe(false);
+    expect(BIO_MOST_ON.facebook).toBe(FACEBOOK_BIO_MOST);
     expect(ASK_KIND_SINCE.profile_read).toBe('0.32.0');
     const computer = { name: 'Chrome on Windows', version: '0.31.0' };
     expect(cantAskWhy({ computer, warnedToday: false } as never, 'profile_read')).toContain(

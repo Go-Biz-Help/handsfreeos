@@ -21,7 +21,7 @@ import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
-import { FACEBOOK_BIO_MOST } from './profile-check';
+import { PROFILE_BIO_MOST } from './profile-check';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
 export const ASK_KINDS = {
@@ -307,10 +307,13 @@ export const AskInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('research'), profileId: z.uuid() }),
   /** Read the person's own profile for the AI's check (decision 64, ./profile-check.ts). */
   plain('profile_read'),
-  /** Put a bio in on their own profile, one the AI wrote and they picked or changed: then read it again. */
+  /**
+   * Put a bio in on their own profile, one the AI wrote and they picked or changed: then read it again. On LinkedIn
+   * it's the headline. Each network's own length (`BIO_MOST_ON`) is held when it's asked.
+   */
   z.object({
     kind: z.literal('profile_edit'),
-    bio: z.string().trim().min(1, 'Pick a bio first.').max(FACEBOOK_BIO_MOST),
+    bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST),
   }),
 ]);
 export type AskInput = z.input<typeof AskInput>;
@@ -343,7 +346,15 @@ export const AskTask = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('group_search'), words: z.string() }),
   /** Null groups: the computer picks the best ones to work, as the runner does. */
   z.object({ kind: z.literal('members'), groups: z.array(AskGroup).nullable() }),
-  z.object({ kind: z.literal('posts'), groups: z.array(AskGroup).nullable() }),
+  /**
+   * Off Facebook, `words` are what to search the network's posts with, the playbooks' own (`postSearchWords`): groups
+   * there are quiet. Empty on Facebook, and from an API before them.
+   */
+  z.object({
+    kind: z.literal('posts'),
+    groups: z.array(AskGroup).nullable(),
+    words: z.array(z.string()).default([]),
+  }),
   z.object({ kind: z.literal('cancel'), profileIds: z.array(z.uuid()) }),
   z.object({ kind: z.literal('unfriend'), profileIds: z.array(z.uuid()) }),
   z.object({
@@ -450,6 +461,12 @@ export const AskTakeInput = z.object({
   installId: z.uuid(),
   /** The ask it's doing now, if any: other asks it took before are ended as lost (Chrome restarted mid-way). */
   underway: z.uuid().nullable().default(null),
+  /**
+   * Only asks on this network (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "One runner, one turn"): each
+   * network's line takes its own, so one waiting on the person never holds another's, and `underway` is that
+   * network's alone. Left out, by a build before networks: the oldest on any network, as before.
+   */
+  platform: z.enum(PLATFORM_KEYS).optional(),
 });
 export type AskTakeInput = z.input<typeof AskTakeInput>;
 export const AskTakeOutput = z.object({
@@ -681,9 +698,9 @@ export function askSignInLine(
     return 'Stopped: you signed in as someone else here. Sign in as yourself, then ask again.';
   return 'Stopped: you picked another business in the extension. Pick this one again, then ask again.';
 }
-/** Ended on the day's warning, before it began. */
-export const askWarnedLine = (words: string | null): string =>
-  `Facebook warned you today${words ? ` (“${words}”)` : ''}, so the extension does nothing more on Facebook until tomorrow.`;
+/** Ended on the day's warning on its network (Facebook's unless said), before it began or as it went. */
+export const askWarnedLine = (words: string | null, platform: Platform = 'facebook'): string =>
+  `${PLATFORMS[platform]} warned you today${words ? ` (“${words}”)` : ''}, so the extension does nothing more on ${PLATFORMS[platform]} until tomorrow.`;
 /** Under a step handed to the person, while they type their password. */
 export const ASK_TYPING_WORDS =
   'Facebook is asking for your password or PIN. Type it on your computer, in the Facebook tab it opened.';

@@ -1,7 +1,8 @@
 /**
  * The script in each tab (src/content.ts), by its network's kit: a tab whose network is off answers nothing but that
- * it's off; a LinkedIn tab reads LinkedIn's page and makes LinkedIn's outline, and never does the runner's or an ask's
- * steps, which are Facebook's; a Facebook tab is as it always was.
+ * it's off; a LinkedIn tab reads LinkedIn's page and makes LinkedIn's outline, and does only LinkedIn's own steps
+ * (never Facebook's runner's), each only on its own page; a Facebook tab is as it always was; and a step a tab's
+ * network doesn't do is answered so, never left hanging.
  */
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
@@ -85,13 +86,47 @@ describe('a tab’s script, by its network', () => {
     expect(outlined.outline).not.toContain('Dana');
   });
 
-  it('on LinkedIn, never does the runner’s or an ask’s steps', async () => {
+  it('on LinkedIn, never does Facebook’s steps, and its own only on their own pages', async () => {
     const page = await tab('linkedin-feed.html', LINKEDIN_FEED, on);
     for (const type of ['hfos-like-post', 'hfos-fetch-step', 'hfos-scroll-feed', 'hfos-message'])
       expect(await page.ask({ type, text: 'Hi' })).toEqual({
         ok: false,
-        error: 'The extension doesn’t work on LinkedIn pages on its own yet.',
+        error: 'The extension doesn’t do that on LinkedIn pages.',
       });
+    expect(await page.ask({ type: 'hfos-own-profile' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open your profile.',
+    });
+    expect(await page.ask({ type: 'hfos-write-bio', bio: 'Hi' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open your profile.',
+    });
+    expect(
+      await page.ask({
+        type: 'hfos-withdraw',
+        profile: {
+          id: null,
+          username: 'morgan-ellis-3',
+          url: 'https://www.linkedin.com/in/morgan-ellis-3/',
+        },
+      }),
+    ).toEqual({ ok: false, error: 'LinkedIn didn’t open the invitations you’ve sent.' });
+    // A conversation opens only from messaging's list.
+    expect(
+      await page.ask({ type: 'hfos-open-chat', threadId: '2-MadeUpThreadDana0001==' }),
+    ).toEqual({ ok: false });
+  });
+
+  it('on LinkedIn’s own profile: reads it for the AI’s check, as LinkedIn’s', async () => {
+    const page = await tab('linkedin-own-profile.html', 'https://www.linkedin.com/in/me/', on);
+    expect(await page.ask({ type: 'hfos-own-profile' })).toMatchObject({
+      ok: true,
+      read: {
+        platform: 'linkedin',
+        name: 'Chris Gee',
+        bio: 'Helping home service businesses answer every lead | Founder, Gee Consulting',
+      },
+    });
   });
 
   it('on LinkedIn while it’s off, or Chrome hasn’t allowed it: answers only that it’s off', async () => {
@@ -125,7 +160,10 @@ describe('a tab’s script, by its network', () => {
       ok: false,
       error: 'This isn’t one of Facebook’s download pages.',
     });
-    // Anything else it doesn't know, it doesn't answer.
-    expect(await page.ask({ type: 'hfos-nothing' })).toBeUndefined();
+    // Anything else it doesn't know, it says so.
+    expect(await page.ask({ type: 'hfos-nothing' })).toEqual({
+      ok: false,
+      error: 'The extension doesn’t do that on Facebook pages.',
+    });
   });
 });

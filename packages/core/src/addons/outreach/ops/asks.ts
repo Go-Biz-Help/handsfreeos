@@ -53,7 +53,9 @@ import {
 } from '../asks';
 import { isOffline, networkOffWords } from '../live';
 import { outreachAddon } from '../manifest';
-import { PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
+import { postSearchWords } from '../posts';
+import { BIO_MOST_ON } from '../profile-check';
 import { ProfileSaveOutput } from '../saves';
 import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
@@ -61,6 +63,7 @@ import { approvedHelpful } from './helpful';
 import { CHECK_AGAIN_DAYS, RESEARCH_WORDS } from '../checks';
 import { contactable, inWorkspace, once, pitchable, saveProfile, type Ctx } from './common';
 import { automationOf } from './automation';
+import { playbooksInUse } from './friends';
 import { perDayFor } from './checks';
 import { businessToday, dayOf } from './day';
 import { myComputers, workingOf } from './live';
@@ -130,11 +133,24 @@ async function taskOf(
   ctx: Ctx,
   me: string,
   ask: AskAsked,
+  platform: Platform = 'facebook',
 ): Promise<{ task: AskTask; target: string; about: string | null }> {
   const target = askTarget(ask);
   switch (ask.kind) {
     case 'members':
     case 'posts': {
+      // Off Facebook, posts are found by the network's own post search, with the playbooks' words: its groups are
+      // quiet (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Where the people are").
+      if (ask.kind === 'posts' && platform !== 'facebook')
+        return {
+          task: {
+            kind: 'posts',
+            groups: null,
+            words: postSearchWords(await playbooksInUse(ctx), platform),
+          },
+          target,
+          about: askAbout(ask),
+        };
       if (ask.kind === 'members' && ask.url) {
         const link = groupLink(ask.url);
         if (!link)
@@ -155,7 +171,14 @@ async function taskOf(
         };
       }
       if (!ask.groupIds)
-        return { task: { kind: ask.kind, groups: null }, target, about: askAbout(ask) };
+        return {
+          task:
+            ask.kind === 'posts'
+              ? { kind: 'posts', groups: null, words: [] }
+              : { kind: 'members', groups: null },
+          target,
+          about: askAbout(ask),
+        };
       const ids = [...new Set(ask.groupIds)];
       const found = await groupsForAsk(ctx, sql`g.id = any (${`{${ids.join(',')}}`}::uuid[])`);
       if (found.length < ids.length)
@@ -164,7 +187,8 @@ async function taskOf(
         );
       const groups = ids.map((id) => groupOf(found.find((g) => g.id === id)!));
       return {
-        task: { kind: ask.kind, groups },
+        task:
+          ask.kind === 'posts' ? { kind: 'posts', groups, words: [] } : { kind: 'members', groups },
         target,
         about: askAbout(ask, { groups: groups.map((g) => g.name) }),
       };
@@ -265,11 +289,12 @@ async function taskOf(
           409,
           `${who.name} is checked already: the AI’s answer is on their row. They’re checked again after ${CHECK_AGAIN_DAYS} days.`,
         );
-      if (!who.url.startsWith('https://www.facebook.com/'))
+      // A profile on the network asked, which its computer opens there.
+      if (!NETWORKS[platform].link.test(who.url))
         throw HfosError.rule(
           'outreach_research_no_profile',
           409,
-          `There’s no Facebook profile kept for ${who.name}, so there’s nothing to read. Save your friends list again to find it.`,
+          `There’s no ${PLATFORMS[platform]} profile kept for ${who.name}, so there’s nothing to read. Save your ${NETWORKS[platform].words.friends} list again to find it.`,
         );
       return {
         task: { kind: 'research', profileId: ask.profileId, name: who.name },
@@ -310,6 +335,13 @@ export const askMake = defineAddonCommand(outreachAddon, {
     const { platform } = input;
     const notOn = notOnNetworkWords(platform, ask.kind);
     if (notOn) throw HfosError.rule('outreach_ask_not_on_network', 409, notOn);
+    // Each network's own length: Facebook's short bio, LinkedIn's headline.
+    if (ask.kind === 'profile_edit' && ask.bio.length > BIO_MOST_ON[platform])
+      throw HfosError.rule(
+        'outreach_bio_too_long',
+        400,
+        `Keep your ${platform === 'facebook' ? 'bio' : 'headline'} to ${BIO_MOST_ON[platform]} characters: it’s ${ask.bio.length.toLocaleString('en-US')} now. Shorten it, then press Put this one in again.`,
+      );
     // A network the person doesn't work asks nothing there.
     if (!(await automationOf(ctx, me, now, platform)).choices.on)
       throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
@@ -334,7 +366,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
       sql`select pg_advisory_xact_lock(hashtextextended(${`outreach.asks:${ws}:${me}`}, 0))`,
     );
     await endStale(ctx, me, at);
-    const worked = await taskOf(ctx, me, ask);
+    const worked = await taskOf(ctx, me, ask, platform);
     const { task, about } = worked;
     // Named by its network: a LinkedIn ask never answers a Facebook one.
     const target = targetOn(platform, worked.target);
@@ -465,7 +497,11 @@ export const askTake = defineAddonCommand(outreachAddon, {
       return row?.n ?? 0;
     };
     if (!here || workingOf(all)?.id !== here.id) return { ask: null, waiting: await count() };
-    await endStale(ctx, me, at, { computerId: here.id, underway: input.underway });
+    await endStale(ctx, me, at, {
+      computerId: here.id,
+      underway: input.underway,
+      platform: input.platform,
+    });
 
     // A warning today on a network: what would open that network's pages ends now, as its day did. Each network's
     // warning ends only its own asks.
@@ -476,7 +512,7 @@ export const askTake = defineAddonCommand(outreachAddon, {
         .update(asks)
         .set({
           state: 'failed',
-          line: askWarnedLine(warned.words),
+          line: askWarnedLine(warned.words, platform),
           endedAt: at,
           updatedAt: new Date(),
         })
@@ -520,10 +556,13 @@ export const askTake = defineAddonCommand(outreachAddon, {
         });
     }
 
+    // Each network's line takes its own: one waiting on the person never holds another's.
     const [next] = await ctx.tx
       .select({ id: asks.id })
       .from(asks)
-      .where(and(mine, takeable(now)))
+      .where(
+        and(mine, takeable(now), input.platform ? eq(asks.platform, input.platform) : undefined),
+      )
       .orderBy(asc(asks.askedAt), asc(asks.id))
       .limit(1)
       .for('update', { skipLocked: true });

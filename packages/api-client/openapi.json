@@ -81750,52 +81750,59 @@
                     ]
                   },
                   "group": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^\\d{1,30}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
-                          {
-                            "type": "null"
+                          "slug": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9._-]{1,100}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "name": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
+                        },
+                        "required": [
+                          "id",
+                          "slug",
+                          "url"
                         ]
                       },
-                      "slug": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9._-]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "url": {
-                        "type": "string",
-                        "maxLength": 500
-                      },
-                      "name": {
-                        "default": null,
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 200
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                      {
+                        "type": "null"
                       }
-                    },
-                    "required": [
-                      "id",
-                      "slug",
-                      "url"
                     ]
                   },
                   "posts": {
@@ -81921,9 +81928,16 @@
                   "type": "object",
                   "properties": {
                     "groupId": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "posts": {
                       "type": "array",
@@ -85353,7 +85367,7 @@
                           "bio": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 101
+                            "maxLength": 220
                           }
                         },
                         "required": [
@@ -85678,6 +85692,13 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
                     ]
                   }
                 },
@@ -86092,11 +86113,19 @@
                                           "type": "null"
                                         }
                                       ]
+                                    },
+                                    "words": {
+                                      "default": [],
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
                                     }
                                   },
                                   "required": [
                                     "kind",
-                                    "groups"
+                                    "groups",
+                                    "words"
                                   ],
                                   "additionalProperties": false
                                 },

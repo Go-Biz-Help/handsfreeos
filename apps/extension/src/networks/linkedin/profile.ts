@@ -9,7 +9,7 @@
  * menu. Its place is what comes just before its Contact info link, and its id, where LinkedIn shows it, is in the
  * links of its mutual connections and its Message.
  */
-import { clean, elementsAfter, isAfter } from '../facebook/dom';
+import { clean, elementsAfter, isAfter, outermost } from '../facebook/dom';
 import {
   controlsIn,
   CONTROLS,
@@ -125,6 +125,40 @@ function roleIn(entry: Element): Role | null {
   if (!title) return null;
   const company = second && !DATES.test(second) ? second.replace(HOW, '').trim() : null;
   return { title, company: company || null, dates: lines.find((line) => DATES.test(line)) ?? null };
+}
+
+/** The section with this title, below the top: its heading, and the next heading, where its words end. */
+export function sectionOf(
+  root: Element,
+  title: RegExp,
+): { readonly heading: Element; readonly end: Element | null } | null {
+  const headings = headingsIn(root);
+  const heading = sectionAt(headings, title);
+  return heading ? { heading, end: nextAfter(headings, heading) } : null;
+}
+
+/** The lines a section shows under its heading, less its buttons and LinkedIn's own words: none without one. */
+export function sectionLines(root: Element, title: RegExp, max = 40): string[] {
+  const section = sectionOf(root, title);
+  if (!section) return [];
+  return shownLines(root, {
+    max,
+    after: section.heading,
+    before: section.end,
+    exclude: CONTROLS,
+  }).filter((line) => !UI_WORDS.has(line.toLowerCase()));
+}
+
+/** Each entry under Experience, as its role (a company's first role, when it lists several), `max` at most. */
+export function rolesOf(root: Element, max = 6): Role[] {
+  const section = sectionOf(root, /^experience$/i);
+  if (!section) return [];
+  const { heading, end } = section;
+  return outermost(root, 'li, [role="listitem"]')
+    .filter((entry) => isAfter(entry, heading) && (!end || isAfter(end, entry)))
+    .map(roleIn)
+    .filter((role): role is Role => role !== null)
+    .slice(0, max);
 }
 
 /** The first entry under a heading, before the next one: a list item. */

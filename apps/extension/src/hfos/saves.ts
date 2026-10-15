@@ -3,8 +3,8 @@
  * and what the jobs save (friends and requests, groups and their members, posts, chats for the AI): the Social
  * Outreach add-on's commands (packages/core/src/addons/outreach), built from what the page showed and cut to what
  * they take. Each says its network (`platform`), and takes only links and ids of that network's shapes (core's kit,
- * `NETWORKS`): a step from a LinkedIn tab goes as LinkedIn's. The jobs' saves are Facebook's, as the jobs are. Plain
- * functions, so the tests check them.
+ * `NETWORKS`): a step from a LinkedIn tab goes as LinkedIn's. The jobs' saves are Facebook's, but for LinkedIn's lists
+ * and posts at the end, which its jobs save (src/jobs/linkedin/). Plain functions, so the tests check them.
  */
 import {
   FRIENDS_SAVE_MOST,
@@ -37,6 +37,11 @@ import type {
 import { facebookUrl, pathParts, profileKey } from '../networks/facebook/urls';
 import { parseCount } from '../networks/facebook/vocabulary';
 import { facebook } from '../networks/facebook/kit';
+import type {
+  Person as LinkedInPerson,
+  ReadResult as LinkedInRead,
+} from '../networks/linkedin/types';
+import { profileKey as linkedInKey } from '../networks/linkedin/urls';
 import type {
   Business,
   ChatsCollectInput,
@@ -451,6 +456,100 @@ export function postsSave(
       workspaceId,
       platform: JOBS,
       group,
+      posts: posts.slice(0, POSTS_SAVE_MOST),
+      found,
+    },
+  };
+}
+
+// ------------------------------------------------------------------------------------------------- LinkedIn's
+
+const LINKEDIN: Platform = 'linkedin';
+
+/** What each of the person's LinkedIn lists is called, for "Saved 12 invitations". */
+const LINKEDIN_ITEM: Readonly<Record<FriendList, string>> = {
+  friends: 'connection',
+  requests: 'invitation',
+  sent: 'sent invitation',
+};
+export const linkedInItem = (list: FriendList) => LINKEDIN_ITEM[list];
+
+/**
+ * One of the person's LinkedIn lists, to save as LinkedIn's: their connections as their friends list, the invitations
+ * they've got as requests, and the ones they've sent as sent. Each member once, with their mutual connections, in parts
+ * of FRIENDS_SAVE_MOST. Someone without a profile link the page showed is left out.
+ */
+export function linkedInListSave(
+  people: readonly LinkedInPerson[],
+  list: FriendList,
+  workspaceId: string,
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    const key = linkedInKey(person.profile);
+    if (seen.has(key)) continue;
+    const who = whom({ name: person.name, profile: person.profile }, LINKEDIN);
+    if (!who) continue;
+    seen.add(key);
+    kept.push({ ...who, mutualFriends: mutual(person.mutualConnections) });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why:
+        list === 'friends'
+          ? 'There are no connections on the page to save. Scroll down so LinkedIn shows them, then try again.'
+          : `There are no ${linkedInItem(list)}s on the page to save.`,
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({
+      workspaceId,
+      platform: LINKEDIN,
+      list,
+      people: kept.slice(at, at + FRIENDS_SAVE_MOST),
+    });
+  return { ok: true, input: parts };
+}
+
+/**
+ * The posts LinkedIn's post search shows, to keep the ones worth a comment (decision 49, LinkedIn's way: its groups
+ * are quiet), in no group: each with who wrote it, its own link and what it says. A post by a company's page, or
+ * without its author's profile, its link or any words, is left out: nobody to reach, or nothing to comment on.
+ */
+export function linkedInPostsSave(
+  result: LinkedInRead,
+  workspaceId: string,
+  found: PostsSaveInput['found'] = 'find',
+): Built<PostsSaveInput> {
+  const seen = new Set<string>();
+  const posts = (result.posts ?? []).flatMap((post) => {
+    if (post.company || !post.author?.profile) return [];
+    const url = networkAddress(post.url, LINKEDIN);
+    const who = whom({ name: post.author.name, profile: post.author.profile }, LINKEDIN);
+    const text = clipText(post.text, POST_TEXT_MOST);
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: post.when ? clip(post.when, WHEN_MOST) : null,
+        text,
+        comments: post.comments,
+        reactions: post.reactions,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'There are no posts on the page to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: LINKEDIN,
+      group: null,
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found,
     },
