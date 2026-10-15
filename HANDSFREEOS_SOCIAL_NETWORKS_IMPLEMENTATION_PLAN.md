@@ -1,12 +1,24 @@
 # More networks for Social Outreach: LinkedIn first
 
 Social Outreach works on Facebook only. This plan opens it to more networks: **LinkedIn first**, then Instagram,
-Threads, X, TikTok and Alignable, and others later. It builds the groundwork once, so each new network is a kit that
-plugs in, not a copy of the add-on.
+Alignable, Threads, X and TikTok, and others later. It builds the groundwork once, so each new network is a kit that
+plugs in, not a copy of the add-on, and each network runs on its own: what happens on one never stops, slows or
+holds another.
 
-**Where it stands (2026-10-15):** a draft. Nothing here is built. The questions at the end need Chris's answers
-before step 1. Decision 34 in docs/outreach.md already put "LinkedIn then Instagram" last in the add-on's order;
-this plan picks that up. Social Outreach is still in `development`.
+**Where it stands (2026-10-15):** Chris answered the first questions (below). Nothing here is built. The questions
+still open are at the end; none of them holds up step 1. Decision 34 in docs/outreach.md already put "LinkedIn then
+Instagram" last in the add-on's order; this plan picks that up. Social Outreach is still in `development`.
+
+## Decisions (Chris, 2026-10-15)
+
+| Question                  | Answer                                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Each network on its own   | **A warning or a pause on one network never affects the others.** Each has its own day, limits, warnings, training wheels, asks and line of work. See "Each network on its own" below.                                         |
+| What it does on its own   | **The same choices as Facebook** (decision 26), set for each network, off to start, inside that network's limits.                                                                                                              |
+| LinkedIn's invitations    | **No note.** The warm-up (a look at their profile, a like, a comment on a post about their work) does the work a note would.                                                                                                   |
+| Playbooks across networks | **One playbook for all networks,** with a step that says which networks it works on and where to look on each (groups on Facebook, post search on LinkedIn). The niche, offer, conversation and voice are the same everywhere. |
+| The order                 | **LinkedIn, then Instagram, Alignable, Threads, X, and TikTok last.**                                                                                                                                                          |
+| One add-on                | Follows from one playbook for all networks: networks are part of Social Outreach, since add-ons can't share data.                                                                                                              |
 
 ## What each network is like
 
@@ -33,7 +45,8 @@ messages often closed to strangers, and posts and comments do the warming up. Ti
   data, so separate ones couldn't share playbooks, the Pipeline, Needs you or the numbers.
 - **Shared, with no network in it:** playbooks (the niche, the offer, the conversation, the voice), Today, Needs you,
   messages waiting (`sends`), stages, follow-ups (`follow_ups`), the numbers and the week's review, Get ready's main
-  offer, numbers and messages, asks, live status, computers, and the extension's sign-in, beat and panel.
+  offer, numbers and messages, how asks and live status work, computers, and the extension's sign-in, beat and
+  panel. Each network still keeps its own day, limits and warnings (below).
 - **A kit per network**, the same shape for each:
   - **In core** (`packages/core/src/addons/outreach/networks/<id>.ts`): its name; its steps and what they're called
     there ("Friend request" or "Invitation to connect"); its starting daily limits and any weekly cap; what a warning
@@ -44,13 +57,39 @@ messages often closed to strangers, and posts and comments do the warming up. Ti
     takes there (noting), the presses the runner makes, and its jobs. `src/facebook/` moves in as the first kit.
 - **Each person turns networks on** in My settings, inside what the business allows in Business settings. A network
   that's off runs nothing, reads nothing and shows nothing.
-- **One working computer still** (decision 41). Its runner works all of the person's networks, one step at a time,
-  taking turns, as asks and the runner take turns now.
-- **Limits and warnings are per network.** A warning on LinkedIn stops LinkedIn for the day and halves its limits for
-  7 days; Facebook carries on. Training wheels stay per person: they're about trusting the AI's messages, wherever
-  they go.
+- **Each network runs on its own** (Chris's rule, below).
 - **The same person on two networks** is two profiles, and one customer once they're in Contacts (already allowed:
   "Two profiles on one customer are fine"). Nothing is matched across networks by name alone.
+
+## Each network on its own
+
+Chris's rule: a warning or a pause on one network never affects the others. So everything that stops, slows or holds
+the work is kept for each network, each person:
+
+- **The day.** Start my day and Stop for today are each network's. Today's strip shows each network the person has
+  on, with its state, its next step and its own Start or Stop; **Start all** and **Stop all** just press each one.
+  Stopping LinkedIn leaves Facebook going.
+- **Warnings.** A LinkedIn warning stops LinkedIn for the rest of the day, halves its limits for 7 days and takes its
+  invitations off the list for 2 (decision 25's rule, for that network). Facebook's day, limits and list don't move.
+  The red note and the warning's push name the network, once a day each.
+- **Limits.** Each network counts its own steps against its own limits, and a new or small account is halved on that
+  network only.
+- **Training wheels.** Each network's, since the choices of what it does on its own are each network's. A warning on
+  one puts back only that network's.
+- **Get ready.** The main offer, the playbook's niche, the goal and the messages are shared. The profile is each
+  network's: a LinkedIn profile not checked yet holds back LinkedIn, never Facebook.
+- **Lists first** (decision 60). Each network's first lists hold back only its own first day.
+- **Asks and the once-a-day jobs.** An ask is refused, stopped or ended only for its own network's reasons. A job that
+  fails on one network doesn't stop the next network's.
+- **The work itself.** Each network has its own line and its own work window. A step handed to the person on
+  LinkedIn (waiting for **Carry on**) holds only LinkedIn's line; Facebook's runner goes on beside it. Each line keeps
+  its own pace, at its own random times.
+- **The extension's own record.** It keeps each network's warnings (`hfos.warned`) and state apart, so a warning it
+  sees on LinkedIn stops LinkedIn even when HandsFreeOS can't be reached, and nothing else.
+
+What stays the person's, for all their networks: the working hours, the voice, the pushes setting, the morning push and
+the day's report, the monthly goal, Needs you (one list, each item marked with its network), and the one computer that
+works (decision 41).
 
 ## What has to change first: the groundwork
 
@@ -84,8 +123,8 @@ The groundwork makes the network explicit, with no change to what Facebook users
   comment, message, withdraw, remove), each kit saying which it has and what it calls them.
 - **One row a person, with no network:** `automation` (its columns are Facebook choices: like first, confirm
   requests, join groups, tidying), `list_saves`, `setup` (the profile check and its ticks) and `days`. Settings,
-  lists and the profile check get the network in the key, or a map by network inside the row. `days` stays one a
-  person: one Start my day for all their networks.
+  training wheels, lists, the profile check and the day get the network in the key, or a map by network inside the
+  row (Chris's rule: each network's day is its own).
 - **Asks have no network.** Their open-ask key is the kind and a target that's often empty (`''`, `'best'`), so a
   LinkedIn ask and a Facebook one of the same kind would answer each other. Asks get a `platform` column, in the key.
 
@@ -96,13 +135,13 @@ The groundwork makes the network explicit, with no change to what Facebook users
   (`DAILY_LIMITS`, the business's `dailyLimits`, each person's settings) and `pastLimitWords` all go by network, each
   kit giving its starting numbers. LinkedIn's weekly invitation cap adds a rolling 7-day count beside the daily one.
 - **A warning stops everything.** `warningOf` and `warnedToday` ignore the network the warning has; a warning halves
-  every limit, stops the day and puts training wheels back on, and the extension's `hfos.warned` is one for all. A
-  warning becomes the network's: that network's limits halve and its steps and asks stop for the day; the others go
-  on. Training wheels still come back, since they're the person's.
-- **One computer, one turn.** One working computer, one runner and one turn for asks (`auto/turns.ts`) stay: every
-  network's steps go through the same line, one at a time, which also keeps each network's pace natural.
+  every limit, stops the day (`days.why = 'warning'`) and puts training wheels back on, and the extension's
+  `hfos.warned` is one for all. Each of these becomes the network's (above, "Each network on its own").
+- **One runner, one turn.** The extension has one runner, one work window and one turn shared by asks and the runner
+  (`auto/turns.ts`), so a step waiting for the person holds everything. Each network gets its own line: its own
+  runner state, window and turn. The computer that works stays one per person (decision 41).
 - **The same human on two networks** has two profiles, so two stages, two conversations and two pitches. Don't pitch
-  and Never contact don't cross networks; only the Friend or family tag on a customer does. See question 6.
+  and Never contact don't cross networks; only the Friend or family tag on a customer does. See "Still open", question 2.
 - **Facebook-only links.** `FacebookUrl` (`saves.ts`) checks links in saves, steps, posts, tidying, needs and the
   web's and phone's Needs you. It becomes a check by network.
 
@@ -146,7 +185,7 @@ The groundwork makes the network explicit, with no change to what Facebook users
 
 | On Facebook                    | On LinkedIn                                                                                                            |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Friend request                 | Invitation to connect, without a note to start (free accounts get only a few notes a month)                            |
+| Friend request                 | Invitation to connect, without a note (Chris)                                                                          |
 | Friends (5,000)                | 1st-degree connections (30,000), and how far each is from the person: 1st, 2nd or 3rd                                  |
 | Friend requests got and sent   | Invitations received and sent (My Network → Manage invitations)                                                        |
 | Cancel an old request          | Withdraw an invitation (LinkedIn caps how many can wait, so this matters more here)                                    |
@@ -168,9 +207,8 @@ profiles counts as reaching someone: it has a daily limit of its own on LinkedIn
 
 The same as on Facebook since the main offer's plan (decisions 65 to 67): warm up (view their profile, like a post,
 a short comment when their post is about their work), connect, then the direct first message once they accept, the
-video, the link, and follow-ups until they answer. What's different: the invitation goes without a note unless the
-person has notes left and turns them on, and the first message goes only after they accept, since LinkedIn won't let
-the person message anyone else.
+video, the link, and follow-ups until they answer. What's different: the invitation goes without a note, and the first message goes only
+after they accept, since LinkedIn won't let the person message anyone else.
 
 ### Where the people are
 
@@ -197,7 +235,7 @@ the person message anyone else.
 | Invitations withdrawn               | 20    | After 3 weeks waiting (decision 12's wait), oldest first |
 
 Half for a new or small account. A LinkedIn warning halves them for 7 days and stops invitations for 2, as
-Facebook's does (decision 25).
+Facebook's does (decision 25), and touches nothing on Facebook.
 
 ### The risk, said plainly
 
@@ -252,49 +290,42 @@ What each needs that LinkedIn won't have built:
   for referrals. Close to LinkedIn in shape, and likely the best fit for local businesses. Little is published, so it
   starts with a look at a real account.
 
-## Questions for Chris
+## Still open
 
-Each has what I'd pick, and why.
+Each has what I'd pick, and why. None holds up the groundwork.
 
-1. **One add-on, with networks in it?** Recommend yes: shared playbooks, Pipeline and numbers, and add-ons can't
-   share data with each other.
-2. **Who turns a network on?** Recommend: each person in My settings, inside what the business allows, the same way
+1. **Who turns a network on?** Recommend: each person in My settings, inside what the business allows, the same way
    the "on its own" choices work (decision 38).
-3. **Playbooks across networks.** Recommend one playbook for all networks, with a step that says which networks it
-   works on and where to look on each (groups on Facebook, post search on LinkedIn). The niche, offer, conversation
-   and voice stay the same everywhere.
-4. **How much LinkedIn does on its own.** (a) The same choices as Facebook (decision 26), set per network, off to
-   start, at LinkedIn's lower limits; (b) LinkedIn only reads and drafts, and every step that reaches someone is the
-   person's press or one tap. Recommend (a) with LinkedIn off to start, given the owner tries it first, since the
-   person's choice already guards it. Say (b) if the account risk worries you more than the time saved.
-5. **The invitation's note.** Recommend no note to start (free accounts get about 5 a month), warm up first instead,
-   and a setting to add a note for people with notes to spare.
-6. **The same person on two networks.** Today Don't pitch and Never contact cover one profile, and the same name on
+2. **The same person on two networks.** Today Don't pitch and Never contact cover one profile, and the same name on
    the same network, so someone on Facebook and LinkedIn could be pitched twice. Recommend: once two profiles are on
    the same customer, either list covers both, and someone pitched or booked on one network isn't started again on
-   the other. Nothing is matched across networks by name alone.
-7. **One goal or one per network?** Recommend one monthly goal and one set of daily targets, with Results showing
+   the other. Nothing is matched across networks by name alone. (This isn't a pause: it's about not pitching one
+   person twice.)
+3. **One goal or one per network?** Recommend one monthly goal and one set of daily targets, with Results showing
    each network's share.
-8. **InMail and Sales Navigator.** Recommend later, after LinkedIn works for free accounts.
-9. **The order after LinkedIn.** You named Instagram, Threads, X, TikTok and Alignable. Recommend Instagram, then
-   Alignable (close to LinkedIn and made for small businesses), then Threads, X, and TikTok last.
-10. **The daily limits above.** Fine to start, or different numbers?
-11. **The extension's name and listing.** It stays one extension, "HandsFreeOS Social", loaded by hand. Recommend
-    keeping it that way: a store listing would have to drop what it does on its own (decision 1), and LinkedIn's
-    terms make a listing riskier still.
+4. **InMail and Sales Navigator.** Recommend later, after LinkedIn works for free accounts.
+5. **LinkedIn's daily limits above.** Fine to start, or different numbers?
+6. **The extension's name and listing.** It stays one extension, "HandsFreeOS Social", loaded by hand. Recommend
+   keeping it that way: a store listing would have to drop what it does on its own (decision 1), and LinkedIn's
+   terms make a listing riskier still.
 
 ## Build order
 
 1. **Groundwork in core:** the network domain, looser id checks, the general steps and follow states, `platform` on
-   asks and in the per-person keys, counts, limits and warnings by network, and the prompts and words taking the
-   network's. Facebook behaves as before; every test passes unchanged.
+   asks and in the per-person keys; the day, counts, limits, warnings, training wheels and Get ready's profile by
+   network; and the prompts and words taking the network's. Facebook behaves as before; every test passes unchanged.
+   New tests hold Chris's rule with a second, made-up network: a warning, a stop, a profile not ready, a first day
+   waiting on lists and a step handed to the person on one each leave the other's day, limits, Today and asks as
+   they were.
 2. **Groundwork in the extension:** `src/networks/` with the kit's shape, Facebook moved in, optional host
-   permissions, `workUrl` per kit, the runner and jobs taking a network. Same behavior; the extension's tests pass
+   permissions, `workUrl` per kit, a line per network (runner state, window, turn, warnings), the jobs taking a
+   network. Same behavior; the extension's tests pass
    unchanged.
-3. **Networks in the app:** turning them on, the network on every row, Results by network, setup's step. Only
-   Facebook to pick yet.
+3. **Networks in the app:** turning them on, Today's strip with each network's own Start and Stop, the network on
+   every row, Results by network, the playbook's networks step, setup's step. Only Facebook to pick yet.
 4. **LinkedIn, parts 1 to 6** above, one PR each (decision 35's way).
 5. **The owner tries LinkedIn** on their own account; the readers are tuned from outlines.
-6. **The next network**, in the order question 9 settles, each starting with a look at a real account and a kit.
+6. **The next networks**, in Chris's order: Instagram, Alignable, Threads, X, then TikTok. Each starts with a look
+   at a real account and a kit.
 
 Each step's migration goes on the hosted database before `main` (CLAUDE.md, "Database migrations").
