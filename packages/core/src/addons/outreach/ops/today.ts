@@ -29,7 +29,7 @@ import {
   type ConversationStep,
   type FollowUpNext,
 } from '../conversation';
-import { paceOf } from '../playbooks';
+import { paceOf, type Platform } from '../playbooks';
 import {
   leftToday,
   TODAY_KIND_KEYS,
@@ -78,28 +78,31 @@ const NONE_DONE: Record<DailyStep, number> = {
 };
 
 /**
- * Each person's steps since the start of today that count against the daily limits, as Today counts them; the live
- * view (./live.ts) counts with it too, so the two never disagree.
+ * Each person's steps on a network since the start of today that count against its daily limits, as Today counts
+ * them; the live view (./live.ts) counts with it too, so the two never disagree. Each network counts only its own
+ * steps, against its own limits.
  */
 export async function dayCounts(
   ctx: Ctx,
   userIds: readonly string[],
+  platform: Platform,
   todayFrom: Date,
 ): Promise<Map<string, Record<DailyStep, number>>> {
   const counted = new Map(userIds.map((id) => [id, { ...NONE_DONE }]));
   if (!userIds.length) return counted;
   const found = await rows<{ user_id: string } & Record<DailyStep, number>>(
     ctx.tx,
-    sql`select user_id, count(*) filter (where kind = 'friend_request')::int as friend_request,
-          count(*) filter (where step = 'first_message')::int as first_message,
-          count(*) filter (where step = 'follow_up')::int as follow_up,
-          count(*) filter (where kind = 'comment')::int as comment,
-          count(*) filter (where kind = 'like')::int as "like"
-        from addon_outreach.touches
-        where workspace_id = ${ctx.scope.workspaceId!}
-          and user_id = any (${`{${userIds.join(',')}}`}::uuid[])
-          and at >= ${todayFrom.toISOString()}::timestamptz
-        group by user_id`,
+    sql`select t.user_id, count(*) filter (where t.kind = 'friend_request')::int as friend_request,
+          count(*) filter (where t.step = 'first_message')::int as first_message,
+          count(*) filter (where t.step = 'follow_up')::int as follow_up,
+          count(*) filter (where t.kind = 'comment')::int as comment,
+          count(*) filter (where t.kind = 'like')::int as "like"
+        from addon_outreach.touches t
+        join addon_outreach.profiles p on p.id = t.profile_id
+        where t.workspace_id = ${ctx.scope.workspaceId!} and p.platform = ${platform}
+          and t.user_id = any (${`{${userIds.join(',')}}`}::uuid[])
+          and t.at >= ${todayFrom.toISOString()}::timestamptz
+        group by t.user_id`,
   );
   for (const { user_id, ...done } of found) counted.set(user_id, done);
   return counted;
@@ -164,15 +167,16 @@ export const today = defineAddonQuery(outreachAddon, {
   // The worker asks on a person's behalf for the morning push (decision 22).
   actors: ['human', 'system'],
   scope: inWorkspace,
-  async handler(ctx, _input) {
+  async handler(ctx, input) {
     const me = userIdOf(ctx.actor);
     if (!me) throw HfosError.forbidden('Only a person has a list for today.');
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
     const todayStart = await startOfToday(ctx, now);
     const todayFrom = todayStart.toISOString();
-    const warning = await warningOf(ctx, me, todayStart, now);
-    const done = (await dayCounts(ctx, [me], todayStart)).get(me)!;
+    // The network's own warning and steps: another network's never slow this one or use up its limits.
+    const warning = await warningOf(ctx, me, input.platform, todayStart, now);
+    const done = (await dayCounts(ctx, [me], input.platform, todayStart)).get(me)!;
     const { settings, wheels, rules } = await automationOf(ctx, me, now);
     // The business's own, halved after a warning from Facebook, and on training wheels.
     const limits = todayLimits(

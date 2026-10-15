@@ -22,6 +22,7 @@ import { addDays, localDateOf } from '../../calendar/engine/zoned';
 import { fmtDateShort, fmtTime } from '../../calendar/when';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { LIST_MARK_KEYS, listsWaitWords, ListsSaved, type ListMark } from './lists';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from './playbooks';
 import { WarningState } from './tidy';
 
 /** How often the extension says it's there, and how long without that before the app calls the computer offline. */
@@ -230,6 +231,8 @@ export type LiveBeatOutput = z.output<typeof LiveBeatOutput>;
 
 export const DayInput = z.object({
   workspaceId: z.uuid(),
+  /** The network whose day it is: each network's day is its own, so stopping one leaves the others going. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   /** The extension's install id, when pressed there: that computer becomes the one that works. */
   installId: z.uuid().optional(),
 });
@@ -397,18 +400,30 @@ export function dayWords(day: LiveDay, timeZone: string, lists?: ListsSaved | nu
 export const dayLine = (state: DayState, via: DayVia): string =>
   `You pressed ${state === 'started' ? 'Start my day' : 'Stop for today'} ${VIA_WORDS[via]}.`;
 
-/** The feed's line for a warning, which HandsFreeOS writes: Facebook's words cut short so the whole stays a line. */
-export function warningLine(words: string): string {
-  const before = 'Facebook showed a warning (“';
-  const after = '”). The extension stopped for today, and your daily limits are halved for a week.';
+/**
+ * The feed's line for a warning, which HandsFreeOS writes: the network's words cut short so the whole stays a line.
+ * It names the network, since the others go on.
+ */
+export function warningLine(words: string, platform: Platform = 'facebook'): string {
+  const network = PLATFORMS[platform];
+  const before = `${network} showed a warning (“`;
+  const after = `”). The extension stopped on ${network} for today, and your ${network} limits are halved for a week.`;
   return `${before}${clipLine(words.trim(), LINE_MOST - before.length - after.length)}${after}`;
 }
 
-/** The push a warning sends to the person's phone (decision 41). */
-export const warningPushWords = (): { title: string; body: string } => ({
-  title: 'Facebook showed a warning.',
-  body: 'The extension stopped for today.',
+/** The push a warning sends to the person's phone (decision 41), naming the network that stopped. */
+export const warningPushWords = (
+  platform: Platform = 'facebook',
+): { title: string; body: string } => ({
+  title: `${PLATFORMS[platform]} showed a warning.`,
+  body: `The extension stopped on ${PLATFORMS[platform]} for today.`,
 });
+
+/** Why Start my day stays refused after a warning: on the network that showed it, until tomorrow. */
+export const warnedTodayWords = (platform: Platform = 'facebook'): string => {
+  const network = PLATFORMS[platform];
+  return `${network} showed you a warning today, so the extension stays stopped on ${network} until tomorrow. Your ${network} limits are halved for a week.`;
+};
 
 /** Why Start my day can't start while the extension does nothing on its own: who can change that, and where. */
 export function sendingOffWords(businessAllowsMore: boolean): string {

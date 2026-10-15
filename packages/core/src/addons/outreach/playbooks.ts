@@ -7,8 +7,11 @@
 import { z } from 'zod';
 import { VideoLink, VideoScript } from './video';
 
-/** The social networks it works on. Facebook first; LinkedIn and Instagram later. */
-export const PLATFORMS = { facebook: 'Facebook' } as const;
+/**
+ * The social networks it knows (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md). Facebook works; LinkedIn is
+ * known so each network's day, limits and warnings can be kept apart, and nothing reads or saves a LinkedIn page yet.
+ */
+export const PLATFORMS = { facebook: 'Facebook', linkedin: 'LinkedIn' } as const;
 export type Platform = keyof typeof PLATFORMS;
 export const PLATFORM_KEYS = Object.keys(PLATFORMS) as [Platform, ...Platform[]];
 

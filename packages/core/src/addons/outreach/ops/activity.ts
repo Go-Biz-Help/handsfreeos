@@ -530,9 +530,10 @@ const iso = (at: Date | string) => new Date(at).toISOString();
 const isoOrNull = (at: Date | string | null) => (at === null ? null : iso(at));
 
 /** The person's own steps of one kind since the day began, for the daily limits, whoever's the panel shows. */
+/** The person's own steps today on Facebook, whose daily limits the panel shows them against. */
 const todayCount = (column: 'kind' | 'step', value: string, me: string, since: string) =>
   sql`(count(*) filter (where ${sql.raw(`t.${column}`)} = ${value} and t.user_id = ${me}
-    and t.at >= ${since}::timestamptz))::int`;
+    and tp.platform = 'facebook' and t.at >= ${since}::timestamptz))::int`;
 
 export const activity = defineAddonQuery(outreachAddon, {
   name: 'outreach.activity',
@@ -558,7 +559,8 @@ export const activity = defineAddonQuery(outreachAddon, {
     const from = await periodStart(ctx, ACTIVITY_PERIODS[input.period].days, timezone);
     const todayFrom = new Date(startOfLocalDay(today, timezone)).toISOString();
     const whose = input.everyone ? sql`true` : sql`t.user_id = ${me}`;
-    const warning = await warningOf(ctx, me, new Date(todayFrom));
+    // The day against the limits is Facebook's, where the extension works yet: only its warning halves them.
+    const warning = await warningOf(ctx, me, 'facebook', new Date(todayFrom));
 
     const [counts] = await rows<Counts>(
       ctx.tx,
@@ -575,6 +577,7 @@ export const activity = defineAddonQuery(outreachAddon, {
             ${todayCount('kind', 'comment', me, todayFrom)} as today_comment,
             ${todayCount('kind', 'like', me, todayFrom)} as today_like
           from addon_outreach.touches t
+          join addon_outreach.profiles tp on tp.id = t.profile_id
           where t.workspace_id = ${ws} and t.at >= ${from}::timestamptz and ${whose}`,
     );
 

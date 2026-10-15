@@ -7356,6 +7356,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "installId": {
             "type": "string",
             "format": "uuid"
@@ -7372,6 +7377,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           },
           "installId": {
             "type": "string",
@@ -7393,7 +7403,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "profileId": {
             "type": "string",
@@ -7456,7 +7466,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "profileId": {
             "type": "string",
@@ -7894,7 +7904,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook"]
+                  "enum": ["facebook", "linkedin"]
                 }
               },
               "groupWords": {
@@ -13749,7 +13759,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "view": {
             "default": "work",
@@ -13817,7 +13827,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "profiles": {
             "default": [],
@@ -13959,7 +13969,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]

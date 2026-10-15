@@ -1,6 +1,7 @@
 /**
  * The person's day as HandsFreeOS keeps it, and the feed's lines HandsFreeOS writes itself (../live.ts, decision 41):
- * shared by the live operations (./live.ts) and the warning note (./tidy.ts). Server-only.
+ * shared by the live operations (./live.ts) and the warning note (./tidy.ts). Each network's day is its own, so a
+ * stop or a warning on one never stops another (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md). Server-only.
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -14,6 +15,7 @@ import {
   type LiveDay,
   type StepKind,
 } from '../live';
+import type { Platform } from '../playbooks';
 import { days, liveSteps } from '../tables';
 import type { Ctx } from './common';
 
@@ -26,12 +28,25 @@ export async function businessToday(
   return { today: businessDay(now, timezone), timezone };
 }
 
-/** The person's day as kept: nothing pressed today when the row is for an earlier day, or there's none. */
-export async function dayOf(ctx: Ctx, userId: string, today: string): Promise<LiveDay> {
+/**
+ * The person's day on a network as kept: nothing pressed today when the row is for an earlier day, or there's none.
+ */
+export async function dayOf(
+  ctx: Ctx,
+  userId: string,
+  platform: Platform,
+  today: string,
+): Promise<LiveDay> {
   const [row] = await ctx.tx
     .select()
     .from(days)
-    .where(and(eq(days.workspaceId, ctx.scope.workspaceId!), eq(days.userId, userId)));
+    .where(
+      and(
+        eq(days.workspaceId, ctx.scope.workspaceId!),
+        eq(days.userId, userId),
+        eq(days.platform, platform),
+      ),
+    );
   return dayShown(row, today);
 }
 
@@ -66,22 +81,24 @@ export async function writeLine(
 }
 
 /**
- * Started or stopped, pressed at `at`. Only a change is kept: a press for another day than today, one older than the
- * last press today, one that changes nothing, or any press on a day stopped for a warning, leaves the day as it is.
- * Whether the day changed.
+ * Started or stopped on a network, pressed at `at`. Only a change is kept: a press for another day than today, one
+ * older than the last press today, one that changes nothing, or any press on a day stopped for a warning, leaves the
+ * day as it is. Whether the day changed.
  */
 export async function keepDay(
   ctx: Ctx,
   userId: string,
+  platform: Platform,
   input: { today: string; state: DayState; via: DayVia; at: Date },
 ): Promise<boolean> {
   const why = input.state === 'stopped' ? 'person' : null;
   const changed = await rows<{ id: string }>(
     ctx.tx,
-    sql`insert into addon_outreach.days as d (workspace_id, user_id, day, state, why, via, changed_at)
-        values (${ctx.scope.workspaceId!}, ${userId}, ${input.today}::date, ${input.state}, ${why},
+    sql`insert into addon_outreach.days as d
+          (workspace_id, user_id, platform, day, state, why, via, changed_at)
+        values (${ctx.scope.workspaceId!}, ${userId}, ${platform}, ${input.today}::date, ${input.state}, ${why},
           ${input.via}, ${input.at.toISOString()}::timestamptz)
-        on conflict (workspace_id, user_id) do update
+        on conflict (workspace_id, user_id, platform) do update
           set day = excluded.day, state = excluded.state, why = excluded.why, via = excluded.via,
             changed_at = excluded.changed_at
           where d.day < excluded.day
@@ -94,13 +111,14 @@ export async function keepDay(
 }
 
 /**
- * A Facebook warning stops the person's day, whatever was pressed and whenever (decision 25): a Start pressed after
- * the moment the warning was seen doesn't undo it. Only a warning from an earlier day than the kept one leaves it be.
- * Writes the feed's line for it.
+ * A warning stops the person's day on the network that showed it, whatever was pressed and whenever (decision 25): a
+ * Start pressed after the moment the warning was seen doesn't undo it. Only a warning from an earlier day than the
+ * kept one leaves it be. The person's other networks go on. Writes the feed's line for it.
  */
 export async function warnDay(
   ctx: Ctx,
   userId: string,
+  platform: Platform,
   at: Date,
   words: string,
   timezone: string,
@@ -108,14 +126,15 @@ export async function warnDay(
   const day = businessDay(at.getTime(), timezone);
   await rows(
     ctx.tx,
-    sql`insert into addon_outreach.days as d (workspace_id, user_id, day, state, why, via, changed_at)
-        values (${ctx.scope.workspaceId!}, ${userId}, ${day}::date, 'stopped', 'warning', 'extension',
+    sql`insert into addon_outreach.days as d
+          (workspace_id, user_id, platform, day, state, why, via, changed_at)
+        values (${ctx.scope.workspaceId!}, ${userId}, ${platform}, ${day}::date, 'stopped', 'warning', 'extension',
           ${at.toISOString()}::timestamptz)
-        on conflict (workspace_id, user_id) do update
+        on conflict (workspace_id, user_id, platform) do update
           set day = excluded.day, state = 'stopped', why = 'warning', via = excluded.via,
             changed_at = case when d.day = excluded.day then greatest(d.changed_at, excluded.changed_at)
               else excluded.changed_at end
           where d.day <= excluded.day`,
   );
-  await writeLine(ctx, userId, at, 'stopped', warningLine(words));
+  await writeLine(ctx, userId, at, 'stopped', warningLine(words, platform));
 }

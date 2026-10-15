@@ -7227,7 +7227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.
+         * Note a warning a network showed the person, in its own words, as the extension read it: on that network alone, it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone. Their other networks go on.
          * @description Risk level 1. Requires outreach.use. Emits outreach.warning.seen. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_warning_note"];
@@ -35076,7 +35076,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -35148,7 +35148,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35381,6 +35381,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35417,6 +35422,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35457,7 +35467,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -35530,7 +35540,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35583,7 +35593,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -35630,7 +35640,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -35677,7 +35687,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -35741,7 +35751,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35849,7 +35859,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     privacy?: ("public" | "private") | null;
                     /** Format: uuid */
@@ -35905,7 +35915,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36446,7 +36456,7 @@ export interface operations {
                                 followUps?: number;
                                 messageAfterDays: number;
                             };
-                            platforms: "facebook"[];
+                            platforms: ("facebook" | "linkedin")[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -36521,7 +36531,7 @@ export interface operations {
                             followUps?: number;
                             messageAfterDays: number;
                         };
-                        platforms: "facebook"[];
+                        platforms: ("facebook" | "linkedin")[];
                         problem?: string | null;
                         proof?: string[];
                         questions: {
@@ -36595,7 +36605,7 @@ export interface operations {
                                 followUps?: number;
                                 messageAfterDays: number;
                             };
-                            platforms: "facebook"[];
+                            platforms: ("facebook" | "linkedin")[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -36697,7 +36707,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     posts: {
                         author: {
                             id: string | null;
@@ -36805,7 +36815,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -37586,7 +37596,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     postText?: string | null;
                     /** @default null */
@@ -37673,7 +37683,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     url?: string | null;
                     words: string[];
@@ -65288,7 +65298,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65375,7 +65385,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     /**
                      * @default work
@@ -65895,7 +65905,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default [] */
                     profiles?: {
                         id: string | null;
@@ -66100,7 +66110,7 @@ export interface operations {
                             }[];
                             ownerName: string | null;
                             /** @enum {string} */
-                            platform: "facebook";
+                            platform: "facebook" | "linkedin";
                             savedMessages: number;
                             url: string;
                         }[];
@@ -66114,7 +66124,7 @@ export interface operations {
                             mutualFriends: number | null;
                             name: string;
                             /** @enum {string} */
-                            platform: "facebook";
+                            platform: "facebook" | "linkedin";
                             url: string;
                         }[];
                     };
@@ -66170,7 +66180,7 @@ export interface operations {
                                     followUps?: number;
                                     messageAfterDays: number;
                                 };
-                                platforms: "facebook"[];
+                                platforms: ("facebook" | "linkedin")[];
                                 problem?: string | null;
                                 proof?: string[];
                                 questions: {
@@ -66537,7 +66547,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
