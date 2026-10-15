@@ -1,13 +1,13 @@
 /**
- * Cancelling old requests and unfriending (src/facebook/tidy.ts): on a made-up 2026 profile whose buttons behave like
+ * Cancelling old requests and unfriending (src/networks/facebook/tidy.ts): on a made-up 2026 profile whose buttons behave like
  * Facebook's (Friends opens a menu with Unfriend, which asks to be sure), the extension presses only the profile's
  * button, never its Friends tab; presses in the box on top, never behind it; and the profile reads as not friends
  * after. Plain and with a bare box around everything.
  */
 import { describe, expect, it } from 'vitest';
-import { doPath, doStep, type FetchStep } from '../src/facebook/fetch';
-import { readPage } from '../src/facebook/page';
-import { sameProfile, TIDY_PLANS, tidyPage } from '../src/facebook/tidy';
+import { doPath, doStep, type FetchStep } from '../src/networks/facebook/fetch';
+import { readPage } from '../src/networks/facebook/page';
+import { sameProfile, TIDY_PLANS, tidyPage } from '../src/networks/facebook/tidy';
 import { boxEverything, load } from './load';
 
 const URL = 'https://www.facebook.com/dana.reyes.12';

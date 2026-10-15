@@ -3,14 +3,14 @@
  *
  * - **Putting one up:** the one the person OK'd (an ask from HandsFreeOS, `post`), or, when they let it post on its
  *   own, today's draft (the runner, ../auto/run.ts). It opens the group, types the post into Facebook's box and
- *   presses Post (../facebook/compose.ts), then finds it at the top of the group's newest posts for its link, and
+ *   presses Post (../networks/facebook/compose.ts), then finds it at the top of the group's newest posts for its link, and
  *   notes how it went: up, waiting for the admins, or couldn't, with why. It stops on any Facebook warning.
  * - **Who engaged:** once a day, each post up in the last fortnight: it opens it (found by its first words when its
  *   link isn't known), reads who commented and who reacted, and sends them; each is a warm lead on Today.
  */
 import { HELPFUL_TEXT_MOST } from '@hfos/core/addons/outreach/helpful';
-import { line } from '../facebook/lookup';
-import type { ReadResult } from '../facebook/types';
+import { line } from '../networks/facebook/lookup';
+import type { ReadResult } from '../networks/facebook/types';
 import type { HelpfulNext } from '../hfos/messages';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';

@@ -1,5 +1,5 @@
 /**
- * Working on its own (src/auto/plan.ts, src/facebook/auto.ts): what it does next and when, and the buttons it
+ * Working on its own (src/auto/plan.ts, src/networks/facebook/auto.ts): what it does next and when, and the buttons it
  * presses. On made-up 2026 pages: a profile whose button behaves like Facebook's (Add friend becomes Cancel request;
  * Respond opens a menu with Confirm), its post's Like, and a group post's box to comment in, never a reply's.
  */
@@ -25,9 +25,9 @@ import {
   sameRef,
   writeComment,
   writeMessage,
-} from '../src/facebook/auto';
-import { doPath, doStep, type FetchStep } from '../src/facebook/fetch';
-import { readPage } from '../src/facebook/page';
+} from '../src/networks/facebook/auto';
+import { doPath, doStep, type FetchStep } from '../src/networks/facebook/fetch';
+import { readPage } from '../src/networks/facebook/page';
 import { load } from './load';
 
 const FB = 'https://www.facebook.com';

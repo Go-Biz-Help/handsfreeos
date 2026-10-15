@@ -1,11 +1,16 @@
 /**
  * Getting the person's Facebook file (docs/outreach.md, decisions 16 and 43), asked from the Friends tab in
  * HandsFreeOS: it asks Facebook for the file, downloads it when it's ready, or gets the chat backup, pressing the
- * buttons on Facebook's own pages (src/facebook/fetch.ts) in a tab the person can see. Facebook asks for their
+ * buttons on Facebook's own pages (src/networks/facebook/fetch.ts) in a tab the person can see. Facebook asks for their
  * password and their PIN, which they type themselves; a step it can't find on the page it hands to them, and carries
  * on once they say so. Bringing the downloaded zips in is ./file-in.ts.
  */
-import { FETCH_PLANS, type FetchJob, type FetchStep, type StepResult } from '../facebook/fetch';
+import {
+  FETCH_PLANS,
+  type FetchJob,
+  type FetchStep,
+  type StepResult,
+} from '../networks/facebook/fetch';
 import type { FetchAnswer } from '../messages';
 import { pause, type Job, type JobEnd } from './job';
 

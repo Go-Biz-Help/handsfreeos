@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { maskText, Outliner, outlinePage } from '../src/facebook/outline';
-import { readPage } from '../src/facebook/page';
+import { maskText, Outliner, outlinePage } from '../src/networks/facebook/outline';
+import { readPage } from '../src/networks/facebook/page';
 import { load } from './load';
 
 describe('maskText', () => {

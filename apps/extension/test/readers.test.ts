@@ -4,13 +4,13 @@
  * tune them to the real thing.
  */
 import { describe, expect, it } from 'vitest';
-import { measuredSide, readChat } from '../src/facebook/chat';
-import { friendListOf, mutualFriendsIn, yourProfile } from '../src/facebook/friends';
-import { readPage } from '../src/facebook/page';
-import type { ReadResult } from '../src/facebook/types';
-import { runsGroup } from '../src/facebook/people';
-import { classifyUrl } from '../src/facebook/urls';
-import { readWarnings } from '../src/facebook/warnings';
+import { measuredSide, readChat } from '../src/networks/facebook/chat';
+import { friendListOf, mutualFriendsIn, yourProfile } from '../src/networks/facebook/friends';
+import { readPage } from '../src/networks/facebook/page';
+import type { ReadResult } from '../src/networks/facebook/types';
+import { runsGroup } from '../src/networks/facebook/people';
+import { classifyUrl } from '../src/networks/facebook/urls';
+import { readWarnings } from '../src/networks/facebook/warnings';
 import { load } from './load';
 
 const NOW = new Date('2026-10-05T12:00:00Z');

@@ -8,7 +8,7 @@
  * (src/auto/daily.ts, decision 32). Each saves to HandsFreeOS, goes at a person's pace, and stops on any Facebook
  * warning. Only the file's steps and tidying press anything on Facebook; the rest open and scroll.
  */
-import type { ReadResult } from '../facebook/types';
+import type { ReadResult } from '../networks/facebook/types';
 import type { HfosAnswer, HfosAsk, HfosValues } from '../hfos/messages';
 import type {
   Answer,

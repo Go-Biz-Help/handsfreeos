@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  An approximation of the same box once "Add a note" is pressed, in 2026, written by hand: not a saved LinkedIn page,
+  and nobody real. A box to write the note in (200 characters on a free account), its count, Cancel, and Send, whose
+  label says it sends the invitation. The note is never read: only that the invitation went.
+-->
+<html lang="en">
+  <head>
+    <title>LinkedIn</title>
+  </head>
+  <body>
+    <div class="_ov" role="dialog" aria-labelledby="send-invite-modal" aria-modal="true">
+      <div class="_mh">
+        <h2 id="send-invite-modal" class="_mt">Add a note to your invitation</h2>
+        <button type="button" aria-label="Dismiss" class="_x">
+          <svg aria-hidden="true"></svg>
+        </button>
+      </div>
+      <div class="_mc">
+        <label for="custom-message" class="_vh0">Your note</label>
+        <textarea
+          id="custom-message"
+          name="message"
+          maxlength="200"
+          placeholder="Ex: We know each other from…"
+        ></textarea>
+        <p class="_cn">0/200</p>
+      </div>
+      <div class="_ma">
+        <button type="button" aria-label="Cancel adding a note" class="_b2">
+          <span>Cancel</span>
+        </button>
+        <button type="button" aria-label="Send invitation" class="_b1"><span>Send</span></button>
+      </div>
+    </div>
+  </body>
+</html>

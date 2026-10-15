@@ -1,7 +1,7 @@
 /**
  * Facebook's warnings: that you're blocked from something for a while, that you went too fast, that your account
- * needs checking. The extension stops for the day on any of them: read in any Facebook tab (../content.ts, and
- * ./page.ts for its own work tabs), kept for the day (../hfos/warned.ts) and noted in HandsFreeOS (../hfos/looked.ts).
+ * needs checking. The extension stops for the day on any of them: read in any Facebook tab (../../content.ts, and
+ * ./page.ts for its own work tabs), kept for the day (../../hfos/warned.ts) and noted in HandsFreeOS (../../hfos/looked.ts).
  * Only dialogs, alerts, headings and Facebook's checkpoint pages count, never a post or a comment in them: a post
  * about being blocked is not a warning.
  */

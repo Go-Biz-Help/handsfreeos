@@ -6,7 +6,7 @@
  * pressed on Facebook. It goes at a person's pace and stops for the day on any Facebook warning.
  */
 import { GROUP_POST_MOST, GROUP_POSTS_READ } from '@hfos/core/addons/outreach/group-checks';
-import { line } from '../facebook/lookup';
+import { line } from '../networks/facebook/lookup';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 

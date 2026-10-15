@@ -1,11 +1,13 @@
 /**
  * **Read my chats** (docs/outreach.md, decision 2's "Collect from Facebook"): without Facebook's file, it goes through
  * the person's one-to-one chats in Messenger, one at a time from the list beside it, at a steady pace, scrolling the
- * list for more (src/facebook/browse.ts), and sends each one's latest few messages to HandsFreeOS, where the AI reads
+ * list for more (src/networks/facebook/browse.ts), and sends each one's latest few messages to HandsFreeOS, where the AI reads
  * them for the Chats tab. It skips chats read in the last day with nothing new, and stops after a run's worth. Group
  * chats are left out, and nothing is sent on Facebook.
  */
-import type { ChatPage, ChatSummary } from '../facebook/types';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { facebook } from '../networks';
+import type { ChatPage, ChatSummary } from '../networks/facebook/types';
 import type { ChatsCollected } from '../hfos/messages';
 import { CHATS_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { chatCollect } from '../hfos/saves';
@@ -79,22 +81,26 @@ function words(name: string, got: ChatsCollected): string {
     : `Kept the chat with ${name}.`;
 }
 
-/** Sends a chat for the AI. What came of it, in words; null when there was nothing new to send. */
+/**
+ * Sends a chat for the AI, as its network's (Facebook's, where Read my chats works). What came of it, in words; null
+ * when there was nothing new to send.
+ */
 export async function sendChat(
   hfos: Hfos,
   businessId: string,
   memory: ChatMemory,
   chat: ChatPage,
   listed: ChatSummary | null,
+  platform: Platform = facebook.platform,
 ): Promise<string | null> {
-  const built = chatCollect(chat, new Date(), listed?.when);
+  const built = chatCollect(chat, new Date(), listed?.when, platform);
   if (!built) return null;
   const key = JSON.stringify(built.messages);
   if (sent.get(built.thread.id) === key) return null;
   const got = valueOf(
     await hfos({
       type: 'hfos-collect-chats',
-      input: { workspaceId: businessId, platform: 'facebook', chats: [built] },
+      input: { workspaceId: businessId, platform, chats: [built] },
     }),
   );
   sent.set(built.thread.id, key);

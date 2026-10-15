@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isFacebookText, isWhen, parseCount, sectionTitleOf } from '../src/facebook/vocabulary';
+import {
+  isFacebookText,
+  isWhen,
+  parseCount,
+  sectionTitleOf,
+} from '../src/networks/facebook/vocabulary';
 
 describe('isWhen', () => {
   it.each([
