@@ -184,8 +184,7 @@ alter table app.teammate_lessons
 
 -- Saving a lesson adds an instruction (ai_team.manage), and dropping one is the same people's call. Changing what
 -- the AI knows when it clashes still needs knowledge.manage, which the command checks.
-drop policy teammate_lessons_update on app.teammate_lessons;
-create policy teammate_lessons_update on app.teammate_lessons for update to authenticated
+alter policy teammate_lessons_update on app.teammate_lessons
   using (private.has_permission(workspace_id, 'knowledge.manage')
     or private.has_permission(workspace_id, 'ai_team.manage'))
   with check (private.has_permission(workspace_id, 'knowledge.manage')
