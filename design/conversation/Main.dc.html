@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Social Outreach: Today, the conversation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.nav:focus-visible,.tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 12px;font-size:13px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.side{flex:0 1 240px;min-width:200px;background:var(--card);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.nav{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;text-decoration:none}
+.nav:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.nav.on{background:var(--accent-soft);color:var(--accent-text)}
+.nav .icon{width:18px;height:18px}
+.content{flex:999 1 560px;min-width:0;padding:28px 40px 40px;display:flex;flex-direction:column;gap:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-accent{background:var(--accent-soft);color:var(--accent-text)}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{height:38px;display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:0;font:inherit;font-weight:500;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;text-decoration:none}
+.tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.strip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 18px}
+.dot{width:8px;height:8px;border-radius:999px;background:var(--success);flex:none}
+.it{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;padding:16px 20px;border-top:1px solid var(--border)}
+.avatar{width:32px;height:32px;border-radius:999px;background:var(--card-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none}
+.bubble{max-width:78%;padding:7px 11px;border-radius:14px;font-size:13px}
+.them{align-self:flex-start;background:var(--card-2)}.me{align-self:flex-end;background:var(--accent-soft);color:var(--text)}
+.draft{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13.5px;background:var(--card)}
+.link{display:inline-flex;align-items:center;gap:6px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--text-2);background:var(--card-2);border-radius:6px;padding:3px 8px}
+.tnum{font-variant-numeric:tabular-nums}
+.done-line{display:flex;align-items:center;gap:8px;padding:12px 20px;border-top:1px solid var(--border);font-size:13px;color:var(--text-2)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 1180px; display: flex; flex-wrap: wrap;">
+<aside class="side">
+<div class="brand" style="padding: 4px 10px 16px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Inbox</a>
+<a class="nav" href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>Contacts</a>
+<a class="nav on" href="#" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"></path><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"></path><path d="m21 3 1 11h-2"></path><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"></path><path d="M3 4h8"></path></svg>Social Outreach</a>
+</aside>
+<main class="content">
+<div class="stack" style="gap: 4px;">
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Social Outreach</h1>
+<p class="muted">Find customers on Facebook the way you would yourself.</p>
+</div>
+<nav class="tabs" aria-label="Social Outreach">
+<a class="tab on" href="#" aria-current="page">Today</a>
+<a class="tab" href="#">Friends</a>
+<a class="tab" href="#">Chats</a>
+<a class="tab" href="#">Groups</a>
+<a class="tab" href="#">Results</a>
+</nav>
+
+<section class="card strip" aria-label="Your day">
+<div class="row" style="gap: 10px;">
+<span class="dot" aria-hidden="true"></span>
+<div class="stack">
+<span style="font-weight: 600;">Working on your list</span>
+<span class="small muted tnum">First messages 3 of 15 · Follow-ups 5 of 20 · Comments 4 of 15</span>
+</div>
+</div>
+<button class="btn btn-secondary" type="button">Stop for today</button>
+</section>
+
+<section class="card" aria-labelledby="list-title">
+<div class="row" style="justify-content: space-between; padding: 16px 20px;">
+<h2 id="list-title" style="font-size: 15px; font-weight: 600;">Your list for today <span class="muted" style="font-weight: 400;">· 7</span></h2>
+<span class="small muted">Replies first, then the people who said yes.</span>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">DR</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Dana Reyes</span><span class="badge badge-wait">Reply</span><span class="small muted">Asked a question · 12 min ago</span></div>
+<div class="stack" style="gap: 4px;">
+<span class="bubble me">Hi Dana! Open to 10 to 20 booked inspections a month, on a 60-day guarantee? If so, I’ll send more info.</span>
+<span class="bubble them">Maybe. How much is it?</span>
+</div>
+<div class="draft">Fair question! It’s $2,000 a month, and if you don’t get 10 in 60 days you don’t pay. A quick call would show how it works for your business, with your numbers. Want a time this week?</div>
+<div class="row" style="gap: 8px;"><button class="btn btn-primary btn-sm" type="button">Copy</button><button class="btn btn-ghost btn-sm" type="button">Another draft</button><a class="btn btn-ghost btn-sm" href="#">Open in Messenger</a></div>
+</div>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">MJ</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Mike Johnson</span><span class="badge badge-accent">Send the link</span><span class="small muted">Said yes after your video</span></div>
+<div class="draft">Great! Here’s my link to book a quick call. You’ll leave with a plan for your business, with your numbers. <span class="link">book.handsfreeos.app/summit?ref=so-…</span></div>
+<div class="row" style="gap: 8px;"><button class="btn btn-primary btn-sm" type="button">Copy</button><button class="btn btn-ghost btn-sm" type="button">Copy the link only</button><a class="btn btn-ghost btn-sm" href="#">Open in Messenger</a></div>
+</div>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">KP</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Kim Park</span><span class="badge badge-accent">Send the video</span><span class="small muted">Said yes to your first message</span></div>
+<div class="draft">Here’s a short video on how it works and how other roofers got results. If a quick call to see how it’d work for you sounds good, just say. <span class="link">loom.com/share/5f2c…</span></div>
+<div class="row" style="gap: 8px;"><button class="btn btn-primary btn-sm" type="button">Copy</button><button class="btn btn-ghost btn-sm" type="button">Copy the video link</button><a class="btn btn-ghost btn-sm" href="#">Open in Messenger</a></div>
+</div>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">SL</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Sam Lee</span><span class="badge badge-ok">First message</span><span class="small muted">Accepted your request yesterday · Owner at Lee Roofing</span></div>
+<div class="draft">Hi Sam! Saw you just added a third crew, nice. Open to 10 to 20 booked inspections a month, on a 60-day guarantee? If so, I’ll send more info.</div>
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><button class="btn btn-primary btn-sm" type="button">Copy</button><button class="btn btn-ghost btn-sm" type="button">Another draft</button><span class="xs faint">Opens with: Ask about something real on their profile</span></div>
+</div>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">AL</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Avery Lane</span><span class="badge badge-gray">Follow up</span><span class="small muted tnum">First message sent, no answer yet · 2 of 6</span></div>
+<div class="draft">Hey Avery, just making sure this didn’t get buried. Still open to hearing how it works?</div>
+<div class="row" style="gap: 8px;"><button class="btn btn-primary btn-sm" type="button">Copy</button><button class="btn btn-ghost btn-sm" type="button">Another draft</button></div>
+</div>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">JO</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Jules Ortiz</span><span class="badge badge-gray">Check in</span><span class="small muted">No answer since Sep 12 · once a month</span></div>
+<div class="draft">Hi Jules, thought you might like our storm-season checklist for roofers. No need to reply. <span class="link">summitroofleads.com/checklist</span></div>
+<div class="row" style="gap: 8px;"><button class="btn btn-primary btn-sm" type="button">Copy</button><button class="btn btn-ghost btn-sm" type="button">Stop checking in</button></div>
+</div>
+</div>
+
+<div class="it">
+<span class="avatar" aria-hidden="true">NH</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="gap: 8px; flex-wrap: wrap;"><span style="font-weight: 600;">Noor Haddad</span><span class="badge badge-gray">Like a post first</span><span class="small muted">Found in Roofers of Ohio</span></div>
+<p class="small muted">The extension likes one of their posts, and when it’s about their work, leaves a short comment too. Their friend request comes tomorrow.</p>
+</div>
+</div>
+
+<div class="done-line"><svg class="icon" style="color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Done today: liked and commented on a post of Eli Brook’s (“Their new crew truck”).</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

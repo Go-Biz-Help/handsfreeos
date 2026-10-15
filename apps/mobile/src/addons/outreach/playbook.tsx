@@ -3,7 +3,9 @@ import {
   ANSWER_NEXT_KEYS,
   answerNextLabel,
   nextQuestionId,
+  followUpGapsFor,
   PACE_LIMITS,
+  paceOf,
   PLAYBOOK_GOAL_KEYS,
   PLAYBOOK_GOALS,
   PLAYBOOK_STEP_KEYS,
@@ -107,7 +109,7 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
       return (
         W.pace(
           details.steps.includes('message') ? details.pace.messageAfterDays : null,
-          details.steps.includes('follow_up') ? details.pace.followUpAfterDays : null,
+          details.steps.includes('follow_up') ? paceOf(details.pace).followUps : null,
         ) || W.empty
       );
     case 'openers':
@@ -510,9 +512,11 @@ function SectionEditor({
           />
           <DaysInput
             label={W.followUpAfter}
-            value={d.pace.followUpAfterDays}
-            limits={PACE_LIMITS.followUpAfterDays}
-            onChange={(followUpAfterDays) => set({ pace: { ...d.pace, followUpAfterDays } })}
+            value={paceOf(d.pace).followUps}
+            limits={PACE_LIMITS.followUps}
+            onChange={(followUps) =>
+              set({ pace: { ...d.pace, followUps, followUpGaps: followUpGapsFor(followUps) } })
+            }
           />
         </>
       );

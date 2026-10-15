@@ -6237,6 +6237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.conversation.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_conversation_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.country.unskip": {
         parameters: {
             query?: never;
@@ -6811,6 +6831,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.readiness.messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person OKs how their messages read, having seen the samples the AI wrote for their playbook (the first message, the video, the link, the follow-ups and a check-in), against the main offer live now.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_readiness_messages"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17091,6 +17131,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.offer.versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How each version of the business’s main offer is doing in Social Outreach: first messages sent with it, the yeses and the calls booked from them. Everyone’s counts for owners and admins; the person’s own otherwise.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_offer_versions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33655,7 +33715,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -33944,7 +34004,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
+                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -34391,6 +34451,39 @@ export interface operations {
                         /** Format: uuid */
                         computerId: string;
                         name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_conversation_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "opener" | "video" | "follow_up" | "check_in" | "reply";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        noted: boolean;
                     };
                 };
             };
@@ -35503,7 +35596,8 @@ export interface operations {
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
-                                followUpAfterDays: number;
+                                followUpGaps?: number[];
+                                followUps?: number;
                                 messageAfterDays: number;
                             };
                             platforms: "facebook"[];
@@ -35526,6 +35620,7 @@ export interface operations {
                             tone: string | null;
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
+                            videoLink?: string | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -35564,7 +35659,8 @@ export interface operations {
                         /** @default [] */
                         ownOpeners?: string[];
                         pace: {
-                            followUpAfterDays: number;
+                            followUpGaps?: number[];
+                            followUps?: number;
                             messageAfterDays: number;
                         };
                         platforms: "facebook"[];
@@ -35587,6 +35683,7 @@ export interface operations {
                         tone: string | null;
                         usefulLink?: string | null;
                         usefulWhat?: string | null;
+                        videoLink?: string | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -35624,7 +35721,8 @@ export interface operations {
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
-                                followUpAfterDays: number;
+                                followUpGaps?: number[];
+                                followUps?: number;
                                 messageAfterDays: number;
                             };
                             platforms: "facebook"[];
@@ -35647,6 +35745,7 @@ export interface operations {
                             tone: string | null;
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
+                            videoLink?: string | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -35855,6 +35954,120 @@ export interface operations {
             };
         };
     };
+    command_outreach_readiness_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_readiness_numbers: {
         parameters: {
             query?: never;
@@ -35883,14 +36096,31 @@ export interface operations {
                         changed: string[];
                         items: {
                             /** @enum {string} */
-                            item: "offer" | "playbook" | "profile" | "numbers";
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
                             left: string | null;
                             /** @enum {string} */
                             state: "done" | "todo" | "look_again" | "waiting";
                             /** @enum {string} */
                             whose: "business" | "person";
                         }[];
-                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
                         numbers: {
                             at: string | null;
                             canSend: number;
@@ -35983,14 +36213,31 @@ export interface operations {
                         changed: string[];
                         items: {
                             /** @enum {string} */
-                            item: "offer" | "playbook" | "profile" | "numbers";
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
                             left: string | null;
                             /** @enum {string} */
                             state: "done" | "todo" | "look_again" | "waiting";
                             /** @enum {string} */
                             whose: "business" | "person";
                         }[];
-                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
                         numbers: {
                             at: string | null;
                             canSend: number;
@@ -36225,7 +36472,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -36259,7 +36506,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -64216,6 +64463,42 @@ export interface operations {
             };
         };
     };
+    query_outreach_offer_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: boolean;
+                        judgeAfter: number;
+                        versions: {
+                            booked: number;
+                            messages: number;
+                            positive: number;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_openers: {
         parameters: {
             query?: never;
@@ -64372,7 +64655,8 @@ export interface operations {
                                 /** @default [] */
                                 ownOpeners: string[];
                                 pace: {
-                                    followUpAfterDays: number;
+                                    followUpGaps?: number[];
+                                    followUps?: number;
                                     messageAfterDays: number;
                                 };
                                 platforms: "facebook"[];
@@ -64395,6 +64679,7 @@ export interface operations {
                                 tone: string | null;
                                 usefulLink?: string | null;
                                 usefulWhat?: string | null;
+                                videoLink?: string | null;
                             };
                             /** Format: uuid */
                             id: string;
@@ -64434,14 +64719,31 @@ export interface operations {
                         changed: string[];
                         items: {
                             /** @enum {string} */
-                            item: "offer" | "playbook" | "profile" | "numbers";
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
                             left: string | null;
                             /** @enum {string} */
                             state: "done" | "todo" | "look_again" | "waiting";
                             /** @enum {string} */
                             whose: "business" | "person";
                         }[];
-                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
                         numbers: {
                             at: string | null;
                             canSend: number;
@@ -64534,7 +64836,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -64725,7 +65027,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead")[];
+                        auto: ("reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm")[];
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -64733,7 +65035,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
+                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm";
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
@@ -64761,6 +65063,7 @@ export interface operations {
                             } | null;
                             summary: string | null;
                             threadKey: string | null;
+                            videoLink: string | null;
                             why: string[];
                         }[];
                         limits: {
@@ -64785,7 +65088,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "follow_up" | "reply")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply")[];
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;
@@ -64900,7 +65203,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -64938,7 +65241,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {

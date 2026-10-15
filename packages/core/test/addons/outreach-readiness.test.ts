@@ -28,6 +28,23 @@ const checked = (userId: string, version: number | null) =>
     },
   });
 
+/** The samples the AI wrote for someone's Your messages, against `version`, as the worker keeps them. */
+const samplesSeen = (userId: string, playbookId: string, version: number) =>
+  runAsSystem(ws, 'outreach.messages.samples_save', {
+    userId,
+    samples: {
+      playbookId,
+      playbookName: 'CRM demos',
+      first: ['Hi Casey! Open to more booked inspections?'],
+      video: null,
+      link: 'Great! Here’s my link to book a quick call.',
+      followUps: ['Just checking you saw this.', 'Any thoughts?'],
+      checkIn: 'Here’s a checklist you might like.',
+      at: new Date().toISOString(),
+      version,
+    },
+  });
+
 const admin = () => testDbs().admin.db;
 
 let owner: TestUser;
@@ -83,6 +100,7 @@ describe('before they’re ready', () => {
       offer: 'todo',
       playbook: 'todo',
       profile: 'todo',
+      messages: 'todo',
       numbers: 'todo',
     });
 
@@ -139,12 +157,24 @@ describe('getting ready', () => {
       details: PLAYBOOK_TEMPLATES.crm_demos.details,
     });
 
-    // The member ticked theirs before the offer went live: they count for the first version.
-    const theirs = await runAs(member, ws, 'outreach.readiness', {});
-    expect(theirs).toMatchObject({ ready: true, next: null });
+    // The member ticked theirs before the offer went live: they count for the first version. Their messages are
+    // left: OK'd only once they've seen samples for the live version.
+    expect(await runAs(member, ws, 'outreach.readiness', {})).toMatchObject({
+      ready: false,
+      next: 'messages',
+    });
+    expect(await refused(runAs(member, ws, 'outreach.readiness.messages', {}))).toBe(
+      'outreach_messages_unseen',
+    );
+    await samplesSeen(member.id, p!.id, 1);
+    const theirs = await runAs(member, ws, 'outreach.readiness.messages', {});
+    expect(theirs).toMatchObject({ ready: true, next: null, messages: { version: 1 } });
+    expect(theirs.messages.samples.first).toEqual(['Hi Casey! Open to more booked inspections?']);
 
     // Saturdays too: the goal keeps its days in the owner's working hours.
     await checked(owner.id, 1);
+    await samplesSeen(owner.id, p!.id, 1);
+    await runAs(owner, ws, 'outreach.readiness.messages', {});
     const mine = await runAs(owner, ws, 'outreach.readiness.numbers', {
       goal: 12,
       days: [6, 1, 2, 3, 4, 5],

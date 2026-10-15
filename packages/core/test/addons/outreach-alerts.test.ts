@@ -145,7 +145,7 @@ describe('the pushes', () => {
       morningPushWords([{ kind: 'friend_request' }, { kind: 'friend_request' }, { kind: 'reply' }]),
     ).toEqual({
       title: '3 on your list for today',
-      body: '2 friend requests and 1 reply. Open the extension on Facebook to start.',
+      body: '1 reply and 2 friend requests. Open the extension on Facebook to start.',
     });
   });
 

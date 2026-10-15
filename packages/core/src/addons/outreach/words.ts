@@ -43,7 +43,8 @@ const paceMessage = (n: number) =>
   n === 0
     ? 'First message the day they accept'
     : `First message ${days(n, 'day', 'days')} after they accept`;
-const paceFollowUp = (n: number) => `Follow up after ${days(n, 'quiet day', 'quiet days')}`;
+const paceFollowUp = (n: number) =>
+  `${days(n, 'follow-up', 'follow-ups')} until they answer, then a check-in each month`;
 
 const things = (n: number, one: string, many: string) =>
   n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`;
@@ -454,16 +455,16 @@ export const OUTREACH_WORDS = {
   addsTag: 'Adds the tag',
   theySay: 'They say',
   noTag: 'No tag',
-  /** How fast, for the steps it takes: null for a step it doesn't (a first message, a follow-up). */
-  pace: (messageAfterDays: number | null, followUpAfterDays: number | null) => {
+  /** How fast, for the steps it takes: null for a step it doesn't (a first message, follow-ups). */
+  pace: (messageAfterDays: number | null, followUps: number | null) => {
     const said = [
       messageAfterDays === null ? null : paceMessage(messageAfterDays),
-      followUpAfterDays === null ? null : paceFollowUp(followUpAfterDays),
+      followUps === null ? null : paceFollowUp(followUps),
     ].filter(Boolean);
     return said.length ? `${said.join('. ')}.` : '';
   },
   messageAfter: 'First message, days after they accept',
-  followUpAfter: 'Follow up after this many quiet days',
+  followUpAfter: 'Follow-ups before the monthly check-in',
   playbookSections: {
     goal: 'Goal',
     offer: 'The offer and its link',

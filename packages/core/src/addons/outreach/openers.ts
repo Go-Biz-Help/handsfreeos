@@ -23,6 +23,14 @@ export interface Opener {
 /** Where the business's own openers say the person's first name: "Hi {first name}!". */
 export const FIRST_NAME = '{first name}';
 const FIRST_NAME_AT = /\{\s*first[\s_]*name\s*\}/gi;
+/**
+ * Where they say the main offer's outcome and guarantee, in a few words each (decision 65): "Open to {outcome} on
+ * {guarantee}?". Filled from the version they're pitched with, as the business wrote them.
+ */
+export const OUTCOME = '{outcome}';
+export const GUARANTEE = '{guarantee}';
+const OUTCOME_AT = /\{\s*outcome\s*\}/gi;
+const GUARANTEE_AT = /\{\s*guarantee\s*\}/gi;
 
 /** A playbook's openers in order: its styles, then its own. */
 export const openersOf = (d: Pick<PlaybookDetails, 'openerStyles' | 'ownOpeners'>): Opener[] => [
@@ -51,13 +59,34 @@ export function nextOpener(
   return best;
 }
 
-/** One of the business's own openers with their first name in, as it's sent: "Hi Dana! …". */
-export function ownOpenerText(text: string, name: string): string {
+/**
+ * One of the business's own openers with their first name in, and the offer's outcome and guarantee in a few words,
+ * as it's sent: "Hi Dana! Open to 10 booked inspections a month on a 60-day guarantee?". One with nothing to put
+ * where it asks, in place of a word, isn't sent (`ownOpenerFits`).
+ */
+export function ownOpenerText(
+  text: string,
+  name: string,
+  offer: { readonly outcome: string | null; readonly guarantee: string | null } | null = null,
+): string {
   const first = name.trim().split(/\s+/)[0] ?? '';
   return text
     .replace(FIRST_NAME_AT, first)
+    .replace(OUTCOME_AT, offer?.outcome ?? '')
+    .replace(GUARANTEE_AT, offer?.guarantee ?? '')
     .replace(/\s+([,.!?])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
+}
+
+/** Whether an own opener has what it asks for: the outcome and the guarantee it names, when it names them. */
+export function ownOpenerFits(
+  text: string,
+  offer: { readonly outcome: string | null; readonly guarantee: string | null } | null,
+): boolean {
+  if (new RegExp(OUTCOME_AT.source, 'i').test(text) && !offer?.outcome) return false;
+  if (new RegExp(GUARANTEE_AT.source, 'i').test(text) && !offer?.guarantee) return false;
+  return true;
 }
 
 /** A long opener cut short for a list: its first line, up to `most` characters. */

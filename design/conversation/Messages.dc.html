@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Get ready: Your messages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-3:0 24px 48px rgba(25,29,37,.18),0 4px 12px rgba(25,29,37,.08);--scrim:rgba(15,19,26,.45);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-3:0 24px 48px rgba(0,0,0,.6);--scrim:rgba(0,0,0,.6);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-icon{width:36px;padding:0}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}
+.item{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 20px;border-top:1px solid var(--border)}
+.done{color:var(--success)}.todo{color:var(--text-3)}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:560px;max-width:100%;background:var(--card);box-shadow:var(--shadow-3);display:flex;flex-direction:column}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:22px 24px 16px;border-bottom:1px solid var(--border)}
+.part{display:flex;flex-direction:column;gap:8px;padding:14px 0;border-top:1px solid var(--border)}
+.part:first-child{border-top:0;padding-top:0}
+.bubble{align-self:flex-start;max-width:88%;padding:8px 12px;border-radius:14px;background:var(--accent-soft);font-size:13.5px}
+.when{font-size:11.5px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.ph{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--text-2)}
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;font-size:13px}
+.note-warn{background:var(--warning-soft);color:var(--warning-text)}.note-plain{background:var(--card-2);color:var(--text-2)}
+.bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 1180px; position: relative; display: flex;">
+<div style="flex: 1; padding: 32px 40px; display: flex; flex-direction: column; gap: 20px; max-width: 760px;">
+<div class="card">
+<div class="stack" style="gap: 12px; padding: 20px 20px 18px;">
+<div class="row" style="justify-content: space-between; align-items: flex-start;">
+<div class="stack" style="gap: 4px;">
+<span class="overline">Get ready</span>
+<h2 style="font-size: 18px; font-weight: 600;">Get ready for your best results</h2>
+<p class="muted small">Five things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked.</p>
+</div>
+<span class="small muted tnum" style="white-space: nowrap;">4 of 5 done</span>
+</div>
+<div class="bar" role="progressbar" aria-label="Done" aria-valuemin="0" aria-valuemax="5" aria-valuenow="4"><span style="width: 80%;"></span></div>
+</div>
+<div class="item"><svg class="icon done" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">Your main offer</span><span class="badge badge-ok">Done</span></div>
+<div class="item"><svg class="icon done" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">A playbook with a niche</span><span class="badge badge-ok">Done</span></div>
+<div class="item"><svg class="icon done" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">Your profile</span><span class="badge badge-ok">Done</span></div>
+<div class="item"><svg class="icon todo" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="To do"><circle cx="12" cy="12" r="10"></circle></svg>
+<div class="stack" style="gap: 2px; min-width: 0;"><span style="font-weight: 600;">Your messages</span><span class="small muted">See what goes out in your name before anything does, and that it sounds like you.</span><span class="small" style="margin-top: 4px;">See sample messages for your playbook, and OK how they read.</span></div>
+<button class="btn btn-secondary" type="button" style="height: 32px; font-size: 13px;">See your messages</button></div>
+<div class="item"><svg class="icon done" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">Your numbers</span><span class="badge badge-ok">Done</span></div>
+</div>
+</div>
+<div style="position: absolute; inset: 0; background: var(--scrim);" aria-hidden="true"></div>
+
+<section class="sheet" role="dialog" aria-modal="true" aria-labelledby="msg-title">
+<header class="sheet-head">
+<div class="stack" style="gap: 4px;">
+<h2 id="msg-title" style="font-size: 18px; font-weight: 600;">Your messages</h2>
+<p class="small muted">What goes out in your name, written by the AI for someone in your playbook’s niche, in your voice. Nobody real: the names are made up.</p>
+<p class="xs faint" style="margin-top: 4px;">CRM demos · Roofers with 2 to 3 crews · written for your main offer, version 2</p>
+</div>
+<button class="btn btn-ghost btn-icon" type="button" aria-label="Close"><svg class="icon" style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+</header>
+
+<div class="stack" style="flex: 1; overflow: auto; padding: 16px 24px; gap: 0;">
+<sc-if value="{{ changed }}" hint-placeholder-val="{{ false }}">
+<div class="note note-warn" role="status" style="margin-bottom: 14px;"><div class="stack" style="gap: 2px;"><span style="font-weight: 600;">Your main offer changed. Look at your messages again so they still fit.</span><span>What changed: Guarantee.</span></div></div>
+</sc-if>
+
+<div class="part">
+<span style="font-weight: 600;">First message, once they accept</span>
+<span class="bubble">Hi Sam! Open to 10 to 20 booked inspections a month, on a 60-day guarantee? If so, I’ll send more info.</span>
+<span class="bubble">Hey Sam, saw your crew finished the Miller roof, nice work. Would 10 to 20 booked inspections a month, on a 60-day guarantee, be worth a look? Happy to send details.</span>
+</div>
+
+<div class="part">
+<span style="font-weight: 600;">If they say yes: the video</span>
+<sc-if value="{{ hasVideo }}" hint-placeholder-val="{{ true }}">
+<span class="bubble">Great! Here’s a short video on how it works and how other roofers got results: <span class="ph">[video link]</span> If a quick call to see how it’d work for you sounds good, just say.</span>
+</sc-if>
+<sc-if value="{{ noVideo }}" hint-placeholder-val="{{ false }}">
+<div class="note note-plain">Your playbook has no video yet, so a yes gets your booking link next.</div>
+</sc-if>
+</div>
+
+<div class="part">
+<span style="font-weight: 600;">If they want a call: the link</span>
+<span class="bubble">Here’s my link to book a quick call: <span class="ph">[booking link]</span> You’ll leave with a plan for your business, with your numbers.</span>
+</div>
+
+<div class="part">
+<div class="row" style="justify-content: space-between;"><span style="font-weight: 600;">If they go quiet: 6 follow-ups</span><a class="small" href="Pace.dc.html">Change how many</a></div>
+<sc-for list="{{ followUps }}" as="f" hint-placeholder-count="6">
+<div class="stack" style="gap: 3px;"><span class="when">{{ f.when }}</span><span class="bubble">{{ f.text }}</span></div>
+</sc-for>
+</div>
+
+<div class="part">
+<span style="font-weight: 600;">Then once a month: a check-in</span>
+<span class="bubble">Thought you might like our storm-season checklist for roofers. No need to reply.</span>
+</div>
+
+<p class="xs faint" style="padding-top: 10px;">Change how they sound in My settings (short forms, emoji, a few texts), or the playbook’s tone, then write them again.</p>
+</div>
+
+<footer class="row" style="justify-content: space-between; padding: 14px 24px; border-top: 1px solid var(--border);">
+<button class="btn btn-secondary" type="button">Write them again</button>
+<button class="btn btn-primary" type="button">They read right</button>
+</footer>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"hasVideo":{"editor":"boolean","default":true},"offerChanged":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const hasVideo = this.props.hasVideo ?? true;
+    const texts = [
+      ['1 day later', 'Hey Sam, just making sure this didn’t get buried. Still open to hearing how it works?'],
+      ['1 day later', 'No pressure at all. Would a quick look be useful this month?'],
+      ['1 day later', 'Quick one: are you set for inspections this season, or is that a gap?'],
+      ['2 days later', 'One of our roofers booked 14 in 30 days. Happy to share how, if useful.'],
+      ['2 days later', 'Should I check back in a few weeks instead?'],
+      ['2 days later', 'Last nudge from me. If the timing’s wrong, no worries at all.']
+    ];
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      hasVideo,
+      noVideo: !hasVideo,
+      changed: this.props.offerChanged ?? false,
+      followUps: texts.map(([when, text]) => ({ when, text }))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -24,6 +24,7 @@ import { openerCommands, openerQueries } from './ops/openers';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
+import { conversationCommands, conversationQueries } from './ops/conversation';
 import { readinessCommands, readinessQueries } from './ops/readiness';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
@@ -55,6 +56,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...askCommands,
     ...setupCommands,
     ...readinessCommands,
+    ...conversationCommands,
     ...checkCommands,
     ...stageCommands,
     ...groupCheckCommands,
@@ -79,6 +81,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...askQueries,
     ...setupQueries,
     ...readinessQueries,
+    ...conversationQueries,
     ...checkQueries,
     ...stageQueries,
     ...groupCheckQueries,

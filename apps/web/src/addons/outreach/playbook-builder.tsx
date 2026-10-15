@@ -18,7 +18,9 @@ import {
   answerNextLabel,
   blankPlaybook,
   nextQuestionId,
+  followUpGapsFor,
   PACE_LIMITS,
+  paceOf,
   PLAYBOOK_GOAL_KEYS,
   PLAYBOOK_GOALS,
   PLAYBOOK_LIMITS,
@@ -986,11 +988,13 @@ export function PlaybookBuilder({
                 ) : null}
                 {on && k === 'follow_up' ? (
                   <Pace
-                    before="Follow up after"
-                    value={draft.pace.followUpAfterDays}
-                    limits={PACE_LIMITS.followUpAfterDays}
-                    after={(n) => `quiet ${n === 1 ? 'day' : 'days'}`}
-                    onChange={(n) => set('pace', { ...draft.pace, followUpAfterDays: n })}
+                    before="Send"
+                    value={paceOf(draft.pace).followUps}
+                    limits={PACE_LIMITS.followUps}
+                    after={() => 'follow-ups until they answer, then a check-in each month'}
+                    onChange={(n) =>
+                      set('pace', { ...draft.pace, followUps: n, followUpGaps: followUpGapsFor(n) })
+                    }
                     testId="pace-follow-up"
                   />
                 ) : null}
@@ -1656,7 +1660,7 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
       if (!steps.length) return <Missing>No steps picked</Missing>;
       const pace = W.pace(
         steps.includes('message') ? d.pace.messageAfterDays : null,
-        steps.includes('follow_up') ? d.pace.followUpAfterDays : null,
+        steps.includes('follow_up') ? paceOf(d.pace).followUps : null,
       );
       return (
         <>

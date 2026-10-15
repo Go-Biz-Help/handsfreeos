@@ -11,8 +11,10 @@
  *   proof when the business has any (none is ever made up).
  * - **Your profile** (each person's): the extension has read it since the main offer went live (./profile-check.ts,
  *   decision 64), and every item on the profile list is right by the AI's check of it or ticked done by hand.
+ * - **Your messages** (each person's, decisions 65 to 67): they've seen sample messages for their playbook as the AI
+ *   writes them in their voice (the first message, the video, the link, the follow-ups and a check-in) and OK'd how
+ *   they read, since the live version.
  * - **Your numbers** (each person's): a monthly goal for calls booked, and the math seen.
- * - **Your messages** joins with the plan's step 6, which rewrites the first message it shows.
  *
  * Worked out each time from what's kept (`outreach.readiness`), never stored as a flag. Browser-safe: the web, the
  * phone and the extension read the items, the words and the math from here.
@@ -20,11 +22,12 @@
 import { z } from 'zod';
 import { SCORED_PART_LABELS, SCORED_PARTS, type MainOfferParts } from '../../main-offer/parts';
 import { DAILY_LIMITS } from './limits';
+import { MessageSamples } from './conversation';
 import { checkCounts, PROFILE_ITEMS, ProfileCheck, type ProfileItem } from './profile-check';
 
 // ------------------------------------------------------------------------------------------------- the items
 
-export const READY_ITEMS = ['offer', 'playbook', 'profile', 'numbers'] as const;
+export const READY_ITEMS = ['offer', 'playbook', 'profile', 'messages', 'numbers'] as const;
 export type ReadyItem = (typeof READY_ITEMS)[number];
 
 /** Whose each item is: the business's, done by an owner or admin, or each person's own. */
@@ -32,6 +35,7 @@ export const READY_WHOSE: Record<ReadyItem, 'business' | 'person'> = {
   offer: 'business',
   playbook: 'business',
   profile: 'person',
+  messages: 'person',
   numbers: 'person',
 };
 
@@ -82,6 +86,8 @@ export interface ReadyFacts {
   readonly profile: ProfileTicks;
   /** The AI's latest check of the person's profile, read by the extension; null until one is. */
   readonly profileCheck: ProfileCheck | null;
+  /** When the person OK'd how their messages read, and the main offer's version then; null until they did. */
+  readonly messages: { readonly at: string; readonly version: number | null } | null;
   /** The person's monthly goal, and when they last saw the math; null until they set it. */
   readonly numbers: { readonly goal: number | null; readonly at: string | null };
   /** Owners and admins do the business's items: the main offer, and the playbooks. */
@@ -171,19 +177,32 @@ export function readinessOf(f: ReadyFacts): Readiness {
               left: W.profile(PROFILE_ITEMS.length - counted.length),
             };
 
+  // OK'd since the live version; OK'd before it changed wants a look again. Samples need the offer and a niche first.
+  const messages: ReadyItemState =
+    f.messages && live !== null && f.messages.version === live
+      ? { item: 'messages', state: 'done', whose: 'person', left: null }
+      : f.messages && live !== null
+        ? { item: 'messages', state: 'look_again', whose: 'person', left: W.messagesAgain }
+        : {
+            item: 'messages',
+            state: 'todo',
+            whose: 'person',
+            left: f.offer && withNiche ? W.messages : W.messagesFirst,
+          };
+
   const numbers: ReadyItemState =
     f.numbers.goal !== null && f.numbers.at !== null
       ? { item: 'numbers', state: 'done', whose: 'person', left: null }
       : { item: 'numbers', state: 'todo', whose: 'person', left: W.numbers };
 
-  const items = [offer, playbook, profile, numbers];
+  const items = [offer, playbook, profile, messages, numbers];
   const next = items.find((i) => i.state !== 'done')?.item ?? null;
   return {
     ready: next === null,
     items,
     next,
     changed:
-      profile.state === 'look_again' && f.offer?.before
+      (profile.state === 'look_again' || messages.state === 'look_again') && f.offer?.before
         ? changedParts(f.offer.before, f.offer.parts)
         : [],
   };
@@ -220,6 +239,12 @@ export const ReadinessOutput = z.object({
   profile: ProfileTicks,
   /** The AI's latest check of the profile, read by the extension: `checkCounts` says whether it's for the live version. */
   profileCheck: ProfileCheck.nullable(),
+  /** Your messages: when they OK'd how they read and the version then, and the samples the AI wrote for them. */
+  messages: z.object({
+    at: z.iso.datetime().nullable(),
+    version: z.number().int().min(1).nullable(),
+    samples: MessageSamples.nullable(),
+  }),
   numbers: z.object({
     goal: z.number().int().nullable(),
     at: z.iso.datetime().nullable(),
@@ -348,7 +373,7 @@ export function numbersVerdict(m: NumbersMath): string {
 /** Get ready's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
 export const READY_WORDS = {
   title: 'Get ready for your best results',
-  hint: 'Four things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked.',
+  hint: 'Five things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked.',
   /** On Today, in place of the day's list. */
   card: 'Get ready',
   cardHint: (left: number) =>
@@ -374,6 +399,11 @@ export const READY_WORDS = {
       label: 'Your profile',
       why: 'People look at your profile before they answer. It shouldn’t put them off.',
       go: 'Check your profile',
+    },
+    messages: {
+      label: 'Your messages',
+      why: 'See what goes out in your name before anything does, and that it sounds like you.',
+      go: 'See your messages',
     },
     numbers: {
       label: 'Your numbers',
@@ -402,6 +432,10 @@ export const READY_WORDS = {
     profileRead:
       'Have the extension read your Facebook profile. The AI says what to change, and writes your bio.',
     profileAgain: 'Your main offer changed. Look at your profile again so it still fits.',
+    messages: 'See sample messages for your playbook, and OK how they read.',
+    messagesFirst:
+      'Once your main offer is live and a playbook has its niche, see sample messages for it here.',
+    messagesAgain: 'Your main offer changed. Look at your messages again so they still fit.',
     numbers: 'Set a goal for calls booked a month, and see what it takes each day.',
   },
   /** Why Start my day is refused, by the first item left. */
@@ -409,8 +443,24 @@ export const READY_WORDS = {
     offer: 'Your business’s main offer isn’t live yet.',
     playbook: 'No playbook has a niche yet.',
     profile: 'Your profile isn’t ready yet.',
+    messages: 'You haven’t OK’d how your messages read yet.',
     numbers: 'Your numbers aren’t set yet.',
   } satisfies Record<ReadyItem, string>,
+  /** Your messages' sheet (Get ready, decisions 65 to 67). */
+  messages: {
+    title: 'Your messages',
+    hint: 'What goes out in your name, written by the AI for someone in your playbook’s niche, in your voice. Nobody real: the names are made up. Change how they sound in My settings, or the playbook’s tone, then write them again.',
+    write: 'Write samples',
+    again: 'Write them again',
+    first: 'First message, once they accept',
+    video: 'If they say yes: the video',
+    link: 'If they want a call: the link',
+    noVideo: 'Your playbook has no video yet, so a yes gets your booking link next.',
+    followUps: (n: number) => `If they go quiet: ${plural(n, 'follow-up')}`,
+    checkIn: 'Then once a month: a check-in',
+    ok: 'They read right',
+    okd: 'OK’d. Your messages read this way.',
+  },
   changed: (parts: readonly string[]) => `What changed: ${parts.join(', ')}.`,
   profile: {
     title: 'Check your Facebook profile',
@@ -472,3 +522,16 @@ export const READY_WORDS = {
   panelStill:
     'Still going while you get ready: saving your friends and groups, and replies to people who wrote to you.',
 } as const;
+
+/** Your messages: the person OKs how the samples read, against the main offer live now. */
+export const MessagesOkInput = z.object({ workspaceId: z.uuid() });
+export type MessagesOkInput = z.input<typeof MessagesOkInput>;
+
+/** The samples the AI wrote for a person's Your messages: the worker's alone, after the AI answers. */
+export const MessageSamplesSaveInput = z.object({
+  workspaceId: z.uuid(),
+  /** Whose: the person who asked for them. */
+  userId: z.uuid(),
+  samples: MessageSamples,
+});
+export type MessageSamplesSaveInput = z.input<typeof MessageSamplesSaveInput>;

@@ -82,6 +82,8 @@ export function ReadyItems({
           {label}
         </ButtonLink>
       );
+    // Your messages' sheet comes with the step 6 screens.
+    if (item === 'messages') return null;
     return (
       <Button
         size="sm"

@@ -13,7 +13,9 @@ import { outreachAddon } from '../manifest';
 import {
   blankPlaybook,
   Playbook as PlaybookOut,
-  PLAYBOOK_V3_KEYS,
+  followUpGapsFor,
+  paceOf,
+  PLAYBOOK_KEPT_KEYS,
   PlaybookArchiveInput,
   PlaybookListInput,
   PlaybookListOutput,
@@ -49,16 +51,27 @@ async function loadPlaybook(ctx: Ctx, playbookId: string) {
 }
 
 /**
- * The parts data version 3 added, as a save leaves them: one it leaves out keeps what's saved (or starts empty), so a
- * phone built before them never wipes them.
+ * The parts data versions 3 and 4 added, as a save leaves them: one it leaves out keeps what's saved (or starts
+ * empty), so a phone built before them never wipes them. The pace's follow-ups too.
  */
-function keptV3(details: PlaybookDetails, stored: unknown): PlaybookDetails {
+function keptParts(details: PlaybookDetails, stored: unknown): PlaybookDetails {
   const was = (upgradePlaybookDetails(stored) ?? {}) as Record<string, unknown>;
   const blank = blankPlaybook();
   const kept = Object.fromEntries(
-    PLAYBOOK_V3_KEYS.filter((k) => details[k] === undefined).map((k) => [k, was[k] ?? blank[k]]),
+    PLAYBOOK_KEPT_KEYS.filter((k) => details[k] === undefined).map((k) => [k, was[k] ?? blank[k]]),
   );
-  return { ...details, ...kept };
+  const wasPace = paceOf(was['pace'] ?? blank.pace);
+  const followUps = details.pace.followUps ?? wasPace.followUps;
+  const pace = {
+    messageAfterDays: details.pace.messageAfterDays,
+    followUps,
+    followUpGaps:
+      details.pace.followUpGaps ??
+      (wasPace.followUpGaps.length === followUps
+        ? wasPace.followUpGaps
+        : followUpGapsFor(followUps)),
+  };
+  return { ...details, ...kept, pace: { ...pace, followUpGaps: [...pace.followUpGaps] } };
 }
 
 /** Two playbooks in use never share a name. */
@@ -120,7 +133,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
           .update(playbooks)
           .set({
             name: input.name,
-            details: keptV3(details, was.details),
+            details: keptParts(details, was.details),
             updatedBy: me,
             updatedAt: at,
           })
@@ -134,7 +147,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
           workspaceId: ctx.scope.workspaceId!,
           name: input.name,
           template: input.template ?? null,
-          details: keptV3(details, null),
+          details: keptParts(details, null),
           createdBy: me,
           updatedBy: me,
         })

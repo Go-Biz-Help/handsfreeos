@@ -36,6 +36,7 @@ import { outreachAddon } from '../manifest';
 import { PLATFORMS } from '../playbooks';
 import { fileChats, profiles } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor } from './common';
+import { noteAnswer } from './conversation';
 import { noteChatRead } from './stages';
 
 const DAY = 86_400_000;
@@ -154,6 +155,7 @@ export const chatRead = defineAddonCommand(outreachAddon, {
         nextStep: read.nextStep,
         pitch: read.pitch,
         pitchWhy: read.pitchWhy,
+        reply: read.reply,
         readAt: at,
         personId,
       })
@@ -161,6 +163,14 @@ export const chatRead = defineAddonCommand(outreachAddon, {
     // Whether it's time to offer, for their stage (decision 47): a no marks them not a fit.
     if (chat.profileId)
       await noteChatRead(ctx, chat.userId, chat.profileId, read.pitch, read.pitchWhy, at);
+    // What their last message answers to the person's last step (decisions 65 to 67): a yes is a positive reply.
+    if (chat.profileId && read.reply && !chat.lastFromMe)
+      await noteAnswer(ctx, chat.userId, {
+        profileId: chat.profileId,
+        answer: read.reply,
+        at,
+        writtenAt: chat.lastAt,
+      });
 
     if (personId) {
       const tagIds = await tagIdsFor(ctx, read.tags);

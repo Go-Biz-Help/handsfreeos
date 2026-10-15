@@ -241,7 +241,9 @@ export const MESSAGE_KINDS = [
   'opener',
   'reconnect',
   'pitch',
+  'video',
   'follow_up',
+  'check_in',
   'reply',
 ] as const satisfies readonly TodayKind[];
 export type MessageKind = (typeof MESSAGE_KINDS)[number];

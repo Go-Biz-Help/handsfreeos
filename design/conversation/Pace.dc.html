@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Playbook: follow-ups and the check-in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04)}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45)}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap}
+.btn:focus-visible,.stepbtn:focus-visible,.step:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.steps{flex:0 1 240px;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.step{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500}
+.step.on{background:var(--accent-soft);color:var(--accent-text)}
+.num{width:20px;height:20px;border-radius:999px;border:1.5px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;background:var(--card)}
+.stepbtn{width:32px;height:32px;border:0;background:var(--card);color:var(--text);font:inherit;font-size:16px;cursor:pointer}
+.stepbtn:hover{background:var(--card-2)}
+.stepval{min-width:34px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+.fu{display:grid;grid-template-columns:110px auto minmax(0,1fr);gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--border)}
+.fu:first-child{border-top:0}
+.useful{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:10px;background:var(--card-2)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; padding: 28px 40px; display: flex; flex-direction: column; gap: 20px;">
+<div class="row" style="justify-content: space-between; flex-wrap: wrap;">
+<div class="stack" style="gap: 4px;"><span class="overline">Playbook</span><h1 style="font-size: 22px; font-weight: 600;">CRM demos</h1></div>
+<div class="row" style="gap: 8px;"><button class="btn btn-secondary" type="button">Back</button><button class="btn btn-primary" type="button">Save</button></div>
+</div>
+<div style="display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start;">
+<nav class="steps" aria-label="Playbook steps">
+<span class="step"><span class="num">1</span>Goal and offer</span>
+<span class="step"><span class="num">2</span>Niche</span>
+<span class="step"><span class="num">3</span>Who it’s for</span>
+<span class="step on"><span class="num">4</span>Steps and pace</span>
+<span class="step"><span class="num">5</span>Openers</span>
+<span class="step"><span class="num">6</span>Conversation</span>
+<span class="step"><span class="num">7</span>Words</span>
+</nav>
+<div class="stack" style="flex: 999 1 560px; min-width: 0; gap: 20px;">
+<section class="card stack" style="padding: 22px 24px; gap: 16px;" aria-labelledby="pace-title">
+<div class="stack" style="gap: 4px;">
+<h2 id="pace-title" style="font-size: 17px; font-weight: 600;">How fast</h2>
+<p class="small muted">The first message asks straight out. Whoever goes quiet gets short follow-ups until they answer, then a check-in once a month.</p>
+</div>
+<div class="row" style="flex-wrap: wrap; gap: 10px;">
+<span>First message</span>
+<span class="stepper"><button class="stepbtn" type="button" aria-label="One day fewer">−</button><span class="stepval">1</span><button class="stepbtn" type="button" aria-label="One day more">+</button></span>
+<span>day after they accept</span>
+</div>
+<div class="row" style="flex-wrap: wrap; gap: 10px;">
+<span>Send</span>
+<span class="stepper"><button class="stepbtn" type="button" aria-label="One follow-up fewer" onClick="{{ fewer }}">−</button><span class="stepval">{{ count }}</span><button class="stepbtn" type="button" aria-label="One follow-up more" onClick="{{ more }}">+</button></span>
+<span>follow-ups until they answer</span>
+<span class="xs faint">5 to 7</span>
+</div>
+<div class="stack" style="padding-left: 4px;">
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+<div class="fu">
+<span class="small" style="font-weight: 500;">Follow-up {{ r.n }}</span>
+<span class="stepper"><button class="stepbtn" type="button" aria-label="One day fewer">−</button><span class="stepval">{{ r.gap }}</span><button class="stepbtn" type="button" aria-label="One day more">+</button></span>
+<span class="small muted">{{ r.words }}</span>
+</div>
+</sc-for>
+</div>
+<div class="stack" style="gap: 8px;">
+<span style="font-weight: 500;">Then a check-in each month</span>
+<div class="useful"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--text-2)"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg><div class="stack" style="flex: 1; min-width: 0;"><span class="small" style="font-weight: 500;">Storm-season checklist for roofers</span><span class="xs faint">summitroofleads.com/checklist · your something useful to send</span></div><a class="small" href="#">Change</a></div>
+<p class="xs faint">Until they answer, say no, or you stop it. Nobody gets the same message twice.</p>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { count: 6 };
+  }
+  renderVals() {
+    const count = this.state.count;
+    const rows = Array.from({ length: count }, (_, i) => {
+      const gap = i < 3 ? 1 : 2;
+      return { n: i + 1, gap, words: gap === 1 ? 'quiet day after the last message' : 'quiet days after the last message' };
+    });
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      count,
+      rows,
+      fewer: () => this.setState({ count: Math.max(5, count - 1) }),
+      more: () => this.setState({ count: Math.min(7, count + 1) })
+    };
+  }
+}
+</script>
+</body>
+</html>

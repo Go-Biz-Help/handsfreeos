@@ -32,6 +32,7 @@ import {
 } from '../sends';
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { automationOf, countWheels } from './automation';
+import { noteSent, offerVersionFor } from './conversation';
 import { chatKey, contactable, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
 import { openNeed } from './needs';
 import { notePitched } from './stages';
@@ -181,6 +182,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         // Waits for an OK of its own (Waiting for you): handed over, or to someone who needs the person.
         handedOver: handOver,
         needsYou,
+        // The main offer's version it goes with: the one they were first pitched with, or the live one.
+        offerVersion:
+          input.kind === 'reconnect' ? null : await offerVersionFor(ctx, me, profile.id),
         createdAt: at,
         updatedAt: at,
       })
@@ -378,6 +382,14 @@ export const sendDone = defineAddonCommand(outreachAddon, {
       await noteOpener(ctx, me, row, row.opener);
     // A pitch that went moves them on to pitched (decision 47).
     if (input.sent && row.kind === 'pitch') await notePitched(ctx, me, row.profileId, at);
+    // Where their conversation is now: a step, a follow-up, a check-in or a reply (decisions 65 to 67).
+    if (input.sent)
+      await noteSent(ctx, me, {
+        profileId: row.profileId,
+        kind: row.kind,
+        at,
+        offerVersion: row.offerVersion,
+      });
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {
       const [to] = await ctx.tx

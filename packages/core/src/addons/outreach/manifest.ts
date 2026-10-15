@@ -21,7 +21,8 @@ export const outreachAddon = defineAddon({
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
-  dataVersion: 3,
+  // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
+  dataVersion: 4,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
@@ -191,6 +192,7 @@ export const outreachAddon = defineAddon({
     'engagements',
     'file_chats',
     'file_people',
+    'follow_ups',
     'friend_ends',
     'friends',
     'group_people',

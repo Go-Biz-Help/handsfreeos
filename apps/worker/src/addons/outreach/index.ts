@@ -12,6 +12,7 @@ import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
+import { MESSAGE_SAMPLES_ACTION, messageSamples } from './samples';
 import { PROFILE_CHECK_ACTION, profileCheck } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
@@ -83,10 +84,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('outreach'),
   dataMigrations: {
     // 2: a playbook's questions have answers, and it has a pace. 3: a niche, its problem and proof, and something
-    // useful to send. Reading upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall
-    // brings back.
+    // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
+    // link. Reading upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall brings back.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
+    4: upgradePlaybooks,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
@@ -139,6 +141,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [NICHE_FIT_ACTION]: nicheFit,
     // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
     [PROFILE_CHECK_ACTION]: profileCheck,
+    [MESSAGE_SAMPLES_ACTION]: messageSamples,
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,

@@ -16,8 +16,11 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { dayList } from '../automation';
 import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
+import { MessageSamples } from '../conversation';
 import { ProfileCheck } from '../profile-check';
 import {
+  MessageSamplesSaveInput,
+  MessagesOkInput,
   NumbersInput,
   ProfileCheckSaveInput,
   ProfileTickInput,
@@ -85,6 +88,10 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
   ]);
   const profile = ProfileTicks.safeParse(row?.profile ?? {}).data ?? {};
   const profileCheck = ProfileCheck.safeParse(row?.profileCheck ?? null).data ?? null;
+  const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
+  const messages = row?.messagesAt
+    ? { at: row.messagesAt.toISOString(), version: row.messagesVersion ?? null }
+    : null;
   const numbers = {
     goal: row?.callsGoal ?? null,
     at: row?.numbersAt?.toISOString() ?? null,
@@ -99,6 +106,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
     })),
     profile,
     profileCheck,
+    messages,
     numbers,
     canOffer: scopeCan(ctx.scope, 'main_offer.manage' as Permission),
     canPlaybooks: scopeCan(ctx.scope, 'outreach.manage' as Permission),
@@ -110,6 +118,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
     offer: offer ? { version: offer.version, line: offer.line } : null,
     profile,
     profileCheck,
+    messages: { at: messages?.at ?? null, version: messages?.version ?? null, samples },
     numbers: {
       ...numbers,
       days: dayList(auto.settings.hours.days),
@@ -301,5 +310,95 @@ export const profileCheckSave = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const readinessCommands = [readinessProfile, readinessNumbers, profileCheckSave] as const;
+/**
+ * Your messages (decisions 65 to 67): the person OKs how the sample messages for their playbook read, against the main
+ * offer live now. Refused before they've seen any, or with no offer live.
+ */
+export const readinessMessages = defineAddonCommand(outreachAddon, {
+  name: 'outreach.readiness.messages',
+  description:
+    'The person OKs how their messages read, having seen the samples the AI wrote for their playbook (the first message, the video, the link, the follow-ups and a check-in), against the main offer live now.',
+  risk: 0,
+  input: MessagesOkInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const [row, offer] = await Promise.all([setupRow(ctx, me), liveOffer(ctx)]);
+    if (!offer)
+      throw HfosError.rule(
+        'outreach_messages_no_offer',
+        422,
+        'Your business’s main offer isn’t live yet, so there are no messages to see. Ask an owner of this business to finish it under Settings → Main offer.',
+      );
+    const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
+    if (!samples || samples.version !== offer.version)
+      throw HfosError.rule(
+        'outreach_messages_unseen',
+        422,
+        'See your sample messages first: press Write samples under Your messages, read them, then OK them.',
+      );
+    const [kept] = await ctx.tx
+      .update(setup)
+      .set({ messagesAt: at, messagesVersion: offer.version, updatedAt: at })
+      .where(and(eq(setup.workspaceId, ws), eq(setup.userId, me)))
+      .returning({ id: setup.id });
+    await ctx.emit({
+      type: 'outreach.readiness.saved',
+      entityType: 'outreach_setup',
+      entityId: kept!.id,
+      payload: { userId: me, part: 'messages' },
+    });
+    return readinessFor(ctx, me);
+  },
+});
+
+/** The samples the AI wrote for a person's Your messages: the worker's alone, after the AI answers. */
+export const messageSamplesSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.messages.samples_save',
+  description:
+    'Keeps the sample messages the AI wrote for a person’s playbook, for Get ready’s Your messages: first messages, the video, the link, the follow-ups and a check-in, to someone made up.',
+  risk: 0,
+  input: MessageSamplesSaveInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const at = changeMoment(ctx.meta);
+    const [kept] = await ctx.tx
+      .insert(setup)
+      .values({
+        workspaceId: ctx.scope.workspaceId!,
+        userId: input.userId,
+        messageSamples: input.samples,
+        updatedAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [setup.workspaceId, setup.userId],
+        set: { messageSamples: input.samples, updatedAt: at },
+      })
+      .returning({ id: setup.id });
+    await ctx.emit({
+      type: 'outreach.readiness.saved',
+      entityType: 'outreach_setup',
+      entityId: kept!.id,
+      payload: { userId: input.userId, part: 'message_samples' },
+    });
+    return readinessFor(ctx, input.userId);
+  },
+});
+
+export const readinessCommands = [
+  readinessProfile,
+  readinessNumbers,
+  profileCheckSave,
+  readinessMessages,
+  messageSamplesSave,
+] as const;
 export const readinessQueries = [readinessGet] as const;

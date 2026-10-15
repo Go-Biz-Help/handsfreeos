@@ -87,7 +87,7 @@ export async function readChatsJob(ctx: AddonJobContext): Promise<JobResult> {
         maxTokens: 600,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      read = checkedChatRead(value, tags);
+      read = checkedChatRead(value, tags, chat.recent);
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       // The day's limit or an empty balance: the rest wait a few hours. Not set up: they wait for the next file.

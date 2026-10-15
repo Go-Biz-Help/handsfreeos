@@ -1,13 +1,19 @@
 /**
- * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend, a message to a friend
- * who fits to reconnect with (decision 46), a pitch with their demo link (decision 47), a follow-up, a reply, or a
- * comment on a group post, written by the AI in the playbook's tone from what's known about the person (what the AI
- * made of them when it checked them too), the chat or post so far, and what the extension looked up on their profile
- * and business page just before (decision 21). Core holds what the model is asked and checks what it answers
- * (packages/core/src/addons/outreach/today.ts). Nothing is saved or sent here: the person copies the one they like, or
- * the extension hands it to `outreach.send.queue`. For a reply, the AI also says whether it's simple (decision 27),
- * never for someone who needs the person (`replyNeedsYou`).
+ * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend that asks about the
+ * main offer (decision 65), a message to a friend who fits to reconnect with (decision 46), the video and the link
+ * (decision 66), a follow-up or a monthly check-in (decision 67), a reply, or a comment on a group post, written by the
+ * AI in the playbook's tone from the main offer's words (the version they were first pitched with), what's known
+ * about the person (what the AI made of them when it checked them too), the chat or post so far, and what the
+ * extension looked up on their profile and business page just before (decision 21). Core holds what the model is
+ * asked and checks what it answers (packages/core/src/addons/outreach/today.ts).
+ *
+ * For a reply, the AI also reads their answer to the person's last step (yes, a question, not now, no), which is kept
+ * for their conversation (`outreach.answer.note`); a yes is drafted as the next step instead, Send the video or Send
+ * the link, and said so (`kind`). It also says whether a reply is simple (decision 27), never for someone who needs the
+ * person (`replyNeedsYou`). Nothing else is saved or sent here: the person copies the one they like, or the extension
+ * hands it to `outreach.send.queue`.
  */
+import { stepAfterYes, type ConversationStep } from '@hfos/core/addons/outreach/conversation';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
@@ -15,24 +21,34 @@ import {
   nextOpener,
   openerKey,
   openersOf,
+  ownOpenerFits,
   ownOpenerText,
   type Opener,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
-import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
+import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
+import {
+  paceOf,
+  PlaybookDetails,
+  upgradePlaybookDetails,
+} from '@hfos/core/addons/outreach/playbooks';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
+  answerOf,
   checkedDrafts,
+  draftOfferOf,
   DRAFTS_FOR,
   TODAY_DRAFT_SCHEMA,
   TODAY_DRAFT_SYSTEM,
   TodayDraftAnswer,
   TodayDraftInput,
   todayDraftPrompt,
+  type DraftKind,
+  type DraftOffer,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
-import { HfosError } from '@hfos/core/server';
+import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   AI_BUDGET_MESSAGE,
@@ -63,7 +79,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             sql`select name, profile_id, recent from addon_outreach.file_chats
                 where workspace_id = ${ws} and id = ${input.chatId} and user_id = ${ctx.userId}`,
           )
-        : [];
+        : input.profileId && input.kind !== 'comment' && input.kind !== 'warm_lead'
+          ? // No chat named: their latest with the person, as the extension just brought it in for a reply.
+            await rows<{ name: string; profile_id: string | null; recent: DownloadMessage[] }>(
+              tx,
+              sql`select name, profile_id, recent from addon_outreach.file_chats
+                  where workspace_id = ${ws} and profile_id = ${input.profileId} and user_id = ${ctx.userId}
+                  order by last_at desc limit 1`,
+            )
+          : [];
       const [post] = input.postId
         ? await rows<{ profile_id: string; body: string; group: string | null }>(
             tx,
@@ -132,6 +156,21 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                     where t.profile_id = ${profileId} and t.user_id = ${ctx.userId} and t.kind = 'message')) as at`,
           )
         : [];
+      // Where their conversation with the person is (decisions 65 to 67), and the main offer's words for it: the
+      // version they were first pitched with, else the live one.
+      const [conversation] = profileId
+        ? await rows<{ step: ConversationStep; sent: number; offer_version: number | null }>(
+            tx,
+            sql`select step, sent, offer_version from addon_outreach.follow_ups
+                where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
+          )
+        : [];
+      const [offer] = await rows<{ version: number; parts: unknown }>(
+        tx,
+        sql`select v.version, v.parts from app.main_offer_versions v
+            where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
+              (select live_version from app.main_offers where workspace_id = ${ws}))`,
+      );
       return {
         business,
         chat,
@@ -143,6 +182,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         check,
         voice: await voiceFor(tx, ws, ctx.userId),
         lastAt: last?.at ?? null,
+        conversation: conversation ?? null,
+        offer: offer ?? null,
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -184,29 +225,59 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       for (const u of used) counts.set(openerKey(u), (counts.get(openerKey(u)) ?? 0) + u.n);
       opener = nextOpener(openersOf(playbook.details), counts);
     }
+    // The main offer's words for the conversation: the version they were first pitched with, or the live one.
+    const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
+    const offer: DraftOffer | null =
+      found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
+    // One of the business's own openers goes as written, with their first name and the offer's words in: no AI. One
+    // that names the offer's words when there are none is written by the AI instead.
+    if (opener?.kind === 'own' && !ownOpenerFits(opener.text, offer)) opener = null;
     const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
-    // One of the business's own openers goes as written, with their first name in: no AI.
     if (opener?.kind === 'own')
-      return { drafts: [ownOpenerText(opener.text, name)], opener: drafted, simple: false };
+      return {
+        kind: input.kind,
+        answer: null,
+        drafts: [ownOpenerText(opener.text, name, offer)],
+        opener: drafted,
+        simple: false,
+      };
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
     const link =
       playbook && profileId
         ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
         : (playbook?.details.link ?? null);
-    try {
+    // The short video (decision 66): this playbook's, else the first in use with one, as Today picks it.
+    const videoLink =
+      playbook?.details.videoLink ??
+      [...playbooks].sort((a, b) => a.name.localeCompare(b.name)).find((p) => p.details.videoLink)
+        ?.details.videoLink ??
+      null;
+    const recent = found.chat?.recent ?? [];
+    const conversation = found.conversation
+      ? {
+          step: found.conversation.step,
+          sent: found.conversation.sent,
+          followUps: paceOf(playbook?.details.pace ?? null).followUps,
+        }
+      : null;
+    const draft = async (kind: DraftKind) => {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: TODAY_DRAFT_SYSTEM,
         messages: [
           {
             role: 'user',
             content: todayDraftPrompt({
-              kind: input.kind,
+              kind,
               business: found.business?.name ?? 'the business',
               name,
               facts,
-              recent: found.chat?.recent ?? [],
-              playbook: playbook ? { name: playbook.name, ...playbook.details, link } : null,
+              recent,
+              playbook: playbook
+                ? { name: playbook.name, ...playbook.details, link, videoLink }
+                : null,
+              offer,
+              conversation,
               post: found.engaged
                 ? {
                     text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
@@ -227,21 +298,55 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         maxTokens: 800,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      const theirs = [...(found.chat?.recent ?? [])].reverse().find((m) => !m.fromMe)?.text ?? null;
       const drafts = checkedDrafts(
         value,
         playbook?.details.avoid ?? [],
-        DRAFTS_FOR[input.kind],
-        found.voice.split && input.kind !== 'comment' && input.kind !== 'warm_lead',
+        DRAFTS_FOR[kind],
+        found.voice.split && kind !== 'comment' && kind !== 'warm_lead',
       );
+      // The link always goes with the link and the video with the video (decisions 47 and 66): one the AI left out
+      // goes on the end.
+      const must = kind === 'pitch' ? link : kind === 'video' ? videoLink : null;
       return {
-        // A pitch always carries their demo link (decision 47): one the AI left out goes on the end.
-        drafts:
-          input.kind === 'pitch' && link
-            ? drafts.map((d) => (d.includes(link) ? d : `${d}\n\n${link}`))
-            : drafts,
+        value,
+        drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,
+      };
+    };
+    try {
+      let kind: DraftKind = input.kind;
+      let made = await draft(kind);
+      // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead.
+      const answer = answerOf(kind, made.value, recent);
+      if (answer && profileId) {
+        await executeCommand(
+          ctx.db,
+          answerNote,
+          {
+            workspaceId: ws,
+            userId: ctx.userId,
+            profileId,
+            answer,
+            writtenAt: recent.at(-1)?.at ?? null,
+          },
+          ctx.actor,
+          ctx.meta,
+        );
+        const next =
+          answer === 'yes' && found.conversation
+            ? stepAfterYes(found.conversation.step, videoLink !== null)
+            : null;
+        if (next) {
+          kind = next;
+          made = await draft(kind);
+        }
+      }
+      const theirs = [...recent].reverse().find((m) => !m.fromMe)?.text ?? null;
+      return {
+        kind,
+        answer,
+        drafts: made.drafts,
         opener: drafted,
-        simple: input.kind === 'reply' && value.simple && theirs !== null && !replyNeedsYou(theirs),
+        simple: kind === 'reply' && made.value.simple && theirs !== null && !replyNeedsYou(theirs),
       };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;

@@ -249,8 +249,9 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   their own with each message waiting for one tap, the same with the day's messages ready to **Approve all**, or
   everything on its own; and **Replies**. Your business may allow only some of them.
 - **Like one of their posts a day before each friend request** (on to start): the list then has **Like a post first**
-  for people you'll ask tomorrow, and their request comes a day after the like. A profile with no post of theirs to
-  like gets its request without one.
+  for people you'll ask tomorrow, and their request comes a day after the like. When the post it likes is about their
+  work, the AI writes a short comment for it too, which goes under it while the day's comments have room (0.33.0). A
+  profile with no post of theirs to like gets its request without one.
 - **Confirm friend requests from people who fit a playbook** (on to start): **Confirm their request** on your list.
 - **Join good groups when my groups run low** (on to start): with less than a week of people left to reach in your
   groups, it finds groups with your playbook's words and asks to join up to 3 good ones a day, the AI answering their
@@ -494,8 +495,10 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   the person sends a few short texts (their voice, on to start), each part between blank lines goes as its own text, a
   few seconds apart, as long as typing it takes (`messageParts`, `partPauseMs`); once one has gone the message counts
   as sent, and its line says if a later one didn't. A message it couldn't send is reported as not sent, with why, and
-  never tried again that day. A reply's draft says
-  whether the AI found it simple, which with **Replies** (b) lets it go by itself; HandsFreeOS decides
+  never tried again that day. Before a reply is drafted it opens their chat and brings its latest messages into
+  HandsFreeOS (`bringInChat`, 0.33.0), since a reply seen in the list carries no words: the AI reads what they
+  answered, and a yes comes back drafted as the next step, the video or the link, and is queued as that. A reply's
+  draft says whether the AI found it simple, which with **Replies** (b) lets it go by itself; HandsFreeOS decides
   (`goesAsItIs`), and holds back any reply to someone who needs the person.
   `test/auto.test.ts` walks a made-up profile, post, chat and chat window.
 - **A warning stops the day.** The extension keeps the day's warnings itself (`hfos.warned`), so the runner and the

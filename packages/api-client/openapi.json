@@ -76651,6 +76651,18 @@
                           }
                         ]
                       },
+                      "videoLink": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500,
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "audience": {
                         "anyOf": [
                           {
@@ -76734,15 +76746,24 @@
                             "minimum": 0,
                             "maximum": 14
                           },
-                          "followUpAfterDays": {
+                          "followUps": {
                             "type": "integer",
-                            "minimum": 1,
-                            "maximum": 30
+                            "minimum": 5,
+                            "maximum": 7
+                          },
+                          "followUpGaps": {
+                            "minItems": 5,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 14
+                            }
                           }
                         },
                         "required": [
-                          "messageAfterDays",
-                          "followUpAfterDays"
+                          "messageAfterDays"
                         ]
                       },
                       "tone": {
@@ -77038,6 +77059,18 @@
                             }
                           ]
                         },
+                        "videoLink": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 500,
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "audience": {
                           "anyOf": [
                             {
@@ -77121,15 +77154,24 @@
                               "minimum": 0,
                               "maximum": 14
                             },
-                            "followUpAfterDays": {
+                            "followUps": {
                               "type": "integer",
-                              "minimum": 1,
-                              "maximum": 30
+                              "minimum": 5,
+                              "maximum": 7
+                            },
+                            "followUpGaps": {
+                              "minItems": 5,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 14
+                              }
                             }
                           },
                           "required": [
-                            "messageAfterDays",
-                            "followUpAfterDays"
+                            "messageAfterDays"
                           ],
                           "additionalProperties": false
                         },
@@ -77499,6 +77541,18 @@
                             }
                           ]
                         },
+                        "videoLink": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 500,
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "audience": {
                           "anyOf": [
                             {
@@ -77582,15 +77636,24 @@
                               "minimum": 0,
                               "maximum": 14
                             },
-                            "followUpAfterDays": {
+                            "followUps": {
                               "type": "integer",
-                              "minimum": 1,
-                              "maximum": 30
+                              "minimum": 5,
+                              "maximum": 7
+                            },
+                            "followUpGaps": {
+                              "minItems": 5,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 14
+                              }
                             }
                           },
                           "required": [
-                            "messageAfterDays",
-                            "followUpAfterDays"
+                            "messageAfterDays"
                           ],
                           "additionalProperties": false
                         },
@@ -81502,7 +81565,9 @@
                       "opener",
                       "reconnect",
                       "pitch",
+                      "video",
                       "follow_up",
+                      "check_in",
                       "reply"
                     ]
                   },
@@ -81605,7 +81670,9 @@
                         "opener",
                         "reconnect",
                         "pitch",
+                        "video",
                         "follow_up",
+                        "check_in",
                         "reply"
                       ]
                     },
@@ -83365,7 +83432,9 @@
                                   "opener",
                                   "reconnect",
                                   "pitch",
+                                  "video",
                                   "follow_up",
+                                  "check_in",
                                   "reply",
                                   "comment",
                                   "warm_lead"
@@ -84240,7 +84309,9 @@
                                             "opener",
                                             "reconnect",
                                             "pitch",
+                                            "video",
                                             "follow_up",
+                                            "check_in",
                                             "reply",
                                             "comment",
                                             "warm_lead"
@@ -85600,6 +85671,7 @@
                               "offer",
                               "playbook",
                               "profile",
+                              "messages",
                               "numbers"
                             ]
                           },
@@ -85643,6 +85715,7 @@
                             "offer",
                             "playbook",
                             "profile",
+                            "messages",
                             "numbers"
                           ]
                         },
@@ -85976,6 +86049,145 @@
                         }
                       ]
                     },
+                    "messages": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "playbookId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "playbookName": {
+                                  "type": "string"
+                                },
+                                "first": {
+                                  "minItems": 1,
+                                  "maxItems": 2,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "video": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "link": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "followUps": {
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "checkIn": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "playbookId",
+                                "playbookName",
+                                "first",
+                                "video",
+                                "link",
+                                "followUps",
+                                "checkIn",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "version",
+                        "samples"
+                      ],
+                      "additionalProperties": false
+                    },
                     "numbers": {
                       "type": "object",
                       "properties": {
@@ -86034,6 +86246,7 @@
                     "offer",
                     "profile",
                     "profileCheck",
+                    "messages",
                     "numbers"
                   ],
                   "additionalProperties": false
@@ -86111,6 +86324,7 @@
                               "offer",
                               "playbook",
                               "profile",
+                              "messages",
                               "numbers"
                             ]
                           },
@@ -86154,6 +86368,7 @@
                             "offer",
                             "playbook",
                             "profile",
+                            "messages",
                             "numbers"
                           ]
                         },
@@ -86487,6 +86702,145 @@
                         }
                       ]
                     },
+                    "messages": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "playbookId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "playbookName": {
+                                  "type": "string"
+                                },
+                                "first": {
+                                  "minItems": 1,
+                                  "maxItems": 2,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "video": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "link": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "followUps": {
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "checkIn": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "playbookId",
+                                "playbookName",
+                                "first",
+                                "video",
+                                "link",
+                                "followUps",
+                                "checkIn",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "version",
+                        "samples"
+                      ],
+                      "additionalProperties": false
+                    },
                     "numbers": {
                       "type": "object",
                       "properties": {
@@ -86545,7 +86899,712 @@
                     "offer",
                     "profile",
                     "profileCheck",
+                    "messages",
                     "numbers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.readiness.messages": {
+      "post": {
+        "operationId": "command_outreach_readiness_messages",
+        "summary": "The person OKs how their messages read, having seen the samples the AI wrote for their playbook (the first message, the video, the link, the follow-ups and a check-in), against the main offer live now.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ready": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "item": {
+                            "type": "string",
+                            "enum": [
+                              "offer",
+                              "playbook",
+                              "profile",
+                              "messages",
+                              "numbers"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "done",
+                              "todo",
+                              "look_again",
+                              "waiting"
+                            ]
+                          },
+                          "whose": {
+                            "type": "string",
+                            "enum": [
+                              "business",
+                              "person"
+                            ]
+                          },
+                          "left": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "item",
+                          "state",
+                          "whose",
+                          "left"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "offer",
+                            "playbook",
+                            "profile",
+                            "messages",
+                            "numbers"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "changed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "offer": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "line": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "version",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "profile": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                          "picture",
+                          "cover",
+                          "bio",
+                          "work",
+                          "featured",
+                          "posts"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "version": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "at",
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "profileCheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "picture": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "cover": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "bio": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "work": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "featured": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "posts": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "picture",
+                                "cover",
+                                "bio",
+                                "work",
+                                "featured",
+                                "posts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "bios": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 101
+                              }
+                            },
+                            "coverLine": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "feature": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "version": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "items",
+                            "bios",
+                            "coverLine",
+                            "feature",
+                            "at",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "messages": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "playbookId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "playbookName": {
+                                  "type": "string"
+                                },
+                                "first": {
+                                  "minItems": 1,
+                                  "maxItems": 2,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "video": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "link": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "followUps": {
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "checkIn": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "playbookId",
+                                "playbookName",
+                                "first",
+                                "video",
+                                "link",
+                                "followUps",
+                                "checkIn",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "version",
+                        "samples"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "numbers": {
+                      "type": "object",
+                      "properties": {
+                        "goal": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "days": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        },
+                        "canSend": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "goal",
+                        "at",
+                        "days",
+                        "canSend"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ready",
+                    "items",
+                    "next",
+                    "changed",
+                    "offer",
+                    "profile",
+                    "profileCheck",
+                    "messages",
+                    "numbers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.conversation.note": {
+      "post": {
+        "operationId": "command_outreach_conversation_note",
+        "summary": "The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "opener",
+                      "video",
+                      "follow_up",
+                      "check_in",
+                      "reply"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "noted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "noted"
                   ],
                   "additionalProperties": false
                 }
@@ -164838,6 +165897,18 @@
                                   }
                                 ]
                               },
+                              "videoLink": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 500,
+                                    "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "audience": {
                                 "anyOf": [
                                   {
@@ -164921,15 +165992,24 @@
                                     "minimum": 0,
                                     "maximum": 14
                                   },
-                                  "followUpAfterDays": {
+                                  "followUps": {
                                     "type": "integer",
-                                    "minimum": 1,
-                                    "maximum": 30
+                                    "minimum": 5,
+                                    "maximum": 7
+                                  },
+                                  "followUpGaps": {
+                                    "minItems": 5,
+                                    "maxItems": 7,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 14
+                                    }
                                   }
                                 },
                                 "required": [
-                                  "messageAfterDays",
-                                  "followUpAfterDays"
+                                  "messageAfterDays"
                                 ],
                                 "additionalProperties": false
                               },
@@ -167945,16 +169025,18 @@
                           "kind": {
                             "type": "string",
                             "enum": [
-                              "confirm",
+                              "reply",
+                              "warm_lead",
+                              "pitch",
+                              "video",
+                              "opener",
+                              "follow_up",
+                              "check_in",
+                              "reconnect",
+                              "comment",
                               "warm_up",
                               "friend_request",
-                              "opener",
-                              "reconnect",
-                              "pitch",
-                              "follow_up",
-                              "reply",
-                              "comment",
-                              "warm_lead"
+                              "confirm"
                             ]
                           },
                           "name": {
@@ -168054,6 +169136,12 @@
                             ]
                           },
                           "demoLink": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "videoLink": {
                             "type": [
                               "string",
                               "null"
@@ -168162,6 +169250,7 @@
                           "nextStep",
                           "playbookName",
                           "demoLink",
+                          "videoLink",
                           "personId",
                           "demoBooked",
                           "send",
@@ -168247,16 +169336,18 @@
                       "items": {
                         "type": "string",
                         "enum": [
-                          "confirm",
+                          "reply",
+                          "warm_lead",
+                          "pitch",
+                          "video",
+                          "opener",
+                          "follow_up",
+                          "check_in",
+                          "reconnect",
+                          "comment",
                           "warm_up",
                           "friend_request",
-                          "opener",
-                          "reconnect",
-                          "pitch",
-                          "follow_up",
-                          "reply",
-                          "comment",
-                          "warm_lead"
+                          "confirm"
                         ]
                       }
                     },
@@ -168268,7 +169359,9 @@
                           "opener",
                           "reconnect",
                           "pitch",
+                          "video",
                           "follow_up",
+                          "check_in",
                           "reply"
                         ]
                       }
@@ -169450,7 +170543,9 @@
                               "opener",
                               "reconnect",
                               "pitch",
+                              "video",
                               "follow_up",
+                              "check_in",
                               "reply"
                             ]
                           },
@@ -171251,7 +172346,9 @@
                                       "opener",
                                       "reconnect",
                                       "pitch",
+                                      "video",
                                       "follow_up",
+                                      "check_in",
                                       "reply"
                                     ]
                                   },
@@ -171437,7 +172534,9 @@
                                       "opener",
                                       "reconnect",
                                       "pitch",
+                                      "video",
                                       "follow_up",
+                                      "check_in",
                                       "reply"
                                     ]
                                   },
@@ -172536,6 +173635,7 @@
                               "offer",
                               "playbook",
                               "profile",
+                              "messages",
                               "numbers"
                             ]
                           },
@@ -172579,6 +173679,7 @@
                             "offer",
                             "playbook",
                             "profile",
+                            "messages",
                             "numbers"
                           ]
                         },
@@ -172912,6 +174013,145 @@
                         }
                       ]
                     },
+                    "messages": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "playbookId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "playbookName": {
+                                  "type": "string"
+                                },
+                                "first": {
+                                  "minItems": 1,
+                                  "maxItems": 2,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "video": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "link": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "followUps": {
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 600
+                                  }
+                                },
+                                "checkIn": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "playbookId",
+                                "playbookName",
+                                "first",
+                                "video",
+                                "link",
+                                "followUps",
+                                "checkIn",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "version",
+                        "samples"
+                      ],
+                      "additionalProperties": false
+                    },
                     "numbers": {
                       "type": "object",
                       "properties": {
@@ -172970,7 +174210,101 @@
                     "offer",
                     "profile",
                     "profileCheck",
+                    "messages",
                     "numbers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.offer.versions": {
+      "post": {
+        "operationId": "query_outreach_offer_versions",
+        "summary": "How each version of the business’s main offer is doing in Social Outreach: first messages sent with it, the yeses and the calls booked from them. Everyone’s counts for owners and admins; the person’s own otherwise.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          "messages": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "positive": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "booked": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "version",
+                          "messages",
+                          "positive",
+                          "booked"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "everyone": {
+                      "type": "boolean"
+                    },
+                    "judgeAfter": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "versions",
+                    "everyone",
+                    "judgeAfter"
                   ],
                   "additionalProperties": false
                 }
