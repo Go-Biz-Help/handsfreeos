@@ -7087,7 +7087,7 @@ export const teammateLessons = app.table('teammate_lessons', {
     .array()
     .notNull()
     .default(sql`'{}'`),
-  /** The feedback on replies it was read from (20261027006500). */
+  /** The feedback on replies it was read from (20261027006600). */
   feedbackIds: uuid('feedback_ids')
     .array()
     .notNull()
@@ -7101,7 +7101,7 @@ export const teammateLessons = app.table('teammate_lessons', {
   ...timestamps(),
 });
 
-/** The rules the AI teammate reads whole on every reply (20261027006500). At most 50 per teammate. */
+/** The rules the AI teammate reads whole on every reply (20261027006600). At most 50 per teammate. */
 export const teammateInstructions = app.table('teammate_instructions', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -7118,7 +7118,7 @@ export const teammateInstructions = app.table('teammate_instructions', {
 });
 
 /**
- * A person's thumbs up or down on a reply the AI teammate wrote, in a test or for real (20261027006500), and what
+ * A person's thumbs up or down on a reply the AI teammate wrote, in a test or for real (20261027006600), and what
  * the worker made of it: a lesson, a question for them, or nothing to learn. One per person per reply.
  */
 export const teammateFeedback = app.table('teammate_feedback', {

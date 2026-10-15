@@ -6,7 +6,7 @@
 
 /**
  * The profile's plain-text fields a lesson can go against, a knowledge item's text, and one of the AI teammate's
- * instructions (20261027006500).
+ * instructions (20261027006600).
  */
 export const LESSON_PLACES = [
   'description',

@@ -359,7 +359,7 @@ export interface RunContext {
     readonly industry?: string | null;
   };
   readonly grounding: Grounding;
-  /** The team's instructions, oldest first: the AI teammate follows every one (20261027006500). */
+  /** The team's instructions, oldest first: the AI teammate follows every one (20261027006600). */
   readonly instructions?: readonly string[];
   readonly conversation: {
     /** Null for a first message to someone with no conversation yet: sending it starts one. */

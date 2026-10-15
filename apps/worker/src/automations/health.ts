@@ -370,7 +370,7 @@ export const LESSON_MAY_ASK = [
 export interface LessonKnown {
   readonly profile: Readonly<Record<LessonProfilePlace, string>>;
   readonly items: readonly { readonly id: string; readonly title: string; readonly body: string }[];
-  /** The teammate's Instructions list (20261027006500). */
+  /** The teammate's Instructions list (20261027006600). */
   readonly instructions: readonly { readonly id: string; readonly body: string }[];
   /** Lessons already waiting for a person. */
   readonly waiting: readonly string[];
