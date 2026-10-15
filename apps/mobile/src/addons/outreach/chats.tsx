@@ -6,7 +6,8 @@ import {
   type ChatView,
 } from '@hfos/core/addons/outreach/chat-read';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { chatUrlOn, openChatWords } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -33,12 +34,14 @@ import {
   type AskActions,
 } from './asks';
 import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import { NetworkFilter, NetworkName } from './networks';
 
 /**
  * Chats on the phone (decision 44): the person's Facebook chats the AI read, likely prospects first, with each one's
  * summary, tags and next step; by tag, searched by name, Show more for the next page. Each opens in Messenger, and in
  * Customers once it went in Contacts. **Read my chats** asks the person's computer to read them (decision 43,
- * ./asks.tsx). It needs signal.
+ * ./asks.tsx). Every network's chats, each naming its network and opening in its messaging, or one network's; Read my
+ * chats asks the network shown, Facebook's when the list is every network's. It needs signal.
  */
 
 export const chatViewOf = (show: string | undefined): ChatView =>
@@ -52,11 +55,12 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
   const [search, setSearch] = React.useState(q ?? '');
   const [asked, setAsked] = React.useState(q ?? '');
   const [pages, setPages] = React.useState(1);
+  const [net, setNet] = React.useState<Platform | null>(null);
   React.useEffect(() => {
     const t = setTimeout(() => setAsked(search.trim()), 400);
     return () => clearTimeout(t);
   }, [search]);
-  React.useEffect(() => setPages(1), [view, asked, theTag]);
+  React.useEffect(() => setPages(1), [view, asked, theTag, net]);
   const answer = useOutreachAnswer(
     async () => {
       const all: ChatsOutput[] = [];
@@ -70,6 +74,7 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
                 page,
                 ...(asked ? { search: asked } : {}),
                 ...(theTag ? { tag: theTag } : {}),
+                ...(net ? { platform: net } : {}),
               },
             }),
           ),
@@ -77,7 +82,7 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
       const last = all[all.length - 1]!;
       return { ...last, chats: all.flatMap((a) => a.chats) };
     },
-    `chats:${ws}:${view}:${theTag}:${asked}:${pages}`,
+    `chats:${ws}:${view}:${theTag}:${asked}:${pages}:${net ?? 'all'}`,
     W.rows.chats,
   );
   const asks = useAsks('chats', W.rows.chats);
@@ -87,6 +92,8 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
     <ChatsBody
       view={view}
       onView={setView}
+      net={net}
+      onNet={setNet}
       tag={theTag}
       onTag={setTag}
       search={search}
@@ -110,6 +117,8 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
 export function ChatsBody({
   view,
   onView,
+  net = null,
+  onNet,
   tag,
   onTag,
   search,
@@ -126,6 +135,9 @@ export function ChatsBody({
 }: {
   view: ChatView;
   onView: (v: ChatView) => void;
+  /** The network it's narrowed to: null for every network. */
+  net?: Platform | null;
+  onNet?: (net: Platform | null) => void;
   tag: string;
   onTag: (t: string) => void;
   search: string;
@@ -153,6 +165,7 @@ export function ChatsBody({
             asks={asks}
             actions={actions}
             ask={{ kind: 'chats' }}
+            {...(net ? { platform: net } : {})}
             label={ASK_WORDS.readChats}
             testID="ask-chats"
           />
@@ -169,6 +182,7 @@ export function ChatsBody({
           testID: `chats-view-${k}`,
         }))}
       />
+      {onNet ? <NetworkFilter value={net} onChange={onNet} /> : null}
       <Input
         value={search}
         onChangeText={onSearch}
@@ -205,11 +219,12 @@ export function ChatsBody({
         chats.chats.length ? (
           <>
             {chats.chats.map((c) => {
-              const link = messengerChatUrl(c.threadKey);
+              const link = chatUrlOn(c.platform, c.threadKey);
               return (
                 <Card key={c.chatId} className="gap-1.5 px-4 py-3.5" testID="chats-item">
                   <View className="flex-row flex-wrap items-center gap-2">
                     <Text className="text-[15px] font-semibold">{c.name}</Text>
+                    <NetworkName platform={c.platform} />
                     {c.personId ? (
                       <Badge variant="accent">
                         <Text>{W.inContacts}</Text>
@@ -232,7 +247,7 @@ export function ChatsBody({
                         icon={ExternalLink}
                         onPress={() => openOutside(link)}
                       >
-                        {W.openInMessenger}
+                        {openChatWords(c.platform)}
                       </Button>
                     ) : null}
                     {c.personId ? (

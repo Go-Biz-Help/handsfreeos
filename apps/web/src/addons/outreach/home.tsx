@@ -20,6 +20,7 @@ import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { StageView } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { Settings } from 'lucide-react';
@@ -38,6 +39,7 @@ import { PipelineView } from './pipeline-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-view';
 import { SetupBanner } from './setup-view';
+import type { NetworkLive } from './status-strip';
 import { TodayView } from './today-view';
 import type {
   Activity,
@@ -64,12 +66,14 @@ import type {
 export type OutreachShown =
   | {
       readonly view: 'today';
+      /** The network whose list is shown. */
+      readonly platform: Platform;
+      /** Each network the person works, with what their computer is doing there: those that could be had. */
+      readonly networks: readonly NetworkLive[];
       readonly today: TodayList;
       readonly helpful: HelpfulList;
       readonly wheels: WheelsList | null;
       readonly asks: Asks;
-      /** What the person's computer is doing: null when it couldn't be had. */
-      readonly live: Live | null;
       /** Everything that needs the person: null when it couldn't be had. */
       readonly waiting: Waiting | null;
       /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
@@ -94,6 +98,8 @@ export type OutreachShown =
       readonly board: Board | null;
       readonly show: StageView;
       readonly search: string;
+      /** The network it's narrowed to: null for every network. */
+      readonly net: Platform | null;
       /** Research's asks, for the rows: null when they couldn't be had. */
       readonly asks: Asks | null;
     }
@@ -112,6 +118,8 @@ export type OutreachShown =
       readonly tidy: Tidy;
       readonly show: FriendView;
       readonly search: string;
+      /** The network it's narrowed to: null for every network. */
+      readonly net: Platform | null;
       readonly asks: Asks;
     }
   | {
@@ -120,6 +128,8 @@ export type OutreachShown =
       readonly show: ChatView;
       readonly tag: string;
       readonly search: string;
+      /** The network it's narrowed to: null for every network. */
+      readonly net: Platform | null;
       readonly asks: Asks;
     }
   | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers }
@@ -335,11 +345,12 @@ export function OutreachHome({
       ) : shown.view === 'today' ? (
         <TodayView
           workspaceId={workspaceId}
+          platform={shown.platform}
+          networks={shown.networks}
           today={shown.today}
           helpful={shown.helpful}
           wheels={shown.wheels}
           asks={shown.asks}
-          live={shown.live}
           waiting={shown.waiting}
           readiness={shown.readiness}
         />
@@ -360,6 +371,7 @@ export function OutreachHome({
           board={shown.board}
           show={shown.show}
           search={shown.search}
+          net={shown.net}
           asks={shown.asks}
         />
       ) : shown.view === 'groups' ? (
@@ -379,6 +391,7 @@ export function OutreachHome({
           tidy={shown.tidy}
           show={shown.show}
           search={shown.search}
+          net={shown.net}
           asks={shown.asks}
         />
       ) : shown.view === 'chats' ? (
@@ -388,6 +401,7 @@ export function OutreachHome({
           show={shown.show}
           tag={shown.tag}
           search={shown.search}
+          net={shown.net}
           canManage={canManage}
           asks={shown.asks}
         />

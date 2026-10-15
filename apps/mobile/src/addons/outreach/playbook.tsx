@@ -1,3 +1,5 @@
+import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
@@ -47,7 +49,7 @@ import {
  * One playbook on the phone (decision 44): each part of it, and for owners and admins, changing it a part at a time
  * in a sheet. Before each save the phone asks for the playbook again and puts only the part changed on what it finds,
  * so a change made meanwhile on the web isn't undone. The AI's help (Improve, Suggest more) is on the web. It needs
- * signal.
+ * signal. Its networks are one part: one playbook for every network (Chris), at least one picked.
  */
 
 export type Section = keyof typeof W.playbookSections | 'name';
@@ -62,6 +64,7 @@ export const SECTION_FIELDS: Readonly<
   signs: ['signs'],
   skip: ['skip'],
   area: ['area'],
+  networks: ['platforms'],
   groupWords: ['groupWords'],
   steps: ['steps'],
   pace: ['pace'],
@@ -107,6 +110,10 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
     case 'steps':
       return details.steps.length
         ? details.steps.map((s) => PLAYBOOK_STEPS[s].label).join(' · ')
+        : W.empty;
+    case 'networks':
+      return details.platforms.length
+        ? details.platforms.map((p) => PLATFORMS[p]).join(' · ')
         : W.empty;
     case 'pace':
       return (
@@ -503,6 +510,36 @@ function SectionEditor({
           onChange={(v) => set({ [section]: v })}
           testID="playbook-words"
         />
+      );
+    case 'networks':
+      return (
+        <View className="gap-3">
+          <Note>{NW.playbookAbout}</Note>
+          {PLATFORM_KEYS.map((p) => {
+            const on = d.platforms.includes(p);
+            return (
+              <View key={p} className="flex-row items-center gap-3">
+                <View className="flex-1">
+                  <Text className="text-[14.5px] font-medium">{PLATFORMS[p]}</Text>
+                  <Note>{NW.where(p)}</Note>
+                </View>
+                <Switch
+                  label={PLATFORMS[p]}
+                  checked={on}
+                  disabled={on && d.platforms.length === 1}
+                  onCheckedChange={(v) =>
+                    set({
+                      platforms: PLATFORM_KEYS.filter((k) =>
+                        k === p ? v : d.platforms.includes(k),
+                      ),
+                    })
+                  }
+                  testID={`playbook-network-${p}`}
+                />
+              </View>
+            );
+          })}
+        </View>
       );
     case 'steps':
       return (

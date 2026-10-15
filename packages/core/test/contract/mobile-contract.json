@@ -13791,6 +13791,10 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100000
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13847,6 +13851,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13984,6 +13993,10 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100000
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]

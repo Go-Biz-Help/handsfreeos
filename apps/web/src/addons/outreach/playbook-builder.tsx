@@ -6,6 +6,8 @@
  * part has its own Change. It's checked as it's written by the same rules the server holds (`PlaybookDetails`), so a
  * step with a problem on it doesn't carry on.
  */
+import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { NICHE_FIT_WORDS, type NicheFitOutput } from '@hfos/core/addons/outreach/niche-fit';
 import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
 import type {
@@ -322,7 +324,7 @@ const STEPS: readonly Step[] = [
     key: 'where',
     part: 'Where to look',
     title: 'Where do you find them?',
-    blurb: 'Words to search for, to find the groups these people are in.',
+    blurb: 'The networks it works on, and words to search for to find these people there.',
     fields: ['platforms', 'groupWords'],
   },
   {
@@ -966,9 +968,39 @@ export function PlaybookBuilder({
     case 'where':
       body = (
         <div className="space-y-5">
-          <Callout tone="neutral" icon={Info}>
-            On Facebook for now. LinkedIn and Instagram come later.
-          </Callout>
+          {/* One playbook for every network (Chris), with where it looks on each. */}
+          <fieldset className="space-y-2" data-testid="playbook-networks">
+            <legend className="text-[14px] font-semibold">{NW.playbookTitle}</legend>
+            <p className="text-[13px] text-text-2">{NW.playbookAbout}</p>
+            <div className="divide-y divide-border rounded-card border border-border bg-card">
+              {PLATFORM_KEYS.map((p) => {
+                const on = draft.platforms.includes(p);
+                return (
+                  <div key={p} className="flex items-start justify-between gap-3 p-3.5">
+                    <div>
+                      <div className="text-[14px] font-medium">{PLATFORMS[p]}</div>
+                      <div className="text-[13px] text-text-2">{NW.where(p)}</div>
+                    </div>
+                    <Switch
+                      checked={on}
+                      onChange={(v) =>
+                        set(
+                          'platforms',
+                          v
+                            ? PLATFORM_KEYS.filter((k) => k === p || draft.platforms.includes(k))
+                            : draft.platforms.filter((k) => k !== p),
+                        )
+                      }
+                      label={PLATFORMS[p]}
+                      disabled={on && draft.platforms.length === 1}
+                      testId={`playbook-network-${p}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {issueIn('platforms') ? <FieldError>{issueIn('platforms')}</FieldError> : null}
+          </fieldset>
           <ListField
             id="pb-groups"
             {...typed('groupWords')}
@@ -977,7 +1009,7 @@ export function PlaybookBuilder({
             items={draft.groupWords}
             onChange={(v) => set('groupWords', v)}
             limits={PLAYBOOK_LIMITS.groupWords}
-            error={issueIn('groupWords') ?? issueIn('platforms')}
+            error={issueIn('groupWords')}
           />
           {listHelp('groupWords')}
         </div>
@@ -1696,7 +1728,11 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
     case 'where':
       return (
         <>
-          Facebook
+          {d.platforms.length ? (
+            d.platforms.map((p) => PLATFORMS[p]).join(', ')
+          ) : (
+            <Missing>{NW.playbookAtLeastOne}</Missing>
+          )}
           {d.groupWords.length ? (
             <div className="text-[13px] text-text-2">Groups about {d.groupWords.join(' · ')}</div>
           ) : null}

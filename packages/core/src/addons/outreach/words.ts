@@ -75,7 +75,7 @@ export const OUTREACH_WORDS = {
     today: LIST_TODAY,
     pipeline: 'Everyone you reached, by where they stand',
     groups: 'Groups to work, and why',
-    chats: 'Your Facebook chats, read by the AI',
+    chats: 'Your chats, read by the AI',
     playbooks: 'Who you’re looking for, and how you sound',
     settings: 'What the extension does, and when',
   },
@@ -231,7 +231,8 @@ export const OUTREACH_WORDS = {
 
   // ---- The page's tabs (decision 59) ----
   /** The line under the page's title. */
-  pageAbout: 'Finds people in your Facebook groups, makes friends and starts real chats for you.',
+  pageAbout:
+    'Finds people who fit on your networks, connects with them and starts real chats for you.',
   /** The four tabs and the gear, in order. */
   tabs: {
     today: 'Today',
@@ -484,6 +485,7 @@ export const OUTREACH_WORDS = {
     signs: 'Signs they fit',
     skip: 'Who to skip',
     area: 'Where they are',
+    networks: 'Networks',
     groupWords: 'Words to search for groups',
     steps: 'Steps it takes',
     pace: 'How fast',

@@ -360,6 +360,7 @@ type Counts = {
 export type Listed = {
   readonly profile_id: string;
   readonly person_id: string | null;
+  readonly platform: Platform;
   readonly name: string;
   readonly url: string;
   readonly group_id: string | null;
@@ -461,7 +462,7 @@ export async function reachedPeople(
           where d.workspace_id = ${ws} and d.undone_at is null and ${whose('d.user_id')}
           group by d.profile_id
         )
-        select e.profile_id, p.person_id,
+        select e.profile_id, p.person_id, p.platform,
           coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
           g.id as group_id, g.name as group_name, g.url as group_url,
           e.requested_at, e.liked_at, e.commented_at, e.messaged_at, r.replied_at,
@@ -617,6 +618,7 @@ export const activity = defineAddonQuery(outreachAddon, {
         personId: l.person_id,
         name: l.name,
         url: l.url,
+        platform: l.platform,
         group: l.group_id ? { name: l.group_name, url: l.group_url ?? '' } : null,
         requestedAt: isoOrNull(l.requested_at),
         likedAt: isoOrNull(l.liked_at),

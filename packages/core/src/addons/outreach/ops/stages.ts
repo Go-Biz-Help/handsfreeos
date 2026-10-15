@@ -10,6 +10,7 @@ import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
+import { NETWORKS, type Platform } from '../networks';
 import {
   STAGE_ORDER,
   STAGE_WORDS,
@@ -112,7 +113,7 @@ function staged(ctx: Ctx, me: string, which: SQL) {
             where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null)
           or exists (select 1 from addon_outreach.stages s where s.profile_id = p.id and s.user_id = ${me}))
     ), facts as (
-      select p.id as profile_id, p.person_id,
+      select p.id as profile_id, p.person_id, p.platform,
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         g.name as group_name, s.mark, s.marked_by, s.why as mark_why, s.pitched_at,
         c.pitch, c.pitch_why, c.next_step as chat_step, c.thread_key, c.read_state, c.last_at as chat_at,
@@ -160,6 +161,7 @@ function staged(ctx: Ctx, me: string, which: SQL) {
 type StagedRow = {
   readonly profile_id: string;
   readonly person_id: string | null;
+  readonly platform: Platform;
   readonly name: string;
   readonly url: string;
   readonly group_name: string | null;
@@ -186,6 +188,7 @@ type StagedRow = {
 };
 
 const iso = (at: Date | string | null) => (at === null ? null : new Date(at).toISOString());
+const cap = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
 
 /** "today", "yesterday", "4 days ago". */
 function dayWords(at: Date | string, now: number): string {
@@ -195,6 +198,8 @@ function dayWords(at: Date | string, now: number): string {
 
 /** Why someone is at their stage, in a line or two for the person. */
 export function stageWhy(r: StagedRow, now: number): string[] {
+  // In their network's words: friends on Facebook, connections on LinkedIn.
+  const words = NETWORKS[r.platform].words;
   const fits = r.verdict === 'good' || r.verdict === 'maybe' ? (r.check_why ?? []) : [];
   switch (r.stage) {
     case 'booked':
@@ -215,14 +220,14 @@ export function stageWhy(r: StagedRow, now: number): string[] {
         ? [`You wrote last, ${dayWords(r.chat_at, now)}`]
         : [`They wrote ${dayWords((r.replied_at ?? r.chat_at)!, now)}`];
     case 'friends':
-      return ['Friends on Facebook', ...fits];
+      return [`${cap(words.friends)} on ${NETWORKS[r.platform].name}`, ...fits];
     case 'warming':
       return [
         r.warm_kind === 'like'
           ? 'You liked a post of theirs'
           : r.warm_kind === 'comment'
             ? 'You commented on their post'
-            : 'Friend request sent',
+            : `${cap(words.friendRequest)} sent`,
       ];
     case 'found':
       return [...(r.group_name ? [`Found in ${r.group_name}`] : []), ...fits];
@@ -318,7 +323,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
 export const stagesList = defineAddonQuery(outreachAddon, {
   name: 'outreach.stages',
   description:
-    'The person’s pipeline: everyone they reached on Facebook by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.',
+    'The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.',
   input: StagesInput,
   output: StagesOutput,
   permission: 'outreach.use',
@@ -326,7 +331,8 @@ export const stagesList = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
-    const all = staged(ctx, me, sql`true`);
+    // One network's people, counts too, when asked: every network's otherwise.
+    const all = staged(ctx, me, input.platform ? sql`p.platform = ${input.platform}` : sql`true`);
     const counted = await rows<{ stage: Stage; n: number }>(
       ctx.tx,
       sql`select s.stage, count(*)::int as n from (${all}) s group by s.stage`,
@@ -369,6 +375,7 @@ export const stagesList = defineAddonQuery(outreachAddon, {
         personId: r.person_id,
         name: r.name,
         url: r.url,
+        platform: r.platform,
         stage: r.stage,
         why: stageWhy(r, now),
         nextStep: r.stage === 'lost' || r.stage === 'booked' ? null : (r.chat_step ?? r.check_step),

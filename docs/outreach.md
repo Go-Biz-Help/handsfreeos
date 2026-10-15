@@ -1219,9 +1219,8 @@ code" (decision 45's install step). Settled too:
   `platform`, Facebook when left out), a warning is the network's that showed it (`warnings.platform`; `warningOf`,
   `warnDay`), and a day's steps count against that network's limits alone (`dayCounts`, through the touch's profile).
   A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
-  kept apart, but nothing reads or saves a LinkedIn page yet: the live view, the team's, the activity panel, the
-  checks, joining groups and every ask are Facebook's. A new place that reads a warning, a day or the day's counts
-  names its network.
+  kept apart, but nothing reads or saves a LinkedIn page yet: the team's live view, the activity panel, the checks
+  and joining groups are Facebook's. A new place that reads a warning, a day or the day's counts names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
   on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
   (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, joining
@@ -1245,6 +1244,34 @@ code" (decision 45's install step). Settled too:
   `outreach.lists.saved` take `platform`; other networks' in `list_saves.network_saves`): LinkedIn's first day saves
   connections and invitations either way, then works out old invitations to withdraw and checks connections, with no
   groups (`LIST_SAVES_ON`, `LIST_MARKS_ON`, `PRE_DAY_WORDS_ON`).
+- **Each network is in the app** (the plan's build order, step 3), on the web and the phone alike, from one copy of
+  its logic and words in core (`network-words.ts`):
+  - **My settings has a Networks part:** each network with its switch, inside what the business allows; under any
+    other network, its own choices (the same as Facebook's, off to start) and its own training wheels, saved through
+    `outreach.automation.save`'s `networks`. Facebook's choices stay the settings' own (`choicesFor`, `withNetwork`).
+    A network the business doesn't use is shown off, saying why and who can change that.
+  - **Business settings** allow networks (`networksAllowed`, Facebook always) and set each other network's daily
+    limits, each at most the kit's starting one (`networkLimits`).
+  - **Today is each network's:** `outreach.live` takes a `platform` and gives that network's day, warning, limits,
+    choice and first lists (the computers, what the working one says and the feed stay the person's); with more than
+    one network on, the strip is a row for each, by name, with its own Start my day and Stop for today and its own
+    warning line (**Start all** and **Stop all** press each), and the list below is the one shown (`?net=` on the
+    web, picked on the strip on the phone). Asks made from a network's screens carry its `platform`, and a button for
+    a kind it can't be asked doesn't show (`askableOn`, `cantAskWhy`, `latestAskOn`).
+  - **The network is on every row, by its name, never a logo** (Chris): the pipeline, friends, chats and Results'
+    people (`platform` on each row of `outreach.stages`, `outreach.friends`, `outreach.chats` and
+    `outreach.activity`), and Needs you's items, from their link (`networkOfWaiting`), so the phone's copy of the
+    messages needs nothing more. The pipeline, friends and chats narrow to one network (their input's `platform`,
+    counts too; every network's when left out).
+  - **Results add "By network"** beside "By playbook" and "By offer version" (`outreach.tracking`'s `byNetwork`):
+    one goal for every network, each network's share of the first messages. `private.outreach_numbers` gives each
+    count's network, from the profile reached (20261027007300).
+  - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
+    on each; **the setup has a step to pick networks** (`networks`, between the team's rules and the person's own
+    settings, 20261027007300).
+  - **Screens say a network's own words** from its kit, or a word for all of them: an invitation to connect or a
+    friend request (`dailyWordsOn`, `todayKindsOn`, `sendingModesOn`, `ticksOn`), LinkedIn messaging or Messenger
+    (`chatUrlOn`, `openChatWords`), and a warning's note names its network (`warningNote`'s `platform`).
 - **Each network has its kit** (`networks.ts`, `NETWORKS`): its name, the start of its links, the shape of a
   profile's id and name and a chat's id, how many friends it allows, its starting daily limits (LinkedIn's: 15
   invitations, at most 80 in any 7 days, 15 first messages, 20 follow-ups, 10 comments, 30 likes, 40 profiles read,
