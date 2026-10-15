@@ -375,7 +375,14 @@ export const askMake = defineAddonCommand(outreachAddon, {
             startedAt: at,
             state: 'done',
             line: RESEARCH_WORDS.tomorrow(task.name, perDay),
-            result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },
+            result: {
+              drafts: [],
+              kind: null,
+              opener: null,
+              simple: false,
+              lookedUp: false,
+              queued: true,
+            },
             endedAt: at,
           })
           .returning();

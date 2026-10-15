@@ -8009,6 +8009,19 @@
         "required": ["workspaceId", "profileId"]
       }
     },
+    "outreach.readiness.messages": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.readiness.numbers": {
       "offline": "online",
       "input": {

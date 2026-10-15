@@ -6257,6 +6257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.conversation.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the follow-ups and monthly check-ins to someone. None come until the person sends them the next step or answers them.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_conversation_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.country.unskip": {
         parameters: {
             query?: never;
@@ -33560,6 +33580,8 @@ export interface operations {
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -33603,6 +33625,8 @@ export interface operations {
                     /** @default null */
                     result?: {
                         drafts: string[];
+                        /** @default null */
+                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                         /** @default false */
                         lookedUp?: boolean;
                         /** @default null */
@@ -33763,6 +33787,8 @@ export interface operations {
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -33867,6 +33893,8 @@ export interface operations {
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -34484,6 +34512,37 @@ export interface operations {
                 content: {
                     "application/json": {
                         noted: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_conversation_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stopped: boolean;
                     };
                 };
             };
@@ -35997,6 +36056,8 @@ export interface operations {
                                 at: string;
                                 checkIn: string | null;
                                 first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
                                 /** Format: uuid */
@@ -36113,6 +36174,8 @@ export interface operations {
                                 at: string;
                                 checkIn: string | null;
                                 first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
                                 /** Format: uuid */
@@ -36230,6 +36293,8 @@ export interface operations {
                                 at: string;
                                 checkIn: string | null;
                                 first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
                                 /** Format: uuid */
@@ -63284,6 +63349,8 @@ export interface operations {
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -64491,6 +64558,7 @@ export interface operations {
                     "application/json": {
                         everyone: boolean;
                         judgeAfter: number;
+                        live: number | null;
                         versions: {
                             booked: number;
                             messages: number;
@@ -64737,6 +64805,8 @@ export interface operations {
                                 at: string;
                                 checkIn: string | null;
                                 first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
                                 /** Format: uuid */
@@ -65170,6 +65240,8 @@ export interface operations {
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
                                     drafts: string[];
+                                    /** @default null */
+                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                     /** @default false */
                                     lookedUp: boolean;
                                     /** @default null */

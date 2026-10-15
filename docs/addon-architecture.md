@@ -82,7 +82,8 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   `addon_line`: who did it, or the add-on's name when it did it itself, and its words); deleting the add-on's data
   keeps each line's who and when and drops its words. AI it uses is counted under `app.ai_usage` source `addon`
   with its id, and charged like any other.
-- **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), or Home.
+- **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), Home, or
+  Settings → Main offer (`main_offer.panels`, for an add-on that uses the main offer).
 - **Handing one out to try** (Real Estate step 2): HandsFreeOS staff with `platform.addons.manage` give one business
   an add-on in `development`, `beta` or `built` (or a paid `available` one) from **/admin/businesses/<id>**
   (`addon_grant.give`, kept in `platform.addon_grants`). It's then installable there, listed under Available to add

@@ -19,8 +19,10 @@ asked of it from the app, the whole add-on on the phone, the setup, Social Outre
 good fits among friends and chats (growth part 1), stages with the moment to pitch (growth part 2), groups,
 theirs first, then new ones (growth part 3), posts asking for what the business offers, fast (growth part 4),
 helpful posts with the people who engage (growth part 5), the owner's notes after trying it (decisions 51 to 58:
-how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), and the redesign
-(decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look).
+how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), the redesign
+(decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look), and the main
+offer's plan so far (decisions 62 to 68: the playbook's niche, Get ready, the profile's check, and the conversation:
+warm up, ask straight out, the video, the link, follow-ups until they answer).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -996,8 +998,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     playbook picks one niche inside its who, with that niche's biggest problem and its own proof, picked from the
     offer's or its own and never invented. The AI says when a niche looks like a second offer. A playbook's offer
     starts as the main offer's outcome in a few words, and it keeps something useful to send someone who never
-    answered. Built (data version 3). The short video's link and script, and the new pace, come with the plan's steps
-    7 and 6.
+    answered. Built (data version 3). The new pace came with the plan's step 6 (decision 67); the short video's link
+    and script come with step 7.
 63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
     results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
     live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), every item
@@ -1010,8 +1012,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     joining groups. A member waits on the business's two and does their own meanwhile. A new main offer version asks
     everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
     `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
-    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** (the sample
-    messages and the video's link) joins with the plan's steps 6 and 7.
+    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** joined with
+    the plan's step 6 (decision 68), so it's five items; the video's link comes with step 7.
 64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
     person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
     it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
@@ -1023,6 +1025,43 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     check; where it can't, it hands the step to them (**Carry on**). The picture, the cover and what's featured stay
     tips: the extension never changes them. A check of an older main offer version counts for nothing, as old ticks
     don't. Built on the web, the phone and the extension; tuned from page outlines, not yet tried on a real account.
+65. **Warm up, then ask straight out** (the owner's decisions: direct after they accept; warm up with likes and
+    comments first). Before a friend request the extension likes one of their posts, and when the post is about their
+    work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
+    the **First message** asks straight out whether they'd be open to the main offer's outcome on its guarantee, and
+    says more info follows if so. A personal line goes first only when the look-up found something real that fits.
+    The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
+    This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
+    another way (Reconnect, the download file, people who wrote first). Built.
+66. **The video, then the link.** The AI reads each answer to a step while drafting the reply to it: yes, a
+    question, not now or no (`answerOf`; the worker keeps it with `outreach.answer.note`). A reply's sighting carries
+    no words, so the extension reads the chat before drafting (`bringInChat`). A yes moves them on: to **Send the
+    video** (the playbook's short video with a line selling the call), or with no video yet straight to **Send the
+    link** (the demo link, decision 24), and after the video to the link. The draft comes back as that step, and the
+    extension queues it so. A question gets a short answer and why a call helps; not now, a check-in a month on; a no
+    ends it and marks them not a fit, unless the person marked them themselves. On Today, the web copies the link or
+    the video's link alone too. The playbook's video link is written in the plan's step 7; until then a yes gets the
+    link. Built.
+67. **Follow-ups until they answer, then once a month.** Whoever goes quiet after a step gets 5 to 7 follow-ups (6 to
+    start), each so many quiet days after the last message (1, 1, 1, 2, 2, 2 to start: the playbook's pace, data
+    version 4), then a **check-in** each month with the playbook's something useful to send. It goes on until they
+    answer, say no or are marked not a fit, or the person presses **Stop checking in** (`outreach.conversation.stop`);
+    sending them the next step, or answering them, goes on again. No longer only for chats read as a prospect. Each
+    person's conversation with each profile is a `follow_ups` row: the step, the follow-ups sent, what's next and
+    when, and their answer. A draft copied on Today to send by hand is noted as sent (`outreach.conversation.note`;
+    the link marks them pitched); a message the person types themselves puts the next follow-up off about a day. Today
+    lists replies, Send the link, Send the video, first messages, follow-ups and check-ins in that order, each
+    follow-up saying which of how many it is; the link, the video, follow-ups and check-ins share the follow-ups'
+    daily limit. Built on the web, the phone and the extension.
+68. **A yes counts, by the offer's version.** A yes is kept as a positive reply, once (`stages.positive_at`).
+    Everyone pitched keeps the main offer's version of their first step, and what follows uses its words
+    (`follow_ups.offer_version`, `sends.offer_version`). The main offer's page shows how the live version is doing
+    (`outreach.offer.versions`, in core's `main_offer.panels` slot): first messages, yeses and calls booked, too new to
+    judge before 100 first messages; owners and admins see everyone's, anyone else their own. Get ready's **Your
+    messages** shows sample messages the AI writes for the person's playbook in their voice, to someone made up (the
+    worker's `outreach.messages.samples`): the first messages, the video, the link, the follow-ups with their days, and
+    a check-in. They OK how they read against the live version (`outreach.readiness.messages`), and a new version
+    asks again. The phone shows the samples written on the computer and OKs them. Built.
 
 ## Rules worth knowing before changing anything
 
@@ -1429,6 +1468,18 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   before (the same `upgradePlaybookDetails`, and the worker's step 3). The five are optional in `PlaybookDetails`, and
   a save that leaves one out keeps what's saved (`keptV3` in `ops/playbooks.ts`), so a phone built before them never
   wipes them; null or an empty list clears one.
+- **A conversation is each person's own** (decisions 65 to 68): one `follow_ups` row per person and profile, changed
+  only by `noteSent` (a step, a follow-up, a check-in or a reply going, from the extension's sends or a copied draft)
+  and `noteAnswer` (the AI's read of their answer), and stopped by Stop checking in. A step starts it over at that
+  step, keeping the offer's version from the first. A step sent, or answering them, goes on with one the person
+  stopped; one a no stopped goes on only once they're back in play (`outreach.stage.mark` open).
+- **Anyone pitched keeps their version.** A draft for someone already pitched uses the main offer version they were
+  first sent (`offerVersionFor`), never the live one, so nobody hears a new price or guarantee mid-conversation.
+- **The offer's counts are the add-on's.** Core never reads `addon_outreach`; the main offer's page shows Social
+  Outreach's counts through its `main_offer.panels` slot (`offer-panel.tsx`), from `outreach.offer.versions`.
+- **Data version 4:** the pace became how many follow-ups (5 to 7) and the quiet days before each, and a playbook got
+  a video link (optional, kept on a save that leaves it out, `PLAYBOOK_KEPT_KEYS`). A pace saved before keeps its
+  spacing when the business changed it (`paceOf`); an old phone's `followUpAfterDays` is taken and ignored.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from

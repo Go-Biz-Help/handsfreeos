@@ -87,7 +87,7 @@ export const messageSamples: AddonWorkerAction<z.input<typeof SamplesInput>> = {
     const hasVideo = Boolean(
       d.videoLink ?? playbooks.find((p) => p.details.videoLink)?.details.videoLink,
     );
-    const followUps = paceOf(d.pace).followUps;
+    const { followUps, followUpGaps } = paceOf(d.pace);
     let samples: MessageSamples | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
@@ -123,6 +123,7 @@ export const messageSamples: AddonWorkerAction<z.input<typeof SamplesInput>> = {
         playbook: { id: playbook.id, name: playbook.name, hasVideo },
         avoid: d.avoid,
         followUps,
+        followUpGaps,
         at: new Date(),
         version: found.offer.version,
       });

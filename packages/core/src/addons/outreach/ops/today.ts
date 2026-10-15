@@ -6,6 +6,7 @@
 import { sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
+import { workspaceTimezone } from '../../../crm/records';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
 import {
@@ -20,7 +21,13 @@ import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { dailyLimitsNow, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
-import { CONVERSATION_STEPS, type ConversationStep, type FollowUpNext } from '../conversation';
+import {
+  ANSWERS,
+  CONVERSATION_STEPS,
+  type Answer,
+  type ConversationStep,
+  type FollowUpNext,
+} from '../conversation';
 import { paceOf } from '../playbooks';
 import {
   leftToday,
@@ -39,6 +46,7 @@ import { WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
+import { conversationPace } from './conversation';
 import {
   chatKey,
   countryLetsSql,
@@ -651,10 +659,11 @@ export const today = defineAddonQuery(outreachAddon, {
         step: ConversationStep;
         sent: number;
         last_at: Date | string;
+        answer: Answer | null;
       }>(
         ctx.tx,
         sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step, f.next, f.step,
-              f.sent, f.last_at
+              f.sent, f.last_at, f.answer
             from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
             ${latestChat('p')}
             where f.workspace_id = ${ws} and f.user_id = ${me} and f.stopped_at is null
@@ -670,6 +679,11 @@ export const today = defineAddonQuery(outreachAddon, {
             limit ${followLeft}`,
       );
       followLeft -= quiet.length;
+      // Which follow-up of how many, and since when a check-in's been quiet, on the business's calendar.
+      const { followUps: of } = await conversationPace(ctx);
+      const timeZone = quiet.length ? await workspaceTimezone(ctx.tx, ws) : 'UTC';
+      const day = (at: Date | string) =>
+        new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone });
       for (const f of quiet)
         items.push(
           item({
@@ -679,11 +693,16 @@ export const today = defineAddonQuery(outreachAddon, {
             profileUrl: f.url,
             chatId: f.chat_id,
             threadKey: f.thread_key,
-            why: [
+            why:
               f.next === 'check_in'
-                ? `No answer since ${dayWords(f.last_at, now)}: a monthly check-in`
-                : `${CONVERSATION_STEPS[f.step]}, no answer yet`,
-            ],
+                ? [
+                    f.answer === 'later' ? 'Said not now' : `No answer since ${day(f.last_at)}`,
+                    'once a month',
+                  ]
+                : [
+                    `${CONVERSATION_STEPS[f.step]}, no answer yet`,
+                    `${Math.min(f.sent + 1, of)} of ${of}`,
+                  ],
             summary: f.summary,
             nextStep: f.next_step,
             demoLink: demoFor(f.id),
@@ -909,13 +928,21 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list.
     const drafted = await sendsToday(ctx, me, todayFrom);
-    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each.
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. And what
+    // the AI read in an answer of theirs not answered yet, for a reply's why.
     const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
     const known = profileIds.length
-      ? await rows<{ id: string; person_id: string | null; marked: boolean }>(
+      ? await rows<{
+          id: string;
+          person_id: string | null;
+          marked: boolean;
+          answer: Answer | null;
+        }>(
           ctx.tx,
           sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
-                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked
+                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
+                (select f.answer from addon_outreach.follow_ups f
+                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer
               from addon_outreach.profiles p
               where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
         )
@@ -936,8 +963,10 @@ export const today = defineAddonQuery(outreachAddon, {
       .map((i) => {
         const send = drafted.open(i.profileId, i.kind);
         const k = i.profileId ? knownOf.get(i.profileId) : undefined;
+        const answer = i.kind === 'reply' ? k?.answer : null;
         return {
           ...i,
+          ...(answer ? { why: [ANSWERS[answer], ...i.why] } : {}),
           personId: k?.person_id ?? null,
           demoBooked: k?.marked ?? false,
           recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],

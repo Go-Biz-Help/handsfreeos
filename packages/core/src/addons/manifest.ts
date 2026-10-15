@@ -179,6 +179,8 @@ export const ADDON_SLOTS = [
   'record.panels',
   'conversation.panels',
   'home.cards',
+  // Settings → Main offer, under the live version: how it's doing in an add-on that uses it (Social Outreach).
+  'main_offer.panels',
 ] as const;
 export type AddonSlotName = (typeof ADDON_SLOTS)[number];
 

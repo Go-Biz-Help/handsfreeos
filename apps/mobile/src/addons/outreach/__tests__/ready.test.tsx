@@ -6,8 +6,9 @@ import * as React from 'react';
 import { GetReadyCard } from '../ready';
 
 /**
- * Get ready on the phone (decision 63): what's left, each item's state, the person's own two done right here, the
- * profile ticked an item at a time and the goal with its math, and nothing once they're ready.
+ * Get ready on the phone (decision 63): what's left, each item's state, the person's own three done right here, the
+ * profile ticked an item at a time, the messages written on their computer to OK, and the goal with its math, and
+ * nothing once they're ready.
  */
 
 jest.mock('@/changes', () => ({
@@ -55,6 +56,58 @@ describe('Get ready on the phone', () => {
     expect(within(list).getAllByRole('checkbox')).toHaveLength(PROFILE_ITEMS.length);
     await fireEvent.press(screen.getByTestId('ready-profile-bio'));
     await waitFor(() => expect(onTick).toHaveBeenCalledWith('bio', true));
+  });
+
+  it('shows the messages written on the computer, and OKs them', async () => {
+    const onMessages = jest.fn(async () => true);
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      items: [
+        ...notReady.items,
+        {
+          item: 'messages',
+          state: 'todo',
+          whose: 'person',
+          left: 'See sample messages for your playbook, and OK how they read.',
+        },
+      ],
+      messages: {
+        at: null,
+        version: null,
+        samples: {
+          playbookId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+          playbookName: 'CRM demos',
+          first: ['Hi Sam! Open to 10 booked inspections a month, on a 60-day guarantee?'],
+          video: null,
+          link: 'Here’s my link to book a quick call: [booking link]',
+          followUps: ['Just making sure this didn’t get buried.', 'Should I check back later?'],
+          followUpGaps: [1, 2],
+          checkIn: 'Thought you might like our storm-season checklist.',
+          at: '2026-10-15T09:00:00.000Z',
+          version: 1,
+        },
+      },
+    };
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        onTick={jest.fn()}
+        onMessages={onMessages}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-messages'));
+    const list = screen.getByTestId('ready-messages-list');
+    expect(within(list).getAllByTestId('ready-message-sample')).toHaveLength(5);
+    expect(within(list).getByText('If they go quiet: 2 follow-ups')).toBeTruthy();
+    expect(within(list).getByText('2 days later')).toBeTruthy();
+    expect(
+      within(list).getByText(
+        'Your playbook has no video yet, so a yes gets your booking link next.',
+      ),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ready-messages-ok'));
+    await waitFor(() => expect(onMessages).toHaveBeenCalled());
   });
 
   it('works the goal out as it changes, and saves it with the days', async () => {

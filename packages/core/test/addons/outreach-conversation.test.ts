@@ -255,7 +255,10 @@ describe('a conversation on Today', () => {
     await quietDays(dana);
     const today = await runAs(owner, ws, 'outreach.today', {});
     const due = today.items.find((i: { name: string }) => i.name === 'Dana Reyes');
-    expect(due).toMatchObject({ kind: 'follow_up', why: ['First message sent, no answer yet'] });
+    expect(due).toMatchObject({
+      kind: 'follow_up',
+      why: ['First message sent, no answer yet', '1 of 6'],
+    });
     const sendId = await send(dana, 'dana.reyes.5', 'Dana Reyes', 'follow_up');
     expect(await conversation(dana)).toMatchObject({ step: 'first', sent: 1 });
     // The follow-up went with the version they were pitched with.
@@ -317,6 +320,39 @@ describe('a conversation on Today', () => {
     expect(await conversation(eli)).toMatchObject({ sent: 6, next: 'check_in' });
   }, 60_000);
 
+  it('stops the check-ins on the person’s word, until the two talk again', async () => {
+    const eli = await profileOf('eli.brook.5');
+    await quietDays(eli);
+    const due = (await runAs(owner, ws, 'outreach.today', {})).items.find(
+      (i: { name: string }) => i.name === 'Eli Brook',
+    ) as { kind: string; why: string[] };
+    expect(due.kind).toBe('check_in');
+    expect(due.why[0]).toMatch(/^No answer since [A-Z][a-z]{2} \d{1,2}$/);
+    expect(due.why[1]).toBe('once a month');
+
+    expect(await runAs(owner, ws, 'outreach.conversation.stop', { profileId: eli })).toEqual({
+      stopped: true,
+    });
+    expect(await conversation(eli)).toMatchObject({ stopped: true, next: null });
+    expect(await listed('Eli Brook')).toEqual([]);
+
+    // They write back with a question: the reply says what the AI read in it.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.replies (workspace_id, user_id, profile_id, after_at, seen_at, pushed)
+          values (${ws}, ${owner.id}, ${eli}, now() - interval '3 days', now(), false)`,
+    );
+    await answer(eli, 'question');
+    const reply = (await runAs(owner, ws, 'outreach.today', {})).items.find(
+      (i: { name: string }) => i.name === 'Eli Brook',
+    );
+    expect(reply).toMatchObject({ kind: 'reply', why: ['Asked a question', 'Wrote back today'] });
+
+    // Answering them goes on with the conversation.
+    await runAs(owner, ws, 'outreach.conversation.note', { profileId: eli, kind: 'reply' });
+    expect(await conversation(eli)).toMatchObject({ stopped: false, next: 'follow_up', sent: 0 });
+  });
+
   it('ends with a no, until the person puts them back in play', async () => {
     const fern = await accepted('fern.ash.5', 'Fern Ash');
     await send(fern, 'fern.ash.5', 'Fern Ash', 'opener');
@@ -348,6 +384,7 @@ describe('a conversation on Today', () => {
       versions: [{ version: 1, messages: 4, positive: 1, booked: 0 }],
       everyone: true,
       judgeAfter: 100,
+      live: 1,
     });
     expect(versionWords(got.versions[0])).toEqual({
       tooNew: true,

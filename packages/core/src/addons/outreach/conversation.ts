@@ -111,6 +111,8 @@ export const MessageSamples = z.object({
   video: sample.nullable(),
   link: sample.nullable(),
   followUps: z.array(sample).max(SAMPLES_MOST.followUps),
+  /** The quiet days before each follow-up, at the playbook's pace when they were written. */
+  followUpGaps: z.array(z.int().min(1)).max(SAMPLES_MOST.followUps).default([]),
   checkIn: sample.nullable(),
   at: z.iso.datetime({ offset: true }),
   version: z.int().min(1).nullable(),
@@ -127,6 +129,14 @@ export const ConversationNoteInput = z.object({
 });
 export type ConversationNoteInput = z.input<typeof ConversationNoteInput>;
 export const ConversationNoteOutput = z.object({ noted: z.boolean() });
+
+/** The person stopped their check-ins, or their follow-ups, to someone: nothing more goes until one of them writes. */
+export const ConversationStopInput = z.object({
+  workspaceId: z.uuid(),
+  profileId: z.uuid(),
+});
+export type ConversationStopInput = z.input<typeof ConversationStopInput>;
+export const ConversationStopOutput = z.object({ stopped: z.boolean() });
 
 // ---- An answer read while drafting ----
 
@@ -261,6 +271,7 @@ const oneSample = (text: string | null | undefined, avoid: readonly string[]): s
 export function checkedSamples(
   answer: MessageSamplesAnswer,
   f: Pick<SamplesFacts, 'followUps'> & {
+    readonly followUpGaps: readonly number[];
     readonly playbook: { readonly id: string; readonly name: string; readonly hasVideo: boolean };
     readonly avoid: readonly string[];
     readonly at: Date;
@@ -282,13 +293,15 @@ export function checkedSamples(
   };
   const first = many(answer.first, SAMPLES_MOST.first);
   if (!first.length) return null;
+  const followUps = many(answer.followUps, Math.min(f.followUps, SAMPLES_MOST.followUps));
   return {
     playbookId: f.playbook.id,
     playbookName: f.playbook.name,
     first,
     video: f.playbook.hasVideo ? oneSample(answer.video, f.avoid) : null,
     link: oneSample(answer.link, f.avoid),
-    followUps: many(answer.followUps, Math.min(f.followUps, SAMPLES_MOST.followUps)),
+    followUps,
+    followUpGaps: followUps.map((_, i) => f.followUpGaps[i] ?? f.followUpGaps.at(-1) ?? 1),
     checkIn: oneSample(answer.checkIn, f.avoid),
     at: f.at.toISOString(),
     version: f.version,
@@ -312,6 +325,8 @@ export const OfferVersionsOutput = z.object({
   /** Everyone's, for owners and admins; the person's own otherwise. */
   everyone: z.boolean(),
   judgeAfter: count,
+  /** The main offer's live version, when one is live. */
+  live: z.int().min(1).nullable(),
 });
 export type OfferVersionsOutput = z.output<typeof OfferVersionsOutput>;
 
@@ -330,3 +345,23 @@ export function versionWords(v: {
       }
     : { tooNew: false, line: `So far: ${so}.` };
 }
+
+/** Social Outreach's panel on the main offer's page: how the live version is doing. */
+export const OFFER_PANEL_WORDS = {
+  overline: 'Social Outreach',
+  title: (version: number) => `How version ${version} is doing`,
+  everyone: 'Everyone in your business',
+  justYou: 'Just you',
+  messages: 'First messages',
+  yes: 'Said yes',
+  booked: 'Calls booked',
+  tooNew: 'Too new to judge.',
+  giveIt: (left: number) =>
+    `Give it ${left} more first ${left === 1 ? 'message' : 'messages'} before you change it: until then, a change says more about luck than the offer.`,
+  judgeAt: (n: number) => `Enough to judge at ${n} first messages`,
+  sofar: (done: number, of: number) => `${Math.min(done, of)} of ${of}`,
+  version: 'Version',
+  liveBadge: 'live',
+  each: 'Each version',
+  countsOnly: 'Counts only. Each person you reach keeps hearing the version they were first sent.',
+} as const;

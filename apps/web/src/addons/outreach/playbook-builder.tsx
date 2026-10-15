@@ -42,6 +42,7 @@ import {
   ArrowRight,
   ArrowUp,
   CheckCircle2,
+  ExternalLink,
   Info,
   MessageCircleQuestion,
   Plus,
@@ -987,15 +988,17 @@ export function PlaybookBuilder({
                   />
                 ) : null}
                 {on && k === 'follow_up' ? (
-                  <Pace
-                    before="Send"
-                    value={paceOf(draft.pace).followUps}
-                    limits={PACE_LIMITS.followUps}
-                    after={() => 'follow-ups until they answer, then a check-in each month'}
-                    onChange={(n) =>
-                      set('pace', { ...draft.pace, followUps: n, followUpGaps: followUpGapsFor(n) })
+                  <FollowUpPace
+                    pace={draft.pace}
+                    onChange={(pace) => set('pace', pace)}
+                    usefulWhat={draft.usefulWhat.trim()}
+                    usefulLink={draft.usefulLink.trim()}
+                    onChangeUseful={() =>
+                      go(
+                        STEPS.findIndex((st) => st.key === 'offer'),
+                        false,
+                      )
                     }
-                    testId="pace-follow-up"
                   />
                 ) : null}
               </div>
@@ -1773,6 +1776,98 @@ function Pace({
         testId={testId}
       />
       <span>{after(value)}</span>
+    </div>
+  );
+}
+
+/**
+ * How many follow-ups whoever goes quiet gets, and the quiet days before each (decision 67), then the check-in each
+ * month with the playbook's something useful to send.
+ */
+function FollowUpPace({
+  pace,
+  onChange,
+  usefulWhat,
+  usefulLink,
+  onChangeUseful,
+}: {
+  pace: PlaybookDetails['pace'];
+  onChange: (pace: PlaybookDetails['pace']) => void;
+  usefulWhat: string;
+  usefulLink: string;
+  onChangeUseful: () => void;
+}) {
+  const p = paceOf(pace);
+  // A new count keeps the gaps already set, and starts any new ones where they'd start.
+  const count = (n: number) => {
+    const start = followUpGapsFor(n);
+    onChange({
+      ...pace,
+      followUps: n,
+      followUpGaps: start.map((g, i) => p.followUpGaps[i] ?? g),
+    });
+  };
+  const gap = (i: number, days: number) =>
+    onChange({
+      ...pace,
+      followUps: p.followUps,
+      followUpGaps: p.followUpGaps.map((g, j) => (j === i ? days : g)),
+    });
+  return (
+    <div className="mt-3 space-y-3" data-testid="pace-follow-ups">
+      <Pace
+        before="Send"
+        value={p.followUps}
+        limits={PACE_LIMITS.followUps}
+        after={() =>
+          `follow-ups until they answer (${PACE_LIMITS.followUps.min} to ${PACE_LIMITS.followUps.max})`
+        }
+        onChange={count}
+        testId="pace-follow-up"
+      />
+      <ol className="divide-y divide-border pl-1">
+        {p.followUpGaps.map((g, i) => (
+          <li
+            key={i}
+            className="grid grid-cols-[100px_auto_minmax(0,1fr)] items-center gap-3 py-2 text-[13px]"
+          >
+            <span className="font-medium">Follow-up {i + 1}</span>
+            <Stepper
+              value={g}
+              onChange={(n) => gap(i, n)}
+              min={PACE_LIMITS.followUpGap.min}
+              max={PACE_LIMITS.followUpGap.max}
+              label={`Follow-up ${i + 1}, quiet days before it`}
+              testId={`pace-gap-${i + 1}`}
+            />
+            <span className="text-text-2">
+              {g === 1 ? 'quiet day' : 'quiet days'} after the last message
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="space-y-2">
+        <p className="text-[13.5px] font-medium">Then a check-in each month</p>
+        <div className="flex items-center gap-2.5 rounded-menu bg-card-2 px-3.5 py-3">
+          <ExternalLink className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium">
+              {usefulWhat || 'Nothing useful to send yet'}
+            </p>
+            <p className="truncate text-[12px] text-text-3">
+              {usefulWhat
+                ? `${usefulLink ? `${usefulLink} · ` : ''}your something useful to send`
+                : 'Without one, a check-in is a warm hello with no ask.'}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onChangeUseful} data-testid="pace-useful">
+            {usefulWhat ? 'Change' : 'Add one'}
+          </Button>
+        </div>
+        <p className="text-[12px] text-text-3">
+          Until they answer, say no, or you stop it. Nobody gets the same message twice.
+        </p>
+      </div>
     </div>
   );
 }

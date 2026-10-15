@@ -83662,6 +83662,28 @@
                                     "maxLength": 2000
                                   }
                                 },
+                                "kind": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "opener",
+                                        "reconnect",
+                                        "pitch",
+                                        "video",
+                                        "follow_up",
+                                        "check_in",
+                                        "reply",
+                                        "comment",
+                                        "warm_lead"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "opener": {
                                   "default": null,
                                   "anyOf": [
@@ -83713,6 +83735,7 @@
                               },
                               "required": [
                                 "drafts",
+                                "kind",
                                 "opener",
                                 "simple",
                                 "lookedUp",
@@ -84634,6 +84657,28 @@
                               "maxLength": 2000
                             }
                           },
+                          "kind": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "opener",
+                                  "reconnect",
+                                  "pitch",
+                                  "video",
+                                  "follow_up",
+                                  "check_in",
+                                  "reply",
+                                  "comment",
+                                  "warm_lead"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "opener": {
                             "default": null,
                             "anyOf": [
@@ -84868,6 +84913,28 @@
                                     "maxLength": 2000
                                   }
                                 },
+                                "kind": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "opener",
+                                        "reconnect",
+                                        "pitch",
+                                        "video",
+                                        "follow_up",
+                                        "check_in",
+                                        "reply",
+                                        "comment",
+                                        "warm_lead"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "opener": {
                                   "default": null,
                                   "anyOf": [
@@ -84919,6 +84986,7 @@
                               },
                               "required": [
                                 "drafts",
+                                "kind",
                                 "opener",
                                 "simple",
                                 "lookedUp",
@@ -85136,6 +85204,28 @@
                                     "maxLength": 2000
                                   }
                                 },
+                                "kind": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "opener",
+                                        "reconnect",
+                                        "pitch",
+                                        "video",
+                                        "follow_up",
+                                        "check_in",
+                                        "reply",
+                                        "comment",
+                                        "warm_lead"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "opener": {
                                   "default": null,
                                   "anyOf": [
@@ -85187,6 +85277,7 @@
                               },
                               "required": [
                                 "drafts",
+                                "kind",
                                 "opener",
                                 "simple",
                                 "lookedUp",
@@ -86147,6 +86238,16 @@
                                     "maxLength": 600
                                   }
                                 },
+                                "followUpGaps": {
+                                  "default": [],
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
                                 "checkIn": {
                                   "anyOf": [
                                     {
@@ -86184,6 +86285,7 @@
                                 "video",
                                 "link",
                                 "followUps",
+                                "followUpGaps",
                                 "checkIn",
                                 "at",
                                 "version"
@@ -86800,6 +86902,16 @@
                                     "maxLength": 600
                                   }
                                 },
+                                "followUpGaps": {
+                                  "default": [],
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
                                 "checkIn": {
                                   "anyOf": [
                                     {
@@ -86837,6 +86949,7 @@
                                 "video",
                                 "link",
                                 "followUps",
+                                "followUpGaps",
                                 "checkIn",
                                 "at",
                                 "version"
@@ -87436,6 +87549,16 @@
                                     "maxLength": 600
                                   }
                                 },
+                                "followUpGaps": {
+                                  "default": [],
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
                                 "checkIn": {
                                   "anyOf": [
                                     {
@@ -87473,6 +87596,7 @@
                                 "video",
                                 "link",
                                 "followUps",
+                                "followUpGaps",
                                 "checkIn",
                                 "at",
                                 "version"
@@ -87620,6 +87744,63 @@
                   },
                   "required": [
                     "noted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.conversation.stop": {
+      "post": {
+        "operationId": "command_outreach_conversation_stop",
+        "summary": "Stop the follow-ups and monthly check-ins to someone. None come until the person sends them the next step or answers them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stopped": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "stopped"
                   ],
                   "additionalProperties": false
                 }
@@ -172200,6 +172381,28 @@
                                               "maxLength": 2000
                                             }
                                           },
+                                          "kind": {
+                                            "default": null,
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "enum": [
+                                                  "opener",
+                                                  "reconnect",
+                                                  "pitch",
+                                                  "video",
+                                                  "follow_up",
+                                                  "check_in",
+                                                  "reply",
+                                                  "comment",
+                                                  "warm_lead"
+                                                ]
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
                                           "opener": {
                                             "default": null,
                                             "anyOf": [
@@ -172251,6 +172454,7 @@
                                         },
                                         "required": [
                                           "drafts",
+                                          "kind",
                                           "opener",
                                           "simple",
                                           "lookedUp",
@@ -173237,6 +173441,28 @@
                                       "maxLength": 2000
                                     }
                                   },
+                                  "kind": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "opener",
+                                          "reconnect",
+                                          "pitch",
+                                          "video",
+                                          "follow_up",
+                                          "check_in",
+                                          "reply",
+                                          "comment",
+                                          "warm_lead"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "opener": {
                                     "default": null,
                                     "anyOf": [
@@ -173288,6 +173514,7 @@
                                 },
                                 "required": [
                                   "drafts",
+                                  "kind",
                                   "opener",
                                   "simple",
                                   "lookedUp",
@@ -174116,6 +174343,16 @@
                                     "maxLength": 600
                                   }
                                 },
+                                "followUpGaps": {
+                                  "default": [],
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
                                 "checkIn": {
                                   "anyOf": [
                                     {
@@ -174153,6 +174390,7 @@
                                 "video",
                                 "link",
                                 "followUps",
+                                "followUpGaps",
                                 "checkIn",
                                 "at",
                                 "version"
@@ -174319,12 +174557,25 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "live": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "versions",
                     "everyone",
-                    "judgeAfter"
+                    "judgeAfter",
+                    "live"
                   ],
                   "additionalProperties": false
                 }

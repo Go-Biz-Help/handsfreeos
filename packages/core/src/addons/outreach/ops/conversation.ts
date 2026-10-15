@@ -19,6 +19,8 @@ import {
   checkInAfter,
   ConversationNoteInput,
   ConversationNoteOutput,
+  ConversationStopInput,
+  ConversationStopOutput,
   JUDGE_AFTER_MESSAGES,
   nextAfter,
   OfferVersionsInput,
@@ -91,8 +93,9 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
 /**
  * A message went to someone (sent by the extension, or copied from a draft): a step starts their conversation over
  * at it, with follow-ups to come; a follow-up counts one more; a check-in waits a month; a reply after their answer
- * starts the follow-ups again, or a check-in a month on when they said not now. Reconnect leaves it be: its messages
- * carry no pitch.
+ * starts the follow-ups again, or a check-in a month on when they said not now. A step, or a reply to anything but a
+ * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect leaves it be: its
+ * messages carry no pitch.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -119,6 +122,8 @@ export async function noteSent(
       ...nextAfter(pace, 0, at),
       answer: null,
       answeredAt: null,
+      // A step sent goes on with a conversation the person stopped.
+      stoppedAt: null,
       // Anyone pitched keeps their version: the first step's.
       offerVersion: row?.offerVersion ?? sent.offerVersion,
       updatedAt: at,
@@ -172,6 +177,8 @@ export async function noteSent(
         ...(later
           ? { sent: pace.followUps, ...checkInAfter(at) }
           : { sent: 0, ...nextAfter(pace, 0, at) }),
+        // Answering them goes on with a conversation the person stopped; one a no stopped stays stopped.
+        ...(row.answer === 'no' ? {} : { stoppedAt: null }),
         updatedAt: at,
       })
       .where(eq(followUps.id, row.id));
@@ -323,7 +330,36 @@ export const answerNote = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const conversationCommands = [conversationNote, answerNote] as const;
+export const conversationStop = defineAddonCommand(outreachAddon, {
+  name: 'outreach.conversation.stop',
+  description:
+    'Stop the follow-ups and monthly check-ins to someone. None come until the person sends them the next step or answers them.',
+  risk: 0,
+  input: ConversationStopInput,
+  output: ConversationStopOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const at = changeMoment(ctx.meta);
+    const stopped = await ctx.tx
+      .update(followUps)
+      .set({ stoppedAt: at, next: null, dueAt: null, updatedAt: at })
+      .where(
+        and(
+          eq(followUps.workspaceId, ctx.scope.workspaceId!),
+          eq(followUps.userId, me),
+          eq(followUps.profileId, input.profileId),
+          sql`${followUps.stoppedAt} is null`,
+        ),
+      )
+      .returning({ id: followUps.id });
+    return { stopped: stopped.length > 0 };
+  },
+});
+
+export const conversationCommands = [conversationNote, answerNote, conversationStop] as const;
 
 /**
  * How each version of the main offer is doing in Social Outreach (decision 67): the first messages sent with it, the
@@ -359,7 +395,16 @@ export const offerVersions = defineAddonQuery(outreachAddon, {
             and (${everyone} or f.user_id = ${me})
           group by f.offer_version order by f.offer_version desc`,
     );
-    return { versions: found, everyone, judgeAfter: JUDGE_AFTER_MESSAGES };
+    const [offer] = await ctx.tx
+      .select({ live: mainOffers.liveVersion })
+      .from(mainOffers)
+      .where(eq(mainOffers.workspaceId, ctx.scope.workspaceId!));
+    return {
+      versions: found,
+      everyone,
+      judgeAfter: JUDGE_AFTER_MESSAGES,
+      live: offer?.live ?? null,
+    };
   },
 });
 

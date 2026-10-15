@@ -89,11 +89,16 @@ help, and the screens: Settings → Main offer and the builder, from the boards 
   isn't the business's own is no proof.
 - **Not the promotions.** Nothing here reads or writes `app.offers`, and the promotions' commands stay `offer.*`.
 
+- **How a version is doing comes from the add-on, never from core.** Core keeps no counts of messages and never reads
+  an add-on's tables. The page has a place for panels (`main_offer.panels`, an `<AddonSlot>` under the live version),
+  and Social Outreach puts its own there: the first messages, yeses and calls booked with each version, too new to
+  judge before 100 first messages (docs/outreach.md, decision 68).
+
 ## Not yet
 
-The warning when a version hasn't had enough messages to judge needs Social Outreach's counts by version, so it comes
-with step 6. Social Outreach's playbooks read the live version (step 3: the niche, the AI's help, whether a niche fits;
-docs/outreach.md, decision 62), nobody's outreach starts until the offer is live (step 4, Get ready: decision 63), and
-the AI checks each person's Facebook profile against it (step 5, decision 64); hearing `main_offer.published`, and
-the rest it does with the offer, are steps 6 to 8.
+Social Outreach's playbooks read the live version (step 3: the niche, the AI's help, whether a niche fits;
+docs/outreach.md, decision 62), nobody's outreach starts until the offer is live (step 4, Get ready: decision 63),
+the AI checks each person's Facebook profile against it (step 5, decision 64), and every message is written from it,
+each person reached keeping the version they were first sent (step 6, decisions 65 to 68). The numbers by version on
+Social Outreach's Results, and hearing `main_offer.published`, are step 8.
 The phone shows nothing of the main offer yet; its words are core's, ready for it.

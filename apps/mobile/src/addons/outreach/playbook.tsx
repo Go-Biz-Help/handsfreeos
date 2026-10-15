@@ -501,7 +501,8 @@ function SectionEditor({
           })}
         </View>
       );
-    case 'pace':
+    case 'pace': {
+      const pace = paceOf(d.pace);
       return (
         <>
           <DaysInput
@@ -512,14 +513,39 @@ function SectionEditor({
           />
           <DaysInput
             label={W.followUpAfter}
-            value={paceOf(d.pace).followUps}
+            value={pace.followUps}
             limits={PACE_LIMITS.followUps}
             onChange={(followUps) =>
-              set({ pace: { ...d.pace, followUps, followUpGaps: followUpGapsFor(followUps) } })
+              set({
+                pace: {
+                  ...d.pace,
+                  followUps,
+                  // A new count keeps the gaps already set, and starts any new ones where they'd start.
+                  followUpGaps: followUpGapsFor(followUps).map((g, i) => pace.followUpGaps[i] ?? g),
+                },
+              })
             }
           />
+          {pace.followUpGaps.map((gap, i) => (
+            <DaysInput
+              key={`gap-${i}`}
+              label={W.followUpGap(i + 1)}
+              value={gap}
+              limits={PACE_LIMITS.followUpGap}
+              onChange={(days) =>
+                set({
+                  pace: {
+                    ...d.pace,
+                    followUps: pace.followUps,
+                    followUpGaps: pace.followUpGaps.map((g, j) => (j === i ? days : g)),
+                  },
+                })
+              }
+            />
+          ))}
         </>
       );
+    }
     case 'openers':
       return (
         <>

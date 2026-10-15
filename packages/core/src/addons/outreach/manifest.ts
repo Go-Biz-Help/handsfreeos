@@ -247,8 +247,11 @@ export const outreachAddon = defineAddon({
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
-    // A customer's Facebook profile and the chats saved with them.
-    slots: [{ slot: 'person.panels', permission: 'outreach.use' }],
+    // A customer's Facebook profile and the chats saved with them; and how the main offer's live version is doing.
+    slots: [
+      { slot: 'person.panels', permission: 'outreach.use' },
+      { slot: 'main_offer.panels', permission: 'outreach.use' },
+    ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; and a playbook. The activity and friends stay
     // on the web, and their links open it.

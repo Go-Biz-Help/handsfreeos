@@ -460,6 +460,21 @@ export const READY_WORDS = {
     checkIn: 'Then once a month: a check-in',
     ok: 'They read right',
     okd: 'OK’d. Your messages read this way.',
+    /** Before any are written. */
+    none: 'Write samples to see what goes out in your name, before anything does.',
+    writing: 'Writing your samples. This takes a few seconds.',
+    /** Under the title: the playbook and the main offer's version they're written for. */
+    about: (playbook: string, version: number | null) =>
+      version ? `${playbook} · written for your main offer, version ${version}` : playbook,
+    /** Each follow-up's quiet days. */
+    later: (days: number) => `${plural(days, 'day')} later`,
+    changeHowMany: 'Change how many',
+    /** Written for an earlier version of the main offer. */
+    older:
+      'These were written for an earlier version of your main offer. Write them again to OK them.',
+    /** On the phone, which can't ask the AI for them. */
+    onComputer:
+      'Write your samples on your computer, under Get ready in HandsFreeOS. Then OK them there or here.',
   },
   changed: (parts: readonly string[]) => `What changed: ${parts.join(', ')}.`,
   profile: {

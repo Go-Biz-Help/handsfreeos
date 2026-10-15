@@ -211,6 +211,17 @@ export const OUTREACH_WORDS = {
   askingAbout: 'Answer these first, while they’re fresh.',
   notForMe: 'Not for me',
   notForMeDone: 'Put aside. It won’t be on your list again.',
+  /** The conversation's steps on Today (decisions 65 to 67). */
+  copyLinkOnly: 'Copy the link only',
+  linkCopied:
+    'Copied your link for them. Paste it in Messenger: a booking through it counts by itself.',
+  copyVideoLink: 'Copy the video link',
+  videoCopied: 'Copied your video’s link. Paste it in Messenger.',
+  /** The phone's Send the video: the computer drafts it. */
+  videoNext: 'Your computer drafts it next, with your video’s link.',
+  stopCheckIns: 'Stop checking in',
+  checkInsStopped: (name: string) =>
+    `No more check-ins to ${name}. They start again if you two talk again.`,
   wheelsTitle: 'On training wheels',
   wheelsNone: 'Nobody is on training wheels.',
   endNow: 'End now',
@@ -465,6 +476,7 @@ export const OUTREACH_WORDS = {
   },
   messageAfter: 'First message, days after they accept',
   followUpAfter: 'Follow-ups before the monthly check-in',
+  followUpGap: (n: number) => `Follow-up ${n}, quiet days after the last message`,
   playbookSections: {
     goal: 'Goal',
     offer: 'The offer and its link',
