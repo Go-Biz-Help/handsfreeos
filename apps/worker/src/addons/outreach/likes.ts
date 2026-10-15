@@ -11,12 +11,13 @@ import {
   checkedLikePick,
   fallbackLikePick,
   LIKE_PICK_SCHEMA,
-  LIKE_PICK_SYSTEM,
+  likePickSystem,
   LikePickAnswer,
   LikePickInput,
   likePickPrompt,
   type LikePickOutput,
 } from '@hfos/core/addons/outreach/like-pick';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { AiAskError, askStructured } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
@@ -35,9 +36,9 @@ export const likePick: AddonWorkerAction<LikePickInput> = {
         await rows<{ name: string }>(tx, sql`select name from app.workspaces where id = ${ws}`)
       )[0],
       profile: (
-        await rows<{ name: string | null }>(
+        await rows<{ name: string | null; platform: Platform }>(
           tx,
-          sql`select name from addon_outreach.profiles
+          sql`select name, platform from addon_outreach.profiles
               where workspace_id = ${ws} and id = ${input.profileId}`,
         )
       )[0],
@@ -45,7 +46,7 @@ export const likePick: AddonWorkerAction<LikePickInput> = {
     }));
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: LIKE_PICK_SYSTEM,
+        system: likePickSystem(found.profile?.platform ?? 'facebook'),
         messages: [
           {
             role: 'user',

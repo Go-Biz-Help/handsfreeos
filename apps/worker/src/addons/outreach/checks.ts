@@ -12,7 +12,7 @@
  */
 import {
   CHECK_SCHEMA,
-  CHECK_SYSTEM,
+  checkSystem,
   CheckAnswer,
   checkedAnswer,
   checkPrompt,
@@ -20,6 +20,7 @@ import {
 } from '@hfos/core/addons/outreach/checks';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { checkSave } from '@hfos/core/addons/outreach/ops/checks';
+import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -64,6 +65,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
       looked_at: Date | string;
       lines: string[];
       name: string;
+      platform: Platform;
       intro: string[];
       mutual_friends: number | null;
       group_name: string | null;
@@ -73,7 +75,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     }>(
       tx,
       // Each person's own chat with them: the check is theirs, and so is the chat it reads.
-      sql`select ch.id, ch.looked_at, ch.lines, p.name, p.intro, p.mutual_friends, g.name as group_name,
+      sql`select ch.id, ch.looked_at, ch.lines, p.name, p.platform, p.intro, p.mutual_friends, g.name as group_name,
             (select gp.lines from addon_outreach.group_people gp where gp.profile_id = p.id
               order by gp.seen_at desc limit 1) as group_lines,
             c.summary, c.recent
@@ -110,7 +112,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     let answer: ReturnType<typeof checkedAnswer> | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: CHECK_SYSTEM,
+        system: checkSystem(person.platform),
         messages: [
           {
             role: 'user',
@@ -122,7 +124,9 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
                 ...person.intro,
                 ...(person.group_name ? [`Found in the group ${person.group_name}`] : []),
                 ...(person.mutual_friends
-                  ? [`${person.mutual_friends.toLocaleString('en-US')} mutual friends`]
+                  ? [
+                      `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,
+                    ]
                   : []),
               ],
               lines: person.lines,
@@ -131,6 +135,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
                   ? { summary: person.summary, recent: person.recent ?? [] }
                   : null,
               playbooks: told,
+              platform: person.platform,
             }),
           },
         ],

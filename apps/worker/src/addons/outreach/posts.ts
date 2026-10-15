@@ -18,13 +18,14 @@ import {
   freshPost,
   type PostFound,
   POST_CHECK_SCHEMA,
-  POST_CHECK_SYSTEM,
+  postCheckSystem,
   PostCheckAnswer,
   postCheckPrompt,
   type PostCheckPlaybook,
   strongPostPushWords,
 } from '@hfos/core/addons/outreach/posts';
 import { executeCommand } from '@hfos/core/server';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
@@ -66,9 +67,10 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
         sql`select name from app.workspaces where id = ${ctx.scope.workspaceId}`,
       )
     )[0],
-    posts: await rows<{ id: string; body: string; group: string | null }>(
+    posts: await rows<{ id: string; body: string; group: string | null; platform: Platform }>(
       tx,
-      sql`select po.id, po.body, g.name as group from addon_outreach.posts po
+      sql`select po.id, po.body, g.name as group, pr.platform from addon_outreach.posts po
+          join addon_outreach.profiles pr on pr.id = po.profile_id
           left join addon_outreach.groups g on g.id = po.group_id
           where po.workspace_id = ${ctx.scope.workspaceId} and po.check_state = 'waiting'
           order by po.seen_at desc limit ${CHECK_POSTS_BATCH + 1}`,
@@ -99,7 +101,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     let check: { good: boolean; strong: boolean; why: string | null } | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: POST_CHECK_SYSTEM,
+        system: postCheckSystem(post.platform),
         messages: [
           {
             role: 'user',
