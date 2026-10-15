@@ -7792,6 +7792,58 @@
                   }
                 ]
               },
+              "videoScript": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "part": {
+                              "type": "string",
+                              "enum": ["who", "cost", "method", "proof", "call", "next"]
+                            },
+                            "say": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 900
+                            },
+                            "show": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 240
+                            }
+                          },
+                          "required": ["part", "say", "show"]
+                        }
+                      },
+                      "at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["parts", "at", "version"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "audience": {
                 "anyOf": [
                   {

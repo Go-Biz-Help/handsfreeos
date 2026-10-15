@@ -400,7 +400,11 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    Data version 4 (the pace's follow-ups and the gaps between them, the video link). Each person's conversation is kept
    in `addon_outreach.follow_ups` (migration `20261027006400`). docs/outreach.md, decisions 65 to 68. The playbook's
    video link has no field until step 7, so a yes gets the link for now.
-7. **The short video.** The script and shot list, the link.
+7. **The short video. Built.** The script and shot list, the link, from the boards in `design/video` (Chris approved
+   them, 2026-10-15: "build it"). The AI writes six parts from the live main offer and the niche
+   (`outreach.video.script`), each part can be improved on its own, and the playbook keeps the script and the link
+   (data version 5). **Your messages** now waits on the playbook's video link, as the readiness table says. The
+   phone shows the script and changes the link. docs/outreach.md, decision 69.
 8. **Tracking.** The numbers on Results, by playbook and version, the day's report, the week's review.
 9. **Docs.** `docs/main-offer.md` (new, with its rules worth knowing), docs/outreach.md (what's built, the
    decisions, the rules), docs/addon-architecture.md (`uses`), and a row in CLAUDE.md's Read first table.

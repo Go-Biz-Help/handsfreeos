@@ -39202,14 +39202,125 @@
         }
       }
     },
-    "/v1/commands/founding.approve": {
+    "/v1/commands/founding.give": {
       "post": {
-        "operationId": "command_founding_approve",
-        "summary": "Approve an application and hold a seat for that business. Returns the claim link, once. The seat is theirs until the link expires.",
+        "operationId": "command_founding_give",
+        "summary": "Give a business a founding seat, whether or not it applied. Its workspace is on the founding plan at once, with the starting credit, and keeps it until somebody revokes it.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 4. Requires platform.founding.manage. Emits founding.approved.",
+        "description": "Risk level 4. Requires platform.founding.manage. Emits founding.claimed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "offerId": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "note": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "offerId",
+                  "organizationId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grantId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "offerId": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "founding_free",
+                        "founding_lifetime",
+                        "monthly"
+                      ]
+                    },
+                    "creditedCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "remaining": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "grantId",
+                    "offerId",
+                    "organizationId",
+                    "workspaceId",
+                    "plan",
+                    "creditedCents",
+                    "remaining"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/founding.approve": {
+      "post": {
+        "operationId": "command_founding_approve",
+        "summary": "Approve an application. A free seat goes on their workspace at once and stays until somebody revokes it. A paid seat is held, and the claim link to pay for it is returned once.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 4. Requires platform.founding.manage. Emits founding.approved, founding.claimed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -39223,6 +39334,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "workspaceId": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -39261,13 +39377,42 @@
                       "maxLength": 40,
                       "pattern": "^[a-z][a-z0-9_]*$"
                     },
-                    "expiresAt": {
+                    "status": {
                       "type": "string",
-                      "format": "date-time",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      "enum": [
+                        "active",
+                        "reserved"
+                      ]
+                    },
+                    "workspaceId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "expiresAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "claimToken": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "remaining": {
                       "type": "integer",
@@ -39278,6 +39423,8 @@
                   "required": [
                     "grantId",
                     "offerId",
+                    "status",
+                    "workspaceId",
                     "expiresAt",
                     "claimToken",
                     "remaining"
@@ -77879,6 +78026,74 @@
                           }
                         ]
                       },
+                      "videoScript": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "parts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "part": {
+                                      "type": "string",
+                                      "enum": [
+                                        "who",
+                                        "cost",
+                                        "method",
+                                        "proof",
+                                        "call",
+                                        "next"
+                                      ]
+                                    },
+                                    "say": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 900
+                                    },
+                                    "show": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 240
+                                    }
+                                  },
+                                  "required": [
+                                    "part",
+                                    "say",
+                                    "show"
+                                  ]
+                                }
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "version": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "parts",
+                              "at",
+                              "version"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "audience": {
                         "anyOf": [
                           {
@@ -78286,6 +78501,76 @@
                               "type": "string",
                               "maxLength": 500,
                               "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "videoScript": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "parts": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "part": {
+                                        "type": "string",
+                                        "enum": [
+                                          "who",
+                                          "cost",
+                                          "method",
+                                          "proof",
+                                          "call",
+                                          "next"
+                                        ]
+                                      },
+                                      "say": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 900
+                                      },
+                                      "show": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 240
+                                      }
+                                    },
+                                    "required": [
+                                      "part",
+                                      "say",
+                                      "show"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "parts",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
                             },
                             {
                               "type": "null"
@@ -78773,6 +79058,76 @@
                               "type": "string",
                               "maxLength": 500,
                               "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "videoScript": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "parts": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "part": {
+                                        "type": "string",
+                                        "enum": [
+                                          "who",
+                                          "cost",
+                                          "method",
+                                          "proof",
+                                          "call",
+                                          "next"
+                                        ]
+                                      },
+                                      "say": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 900
+                                      },
+                                      "show": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 240
+                                      }
+                                    },
+                                    "required": [
+                                      "part",
+                                      "say",
+                                      "show"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "parts",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
                             },
                             {
                               "type": "null"
@@ -169012,6 +169367,76 @@
                                     "type": "string",
                                     "maxLength": 500,
                                     "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "videoScript": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "parts": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "part": {
+                                              "type": "string",
+                                              "enum": [
+                                                "who",
+                                                "cost",
+                                                "method",
+                                                "proof",
+                                                "call",
+                                                "next"
+                                              ]
+                                            },
+                                            "say": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 900
+                                            },
+                                            "show": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 240
+                                            }
+                                          },
+                                          "required": [
+                                            "part",
+                                            "say",
+                                            "show"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      "version": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "parts",
+                                      "at",
+                                      "version"
+                                    ],
+                                    "additionalProperties": false
                                   },
                                   {
                                     "type": "null"

@@ -44,7 +44,15 @@ const check = (version: number | null): ProfileCheck => ({
 });
 const ready: ReadyFacts = {
   offer: { version: 1, parts, before: null },
-  playbooks: [{ name: 'Roofers', niche: 'Roofers in Ohio', problem: 'Slow winters', proof: [] }],
+  playbooks: [
+    {
+      name: 'Roofers',
+      niche: 'Roofers in Ohio',
+      problem: 'Slow winters',
+      proof: [],
+      videoLink: 'https://www.loom.com/share/abc123',
+    },
+  ],
   // The rest ticked by hand once done.
   profile: ticked(['work', 'featured', 'posts'], 1),
   profileCheck: check(1),
@@ -158,6 +166,19 @@ describe('getting ready', () => {
     expect(notReadyWords(readinessOf({ ...ready, messages: null }))).toBe(
       'You haven’t OK’d how your messages read yet. Finish it under Get ready on the Today tab.',
     );
+  });
+
+  it('waits on the playbook’s short video, which an owner or admin links', () => {
+    const noVideo = { playbooks: [{ ...ready.playbooks[0]!, videoLink: null }] };
+    const messages = (f: Partial<ReadyFacts>) =>
+      readinessOf({ ...ready, ...noVideo, ...f }).items.find((i) => i.item === 'messages')!;
+    expect(messages({})).toMatchObject({ state: 'todo', left: READY_WORDS.left.messagesVideo });
+    expect(messages({ canPlaybooks: false })).toMatchObject({
+      state: 'waiting',
+      whose: 'business',
+      left: READY_WORDS.left.messagesVideoWaiting,
+    });
+    expect(readinessOf({ ...ready, ...noVideo }).ready).toBe(false);
   });
 });
 

@@ -9,7 +9,7 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { PROFILE_ITEMS } from '../../src/addons/outreach/readiness';
+import { PROFILE_ITEMS, READY_WORDS } from '../../src/addons/outreach/readiness';
 import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
 /** The AI's check of someone's profile, as the worker keeps it once their extension read it: every item right. */
@@ -167,9 +167,24 @@ describe('getting ready', () => {
       'outreach_messages_unseen',
     );
     await samplesSeen(member.id, p!.id, 1);
-    const theirs = await runAs(member, ws, 'outreach.readiness.messages', {});
+    const okd = await runAs(member, ws, 'outreach.readiness.messages', {});
+    expect(okd).toMatchObject({ ready: false, next: 'messages', messages: { version: 1 } });
+    expect(okd.messages.samples.first).toEqual(['Hi Casey! Open to more booked inspections?']);
+    // Waiting on the playbook's short video (decision 69), which an owner links: an https link with a real host.
+    expect(okd.items.find((i: { item: string }) => i.item === 'messages')).toMatchObject({
+      state: 'waiting',
+      left: READY_WORDS.left.messagesVideoWaiting,
+    });
+    const video = (videoLink: string) =>
+      runAs(owner, ws, 'outreach.playbook.save', {
+        playbookId: p!.id,
+        name: 'CRM demos',
+        details: { ...PLAYBOOK_TEMPLATES.crm_demos.details, videoLink },
+      });
+    expect(await refused(video('http://www.loom.com/share/abc123'))).toBe('validation');
+    await video('https://www.loom.com/share/abc123');
+    const theirs = await runAs(member, ws, 'outreach.readiness', {});
     expect(theirs).toMatchObject({ ready: true, next: null, messages: { version: 1 } });
-    expect(theirs.messages.samples.first).toEqual(['Hi Casey! Open to more booked inspections?']);
 
     // Saturdays too: the goal keeps its days in the owner's working hours.
     await checked(owner.id, 1);

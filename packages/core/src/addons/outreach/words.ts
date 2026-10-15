@@ -487,6 +487,7 @@ export const OUTREACH_WORDS = {
     groupWords: 'Words to search for groups',
     steps: 'Steps it takes',
     pace: 'How fast',
+    video: 'Short video',
     tone: 'How it sounds',
     samples: 'Sample messages',
     openers: 'How first messages open',

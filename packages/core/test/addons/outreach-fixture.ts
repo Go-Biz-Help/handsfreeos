@@ -77,10 +77,13 @@ const READY_OFFER = {
   inAFewWords: { outcome: 'more booked calls', guarantee: 'you only pay for results' },
 };
 
+/** The short video the fixture links on each playbook in use without one (Your messages waits on one). */
+export const READY_VIDEO = 'https://www.loom.com/share/abc123';
+
 /**
- * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche and its problem on each playbook in use
- * without them, and each person's profile read and checked right, and ticked, against the live version, their messages
- * OK'd, and a goal set.
+ * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche, its problem and a short video on each
+ * playbook in use without them, and each person's profile read and checked right, and ticked, against the live
+ * version, their messages OK'd, and a goal set.
  * Safe to run again.
  */
 export async function getReady(ws: string, userIds: readonly string[]): Promise<void> {
@@ -98,7 +101,8 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
     sql`update addon_outreach.playbooks
         set details = details || jsonb_strip_nulls(jsonb_build_object(
           'niche', case when coalesce(details->>'niche', '') = '' then 'Owners of small businesses' end,
-          'problem', case when coalesce(details->>'problem', '') = '' then 'Too little time to follow up' end))
+          'problem', case when coalesce(details->>'problem', '') = '' then 'Too little time to follow up' end,
+          'videoLink', case when coalesce(details->>'videoLink', '') = '' then ${READY_VIDEO} end))
         where workspace_id = ${ws} and archived_at is null`,
   );
   for (const userId of userIds)

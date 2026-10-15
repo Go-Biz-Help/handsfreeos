@@ -36,6 +36,8 @@ export * from './hosting/branded-paths';
 export * from './messaging/consent';
 export * from './messaging/a2p';
 export * from './messaging/policies';
+// A business's own policy or terms, given back with the texting section in place.
+export * from './messaging/policy-update';
 export * from './messaging/preflight';
 export * from './messaging/sms';
 export * from './messaging/rcs';

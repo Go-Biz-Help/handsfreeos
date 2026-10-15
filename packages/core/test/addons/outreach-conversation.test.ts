@@ -25,7 +25,7 @@ import {
   TodayDraftAnswer,
 } from '../../src/addons/outreach/today';
 import { MainOfferParts } from '../../src/main-offer/parts';
-import { outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
+import { outreachBusiness, READY_VIDEO, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -119,7 +119,6 @@ describe('the conversation’s rules', () => {
 describe('a conversation on Today', () => {
   let owner: TestUser;
   let ws: string;
-  let crmId: string;
   const group = {
     id: '523456789',
     slug: null,
@@ -213,12 +212,11 @@ describe('a conversation on Today', () => {
     owner = await createTestUser('outc-owner', { fullName: 'Morgan Owner' });
     ws = await outreachBusiness(owner, 'Outreach Conversation Co');
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
-    const saved = await runAs(owner, ws, 'outreach.playbook.save', {
+    await runAs(owner, ws, 'outreach.playbook.save', {
       name: crm.name,
       template: 'crm_demos',
       details: crm.details,
     });
-    crmId = saved.playbookId ?? saved.id;
     await runAs(owner, ws, 'outreach.group.save', {
       group,
       members: 9_100,
@@ -268,7 +266,7 @@ describe('a conversation on Today', () => {
     );
     expect(kept!.offer_version).toBe(1);
 
-    // A yes: a positive reply, and with no video yet, the link is next.
+    // A yes: a positive reply, and Send the video is next, with the playbook's video (Your messages waits on one).
     expect(await answer(dana, 'yes')).toEqual({ noted: true });
     const [stage] = await rows<{ positive: boolean }>(
       admin(),
@@ -277,24 +275,13 @@ describe('a conversation on Today', () => {
     );
     expect(stage!.positive).toBe(true);
     expect(await conversation(dana)).toMatchObject({ answer: 'yes', next: null });
-    const link = (await runAs(owner, ws, 'outreach.today', {})).items.find(
-      (i: { name: string }) => i.name === 'Dana Reyes',
-    );
-    expect(link).toMatchObject({ kind: 'pitch', why: ['Said yes to your first message'] });
-
-    // The playbook gets a video: Send the video comes first, with its link.
-    const crm = PLAYBOOK_TEMPLATES.crm_demos;
-    await runAs(owner, ws, 'outreach.playbook.save', {
-      playbookId: crmId,
-      name: crm.name,
-      details: { ...crm.details, videoLink: 'https://www.loom.com/share/abc123' },
-    });
     const video = (await runAs(owner, ws, 'outreach.today', {})).items.find(
       (i: { name: string }) => i.name === 'Dana Reyes',
     );
     expect(video).toMatchObject({
       kind: 'video',
-      videoLink: 'https://www.loom.com/share/abc123',
+      videoLink: READY_VIDEO,
+      why: ['Said yes to your first message'],
     });
     await send(dana, 'dana.reyes.5', 'Dana Reyes', 'video');
     expect(await conversation(dana)).toMatchObject({ step: 'video', sent: 0, offer_version: 1 });

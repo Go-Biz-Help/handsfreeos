@@ -20,12 +20,14 @@ concurrency:
 env:
   CI: true
 
-# Three parts side by side, each on its own machine, and `verify` answering for all of them. They share nothing but
-# the checkout, so the wait is the longest part rather than the sum. Measured on 2026-09-28 with everything in one
-# job: setup, lint, typecheck and formatting about 9 minutes; the unit, database, API and worker tests about 22;
-# the seed and the two builds about 3; the browser tests 28 clean and up to 37 with retries — 58 minutes, and 69 to
-# 73 on slow runners against that job's 75-minute limit. Every check still runs on every pull request and every
-# push to main; nothing is skipped.
+# The parts run side by side, each on its own machine, and `verify` answers for all of them. They share nothing but
+# the checkout, so the wait is the longest part rather than the sum. Every check still runs on every pull request
+# and every push to main; nothing is skipped.
+#
+# The tests and the browser tests are cut into pieces, each with its own machine and its own local stack. Measured
+# on 2026-10-15 with each in one job: the six test suites ran at once on that job's two cores, the worker's took 40
+# minutes and core's 33, and the job ran into its 45-minute limit; the browser tests took 52 minutes on their own
+# and ran into their 60-minute limit. Both cancelled green commits that had to be run again.
 #
 # Each limit is there to stop a hung job burning an hour, not to hold a part to a stopwatch, so each gets room: on
 # 2026-09-19 a 45-minute limit killed a green commit mid-browser-test and skipped the deploy behind it.
@@ -75,16 +77,38 @@ jobs:
             echo "An Opinly secret or its name is in the website's assets"; exit 1
           fi
 
+  # The worker's and core's suites are the long ones, so each is cut in two by file (Vitest's --shard). Every other
+  # package's tests run together in the fifth part, which names what it leaves out rather than what it runs, so a
+  # package that gains tests is tested without anyone touching this file.
   tests:
-    name: Unit, database, API and worker tests
+    name: Tests (${{ matrix.part.name }})
     runs-on: ubuntu-latest
-    # About 26 minutes, and up to 9 more when a registry holds the stack's images back (below).
-    timeout-minutes: 45
+    # Each part had about 10 to 20 minutes of the old job's 40, and up to 9 more when a registry holds the stack's
+    # images back (below).
+    timeout-minutes: 35
     # The token checks out the code and signs Docker in to ghcr.io, nothing else. Naming any permission here sets
     # every one not named to none.
     permissions:
       contents: read
       packages: read
+    strategy:
+      # One part failing doesn't stop the others, so a pull request sees every failure at once.
+      fail-fast: false
+      matrix:
+        part:
+          - name: core, half 1
+            run: pnpm exec turbo run test --filter=@hfos/core -- --shard=1/2
+          - name: core, half 2
+            run: pnpm exec turbo run test --filter=@hfos/core -- --shard=2/2
+          - name: worker, half 1
+            run: pnpm exec turbo run test --filter=@hfos/worker -- --shard=1/2
+            ffmpeg: true
+          - name: worker, half 2
+            run: pnpm exec turbo run test --filter=@hfos/worker -- --shard=2/2
+            ffmpeg: true
+          - name: database, API, phone app, extension and the seed
+            run: pnpm exec turbo run test --filter=!@hfos/core --filter=!@hfos/worker
+            seed: true
     steps:
       - uses: actions/checkout@v4
 
@@ -123,27 +147,36 @@ jobs:
       # The worker turns videos texted to a business into MP4s with ffmpeg (apps/worker/src/telephony/video.ts), and
       # its test converts a real one. The runner image has no ffmpeg; the worker's Docker image installs its own.
       - name: Install ffmpeg
+        if: matrix.part.ffmpeg
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
 
-      - name: Unit, database, API and worker tests
-        run: pnpm test
+      - name: Tests (${{ matrix.part.name }})
+        run: ${{ matrix.part.run }}
 
       - name: The seed builds through the command pipeline
+        if: matrix.part.seed
         run: pnpm db:seed
 
       - name: Stop the local stack
         if: always()
         run: node scripts/supabase.mjs stop --no-backup
 
+  # The spec files are shared out over four machines (Playwright's --shard), each building the web app and serving
+  # it from its own stack. The browser tests make their own people and businesses, so they need no seed, and a spec
+  # file never leans on another's.
   browser:
-    name: Browser tests
+    name: Browser tests (${{ matrix.shard }} of 4)
     runs-on: ubuntu-latest
-    # About 35 minutes, 42 with retries, and up to 9 more when a registry holds the stack's images back. The
-    # browser tests make their own people and businesses, so they need no seed.
-    timeout-minutes: 60
+    # About 7 minutes to start the stack and build, then a quarter of the old 52 minutes of tests, more with retries,
+    # and up to 9 more when a registry holds the stack's images back.
+    timeout-minutes: 40
     permissions:
       contents: read
       packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -190,13 +223,13 @@ jobs:
       - name: Install the Playwright browser
         run: pnpm --filter @hfos/web exec playwright install --with-deps chromium
 
-      - name: Browser tests
-        run: pnpm test:e2e
+      - name: Browser tests (${{ matrix.shard }} of 4)
+        run: pnpm exec turbo run test:e2e -- --shard=${{ matrix.shard }}/4
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
@@ -207,8 +240,9 @@ jobs:
         run: node scripts/supabase.mjs stop --no-backup
 
   # The name the one job before this carried, so anything waiting on that check (the rules for merging) keeps
-  # working: it passes only when all three parts did. `always()`, because a job whose `needs` failed would otherwise
-  # be skipped, and a skipped check counts as passed.
+  # working: it passes only when every part did, each piece of the tests and the browser tests included (a matrix's
+  # result is a failure when any piece failed). `always()`, because a job whose `needs` failed would otherwise be
+  # skipped, and a skipped check counts as passed.
   verify:
     name: Lint, typecheck, tests, browser tests
     needs: [checks, tests, browser]

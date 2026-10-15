@@ -527,6 +527,7 @@ describe('registry', () => {
       'wallet.resume',
       'wallet.adjust',
       'wallet.set_stage',
+      'founding.give',
       'founding.approve',
       'founding.decline',
       'founding.waitlist',

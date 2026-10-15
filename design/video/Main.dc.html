@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Playbook: your short video</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--warning-soft:#ffedd8;--warning-text:#6b4300;--danger-text:#a3202b}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--warning-soft:#2d2210;--warning-text:#f5c97a;--danger-text:#ff9aa2}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap}
+.btn:focus-visible,.field:focus-visible,.say:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:30px;padding:0 10px;font-size:13px}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.steps{flex:0 1 240px;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.step{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500}
+.step.on{background:var(--accent-soft);color:var(--accent-text)}
+.num{width:20px;height:20px;border-radius:999px;border:1.5px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.part{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:16px 0;border-top:1px solid var(--border)}
+.part:first-child{border-top:0;padding-top:4px}
+.pn{width:28px;height:28px;border-radius:999px;background:var(--card-2);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;background:var(--card-2);color:var(--text-2);font-size:12px;font-weight:500}
+.say{width:100%;min-height:62px;resize:vertical;border:1px solid var(--border-strong);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;line-height:1.5;color:var(--text);background:var(--card)}
+.field{width:100%;height:38px;border:1px solid var(--border-strong);border-radius:8px;padding:0 11px;font:inherit;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;color:var(--text);background:var(--card)}
+.tips{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.tips li{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--text-2)}
+.note{padding:12px 14px;border-radius:10px;font-size:13px}
+.note-warn{background:var(--warning-soft);color:var(--warning-text)}
+.empty{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:22px;border:1px dashed var(--border-strong);border-radius:12px;background:var(--card-2)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 1320px; padding: 28px 40px; display: flex; flex-direction: column; gap: 20px;">
+<div class="row" style="justify-content: space-between; flex-wrap: wrap;">
+<div class="stack" style="gap: 4px;"><span class="overline">Playbook</span><h1 style="font-size: 22px; font-weight: 600;">CRM demos</h1></div>
+<div class="row" style="gap: 8px;"><button class="btn btn-secondary" type="button">Back</button><button class="btn btn-primary" type="button">Save</button></div>
+</div>
+
+<div style="display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start;">
+<nav class="steps" aria-label="Playbook steps">
+<span class="step"><span class="num">1</span>Goal and offer</span>
+<span class="step"><span class="num">2</span>Niche</span>
+<span class="step"><span class="num">3</span>Who it’s for</span>
+<span class="step"><span class="num">4</span>Steps and pace</span>
+<span class="step on" aria-current="step"><span class="num">5</span>Short video</span>
+<span class="step"><span class="num">6</span>Openers</span>
+<span class="step"><span class="num">7</span>Conversation</span>
+<span class="step"><span class="num">8</span>Words</span>
+</nav>
+
+<div class="stack" style="flex: 999 1 560px; min-width: 0; gap: 20px;">
+<section class="card stack" style="padding: 22px 24px; gap: 16px;" aria-labelledby="video-title">
+<div class="row" style="justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+<div class="stack" style="gap: 4px; max-width: 560px;">
+<h2 id="video-title" style="font-size: 17px; font-weight: 600;">Your short video</h2>
+<p class="small muted">Someone who says yes to your first message gets it next, then your booking link. The AI writes the script; you record it and paste the link.</p>
+</div>
+<sc-if value="{{ written }}" hint-placeholder-val="{{ true }}">
+<button class="btn btn-secondary" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>Write it again</button>
+</sc-if>
+</div>
+
+<sc-if value="{{ older }}" hint-placeholder-val="{{ false }}">
+<p class="note note-warn" role="status">Written for version 1 of your main offer. Write it again so it matches the live one.</p>
+</sc-if>
+
+<sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+<div class="empty">
+<p class="muted">No script yet. The AI writes one from your main offer and this playbook’s niche: six short parts, each with what to say and what to show.</p>
+<button class="btn btn-primary" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>Write the script</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ written }}" hint-placeholder-val="{{ true }}">
+<div class="stack" style="gap: 0;">
+<div class="row" style="justify-content: space-between; padding-bottom: 6px;">
+<span class="small muted">About 3 minutes · written for your main offer, version 2</span>
+</div>
+<sc-for list="{{ parts }}" as="p" hint-placeholder-count="6">
+<div class="part">
+<span class="pn" aria-hidden="true">{{ p.n }}</span>
+<div class="stack" style="gap: 8px; min-width: 0;">
+<div class="row" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+<div class="row" style="gap: 10px; flex-wrap: wrap;"><span style="font-weight: 600;">{{ p.title }}</span><span class="chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 8-6 4 6 4V8Z"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg>{{ p.shows }}</span></div>
+<button class="btn btn-ghost btn-sm" type="button">Improve</button>
+</div>
+<label class="stack" style="gap: 4px;"><span class="xs faint">Say</span><textarea class="say" aria-label="What to say: {{ p.title }}">{{ p.say }}</textarea></label>
+<p class="xs muted"><span class="faint">Show:</span> {{ p.show }}</p>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;">
+<section class="card stack" style="padding: 20px 22px; gap: 12px;" aria-labelledby="link-title">
+<h3 id="link-title" style="font-size: 15px; font-weight: 600;">The video’s link</h3>
+<label class="stack" style="gap: 6px;">
+<span class="small muted">Loom, YouTube (unlisted) or Google Drive. Make sure anyone with the link can watch it.</span>
+<input class="field" type="url" value="{{ link }}" placeholder="https://www.loom.com/share/…" aria-label="The video’s link">
+</label>
+<sc-if value="{{ badLink }}" hint-placeholder-val="{{ false }}">
+<p class="xs" style="color: var(--danger-text);" role="alert">That isn’t a whole link starting https://. Paste the link to your video on Loom, YouTube or Google Drive.</p>
+</sc-if>
+<p class="xs faint">Send the video carries this link to everyone who says yes.</p>
+</section>
+<section class="card stack" style="padding: 20px 22px; gap: 12px;" aria-labelledby="tips-title">
+<h3 id="tips-title" style="font-size: 15px; font-weight: 600;">Recording tips</h3>
+<ul class="tips">
+<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px;color:var(--accent-text)"><path d="M20 6 9 17l-5-5"></path></svg>Face a window or a lamp, so the light is in front of you.</li>
+<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px;color:var(--accent-text)"><path d="M20 6 9 17l-5-5"></path></svg>Pick a quiet room, and use a wired or clip-on mic if you have one.</li>
+<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px;color:var(--accent-text)"><path d="M20 6 9 17l-5-5"></path></svg>Set the camera at eye level.</li>
+<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px;color:var(--accent-text)"><path d="M20 6 9 17l-5-5"></path></svg>One take is fine: real beats polished.</li>
+<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px;color:var(--accent-text)"><path d="M20 6 9 17l-5-5"></path></svg>Keep it under 4 minutes.</li>
+<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px;color:var(--accent-text)"><path d="M20 6 9 17l-5-5"></path></svg>Start on your face, so it’s the video’s thumbnail.</li>
+</ul>
+</section>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"script":{"editor":"enum","options":["written","empty","older"],"default":"written"},"badLink":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const script = this.props.script ?? 'written';
+    const parts = [
+      ['Who it’s for, and the problem', 'You, to the camera', 'If you run a roofing company with 2 or 3 crews, this is for you. Most owners I talk to say the same thing: the work comes in waves, and between storms the phone goes quiet.', 'You, at eye level, in your office or truck'],
+      ['What it costs them to leave it', 'You, to the camera', 'Every quiet week means crews you still pay and jobs you never hear about. It adds up fast.', 'You, to the camera'],
+      ['How it works, step by step', 'A simple slide, or your screen', 'Here’s how it works. We find homeowners who need a roof looked at, we reach out to them, and we book the inspection on your calendar. You just show up.', 'A slide with the three steps: find them, reach out, book it'],
+      ['Proof: a real result or two', 'A screenshot, a review, or a before and after', 'Peak Roofing got 22 inspections in 60 days, with two crews.', 'A screenshot of their calendar, or their review'],
+      ['Why a call helps them', 'You, to the camera', 'On a quick call, I’ll show you how this would work for your area and your crews, with your numbers. You’ll leave with a plan either way.', 'You, to the camera'],
+      ['What to do next', 'You, to the camera', 'If that sounds good, just reply to my message and I’ll send you a few times.', 'You, smiling, to the camera']
+    ];
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      written: script !== 'empty',
+      empty: script === 'empty',
+      older: script === 'older',
+      badLink: this.props.badLink ?? false,
+      link: this.props.badLink ? 'loom.com/share/5f2c' : 'https://www.loom.com/share/5f2c81',
+      parts: parts.map(([title, shows, say, show], i) => ({ n: i + 1, title, shows, say, show }))
+    };
+  }
+}
+</script>
+</body>
+</html>

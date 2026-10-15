@@ -5,6 +5,7 @@
  * the web's editor, the extension and the server all read it.
  */
 import { z } from 'zod';
+import { VideoLink, VideoScript } from './video';
 
 /** The social networks it works on. Facebook first; LinkedIn and Instagram later. */
 export const PLATFORMS = { facebook: 'Facebook' } as const;
@@ -198,9 +199,15 @@ export const PlaybookDetails = z
     usefulLink: link(PLAYBOOK_LIMITS.usefulLink).optional(),
     /**
      * The playbook's short video (data version 4, decision 66): Send the video carries it to someone who said yes,
-     * before the booking link. Left out of a save, it keeps what's saved, like the parts version 3 added.
+     * before the booking link. An https link with a real host, as the extension's is (./video.ts). Left out of a save,
+     * it keeps what's saved, like the parts version 3 added.
      */
-    videoLink: link(PLAYBOOK_LIMITS.videoLink).optional(),
+    videoLink: VideoLink.optional(),
+    /**
+     * The video's script (data version 5, decision 69): what to say and show, part by part, as the AI wrote it and the
+     * business changed it (./video.ts). Left out of a save, it keeps what's saved; null clears it.
+     */
+    videoScript: VideoScript.nullable().optional(),
     /** Who it's for, in plain words. */
     audience: words(PLAYBOOK_LIMITS.audience),
     /** What says someone fits: "Owner" in their intro, posts about missed calls. */
@@ -325,6 +332,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   usefulWhat: null,
   usefulLink: null,
   videoLink: null,
+  videoScript: null,
   audience: null,
   signs: [],
   skip: [],
@@ -440,10 +448,15 @@ export const PLAYBOOK_TEMPLATE_KEYS = Object.keys(PLAYBOOK_TEMPLATES) as [
 
 /** The parts data version 3 added: a save that leaves one out keeps what's saved (./ops/playbooks.ts). */
 export const PLAYBOOK_V3_KEYS = ['niche', 'problem', 'proof', 'usefulWhat', 'usefulLink'] as const;
-/** The parts data version 4 added, kept the same way. */
+/** The parts data versions 4 and 5 added, kept the same way. */
 export const PLAYBOOK_V4_KEYS = ['videoLink'] as const;
+export const PLAYBOOK_V5_KEYS = ['videoScript'] as const;
 /** What a save that leaves a part out keeps. */
-export const PLAYBOOK_KEPT_KEYS = [...PLAYBOOK_V3_KEYS, ...PLAYBOOK_V4_KEYS] as const;
+export const PLAYBOOK_KEPT_KEYS = [
+  ...PLAYBOOK_V3_KEYS,
+  ...PLAYBOOK_V4_KEYS,
+  ...PLAYBOOK_V5_KEYS,
+] as const;
 
 /** The days before follow-ups when they were one number (before data version 4) and the business changed it. */
 const OLD_FOLLOW_UP_START = 3;
@@ -478,8 +491,8 @@ export function paceOf(pace: unknown): Pace {
 /**
  * A playbook's details as an earlier version saved them, in today's shape. Before data version 2 its questions were
  * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send;
- * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link. Anything else
- * passes through for the schema to judge.
+ * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link; before 5, no
+ * video script. Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;

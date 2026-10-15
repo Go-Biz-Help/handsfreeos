@@ -28,7 +28,7 @@
  * as two.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, sql as dsql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
   foundingApplications,
@@ -49,6 +49,8 @@ import {
   FoundingClaimInput,
   FoundingClaimOutput,
   FoundingDecideInput,
+  FoundingGiveInput,
+  FoundingGiveOutput,
   FoundingRecordCheckoutClosedInput,
   FoundingRecordCheckoutOpenedInput,
   FoundingRecordCheckoutPaidInput,
@@ -236,18 +238,231 @@ async function aBusiness(ctx: CommandContext, id: string): Promise<void> {
   );
 }
 
+// ---------- turning a seat on ----------
+
+/**
+ * The workspace a seat goes on: the one named, which has to be the business's own, or else the business's only
+ * workspace. A business with several is asked about rather than having one picked for it.
+ */
+async function seatWorkspace(
+  ctx: CommandContext,
+  organizationId: string,
+  workspaceId: string | undefined,
+): Promise<string> {
+  const [org] = await ctx.tx
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  const business = org?.name || 'This business';
+  const theirs = await ctx.tx
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(
+      and(eq(workspaces.organizationId, organizationId), isNull(workspaces.deletionRequestedAt)),
+    );
+  if (workspaceId) {
+    if (theirs.some((w) => w.id === workspaceId)) return workspaceId;
+    throw HfosError.rule(
+      'founding_workspace_elsewhere',
+      422,
+      `That workspace isn’t one of ${business}’s. Pick one of its own workspaces.`,
+    );
+  }
+  const [only, ...more] = theirs;
+  if (!only)
+    throw HfosError.rule(
+      'founding_no_workspace',
+      409,
+      `${business} has no workspace to put the seat on yet. Ask them to finish signing up, then try again.`,
+    );
+  if (more.length)
+    throw HfosError.rule(
+      'founding_pick_workspace',
+      409,
+      `${business} has ${theirs.length} workspaces. Press Give a seat, find the business, and pick the workspace the seat covers.`,
+    );
+  return only.id;
+}
+
+/**
+ * A seat on a workspace now, for good. The same writes a claim makes (0093's `private.founding_activate`): the seat
+ * goes `active`, the workspace gets its founding plan, and the offer's starting credit lands. Here staff decide it,
+ * so there is no link to follow and nothing that runs out. Only revoking takes it back.
+ *
+ * A seat the business is already holding is the one turned on, so this never takes a second seat. One that lapsed
+ * is used again, which takes it out of "given back"; it passes the cap's guard on the way, like any seat coming
+ * back into use. Anything else is a new seat, and the guard decides whether there is one.
+ */
+async function turnOn(
+  ctx: CommandContext,
+  found: OfferRow,
+  seat: {
+    organizationId: string;
+    workspaceId: string;
+    applicationId: string | null;
+    why: string;
+  },
+): Promise<{
+  grantId: string;
+  plan: 'founding_free' | 'founding_lifetime';
+  creditedCents: number;
+}> {
+  const by = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+  const now = new Date();
+  const theirs = await ctx.tx
+    .select()
+    .from(foundingGrants)
+    .where(
+      and(
+        eq(foundingGrants.organizationId, seat.organizationId),
+        inArray(foundingGrants.status, ['reserved', 'active', 'expired']),
+      ),
+    )
+    .orderBy(desc(foundingGrants.reservedAt));
+
+  const live = theirs.find((g) => g.status === 'reserved' || g.status === 'active');
+  if (live && (live.status === 'active' || live.offerId !== found.id)) {
+    const [held] = await ctx.tx
+      .select({ name: foundingOffers.name })
+      .from(foundingOffers)
+      .where(eq(foundingOffers.id, live.offerId));
+    throw HfosError.rule(
+      'founding_org_has_a_seat',
+      409,
+      live.status === 'active'
+        ? `This business already has a ${held?.name ?? 'founding'} seat. It keeps it until you revoke it.`
+        : `This business is holding a ${held?.name ?? 'founding'} seat it hasn’t taken up. Revoke that one under Seats out first, then try again.`,
+    );
+  }
+
+  let grantId: string;
+  const again = live ?? theirs.find((g) => g.status === 'expired' && g.offerId === found.id);
+  if (again) {
+    await ctx.tx
+      .update(foundingGrants)
+      .set({
+        status: 'active',
+        workspaceId: seat.workspaceId,
+        activatedAt: now,
+        expiresAt: null,
+        grantedBy: again.grantedBy ?? by,
+        applicationId: again.applicationId ?? seat.applicationId,
+      })
+      .where(eq(foundingGrants.id, again.id))
+      .catch(asRefusal);
+    // A payment started on a seat that is now simply on stops being one, as when a seat is revoked. Money that
+    // arrives through a page still open is recorded and flagged for a refund (0093), never charged for twice.
+    await ctx.tx
+      .update(foundingCheckouts)
+      .set({
+        status: 'failed',
+        closedAt: now,
+        problem: 'The seat was turned on before it was paid for.',
+      })
+      .where(
+        and(
+          eq(foundingCheckouts.grantId, again.id),
+          dsql`${foundingCheckouts.status} in ('pending', 'open')`,
+        ),
+      );
+    grantId = again.id;
+  } else {
+    // The insert is where the seat is taken. If there is none, this throws and nothing else here has run.
+    const [made] = await ctx.tx
+      .insert(foundingGrants)
+      .values({
+        offerId: found.id,
+        organizationId: seat.organizationId,
+        workspaceId: seat.workspaceId,
+        applicationId: seat.applicationId,
+        status: 'active',
+        activatedAt: now,
+        grantedBy: by,
+      })
+      .returning({ id: foundingGrants.id })
+      .catch(asRefusal);
+    if (!made) throw HfosError.internal();
+    grantId = made.id;
+  }
+
+  const plan = found.priceCents === 0 ? ('founding_free' as const) : ('founding_lifetime' as const);
+  // A workspace that already had a plan is moved onto the founding one, as private.founding_activate does.
+  await ctx.tx
+    .insert(workspacePlans)
+    .values({
+      workspaceId: seat.workspaceId,
+      organizationId: seat.organizationId,
+      plan,
+      status: 'active',
+      grantId,
+      priceCents: 0,
+    })
+    .onConflictDoUpdate({
+      target: workspacePlans.workspaceId,
+      set: { plan, status: 'active', grantId, priceCents: 0, graceEndsAt: null, canceledAt: null },
+    });
+
+  // Keyed on the seat in the ledger, so a seat turned on, taken back and turned on again credits once.
+  const [credit] = await rows<{ credited_cents: number | string }>(
+    ctx.tx,
+    sql`select credited_cents from private.founding_credit_wallet(${grantId}::uuid)`,
+  );
+
+  await ctx.emit({
+    type: 'founding.claimed',
+    entityType: 'founding_grant',
+    entityId: grantId,
+    payload: { offerId: found.id, workspaceId: seat.workspaceId, plan, byStaff: true },
+    after: seat.why ? { plan, why: seat.why } : { plan },
+  });
+
+  return { grantId, plan, creditedCents: Number(credit?.credited_cents ?? 0) };
+}
+
+export const foundingGive = defineCommand({
+  name: 'founding.give',
+  description:
+    'Give a business a founding seat, whether or not it applied. Its workspace is on the founding plan at once, with the starting credit, and keeps it until somebody revokes it.',
+  risk: 4,
+  input: FoundingGiveInput,
+  output: FoundingGiveOutput,
+  permission: 'platform.founding.manage',
+  scope: onPlatform,
+  emits: ['founding.claimed'],
+  async handler(ctx, input) {
+    await aBusiness(ctx, input.organizationId);
+    const found = await offer(ctx, input.offerId);
+    const workspaceId = await seatWorkspace(ctx, input.organizationId, input.workspaceId);
+    const on = await turnOn(ctx, found, {
+      organizationId: input.organizationId,
+      workspaceId,
+      applicationId: null,
+      why: input.note,
+    });
+    return {
+      grantId: on.grantId,
+      offerId: found.id,
+      organizationId: input.organizationId,
+      workspaceId,
+      plan: on.plan,
+      creditedCents: on.creditedCents,
+      remaining: await remainingOn(ctx, found.id),
+    };
+  },
+});
+
 // ---------- deciding ----------
 
 export const foundingApprove = defineCommand({
   name: 'founding.approve',
   description:
-    'Approve an application and hold a seat for that business. Returns the claim link, once. The seat is theirs until the link expires.',
+    'Approve an application. A free seat goes on their workspace at once and stays until somebody revokes it. A paid seat is held, and the claim link to pay for it is returned once.',
   risk: 4,
   input: FoundingApproveInput,
   output: FoundingApproveOutput,
   permission: 'platform.founding.manage',
   scope: onPlatform,
-  emits: ['founding.approved'],
+  emits: ['founding.approved', 'founding.claimed'],
   /** The link is the one thing here worth stealing, so it never reaches a stored command receipt. */
   shownOnce: ['claimToken'],
   async handler(ctx, input) {
@@ -267,9 +482,55 @@ export const foundingApprove = defineCommand({
     await aBusiness(ctx, input.organizationId);
 
     const found = await offer(ctx, application.offerId);
+    const by = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+
+    /**
+     * A free seat is on from the moment it is approved. A link they had to follow, and that ran out when they
+     * didn't, lost seats the owner had given; nothing about a free seat needs them to do anything first.
+     */
+    if (found.priceCents === 0) {
+      const workspaceId = await seatWorkspace(ctx, input.organizationId, input.workspaceId);
+      const on = await turnOn(ctx, found, {
+        organizationId: input.organizationId,
+        workspaceId,
+        applicationId: application.id,
+        why: input.note,
+      });
+      await ctx.tx
+        .update(foundingApplications)
+        .set({
+          status: 'approved',
+          reviewedAt: new Date(),
+          reviewedBy: by,
+          decisionNote: input.note,
+          grantId: on.grantId,
+        })
+        .where(eq(foundingApplications.id, application.id));
+      await ctx.emit({
+        type: 'founding.approved',
+        entityType: 'founding_grant',
+        entityId: on.grantId,
+        payload: {
+          offerId: found.id,
+          organizationId: input.organizationId,
+          applicationId: application.id,
+          workspaceId,
+        },
+        after: { business: application.businessName, offer: found.name },
+      });
+      return {
+        grantId: on.grantId,
+        offerId: found.id,
+        status: 'active' as const,
+        workspaceId,
+        expiresAt: null,
+        claimToken: null,
+        remaining: await remainingOn(ctx, found.id),
+      };
+    }
+
     const token = newClaimToken();
     const expiresAt = new Date(Date.now() + found.claimDays * DAY_MS);
-    const by = ctx.actor.type === 'human' ? ctx.actor.userId : null;
 
     // The insert is where the seat is taken. If there is none, this throws and nothing else here has run.
     const [grant] = await ctx.tx
@@ -314,6 +575,8 @@ export const foundingApprove = defineCommand({
     return {
       grantId: grant.id,
       offerId: found.id,
+      status: 'reserved' as const,
+      workspaceId: null,
       expiresAt: expiresAt.toISOString(),
       claimToken: token,
       remaining: await remainingOn(ctx, found.id),
@@ -810,6 +1073,7 @@ export const foundingSetStatus = defineCommand({
 });
 
 export const foundingCommands = [
+  foundingGive,
   foundingApprove,
   foundingDecline,
   foundingWaitlist,

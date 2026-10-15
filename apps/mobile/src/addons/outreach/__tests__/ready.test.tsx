@@ -1,5 +1,9 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
-import { PROFILE_ITEMS, type ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
+import {
+  PROFILE_ITEMS,
+  READY_WORDS,
+  type ReadinessOutput,
+} from '@hfos/core/addons/outreach/readiness';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -101,11 +105,7 @@ describe('Get ready on the phone', () => {
     expect(within(list).getAllByTestId('ready-message-sample')).toHaveLength(5);
     expect(within(list).getByText('If they go quiet: 2 follow-ups')).toBeTruthy();
     expect(within(list).getByText('2 days later')).toBeTruthy();
-    expect(
-      within(list).getByText(
-        'Your playbook has no video yet, so a yes gets your booking link next.',
-      ),
-    ).toBeTruthy();
+    expect(within(list).getByText(READY_WORDS.messages.noVideo)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ready-messages-ok'));
     await waitFor(() => expect(onMessages).toHaveBeenCalled());
   });

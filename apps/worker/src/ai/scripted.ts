@@ -1927,7 +1927,42 @@ function scriptedSamples(message: string) {
   };
 }
 
+/**
+ * A short video's script (`outreach.video.script`): every part, plain, with the playbook's niche in the first; or, asked
+ * to write one part again, that part alone.
+ */
+function scriptedVideoScript(message: string) {
+  const again = /Write the part "(\w+)"/.exec(message)?.[1];
+  const niche = /Niche: (.+)/.exec(message)?.[1]?.trim() ?? 'businesses like yours';
+  const say: Record<string, string> = {
+    who: `If you run ${niche}, this is for you. Most of you tell me the same thing: the work comes in waves.`,
+    cost: 'Every slow week costs you crews sitting idle and jobs you never hear about.',
+    method:
+      'Here’s how it works, in three steps: we find them, we ask straight out, we book the call.',
+    proof: 'Here’s a real result: [your result].',
+    call: 'A quick call shows how it would work for you, with your numbers.',
+    next: 'If that sounds good, just reply and I’ll send you a few times.',
+  };
+  const show: Record<string, string> = {
+    who: 'You, to the camera',
+    cost: 'You, to the camera',
+    method: 'A slide with the three steps',
+    proof: 'A screenshot of the result',
+    call: 'You, to the camera',
+    next: 'You, to the camera',
+  };
+  const keys = again ? [again] : Object.keys(say);
+  return {
+    parts: keys.map((part) => ({
+      part,
+      say: again ? `${say[part] ?? 'Said again.'} Said even more plainly.` : say[part]!,
+      show: show[part] ?? 'You, to the camera',
+    })),
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the video script\.$/, json: (message) => scriptedVideoScript(message) },
   { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
@@ -2220,7 +2255,57 @@ export const MAIN_OFFER_RULES: readonly ScriptRule[] = [
   { when: /Score this offer\.$/, json: (m) => scriptedOfferScore(m) },
 ];
 
+/**
+ * Placing the texting section in a business's own policy (core's policy-update.ts): the whole document, the section
+ * before the contact details (else at the end), the date line given today's date, and a sentence sharing information
+ * for marketing given the carve-out. Not a policy when it never says privacy or terms.
+ */
+function scriptedPolicyPlace(message: string) {
+  const doc = unquote(quotedBlock(message, 'document') ?? '');
+  const today = /^Today: (.*)$/m.exec(message)?.[1] ?? '';
+  const blocks = [...doc.matchAll(/^\[(\d+)\] (heading|paragraph|item): (.*)$/gm)].map((m) => ({
+    n: Number(m[1]),
+    kind: m[2]!,
+    text: m[3]!,
+  }));
+  const last = Math.max(0, blocks.length - 1);
+  const contact = blocks.find((b) => b.kind === 'heading' && /contact/i.test(b.text));
+  const changes = blocks.flatMap((b) =>
+    /\b(last updated|effective)\b/i.test(b.text) && today
+      ? [
+          {
+            block: b.n,
+            action: 'replace',
+            text: `Last updated: ${today}`,
+            why: 'The date changes with it.',
+          },
+        ]
+      : /\bshare\b.*\bmarketing\b/i.test(b.text)
+        ? [
+            {
+              block: b.n,
+              action: 'replace',
+              text: `${b.text} Mobile numbers and text messaging opt-in data are never shared for marketing.`,
+              why: 'It let numbers be shared for marketing.',
+            },
+          ]
+        : [],
+  );
+  return {
+    isDocument: /privacy|terms/i.test(doc),
+    start: 0,
+    end: last,
+    after: contact && contact.n > 0 ? contact.n - 1 : last,
+    changes,
+  };
+}
+
+export const POLICY_RULES: readonly ScriptRule[] = [
+  { when: /Place the new section\.$/, json: (m) => scriptedPolicyPlace(m) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...POLICY_RULES,
   ...MEETING_RULES,
   ...MAIN_OFFER_RULES,
   ...KNOWLEDGE_RULES,

@@ -101,6 +101,10 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByTestId('pace-message')).toContainText('2');
   await next.click();
 
+  // The short video can wait: no script or link yet.
+  await expect(builder.getByTestId('playbook-video-write')).toBeVisible();
+  await next.click();
+
   // Tags: one of its own, and an idea tapped.
   await builder.getByLabel('Tags it may use').fill('Wants a tasting');
   await builder.getByLabel('Tags it may use').press('Enter');
@@ -183,7 +187,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await page.getByTestId('playbook-new').click();
   await page.getByTestId('template-crm_demos').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=crm_demos$`));
-  for (let i = 0; i < 8; i++) await builder.getByTestId('playbook-next').click();
+  for (let i = 0; i < 9; i++) await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
   await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
