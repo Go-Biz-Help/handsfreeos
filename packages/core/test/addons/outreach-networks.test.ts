@@ -20,7 +20,9 @@ import {
 import { preDaySteps } from '../../src/addons/outreach/lists';
 import { networkOfLink, NETWORKS, profileMisfit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
+import { notReadyWords, readinessOf } from '../../src/addons/outreach/readiness';
+import { PROFILE_ITEMS, PROFILE_ITEMS_ON } from '../../src/addons/outreach/profile-check';
+import { outreachBusiness, refused, runAs, runAsSystem, runWith } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 
@@ -702,5 +704,105 @@ describe('each network’s own limits', () => {
     await warn(lou, 'linkedin', 'Your account has been restricted');
     expect((await next('linkedin')).perDay).toBe(NETWORKS.linkedin.checksPerDay / 2);
     expect((await next()).perDay).toBe(NETWORKS.facebook.checksPerDay);
+  });
+});
+
+describe('each network’s own profile in Get ready', () => {
+  /** The AI's check of someone's profile on a network, as the worker keeps it: every item right. */
+  const checked = (userId: string, platform: 'facebook' | 'linkedin', version: number | null) =>
+    runAsSystem(ws, 'outreach.profile.check_save', {
+      userId,
+      platform,
+      check: {
+        items: Object.fromEntries(
+          PROFILE_ITEMS_ON[platform].map((i) => [i, { ok: true, why: 'Looks right.', fix: null }]),
+        ),
+        bios: [
+          platform === 'linkedin'
+            ? 'I help owners of small businesses book more calls in 30 days, or they don’t pay'
+            : 'I help owners book more calls.',
+        ],
+        coverLine: 'More booked calls',
+        feature: [],
+        at: new Date().toISOString(),
+        version,
+      },
+    });
+  const profileItem = async (u: TestUser, platform?: 'linkedin') =>
+    (
+      (await runAs(u, ws, 'outreach.readiness', platform ? { platform } : {})) as {
+        platform: string;
+        items: { item: string; state: string; left: string | null }[];
+        offer: { version: number } | null;
+      }
+    ).items.find((i) => i.item === 'profile')!;
+
+  it('keeps LinkedIn’s profile apart from Facebook’s, with its headline and About', async () => {
+    const sky = await teammate('Sky Turner');
+    // Today on Facebook readies the business's offer and playbook, and Sky's Facebook profile, as the fixture does.
+    await runAs(sky, ws, 'outreach.today', {});
+    await rows(
+      admin(),
+      sql`update addon_outreach.setup set network_profiles = '{}'::jsonb
+          where workspace_id = ${ws} and user_id = ${sky.id}`,
+    );
+    const offer = (await runAs(sky, ws, 'outreach.readiness', {})) as {
+      offer: { version: number } | null;
+    };
+    expect((await profileItem(sky)).state).toBe('done');
+    expect(await profileItem(sky, 'linkedin')).toEqual({
+      item: 'profile',
+      state: 'todo',
+      whose: 'person',
+      left: 'Have the extension read your LinkedIn profile. The AI says what to change, and writes your headline and About.',
+    });
+
+    // The worker keeps LinkedIn's check: LinkedIn's profile is right, and Facebook's as it was.
+    await checked(sky.id, 'linkedin', offer.offer?.version ?? null);
+    expect((await profileItem(sky, 'linkedin')).state).toBe('done');
+    expect((await profileItem(sky)).state).toBe('done');
+
+    // About is LinkedIn's alone: ticked there, refused on Facebook.
+    await runAs(sky, ws, 'outreach.readiness.profile', {
+      platform: 'linkedin',
+      item: 'about',
+      done: true,
+    });
+    const [kept] = await rows<{
+      network_profiles: { linkedin: { ticks: Record<string, unknown> } };
+    }>(
+      admin(),
+      sql`select network_profiles from addon_outreach.setup
+          where workspace_id = ${ws} and user_id = ${sky.id}`,
+    );
+    expect(Object.keys(kept!.network_profiles.linkedin.ticks)).toEqual(['about']);
+    expect(
+      await refused(runAs(sky, ws, 'outreach.readiness.profile', { item: 'about', done: true })),
+    ).toBe('validation');
+  });
+
+  it('says which network’s profile isn’t ready', () => {
+    const facts = {
+      offer: null,
+      playbooks: [],
+      profile: {},
+      profileCheck: null,
+      messages: null,
+      numbers: { goal: null, at: null },
+      canOffer: true,
+      canPlaybooks: true,
+    };
+    const onLinkedIn = readinessOf({ ...facts, platform: 'linkedin' });
+    expect(onLinkedIn.items.find((i) => i.item === 'profile')!.left).toContain('LinkedIn profile');
+    expect(
+      notReadyWords({
+        ...onLinkedIn,
+        items: onLinkedIn.items.map((i) => (i.item === 'profile' ? i : { ...i, state: 'done' })),
+        platform: 'linkedin',
+      }),
+    ).toBe('Your LinkedIn profile isn’t ready yet. Finish it under Get ready on the Today tab.');
+    // LinkedIn's checklist has About; Facebook's doesn't.
+    expect(PROFILE_ITEMS_ON.linkedin).toContain('about');
+    expect(PROFILE_ITEMS).not.toContain('about');
   });
 });
