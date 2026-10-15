@@ -35,11 +35,16 @@ import {
   TEXTING_CAMPAIGN_MONTH_CENTS,
   textingFeeLines,
   textingFeeTotal,
+  updatedPolicyHtml,
+  updatedPolicyText,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type BusinessAddress,
   type OptInPath,
+  type PolicyKind,
+  type PolicyUpdateInput,
+  type PolicyUpdateOutput,
   type PreflightCheck,
   type SensitiveTopicId,
   type TextingFeesPaidFor,
@@ -67,7 +72,7 @@ import { RadioCard } from '@/components/ui/radio-card';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import type { PhoneNumberInfo } from '@/lib/api/types';
-import { registrationPreflight } from '@/lib/api/worker';
+import { policyUpdate, registrationPreflight } from '@/lib/api/worker';
 import { cn } from '@/lib/utils';
 
 // ---------- the answers ----------
@@ -371,7 +376,19 @@ function Progress({ current, total }: { current: number; total: number }) {
   );
 }
 
-function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+/**
+ * Copies `text`, and `html` beside it when given: a website editor pasting it keeps the headings and lists, and a
+ * plain box gets the text.
+ */
+function CopyButton({
+  text,
+  html,
+  label = 'Copy',
+}: {
+  text: string;
+  html?: string;
+  label?: string;
+}) {
   const [done, setDone] = useState(false);
   return (
     <Button
@@ -380,7 +397,14 @@ function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) 
       size="sm"
       onClick={async () => {
         try {
-          await navigator.clipboard.writeText(text);
+          if (html && typeof ClipboardItem !== 'undefined' && navigator.clipboard.write)
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'text/plain': new Blob([text], { type: 'text/plain' }),
+                'text/html': new Blob([html], { type: 'text/html' }),
+              }),
+            ]);
+          else await navigator.clipboard.writeText(text);
           setDone(true);
           setTimeout(() => setDone(false), 1800);
         } catch {
@@ -1317,6 +1341,7 @@ export function A2pWizard({
 
       {step.key === 'policy' ? (
         <PolicyStep
+          workspaceId={workspaceId}
           businessName={businessName}
           form={form}
           set={set}
@@ -1425,6 +1450,7 @@ export function A2pWizard({
 // ---------- the policy step ----------
 
 function PolicyStep({
+  workspaceId,
   businessName,
   form,
   set,
@@ -1432,6 +1458,7 @@ function PolicyStep({
   siteSlug,
   phone,
 }: {
+  workspaceId: string;
   businessName: string;
   form: WizardForm;
   set: <K extends keyof WizardForm>(key: K, value: WizardForm[K]) => void;
@@ -1460,6 +1487,17 @@ function PolicyStep({
   };
   const policy = privacyPolicy(business);
   const terms = termsOfService(business);
+  // What the section added to the business's own policy or terms is written from: the same details, and for
+  // the terms, where the privacy policy the reviewer will open is.
+  const updating: PolicyUpdateInput['business'] = {
+    name: businessName,
+    legalName: form.legalName,
+    email: form.contactEmail,
+    ...(phone ? { phone } : {}),
+    offers: sendsOffers(form.useCase),
+    address: business.address,
+  };
+  const privacyUrl = own ? withScheme(form.ownPolicyUrl) : hostedUrl;
   const termsTexting = terms.sections.find((s) => /text messages/i.test(s.heading));
   const clause = policy.sections.find((s) => /text messages/i.test(s.heading))?.paragraphs.at(-1);
 
@@ -1519,6 +1557,12 @@ function PolicyStep({
               </p>
             </div>
           ) : null}
+          <PolicyUpdater
+            workspaceId={workspaceId}
+            kind="privacy"
+            url={withScheme(form.ownPolicyUrl)}
+            business={updating}
+          />
         </>
       ) : (
         <div className="rounded-menu border border-border bg-card-2 p-4">
@@ -1592,6 +1636,12 @@ function PolicyStep({
                 before you send it.
               </p>
             </div>
+            <PolicyUpdater
+              workspaceId={workspaceId}
+              kind="terms"
+              url={withScheme(form.ownTermsUrl)}
+              business={{ ...updating, ...(privacyUrl ? { privacyUrl } : {}) }}
+            />
           </>
         ) : (
           <div className="mt-3 rounded-menu border border-border bg-card-2 p-4">
@@ -1610,6 +1660,194 @@ function PolicyStep({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+const DOC_NAMES: Readonly<Record<PolicyKind, string>> = {
+  privacy: 'privacy policy',
+  terms: 'terms',
+};
+
+/**
+ * "Add it to my policy for me": the business's own policy or terms, read from its page (or pasted, when the page's
+ * words can't be read) and given back whole with the texting section in place, to paste over the old one. Most
+ * businesses handed the section alone don't know where in their policy it goes.
+ */
+function PolicyUpdater({
+  workspaceId,
+  kind,
+  url,
+  business,
+}: {
+  workspaceId: string;
+  kind: PolicyKind;
+  url: string;
+  business: PolicyUpdateInput['business'];
+}) {
+  const name = DOC_NAMES[kind];
+  const [working, setWorking] = useState(false);
+  const [pasting, setPasting] = useState(false);
+  const [pasted, setPasted] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [result, setResult] = useState<PolicyUpdateOutput | null>(null);
+
+  // A new address is a different policy: what was made from the old one no longer applies.
+  useEffect(() => {
+    setResult(null);
+    setProblem(null);
+  }, [url]);
+
+  const run = async (fromPaste: boolean) => {
+    setWorking(true);
+    setProblem(null);
+    try {
+      const got = await policyUpdate({
+        workspaceId,
+        kind,
+        ...(fromPaste ? { text: pasted } : { url }),
+        business,
+      });
+      setResult(got);
+      setPasting(false);
+    } catch (err) {
+      setResult(null);
+      setProblem(errorMessage(err));
+      // A page we couldn't read can still be pasted.
+      if (
+        err instanceof ApiError &&
+        ['policy_unreachable', 'policy_unreadable', 'policy_not_a_policy'].includes(err.rule ?? '')
+      )
+        setPasting(true);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const added = result ? result.blocks.filter((b) => b.mark === 'added') : [];
+  const doc = result ? { text: updatedPolicyText(result), html: updatedPolicyHtml(result) } : null;
+  const section = result
+    ? {
+        text: updatedPolicyText({ blocks: added, changes: [] }),
+        html: updatedPolicyHtml({ blocks: added, changes: [] }),
+      }
+    : null;
+
+  return (
+    <div
+      className="mt-3 rounded-menu border border-border bg-card-2 p-4"
+      data-testid={`policy-update-${kind}`}
+    >
+      <p className="text-[13.5px] font-semibold">Not sure where it goes?</p>
+      <p className="mt-0.5 text-[13px] text-text-3">
+        We read your {name} and give it back whole, with the section about texts in the right place,
+        ready to paste over the old one. Your own words stay as they are.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          disabled={working || !url}
+          onClick={() => void run(false)}
+          data-testid={`policy-update-${kind}-run`}
+        >
+          {working && !pasting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+          {working && !pasting ? `Reading your ${name}…` : `Add it to my ${name} for me`}
+        </Button>
+        {!pasting ? (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPasting(true)}>
+            Paste it instead
+          </Button>
+        ) : null}
+      </div>
+
+      {problem ? (
+        <Callout tone="warning" icon={CircleAlert} className="mt-3">
+          {problem}
+        </Callout>
+      ) : null}
+
+      {pasting ? (
+        <div className="mt-3 space-y-2">
+          <Field label={`Your whole ${name}`} htmlFor={`policy-paste-${kind}`}>
+            <Textarea
+              id={`policy-paste-${kind}`}
+              rows={8}
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              placeholder={`Open your ${name}, select all of it, copy it and paste it here.`}
+            />
+          </Field>
+          <Button
+            type="button"
+            size="sm"
+            disabled={working || !pasted.trim()}
+            onClick={() => void run(true)}
+          >
+            {working ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            {working ? 'Adding the section…' : 'Add it to what I pasted'}
+          </Button>
+        </div>
+      ) : null}
+
+      {result && doc && section ? (
+        <div className="mt-4 space-y-3" data-testid={`policy-update-${kind}-result`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[13.5px] font-semibold">Your {name}, updated</p>
+            <div className="flex flex-wrap gap-2">
+              <CopyButton text={section.text} html={section.html} label="Copy the new section" />
+              <CopyButton text={doc.text} html={doc.html} label="Copy all of it" />
+            </div>
+          </div>
+          <p className="text-[13px] text-text-3">
+            Paste it over the whole of your old {name}, then publish the page. Pasting replaces your
+            page&rsquo;s links and formatting; if it has links you want to keep, copy just the new
+            section instead and paste it where it&rsquo;s highlighted below.
+          </p>
+          {result.changes.length > 0 ? (
+            <div className="rounded-menu bg-card p-3">
+              <p className="text-[13px] font-semibold">
+                We also changed {result.changes.length === 1 ? 'one' : result.changes.length} of
+                your own lines
+              </p>
+              <ul className="mt-1.5 space-y-2 text-[13px] leading-relaxed">
+                {result.changes.map((c, i) => (
+                  <li key={i}>
+                    <p className="text-text-3 line-through">{c.before}</p>
+                    {c.after ? <p className="text-text-2">{c.after}</p> : null}
+                    <p className="text-[12.5px] text-text-3">{c.why}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-menu bg-card p-3 pr-2 text-[13px] leading-relaxed">
+            {result.blocks.map((b, i) => (
+              <p
+                key={i}
+                className={cn(
+                  b.kind === 'heading' ? 'pt-2 font-semibold text-text' : 'text-text-2',
+                  b.kind === 'item' && 'pl-3',
+                  b.mark === 'added' && 'border-l-2 border-accent bg-accent-soft pl-2',
+                  b.mark === 'changed' && 'border-l-2 border-warning bg-warning-soft pl-2',
+                )}
+              >
+                {b.kind === 'item' ? '• ' : ''}
+                {b.text}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

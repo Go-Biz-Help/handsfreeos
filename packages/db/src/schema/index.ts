@@ -2786,6 +2786,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'meetings',
   // Building and scoring the business's main offer (20261027006100).
   'main_offer',
+  // Adding the texting section to the business's own privacy policy or terms (20261027006500).
+  'texting_policy',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

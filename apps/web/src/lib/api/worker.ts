@@ -1,5 +1,5 @@
 'use client';
-import type { PreflightCheck } from '@hfos/core';
+import type { PolicyUpdateInput, PolicyUpdateOutput, PreflightCheck } from '@hfos/core';
 import { publicEnv } from '../env';
 import { supabaseBrowser } from '../supabase/client';
 import { ApiError } from './errors';
@@ -174,6 +174,17 @@ export function registrationPreflight(input: {
   names?: string[];
 }): Promise<{ checks: PreflightCheck[] }> {
   return workerPost('/v1/telephony/registration-preflight', input);
+}
+
+/**
+ * The business's own privacy policy or terms, given back whole with the texting section in place (owners and
+ * admins; the worker checks). The worker reads the page, which the browser can't, and asks the AI where the
+ * section goes; the business's own words and the section's are kept as they are.
+ */
+export function policyUpdate(
+  input: PolicyUpdateInput & { workspaceId: string },
+): Promise<PolicyUpdateOutput> {
+  return workerPost('/v1/telephony/policy-update', input);
 }
 
 /** Who hosts a number today, by the carrier lookup (owners and admins; the worker checks). */
