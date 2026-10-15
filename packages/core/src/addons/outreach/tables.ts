@@ -900,6 +900,8 @@ export const asks = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    /** The network it's asked on (`PLATFORMS`): each network's asks are its own. */
+    platform: text('platform').notNull().default('facebook').$type<Platform>(),
     kind: text('kind').notNull().$type<AskKind>(),
     target: text('target').notNull().default(''),
     task: jsonb('task')
@@ -1220,6 +1222,14 @@ export const listSaves = addonOutreach.table(
     groupChecksAt: ts('group_checks_at'),
     tidyAt: ts('tidy_at'),
     checksAt: ts('checks_at'),
+    /**
+     * Each other network's lists, as the columns above are Facebook's: when each was saved to its end or done, as
+     * ISO moments under the network and the column's name (`{ "linkedin": { "friendsAt": "…" } }`).
+     */
+    networkSaves: jsonb('network_saves')
+      .notNull()
+      .default({})
+      .$type<Partial<Record<OtherPlatform, Partial<Record<string, string>>>>>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

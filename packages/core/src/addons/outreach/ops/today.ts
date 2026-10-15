@@ -138,10 +138,12 @@ export async function requestsToConfirm(
   ctx: Ctx,
   me: string,
   playbooks: readonly FitPlaybook[],
+  platform: Platform = 'facebook',
 ): Promise<{ readonly p: RequestGot; readonly fit: Fit }[]> {
   if (!playbooks.length) return [];
-  // The business's country setting skips some (decision 61): they're on the Skipped for country list instead.
-  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. Only
+  // the network's own requests are its to confirm.
+  const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
   const asked = await rows<RequestGot>(
     ctx.tx,
     sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
@@ -196,7 +198,8 @@ export const today = defineAddonQuery(outreachAddon, {
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
-    const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+    // Only this network's people: every list of the day is one network's (Chris: each network on its own).
+    const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${input.platform})`;
     // The soonest any playbook in use goes: a first message so many days after they accept, and a follow-up in a chat
     // that started another way so many quiet days after the person wrote.
     const paces = (playbooks.length ? playbooks.map((p) => p.details.pace) : [null]).map(paceOf);
@@ -242,7 +245,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30). The rest lately are
     // theirs to decide, in Waiting for you.
-    for (const { p, fit } of await requestsToConfirm(ctx, me, playbooks))
+    for (const { p, fit } of await requestsToConfirm(ctx, me, playbooks, input.platform))
       items.push(
         item({
           kind: 'confirm',
@@ -746,6 +749,7 @@ export const today = defineAddonQuery(outreachAddon, {
             c.next_step
           from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
           where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
+            and c.platform = ${input.platform}
             and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}
               and (not c.last_from_me or ${lets})))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
@@ -797,7 +801,7 @@ export const today = defineAddonQuery(outreachAddon, {
       ctx.tx,
       sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url, r.thread_key, r.seen_at
           from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
-          where r.workspace_id = ${ws} and r.user_id = ${me}
+          where r.workspace_id = ${ws} and r.user_id = ${me} and p.platform = ${input.platform}
             and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'

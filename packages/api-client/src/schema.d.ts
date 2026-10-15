@@ -34360,6 +34360,11 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -34543,6 +34548,11 @@ export interface operations {
                         /** @enum {string} */
                         kind: "profile_edit";
                     };
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34567,6 +34577,11 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -34673,6 +34688,11 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -34740,6 +34760,11 @@ export interface operations {
                             askId: string;
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -36336,6 +36361,11 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     list: "friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks";
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64946,6 +64976,11 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -65900,6 +65935,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -67029,6 +67069,11 @@ export interface operations {
                                 /** @enum {string} */
                                 kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                                 line: string | null;
+                                /**
+                                 * @default facebook
+                                 * @enum {string}
+                                 */
+                                platform: "facebook" | "linkedin";
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
                                     drafts: string[];

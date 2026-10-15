@@ -6862,6 +6862,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "ask": {
             "oneOf": [
               {

@@ -1234,6 +1234,17 @@ code" (decision 45's install step). Settled too:
   LinkedIn starts LinkedIn's, its messages count toward them (`countWheels` by the message's network), LinkedIn's
   warning puts back only LinkedIn's (`wheelsBackOn`), and `outreach.wheels.end` and `outreach.wheels` take and give
   the network. A network that's off has no day to start (`outreach_network_off`) and nothing done on its own.
+- **Each network's Today, asks and lists are its own.** `outreach.today` lists only its network's people (the
+  `platform` folded into the country filter every pick uses, and the replies and chats read by their own). An ask is
+  made on a network (`outreach.ask.make`'s `platform`, kept in `asks.platform`, 20261027007200): only the kinds that
+  network can be asked (`ASK_KINDS_ON`; LinkedIn's: its invitations and connections, checks, chats, a look-up,
+  research, the profile, withdrawing old invitations, post search and a post), only while the person works it, named
+  by its network in its target (`askTargetOn`) so it never answers another's, ended at the take by that network's
+  warning alone, and never handed to a build older than the network's first (`ASK_NETWORK_SINCE`, LinkedIn 0.40.0);
+  the take says the ask's network. The lists saved before the first day are each network's (`outreach.lists` and
+  `outreach.lists.saved` take `platform`; other networks' in `list_saves.network_saves`): LinkedIn's first day saves
+  connections and invitations either way, then works out old invitations to withdraw and checks connections, with no
+  groups (`LIST_SAVES_ON`, `LIST_MARKS_ON`, `PRE_DAY_WORDS_ON`).
 - **Each network has its kit** (`networks.ts`, `NETWORKS`): its name, the start of its links, the shape of a
   profile's id and name and a chat's id, how many friends it allows, its starting daily limits (LinkedIn's: 15
   invitations, at most 80 in any 7 days, 15 first messages, 20 follow-ups, 10 comments, 30 likes, 40 profiles read,

@@ -171,6 +171,7 @@ const taken: AskTaken = {
   kind: 'chats',
   task: { kind: 'chats' },
   about: null,
+  platform: 'facebook',
   askedAt: '2026-10-27T15:00:00.000Z',
 };
 
