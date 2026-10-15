@@ -303,7 +303,9 @@ What each needs that LinkedIn won't have built:
 1. **Groundwork in core:** the network domain, looser id checks, the general steps and follow states, `platform` on
    asks and in the per-person keys; the day, counts, limits, warnings, training wheels and Get ready's profile by
    network; Don't pitch, Never contact and "pitched once" across a customer's profiles; and the prompts and words
-   taking the network's. Facebook behaves as before; every test passes unchanged.
+   taking the network's. Facebook behaves as before, but for one thing: a customer's two Facebook profiles (number
+   and username) are now both covered when either is on Don't pitch or Never contact. Every other test passes
+   unchanged.
    New tests hold Chris's rule with a second, made-up network: a warning, a stop, a profile not ready, a first day
    waiting on lists and a step handed to the person on one each leave the other's day, limits, Today and asks as
    they were.
