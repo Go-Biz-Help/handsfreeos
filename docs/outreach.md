@@ -1074,7 +1074,7 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     first message's opener came from, `opener_uses`) and by the main offer's version each person was first pitched
     with (`follow_ups`). Someone counts as messaged from their first chat started or first pitch, whichever came
     first. Owners and admins see everyone's counts, with no targets and no review: each person's answers and
-    conversations are their own, so every count comes through `private.outreach_numbers`, counts only, and the main
+    conversations are their own, so every count comes through `private.outreach_numbers_by_network`, counts only, and the main
     offer page's numbers by version now count the team's yeses too. **The day's report**: at the end of the person's
     working hours on a day they sent something, a push with the day's numbers and how far from the target ("Today:
     14 messages, 2 said yes, 1 booked. 1 more message hits your target."), on their add-ons switch, off in My
@@ -1264,7 +1264,7 @@ code" (decision 45's install step). Settled too:
     messages needs nothing more. The pipeline, friends and chats narrow to one network (their input's `platform`,
     counts too; every network's when left out).
   - **Results add "By network"** beside "By playbook" and "By offer version" (`outreach.tracking`'s `byNetwork`):
-    one goal for every network, each network's share of the first messages. `private.outreach_numbers` gives each
+    one goal for every network, each network's share of the first messages. `private.outreach_numbers_by_network` gives each
     count's network, from the profile reached (20261027007400).
   - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
     on each; **the setup has a step to pick networks** (`networks`, between the team's rules and the person's own

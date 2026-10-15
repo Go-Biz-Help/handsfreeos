@@ -4,27 +4,27 @@
 -- docs/outreach.md, "Each network is in the app").
 --
 --        Results add "by network" beside "by playbook" and "by offer
---        version": `private.outreach_numbers` gives each count's network
---        too, from the profile the person was reached on. It's dropped and
---        made again, since a function's result can't gain a column in
---        place; everything that reads it names its columns, so the code
---        running now reads it the same.
+--        version": `private.outreach_numbers_by_network` gives the same
+--        counts as `private.outreach_numbers`, each by the network the person
+--        was reached on as well, from the profile reached. It's a function of
+--        its own beside the old one, which the code running now still reads:
+--        a function's result can't gain a column in place, and nothing is
+--        dropped. A later migration drops the old one once nothing reads it.
 --
 --        The setup gets a step to pick networks (`networks`), between the
 --        team's rules and the person's own settings.
 --
--- Only widens: a column more in a function's result, and a check that
--- takes one more step.
+-- Only adds and widens: a new function, and a check that takes one more
+-- step.
 -- =============================================================================
 
 alter table addon_outreach.setup drop constraint setup_reached_check;
 alter table addon_outreach.setup add constraint setup_reached_check
   check (reached in ('playbooks', 'ready', 'rules', 'networks', 'settings', 'extension', 'groups'));
 
--- The three numbers in [p_from, p_to), as before (20261027006600), each by
--- the network the person was reached on as well.
-drop function private.outreach_numbers(uuid, uuid, boolean, timestamptz, timestamptz);
-create function private.outreach_numbers(
+-- The three numbers in [p_from, p_to), as `private.outreach_numbers` gives
+-- them (20261027006600), each by the network the person was reached on as well.
+create function private.outreach_numbers_by_network(
   p_ws uuid, p_user uuid, p_everyone boolean, p_from timestamptz, p_to timestamptz)
 returns table (
   platform text, playbook_id uuid, offer_version integer, messages int, positive int, booked int)
@@ -70,6 +70,6 @@ language sql stable security definer set search_path = '' as $$
     else private.outreach_may_count(p_ws, array[p_user]) end
   group by coalesce(p.platform::text, 'facebook'), o.playbook_id, f.offer_version
 $$;
-revoke all on function private.outreach_numbers(uuid, uuid, boolean, timestamptz, timestamptz) from public;
-grant execute on function private.outreach_numbers(uuid, uuid, boolean, timestamptz, timestamptz)
+revoke all on function private.outreach_numbers_by_network(uuid, uuid, boolean, timestamptz, timestamptz) from public;
+grant execute on function private.outreach_numbers_by_network(uuid, uuid, boolean, timestamptz, timestamptz)
   to authenticated, service_actor;

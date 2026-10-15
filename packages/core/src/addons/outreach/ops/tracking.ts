@@ -2,7 +2,7 @@
  * Tracking: the daily numbers (../tracking.ts, docs/outreach.md decision 70). Results reads the three numbers in a
  * stretch (`outreach.tracking`); the worker reads the person's day for their day's report (`outreach.day_report`) and
  * last week for their review (`outreach.review.week`), and keeps the review (`outreach.review.save`). Every count comes
- * through `private.outreach_numbers`: counts only, never who, and everyone's only for owners and admins, or the
+ * through `private.outreach_numbers_by_network`: counts only, never who, and everyone's only for owners and admins, or the
  * worker, since each person's answers and conversations are their own.
  */
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -66,7 +66,7 @@ export async function numbersIn(
   return rows<Counted>(
     ctx.tx,
     sql`select platform, playbook_id, offer_version, messages, positive, booked
-        from private.outreach_numbers(${ctx.scope.workspaceId!}, ${who.me}, ${who.everyone},
+        from private.outreach_numbers_by_network(${ctx.scope.workspaceId!}, ${who.me}, ${who.everyone},
           ${from}::timestamptz, ${to}::timestamptz)`,
   );
 }
