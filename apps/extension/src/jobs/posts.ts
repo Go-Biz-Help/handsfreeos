@@ -1,6 +1,6 @@
 /**
  * **Find posts** (docs/outreach.md, decision 18): it goes through the groups the person is in that are marked Work
- * these (or Maybe, when none are), scrolling each one's feed slowly, a screen at a time (src/facebook/browse.ts), and
+ * these (or Maybe, when none are), scrolling each one's feed slowly, a screen at a time (src/networks/facebook/browse.ts), and
  * sends the posts that say a playbook's signs or ask for help to HandsFreeOS, where the AI checks each one. The good
  * ones go on Today's list with comment drafts. Nothing is pressed or written on Facebook.
  *
@@ -10,7 +10,7 @@
  */
 import { WATCH_SCREENS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork as pickGroups } from '@hfos/core/addons/outreach/results';
-import type { ReadResult } from '../facebook/types';
+import type { ReadResult } from '../networks/facebook/types';
 import type { GroupsList } from '../hfos/messages';
 import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';

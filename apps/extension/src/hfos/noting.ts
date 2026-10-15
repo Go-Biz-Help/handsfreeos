@@ -1,14 +1,15 @@
 /**
- * The steps the person takes on Facebook, noted in HandsFreeOS as they take them (docs/outreach.md, decisions 7 and
- * 8), in the background worker. A Facebook tab tells it each step (src/facebook/actions.ts), and it sends the step to
- * the business the panel saves to (`outreach.touch.save`) with the moment it was taken; and the same for their answer
- * to a friend request they got, Confirm or Delete (`outreach.friend.note`, decisions 10 to 13). While HandsFreeOS
+ * The steps the person takes on each network, noted in HandsFreeOS as they take them (docs/outreach.md, decisions 7
+ * and 8), in the background worker. A tab tells it each step (src/networks/facebook/actions.ts,
+ * src/networks/linkedin/actions.ts), and it sends the step to the business the panel saves to (`outreach.touch.save`)
+ * with the moment it was taken and the tab's network; and the same for their answer to a request they got, Confirm or
+ * Delete on Facebook, Accept or Ignore on LinkedIn (`outreach.friend.note`, decisions 10 to 13). While HandsFreeOS
  * can't be reached, these wait in the extension's own storage with their ids, oldest first, so sending one again never
  * notes it twice, and a message's place (a chat started, a follow-up) is worked out in the order they were sent.
  *
- * While the browser is open it also remembers the group each person was opened from, for a step taken later on their
- * own profile, whose address doesn't say which. Nothing is noted while the switch in the panel is off, or while
- * nobody is signed in with somewhere to save.
+ * While the browser is open it also remembers the group each person was opened from on Facebook, for a step taken
+ * later on their own profile, whose address doesn't say which; a step on another network never takes a Facebook
+ * group. Nothing is noted while the switch in the panel is off, or while nobody is signed in with somewhere to save.
  *
  * A step the runner couldn't do there and then, handed to the person (`outreach.need.note`, decision 42), waits in the
  * same list, so it keeps its moment and goes in its turn.
@@ -16,8 +17,9 @@
 import { isApiErrorBody } from '@hfos/api-client';
 import { APP_HEADERS } from '@hfos/core/mobile';
 import { FRIEND_ANSWER_KEYS, TOUCH_KIND_KEYS } from '@hfos/core/addons/outreach/limits';
-import type { Answered, Seen, Step, StepGroup } from '../facebook/actions';
-import { profileKey } from '../facebook/urls';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { facebook, kitFor } from '../networks';
+import type { Answered, Seen, Step, StepGroup } from '../networks/facebook/actions';
 import { NOTING_KEY, type TabNote } from '../messages';
 import type { FriendNoteInput, NeedNoteInput, TouchInput, TouchSaved } from './messages';
 import { isRepliesNote, noteReplies } from './replies';
@@ -56,7 +58,18 @@ export interface Remembered {
   readonly name: string | null;
   readonly group: StepGroup;
   readonly at: number;
+  /** The network they were opened on: Facebook, when an older build kept it. */
+  readonly platform?: Platform;
 }
+
+/**
+ * The key someone is remembered by: their profile's, by its network's kit. Facebook's are as they always were;
+ * another network's say which, so two networks' never meet.
+ */
+const rememberKey = (platform: Platform, profile: Step['to']['profile']) =>
+  platform === facebook.platform
+    ? facebook.profileKey(profile)
+    : `${platform}:${kitFor(platform).profileKey(profile)}`;
 
 /** What came of sending a step. */
 export type Sent =
@@ -78,17 +91,20 @@ export function outcomeOf(status: number | null, body: unknown): Exclude<Sent, {
 }
 
 /**
- * The group the background remembers someone by: by their profile, else by their name when only one person opened
- * had it (their link gave a number where the profile shows a username).
+ * The group the background remembers someone by, on the step's network (Facebook's unless said): by their profile,
+ * else by their name when only one person opened there had it (their link gave a number where the profile shows a
+ * username).
  */
 export function rememberedFor(
   groups: Readonly<Record<string, Remembered>>,
   step: Step,
+  platform: Platform = facebook.platform,
 ): StepGroup | null {
-  const byProfile = groups[profileKey(step.to.profile)];
-  if (byProfile) return byProfile.group;
+  const here = (seen: Remembered) => (seen.platform ?? facebook.platform) === platform;
+  const byProfile = groups[rememberKey(platform, step.to.profile)];
+  if (byProfile && here(byProfile)) return byProfile.group;
   const named = Object.values(groups).filter(
-    (seen) => seen.name !== null && nameKey(seen.name) === nameKey(step.to.name),
+    (seen) => here(seen) && seen.name !== null && nameKey(seen.name) === nameKey(step.to.name),
   );
   return named.length === 1 ? named[0]!.group : null;
 }
@@ -98,10 +114,11 @@ export function withSeen(
   groups: Readonly<Record<string, Remembered>>,
   seen: Seen,
   at: number,
+  platform: Platform = facebook.platform,
 ): Record<string, Remembered> {
   const next = {
     ...groups,
-    [profileKey(seen.profile)]: { name: seen.name, group: seen.group, at },
+    [rememberKey(platform, seen.profile)]: { name: seen.name, group: seen.group, at, platform },
   };
   const keys = Object.keys(next);
   if (keys.length <= GROUPS_MOST) return next;
@@ -278,18 +295,22 @@ async function noteDone(
     });
 }
 
-/** A step the person took, with the group they found the person in when the page or the background knows it. */
-function noteStep(step: Step, at: string): Promise<void> {
+/**
+ * A step the person took on a network, with the group they found the person in when the page or the background knows
+ * it.
+ */
+function noteStep(step: Step, at: string, platform: Platform): Promise<void> {
   return noteDone(at, async (businessId) => {
-    const built = touchSave(step, businessId, rememberedFor(await groupsNow(), step));
+    const remembered = rememberedFor(await groupsNow(), step, platform);
+    const built = touchSave(step, businessId, remembered, platform);
     return built.ok ? { ok: true, input: { input: built.input } } : built;
   });
 }
 
-/** The person's answer to a friend request they got. */
-function noteAnswer(answered: Answered, at: string): Promise<void> {
+/** The person's answer to a request they got on a network. */
+function noteAnswer(answered: Answered, at: string, platform: Platform): Promise<void> {
   return noteDone(at, async (businessId) => {
-    const built = friendNote(answered, businessId);
+    const built = friendNote(answered, businessId, platform);
     return built.ok ? { ok: true, input: { op: 'answer', input: built.input } } : built;
   });
 }
@@ -324,25 +345,29 @@ export function noteNeed(input: NeedNoteInput, at = new Date().toISOString()): P
 }
 
 /**
- * What a Facebook tab told the background: a step taken, a friend request answered, someone opened from a group, or
- * chats whose last message is theirs (./replies.ts).
+ * What a tab told the background, on its network (Facebook's unless said; the background knows it by the tab's
+ * address): a step taken, a request answered, someone opened from a group, or chats whose last message is theirs
+ * (./replies.ts).
  */
-export function takeNote(note: Exclude<TabNote, { type: 'hfos-looked' }>): Promise<void> {
+export function takeNote(
+  note: Exclude<TabNote, { type: 'hfos-looked' }>,
+  platform: Platform = facebook.platform,
+): Promise<void> {
   if (note.type === 'hfos-replies')
     return isNoting()
-      .then((on) => (on ? noteReplies(note) : undefined))
+      .then((on) => (on ? noteReplies(note, platform) : undefined))
       .catch((error: unknown) =>
         console.error('HandsFreeOS Social couldn’t send the replies it saw', error),
       );
   const work =
     note.type === 'hfos-seen'
       ? async () => {
-          const groups = withSeen(await groupsNow(), note.seen, Date.now());
+          const groups = withSeen(await groupsNow(), note.seen, Date.now(), platform);
           await chrome.storage.session.set({ [GROUPS_KEY]: groups });
         }
       : note.type === 'hfos-answered'
-        ? () => noteAnswer(note.answered, note.at)
-        : () => noteStep(note.step, note.at);
+        ? () => noteAnswer(note.answered, note.at, platform)
+        : () => noteStep(note.step, note.at, platform);
   return inTurn(work).catch((error: unknown) =>
     console.error('HandsFreeOS Social couldn’t note a step', note.type, error),
   );

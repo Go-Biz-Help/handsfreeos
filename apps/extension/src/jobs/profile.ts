@@ -2,7 +2,7 @@
  * The person's own profile (docs/outreach.md, decision 64), asked from Get ready in HandsFreeOS:
  *
  * - **Read my profile** (`profile_read`): opens facebook.com/me in a window of its own, checks it's their own (it has
- *   **Edit profile**), reads what a stranger sees first (src/facebook/own-profile.ts) and sends it for the AI's check
+ *   **Edit profile**), reads what a stranger sees first (src/networks/facebook/own-profile.ts) and sends it for the AI's check
  *   (`outreach.profile.check`). HandsFreeOS keeps only the AI's answer; what the page said goes no further.
  * - **Put this one in** (`profile_edit`): presses **Edit bio**, writes the bio they picked, presses **Save**, then
  *   reads the profile again for a new check. Where it can't find Edit bio it hands the step to them (**Carry on** once

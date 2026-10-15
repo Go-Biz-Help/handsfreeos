@@ -5,7 +5,7 @@
  * around each element, and expect the same.
  */
 import { describe, expect, it } from 'vitest';
-import { readPage } from '../src/linkedin/page';
+import { readPage } from '../src/networks/linkedin/page';
 import { boxEverything, load } from './load';
 
 const NOW = new Date('2026-10-15T12:00:00Z');
@@ -32,6 +32,11 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
   ],
   ['linkedin-chat.html', 'https://www.linkedin.com/messaging/thread/2-MadeUpThreadDana0001==/'],
   ['linkedin-chat.html', 'https://www.linkedin.com/messaging/'],
+  ['linkedin-chat-window.html', 'https://www.linkedin.com/feed/'],
+  [
+    'linkedin-post-commenting.html',
+    'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000101/',
+  ],
   ['linkedin-notifications.html', 'https://www.linkedin.com/notifications/'],
   ['linkedin-group.html', 'https://www.linkedin.com/groups/9876543/'],
   ['linkedin-warning.html', 'https://www.linkedin.com/feed/'],

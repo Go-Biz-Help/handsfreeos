@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  An approximation of a chat window over another page, as LinkedIn opens one in 2026 from a profile's Message, written
+  by hand: not a saved LinkedIn page, and nobody real. The page under it is the feed. The window sits in the messaging
+  corner beside the list of conversations; its header names who it's with and links to them, each run of messages
+  starts with its sender's picture and name (yours too), and the box to write in is at its foot with Send.
+-->
+<html lang="en">
+  <head>
+    <title>(1) Feed | LinkedIn</title>
+  </head>
+  <body>
+    <header class="_g7k2">
+      <nav aria-label="Primary Navigation">
+        <a href="https://www.linkedin.com/feed/"><span>Home</span></a>
+        <button type="button" aria-expanded="false">
+          <img alt="Chris Gee" src="me.jpg" /><span>Me</span>
+        </button>
+      </nav>
+    </header>
+    <main class="_q2w8" aria-label="Main Feed">
+      <div class="_sb1">
+        <button type="button"><span>Start a post</span></button>
+      </div>
+    </main>
+    <aside class="_mo3" aria-label="Messaging">
+      <div class="_ol">
+        <button type="button" aria-label="You are on the messaging overlay.">
+          <img alt="Chris Gee" src="me.jpg" /><span>Messaging</span>
+        </button>
+      </div>
+      <div class="_bw">
+        <div class="_bh">
+          <img alt="Dana Reyes" src="d.jpg" />
+          <h2 class="_bt">
+            <a href="https://www.linkedin.com/in/dana-reyes-4b2a1c/"><span>Dana Reyes</span></a>
+          </h2>
+          <span class="_vh0">Status is reachable</span>
+          <button
+            type="button"
+            aria-label="Open the options list in your conversation with Dana Reyes"
+          >
+            <svg aria-hidden="true"></svg>
+          </button>
+          <button type="button" aria-label="Close your conversation with Dana Reyes">
+            <svg aria-hidden="true"></svg>
+          </button>
+        </div>
+        <div class="_bl">
+          <ul class="_m0">
+            <li class="_ev">
+              <time class="_th">Today</time>
+              <div class="_g">
+                <a href="https://www.linkedin.com/in/dana-reyes-4b2a1c/"
+                  ><img alt="Dana Reyes" src="d.jpg"
+                /></a>
+                <span class="_vh0">Dana Reyes sent the following message at 2:15 PM</span>
+                <div><span>Dana Reyes</span> <time>2:15 PM</time></div>
+                <p dir="ltr">Thanks for the invite. What do you do?</p>
+              </div>
+            </li>
+            <li class="_ev">
+              <div class="_g">
+                <a href="https://www.linkedin.com/in/chris-gee-12/"
+                  ><img alt="Chris Gee" src="me.jpg"
+                /></a>
+                <span class="_vh0">Chris Gee sent the following message at 2:20 PM</span>
+                <div><span>Chris Gee</span> <time>2:20 PM</time></div>
+                <p dir="ltr">We answer every call for home service businesses.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <form class="_f">
+          <div role="textbox" contenteditable="true" aria-label="Write a message…">
+            <p><br /></p>
+          </div>
+          <button type="submit"><span>Send</span></button>
+        </form>
+      </div>
+    </aside>
+  </body>
+</html>

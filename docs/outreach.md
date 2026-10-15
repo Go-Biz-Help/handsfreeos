@@ -1219,7 +1219,8 @@ code" (decision 45's install step). Settled too:
   `platform`, Facebook when left out), a warning is the network's that showed it (`warnings.platform`; `warningOf`,
   `warnDay`), and a day's steps count against that network's limits alone (`dayCounts`, through the touch's profile).
   A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
-  kept apart, but nothing reads or saves a LinkedIn page yet: the live view, the team's, the activity panel, the
+  kept apart. On LinkedIn the extension only notes the person's own steps, who wrote back and LinkedIn's warnings, as
+  LinkedIn's (0.34.0, apps/extension/README.md, "The networks"); the live view, the team's, the activity panel, the
   checks, joining groups and every ask are Facebook's. A new place that reads a warning, a day or the day's counts
   names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks

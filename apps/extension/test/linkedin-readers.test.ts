@@ -5,19 +5,19 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { readChat } from '../src/linkedin/chat';
-import { shownLines } from '../src/linkedin/dom';
-import { readPage } from '../src/linkedin/page';
-import type { ProfileRef, ReadResult } from '../src/linkedin/types';
-import { classifyUrl } from '../src/linkedin/urls';
+import { readChat } from '../src/networks/linkedin/chat';
+import { shownLines } from '../src/networks/linkedin/dom';
+import { readPage } from '../src/networks/linkedin/page';
+import type { ProfileRef, ReadResult } from '../src/networks/linkedin/types';
+import { classifyUrl } from '../src/networks/linkedin/urls';
 import {
   degreeOnly,
   isSentWhen,
   mutualCount,
   nameFrom,
   postTimeOf,
-} from '../src/linkedin/vocabulary';
-import { readWarnings } from '../src/linkedin/warnings';
+} from '../src/networks/linkedin/vocabulary';
+import { readWarnings } from '../src/networks/linkedin/warnings';
 import { load } from './load';
 
 const NOW = new Date('2026-10-15T12:00:00Z');

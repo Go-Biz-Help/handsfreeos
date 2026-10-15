@@ -12,7 +12,7 @@
  *    draws them (../facebook/chat.ts).
  *
  * Each message carries the day above it and its run's time: "Today at 2:15 PM", as Facebook prints its own, so
- * ../hfos/when.ts makes it last.
+ * ../../hfos/when.ts makes it last.
  */
 import { clean, elementsIn, outermost } from '../facebook/dom';
 import { measuredSide, type ChatOptions } from '../facebook/chat';

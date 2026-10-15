@@ -64,7 +64,7 @@ function rowOf(
 }
 
 /** Whether a row is an invitation to something other than connecting: it links to a page, an event, a newsletter. */
-function notToConnect(box: Element, base: string): boolean {
+export function notToConnect(box: Element, base: string): boolean {
   if (NOT_TO_CONNECT.test(box.textContent ?? '')) return true;
   return [...box.querySelectorAll('a[href]')].some((anchor) => {
     const url = linkedinUrl(anchor.getAttribute('href') ?? '', base);

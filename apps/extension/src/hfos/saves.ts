@@ -1,8 +1,10 @@
 /**
- * What the background sends HandsFreeOS for each step the person takes on Facebook and each friend request they
- * answer, and what the jobs save (friends and requests, groups and their members, posts, chats for the AI): the Social
+ * What the background sends HandsFreeOS for each step the person takes on a network and each request they answer,
+ * and what the jobs save (friends and requests, groups and their members, posts, chats for the AI): the Social
  * Outreach add-on's commands (packages/core/src/addons/outreach), built from what the page showed and cut to what
- * they take. Plain functions, so the tests check them.
+ * they take. Each says its network (`platform`), and takes only links and ids of that network's shapes (core's kit,
+ * `NETWORKS`): a step from a LinkedIn tab goes as LinkedIn's. The jobs' saves are Facebook's, as the jobs are. Plain
+ * functions, so the tests check them.
  */
 import {
   FRIENDS_SAVE_MOST,
@@ -11,12 +13,10 @@ import {
   INTRO_LINE_MOST,
   MESSAGE_MOST,
   NAME_MOST,
-  PROFILE_ID,
   RECENT_MESSAGES,
-  THREAD_KEY,
-  USERNAME,
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
+import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   TOUCH_COMMENT_MOST,
   TOUCH_POST_TEXT_MOST,
@@ -24,12 +24,19 @@ import {
 } from '@hfos/core/addons/outreach/activity';
 import { GROUP_PEOPLE_MOST, GROUPS_SAVE_MOST } from '@hfos/core/addons/outreach/groups';
 import { POST_TEXT_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
-import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
-import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../facebook/friends';
-import { runsGroup } from '../facebook/people';
-import type { ChatPage, GroupLink, Person, ProfileRef, ReadResult } from '../facebook/types';
-import { facebookUrl, pathParts, profileKey } from '../facebook/urls';
-import { parseCount } from '../facebook/vocabulary';
+import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
+import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../networks/facebook/friends';
+import { runsGroup } from '../networks/facebook/people';
+import type {
+  ChatPage,
+  GroupLink,
+  Person,
+  ProfileRef,
+  ReadResult,
+} from '../networks/facebook/types';
+import { facebookUrl, pathParts, profileKey } from '../networks/facebook/urls';
+import { parseCount } from '../networks/facebook/vocabulary';
+import { facebook } from '../networks/facebook/kit';
 import type {
   Business,
   ChatsCollectInput,
@@ -57,11 +64,15 @@ const clip = (text: string, most: number) => cut(text.replace(/\s+/g, ' ').trim(
 /** A message's words keep their lines: only the ends are trimmed. */
 const clipText = (text: string, most: number) => cut(text.trim(), most);
 
-/** A profile as HandsFreeOS takes it: by number, username, or both, and its link. */
-function ref(profile: ProfileRef): ProfileInput['profile'] {
+/** The network the jobs work on, and so their saves: Facebook's kit, for now. */
+const JOBS: Platform = facebook.platform;
+
+/** A profile as HandsFreeOS takes it: by its id, the name in its address, or both, each in its network's shape. */
+function ref(profile: ProfileRef, platform: Platform = JOBS): ProfileInput['profile'] {
+  const kit = NETWORKS[platform];
   return {
-    id: profile.id && PROFILE_ID.test(profile.id) ? profile.id : null,
-    username: profile.username && USERNAME.test(profile.username) ? profile.username : null,
+    id: profile.id && kit.profileId.test(profile.id) ? profile.id : null,
+    username: profile.username && kit.username.test(profile.username) ? profile.username : null,
     url: profile.url,
   };
 }
@@ -80,8 +91,13 @@ type Collected = ChatsCollectInput['chats'][number];
  * ones above the first time shown take that one; with no time on the page at all, `listed` (when the list of chats
  * says the last message was) stands for them. Null when it isn't one to read: a group chat, or no messages or time.
  */
-export function chatCollect(chat: ChatPage, now: Date, listed?: string | null): Collected | null {
-  if (!chat.thread || !THREAD_KEY.test(chat.thread.id)) return null;
+export function chatCollect(
+  chat: ChatPage,
+  now: Date,
+  listed?: string | null,
+  platform: Platform = JOBS,
+): Collected | null {
+  if (!chat.thread || !NETWORKS[platform].threadKey.test(chat.thread.id)) return null;
   const name = chat.name ? clip(chat.name, NAME_MOST) : '';
   if (!name) return null;
   // A group: more than one other person wrote.
@@ -105,61 +121,68 @@ export function chatCollect(chat: ChatPage, now: Date, listed?: string | null): 
   return {
     name,
     thread: { id: chat.thread.id, encrypted: chat.thread.encrypted },
-    profile: chat.profile ? ref(chat.profile) : null,
+    profile: chat.profile ? ref(chat.profile, platform) : null,
     messages,
   };
 }
 
-/** A Facebook address as HandsFreeOS takes one: on www.facebook.com, over https, and not too long. */
-const facebookAddress = (url: string | null) =>
-  url && url.length <= 500 && url.startsWith('https://www.facebook.com/') ? url : null;
+/** An address as HandsFreeOS takes one: on its network's own pages, over https (the kit's `link`), and not too long. */
+export const networkAddress = (url: string | null, platform: Platform = JOBS) =>
+  url && url.length <= 500 && NETWORKS[platform].link.test(url) ? url : null;
 
 const NOT_WHOSE = 'Couldn’t tell whose profile it was.';
 
 /** Who a step or an answer was to, as HandsFreeOS takes them: null when the page didn't give a profile it keeps. */
-function whom(to: Pick<Reached, 'name' | 'profile'>): Pick<TouchInput, 'profile' | 'name'> | null {
-  const profile = ref(to.profile);
+function whom(
+  to: Pick<Reached, 'name' | 'profile'>,
+  platform: Platform = JOBS,
+): Pick<TouchInput, 'profile' | 'name'> | null {
+  const profile = ref(to.profile, platform);
   const name = clip(to.name, NAME_MOST);
-  return (profile.id || profile.username) && facebookAddress(profile.url) && name
+  return (profile.id || profile.username) && networkAddress(profile.url, platform) && name
     ? { profile, name }
     : null;
 }
 
 /** A group as HandsFreeOS takes it: by its number, or by the name in its link when that's all the link showed. */
-function groupRef(group: StepGroup): TouchInput['group'] {
+function groupRef(group: StepGroup, platform: Platform = JOBS): TouchInput['group'] {
   const id = GROUP_ID.test(group.id) ? group.id : null;
   const slug = !id && GROUP_SLUG.test(group.id) ? group.id : null;
-  const url = facebookAddress(group.url);
+  const url = networkAddress(group.url, platform);
   if ((!id && !slug) || !url) return null;
   const name = group.name ? clip(group.name, NAME_MOST) : '';
   return { id, slug, url, name: name || null };
 }
 
 /**
- * A step the person took on Facebook, to note: who it was to, the group they were found in (the page's, or the one
- * the background remembers them by), and the post or chat, cut to what HandsFreeOS takes. Never what the person
- * wrote: only for a like or comment the extension made on its own, what the post said, the AI's comment and why.
+ * A step the person took on a network (Facebook unless said), to note: who it was to, the group they were found in
+ * (the page's, or the one the background remembers them by), and the post or chat, cut to what HandsFreeOS takes,
+ * each in that network's shapes. Never what the person wrote: only for a like or comment the extension made on its
+ * own, what the post said, the AI's comment and why.
  */
 export function touchSave(
   step: Step,
   workspaceId: string,
   remembered: StepGroup | null = null,
+  platform: Platform = JOBS,
 ): Built<TouchInput> {
-  const who = whom(step.to);
+  const who = whom(step.to, platform);
   if (!who) return { ok: false, why: NOT_WHOSE };
   const group = step.group ?? remembered;
   return {
     ok: true,
     input: {
       workspaceId,
-      platform: 'facebook',
+      platform,
       kind: step.kind,
       ...who,
-      group: group ? groupRef(group) : null,
+      group: group ? groupRef(group, platform) : null,
       postUrl:
-        step.kind === 'like' || step.kind === 'comment' ? facebookAddress(step.postUrl) : null,
+        step.kind === 'like' || step.kind === 'comment'
+          ? networkAddress(step.postUrl, platform)
+          : null,
       threadKey:
-        step.kind === 'message' && step.thread && THREAD_KEY.test(step.thread.id)
+        step.kind === 'message' && step.thread && NETWORKS[platform].threadKey.test(step.thread.id)
           ? step.thread.id
           : null,
       replying: step.kind === 'message' ? step.replying : null,
@@ -181,15 +204,22 @@ function words(text: string | null | undefined, most: number): string | null {
   return clip(text ?? '', most) || null;
 }
 
-/** The person's answer to a friend request they got, to note: Confirm or Delete, who asked, and their mutual friends. */
-export function friendNote(answered: Answered, workspaceId: string): Built<FriendNoteInput> {
-  const who = whom(answered.to);
+/**
+ * The person's answer to a request they got, to note: Confirm or Delete on Facebook, Accept or Ignore on LinkedIn, who
+ * asked, and their mutual friends or connections.
+ */
+export function friendNote(
+  answered: Answered,
+  workspaceId: string,
+  platform: Platform = JOBS,
+): Built<FriendNoteInput> {
+  const who = whom(answered.to, platform);
   if (!who) return { ok: false, why: NOT_WHOSE };
   return {
     ok: true,
     input: {
       workspaceId,
-      platform: 'facebook',
+      platform,
       answer: answered.answer,
       ...who,
       mutualFriends: mutual(answered.mutualFriends),
@@ -257,7 +287,7 @@ export function friendsSave(
   for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
     parts.push({
       workspaceId,
-      platform: 'facebook',
+      platform: JOBS,
       list,
       people: kept.slice(at, at + FRIENDS_SAVE_MOST),
     });
@@ -324,7 +354,7 @@ export function groupsSave(
   if (!kept.length) return { ok: false, why: 'There are no groups on the page to save.' };
   return {
     ok: true,
-    input: { workspaceId, platform: 'facebook', groups: kept.slice(0, GROUPS_SAVE_MOST) },
+    input: { workspaceId, platform: JOBS, groups: kept.slice(0, GROUPS_SAVE_MOST) },
   };
 }
 
@@ -363,7 +393,7 @@ export function groupSave(result: ReadResult, workspaceId: string): Built<GroupS
   });
   const facts = {
     workspaceId,
-    platform: 'facebook' as const,
+    platform: JOBS,
     group,
     privacy: page.privacy,
     members: page.members,
@@ -395,7 +425,7 @@ export function postsSave(
     return { ok: false, why: 'Open one of your groups to find posts in it.' };
   const seen = new Set<string>();
   const posts = (result.posts ?? []).flatMap((post) => {
-    const url = facebookAddress(post.url);
+    const url = networkAddress(post.url);
     const who = post.author?.profile
       ? whom({ name: post.author.name, profile: post.author.profile })
       : null;
@@ -419,7 +449,7 @@ export function postsSave(
     ok: true,
     input: {
       workspaceId,
-      platform: 'facebook',
+      platform: JOBS,
       group,
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found,

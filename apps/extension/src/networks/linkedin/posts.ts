@@ -100,7 +100,7 @@ function byMenus(root: Element): Element[] {
  * The post in a box: the box when it's an article; else the article in it that has its first link (a box LinkedIn
  * names may hold the post's article); else the box.
  */
-function postIn(box: Element): Element {
+export function postIn(box: Element): Element {
   if (box.matches(NESTED)) return box;
   const first = box.querySelector('a[href]');
   const article = outermost(box, NESTED)[0];

@@ -9,7 +9,7 @@ import {
   profileRefOf,
   threadOf,
   workUrl,
-} from '../src/linkedin/urls';
+} from '../src/networks/linkedin/urls';
 
 const parsed = <T>(read: (url: URL) => T, href: string): T | null => {
   const url = linkedinUrl(href);

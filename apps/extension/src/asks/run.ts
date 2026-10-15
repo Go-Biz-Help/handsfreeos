@@ -20,6 +20,8 @@
  * - **An end** is done only when the job did what was asked; stopped, warned or unable to (nothing to save, HandsFreeOS
  *   refusing a save, an error), it's failed, with the job's words.
  * - **Chrome closing mid-ask** leaves it under way; when the extension starts again it's ended as lost.
+ * - **Facebook's, for now:** the jobs work on Facebook. An ask on another network (HandsFreeOS hands those only to a
+ *   newer build) ends at once saying so, and nothing is opened for it.
  */
 import {
   ASK_CHATS,
@@ -77,6 +79,7 @@ import { profileEdit, profileRead } from '../jobs/profile';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
 import { tidy } from '../jobs/tidy';
+import { facebook, kitFor } from '../networks';
 import { WorkTab } from '../tab';
 
 /** While a step waits for the person, HandsFreeOS is asked for their answer this often. */
@@ -349,6 +352,15 @@ export function endOf(
   return { state: 'failed', line: sofar ? `${u.halted} ${sofar}` : u.halted };
 }
 
+/** Why this build can't do an ask on its network, in words: null on a network it does asks on (Facebook's). */
+export function notHereWords(ask: Pick<AskTaken, 'platform'>): string | null {
+  // A build of HandsFreeOS before networks didn't say: Facebook, the only one it knew.
+  const kit = kitFor(ask.platform ?? facebook.platform);
+  return kit.work
+    ? null
+    : `This build of the extension can’t do that on ${kit.network.name} yet. Download the newest one (the link is in Social Outreach’s setup, under Install the extension), unzip it over the old folder, and press Reload on Chrome’s Extensions page. Then ask again.`;
+}
+
 /** One ask, from taking it to its end. */
 async function runOne(place: Place, ask: AskTaken): Promise<void> {
   const u: Under = {
@@ -367,8 +379,10 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
   hearWarnings();
   let end: Ended;
   try {
-    const warned = onFacebook(ask.kind) ? await warnedToday(place) : null;
-    if (warned) end = { line: askWarnedLine(warned.words), warned: true, failed: true };
+    const notHere = notHereWords(ask);
+    const warned = notHere === null && onFacebook(ask.kind) ? await warnedToday(place) : null;
+    if (notHere !== null) end = { line: notHere, warned: false, failed: true };
+    else if (warned) end = { line: askWarnedLine(warned.words), warned: true, failed: true };
     else {
       if (turnHeldBy() === 'runner')
         await tell(u, 'working', 'Waiting for the extension to finish a step first…', true);

@@ -1,9 +1,9 @@
 # HandsFreeOS Social: the browser extension
 
-The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
-add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
+The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
+Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.29.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.34.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -20,6 +20,44 @@ Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it liv
 wait for you, and Chrome's pop-ups tell you of new ones, as your phone does. It never sends a message you haven't
 OK'd, and never clicks, scrolls or changes a page but for what you asked or let it do.
 
+On LinkedIn, once you turn it on in HandsFreeOS and let Chrome open LinkedIn to it, it notes the invitations to
+connect, likes, comments and messages you send yourself, and your answers to invitations; it tells HandsFreeOS who
+wrote back, and stops on LinkedIn for the day on any LinkedIn warning. That's all it does there for now (0.34.0):
+nothing on its own, and no asks.
+
+## The networks
+
+Each network is a kit (`src/networks/`; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "How it fits: one
+add-on, a kit per network"):
+its network from core (`NETWORKS` in `packages/core/src/addons/outreach/networks.ts`: its name, the start of its links,
+the shapes of its ids), its sites as Chrome's match patterns, what kind of page an address is, its readers and
+warnings, `workUrl`, noting your steps there, what to look at as you go, and the page outline (`src/networks/kit.ts`).
+A tab's kit is found by its address (`kitOf`), so the tab reads and notes by its own network's rules, and the
+background takes a tab's notes only from a network it knows, as that network's. What differs from one network to the
+next is in its kit, never in an `if`.
+
+| Network  | Folder                   | From install? | What it does there                                                                                   |
+| -------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------------- |
+| Facebook | `src/networks/facebook/` | Yes           | Everything below                                                                                     |
+| LinkedIn | `src/networks/linkedin/` | No: asked for | Reads its pages, notes your steps and who wrote back, and looks for its warnings; nothing on its own |
+
+**A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
+is on, and both must:
+
+- **HandsFreeOS:** you turned it on in your settings, and your business allows it (`rules.networksAllowed`), as the
+  extension follows them (`src/hfos/follow.ts`). Signed out, Facebook stays on, as it always was, and any other network
+  is off.
+- **Chrome:** LinkedIn's site (`https://www.linkedin.com/*`) is an optional host permission, asked for only once you
+  turn LinkedIn on, never at install, so an update never asks everyone again and the extension never runs on a site
+  you don't use. While LinkedIn is on in HandsFreeOS and Chrome hasn't allowed it yet, the panel says so in a line
+  with **Allow on LinkedIn**, which asks Chrome (Chrome asks only from your own click).
+
+The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
+settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script
+(`chrome.scripting.registerContentScripts`, the same `content.js`) only while both say so; it's unregistered as soon as
+either stops (`src/networks/scripts.ts`). A LinkedIn tab that was open before then gets it when it's next reloaded. A
+tab whose network was turned off since it loaded notes nothing, reads nothing, and answers only that it's off.
+
 ## What it reads
 
 | Page                                        | What it shows                                                                                        |
@@ -34,6 +72,11 @@ OK'd, and never clicks, scrolls or changes a page but for what you asked or let 
 | Chats, and an open chat                     | Each chat with its last message; an open chat's messages, who sent each, when                        |
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
+
+On LinkedIn (`src/networks/linkedin/`, read only while LinkedIn is on): a profile (yours too), your connections,
+people search, your invitations both ways, the feed, post search, a post's own page, a group, messaging's list and an
+open conversation, notifications, and LinkedIn's warnings. LinkedIn writes much of its text twice, once shown and once
+for screen readers: the readers read what's shown. As you go, only its warnings are looked at for now.
 
 Facebook loads lists as you scroll, so a reader only sees what's on the page; the jobs scroll for more. A group's
 People tab shows only a few of each list, admins and moderators too: its **See all** pages are read the same way.
@@ -142,17 +185,41 @@ Left out: other reactions than Like, steps to yourself, and a step it can't tie 
 card with several people. Popups and Facebook's other layouts may slip past; tell us what it missed, with an outline.
 Answers to requests aren't outreach, so they don't count toward the daily limits.
 
+**On LinkedIn** (`src/networks/linkedin/actions.ts`), while LinkedIn is on, the same steps, noted as LinkedIn's
+(`platform: 'linkedin'` on every save from a LinkedIn tab), by the same queue:
+
+| Step                  | Noted when you…                                                                                                          | To                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Invitation to connect | press **Connect**, then **Send without a note** or **Send** in the box LinkedIn opens; or Connect, when it sends at once | the profile it's at the top of (or under its **More**), or the one person its card names |
+| Like                  | press **Like** on a post or a comment, or pick a reaction over a post that has none of yours (not **Unreact**)           | whoever wrote the post or the comment                                                    |
+| Comment               | press **Comment** (or **Post**, **Reply**) under a box with something in it                                              | whoever wrote the post, or the comment you're replying under                             |
+| Message               | press **Send** in a conversation in LinkedIn messaging, or in a chat window over a page                                  | who it's with, with the conversation's id                                                |
+| Accept                | press **Accept** on an invitation you got, in My Network or at the top of their profile                                  | who sent it: as Confirm on Facebook                                                      |
+| Ignore                | press **Ignore** on one                                                                                                  | who sent it: as Delete on Facebook                                                       |
+
+- **Noted once it went.** LinkedIn mostly opens a box after Connect (Add a note, Send without a note): the invitation is
+  noted when that box sends it, with a note or without, and never for what the note says. When no box opens, it's
+  noted a moment later if the button no longer says Connect; a box left for 5 minutes, or one that names someone
+  else, notes nothing. Enter in a comment's or a message's box counts only once the box empties after it, since in
+  LinkedIn's boxes Enter may only start a new line; pressing the button after notes it once.
+- **Left out:** invitations to follow a page, go to an event or read a newsletter; a company's post; a chat with more
+  than one other person; a step to yourself (the name on the top bar's **Me**); groups, which aren't noted with a step
+  there yet.
+- **Who wrote back:** messaging's list, as you look at it, and the conversation open beside it, when the last line
+  isn't yours (`src/networks/linkedin/replies.ts`); never a group, and never what they wrote. Sent as LinkedIn's.
+
 Social Outreach's Live and Activity tabs show today's steps against the daily limits and who wrote back. **Note my
 steps on Facebook**, in your settings in HandsFreeOS, turns noting off and on; it starts on. When HandsFreeOS can't
 be reached, steps wait in the extension, up to 200, and go in order when it's back. Steps in the extension's own
 windows and tabs are its own, never noted as yours.
 
-**Who wrote back** (decision 22): while noting is on, each Facebook tab looks at the chats on the page as it changes,
-at most every 10 seconds and not in the 20 seconds after you send one: Messenger's list (a line that doesn't start
-"You"), the chat open on its page, and small chat windows over any page, where the last message is theirs
-(`src/facebook/replies.ts`). The background sends who (the chat's number or their profile, never what they wrote),
-only chats from the last two days and each at most every 3 minutes (`src/hfos/replies.ts`). HandsFreeOS counts one
-only when it answers a message of yours it noted, and tells your phone unless you had that tab in front of you.
+**Who wrote back** (decision 22): while noting is on, each tab looks at the chats on the page as it changes, at most
+every 10 seconds and not in the 20 seconds after you send one. On Facebook, Messenger's list (a line that doesn't
+start "You"), the chat open on its page, and small chat windows over any page, where the last message is theirs
+(`src/networks/facebook/replies.ts`); on LinkedIn, messaging's list and the conversation open beside it (above). The
+background sends who, as the tab's network's (the chat's id or their profile, never what they wrote), only chats from
+the last two days and each at most every 3 minutes (`src/hfos/replies.ts`). HandsFreeOS counts one only when it
+answers a message of yours it noted, and tells your phone unless you had that tab in front of you.
 
 ## What you can ask it from HandsFreeOS
 
@@ -166,26 +233,26 @@ checking and joining groups 0.22.0, putting a helpful post up 0.24.0, reading yo
 0.32.0) isn't asked of it: the button says to update
 the build, and how. A build that's handed a kind it doesn't know ends it saying so, and goes on to the next ask.
 
-| Button, and where                                                                          | What it does                                                                                                                                                                                                                                                                                                              | Where it works, and its pace                                                       |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Ask Facebook** (Friends, Let the extension get your file)                                | In Accounts Center's Export your information: keeps only Messages, Friends and Followers, sets All time, JSON and Lower quality, and starts the export; stops if Facebook is making one already                                                                                                                           | A tab you can see; you type your password there                                    |
-| **Download my file** (the same)                                                            | Once Facebook has emailed you, presses Download beside the file                                                                                                                                                                                                                                                           | The same                                                                           |
-| **Get my chat backup** (the same)                                                          | From ⋯ beside Chats, Privacy & safety, End-to-end encrypted chats, Message storage: downloads the backup from all time without media, for chats newer than the file has                                                                                                                                                   | The same; you type your PIN there                                                  |
-| **Bring them in** (the same)                                                               | Finds Facebook's zips in Chrome's downloads, however they were downloaded, reads them and sends names, dates and each one-to-one chat's latest 20 messages, as the Friends tab's card does (`src/jobs/file-in.ts`)                                                                                                        | The offscreen page (`src/offscreen.ts`); needs **Allow access to file URLs**       |
-| **Check my friend requests** (Friends)                                                     | Saves the friend requests you've got, a few screens of them (`src/jobs/people.ts`)                                                                                                                                                                                                                                        | A window of its own, 4 to 9 seconds a screen                                       |
-| **Save my friends list** (Friends)                                                         | Scrolls your friends list to the end and saves it, 500 at a time                                                                                                                                                                                                                                                          | The same, up to 150 screens                                                        |
-| **Check my friends** (Friends)                                                             | Asks HandsFreeOS who's next (friends you've chatted with first), opens each profile, checks it's them, reads their intro, latest posts and the business page it links to, and sends those lines for the AI (`src/jobs/checks.ts`, decision 46)                                                                            | A window of its own, one person every 15 to 30 seconds, up to 40 a day             |
-| **Check my groups** (Groups)                                                               | Asks HandsFreeOS which groups are next (yours first, then ones that fit by name), opens each, reads its latest posts, then its About tab (what it's for and its rules), and sends them for the AI (`src/jobs/groups-check.ts`, decision 48)                                                                               | A window of its own, one group every 8 to 16 seconds, up to 8 (4 a day on its own) |
-| **Find and join more groups**, **Ask to join** (Groups)                                    | Asks HandsFreeOS which groups to join (with none, searches with your playbook's words and checks the best 3 first), presses **Join group**, writes in the AI's answers to its questions, ticks that you agree to the rules, submits, and notes how it went (`src/jobs/join.ts`, `src/facebook/join.ts`)                   | A window of its own, one group every 20 to 40 seconds, up to 3 a day               |
-| **OK, post it** (Today, a helpful post)                                                    | Opens the group, presses **Write something…**, types the post you OK'd into the box Facebook opens, presses **Post**, finds it at the top of the newest posts for its link, and notes it (`src/jobs/helpful.ts`, `src/facebook/compose.ts`, decision 50)                                                                  | A window of its own, one post                                                      |
-| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`)                                                                          | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day        |
-| **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                                                                                                  | A window of its own, 4 to 9 seconds a screen, 8 screens                            |
-| **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                                                                                                   | A window of its own                                                                |
-| **Find posts** (Groups)                                                                    | Your Work these groups (or Maybe, with none), up to 5, each feed scrolled a screen at a time; the posts worth a look go to the AI, and the good ones on Today (`src/jobs/posts.ts`)                                                                                                                                       | The same, 6 to 12 seconds a screen, 8 screens a group                              |
-| **Read my chats** (Chats)                                                                  | Opens your chats in Messenger one at a time from the list and scrolls it for more, skipping any read in the last day that hasn't changed; group chats are left out (`src/jobs/chats.ts`)                                                                                                                                  | The same, 7 to 14 seconds a chat, up to 150                                        |
-| **Draft a message**, **Draft a comment** (Today, while it's online)                        | Opens their profile, reads their intro and latest posts and the business page their intro links to, then has the AI draft with those lines; the drafts come back on the ask (`src/jobs/lookup.ts`)                                                                                                                        | A window of its own, closed after                                                  |
-| **Read my profile** (Today, Get ready)                                                     | Opens facebook.com/me, checks it's your own (**Edit profile**), reads the picture's and the cover's descriptions, the bio, the intro, what's featured and the latest posts, and sends them for the AI's check; HandsFreeOS keeps only the AI's answer (`src/jobs/profile.ts`, `src/facebook/own-profile.ts`, decision 64) | A window of its own, one read                                                      |
-| **Put this one in** (Today, Get ready, a bio the AI wrote)                                 | Presses **Edit bio** (or **Add bio**), writes the bio you picked in place of the old one, presses **Save** and waits for it to show, then reads the profile again; with no Edit bio it hands the step to you                                                                                                              | A window of its own                                                                |
+| Button, and where                                                                          | What it does                                                                                                                                                                                                                                                                                                                       | Where it works, and its pace                                                       |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Ask Facebook** (Friends, Let the extension get your file)                                | In Accounts Center's Export your information: keeps only Messages, Friends and Followers, sets All time, JSON and Lower quality, and starts the export; stops if Facebook is making one already                                                                                                                                    | A tab you can see; you type your password there                                    |
+| **Download my file** (the same)                                                            | Once Facebook has emailed you, presses Download beside the file                                                                                                                                                                                                                                                                    | The same                                                                           |
+| **Get my chat backup** (the same)                                                          | From ⋯ beside Chats, Privacy & safety, End-to-end encrypted chats, Message storage: downloads the backup from all time without media, for chats newer than the file has                                                                                                                                                            | The same; you type your PIN there                                                  |
+| **Bring them in** (the same)                                                               | Finds Facebook's zips in Chrome's downloads, however they were downloaded, reads them and sends names, dates and each one-to-one chat's latest 20 messages, as the Friends tab's card does (`src/jobs/file-in.ts`)                                                                                                                 | The offscreen page (`src/offscreen.ts`); needs **Allow access to file URLs**       |
+| **Check my friend requests** (Friends)                                                     | Saves the friend requests you've got, a few screens of them (`src/jobs/people.ts`)                                                                                                                                                                                                                                                 | A window of its own, 4 to 9 seconds a screen                                       |
+| **Save my friends list** (Friends)                                                         | Scrolls your friends list to the end and saves it, 500 at a time                                                                                                                                                                                                                                                                   | The same, up to 150 screens                                                        |
+| **Check my friends** (Friends)                                                             | Asks HandsFreeOS who's next (friends you've chatted with first), opens each profile, checks it's them, reads their intro, latest posts and the business page it links to, and sends those lines for the AI (`src/jobs/checks.ts`, decision 46)                                                                                     | A window of its own, one person every 15 to 30 seconds, up to 40 a day             |
+| **Check my groups** (Groups)                                                               | Asks HandsFreeOS which groups are next (yours first, then ones that fit by name), opens each, reads its latest posts, then its About tab (what it's for and its rules), and sends them for the AI (`src/jobs/groups-check.ts`, decision 48)                                                                                        | A window of its own, one group every 8 to 16 seconds, up to 8 (4 a day on its own) |
+| **Find and join more groups**, **Ask to join** (Groups)                                    | Asks HandsFreeOS which groups to join (with none, searches with your playbook's words and checks the best 3 first), presses **Join group**, writes in the AI's answers to its questions, ticks that you agree to the rules, submits, and notes how it went (`src/jobs/join.ts`, `src/networks/facebook/join.ts`)                   | A window of its own, one group every 20 to 40 seconds, up to 3 a day               |
+| **OK, post it** (Today, a helpful post)                                                    | Opens the group, presses **Write something…**, types the post you OK'd into the box Facebook opens, presses **Post**, finds it at the top of the newest posts for its link, and notes it (`src/jobs/helpful.ts`, `src/networks/facebook/compose.ts`, decision 50)                                                                  | A window of its own, one post                                                      |
+| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`)                                                                                   | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day        |
+| **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                                                                                                           | A window of its own, 4 to 9 seconds a screen, 8 screens                            |
+| **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                                                                                                            | A window of its own                                                                |
+| **Find posts** (Groups)                                                                    | Your Work these groups (or Maybe, with none), up to 5, each feed scrolled a screen at a time; the posts worth a look go to the AI, and the good ones on Today (`src/jobs/posts.ts`)                                                                                                                                                | The same, 6 to 12 seconds a screen, 8 screens a group                              |
+| **Read my chats** (Chats)                                                                  | Opens your chats in Messenger one at a time from the list and scrolls it for more, skipping any read in the last day that hasn't changed; group chats are left out (`src/jobs/chats.ts`)                                                                                                                                           | The same, 7 to 14 seconds a chat, up to 150                                        |
+| **Draft a message**, **Draft a comment** (Today, while it's online)                        | Opens their profile, reads their intro and latest posts and the business page their intro links to, then has the AI draft with those lines; the drafts come back on the ask (`src/jobs/lookup.ts`)                                                                                                                                 | A window of its own, closed after                                                  |
+| **Read my profile** (Today, Get ready)                                                     | Opens facebook.com/me, checks it's your own (**Edit profile**), reads the picture's and the cover's descriptions, the bio, the intro, what's featured and the latest posts, and sends them for the AI's check; HandsFreeOS keeps only the AI's answer (`src/jobs/profile.ts`, `src/networks/facebook/own-profile.ts`, decision 64) | A window of its own, one read                                                      |
+| **Put this one in** (Today, Get ready, a bio the AI wrote)                                 | Presses **Edit bio** (or **Add bio**), writes the bio you picked in place of the old one, presses **Save** and waits for it to show, then reads the profile again; with no Edit bio it hands the step to you                                                                                                                       | A window of its own                                                                |
 
 - **One at a time, never beside the runner.** Asks take turns with the runner on Facebook (`src/auto/turns.ts`): the
   runner waits ("Doing what you asked from HandsFreeOS first") and carries on after. Asks go outside your working
@@ -207,8 +274,12 @@ the build, and how. A build that's handed a kind it doesn't know ends it saying 
   yours goes as anyone else's: its end waits until you're back. A stopped ask ends with why and how far it got
   ("Stopped: you pressed Stop for today. Requests cancelled: 2 people.").
 - **Only Facebook's pages:** the extension's own tab opens only https addresses on www.facebook.com,
-  web.facebook.com and accountscenter.facebook.com (`workUrl` in `src/facebook/urls.ts`, checked in `src/tab.ts`), so
-  a bad link kept in HandsFreeOS or read off a page is refused with plain words and never opened.
+  web.facebook.com and accountscenter.facebook.com (Facebook's kit's `workUrl`, in `src/networks/facebook/urls.ts`,
+  checked in `src/tab.ts`, whose tab goes by its kit), so a bad link kept in HandsFreeOS or read off a page is refused
+  with plain words and never opened.
+- **Facebook's, for now:** the asks and the runner work on Facebook only. An ask made on LinkedIn (HandsFreeOS hands
+  those only to a newer build, `ASK_NETWORK_SINCE`) ends at once saying how to update, and nothing is opened for it;
+  a LinkedIn tab answers none of their steps (only Facebook's kit has `work`, `src/networks/facebook/work.ts`).
 - **Done or not:** an ask is **Done** only when its job did what was asked. Stopped, warned, or unable to (nothing to
   save, HandsFreeOS refusing a save, a page that didn't load) it ends as failed, with the job's words.
 - **What it keeps:** `hfos.ask` and `hfos.ask.ends` above, and `hfos.facebookFile`: when you asked Facebook for your
@@ -217,10 +288,11 @@ the build, and how. A build that's handed a kind it doesn't know ends it saying 
 
 ## Reading as you go
 
-In the Facebook tab in front of you, panel open or not, the content script looks at the page as it settles, every
-10 seconds at most (`src/facebook/looking.ts`), and the background notes what it found (`src/hfos/looked.ts`):
+In the tab in front of you, panel open or not, on a network that's on, the content script looks at the page as it
+settles, every 10 seconds at most (its kit's `lookFor`; Facebook's in `src/networks/facebook/looking.ts`), and the
+background notes what it found (`src/hfos/looked.ts`):
 
-- **Facebook's warnings**, always (below).
+- **The network's warnings**, always (below). On LinkedIn, only these for now.
 - **A chat you open**, while noting and **Read chats as I open them** are on (both start on): its latest messages go
   for the AI to read when there's something new, one chat per person, joining what the file brought in.
 - **A group's posts as you scroll**, while noting and **Look for posts as I scroll a group** are on: the posts that
@@ -307,7 +379,7 @@ the AI's first comment draft into the post's own box and sends it, then checks i
 extension's own. Anything not as expected is passed over for the day, with why in the panel's line. It keeps your
 daily limits (the list never holds more than they have room for), stops for the day on any Facebook warning, and works
 only while Chrome is open, you're signed in and noting is on (`src/auto/run.ts`, `src/auto/plan.ts`,
-`src/facebook/auto.ts`, `src/panel/status.ts`). On Today in HandsFreeOS what it does says **Done on its own**, and
+`src/networks/facebook/auto.ts`, `src/panel/status.ts`). On Today in HandsFreeOS what it does says **Done on its own**, and
 your phone's morning push leaves those out. What you ask of it from HandsFreeOS goes first: the runner waits for it
 and carries on after.
 
@@ -373,15 +445,22 @@ background keeps it (`src/hfos/waiting.ts`), and the panel draws it (`src/panel/
   whose it is (you and the business). `hfos.waiting` is the steps waiting to be sent (src/hfos/noting.ts), not this;
   Today's count of them leaves out the steps handed to you.
 
-## Facebook's warnings
+## Each network's warnings
 
-Any warning it sees ("You’re temporarily blocked", "going too fast", a security check), in the tab in front of you or
-one it works in, is noted in HandsFreeOS once a day for the same words (`src/hfos/looked.ts`, `outreach.warning.note`,
-decision 25). The extension then stops for the day: nothing done on its own, and no ask on Facebook (bringing in
-your file still works). It keeps the day's warnings itself (`hfos.warned`, `src/hfos/warned.ts`), so it stops even
-when HandsFreeOS can't be reached, and a warning seen on another of your computers stops it too. For 7 days your
-daily limits are halved, and for 2 friend requests are off your list. A red note says so under **Right now**, and on
+Any warning it sees ("You’re temporarily blocked", "going too fast", a security check; on LinkedIn the weekly
+invitation limit, a restricted account, a security check, the search limit), in the tab in front of you or one it
+works in, is noted in HandsFreeOS as that network's, once a day for the same words (`src/hfos/looked.ts`,
+`outreach.warning.note` with its `platform`, decision 25). The extension then stops on that network for the day:
+nothing done on its own there, and no ask there (bringing in your Facebook file still works). It keeps each network's
+warnings apart (`hfos.warned`, by network, `src/hfos/warned.ts`; one kept by a build before networks is Facebook's), so
+it stops even when HandsFreeOS can't be reached, and a Facebook warning seen on another of your computers stops it
+there too. For 7
+days your daily limits there are halved, and for 2 friend requests or invitations are off your list. A red note says
+so: Facebook's under **Right now**, another network's in its own line in the panel (`src/panel/networks.ts`), and on
 the web.
+
+**A warning on one network never stops another** (Chris's rule): a LinkedIn warning stops only LinkedIn, and
+Facebook's runner and asks go on; a Facebook warning leaves LinkedIn as it was.
 
 ## Load it in Chrome
 
@@ -411,6 +490,8 @@ To load your own build:
 3. Pin it from the puzzle-piece menu, open facebook.com, and press its button: the side panel opens beside the page.
 4. To bring in your Facebook file from your downloads, press **Details** on its card and turn on **Allow access to
    file URLs**.
+5. For LinkedIn: turn it on in HandsFreeOS (Social Outreach → Settings), then press **Allow on LinkedIn** in the panel
+   and **Allow** in Chrome's box. Reload any LinkedIn tab that was open before.
 
 After a rebuild, press the reload arrow on the extension's card. A Facebook tab that was open before the extension was
 loaded gets the reader when it's next reloaded, or the first time the extension asks it to read.
@@ -437,19 +518,35 @@ build after it signs in to the API on port 4000.
 ## When it reads a page wrong
 
 **Copy page outline** and **Save page outline**, under **Something look wrong on this page? Tell us** at the foot of
-the panel, give the
-page's structure as plain text: tags, roles, Facebook's own words and labels, and the shape of every link.
+the panel, give the structure of the page beside it, on a network that's on, as plain text: tags, roles, the network's
+own words and labels, and the shape of every link (`src/networks/outline.ts`, with each kit's words: Facebook's
+`outline.ts`, LinkedIn's `outline.ts`).
 Everything a person wrote becomes `[2 words]`, and the people, groups and chats that links lead to become `{1}`, `{2}`…, the same number each time the
 same one comes up. With the reader's counts at the top, that's enough to see what Facebook changed and fix the reader.
 
 ## Rules worth knowing before changing anything
 
-- **Addresses first.** `src/facebook/urls.ts` decides what kind of page it is and what each link points to. Facebook
-  changes its page code every week and its addresses hardly ever, so anything a link can tell, a link tells.
-- **Never a class name.** Facebook's are scrambled and change constantly. The readers use links, roles, ARIA labels,
-  headings and Facebook's own words (`src/facebook/vocabulary.ts`), in English for now.
+- **A kit per network.** Everything that differs between networks is in its kit (`src/networks/`): its sites, its
+  addresses, its readers, its steps, its outline. A tab's network is found by its address, never by what the tab
+  says, and every save says its network (`platform`), with its links and ids checked against core's kit
+  (`NETWORKS[platform].link`, `src/hfos/saves.ts`).
+- **A network that's off runs nothing.** LinkedIn's site is only ever an optional host permission, asked for from the
+  panel once it's on in HandsFreeOS, and its script is registered only while both say so (`src/networks/scripts.ts`).
+  Nothing of the extension's is ever listed in `web_accessible_resources`: LinkedIn's pages look for extensions by the
+  files they show. `test/manifest.test.ts` holds this.
+- **LinkedIn, said plainly.** Its terms forbid software that automates it, and it restricts accounts it thinks are
+  automated. So on LinkedIn the extension notes only what the person presses, reads only as they go, and builds
+  nothing to get around its limits or its checks. What it does on its own there comes later, as the plan says, and
+  stays the person's choice.
+- **Each network on its own.** A warning or a stop on one network never affects another: each network's warnings are
+  kept apart (`hfos.warned`), and the runner and the asks look only at Facebook's.
+- **Addresses first.** Each kit's `urls.ts` (`src/networks/facebook/urls.ts`, `src/networks/linkedin/urls.ts`)
+  decides what kind of page it is and what each link points to. The networks change their page code every week and
+  their addresses hardly ever, so anything a link can tell, a link tells.
+- **Never a class name.** Facebook's and LinkedIn's are scrambled and change constantly. The readers use links, roles,
+  ARIA labels, headings and the network's own words (each kit's `vocabulary.ts`), in English for now.
 - **Found by its link.** A person, group or chat is found by the link to it, and read from the largest box around that
-  link that holds no link to anything else of the same sort (`collectLinked` in `src/facebook/dom.ts`).
+  link that holds no link to anything else of the same sort (`collectLinked` in `src/networks/facebook/dom.ts`).
 - **Page order, not the boxes around things.** An outline leaves out the bare boxes Facebook wraps around everything,
   so a reader never counts on what sits directly inside or beside an element: it goes by what comes before or after
   it on the page (`isBefore`, `elementsAfter`). `test/boxes.test.ts` reads every test page again with a bare box around
@@ -458,7 +555,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   job, the runner), and in the tab in front of the person it looks at the page as it settles for Facebook's warnings
   and, as the switches say, the chat open and a group's posts (`lookFor`); never in the extension's own work tabs.
   Besides that it only listens for the person's own clicks and Enter presses (`isTrusted`, never the page's), works out from the page
-  around them whether one was a step and who to (`src/facebook/actions.ts`), and tells the background. It never reads
+  around them whether one was a step and who to (`src/networks/facebook/actions.ts`), and tells the background. It never reads
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rules. What it does on its
   own keeps the owner's decisions: off by default, the daily limits, and a stop for the day on any Facebook warning.
 - **Scrolling groups only when asked, slowly.** **Find posts** (`src/jobs/posts.ts`) only scrolls a group's own
@@ -468,15 +565,15 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   when asked (`scrollPage`, only on those pages). The look-up before drafting (`src/jobs/lookup.ts`) only opens and
   reads two pages in a window of its own, then closes it; none of these go on a day Facebook warned you.
 - **Opening chats only when asked, slowly.** **Read my chats** (`src/jobs/chats.ts`) clicks the chat links in
-  Messenger's own list and scrolls that list (`src/facebook/browse.ts`), nothing else: never a button, never a box to
+  Messenger's own list and scrolls that list (`src/networks/facebook/browse.ts`), nothing else: never a button, never a box to
   type in. One chat every 7 to 14 seconds, at most 150 a run (60 once a day on its own), and it stops at once on a
   Facebook warning.
-- **Pressing only on the download pages, only when asked.** `src/facebook/fetch.ts` presses Facebook's buttons only
+- **Pressing only on the download pages, only when asked.** `src/networks/facebook/fetch.ts` presses Facebook's buttons only
   on Accounts Center's download pages and the chats (`fetchPage`), only for an ask the person made in HandsFreeOS,
   and only what's in the box on top, never behind it. It never types: a password or PIN box on the page makes it
   wait for the person. Each step lists the words it may go by, the likeliest first, and one it can't find is handed
   to the person rather than guessed. `test/fetch.test.ts` walks a made-up Accounts Center, and again with bare boxes.
-- **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/facebook/tidy.ts`) press only
+- **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/networks/facebook/tidy.ts`) press only
   on a profile (`tidyPage`) the person ticked on the Friends tab, and only those still on its lists, after checking
   it's them (`sameProfile`) and where things
   stand. The first press is a button under their name, never a link or the Friends tab (`buttonsOnly`); Unfriend and
@@ -487,7 +584,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   (`chrome.alarms`), with its state in the extension's storage. It presses Add friend and Confirm the way tidying
   presses (`AUTO_PLANS`, a button under their name, Confirm in the menu Respond opens), Like only on the first post
   on the profile that's theirs and isn't liked yet, and types a comment only in the post's own box, never a reply's,
-  sending it with its button or Enter (`src/facebook/auto.ts`). Its presses aren't the person's, so the content
+  sending it with its button or Enter (`src/networks/facebook/auto.ts`). Its presses aren't the person's, so the content
   script doesn't notice them; the runner notes each one itself, marked `auto`. It sends a message only once
   HandsFreeOS says it's OK'd (`outreach.send.*`, `workLeft`): it drafts it with the AI after looking the person up in
   its own window, queues it, and sends what's OK'd in their chat in Messenger, or the chat window their profile's
@@ -520,7 +617,11 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   sending it again gets the first answer (`src/hfos/noting.ts`). Waiting steps live in the extension's storage and
   go oldest first; one HandsFreeOS refuses is let go and shown as **Not saved**, with why.
 - **Steps are found like pages are read:** by the button's label, the links around it and page order, never class
-  names. `test/actions.test.ts` takes each step on the hand-written pages, and again with bare boxes around everything.
+  names. `test/actions.test.ts` takes each step on the hand-written pages, and again with bare boxes around everything;
+  `test/linkedin-actions.test.ts` does LinkedIn's both ways in one.
+- **A step is noted once it went.** Where a page shows only a moment later whether a press sent anything (LinkedIn's
+  Connect and its box, Enter in a LinkedIn box), the kit says what to look at, and the tab looks then (`maybe` in
+  `src/networks/kit.ts`).
 - **The background worker holds the sign-in.** It keeps the Supabase session in the extension's own storage and
   makes every call to HandsFreeOS (`src/hfos/session.ts`); the panel asks it (`src/hfos/messages.ts`), and it
   answers only the extension's own pages. The offscreen page answers only the extension's messages meant for it.
@@ -529,19 +630,22 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   (`packages/core/src/addons/outreach/limits.ts`, which has no zod so the extension stays small), and keeps a chat's save
   under the API's 256 KB limit by sending the newest messages that fit.
 - **Each reader checks itself.** When a page should have something and the reader finds none, it says so and asks for
-  the outline (`src/facebook/page.ts`).
+  the outline (`src/networks/facebook/page.ts`).
 - **An outline never holds what a person wrote.** `test/outline.test.ts` checks that no name, message or id survives.
 - **No remote code.** Everything ships in the bundle; the stores forbid downloading code.
-- **No real Facebook pages in the repo.** The pages in `test/fixtures` are written by hand to look like Facebook's.
-  A saved real page holds other people's names and messages, so tune the readers from outlines instead.
+- **No real pages in the repo.** The pages in `test/fixtures` are written by hand to look like Facebook's and
+  LinkedIn's, with made-up people. A saved real page holds other people's names and messages, so tune the readers from
+  outlines instead.
 
 ## Where things are
 
 | Path                                        | What it is                                                                                                                                             |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/facebook/`                             | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps, what to look at as you go     |
-| `src/content.ts`                            | The script in each Facebook tab: reads the page when asked, looks at the tab in front of you as it settles, and notices your steps                     |
-| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up with Start, Stop and an ask under way, and Done today, `waiting.ts` Needs you             |
+| `src/networks/`                             | A kit per network (`kit.ts`, `index.ts`), which are on (`on.ts`), LinkedIn's script kept in step (`scripts.ts`), the outline (`outline.ts`)            |
+| `src/networks/facebook/`                    | Facebook's kit: one reader per kind of page, the steps, the addresses, its words, the outline, the download steps, the runner's and asks' (`work.ts`)  |
+| `src/networks/linkedin/`                    | LinkedIn's kit: its readers, the steps you take there (`actions.ts`), who wrote back, its words, its warnings and its outline                          |
+| `src/content.ts`                            | The script in each tab of a network that's on, by its kit: reads the page when asked, looks at the tab in front of you, and notices your steps         |
+| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `waiting.ts` Needs you   |
 | `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                    |
 | `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                        |
 | `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks       |
@@ -555,10 +659,13 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/hfos/waiting.ts`                       | Needs you: the number on the icon and Chrome's pop-ups                                                                                                 |
 | `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                              |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks |
-| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                  |
+| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                  |
 | `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                 |
 
 ## Next
 
-Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest of decisions 26 to 35); Social
-Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac follows in Phase 2.
+LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): turning it on in the app, then its asks
+(its lists, its file, checks, chats, look-ups, the profile), what it does on its own there with a line of its own
+beside Facebook's, and growing. Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
+of decisions 26 to 35); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
+follows in Phase 2.

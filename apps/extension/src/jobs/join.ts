@@ -11,8 +11,8 @@
  * Each ask is noted, with the answers given. It stops for the day on any Facebook warning.
  */
 import { JOIN_QUESTION_MOST, type JoinAnswered } from '@hfos/core/addons/outreach/group-checks';
-import type { JoinStep } from '../facebook/join';
-import { line } from '../facebook/lookup';
+import type { JoinStep } from '../networks/facebook/join';
+import { line } from '../networks/facebook/lookup';
 import type { JoinsNext } from '../hfos/messages';
 import { counted } from '../words';
 import { saveGroups } from './groups';

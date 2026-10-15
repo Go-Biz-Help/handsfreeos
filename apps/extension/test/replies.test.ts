@@ -1,10 +1,10 @@
 /**
- * Replies on the page (src/facebook/replies.ts) and what the background sends of them (src/hfos/replies.ts): the chats
+ * Replies on the page (src/networks/facebook/replies.ts) and what the background sends of them (src/hfos/replies.ts): the chats
  * whose last message is theirs, in Messenger's list, an open chat and a small chat window; only lately, each once in a
  * while, and only who.
  */
 import { describe, expect, it } from 'vitest';
-import { readReplies, type ReplySighting } from '../src/facebook/replies';
+import { readReplies, type ReplySighting } from '../src/networks/facebook/replies';
 import {
   isRepliesNote,
   REPLY_AGAIN_MS,

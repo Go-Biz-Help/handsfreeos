@@ -4,7 +4,7 @@
  * it again, or let it go.
  */
 import { describe, expect, it } from 'vitest';
-import type { Answered, Seen, Step, StepGroup } from '../src/facebook/actions';
+import type { Answered, Seen, Step, StepGroup } from '../src/networks/facebook/actions';
 import {
   GROUPS_MOST,
   isTabNote,

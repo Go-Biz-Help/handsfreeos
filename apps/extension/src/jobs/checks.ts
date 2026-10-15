@@ -15,9 +15,9 @@ import {
 } from '@hfos/core/addons/outreach/checks';
 import type { ChecksNext } from '../hfos/messages';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
-import { samePerson } from '../facebook/auto';
-import { linesOf, pageHeading, POSTS_READ } from '../facebook/lookup';
-import { profileFromUrl, workUrl } from '../facebook/urls';
+import { samePerson } from '../networks/facebook/auto';
+import { linesOf, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
+import { profileFromUrl, workUrl } from '../networks/facebook/urls';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 

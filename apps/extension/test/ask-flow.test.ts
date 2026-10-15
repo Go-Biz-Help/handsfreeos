@@ -295,6 +295,38 @@ describe('an ask from taking it to its end', () => {
     ]);
   });
 
+  it('keeps going on a LinkedIn warning: a warning on one network never stops another', async () => {
+    const { running } = await start();
+    await chrome.storage.local.set({
+      [WARNED_KEY]: {
+        linkedin: {
+          day: new Date().toLocaleDateString('en-CA'),
+          words: ['You’ve reached the weekly invitation limit'],
+        },
+      },
+    });
+    // Heard and looked at: Facebook's day is as it was.
+    await new Promise((done) => setTimeout(done, 20));
+    expect(job!.stopped()).toBe(false);
+    letGo!();
+    await running;
+    expect(ends()).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+  });
+
+  it('ends an ask on LinkedIn at once, with no job and nothing opened: the jobs are Facebook’s', async () => {
+    let given = false;
+    answers['/v1/commands/outreach.ask.take'] = () => {
+      const ask = given ? null : { ...taken, platform: 'linkedin' };
+      given = true;
+      return { status: 200, data: { ask, waiting: 0 } };
+    };
+    await runAsks();
+    expect(job).toBeNull();
+    expect(ends()).toEqual([
+      { state: 'failed', line: expect.stringContaining('can’t do that on LinkedIn yet') },
+    ]);
+  });
+
   it('ends on a warning seen on another of the person’s computers, as the beat says', async () => {
     const { running } = await start();
     const {

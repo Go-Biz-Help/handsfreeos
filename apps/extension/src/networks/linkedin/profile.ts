@@ -171,6 +171,28 @@ function whoseProfile(
   return profile && id && !profile.id ? { ...profile, id } : profile;
 }
 
+/** The profile's name, its top card's heading, and where the top card ends: the first section's heading below it. */
+function topOf(headings: readonly Element[]): {
+  readonly heading: Element | null;
+  readonly end: Element | null;
+} {
+  const heading =
+    headings.find((h) => h.tagName === 'H1' && isNameLike(shownText(h, CONTROLS))) ?? null;
+  const end =
+    headings.find((h) => (!heading || isAfter(h, heading)) && SECTIONS.test(shownText(h))) ?? null;
+  return { heading, end };
+}
+
+/**
+ * Whether something is in a profile's top card, above its sections (About, Activity, Experience…): its buttons there
+ * (Connect, Accept, and those under More) are about whoever the profile is.
+ */
+export function inTopCard(element: Element, root: Element): boolean {
+  if (!root.contains(element)) return false;
+  const { end } = topOf(headingsIn(root));
+  return !end || isAfter(end, element);
+}
+
 export function readProfile(
   root: Element,
   address: PageAddress,
@@ -178,10 +200,7 @@ export function readProfile(
   title = '',
 ): ProfilePage {
   const headings = headingsIn(root);
-  const heading =
-    headings.find((h) => h.tagName === 'H1' && isNameLike(shownText(h, CONTROLS))) ?? null;
-  const end =
-    headings.find((h) => (!heading || isAfter(h, heading)) && SECTIONS.test(shownText(h))) ?? null;
+  const { heading, end } = topOf(headings);
   const controls = controlsIn(root, end);
   const profile = whoseProfile(
     address,
