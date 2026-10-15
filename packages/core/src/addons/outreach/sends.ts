@@ -129,7 +129,7 @@ export const SendQueueInput = z.object({
   profileId: z.uuid(),
   kind: z.enum(MESSAGE_KINDS),
   chatId: z.uuid().nullable().default(null),
-  threadKey: z.string().max(64).nullable().default(null),
+  threadKey: z.string().max(128).nullable().default(null),
   text: words,
   opener: DraftOpener.nullable().default(null),
   /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */

@@ -5,15 +5,11 @@
  * the web's editor, the extension and the server all read it.
  */
 import { z } from 'zod';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import { VideoLink, VideoScript } from './video';
 
-/**
- * The social networks it knows (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md). Facebook works; LinkedIn is
- * known so each network's day, limits and warnings can be kept apart, and nothing reads or saves a LinkedIn page yet.
- */
-export const PLATFORMS = { facebook: 'Facebook', linkedin: 'LinkedIn' } as const;
-export type Platform = keyof typeof PLATFORMS;
-export const PLATFORM_KEYS = Object.keys(PLATFORMS) as [Platform, ...Platform[]];
+/** The social networks it knows, each with its kit in ./networks.ts. */
+export { PLATFORM_KEYS, PLATFORMS, type Platform };
 
 /** What a playbook is after. */
 export const PLAYBOOK_GOALS = {

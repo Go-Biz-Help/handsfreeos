@@ -1220,10 +1220,28 @@ code" (decision 45's install step). Settled too:
   `warnDay`), and a day's steps count against that network's limits alone (`dayCounts`, through the touch's profile).
   A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
   kept apart, but nothing reads or saves a LinkedIn page yet: the live view, the team's, the activity panel, the
-  checks, joining groups and every ask are Facebook's, and so are training wheels, which only Facebook's warning puts
-  back on until each network has its own settings. A new place that reads a warning, a day or the day's counts names
-  its network. Until the one-a-person key on `days` goes (the migration after 20261027006800), a person keeps one
-  day row, so a day on a second network can't be kept beside a Facebook one yet.
+  checks, joining groups and every ask are Facebook's. A new place that reads a warning, a day or the day's counts
+  names its network.
+- **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
+  on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
+  (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, joining
+  groups, watching for posts, helpful posts), kept in `automation.networks` and off to start (20261027007100). Read
+  one network's with `choicesFor`, or `automationOf(ctx, me, now, platform)`, never the top-level fields for a network
+  that isn't Facebook. The business allows networks (`rules.networksAllowed`, every one to start, Facebook always)
+  and sets each other network's limits under its starting ones (`rules.networkLimits`); a network it stops allowing
+  reads as off (`withinRules`), and turning one on that it doesn't allow is refused (`not_allowed`). Each network's
+  training wheels are its own (`automation.network_wheels`, Facebook's in the wheels columns): choosing (b) on
+  LinkedIn starts LinkedIn's, its messages count toward them (`countWheels` by the message's network), LinkedIn's
+  warning puts back only LinkedIn's (`wheelsBackOn`), and `outreach.wheels.end` and `outreach.wheels` take and give
+  the network. A network that's off has no day to start (`outreach_network_off`) and nothing done on its own.
+- **Each network has its kit** (`networks.ts`, `NETWORKS`): its name, the start of its links, the shape of a
+  profile's id and name and a chat's id, how many friends it allows, its starting daily limits (LinkedIn's: 15
+  invitations, at most 80 in any 7 days, 15 first messages, 20 follow-ups, 10 comments, 30 likes, 40 profiles read,
+  20 old invitations withdrawn), and its words for a friend, a friend request and its messaging. What differs from one
+  network to the next goes there, never into an `if`. Saves take a link and ids of any network it knows
+  (`NetworkUrl`, `ThreadKey`), and every save that keeps a profile refuses one that isn't on the network named
+  (`requireFits`, `profileMisfit`, `outreach_wrong_network`). The database keeps ids to short, plain characters
+  (20261027006900).
 - **A heartbeat tells nobody:** a beat that changes nothing writes only `last_seen_at`: no event, no broadcast and no
   command receipt (`receipt: false`). A feed line, a new state, a different working computer or coming back online
   tells the app once; a new line alone at most every 45 seconds (the extension sends one at most every 20), and a

@@ -545,6 +545,7 @@ const AUTOMATION: AutomationOutput = {
   startedAt: null,
   saved: false,
   wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+  networkWheels: { linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 } },
   userId: ME,
   name: 'Dana Reyes',
   changedBy: null,
@@ -553,6 +554,8 @@ const AUTOMATION: AutomationOutput = {
     repliesAllowed: ['draft'],
     postingAllowed: ['copy'],
     dailyLimits: {},
+    networksAllowed: ['facebook', 'linkedin'],
+    networkLimits: {},
   },
 };
 

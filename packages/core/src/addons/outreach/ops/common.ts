@@ -22,6 +22,7 @@ import { countryRuleOn, type CountryRule } from '../countries';
 import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
+import { profileMisfit } from '../networks';
 import { PLATFORMS, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
@@ -175,6 +176,18 @@ export interface ProfileKey {
 }
 
 /**
+ * Refuses a profile that isn't on the network it was sent for (`profileMisfit`): its link on another network's pages,
+ * or an id or name of another network's shape. Every save that keeps a profile asks first.
+ */
+export function requireFits(
+  platform: Platform,
+  profile: ProfileKey & { readonly url: string },
+): void {
+  const misfit = profileMisfit(platform, profile);
+  if (misfit) throw HfosError.rule('outreach_wrong_network', 400, misfit);
+}
+
+/**
  * The profiles saved here that a page's profile is: by its number, or by its username. Two can come back when a
  * profile was saved once by each; the one by number comes first, since a username can change hands and a number can't.
  */
@@ -233,6 +246,7 @@ export async function saveProfile(
   const ws = ctx.scope.workspaceId!;
   const at = changeMoment(ctx.meta);
   const me = userIdOf(ctx.actor);
+  requireFits(input.platform, input.profile);
   const found = await profilesFor(ctx, input.platform, input.profile);
   const had = found[0] ?? null;
 
@@ -339,6 +353,7 @@ export async function keptProfile(
   fresh: Partial<ProfileRow> = {},
   then?: (had: Profile) => Partial<ProfileRow>,
 ): Promise<Profile> {
+  requireFits(input.platform, input.profile);
   const found = await profilesFor(ctx, input.platform, input.profile);
   const had = found[0];
   if (!had) {

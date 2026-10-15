@@ -12,9 +12,9 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
-import { FRIENDS_CAP, limitNow, TIDY_LIMITS, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
+import { limitNow, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
 import { outreachAddon } from '../manifest';
-import type { Platform } from '../playbooks';
+import { NETWORKS, type Platform } from '../networks';
 import { friendEnds, warnings } from '../tables';
 import {
   FriendEndInput,
@@ -135,7 +135,8 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     );
     const weeks = outreachSettings(installed?.settings).cancelRequestsAfterWeeks;
     const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
-    const slower = await slowerFor(ctx, me, slowsNow(warning, now), now);
+    const slower = await slowerFor(ctx, me, slowsNow(warning, now), now, input.platform);
+    const kit = NETWORKS[input.platform];
     const done = await endsToday(ctx, me, todayFrom);
 
     const cancel = await rows<Found>(
@@ -221,11 +222,11 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
       cancelAfterWeeks: weeks,
       needsFile,
       limits: tidyLimits(done, {
-        cancel_request: limitNow(TIDY_LIMITS.cancel_request, slower),
-        unfriend: limitNow(TIDY_LIMITS.unfriend, slower),
+        cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
+        unfriend: limitNow(kit.tidyLimits.unfriend, slower),
       }),
       friends: counted?.friends ?? 0,
-      cap: FRIENDS_CAP,
+      cap: kit.friendsCap,
       warning,
     };
   },
@@ -314,10 +315,9 @@ export const warningNote = defineAddonCommand(outreachAddon, {
       url: input.url,
       at,
     });
-    // Training wheels go back on for 7 days, for anyone who ever had them. They're the network's: the person's
-    // settings, and the wheels with them, are Facebook's until each network has its own, so only Facebook's
-    // warning touches them.
-    if (input.platform === 'facebook') await wheelsBackOn(ctx, me);
+    // Training wheels go back on for 7 days on this network, for anyone who ever had them there. Their other
+    // networks' stay as they were.
+    await wheelsBackOn(ctx, me, input.platform);
     // The network's day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs
     // follows it. The person's other networks go on.
     await warnDay(ctx, me, input.platform, at, words[0]!, await workspaceTimezone(ctx.tx, ws));

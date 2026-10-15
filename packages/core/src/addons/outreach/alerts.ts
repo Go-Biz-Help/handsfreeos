@@ -16,7 +16,8 @@
 import { z } from 'zod';
 import { addDays, localDateOf, localInstant } from '../../calendar/engine/zoned';
 import { MORNING_PUSH_HOUR } from './chat-read';
-import { PersonName, ProfileRef } from './saves';
+import { PLATFORM_KEYS } from './networks';
+import { PersonName, ProfileRef, ThreadKey } from './saves';
 import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 
 export { MORNING_PUSH_HOUR };
@@ -42,12 +43,8 @@ export const MORNING_ACTIVE_DAYS = 14;
 export const ReplySeen = z
   .object({
     name: PersonName,
-    /** The chat's number, from its link, when the page showed one. */
-    threadKey: z
-      .string()
-      .regex(/^[0-9]{1,30}$/)
-      .nullable()
-      .default(null),
+    /** The chat's id, from its link, when the page showed one. */
+    threadKey: ThreadKey.nullable().default(null),
     profile: ProfileRef.nullable().default(null),
   })
   .refine((s) => s.threadKey !== null || s.profile !== null, {
@@ -60,6 +57,8 @@ export const REPLIES_MOST = 20;
 
 export const RepliesNoteInput = z.object({
   workspaceId: z.uuid(),
+  /** The network the chats are on. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   seen: z.array(ReplySeen).min(1).max(REPLIES_MOST),
   /** The person had that tab in front of them: it's noted, but their phone isn't buzzed. */
   looking: z.boolean().default(false),

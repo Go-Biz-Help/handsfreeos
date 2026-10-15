@@ -419,6 +419,10 @@ export const warningPushWords = (
   body: `The extension stopped on ${PLATFORMS[platform]} for today.`,
 });
 
+/** Why Start my day can't start on a network the person doesn't work: where to turn it on. */
+export const networkOffWords = (platform: Platform): string =>
+  `${PLATFORMS[platform]} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → My settings.`;
+
 /** Why Start my day stays refused after a warning: on the network that showed it, until tomorrow. */
 export const warnedTodayWords = (platform: Platform = 'facebook'): string => {
   const network = PLATFORMS[platform];

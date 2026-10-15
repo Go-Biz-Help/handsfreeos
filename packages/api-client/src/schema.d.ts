@@ -7247,7 +7247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * An owner or admin ends someone’s training wheels early: their messages go without waiting for them, and their daily limits are full again.
+         * An owner or admin ends someone’s training wheels early on one network: their messages there go without waiting for them, and their daily limits there are full again.
          * @description Risk level 1. Requires outreach.manage. Emits outreach.wheels.ended.
          */
         post: operations["command_outreach_wheels_end"];
@@ -34868,6 +34868,59 @@ export interface operations {
                         joinGroups?: boolean;
                         /** @default true */
                         markPosts?: boolean;
+                        networks?: {
+                            /**
+                             * @default {
+                             *       "on": true
+                             *     }
+                             */
+                            facebook?: {
+                                /** @default true */
+                                on?: boolean;
+                            };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok"
+                             *     }
+                             */
+                            linkedin?: {
+                                /** @default true */
+                                collect?: boolean;
+                                /** @default true */
+                                confirmRequests?: boolean;
+                                /** @default true */
+                                joinGroups?: boolean;
+                                /** @default false */
+                                on?: boolean;
+                                /**
+                                 * @default after_ok
+                                 * @enum {string}
+                                 */
+                                posting?: "copy" | "after_ok" | "own";
+                                /**
+                                 * @default draft
+                                 * @enum {string}
+                                 */
+                                replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @default true */
+                                warmUp?: boolean;
+                                /** @default true */
+                                watchPosts?: boolean;
+                            };
+                        };
                         /** @default true */
                         noting?: boolean;
                         /**
@@ -34920,6 +34973,15 @@ export interface operations {
                     "application/json": {
                         changedBy: string | null;
                         name: string;
+                        networkWheels: {
+                            linkedin: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                        };
                         rules: {
                             dailyLimits: {
                                 comment?: number;
@@ -34928,6 +34990,16 @@ export interface operations {
                                 friend_request?: number;
                                 like?: number;
                             };
+                            networkLimits: {
+                                linkedin?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                            };
+                            networksAllowed: ("facebook" | "linkedin")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -34948,6 +35020,77 @@ export interface operations {
                             joinGroups: boolean;
                             /** @default true */
                             markPosts: boolean;
+                            /**
+                             * @default {
+                             *       "facebook": {
+                             *         "on": true
+                             *       },
+                             *       "linkedin": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
+                             *       }
+                             *     }
+                             */
+                            networks: {
+                                /**
+                                 * @default {
+                                 *       "on": true
+                                 *     }
+                                 */
+                                facebook: {
+                                    /** @default true */
+                                    on: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                linkedin: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                };
+                            };
                             /** @default true */
                             noting: boolean;
                             /**
@@ -37210,6 +37353,11 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     looking?: boolean;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     seen: {
                         name: string;
                         /** @default null */
@@ -37726,6 +37874,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -64866,6 +65019,15 @@ export interface operations {
                     "application/json": {
                         changedBy: string | null;
                         name: string;
+                        networkWheels: {
+                            linkedin: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                        };
                         rules: {
                             dailyLimits: {
                                 comment?: number;
@@ -64874,6 +65036,16 @@ export interface operations {
                                 friend_request?: number;
                                 like?: number;
                             };
+                            networkLimits: {
+                                linkedin?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                            };
+                            networksAllowed: ("facebook" | "linkedin")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -64894,6 +65066,77 @@ export interface operations {
                             joinGroups: boolean;
                             /** @default true */
                             markPosts: boolean;
+                            /**
+                             * @default {
+                             *       "facebook": {
+                             *         "on": true
+                             *       },
+                             *       "linkedin": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
+                             *       }
+                             *     }
+                             */
+                            networks: {
+                                /**
+                                 * @default {
+                                 *       "on": true
+                                 *     }
+                                 */
+                                facebook: {
+                                    /** @default true */
+                                    on: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                linkedin: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                };
+                            };
                             /** @default true */
                             noting: boolean;
                             /**
@@ -66996,6 +67239,11 @@ export interface operations {
                     "application/json": {
                         people: {
                             name: string;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             userId: string;
                             wheels: {

@@ -46,6 +46,7 @@ import {
   neverContactOf,
   once,
   pitchable,
+  requireFits,
   type Profile,
   type ProfileKey,
 } from './common';
@@ -140,6 +141,7 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const people = eachOnce(input.people);
+    for (const p of people) requireFits(input.platform, p.profile);
     return once(async () => {
       const ids = people.flatMap((p) => (p.profile.id ? [p.profile.id] : []));
       const usernames = people.flatMap((p) =>
