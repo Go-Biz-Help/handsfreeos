@@ -13,8 +13,11 @@ import {
   AiSetupFinishOutput,
   AiSetupSaveInput,
   AiSetupSaveOutput,
+  AiTeammateAnswerFeedbackInput,
   AiTeammateDecideDraftInput,
   AiTeammateDecideDraftOutput,
+  AiTeammateFeedbackOutput,
+  AiTeammateGiveFeedbackInput,
   AiTeammateSetStatusInput,
   AiTeammateSetStatusOutput,
   AppointmentCancelInput,
@@ -155,6 +158,8 @@ import {
   TaskUpdateOutput,
   TeammateLessonApplyInput,
   TeammateLessonApplyOutput,
+  TeammateLessonDismissInput,
+  TeammateLessonDismissOutput,
   UserPhoneStartVerificationInput,
   UserPhoneStartVerificationOutput,
   UserUpdateProfileInput,
@@ -404,10 +409,23 @@ export const PHONE_COMMANDS = {
   // it's finished, Save, and turning the teammate on. Online: what each screen shows next comes from HandsFreeOS.
   'ai_setup.finish': command(ONLINE, AiSetupFinishInput, AiSetupFinishOutput),
   'ai_setup.save': command(ONLINE, AiSetupSaveInput, AiSetupSaveOutput),
+  // Feedback on a reply the AI teammate wrote, and the answer to its one quick question about it
+  // (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md). Online: what it learns comes back from HandsFreeOS while the
+  // person waits, and a thumbs down that waited would teach it late.
+  'ai_teammate.answer_feedback': command(
+    ONLINE,
+    AiTeammateAnswerFeedbackInput,
+    AiTeammateFeedbackOutput,
+  ),
   'ai_teammate.decide_draft': command(
     FRESH,
     AiTeammateDecideDraftInput,
     AiTeammateDecideDraftOutput,
+  ),
+  'ai_teammate.give_feedback': command(
+    ONLINE,
+    AiTeammateGiveFeedbackInput,
+    AiTeammateFeedbackOutput,
   ),
   'ai_teammate.set_status': command(ONLINE, AiTeammateSetStatusInput, AiTeammateSetStatusOutput),
   'appointment.cancel': command(FRESH, AppointmentCancelInput, AppointmentCancelOutput),
@@ -703,9 +721,16 @@ export const PHONE_COMMANDS = {
   'task.delete': command(ANYTIME, TaskDeleteInput, TaskDeleteOutput),
   'task.reopen': command(ANYTIME, TaskReopenInput, TaskReopenOutput),
   'task.update': command(ANYTIME, TaskUpdateInput, TaskUpdateOutput),
-  // A lesson from correcting the AI, added to what it knows from its Home card. Never queued: it can go against
-  // what the AI knows, and whether the old words are still there is the server's to say at the moment it's pressed.
+  // A lesson from correcting the AI, added to what it knows from its Home card or from feedback on a reply. Never
+  // queued: it can go against what the AI knows, and whether the old words are still there is the server's to say at
+  // the moment it's pressed.
   'teammate_lesson.apply': command(ONLINE, TeammateLessonApplyInput, TeammateLessonApplyOutput),
+  // Not now, or Keep what's there, on a rule the AI suggested from feedback: decided on HandsFreeOS, as saving it is.
+  'teammate_lesson.dismiss': command(
+    ONLINE,
+    TeammateLessonDismissInput,
+    TeammateLessonDismissOutput,
+  ),
   'user_phone.start_verification': command(
     ONLINE,
     UserPhoneStartVerificationInput,

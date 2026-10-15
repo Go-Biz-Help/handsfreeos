@@ -31,6 +31,7 @@ import {
   PhoneIncoming,
   PhoneOff,
   PhoneOutgoing,
+  RotateCcw,
   Send,
   ShieldCheck,
   Sparkles,
@@ -59,6 +60,8 @@ import { matchesSearch } from '@/sync/compute';
 import { cn } from '@/lib/utils';
 import { useColors } from '@/theme';
 
+import { ReplyFeedback } from './reply-feedback';
+
 /**
  * The AI teammate's test console on the phone: everything the web's has (apps/web/src/components/ai-team/
  * test-console.tsx). Write as someone in Contacts or an unknown visitor, by text, chat or email, or play a phone
@@ -66,7 +69,8 @@ import { useColors } from '@/theme';
  * for a campaign), now or at a pretend time. The reply streams in, and "What Ava did" shows what it looked up, the
  * knowledge it used, the checks it passed, and anything it would have done. Look-ups are real, changes are
  * pretend, and nothing is sent. It tests the saved settings: the builder is on the web. On a call, the mic talks
- * out loud: say what the caller says, and hear the teammate answer in its phone voice.
+ * out loud: say what the caller says, and hear the teammate answer in its phone voice. Each reply takes a thumbs up
+ * or down, and a written one can be tried again with the fix (`ReplyFeedback`).
  */
 
 /** A customer it can be, with what a search matches. */
@@ -99,6 +103,7 @@ const LOG_ICONS: Readonly<Record<LogIcon, LucideIcon>> = {
   send: Send,
   wait: Info,
   error: CircleAlert,
+  retry: RotateCcw,
 };
 
 const TONES: Readonly<Record<LogTone, string>> = {
@@ -214,7 +219,7 @@ export function TestConsoleView({
               </Text>
             ) : null}
             {c.turns.map((t) => (
-              <TurnBubbles key={t.id} turn={t} name={name} who={c.who} />
+              <TurnBubbles key={t.id} turn={t} name={name} c={c} />
             ))}
             {c.phone && !c.onCall && !c.busy ? (
               <View className="mt-3 items-center gap-3">
@@ -327,7 +332,8 @@ export function TestConsoleView({
   );
 }
 
-function TurnBubbles({ turn: t, name, who }: { turn: Turn; name: string; who: string }) {
+function TurnBubbles({ turn: t, name, c }: { turn: Turn; name: string; c: TestConsoleState }) {
+  const who = c.who;
   return (
     <>
       {t.customer ? (
@@ -377,6 +383,17 @@ function TurnBubbles({ turn: t, name, who }: { turn: Turn; name: string; who: st
                 </Tag>
               ))}
             </View>
+          ) : null}
+          {t.done && t.runId && t.reply.trim() && !t.error ? (
+            <ReplyFeedback
+              state={c.feedback}
+              reply={t.reply}
+              runId={t.runId}
+              asked={t.customer || null}
+              onRetry={
+                t.kind === 'written' && !c.busy ? (coaching) => c.retry(t, coaching) : undefined
+              }
+            />
           ) : null}
         </View>
       )}

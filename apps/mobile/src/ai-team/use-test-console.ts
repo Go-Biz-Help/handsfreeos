@@ -12,6 +12,7 @@ import * as React from 'react';
 
 import { useVoice } from '@/voice/use-voice';
 
+import { useReplyFeedback, type Coaching } from './feedback';
 import { firstName, historyOf, newTurn, stepTurn, type Turn } from './test-console';
 import { streamTest, TestConsoleError, type TestFailure } from './test-stream';
 
@@ -28,6 +29,10 @@ export interface TestPerson {
  *
  * On a call, talking out loud plays it for real, as on the web: the manager says what the caller says, and hears
  * each reply in the teammate's own phone voice, then it listens again, until the call ends.
+ *
+ * Each reply takes feedback, as on the web (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md): thumbs up or down on its
+ * run, and "Retry with the fix" runs a written turn again with what the person said about it, after the turns before
+ * it; the turns after it go.
  */
 export function useTestConsole(workspaceId: string, name: string) {
   const [person, setPersonRaw] = React.useState<TestPerson | null>(null);
@@ -113,8 +118,15 @@ export function useTestConsole(workspaceId: string, name: string) {
   const update = (id: string, fn: (t: Turn) => Turn) =>
     setTurns((xs) => xs.map((x) => (x.id === id ? fn(x) : x)));
 
-  /** Sends what they wrote or said; with no words on a call, starts it (and starts it over when asked). */
-  async function run(raw: string, restart = false) {
+  /**
+   * Sends what they wrote or said; with no words on a call, starts it (and starts it over when asked). `again` is
+   * "Retry with the fix": the same message after the turns before it, with the feedback on the reply it gave.
+   */
+  async function run(
+    raw: string,
+    restart = false,
+    again?: { readonly before: readonly Turn[]; readonly coaching: Coaching },
+  ) {
     const message = raw.trim();
     const kind = phone ? (message ? 'call' : 'greeting') : 'written';
     if ((kind !== 'greeting' && !message) || (busy && !restart)) return;
@@ -122,7 +134,7 @@ export function useTestConsole(workspaceId: string, name: string) {
     // Typed while it listened or spoke: that turn is the one going now.
     if (voice.phase === 'listening' || voice.phase === 'speaking') voice.quiet();
     voice.thinking();
-    const before = restart ? [] : turns;
+    const before = again ? again.before : restart ? [] : turns;
     const id = Crypto.randomUUID();
     setTurns([
       ...before,
@@ -134,6 +146,7 @@ export function useTestConsole(workspaceId: string, name: string) {
         who: person ? firstName(person.name) : null,
         name,
         outbound,
+        again: again ? { better: again.coaching.better, why: again.coaching.why } : undefined,
       }),
     ]);
     setText('');
@@ -154,6 +167,7 @@ export function useTestConsole(workspaceId: string, name: string) {
             ...historyOf(before),
             ...(message ? [{ from: 'customer' as const, text: message }] : []),
           ].slice(-TEST_MESSAGES_MAX),
+          coaching: again?.coaching ?? null,
         },
         (e) => update(id, (t) => stepTurn(t, e)),
         ctrl.signal,
@@ -189,6 +203,18 @@ export function useTestConsole(workspaceId: string, name: string) {
 
   const send = (raw: string) => void run(raw);
   const startCall = () => void run('', true);
+  /** "Retry with the fix": that turn again, with the feedback on its reply; the turns after it go. */
+  const retry = (t: Turn, coaching: Coaching) => {
+    const at = turns.findIndex((x) => x.id === t.id);
+    if (at < 0 || busy) return;
+    void run(t.customer, false, { before: turns.slice(0, at), coaching });
+  };
+  // The console needs ai_team.manage, so whoever tests may save what it learns.
+  const feedback = useReplyFeedback(
+    workspaceId,
+    { runIds: turns.flatMap((t) => (t.runId && t.done ? [t.runId] : [])) },
+    { canSaveRules: true },
+  );
   /** The latest `send`, for a turn heard after the screen has moved on. */
   const sendRef = React.useRef(send);
   sendRef.current = send;
@@ -292,6 +318,9 @@ export function useTestConsole(workspaceId: string, name: string) {
     startCall,
     stop,
     startOver,
+    /** Feedback on each reply, and "Retry with the fix". */
+    feedback,
+    retry,
     /** Talking out loud on a call. */
     voice,
     voiceSnap,

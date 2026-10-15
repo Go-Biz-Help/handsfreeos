@@ -159,6 +159,7 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'ai_teammate.status_changed',
   'teammate_lesson.found',
   'teammate_lesson.applied',
+  'teammate_lesson.dismissed',
   'knowledge_scan.finished',
   'knowledge_suggestion.proposed',
   'knowledge_suggestion.accepted',

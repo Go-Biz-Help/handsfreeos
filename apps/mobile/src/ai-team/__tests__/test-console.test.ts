@@ -12,7 +12,8 @@ import {
 
 /**
  * The phone's test console, worked out: each worker event grows the turn the way the web's console does, a call's
- * greeting and goodbye read as a call, and what goes back to the worker is the test so far.
+ * greeting and goodbye read as a call, and what goes back to the worker is the test so far. A turn keeps the run that
+ * wrote it, for feedback, and "Retry with the fix" says so on its first line.
  */
 
 const AT = '2026-09-25T15:00:00.000Z';
@@ -61,6 +62,7 @@ describe('a written turn', () => {
       },
     ]);
     expect(t.reply).toBe('You’re booked for Thu 10 AM.');
+    expect(t.runId).toBe('r1');
     expect(t.would).toEqual(['Would have: booked Thu 10 AM on Tune-ups (simulated)']);
     expect(t.log.map((l) => l.title)).toEqual([
       'Omar texted',
@@ -75,6 +77,43 @@ describe('a written turn', () => {
     expect(t.log[2]!.knowledge).toEqual(['Prices']);
     expect(t.log[5]!.detail).toBe('2 checks passed');
     expect(turnMeta(t)).toBe('2 look-ups · 1.4 s');
+  });
+
+  it('says it tried again with the feedback, for Retry with the fix', () => {
+    const fresh = turn('written', 'Are you open Sunday?');
+    expect(fresh.runId).toBeNull();
+    const again = newTurn({
+      id: 't-again',
+      kind: 'written',
+      message: 'Are you open Sunday?',
+      channel: 'sms',
+      who: 'Omar',
+      name: 'Ava',
+      outbound: false,
+      now: AT,
+      again: { better: 'We’re closed Sundays.', why: 'We don’t work Sundays' },
+    });
+    expect(again.customer).toBe('Are you open Sunday?');
+    expect(again.log).toEqual([
+      expect.objectContaining({
+        tone: 'ai',
+        icon: 'retry',
+        title: 'Tried again with your feedback',
+        detail: 'We’re closed Sundays. · We don’t work Sundays',
+      }),
+    ]);
+    const onlyWhy = newTurn({
+      id: 't-why',
+      kind: 'written',
+      message: 'Hi',
+      channel: 'sms',
+      who: null,
+      name: 'Ava',
+      outbound: false,
+      now: AT,
+      again: { better: null, why: 'Too long' },
+    });
+    expect(onlyWhy.log[0]!.detail).toBe('Too long');
   });
 
   it('says why the test stopped', () => {

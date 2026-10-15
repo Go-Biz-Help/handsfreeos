@@ -472,9 +472,9 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
-  // Adding the line changes what the AI knows: knowledge.manage, like any knowledge edit.
+  // Saving the line adds to the AI teammate's instructions: ai_team.manage, like its other settings.
   ai_corrections: {
-    handle: [ITEM, 'knowledge.manage'],
+    handle: [ITEM, 'ai_team.manage'],
     let_handle: null,
     assign: null,
     snooze: [ITEM],
@@ -579,7 +579,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   connection_error: 'Reconnect',
   connection_silent: 'Check it',
   ai_unreviewed: 'Review',
-  ai_corrections: 'Add to what the AI knows',
+  ai_corrections: 'Add to its instructions',
   website_changed: 'Review updates',
   faq_suggestions: 'Answer',
   offer_lapsing: 'Open the promotion',

@@ -4,7 +4,7 @@
  * to the context: its goal and the business's note. Customer data is quoted as data, as in prompt.ts. The
  * scripted stand-in (ai/scripted.ts) recognises these turns by their closing lines.
  */
-import { quoteData, type AiTeammateGoal } from '@hfos/core/server';
+import { quoteData, type AiTeammateGoal, type TestCoaching } from '@hfos/core/server';
 import { clockLabel, dayLabel } from '../assistant/calendar-format';
 import type { RunContext } from './context';
 import { historyBlock } from './prompt';
@@ -45,6 +45,20 @@ export function handoverLines(h: Handover): string[] {
 export interface Retry {
   readonly reason: string | null;
   readonly draft: string | null;
+}
+
+/**
+ * The lines the test console's "Retry with the fix" adds: what the person said about the reply it gave this turn
+ * before. Quoted as data, like a "Try again" reason; it holds for this turn only.
+ */
+export function coachingLines(c: TestCoaching | null): string[] {
+  if (!c || (!c.better && !c.why)) return [];
+  return [
+    'A person testing you didn’t like how you answered this before. Answer again with their feedback in mind.',
+    ...(c.reply ? [`What you said before: ${quoteData(c.reply)}`] : []),
+    ...(c.better ? [`What they’d rather you said: ${quoteData(c.better)}`] : []),
+    ...(c.why ? [`Why: ${quoteData(c.why)}`] : []),
+  ];
 }
 
 /** The lines a "Try again" adds to the context. The reason and the old draft are quoted as data. */

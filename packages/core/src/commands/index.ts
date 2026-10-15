@@ -394,7 +394,13 @@ import {
 } from './attention';
 import { automationsSaveSettings } from './automations';
 import { referralCreateLead } from './referral';
-import { teammateLessonApply } from './teammate-lesson';
+import { teammateLessonApply, teammateLessonDismiss } from './teammate-lesson';
+import { aiTeammateAnswerFeedback, aiTeammateGiveFeedback } from './teammate-feedback';
+import {
+  teammateInstructionCreate,
+  teammateInstructionDelete,
+  teammateInstructionUpdate,
+} from './teammate-instruction';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
 import { aiCallCommands } from './ai-call';
@@ -1005,6 +1011,13 @@ export const commands: readonly CommandDef[] = [
   automationsSaveSettings,
   referralCreateLead,
   teammateLessonApply,
+  teammateLessonDismiss,
+  // Feedback on the AI teammate's replies, and its Instructions list (20261027006700).
+  aiTeammateGiveFeedback,
+  aiTeammateAnswerFeedback,
+  teammateInstructionCreate,
+  teammateInstructionUpdate,
+  teammateInstructionDelete,
   ...campaignCommands,
   ...aiCallCommands,
   // The AI's pass over the whole customer list, putting tags on and off (0107).
@@ -1174,6 +1187,8 @@ export * from './attention';
 export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
+export * from './teammate-feedback';
+export * from './teammate-instruction';
 export * from './campaign';
 export * from './ai-call';
 export * from './contact-ai';

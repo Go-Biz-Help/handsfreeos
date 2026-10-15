@@ -45,7 +45,7 @@ import { onCampaignCreated, onCampaignPace, onCampaignSending } from '../automat
 import { onAiCallEnded, onMissedCallForAi, onQuoteNudgedForAi } from '../ai-calls/index';
 import { onExpiringArm } from '../automations/expiring';
 import { onHandoffNudge } from '../automations/handoff';
-import { onConnectionBroke, onCorrection } from '../automations/health';
+import { onConnectionBroke, onCorrection, onFeedback } from '../automations/health';
 import { onArmJobCheck, onStillGoing } from '../automations/job-check';
 import { onCallPromise, onMessagePromise } from '../automations/promises';
 import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
@@ -352,6 +352,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'ai_teammate.drafted': onExpiringArm,
     // Automations' "Learn from corrections": each edit or rejection is read right away (automations/health.ts).
     'ai_teammate.draft_decided': onCorrection,
+    // Feedback on a reply: a thumbs down that says something is read into a rule or one question back.
+    'ai_teammate.feedback_given': onFeedback,
+    'ai_teammate.feedback_answered': onFeedback,
     // Automations' "Outreach campaigns": the AI writes each text, then they go a few an hour once approved
     // (automations/campaigns.ts).
     'campaign.created': onCampaignCreated,

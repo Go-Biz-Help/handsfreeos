@@ -23,6 +23,11 @@ import { ideaQueries } from './ideas';
 import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
+import {
+  aiTeammateFeedbackList,
+  aiTeammateReview,
+  teammateInstructionList,
+} from './teammate-feedback';
 import { aiSetupGet, aiSetupTemplateList } from './ai-setup';
 import { onboardingSetupGet } from './onboarding-setup';
 import {
@@ -339,6 +344,9 @@ export const queries: readonly QueryDef[] = [
   aiTeammateGet,
   aiTeammateDraftList,
   aiTeammateActivity,
+  aiTeammateFeedbackList,
+  aiTeammateReview,
+  teammateInstructionList,
   aiSetupGet,
   aiSetupTemplateList,
   chatWidgetList,
@@ -437,6 +445,9 @@ export {
   aiTeammateGet,
   aiTeammateDraftList,
   aiTeammateActivity,
+  aiTeammateFeedbackList,
+  aiTeammateReview,
+  teammateInstructionList,
   aiSetupGet,
   aiSetupTemplateList,
   onboardingSetupGet,

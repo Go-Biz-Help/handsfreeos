@@ -511,9 +511,9 @@ export function attentionTargetOf(
       return { href: `${base}/settings`, label: 'Open settings' };
     }
     case 'ai_unreviewed':
-      return { href: `${base}/ai-team`, label: 'Open the AI teammate' };
+      return { href: `${base}/ai-team/review`, label: 'Review its replies' };
     case 'ai_corrections':
-      return { href: `${base}/knowledge/profile`, label: 'Open what the AI knows' };
+      return { href: `${base}/ai-team/instructions`, label: 'Open its instructions' };
     case 'website_changed':
       return { href: `${base}/knowledge/suggestions?reason=scan`, label: 'Open the updates' };
     case 'faq_suggestions':
@@ -671,7 +671,7 @@ export function handleButtonOf(
     case 'ai_corrections':
       return lessonKnowsOtherwise(item)
         ? { label: 'Use the new one', icon: 'check' }
-        : { label: 'Add to what the AI knows', icon: 'check' };
+        : { label: 'Add to its instructions', icon: 'check' };
     case 'website_changed':
       return { label: 'Review updates', icon: 'file-text' };
     case 'faq_suggestions':

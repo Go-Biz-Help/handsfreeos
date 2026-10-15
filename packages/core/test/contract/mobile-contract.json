@@ -1121,6 +1121,28 @@
         "required": ["workspaceId", "step", "answers"]
       }
     },
+    "ai_teammate.answer_feedback": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "feedbackId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["workspaceId", "feedbackId", "answer"]
+      }
+    },
     "ai_teammate.decide_draft": {
       "offline": {
         "freshMinutes": 30
@@ -1161,6 +1183,64 @@
           }
         },
         "required": ["workspaceId", "draftId", "decision"]
+      }
+    },
+    "ai_teammate.give_feedback": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "string",
+            "enum": ["good", "bad"]
+          },
+          "betterReply": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "rating"]
       }
     },
     "ai_teammate.set_status": {
@@ -12993,6 +13073,23 @@
         "required": ["workspaceId", "lessonId"]
       }
     },
+    "teammate_lesson.dismiss": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lessonId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "lessonId"]
+      }
+    },
     "user_phone.start_verification": {
       "offline": "online",
       "input": {
@@ -13127,6 +13224,36 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "ai_teammate.feedback": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runIds": {
+            "default": [],
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "messageIds": {
+            "default": [],
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "required": ["workspaceId"]

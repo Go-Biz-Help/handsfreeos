@@ -1,17 +1,20 @@
-import type { TestConsoleBody, TestEvent } from '@hfos/core';
+import type { TeammateFeedbackOut, TestConsoleBody, TestEvent } from '@hfos/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as React from 'react';
 
 import type * as TestStream from '@/ai-team/test-stream';
 import { useTestConsole } from '@/ai-team/use-test-console';
+import { change } from '@/changes';
+import { api } from '@/lib/api';
 
 import { TestConsoleView, type TestCustomer } from '../test-console';
 
 /**
  * The phone's test console with React Native Testing Library, the worker played by a stand-in stream: a written test
  * shows the reply and what it looked up; an incoming call starts with the greeting and a goodbye ends it; an outgoing
- * call needs a customer, and sends which way it goes and why; with no signal it says so and keeps the words; and
- * talking out loud says each reply in the teammate's voice and sends what the caller says.
+ * call needs a customer, and sends which way it goes and why; with no signal it says so and keeps the words;
+ * talking out loud says each reply in the teammate's voice and sends what the caller says; and a reply takes a thumbs
+ * down on its run, and "Retry with the fix" runs that turn again with it.
  */
 
 jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
@@ -48,6 +51,19 @@ jest.mock('@/voice/speech', () => {
     forget: jest.fn(),
   };
 });
+// Feedback on a reply goes to HandsFreeOS: its commands and the feedback query, played by stand-ins.
+jest.mock('@/changes', () => {
+  const actual = jest.requireActual<{ ChangeError: unknown; NEEDS_SIGNAL: string }>(
+    '@/changes/controller',
+  );
+  return { change: jest.fn(), ChangeError: actual.ChangeError, NEEDS_SIGNAL: actual.NEEDS_SIGNAL };
+});
+jest.mock('@/lib/api', () => ({
+  api: { POST: jest.fn() },
+  unwrap: (result: { data?: unknown }) => result.data,
+}));
+let mockFeedback: TeammateFeedbackOut[] = [];
+
 const audio = jest.requireMock('expo-audio') as {
   __recorder: { meter: (ms: number) => number };
   __played: string[];
@@ -95,6 +111,12 @@ beforeEach(() => {
   mockAnswer.mockReset();
   mockBodies.length = 0;
   mockOffline = false;
+  mockFeedback = [];
+  jest.mocked(api.POST as unknown as jest.Mock).mockImplementation(async () => ({
+    data: { feedback: mockFeedback, messageRuns: [], canSaveRules: true },
+    response: { ok: true },
+  }));
+  jest.mocked(change).mockReset();
 });
 
 describe('a written test', () => {
@@ -121,6 +143,92 @@ describe('a written test', () => {
     });
     await rerender(<Harness pane="log" />);
     expect(screen.getByTestId('test-console-log')).toBeTruthy();
+  });
+
+  it('takes a thumbs down on a reply, and tries that turn again with the fix', async () => {
+    const RUN = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const runs = [
+      RUN,
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    ];
+    answer((body) => {
+      const reply = body.coaching
+        ? 'We’re closed Sundays. Does Monday at 10 work?'
+        : body.messages.length > 1
+          ? 'You’re welcome!'
+          : 'Sure, we can come Sunday at 10.';
+      return [{ type: 'started', runId: runs[mockBodies.length - 1]!, at: AT }, done(reply)];
+    });
+    const { rerender } = await render(<Harness />);
+    const write = async (words: string) => {
+      await fireEvent.changeText(screen.getByTestId('test-console-input'), words);
+      await fireEvent.press(screen.getByTestId('test-console-send'));
+    };
+    await write('Can you come Sunday?');
+    await waitFor(() => expect(screen.getAllByTestId('reply-feedback')).toHaveLength(1));
+    await write('Great, thanks');
+    await waitFor(() => expect(screen.getAllByTestId('reply-feedback')).toHaveLength(2));
+
+    await fireEvent.press(screen.getAllByTestId('feedback-bad')[0]!);
+    await fireEvent.changeText(
+      screen.getByTestId('feedback-better'),
+      'We’re closed Sundays. Does Monday at 10 work?',
+    );
+    await fireEvent.changeText(screen.getByTestId('feedback-note'), 'We don’t work Sundays');
+    const given: TeammateFeedbackOut = {
+      id: '99999999-9999-4999-8999-999999999999',
+      runId: RUN,
+      messageId: null,
+      isTest: true,
+      rating: 'bad',
+      betterReply: 'We’re closed Sundays. Does Monday at 10 work?',
+      note: 'We don’t work Sundays',
+      learn: 'nothing',
+      learnWhy: 'It already has a rule for this.',
+      question: null,
+      choices: [],
+      answer: null,
+      lesson: null,
+      mine: true,
+      by: null,
+      createdAt: AT,
+      updatedAt: AT,
+    };
+    jest.mocked(change).mockImplementationOnce(async () => {
+      mockFeedback = [given];
+      return { id: 'cmd', queued: false, output: { feedback: given } } as never;
+    });
+    await fireEvent.press(screen.getByTestId('feedback-send'));
+    expect(change).toHaveBeenCalledWith('ai_teammate.give_feedback', {
+      workspaceId: WS,
+      runId: RUN,
+      rating: 'bad',
+      betterReply: 'We’re closed Sundays. Does Monday at 10 work?',
+      note: 'We don’t work Sundays',
+      asked: 'Can you come Sunday?',
+    });
+    await fireEvent.press(await screen.findByTestId('feedback-done'));
+
+    // Retry with the fix: the first message again, with nothing before it, and the turn after it gone.
+    await fireEvent.press(screen.getByTestId('feedback-retry'));
+    await waitFor(() => expect(mockBodies).toHaveLength(3));
+    expect(mockBodies[2]).toMatchObject({
+      messages: [{ from: 'customer', text: 'Can you come Sunday?' }],
+      coaching: {
+        reply: 'Sure, we can come Sunday at 10.',
+        better: 'We’re closed Sundays. Does Monday at 10 work?',
+        why: 'We don’t work Sundays',
+      },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('test-console-reply')).toHaveTextContent(
+        'We’re closed Sundays. Does Monday at 10 work?',
+      ),
+    );
+    expect(mockBodies[0]!.coaching ?? null).toBeNull();
+    await rerender(<Harness pane="log" />);
+    expect(screen.getByText('Tried again with your feedback')).toBeTruthy();
   });
 });
 
