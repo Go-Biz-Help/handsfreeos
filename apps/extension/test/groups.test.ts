@@ -4,8 +4,8 @@
  * its questions box; and the jobs that check groups and ask to join them, against made-up pages and HandsFreeOS.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { readPage } from '../src/facebook/page';
-import { answerJoin, pressJoin } from '../src/facebook/join';
+import { readPage } from '../src/networks/facebook/page';
+import { answerJoin, pressJoin } from '../src/networks/facebook/join';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import { load } from './load';

@@ -1,5 +1,5 @@
 /**
- * Getting Facebook's download file for the person (src/facebook/fetch.ts): finding each step by Facebook's words on
+ * Getting Facebook's download file for the person (src/networks/facebook/fetch.ts): finding each step by Facebook's words on
  * hand-written screens, pressing only what's on top, leaving ticked boxes ticked, waiting while Facebook asks for a
  * password, and walking a request through a made-up Accounts Center that draws one screen after another.
  */
@@ -13,7 +13,7 @@ import {
   findStep,
   type FetchStep,
   type StepResult,
-} from '../src/facebook/fetch';
+} from '../src/networks/facebook/fetch';
 import { boxEverything } from './load';
 
 /** A screen with a bare box around each of its elements, as test/load.ts does to a whole page. */

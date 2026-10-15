@@ -5,7 +5,7 @@ import {
   postUrlFrom,
   profileFromUrl,
   threadFromUrl,
-} from '../src/facebook/urls';
+} from '../src/networks/facebook/urls';
 
 const parsed = <T>(read: (url: URL) => T, href: string): T | null => {
   const url = facebookUrl(href);

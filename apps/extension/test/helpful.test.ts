@@ -5,8 +5,8 @@
  * HandsFreeOS.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { readComments, readReactions, writeGroupPost } from '../src/facebook/compose';
-import { readPage } from '../src/facebook/page';
+import { readComments, readReactions, writeGroupPost } from '../src/networks/facebook/compose';
+import { readPage } from '../src/networks/facebook/page';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import { load } from './load';

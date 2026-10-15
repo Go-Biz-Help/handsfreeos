@@ -196,6 +196,11 @@ export const TodayOutput = z.object({
    * people who wrote to them, and nothing is done on its own: the screens show Get ready in place of the rest.
    */
   ready: z.boolean(),
+  /**
+   * The network's cap on friend requests in any 7 days, beside the daily limit (LinkedIn's 80 invitations): sent in the
+   * last 7 days, and the most. Null on a network with none. Today's `friend_request` limit never goes past what's left.
+   */
+  week: z.object({ done: n, most: n }).nullable().default(null),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

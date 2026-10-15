@@ -22,7 +22,7 @@ import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { type DailyStep } from '../limits';
-import { inNetworkWords, networkLimitsNow } from '../networks';
+import { inNetworkWords, networkLimitsNow, NETWORKS } from '../networks';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -192,9 +192,24 @@ export const today = defineAddonQuery(outreachAddon, {
         businessLimitsOn(rules, input.platform),
       ),
     );
+    // A network's cap on requests in any 7 days (LinkedIn's 80 invitations): today's limit never goes past what's left.
+    const weekly = NETWORKS[input.platform].weeklyRequests;
+    let week: { done: number; most: number } | null = null;
+    if (weekly !== null) {
+      const [sent] = await rows<{ n: number }>(
+        ctx.tx,
+        sql`select count(*)::int as n from addon_outreach.touches t
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'friend_request'
+              and p.platform = ${input.platform} and t.at >= ${new Date(now - 7 * DAY).toISOString()}::timestamptz`,
+      );
+      week = { done: sent?.n ?? 0, most: weekly };
+      const r = limits.friend_request;
+      r.most = Math.min(r.most, r.done + Math.max(0, weekly - week.done));
+    }
     // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
     // done on its own: Get ready shows in place of the rest.
-    const ready = (await readinessFor(ctx, me)).ready;
+    const ready = (await readinessFor(ctx, me, input.platform)).ready;
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
@@ -1006,6 +1021,7 @@ export const today = defineAddonQuery(outreachAddon, {
       sending: settings.sending,
       wheels,
       ready,
+      week,
     };
   },
 });

@@ -2,13 +2,14 @@
  * Tidying the person's friends (docs/outreach.md, decisions 10, 12, 15, 17 and 43), asked from the Friends tab in
  * HandsFreeOS: the old requests they ticked to cancel, or the friends they ticked to unfriend
  * (packages/core/src/addons/outreach/tidy.ts). The extension opens each one's profile in a tab they can see, checks
- * it's them and where things stand, presses Cancel request or Unfriend (src/facebook/tidy.ts), checks it worked, and
+ * it's them and where things stand, presses Cancel request or Unfriend (src/networks/facebook/tidy.ts), checks it worked, and
  * notes it in HandsFreeOS. It goes slowly, stops at today's limit, and stops for the day on any Facebook warning. A
  * step it can't find, it hands to the person: Carry on once they've done it, or Skip that person.
  */
 import { TIDY_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
-import { FRIENDSHIP_WORDS, TIDY_PLANS, sameProfile, type TidyJob } from '../facebook/tidy';
-import type { FetchStep } from '../facebook/fetch';
+import { FRIENDSHIP_WORDS, TIDY_PLANS, sameProfile, type TidyJob } from '../networks/facebook/tidy';
+import type { FetchStep } from '../networks/facebook/fetch';
+import { facebook } from '../networks/facebook/kit';
 import type { TidyCandidate } from '../hfos/messages';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
@@ -99,7 +100,7 @@ async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcom
         type: 'hfos-friend-end',
         input: {
           workspaceId: job.businessId,
-          platform: 'facebook',
+          platform: facebook.platform,
           kind: which,
           profile: { id: who.platformId, username: who.username, url: who.url },
           name: who.name,

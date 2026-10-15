@@ -1219,8 +1219,10 @@ code" (decision 45's install step). Settled too:
   `platform`, Facebook when left out), a warning is the network's that showed it (`warnings.platform`; `warningOf`,
   `warnDay`), and a day's steps count against that network's limits alone (`dayCounts`, through the touch's profile).
   A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
-  kept apart, but nothing reads or saves a LinkedIn page yet: the team's live view, the activity panel, the checks
-  and joining groups are Facebook's. A new place that reads a warning, a day or the day's counts names its network.
+  kept apart. On LinkedIn the extension notes the person's own steps, who wrote back and LinkedIn's warnings, as
+  LinkedIn's (0.34.0, apps/extension/README.md, "The networks"), and takes no ask there before 0.40.0
+  (`ASK_NETWORK_SINCE`); the team's live view, the activity panel and joining groups are Facebook's. A new place that
+  reads a warning, a day or the day's counts names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
   on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
   (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, joining
@@ -1279,7 +1281,18 @@ code" (decision 45's install step). Settled too:
   network to the next goes there, never into an `if`. Saves take a link and ids of any network it knows
   (`NetworkUrl`, `ThreadKey`), and every save that keeps a profile refuses one that isn't on the network named
   (`requireFits`, `profileMisfit`, `outreach_wrong_network`). The database keeps ids to short, plain characters
-  (20261027006900).
+  (20261027006900). A network's cap on requests in any 7 days (`weeklyRequests`, LinkedIn's 80 invitations) holds
+  Today's `friend_request` limit to what's left, and Today says it (`week`). Checks go by network too:
+  `outreach.checks.next` takes a `platform`, lists that network's people, and keeps to its own profiles read a day
+  (`checksPerDay`), halved by a warning there alone.
+- **Each network's profile in Get ready is its own.** A LinkedIn day waits on LinkedIn's profile, never on
+  Facebook's (`readinessFor` and `outreach.readiness` take a `platform`; Start my day and Today ask with theirs).
+  LinkedIn's checklist (`PROFILE_ITEMS_ON`) has its photo, banner, headline (the `bio`, up to 220 characters), About,
+  Experience, Featured and activity; its AI (`LINKEDIN_PROFILE_CHECK_SYSTEM`) writes three headlines, the opening of
+  an About (`aboutDraft`) and a banner line. Its ticks and check are kept in `setup.network_profiles` (20261027007300),
+  Facebook's in their columns as before; `outreach.readiness.profile` and `outreach.profile.check_save` take the
+  network, and `ProfileRead` says which network the extension read. The not-ready words name it: "Your LinkedIn
+  profile isn’t ready yet."
 - **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
   they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
   a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook

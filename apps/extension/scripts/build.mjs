@@ -49,10 +49,21 @@ const config = {
   supabasePublishableKey: setting('HFOS_SUPABASE_PUBLISHABLE_KEY', ''),
 };
 
-/** The only site the extension works on, and the only one it reads. */
+/**
+ * Facebook, the network the extension has always worked on: its sites from install (src/networks/facebook/kit.ts says
+ * the same; test/manifest.test.ts holds the two together).
+ */
 const FACEBOOK = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
-/** Accounts Center, where Facebook makes the person's download file (src/facebook/fetch.ts). */
+/** Accounts Center, where Facebook makes the person's download file (src/networks/facebook/fetch.ts). */
 const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
+/**
+ * The networks whose sites Chrome lets the extension on only once the person allows them, from the panel, after
+ * turning the network on in HandsFreeOS (src/networks/linkedin/kit.ts): optional, so an update never asks everyone
+ * again, and the extension never runs on a site they don't use. Their script is registered while each is on
+ * (src/networks/scripts.ts), never listed in `content_scripts`, and nothing of the extension's is ever web-accessible:
+ * LinkedIn's pages look for extensions by the files they show.
+ */
+const OPTIONAL = ['https://www.linkedin.com/*'];
 /**
  * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:
  * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).
@@ -81,7 +92,7 @@ const manifest = {
   version,
   // The stores take 132 characters at most.
   description:
-    'Works on Facebook for you, as you set it in HandsFreeOS: notes your steps, works your list, and does what you ask there. Test build.',
+    'Works on Facebook, and LinkedIn when you turn it on, as set in HandsFreeOS: notes your steps and does what you ask. Test build.',
   minimum_chrome_version: '116',
   icons: ICONS,
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },
@@ -101,6 +112,7 @@ const manifest = {
     'offscreen',
   ],
   host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...HFOS, ...FILES],
+  optional_host_permissions: OPTIONAL,
   content_scripts: [
     { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },
   ],

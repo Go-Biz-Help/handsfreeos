@@ -16,7 +16,7 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { DownloadMessage } from './download-read';
-import { inNetworkWords, NETWORKS, type Platform } from './networks';
+import { inNetworkWords, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import type { PlaybookDetails } from './playbooks';
 import { checkedCountry, type CountryCode } from './countries';
 import { LOOKUP_LINE_MOST, LOOKUP_LINES } from './today';
@@ -71,6 +71,8 @@ export const ChecksNextInput = z.object({
   most: z.number().int().min(1).max(CHECKS_PER_DAY).default(CHECKS_PER_DAY),
   /** Only this person, asked with Research (decision 46a): listed when today has room and they're not checked lately. */
   profileId: z.uuid().optional(),
+  /** The network whose people to check, with its own profiles read a day: Facebook unless said. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
 });
 export type ChecksNextInput = z.input<typeof ChecksNextInput>;
 

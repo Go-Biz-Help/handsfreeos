@@ -8,10 +8,12 @@
 import { profileCheckSave } from '@hfos/core/addons/outreach/ops/readiness';
 import {
   checkedProfileCheck,
+  LINKEDIN_PROFILE_CHECK_SCHEMA,
+  LinkedInProfileCheckAnswer,
   PROFILE_CHECK_SCHEMA,
-  PROFILE_CHECK_SYSTEM,
   ProfileCheckAnswer,
   profileCheckPrompt,
+  profileCheckSystem,
   ProfileRead,
   type ProfileCheck,
 } from '@hfos/core/addons/outreach/profile-check';
@@ -29,15 +31,26 @@ export const profileCheck: AddonWorkerAction<ProfileRead> = {
     const read = ProfileRead.parse(raw);
     const live = await liveMainOffer(ctx);
     let check: ProfileCheck;
+    // Each network's own checklist: LinkedIn's has its headline and About, and an About to start from.
+    const asked = {
+      system: profileCheckSystem(read.platform),
+      messages: [{ role: 'user' as const, content: profileCheckPrompt(read, live?.offer ?? null) }],
+      maxTokens: read.platform === 'facebook' ? 1200 : 2000,
+      usage: { source: 'addon' as const, addonId: ctx.manifest.id },
+    };
     try {
-      const { value } = await askStructured(ctx, ctx.scope, {
-        system: PROFILE_CHECK_SYSTEM,
-        messages: [{ role: 'user', content: profileCheckPrompt(read, live?.offer ?? null) }],
-        schema: PROFILE_CHECK_SCHEMA,
-        zod: ProfileCheckAnswer,
-        maxTokens: 1200,
-        usage: { source: 'addon', addonId: ctx.manifest.id },
-      });
+      const { value } =
+        read.platform === 'facebook'
+          ? await askStructured(ctx, ctx.scope, {
+              ...asked,
+              schema: PROFILE_CHECK_SCHEMA,
+              zod: ProfileCheckAnswer,
+            })
+          : await askStructured(ctx, ctx.scope, {
+              ...asked,
+              schema: LINKEDIN_PROFILE_CHECK_SCHEMA,
+              zod: LinkedInProfileCheckAnswer,
+            });
       check = checkedProfileCheck(value, read, new Date().toISOString(), live?.version ?? null);
     } catch (e) {
       throw aiFailure(e);
@@ -45,7 +58,7 @@ export const profileCheck: AddonWorkerAction<ProfileRead> = {
     await executeCommand(
       ctx.db,
       profileCheckSave,
-      { workspaceId: ctx.scope.workspaceId, userId: ctx.userId, check },
+      { workspaceId: ctx.scope.workspaceId, userId: ctx.userId, platform: read.platform, check },
       ctx.actor,
       ctx.meta,
     );

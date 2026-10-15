@@ -377,7 +377,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
     // Research counts toward the day's checks (decision 46a): with none left, it ends at once, and they go first in
     // tomorrow's checks (`outreach.checks.next` finds this ask).
     if (task.kind === 'research') {
-      const { today, perDay } = await perDayFor(ctx, me, now);
+      const { today, perDay } = await perDayFor(ctx, me, now, platform);
       if (today >= perDay) {
         const [row] = await ctx.tx
           .insert(asks)

@@ -8247,9 +8247,14 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "item": {
             "type": "string",
-            "enum": ["picture", "cover", "bio", "work", "featured", "posts"]
+            "enum": ["picture", "cover", "bio", "work", "featured", "posts", "about"]
           },
           "done": {
             "type": "boolean"
@@ -13944,6 +13949,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]

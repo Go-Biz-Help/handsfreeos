@@ -30,7 +30,9 @@ import {
   ReadinessOutput,
   type Readiness,
 } from '../readiness';
-import { automation, setup } from '../tables';
+import type { OtherPlatform } from '../automation';
+import type { Platform } from '../networks';
+import { automation, setup, type NetworkProfileKept, type NetworkProfilesKept } from '../tables';
 import { automationOf } from './automation';
 import { inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
@@ -70,6 +72,27 @@ async function liveOffer(ctx: Ctx) {
   };
 }
 
+/** A network's profile as kept: Facebook's in its own columns, every other network's in `network_profiles`. */
+function profileOf(row: Awaited<ReturnType<typeof setupRow>>, platform: Platform) {
+  const kept = platform === 'facebook' ? null : row?.networkProfiles?.[platform];
+  const ticks = platform === 'facebook' ? row?.profile : kept?.ticks;
+  const check = platform === 'facebook' ? row?.profileCheck : kept?.check;
+  return {
+    ticks: ProfileTicks.safeParse(ticks ?? {}).data ?? {},
+    check: ProfileCheck.safeParse(check ?? null).data ?? null,
+  };
+}
+
+/** Every other network's profiles with one network's changed: what `network_profiles` keeps next. */
+function withProfile(
+  row: Awaited<ReturnType<typeof setupRow>>,
+  platform: OtherPlatform,
+  change: Partial<NetworkProfileKept>,
+): NetworkProfilesKept {
+  const all = row?.networkProfiles ?? {};
+  return { ...all, [platform]: { ...all[platform], ...change } };
+}
+
 async function setupRow(ctx: Ctx, me: string) {
   const [row] = await ctx.tx
     .select()
@@ -79,15 +102,19 @@ async function setupRow(ctx: Ctx, me: string) {
 }
 
 /** Everything Get ready shows the person, and whether they're ready (the worker asking on their behalf counts as them). */
-export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutput> {
+export async function readinessFor(
+  ctx: Ctx,
+  me: string,
+  platform: Platform = 'facebook',
+): Promise<ReadinessOutput> {
   const [offer, playbooks, row, auto] = await Promise.all([
     liveOffer(ctx),
     playbooksInUse(ctx),
     setupRow(ctx, me),
     automationOf(ctx, me),
   ]);
-  const profile = ProfileTicks.safeParse(row?.profile ?? {}).data ?? {};
-  const profileCheck = ProfileCheck.safeParse(row?.profileCheck ?? null).data ?? null;
+  // The network's own profile: a LinkedIn day waits on LinkedIn's, never on Facebook's.
+  const { ticks: profile, check: profileCheck } = profileOf(row, platform);
   const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
   const messages = row?.messagesAt
     ? { at: row.messagesAt.toISOString(), version: row.messagesVersion ?? null }
@@ -107,6 +134,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
     })),
     profile,
     profileCheck,
+    platform,
     messages,
     numbers,
     canOffer: scopeCan(ctx.scope, 'main_offer.manage' as Permission),
@@ -114,6 +142,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
   });
   return {
     ...r,
+    platform,
     items: [...r.items],
     changed: [...r.changed],
     offer: offer ? { version: offer.version, line: offer.line } : null,
@@ -146,8 +175,8 @@ export const readinessGet = defineAddonQuery(outreachAddon, {
   output: ReadinessOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  async handler(ctx) {
-    return readinessFor(ctx, meOf(ctx));
+  async handler(ctx, input) {
+    return readinessFor(ctx, meOf(ctx), input.platform);
   },
 });
 
@@ -166,24 +195,29 @@ export const readinessProfile = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const [row, offer] = await Promise.all([setupRow(ctx, me), liveOffer(ctx)]);
-    const ticks: ProfileTicks = { ...(ProfileTicks.safeParse(row?.profile ?? {}).data ?? {}) };
+    const ticks: ProfileTicks = { ...profileOf(row, input.platform).ticks };
     if (input.done) ticks[input.item] = { at: at.toISOString(), version: offer?.version ?? null };
     else delete ticks[input.item];
+    // Facebook's in its column, every other network's in its own place in `network_profiles`.
+    const set =
+      input.platform === 'facebook'
+        ? { profile: ticks }
+        : { networkProfiles: withProfile(row, input.platform, { ticks }) };
     const [kept] = await ctx.tx
       .insert(setup)
-      .values({ workspaceId: ws, userId: me, profile: ticks, updatedAt: at })
+      .values({ workspaceId: ws, userId: me, ...set, updatedAt: at })
       .onConflictDoUpdate({
         target: [setup.workspaceId, setup.userId],
-        set: { profile: ticks, updatedAt: at },
+        set: { ...set, updatedAt: at },
       })
       .returning({ id: setup.id });
     await ctx.emit({
       type: 'outreach.readiness.saved',
       entityType: 'outreach_setup',
       entityId: kept!.id,
-      payload: { userId: me, part: 'profile' },
+      payload: { userId: me, part: 'profile', platform: input.platform },
     });
-    return readinessFor(ctx, me);
+    return readinessFor(ctx, me, input.platform);
   },
 });
 
@@ -289,26 +323,29 @@ export const profileCheckSave = defineAddonCommand(outreachAddon, {
   emits: ['outreach.readiness.saved'],
   async handler(ctx, input) {
     const at = changeMoment(ctx.meta);
+    const set =
+      input.platform === 'facebook'
+        ? { profileCheck: input.check }
+        : {
+            networkProfiles: withProfile(await setupRow(ctx, input.userId), input.platform, {
+              check: input.check,
+            }),
+          };
     const [kept] = await ctx.tx
       .insert(setup)
-      .values({
-        workspaceId: ctx.scope.workspaceId!,
-        userId: input.userId,
-        profileCheck: input.check,
-        updatedAt: at,
-      })
+      .values({ workspaceId: ctx.scope.workspaceId!, userId: input.userId, ...set, updatedAt: at })
       .onConflictDoUpdate({
         target: [setup.workspaceId, setup.userId],
-        set: { profileCheck: input.check, updatedAt: at },
+        set: { ...set, updatedAt: at },
       })
       .returning({ id: setup.id });
     await ctx.emit({
       type: 'outreach.readiness.saved',
       entityType: 'outreach_setup',
       entityId: kept!.id,
-      payload: { userId: input.userId, part: 'profile_check' },
+      payload: { userId: input.userId, part: 'profile_check', platform: input.platform },
     });
-    return readinessFor(ctx, input.userId);
+    return readinessFor(ctx, input.userId, input.platform);
   },
 });
 

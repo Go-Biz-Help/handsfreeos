@@ -1,12 +1,15 @@
 /**
- * Replies the person's Facebook tabs saw (docs/outreach.md, decision 22), sent to HandsFreeOS from the background
- * (`outreach.replies.note`), which keeps each one that answers a message of the person's and tells their phone. Only
+ * Replies the person's tabs saw on each network (docs/outreach.md, decision 22), sent to HandsFreeOS from the
+ * background as that network's (`outreach.replies.note`), which keeps each one that answers a message of the person's
+ * and tells their phone. Only
  * chats from the last two days go, so an old chat never buzzes anyone; and a chat sent lately isn't sent again until a
  * few minutes have passed, while the tab keeps seeing it. Nothing is kept waiting: a reply HandsFreeOS couldn't hear
  * of now is seen again the next time the chat is on screen. Nothing goes while the switch in the panel is off.
  */
 import { REPLIES_MOST } from '@hfos/core/addons/outreach/alerts';
-import type { ReplySighting } from '../facebook/replies';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { facebook } from '../networks/facebook/kit';
+import type { ReplySighting } from '../networks/facebook/replies';
 import type { TabNote } from '../messages';
 import type { RepliesNoteInput } from './messages';
 import { api, savingTo } from './session';
@@ -19,35 +22,44 @@ export const REPLY_AGAIN_MS = 3 * 60_000;
 /** The chats sent lately, while the browser is open. */
 const SENT_KEY = 'hfos.replies';
 
-/** Who a sighting is about, to send each chat once in a while. */
-export const sightingKey = (s: ReplySighting) =>
-  s.threadKey ?? `${s.profile?.id ?? ''}|${s.profile?.username ?? ''}|${s.name.toLowerCase()}`;
+/**
+ * Who a sighting is about, to send each chat once in a while: Facebook's as they always were, another network's
+ * saying which.
+ */
+export const sightingKey = (s: ReplySighting, platform: Platform = facebook.platform) => {
+  const key =
+    s.threadKey ?? `${s.profile?.id ?? ''}|${s.profile?.username ?? ''}|${s.name.toLowerCase()}`;
+  return platform === facebook.platform ? key : `${platform}:${key}`;
+};
 
 /** The sightings worth sending now: lately written, not sent in the last few minutes, each once, at most a note's. */
 export function toSend(
   seen: readonly ReplySighting[],
   sent: Readonly<Record<string, number>>,
   now: Date,
+  platform: Platform = facebook.platform,
 ): ReplySighting[] {
   const out = new Map<string, ReplySighting>();
   for (const s of seen) {
     const at = s.when ? instantOf(s.when, now) : null;
     if (at && now.getTime() - at.getTime() > REPLY_FRESH_MS) continue;
-    const key = sightingKey(s);
+    const key = sightingKey(s, platform);
     if (now.getTime() - (sent[key] ?? 0) < REPLY_AGAIN_MS) continue;
     if (!out.has(key)) out.set(key, s);
   }
   return [...out.values()].slice(0, REPLIES_MOST);
 }
 
-/** What HandsFreeOS is sent: who, by their chat's number or profile; never when or what. */
+/** What HandsFreeOS is sent: who, by their chat's id or profile, and the network when it's said; never when or what. */
 export function repliesInput(
   workspaceId: string,
   seen: readonly ReplySighting[],
   looking: boolean,
+  platform?: Platform,
 ): RepliesNoteInput {
   return {
     workspaceId,
+    ...(platform ? { platform } : {}),
     looking,
     seen: seen.map((s) => ({
       name: s.name.trim().slice(0, 200),
@@ -86,11 +98,17 @@ async function sentNow(): Promise<Record<string, number>> {
   }
 }
 
-/** Sends what a tab saw, when it's news, while noting is on (./noting.ts). A failure is let go: the chat is seen again. */
-export async function noteReplies(note: Extract<TabNote, { type: 'hfos-replies' }>): Promise<void> {
+/**
+ * Sends what a tab saw on its network, when it's news, while noting is on (./noting.ts). A failure is let go: the
+ * chat is seen again.
+ */
+export async function noteReplies(
+  note: Extract<TabNote, { type: 'hfos-replies' }>,
+  platform: Platform = facebook.platform,
+): Promise<void> {
   const now = new Date();
   const sent = await sentNow();
-  const fresh = toSend(note.seen, sent, now);
+  const fresh = toSend(note.seen, sent, now, platform);
   if (!fresh.length) return;
   const to = await savingTo().catch(() => null);
   if (!to) return;
@@ -98,11 +116,11 @@ export async function noteReplies(note: Extract<TabNote, { type: 'hfos-replies' 
   const kept = Object.fromEntries(
     Object.entries(sent).filter(([, at]) => now.getTime() - at < REPLY_AGAIN_MS),
   );
-  for (const s of fresh) kept[sightingKey(s)] = now.getTime();
+  for (const s of fresh) kept[sightingKey(s, platform)] = now.getTime();
   await chrome.storage.session.set({ [SENT_KEY]: kept });
   try {
     await api().POST('/v1/commands/outreach.replies.note', {
-      body: repliesInput(to.businessId, fresh, note.looking),
+      body: repliesInput(to.businessId, fresh, note.looking, platform),
     });
   } catch {
     // No connection: seen again later.

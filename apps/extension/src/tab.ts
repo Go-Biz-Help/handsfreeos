@@ -1,11 +1,12 @@
 /**
- * The Facebook tab the extension works in. What the person asks of it from HandsFreeOS (asks/run.ts) that they may
- * need to finish themselves (getting their file, where they type their password; cancelling old requests and
- * unfriending) goes in a tab in view, reused from step to step while it's open, and brought to the front when a step
- * is handed to them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts),
- * and the rest of what's asked, have a window of their own, which opens without taking the person's attention.
+ * The tab the extension works in, on one network's pages (its kit's `workUrl`): Facebook's, the only network the
+ * runner and the asks work on for now. What the person asks of it from HandsFreeOS (asks/run.ts) that they may need to
+ * finish themselves (getting their file, where they type their password; cancelling old requests and unfriending)
+ * goes in a tab in view, reused from step to step while it's open, and brought to the front when a step is handed to
+ * them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts), and the rest of
+ * what's asked, have a window of their own, which opens without taking the person's attention.
  */
-import { workUrl } from './facebook/urls';
+import { facebook, type Kit } from './networks';
 import type {
   Answer,
   Ask,
@@ -36,9 +37,11 @@ export type TabPlace = 'view' | 'quiet' | 'window';
 export class WorkTab {
   private id: number | null = null;
   private readonly place: TabPlace;
+  private readonly kit: Kit;
 
-  constructor(place: TabPlace = 'view') {
+  constructor(place: TabPlace = 'view', kit: Kit = facebook) {
     this.place = place;
+    this.kit = kit;
   }
 
   /** The tab's number, while it's open. */
@@ -56,14 +59,14 @@ export class WorkTab {
   }
 
   /**
-   * Opens an address in the tab: the one opened before when it's still there, else a new one. Only Facebook's own
-   * pages (`workUrl`): anything else is refused, so a bad link kept or read never sends the tab elsewhere.
+   * Opens an address in the tab: the one opened before when it's still there, else a new one. Only its network's own
+   * pages (the kit's `workUrl`): anything else is refused, so a bad link kept or read never sends the tab elsewhere.
    */
   async open(href: string): Promise<number> {
-    const url = workUrl(href);
+    const url = this.kit.workUrl(href);
     if (url === null)
       throw new Error(
-        'That link isn’t a Facebook page, so the extension didn’t open it. Check the link in HandsFreeOS, then try again.',
+        `That link isn’t a ${this.kit.network.name} page, so the extension didn’t open it. Check the link in HandsFreeOS, then try again.`,
       );
     const active = this.place === 'view';
     if (this.id !== null) {
@@ -87,7 +90,7 @@ export class WorkTab {
     return this.loaded(this.id);
   }
 
-  /** Waits for a tab to finish loading, and for Facebook to draw the page. */
+  /** Waits for a tab to finish loading, and for the network to draw the page. */
   async loaded(id: number): Promise<number> {
     const until = Date.now() + 30_000;
     while (Date.now() < until) {
@@ -143,7 +146,8 @@ export class WorkTab {
     | BrowseAnswer
     | Answer
   > {
-    if (this.id === null) return { ok: false, error: 'The Facebook tab was closed.' };
+    if (this.id === null)
+      return { ok: false, error: `The ${this.kit.network.name} tab was closed.` };
     const id = this.id;
     try {
       return (await chrome.tabs.sendMessage(id, message)) as
@@ -166,10 +170,10 @@ export class WorkTab {
           | BrowseAnswer
           | Answer;
       } catch {
+        const name = this.kit.network.name;
         return {
           ok: false,
-          error:
-            'Facebook took the tab somewhere else. Check you’re signed in to Facebook in this browser, then try again.',
+          error: `${name} took the tab somewhere else. Check you’re signed in to ${name} in this browser, then try again.`,
         };
       }
     }

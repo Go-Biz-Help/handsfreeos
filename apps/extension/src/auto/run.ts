@@ -15,7 +15,7 @@
  * It goes in their working hours, in the business's time zone, at random times spread over the day, or straight away
  * at a person's pace once they press **Start my day** (./plan.ts). Each step wakes the background with an alarm, opens
  * the page in a window of its own beside the person's (../tab.ts), checks it's the right person and where things
- * stand, presses the button (../facebook/auto.ts), checks it worked, and notes it in HandsFreeOS as the extension's
+ * stand, presses the button (../networks/facebook/auto.ts), checks it worked, and notes it in HandsFreeOS as the extension's
  * own (`auto`), which takes it off the list and counts it against the daily limits: the list only ever holds what
  * today's limits have room for. It stops for the day on any warning from Facebook, and when the person presses
  * **Stop for today**. It works only while someone is signed in with somewhere to save and noting is on, and only while
@@ -47,14 +47,15 @@ import {
 } from '@hfos/core/addons/outreach/like-pick';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
-import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../facebook/auto';
-import { linesOf, pageHeading, POSTS_READ } from '../facebook/lookup';
-import type { FetchStep } from '../facebook/fetch';
-import { FRIENDSHIP_WORDS } from '../facebook/tidy';
-import type { ProfileRef, ReadResult, ThreadRef } from '../facebook/types';
+import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../networks/facebook/auto';
+import { linesOf, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
+import type { FetchStep } from '../networks/facebook/fetch';
+import { facebook } from '../networks/facebook/kit';
+import { FRIENDSHIP_WORDS } from '../networks/facebook/tidy';
+import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
-import { sameName } from '../facebook/people';
-import { FACEBOOK, profileFromUrl } from '../facebook/urls';
+import { sameName } from '../networks/facebook/people';
+import { FACEBOOK, profileFromUrl } from '../networks/facebook/urls';
 import type {
   AutoStatus,
   Drafts,
@@ -575,7 +576,7 @@ async function bringInChat(
   if (built)
     await answer({
       type: 'hfos-collect-chats',
-      input: { workspaceId: businessId, platform: 'facebook', chats: [built] },
+      input: { workspaceId: businessId, platform: facebook.platform, chats: [built] },
     });
   return null;
 }

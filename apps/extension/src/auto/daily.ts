@@ -10,7 +10,7 @@
  * only while the person lets it join on its own; and on the person's own posts, See who reacted to this. They run while the person lets it work on its own and leaves **Once
  * a day** ticked.
  */
-import type { ReadResult } from '../facebook/types';
+import type { ReadResult } from '../networks/facebook/types';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
 import { chatMemory, readChats } from '../jobs/chats';
