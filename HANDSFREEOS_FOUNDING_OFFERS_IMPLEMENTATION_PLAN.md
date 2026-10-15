@@ -20,7 +20,7 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 | Question               | Decision                                                                                                                                                             |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | What is a spot?        | One **business — an `app.organizations` row**. Caps count organizations.                                                                                             |
-| When is it consumed?   | **When you approve it.** Apply → you review → you approve. No self-serve claiming.                                                                                   |
+| When is it consumed?   | **When you approve or give it.** A free seat is on the business's workspace at once and stays until you revoke it (§1.1). No self-serve claiming.                    |
 | When it sells out      | Waitlist, and the next offer down is shown as the alternative.                                                                                                       |
 | The monthly plan       | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499.                            |
 | Revoking a spot        | **14-day grace**, warned in-app and by email, then the workspace converts to $97/month. The spot returns to the pool the moment you revoke, not when the grace ends. |
@@ -29,6 +29,19 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 | What "lifetime" covers | **The core platform, forever.** Usage (AI, calls, SMS, numbers) always comes out of the wallet. Future premium add-ons are sold separately, to lifetime holders too. |
 | Founding partner usage | **$10 starting credit.** A card is required before the balance runs out.                                                                                             |
 | A second workspace     | The founding deal covers **one workspace**. Every further workspace is $97/month.                                                                                    |
+
+### 1.1 Free seats are on until you take them back (decided 2026-10-15)
+
+The owner's call, after three approved founding partners lapsed because nobody followed their claim links:
+
+- **Any business can be given a seat,** whether or not it applied: `founding.give`, from **Give a seat** on
+  `/admin/founding`.
+- **A free seat is never held behind a link.** Approving or giving one puts it on the business's workspace at once,
+  with its plan and starting credit, and only revoking takes it back.
+- **A seat held from before, or one that lapsed, is turned on from its row,** reusing that seat rather than taking
+  a second.
+- **The $497 seat keeps its claim link and its fourteen-day hold,** because it waits on a payment.
+- The cap and the open/closed switch still apply to every seat.
 
 ### The two offers
 

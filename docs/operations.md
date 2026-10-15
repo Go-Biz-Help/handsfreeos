@@ -9517,24 +9517,41 @@ migrations".
    whoever signed up with the email they applied with, and picks it for you when there is only one. If they
    signed up with another email, choose **Search for another business…** and find it by name — and make sure it
    is theirs: an agency's workspace named after a client belongs to the agency, not the client.
-4. Add a note on why them if you like, and press **Approve and hold a seat**.
-5. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
-   copy is kept, so closing the window without copying it means approving them again.
+4. Add a note on why them if you like.
+5. **A free seat:** press **Approve and turn it on**. Their workspace is on the founding plan at once, with its
+   starting usage credit, and there is nothing for them to click. You should see it under **Seats out** as
+   "using it since" today. It stays on until you revoke it; nothing runs out.
+6. **A $497 seat:** press **Approve and hold a seat**, then **copy the claim link that appears and email it to
+   them straight away.** It is shown once. Only a scrambled copy is kept, so closing the window without copying
+   it means approving them again. The seat shows under **Seats out** as "approved, not taken up", held for them
+   for fourteen days while they pay. A paid seat nobody pays for in that time goes back to the offer on its own,
+   within the hour after it runs out.
 
-You should see the seat under **Seats out**, marked "approved, not taken up". It is held for them for fourteen
-days. A seat nobody takes up in that time goes back to the offer on its own, within the hour after it runs out.
+### Giving a seat to any business
+
+A business does not have to apply. In **Admin** → **Founding**, press **Give a seat** beside **Seats out**,
+search for the business by name, pick its workspace, add a note on why if you like, and press **Give the seat**.
+It is on at once, the same as an approved free seat, and stays on until you revoke it.
+
+- **A seat held from before, or one that lapsed.** Seats approved before free seats turned on at once were held
+  behind a claim link, and lapsed after fourteen days if nobody followed it ("never taken up · expired" under
+  **Seats given back**). Press **Turn it on** on the row: the seat goes on the business's workspace and moves to
+  **Seats out**. A business with more than one workspace is asked about instead; use **Give a seat** and pick
+  the workspace.
+- **When it is refused.** "Every seat in this offer is taken" means the cap is reached: raise it on the offer's
+  card, or revoke a seat. "Already has a … seat" means the business holds one; it keeps it until you revoke it.
 
 ### What they do with the link
 
-They open it signed in as an owner or admin of the business the seat was approved for. Signed in as anybody
-else, the page says so and offers to switch account — the link cannot put a seat on somebody else's business,
-whoever holds it.
+Only a $497 seat has a link. They open it signed in as an owner or admin of the business the seat was approved
+for. Signed in as anybody else, the page says so and offers to switch account — the link cannot put a seat on
+somebody else's business, whoever holds it.
 
-- **A free seat:** they press **Take up my seat**. Their workspace is on the founding plan at once, with its
-  starting usage credit.
 - **A $497 seat:** they press **Pay $497** and go to Stripe's own payment page. The seat turns on when Stripe
   tells us the money is in, not when they arrive back — so it needs the webhook in "Paying for a seat: the
   Stripe side" below. While they are paying, the seat stays held for them, and **Seats out** says "paying now".
+- **A free seat approved before this changed:** the link still works. They press **Take up my seat** and their
+  workspace is on the founding plan at once. **Turn it on** does the same without them.
 
 ### Paying for a seat: the Stripe side
 

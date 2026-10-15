@@ -3427,8 +3427,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Approve an application and hold a seat for that business. Returns the claim link, once. The seat is theirs until the link expires.
-         * @description Risk level 4. Requires platform.founding.manage. Emits founding.approved.
+         * Approve an application. A free seat goes on their workspace at once and stays until somebody revokes it. A paid seat is held, and the claim link to pay for it is returned once.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.approved, founding.claimed.
          */
         post: operations["command_founding_approve"];
         delete?: never;
@@ -3471,6 +3471,26 @@ export interface paths {
          * @description Risk level 2. Requires platform.founding.manage. Emits founding.declined.
          */
         post: operations["command_founding_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a business a founding seat, whether or not it applied. Its workspace is on the founding plan at once, with the starting credit, and keeps it until somebody revokes it.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.claimed.
+         */
+        post: operations["command_founding_give"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27902,6 +27922,8 @@ export interface operations {
                     note?: string;
                     /** Format: uuid */
                     organizationId: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
                 };
             };
         };
@@ -27913,13 +27935,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        claimToken: string;
-                        /** Format: date-time */
-                        expiresAt: string;
+                        claimToken: string | null;
+                        expiresAt: string | null;
                         /** Format: uuid */
                         grantId: string;
                         offerId: string;
                         remaining: number;
+                        /** @enum {string} */
+                        status: "active" | "reserved";
+                        workspaceId: string | null;
                     };
                 };
             };
@@ -27991,6 +28015,50 @@ export interface operations {
                         applicationId: string;
                         /** @enum {string} */
                         status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_give: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default  */
+                    note?: string;
+                    offerId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        creditedCents: number;
+                        /** Format: uuid */
+                        grantId: string;
+                        offerId: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        /** @enum {string} */
+                        plan: "founding_free" | "founding_lifetime" | "monthly";
+                        remaining: number;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
