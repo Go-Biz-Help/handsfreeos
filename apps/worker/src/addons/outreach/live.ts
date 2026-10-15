@@ -1,9 +1,10 @@
 /**
  * Live status (docs/outreach.md, decision 41; core's rules in packages/core/src/addons/outreach/live.ts):
  *
- * - **A Facebook warning** (`outreach.warning.seen`) pushes to the person's phone: "Facebook showed a warning. The
- *   extension stopped for today." Once per person a business day, to them alone, on their add-ons switch; it opens
- *   the Live tab.
+ * - **A warning** (`outreach.warning.seen`) pushes to the person's phone, naming the network that showed it:
+ *   "Facebook showed a warning. The extension stopped on Facebook for today." Once per person, network and business
+ *   day, to them alone, on their add-ons switch; it opens the Live tab. A warning on one network is its own: the
+ *   others go on, and their warnings push too.
  * - **The feed is kept a week** (`outreach.live_prune`, one job a business, each day): older lines go, asks of
  *   the extension asked a week ago (decision 43), needs done, let go or no longer shown a while since, and computers
  *   not seen for a month but each person's working one. It's armed when the add-on comes on, and when a computer is
@@ -11,6 +12,7 @@
  *   too.
  */
 import { ASK_KEEP_DAYS } from '@hfos/core/addons/outreach/asks';
+import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/playbooks';
 import {
   COMPUTER_KEEP_DAYS,
   LIVE_KEEP_DAYS,
@@ -33,9 +35,17 @@ export const LIVE_PRUNE_JOB = 'outreach.live_prune';
 const LIVE_HREF = '/a/outreach?view=live';
 const DAY = 86_400_000;
 
-/** `outreach.warning.seen`: the person's phone hears that Facebook warned them and the extension stopped. */
+/** A network's part of a push's key: none for Facebook, whose keys were made before networks were named. */
+const netKey = (platform: Platform, by: string) =>
+  platform === 'facebook' ? '' : `${by}${platform}`;
+
+/** `outreach.warning.seen`: the person's phone hears that a network warned them and the extension stopped there. */
 export async function warningSeen(ctx: AddonEventContext): Promise<void> {
-  const p = (ctx.event.payload ?? {}) as { userId?: unknown };
+  const p = (ctx.event.payload ?? {}) as { userId?: unknown; platform?: unknown };
+  // An event from before networks were named was Facebook's.
+  const platform: Platform = (PLATFORM_KEYS as readonly unknown[]).includes(p.platform)
+    ? (p.platform as Platform)
+    : 'facebook';
   const userId =
     typeof p.userId === 'string'
       ? p.userId
@@ -47,13 +57,14 @@ export async function warningSeen(ctx: AddonEventContext): Promise<void> {
   const day = localDateOf(new Date(ctx.event.occurredAt ?? ctx.event.createdAt).getTime(), tz);
   await asWorker(ctx.db, ctx.scope, (tx) =>
     pushAddonNotice(ctx, tx, {
-      // One a business day: a second warning the same day is in the same stop.
-      key: `warning:${userId}:${day}`,
+      // One a network and business day: a second warning there the same day is in the same stop. Facebook's keys are
+      // as they were before networks were named, so a warning noted either side of the change pushes once.
+      key: `warning:${userId}${netKey(platform, ':')}:${day}`,
       userIds: [userId],
       permission: 'outreach.use',
-      ...warningPushWords(),
+      ...warningPushWords(platform),
       href: LIVE_HREF,
-      collapseKey: `warning-${userId}`,
+      collapseKey: `warning-${userId}${netKey(platform, '-')}`,
     }),
   );
 }

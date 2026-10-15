@@ -758,7 +758,10 @@ export const computers = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.installId)],
 );
 
-/** The person's day: started or stopped, why, from where and when (./live.ts). */
+/**
+ * The person's day on one network: started or stopped, why, from where and when (./live.ts). Each network's is its
+ * own (`platform`, unique with the person), so a stop or a warning on one leaves the others going.
+ */
 export const days = addonOutreach.table(
   'days',
   {
@@ -767,6 +770,7 @@ export const days = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('facebook').$type<Platform>(),
     day: date('day', { mode: 'string' }).notNull(),
     state: text('state').notNull().$type<DayState>(),
     why: text('why').$type<DayWhy>(),
@@ -775,7 +779,13 @@ export const days = addonOutreach.table(
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
-  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+  // One a person and network (`days_user_platform_idx`). The one a person (`days_workspace_id_user_id_key`) goes
+  // once the code keying a day by its network is deployed (20261027006800).
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId),
+    unique().on(t.workspaceId, t.userId, t.platform),
+  ],
 );
 
 /** The feed of the extension's steps, and the day's starts, stops and warnings (./live.ts). */

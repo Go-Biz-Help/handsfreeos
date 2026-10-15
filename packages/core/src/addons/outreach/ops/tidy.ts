@@ -1,7 +1,7 @@
 /**
- * Tidying the person's own friends, and Facebook's warnings (../tidy.ts): the sent requests and friends the extension
- * may cancel or unfriend once the person ticks them, each one it did, and each warning Facebook showed them. Each
- * person's are their own.
+ * Tidying the person's own friends, and the networks' warnings (../tidy.ts): the sent requests and friends the
+ * extension may cancel or unfriend once the person ticks them, each one it did, and each warning a network showed
+ * them. Each person's are their own, and a warning is its network's alone: the others go on.
  */
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -14,6 +14,7 @@ import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
 import { FRIENDS_CAP, limitNow, TIDY_LIMITS, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
 import { outreachAddon } from '../manifest';
+import type { Platform } from '../playbooks';
 import { friendEnds, warnings } from '../tables';
 import {
   FriendEndInput,
@@ -42,10 +43,14 @@ export async function startOfToday(ctx: Ctx, now = Date.now()): Promise<Date> {
   return new Date(startOfLocalDay(localDateOf(now, timezone), timezone));
 }
 
-/** The latest warning Facebook showed the person that still slows them down, or null. */
+/**
+ * The latest warning a network showed the person that still slows them down there, or null. Another network's
+ * warning never counts: each slows and stops only its own.
+ */
 export async function warningOf(
   ctx: Ctx,
   me: string,
+  platform: Platform,
   todayFrom: Date,
   now = Date.now(),
 ): Promise<WarningState | null> {
@@ -56,6 +61,7 @@ export async function warningOf(
       and(
         eq(warnings.workspaceId, ctx.scope.workspaceId!),
         eq(warnings.userId, me),
+        eq(warnings.platform, platform),
         gte(warnings.at, new Date(now - WARNING_SLOWER_DAYS * DAY)),
       ),
     )
@@ -128,7 +134,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           where workspace_id = ${ws} and addon_id = ${outreachAddon.id}`,
     );
     const weeks = outreachSettings(installed?.settings).cancelRequestsAfterWeeks;
-    const warning = await warningOf(ctx, me, todayFrom, now);
+    const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
     const slower = await slowerFor(ctx, me, slowsNow(warning, now), now);
     const done = await endsToday(ctx, me, todayFrom);
 
@@ -270,7 +276,7 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
 export const warningNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.warning.note',
   description:
-    'Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.',
+    'Note a warning a network showed the person, in its own words, as the extension read it: on that network alone, it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone. Their other networks go on.',
   risk: 1,
   input: WarningNoteInput,
   output: WarningNoteOutput,
@@ -285,7 +291,7 @@ export const warningNote = defineAddonCommand(outreachAddon, {
     const todayFrom = await startOfToday(ctx);
     const words = [...new Set(input.words)];
     const asArray = `{${words.map((w) => `"${w.replace(/["\\]/g, '\\$&')}"`).join(',')}}`;
-    // The same words seen again the same day are the same warning.
+    // The same words seen again the same day on the same network are the same warning.
     const [same] = await ctx.tx
       .select({ at: warnings.at, words: warnings.words })
       .from(warnings)
@@ -293,6 +299,7 @@ export const warningNote = defineAddonCommand(outreachAddon, {
         and(
           eq(warnings.workspaceId, ws),
           eq(warnings.userId, me),
+          eq(warnings.platform, input.platform),
           gte(warnings.at, todayFrom),
           sql`${warnings.words} = ${asArray}::text[]`,
         ),
@@ -307,10 +314,13 @@ export const warningNote = defineAddonCommand(outreachAddon, {
       url: input.url,
       at,
     });
-    // Training wheels go back on for 7 days, for anyone who ever had them.
-    await wheelsBackOn(ctx, me);
-    // The day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs follows it.
-    await warnDay(ctx, me, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
+    // Training wheels go back on for 7 days, for anyone who ever had them. They're the network's: the person's
+    // settings, and the wheels with them, are Facebook's until each network has its own, so only Facebook's
+    // warning touches them.
+    if (input.platform === 'facebook') await wheelsBackOn(ctx, me);
+    // The network's day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs
+    // follows it. The person's other networks go on.
+    await warnDay(ctx, me, input.platform, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
     await ctx.emit({
       type: 'outreach.warning.seen',
       entityType: 'workspace',

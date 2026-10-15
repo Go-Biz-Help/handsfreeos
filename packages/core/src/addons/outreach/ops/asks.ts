@@ -64,17 +64,20 @@ import { startOfToday, warningOf } from './tidy';
 
 const viaOf = (meta: RequestMeta): AskVia => (meta.channel === 'mobile' ? 'mobile' : 'web');
 
-/** Whether Facebook warned the person today, and its words: nothing more is done on Facebook till tomorrow. */
+/**
+ * Whether Facebook warned the person today, and its words: nothing more is done on Facebook till tomorrow. Every kind
+ * of ask works on Facebook yet, so only Facebook's warning holds them; another network's never does.
+ */
 async function warnedToday(
   ctx: Ctx,
   me: string,
   now: number,
 ): Promise<{ words: string | null } | null> {
   // One transaction's queries go one after another anyway.
-  const warning = await warningOf(ctx, me, await startOfToday(ctx, now), now);
+  const warning = await warningOf(ctx, me, 'facebook', await startOfToday(ctx, now), now);
   if (warning?.today) return { words: warning.words };
   const { today } = await businessToday(ctx, now);
-  const day = await dayOf(ctx, me, today);
+  const day = await dayOf(ctx, me, 'facebook', today);
   return day.why === 'warning' ? { words: warning?.words ?? null } : null;
 }
 

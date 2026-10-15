@@ -1214,6 +1214,16 @@ code" (decision 45's install step). Settled too:
   phone overnight) changes nothing and is passed over quietly, never refused, and a warning stops the day whatever was
   pressed, for the rest of that day. The extension follows the answer to each beat, except while a press of its own waits to
   be sent, and never undoes a warning it saw itself.
+- **Each network is on its own** (Chris, 15 Oct 2026; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): a warning
+  or a pause on one network never affects another. A day is a network's (`days.platform`, `outreach.day.*`'s
+  `platform`, Facebook when left out), a warning is the network's that showed it (`warnings.platform`; `warningOf`,
+  `warnDay`), and a day's steps count against that network's limits alone (`dayCounts`, through the touch's profile).
+  A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
+  kept apart, but nothing reads or saves a LinkedIn page yet: the live view, the team's, the activity panel, the
+  checks, joining groups and every ask are Facebook's, and so are training wheels, which only Facebook's warning puts
+  back on until each network has its own settings. A new place that reads a warning, a day or the day's counts names
+  its network. Until the one-a-person key on `days` goes (the migration after 20261027006800), a person keeps one
+  day row, so a day on a second network can't be kept beside a Facebook one yet.
 - **A heartbeat tells nobody:** a beat that changes nothing writes only `last_seen_at`: no event, no broadcast and no
   command receipt (`receipt: false`). A feed line, a new state, a different working computer or coming back online
   tells the app once; a new line alone at most every 45 seconds (the extension sends one at most every 20), and a
@@ -1332,8 +1342,9 @@ code" (decision 45's install step). Settled too:
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when
   its writer runs a group, is on Don't pitch or is in Contacts, and never twice: a comment noted on its link, or
   **Not for me**, ends it. The look-up's lines go to the AI for that draft only and are never kept.
-- **A warning is a warning for a week** (`warningOf`, `dailyLimitsNow`): limits halve (never below 1) for 7 days from
-  the latest one, friend requests leave the list for 2, and the same words twice in a day come back `repeated`. The
+- **A warning is a warning for a week** (`warningOf`, `dailyLimitsNow`): on its network, limits halve (never below 1)
+  for 7 days from the latest one, friend requests leave the list for 2, and the same words twice in a day on the same
+  network come back `repeated`. The
   extension keeps the day's warnings itself too, so it stops even when HandsFreeOS can't be reached.
 - **A reply answers a message the extension noted** (`outreach.replies.note`). A chat whose last message is theirs
   counts once for each message of the person's it answers (`replies`, by the moment of that message), so seeing the

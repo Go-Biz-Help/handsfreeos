@@ -45,10 +45,13 @@ const knownToMe = (me: string) => sql`p.friendship <> 'self' and ${pitchable('p'
     where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')
   or exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}))`;
 
-/** How many a day the person's computer checks now: halved for a week after a warning from Facebook. */
+/**
+ * How many a day the person's computer checks now: halved for a week after a warning from Facebook, where the checks
+ * read profiles.
+ */
 export async function perDayFor(ctx: Ctx, me: string, now: number) {
   const todayStart = await startOfToday(ctx, now);
-  const warning = await warningOf(ctx, me, todayStart, now);
+  const warning = await warningOf(ctx, me, 'facebook', todayStart, now);
   const [done] = await rows<{ n: number }>(
     ctx.tx,
     sql`select count(*)::int as n from addon_outreach.checks

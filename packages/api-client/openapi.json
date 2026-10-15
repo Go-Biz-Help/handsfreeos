@@ -78142,7 +78142,8 @@
                         "items": {
                           "type": "string",
                           "enum": [
-                            "facebook"
+                            "facebook",
+                            "linkedin"
                           ]
                         }
                       },
@@ -78625,7 +78626,8 @@
                           "items": {
                             "type": "string",
                             "enum": [
-                              "facebook"
+                              "facebook",
+                              "linkedin"
                             ]
                           }
                         },
@@ -79182,7 +79184,8 @@
                           "items": {
                             "type": "string",
                             "enum": [
-                              "facebook"
+                              "facebook",
+                              "linkedin"
                             ]
                           }
                         },
@@ -79475,7 +79478,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "profile": {
@@ -79632,7 +79636,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "thread": {
@@ -79943,7 +79948,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "kind": {
@@ -80228,7 +80234,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "answer": {
@@ -80377,7 +80384,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "list": {
@@ -80528,7 +80536,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "profileId": {
@@ -80724,7 +80733,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "importId": {
@@ -80993,7 +81003,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "chats": {
@@ -81169,7 +81180,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "groups": {
@@ -81439,7 +81451,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "people": {
@@ -81599,7 +81612,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "kind": {
@@ -81704,7 +81718,7 @@
     "/v1/commands/outreach.warning.note": {
       "post": {
         "operationId": "command_outreach_warning_note",
-        "summary": "Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.",
+        "summary": "Note a warning a network showed the person, in its own words, as the extension read it: on that network alone, it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone. Their other networks go on.",
         "tags": [
           "commands"
         ],
@@ -81725,7 +81739,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "words": {
@@ -81842,7 +81857,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "group": {
@@ -82413,7 +82429,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "profileId": {
@@ -84008,6 +84025,14 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
+                  },
                   "installId": {
                     "type": "string",
                     "format": "uuid",
@@ -84116,6 +84141,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   },
                   "installId": {
                     "type": "string",
@@ -169499,7 +169532,8 @@
                                 "items": {
                                   "type": "string",
                                   "enum": [
-                                    "facebook"
+                                    "facebook",
+                                    "linkedin"
                                   ]
                                 }
                               },
@@ -169799,7 +169833,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "profiles": {
@@ -170230,7 +170265,8 @@
                           "platform": {
                             "type": "string",
                             "enum": [
-                              "facebook"
+                              "facebook",
+                              "linkedin"
                             ]
                           },
                           "url": {
@@ -170292,7 +170328,8 @@
                           "platform": {
                             "type": "string",
                             "enum": [
-                              "facebook"
+                              "facebook",
+                              "linkedin"
                             ]
                           },
                           "url": {
@@ -172032,7 +172069,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   },
                   "view": {
@@ -172432,7 +172470,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   }
                 },
@@ -173013,7 +173052,8 @@
                     "default": "facebook",
                     "type": "string",
                     "enum": [
-                      "facebook"
+                      "facebook",
+                      "linkedin"
                     ]
                   }
                 },
