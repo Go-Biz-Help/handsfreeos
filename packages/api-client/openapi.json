@@ -24712,7 +24712,7 @@
                         "properties": {
                           "bestCustomer": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "theirWork": {
                             "type": "string",
@@ -24724,7 +24724,7 @@
                           },
                           "result": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "howLong": {
                             "type": "string",
@@ -24732,7 +24732,7 @@
                           },
                           "lookalikes": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24754,7 +24754,7 @@
                           },
                           "problem": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24764,15 +24764,15 @@
                         "properties": {
                           "result": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "measure": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "why": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24786,7 +24786,7 @@
                           },
                           "why": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24805,7 +24805,7 @@
                           },
                           "different": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24815,15 +24815,15 @@
                         "properties": {
                           "promise": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "when": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "qualifies": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24837,11 +24837,11 @@
                           },
                           "structure": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           },
                           "value": {
                             "type": "string",
-                            "maxLength": 600
+                            "maxLength": 800
                           }
                         }
                       },
@@ -24857,7 +24857,7 @@
                       },
                       "line": {
                         "type": "string",
-                        "maxLength": 600
+                        "maxLength": 1200
                       },
                       "inAFewWords": {
                         "default": {},
@@ -122783,7 +122783,7 @@
                                   "properties": {
                                     "bestCustomer": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "theirWork": {
                                       "type": "string",
@@ -122795,7 +122795,7 @@
                                     },
                                     "result": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "howLong": {
                                       "type": "string",
@@ -122803,7 +122803,7 @@
                                     },
                                     "lookalikes": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122826,7 +122826,7 @@
                                     },
                                     "problem": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122837,15 +122837,15 @@
                                   "properties": {
                                     "result": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "measure": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "why": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122860,7 +122860,7 @@
                                     },
                                     "why": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122880,7 +122880,7 @@
                                     },
                                     "different": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122891,15 +122891,15 @@
                                   "properties": {
                                     "promise": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "when": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "qualifies": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122914,11 +122914,11 @@
                                     },
                                     "structure": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "value": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -122935,7 +122935,7 @@
                                 },
                                 "line": {
                                   "type": "string",
-                                  "maxLength": 600
+                                  "maxLength": 1200
                                 },
                                 "inAFewWords": {
                                   "default": {},
@@ -123215,7 +123215,7 @@
                                   "properties": {
                                     "bestCustomer": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "theirWork": {
                                       "type": "string",
@@ -123227,7 +123227,7 @@
                                     },
                                     "result": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "howLong": {
                                       "type": "string",
@@ -123235,7 +123235,7 @@
                                     },
                                     "lookalikes": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123258,7 +123258,7 @@
                                     },
                                     "problem": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123269,15 +123269,15 @@
                                   "properties": {
                                     "result": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "measure": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "why": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123292,7 +123292,7 @@
                                     },
                                     "why": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123312,7 +123312,7 @@
                                     },
                                     "different": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123323,15 +123323,15 @@
                                   "properties": {
                                     "promise": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "when": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "qualifies": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123346,11 +123346,11 @@
                                     },
                                     "structure": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     },
                                     "value": {
                                       "type": "string",
-                                      "maxLength": 600
+                                      "maxLength": 800
                                     }
                                   },
                                   "additionalProperties": false
@@ -123367,7 +123367,7 @@
                                 },
                                 "line": {
                                   "type": "string",
-                                  "maxLength": 600
+                                  "maxLength": 1200
                                 },
                                 "inAFewWords": {
                                   "default": {},
