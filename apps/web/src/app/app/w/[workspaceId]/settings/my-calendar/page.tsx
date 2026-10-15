@@ -1,7 +1,8 @@
-import { can } from '@hfos/core';
+import { ADDON_CATALOG, can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MyCalendar } from '@/components/settings/my-calendar';
+import { ZoomCoachCard } from '@/components/settings/zoom-coach-card';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'My calendar' };
@@ -57,6 +58,19 @@ export default async function MyCalendarPage({
   ]);
   const person = team.people[0];
   if (!person) notFound();
+  // The coaching Zoom app, for someone an add-on that hears Zoom meetings would coach (their own card only).
+  const coached =
+    targetId === userId &&
+    ADDON_CATALOG.some(
+      (m) => m.liveCalls?.zoom && got.workspace.permissions.includes(m.liveCalls.permission),
+    );
+  const coach = coached
+    ? (
+        await api
+          .POST('/v1/queries/live_meeting_account.mine', { body: { workspaceId } })
+          .then(unwrapPage)
+      ).account
+    : null;
   return (
     <>
       <MyCalendar
@@ -69,6 +83,7 @@ export default async function MyCalendarPage({
         result={targetId === userId && typeof calendar === 'string' ? calendar : null}
         meetingResult={targetId === userId && typeof meeting === 'string' ? meeting : null}
       />
+      {coached ? <ZoomCoachCard workspaceId={workspaceId} account={coach} /> : null}
     </>
   );
 }

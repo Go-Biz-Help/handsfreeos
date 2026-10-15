@@ -38,6 +38,8 @@ export const RESERVED_ADDON_IDS: ReadonlySet<string> = new Set([
   'system',
   'test',
   'workspace',
+  // Retired ids, never used again: Live Sales Assist became part of AI Sales Coach (`salescoach`, 2026-10-14).
+  'salesassist',
 ]);
 
 /** `<domain>.<feature>`: `social.publish`, `crm.contacts`. An add-on's capabilities start with its own id. */
@@ -179,6 +181,10 @@ export const ADDON_SLOTS = [
   'record.panels',
   'conversation.panels',
   'home.cards',
+  // Beside a call in progress, for the person on it (Sales Coach: what to say next).
+  'call.panels',
+  // Above a conversation's message box: what to write (Sales Coach's suggested replies). It may fill the box.
+  'composer.suggestions',
 ] as const;
 export type AddonSlotName = (typeof ADDON_SLOTS)[number];
 
@@ -473,6 +479,19 @@ export interface AddonManifest {
   readonly ai?: { readonly directory: string };
   /** What the AI teammate may look up and ask for in a customer's conversation (round seven). */
   readonly teammate?: AddonTeammate;
+  /**
+   * It hears the business's phone calls as they happen (Sales Coach). Once a call is answered, the worker streams
+   * both sides to it, word by word, while the add-on runs, the number tells callers the call may be recorded, and the
+   * person on the call holds `permission`. Its worker half says what it does with them (`liveCalls`).
+   *
+   * `zoom` also hears Zoom meetings (round three): HandsFreeOS's app inside Zoom opens the add-on's page at `path`
+   * (from its `ui.nav` page, '' for the page itself) with `query`, where the person claims the meeting
+   * (`live_meeting.claim`) and Zoom's stream starts. The words come to the same worker hooks.
+   */
+  readonly liveCalls?: {
+    readonly permission: string;
+    readonly zoom?: { readonly path: string; readonly query?: Readonly<Record<string, string>> };
+  };
   readonly billing: AddonBilling;
 }
 
@@ -656,6 +675,20 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     (m.sealed ?? []).map((v) => v.key),
   );
 
+  if (m.liveCalls && !m.permissions.some((p) => p.key === m.liveCalls?.permission))
+    say(`liveCalls needs permission "${m.liveCalls.permission}", which the add-on doesn't declare`);
+  if (m.liveCalls?.zoom) {
+    const z = m.liveCalls.zoom;
+    if (!/^(|\/[a-z0-9-/]{1,80})$/.test(z.path))
+      say(
+        'liveCalls.zoom.path must be empty or start with "/", in lowercase letters, digits and dashes',
+      );
+    if (!(m.ui?.nav ?? []).length) say('liveCalls.zoom opens one of its pages, so it needs ui.nav');
+    for (const [k, v] of Object.entries(z.query ?? {}))
+      if (!/^[a-z][a-z0-9_]{0,30}$/.test(k) || !/^[a-z0-9_-]{1,40}$/.test(v))
+        say(`liveCalls.zoom.query "${k}" must be a short lowercase name and value`);
+  }
+
   if (m.teammate) {
     const t = m.teammate;
     if (!t.directory.trim() || t.directory.length > 200)
@@ -830,6 +863,7 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
   if (m.catalog.status === 'planned') {
     if ((m.tables ?? []).length || (m.jobs ?? []).length || (m.recordKinds ?? []).length)
       say('a planned add-on has no code yet, so it declares no tables, jobs or record kinds');
+    if (m.liveCalls) say('a planned add-on has no code yet, so it hears no calls');
   }
   for (const g of m.catalog.groups ?? [])
     if (!g.trim() || g.length > 60) say(`group "${g}" must be 1–60 characters`);

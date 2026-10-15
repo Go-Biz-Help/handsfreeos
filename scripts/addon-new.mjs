@@ -33,6 +33,7 @@ const RESERVED = new Set([
   'system',
   'test',
   'workspace',
+  'salesassist',
 ]);
 const CATEGORIES = [
   'industry',

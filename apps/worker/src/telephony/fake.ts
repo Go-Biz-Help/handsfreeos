@@ -93,6 +93,12 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly ended: string[];
   /** Live calls given new instructions (redirectCall), in order. */
   readonly redirected: { readonly callSid: string; readonly twiml: string }[];
+  /** Live calls whose audio was sent to the worker (startCallStream), in order. */
+  readonly streamed: {
+    readonly callSid: string;
+    readonly url: string;
+    readonly params: Readonly<Record<string, string>>;
+  }[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
   /** Ports asked for, in order, and the papers put on them. */
@@ -214,6 +220,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const calls: FakeCall[] = [];
   const ended: string[] = [];
   const redirected: { callSid: string; twiml: string }[] = [];
+  const streamed: { callSid: string; url: string; params: Readonly<Record<string, string>> }[] = [];
   const registrations: RegistrationRequest[] = [];
   const deleted: string[] = [];
   const transcribed: string[] = [];
@@ -517,6 +524,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     calls,
     ended,
     redirected,
+    streamed,
     registrations,
     ports,
     portDocuments,
@@ -846,6 +854,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async redirectCall(_account, callSid, twiml) {
       redirected.push({ callSid, twiml });
+    },
+    async startCallStream(_account, callSid, stream) {
+      streamed.push({ callSid, url: stream.url, params: stream.params });
     },
     async transcribeRecording(_account, recordingSid) {
       transcribed.push(recordingSid);

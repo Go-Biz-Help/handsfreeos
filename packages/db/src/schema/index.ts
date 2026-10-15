@@ -2690,6 +2690,44 @@ export const callSuggestions = app.table('call_suggestions', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/**
+ * A person's claim on a Zoom meeting they asked HandsFreeOS to hear live, waiting for Zoom's stream, then live,
+ * then ended (20261027004900). The add-ons that listen keep what was said.
+ */
+export const liveMeetings = app.table('live_meetings', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  provider: text('provider').notNull().default('zoom'),
+  meetingUuid: text('meeting_uuid').notNull(),
+  meetingNumber: text('meeting_number'),
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  screenName: text('screen_name'),
+  state: text('state').notNull().default('waiting'),
+  streamId: text('stream_id'),
+  startedAt: ts('started_at'),
+  endedAt: ts('ended_at'),
+  ...timestamps(),
+});
+
+/**
+ * Which HandsFreeOS person a Zoom user is, in one business, for the live coaching Zoom app (20261027005100): made
+ * when they add the app in Zoom and connect it, ended when they disconnect or remove it. No tokens are kept.
+ */
+export const liveMeetingAccounts = app.table('live_meeting_accounts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  provider: text('provider').notNull().default('zoom'),
+  externalUserId: text('external_user_id').notNull(),
+  accountEmail: text('account_email'),
+  status: text('status').notNull().default('active'),
+  connectedAt: ts('connected_at').notNull().defaultNow(),
+  disconnectedAt: ts('disconnected_at'),
+  ...timestamps(),
+});
+
 // ---------- Milestone 6: workflows, agency templates, AI usage and the knowledge base (0021-0025) ----------
 export const workflowStatus = app.enum('workflow_status', [
   'draft',

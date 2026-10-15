@@ -2,6 +2,7 @@ import type * as React from 'react';
 
 import { OutreachMore } from './outreach/more';
 import { RealestateMore } from './realestate/more';
+import { SalescoachMore } from './salescoach/more';
 
 /**
  * The add-ons this build of the phone draws, and where each sits in core's screens, as the web's
@@ -20,4 +21,5 @@ export interface PhoneAddon {
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
   { addonId: 'realestate', permission: 'realestate.use', More: RealestateMore },
   { addonId: 'outreach', permission: 'outreach.use', More: OutreachMore },
+  { addonId: 'salescoach', permission: 'salescoach.use', More: SalescoachMore },
 ];

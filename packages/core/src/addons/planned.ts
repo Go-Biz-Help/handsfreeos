@@ -435,14 +435,6 @@ const ENTRIES: readonly PlannedEntry[] = [
       'Listens to live or recorded sales calls and gives reps objection handling, talking points, coaching, and post-call feedback.',
   },
   {
-    id: 'salesassist',
-    name: 'Live Sales Assist',
-    category: 'sales',
-    groups: ['Sales Enablement', 'Voice & Calling'],
-    summary:
-      'Transcribes calls in real time and surfaces suggested responses, scripts, product information, and next-best actions during the conversation.',
-  },
-  {
     id: 'proposals',
     name: 'Proposal Builder',
     category: 'sales',

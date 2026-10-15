@@ -40,6 +40,7 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'message.media_attached',
   'call.started',
   'call.received',
+  'call.answered',
   'call.completed',
   'call.missed',
   // A call through someone's own cell that never reached the customer (M10): it changes nothing for them, but

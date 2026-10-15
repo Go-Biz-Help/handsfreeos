@@ -146,6 +146,13 @@ export interface WorkerEnv {
   /** The secret token on the Zoom app's event subscription: Zoom signs its webhooks with it. */
   readonly zoomWebhookSecret: string | null;
   /**
+   * The coaching Zoom app (AI Sales Coach in meetings), apart from the meeting-link one so neither's Zoom review holds
+   * up the other: its client id and secret (which also sign a meeting's live stream) and its webhook's secret token.
+   */
+  readonly zoomLiveClientId: string | null;
+  readonly zoomLiveClientSecret: string | null;
+  readonly zoomLiveWebhookSecret: string | null;
+  /**
    * What customers said in public (M16): the Google Business Profile and the Facebook Page the reviews are
    * read from, or the stand-in that serves its own sign-in page on the worker and keeps reviews in memory.
    */
@@ -674,6 +681,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     zoomClientId: env.ZOOM_OAUTH_CLIENT_ID || null,
     zoomClientSecret: env.ZOOM_OAUTH_CLIENT_SECRET || null,
     zoomWebhookSecret: env.ZOOM_WEBHOOK_SECRET || null,
+    zoomLiveClientId: env.ZOOM_LIVE_OAUTH_CLIENT_ID || null,
+    zoomLiveClientSecret: env.ZOOM_LIVE_OAUTH_CLIENT_SECRET || null,
+    zoomLiveWebhookSecret: env.ZOOM_LIVE_WEBHOOK_SECRET || null,
     googleCalendarClientId,
     googleCalendarClientSecret,
     calendarRefreshMs,
