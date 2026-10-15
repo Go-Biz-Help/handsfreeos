@@ -100,6 +100,7 @@ Social Outreach's playbooks read the live version (step 3: the niche, the AI's h
 docs/outreach.md, decision 62), nobody's outreach starts until the offer is live (step 4, Get ready: decision 63),
 the AI checks each person's Facebook profile against it (step 5, decision 64), and every message is written from it,
 each person reached keeping the version they were first sent (step 6, decisions 65 to 68), and the short video's script
-is written from it, saying when it was written for an older version (step 7, decision 69). The numbers by version on
-Social Outreach's Results, and hearing `main_offer.published`, are step 8.
+is written from it, saying when it was written for an older version (step 7, decision 69). Social Outreach's Results
+shows the first messages, yeses and calls booked by version, and hearing `main_offer.published` it tells whoever OK'd
+their messages against an older version to look again (step 8, decision 70).
 The phone shows nothing of the main offer yet; its words are core's, ready for it.

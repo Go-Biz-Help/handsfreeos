@@ -405,7 +405,12 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    (`outreach.video.script`), each part can be improved on its own, and the playbook keeps the script and the link
    (data version 5). **Your messages** now waits on the playbook's video link, as the readiness table says. The
    phone shows the script and changes the link. docs/outreach.md, decision 69.
-8. **Tracking.** The numbers on Results, by playbook and version, the day's report, the week's review.
+8. **Tracking. Built.** The three numbers on Results with their rates and the person's targets, by playbook and
+   version (`outreach.tracking`, counted through `private.outreach_numbers` so owners and admins see the team's yeses,
+   the main offer page's counts too), the day's report (`dayReport` in My settings, on to start), the week's review
+   (the AI's, or the numbers' own without it; kept in `addon_outreach.reviews` and pushed), and a push to whoever OK'd
+   their messages when a new main offer goes live, from the boards in `design/tracking` (Chris approved them,
+   2026-10-15: "build it"). Migration `20261027006500`. docs/outreach.md, decision 70.
 9. **Docs.** `docs/main-offer.md` (new, with its rules worth knowing), docs/outreach.md (what's built, the
    decisions, the rules), docs/addon-architecture.md (`uses`), and a row in CLAUDE.md's Read first table.
 

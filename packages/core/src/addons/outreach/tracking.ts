@@ -275,6 +275,10 @@ const short = (n: number) => String(Math.round(n * 10) / 10);
 export const percent = (r: number) => `${short(r * 100)}%`;
 
 /** Results' words for the numbers, on the web and the phone. Plain words, curly apostrophes. */
+/** "4 of 80 messages", "1 of 4 yeses". */
+const countOf = (part: number, whole: number, of: 'message' | 'yes') =>
+  `${part.toLocaleString('en-US')} of ${plural(whole, of, of === 'yes' ? 'yeses' : 'messages')}`;
+
 export const TRACKING_WORDS = {
   title: 'Your numbers',
   titleTeam: 'The team’s numbers',
@@ -296,9 +300,10 @@ export const TRACKING_WORDS = {
     yes: 'Said yes',
     books: 'Booked a call',
   },
+  countOf,
   /** "4 of 80 messages, 5%". */
-  rateOf: (part: number, whole: number, of: string) =>
-    `${part.toLocaleString('en-US')} of ${plural(whole, of)}, ${percent(part / whole)}`,
+  rateOf: (part: number, whole: number, of: 'message' | 'yes') =>
+    `${countOf(part, whole, of)}, ${percent(part / whole)}`,
   benchmark: {
     yes: 'Most get 4 to 8%',
     books: 'Most book 1 in 3',
@@ -318,6 +323,9 @@ export const TRACKING_WORDS = {
   byVersionHint: 'The main offer’s version each person was first sent.',
   version: (v: number, live: boolean) => `Version ${v}${live ? ', live' : ''}`,
   columns: { messages: 'Sent', positive: 'Yes', booked: 'Booked' },
+  noneCounted: 'Nothing counted yet.',
+  /** "Targets from your goal: 8 calls a month". */
+  goal: (goal: number) => `Targets from your goal: ${plural(goal, 'call')} a month`,
   none: (period: ActivityPeriod) =>
     period === 'today'
       ? 'No first messages yet today.'

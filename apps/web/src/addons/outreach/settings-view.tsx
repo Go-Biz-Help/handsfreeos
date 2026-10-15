@@ -38,6 +38,7 @@ import {
 import { settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import Link from 'next/link';
@@ -236,6 +237,15 @@ export function ChoicesForm({
           ))}
         </div>
         <p className="text-[13px] text-text-2">{W.abouts.pushesAlways}</p>
+        <div className="border-t border-border pt-3">{tick('dayReport')}</div>
+        {value.dayReport ? (
+          <PushSample
+            title={dayReportSample.title}
+            body={dayReportSample.body}
+            testId={`${testId}-day-report-sample`}
+          />
+        ) : null}
+        <p className="text-[12.5px] text-text-3">{W.abouts.weekReview}</p>
       </Part>
       <Part title={W.sections.when} about={W.abouts.when(timezone)}>
         <p className="flex flex-wrap items-center gap-2 text-[13px]">
@@ -628,6 +638,32 @@ export function SettingsView({
           <StartFresh workspaceId={workspaceId} />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** How the day's report reads on a phone, from a made-up day. */
+const dayReportSample = dayReportWords({ messages: 14, positive: 2, booked: 1 }, 15);
+
+/** A push as it shows on a phone: the add-on's name, its title and its words. */
+function PushSample({ title, body, testId }: { title: string; body: string; testId: string }) {
+  return (
+    <div
+      className="grid max-w-[420px] grid-cols-[36px_minmax(0,1fr)] gap-2.5 rounded-[14px] border border-border bg-card-2 px-3.5 py-3"
+      aria-label="How it reads on your phone"
+      data-testid={testId}
+    >
+      <span
+        className="inline-flex h-9 w-9 items-center justify-center rounded-[9px] bg-accent text-[13px] font-bold text-white"
+        aria-hidden="true"
+      >
+        HF
+      </span>
+      <div className="min-w-0 text-[13px]">
+        <div className="text-[12px] font-semibold text-text-2">{W.title}</div>
+        <div className="font-semibold">{title}</div>
+        <div>{body}</div>
+      </div>
     </div>
   );
 }
