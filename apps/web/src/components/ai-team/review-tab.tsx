@@ -140,7 +140,7 @@ function ReviewList({
         </Card>
       ) : (
         items.map((item) => (
-          <Card key={item.runId} className="p-4" data-testid={`review-${item.runId}`}>
+          <Card key={item.runId} className="p-4" data-testid="review-item" data-run={item.runId}>
             <div className="mb-2.5 flex flex-wrap items-center gap-2 text-[12.5px] text-text-3">
               <span className="font-semibold text-text">
                 {item.person?.fullName ?? 'Unknown customer'}
