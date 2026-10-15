@@ -17,9 +17,10 @@ import {
   NETWORK_CHOICES_DEFAULTS,
   NETWORKS_DEFAULTS,
 } from '../../src/addons/outreach/automation';
+import { preDaySteps } from '../../src/addons/outreach/lists';
 import { networkOfLink, NETWORKS, profileMisfit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { outreachBusiness, refused, runAs } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 
@@ -409,5 +410,129 @@ describe('each network’s own choices', () => {
       'outreach_network_off',
     );
     await setRules({});
+  });
+});
+
+describe('each network’s own lists, asks and Today', () => {
+  const HOUR = 3_600_000;
+  const linkedInOn = {
+    ...AUTOMATION_DEFAULTS,
+    networks: { ...NETWORKS_DEFAULTS, linkedin: { ...NETWORK_CHOICES_DEFAULTS, on: true } },
+  };
+  const beat = (u: TestUser, installId: string, version: string) =>
+    runWith(
+      u,
+      ws,
+      'outreach.live.beat',
+      {
+        computer: { id: installId, name: 'Chrome on Mac', version },
+        active: true,
+        status: { state: 'idle', line: null, lineAt: null, nextAt: null },
+      },
+      { channel: 'extension', commandId: randomUUID(), occurredAt: new Date(), sentAt: new Date() },
+    );
+  const ask = (u: TestUser, platform: string | undefined, a: Record<string, unknown>) =>
+    runWith(
+      u,
+      ws,
+      'outreach.ask.make',
+      { ...(platform ? { platform } : {}), ask: a },
+      {
+        channel: 'web',
+      },
+    );
+
+  it('keep Today to its own network: a reply owed on LinkedIn shows on LinkedIn’s list alone', async () => {
+    const dana = await teammate('Quinn Avery');
+    const sam = {
+      id: 'ACoAABsam-7',
+      username: 'sam-lee-77',
+      url: 'https://www.linkedin.com/in/sam-lee-77/',
+    };
+    await runAs(
+      dana,
+      ws,
+      'outreach.touch.save',
+      { platform: 'linkedin', kind: 'message', profile: sam, name: 'Sam Lee' },
+      new Date(Date.now() - HOUR),
+    );
+    const seen = await runAs(dana, ws, 'outreach.replies.note', {
+      platform: 'linkedin',
+      seen: [{ name: 'Sam Lee', profile: sam }],
+    });
+    expect(seen.replies).toHaveLength(1);
+    const kinds = async (platform?: string) =>
+      (await runAs(dana, ws, 'outreach.today', platform ? { platform } : {})).items.map(
+        (i: { kind: string; name: string }) => `${i.kind}: ${i.name}`,
+      );
+    expect(await kinds('linkedin')).toEqual(['reply: Sam Lee']);
+    expect(await kinds()).toEqual([]);
+  });
+
+  it('keep each network’s lists and first day apart', async () => {
+    const dana = await teammate('Rowan Blake');
+    const linkedIn = await runAs(dana, ws, 'outreach.lists.saved', {
+      platform: 'linkedin',
+      list: 'friends',
+    });
+    expect(linkedIn.friendsAt).not.toBeNull();
+    expect((await runAs(dana, ws, 'outreach.lists', {})).friendsAt).toBeNull();
+    expect((await runAs(dana, ws, 'outreach.lists', { platform: 'linkedin' })).friendsAt).toBe(
+      linkedIn.friendsAt,
+    );
+    await runAs(dana, ws, 'outreach.lists.saved', { list: 'requests' });
+    expect((await runAs(dana, ws, 'outreach.lists', {})).requestsAt).not.toBeNull();
+    expect(
+      (await runAs(dana, ws, 'outreach.lists', { platform: 'linkedin' })).requestsAt,
+    ).toBeNull();
+    // LinkedIn's first day has no groups to save, and its own words.
+    const steps = preDaySteps(linkedIn, {}, 'linkedin');
+    expect(steps.map((s) => s.label)).toEqual([
+      'Save your connections',
+      'Save invitations you got',
+      'Save invitations you sent',
+      'Work out which old invitations to withdraw',
+      'Check your connections for good fits',
+    ]);
+    expect(steps.map((s) => s.state)).toEqual(['done', 'now', 'next', 'next', 'next']);
+  });
+
+  it('keep each network’s asks apart, for a build that knows the network', async () => {
+    const dana = await teammate('Emery Stone');
+    const pc = randomUUID();
+    // LinkedIn off: nothing asked there.
+    await beat(dana, pc, '0.40.0');
+    expect(await refused(ask(dana, 'linkedin', { kind: 'friends' }))).toBe('outreach_network_off');
+    await runAs(dana, ws, 'outreach.automation.save', { settings: linkedInOn });
+    // A kind LinkedIn isn't asked.
+    expect(await refused(ask(dana, 'linkedin', { kind: 'groups' }))).toBe(
+      'outreach_ask_not_on_network',
+    );
+    // LinkedIn's and Facebook's of the same kind are two asks.
+    const onLinkedIn = await ask(dana, 'linkedin', { kind: 'friends' });
+    expect(onLinkedIn).toMatchObject({
+      fresh: true,
+      ask: { platform: 'linkedin', kind: 'friends' },
+    });
+    const onFacebook = await ask(dana, undefined, { kind: 'friends' });
+    expect(onFacebook).toMatchObject({ fresh: true, ask: { platform: 'facebook' } });
+    expect((await ask(dana, 'linkedin', { kind: 'friends' })).fresh).toBe(false);
+    // A LinkedIn warning ends LinkedIn's waiting ask at the take; Facebook's is taken.
+    await warn(dana, 'linkedin', 'You’ve reached the weekly invitation limit');
+    const taken = await runAs(dana, ws, 'outreach.ask.take', { installId: pc, underway: null });
+    expect(taken.ask).toMatchObject({ platform: 'facebook', kind: 'friends' });
+    const [ended] = await rows<{ state: string }>(
+      admin(),
+      sql`select state from addon_outreach.asks where id = ${onLinkedIn.ask.askId}`,
+    );
+    expect(ended!.state).toBe('failed');
+
+    // A build from before LinkedIn isn't asked anything there.
+    const old = await teammate('Logan Pierce');
+    await runAs(old, ws, 'outreach.automation.save', { settings: linkedInOn });
+    await beat(old, randomUUID(), '0.33.0');
+    expect(await refused(ask(old, 'linkedin', { kind: 'friends' }))).toBe(
+      'outreach_extension_too_old',
+    );
   });
 });

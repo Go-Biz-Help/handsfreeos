@@ -20,6 +20,7 @@ import { JOINS_PER_DAY } from './group-checks';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import { FACEBOOK_BIO_MOST } from './profile-check';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
@@ -54,6 +55,57 @@ export const FILE_KINDS = ['file_request', 'file_download', 'file_backup'] as co
 export const OFF_FACEBOOK_KINDS = ['file_in'] as const;
 /** The ones that press something on Facebook on the person's friends: in a tab they can see, brought to the front. */
 export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
+
+/**
+ * The kinds each network's pages can be asked (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "LinkedIn, part by
+ * part"): Facebook's every kind; LinkedIn's its invitations and connections, checking connections for fits, reading
+ * chats, looking someone up, researching one person, reading the profile and putting the headline in, withdrawing old
+ * invitations, searching posts and putting up a post. A kind a network can't be asked is refused
+ * (`outreach_ask_not_on_network`).
+ */
+export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
+  facebook: ASK_KIND_KEYS,
+  linkedin: [
+    'requests',
+    'friends',
+    'checks',
+    'chats',
+    'lookup',
+    'research',
+    'profile_read',
+    'profile_edit',
+    'cancel',
+    'posts',
+    'post',
+  ],
+};
+export const askableOn = (platform: Platform, kind: AskKind): boolean =>
+  ASK_KINDS_ON[platform].includes(kind);
+
+/**
+ * The first build of the extension that works on each network but Facebook: one before it never takes an ask there,
+ * which ends saying how to update.
+ */
+export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
+  linkedin: '0.40.0',
+};
+
+/** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
+export const targetOn = (platform: Platform, target: string): string =>
+  platform === 'facebook' ? target : `${platform}:${target}`;
+
+/**
+ * What an ask is about, for one like it open to answer it: as `askTarget` says on Facebook, and named by its network
+ * on any other, so a LinkedIn ask never answers a Facebook one.
+ */
+export const askTargetOn = (platform: Platform, ask: AskAsked): string =>
+  targetOn(platform, askTarget(ask));
+
+/** Why an ask can't be made on a network: the kind isn't one it's asked there. Null when it can. */
+export const notOnNetworkWords = (platform: Platform, kind: AskKind): string | null =>
+  askableOn(platform, kind)
+    ? null
+    : `Your computer can’t do that on ${PLATFORMS[platform]} yet. Ask it on Facebook, or from that network’s own buttons.`;
 
 export const isFileKind = (kind: AskKind): boolean =>
   (FILE_KINDS as readonly string[]).includes(kind);
@@ -332,6 +384,8 @@ const moment = z.iso.datetime();
 /** An ask, as the lists show it. */
 export const AskShown = z.object({
   askId: z.uuid(),
+  /** The network it's asked on. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   kind: z.enum(ASK_KIND_KEYS),
   /** What it's about, for matching a button to its ask: who, which groups, the words. */
   target: z.string(),
@@ -348,7 +402,12 @@ export const AskShown = z.object({
 });
 export type AskShown = z.output<typeof AskShown>;
 
-export const AskMakeInput = z.object({ workspaceId: z.uuid(), ask: AskInput });
+export const AskMakeInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network it's asked on: Facebook when left out. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  ask: AskInput,
+});
 export type AskMakeInput = z.input<typeof AskMakeInput>;
 export const AskMakeOutput = z.object({
   ask: AskShown,
@@ -397,6 +456,8 @@ export const AskTakeOutput = z.object({
   ask: z
     .object({
       askId: z.uuid(),
+      /** The network to do it on: a build that knows no network but Facebook is never handed another's. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
       kind: z.enum(ASK_KIND_KEYS),
       task: AskTask,
       about: z.string().nullable(),
@@ -697,10 +758,21 @@ export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
   profile_edit: '0.32.0',
 };
 
-/** Whether a build of the extension is too old for a kind of ask. One that didn't say its version is. */
-export const tooOldFor = (version: string | null, kind: AskKind): boolean => {
+/**
+ * Whether a build of the extension is too old for a kind of ask, on a network (Facebook when left out). One that
+ * didn't say its version is.
+ */
+export const tooOldFor = (
+  version: string | null,
+  kind: AskKind,
+  platform: Platform = 'facebook',
+): boolean => {
   const since = ASK_KIND_SINCE[kind];
-  return since !== undefined && !appVersionAtLeast(version, since);
+  const network = ASK_NETWORK_SINCE[platform];
+  return (
+    (since !== undefined && !appVersionAtLeast(version, since)) ||
+    (network !== undefined && !appVersionAtLeast(version, network))
+  );
 };
 
 /** What a computer whose extension is too old for an ask says: how to update it. */

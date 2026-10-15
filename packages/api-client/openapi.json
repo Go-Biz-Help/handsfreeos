@@ -84502,6 +84502,14 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
+                  },
                   "list": {
                     "type": "string",
                     "enum": [
@@ -84905,6 +84913,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   },
                   "ask": {
                     "oneOf": [
@@ -85372,6 +85388,14 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "platform": {
+                          "default": "facebook",
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "linkedin"
+                          ]
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -85586,6 +85610,7 @@
                       },
                       "required": [
                         "askId",
+                        "platform",
                         "kind",
                         "target",
                         "about",
@@ -85681,6 +85706,14 @@
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "platform": {
+                              "default": "facebook",
+                              "type": "string",
+                              "enum": [
+                                "facebook",
+                                "linkedin"
+                              ]
                             },
                             "kind": {
                               "type": "string",
@@ -86279,6 +86312,7 @@
                           },
                           "required": [
                             "askId",
+                            "platform",
                             "kind",
                             "task",
                             "about",
@@ -86623,6 +86657,14 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "platform": {
+                          "default": "facebook",
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "linkedin"
+                          ]
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -86837,6 +86879,7 @@
                       },
                       "required": [
                         "askId",
+                        "platform",
                         "kind",
                         "target",
                         "about",
@@ -86914,6 +86957,14 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "platform": {
+                          "default": "facebook",
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "linkedin"
+                          ]
+                        },
                         "kind": {
                           "type": "string",
                           "enum": [
@@ -87128,6 +87179,7 @@
                       },
                       "required": [
                         "askId",
+                        "platform",
                         "kind",
                         "target",
                         "about",
@@ -175731,6 +175783,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -176071,6 +176131,14 @@
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                   },
+                                  "platform": {
+                                    "default": "facebook",
+                                    "type": "string",
+                                    "enum": [
+                                      "facebook",
+                                      "linkedin"
+                                    ]
+                                  },
                                   "kind": {
                                     "type": "string",
                                     "enum": [
@@ -176285,6 +176353,7 @@
                                 },
                                 "required": [
                                   "askId",
+                                  "platform",
                                   "kind",
                                   "target",
                                   "about",
@@ -177131,6 +177200,14 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
+                          "platform": {
+                            "default": "facebook",
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -177345,6 +177422,7 @@
                         },
                         "required": [
                           "askId",
+                          "platform",
                           "kind",
                           "target",
                           "about",

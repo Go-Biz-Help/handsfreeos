@@ -37,6 +37,7 @@ export function askShown(
   );
   return {
     askId: row.id,
+    platform: row.platform,
     kind: row.kind,
     target: row.target,
     about: row.about,

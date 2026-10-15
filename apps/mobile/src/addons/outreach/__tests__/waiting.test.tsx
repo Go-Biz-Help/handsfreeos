@@ -229,6 +229,7 @@ describe('Waiting for you on the phone', () => {
     const stuck = {
       askId: id(70),
       kind: 'unfriend' as const,
+      platform: 'facebook' as const,
       target: '',
       about: '3 people',
       via: 'mobile' as const,
