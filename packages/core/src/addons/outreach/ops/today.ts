@@ -209,7 +209,7 @@ export const today = defineAddonQuery(outreachAddon, {
     }
     // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
     // done on its own: Get ready shows in place of the rest.
-    const ready = (await readinessFor(ctx, me)).ready;
+    const ready = (await readinessFor(ctx, me, input.platform)).ready;
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.

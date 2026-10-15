@@ -17,6 +17,7 @@ import {
   PROFILE_CHECK_ASK,
   PROFILE_CHECK_SYSTEM,
   PROFILE_ITEMS,
+  PROFILE_READ_LIMITS,
   profileCheckPrompt,
   ProfileRead,
   type ProfileCheckAnswer,
@@ -61,7 +62,9 @@ describe('the profile, as the AI reads it', () => {
 
   it('cuts what’s sent to fit', () => {
     expect(ProfileRead.safeParse({ posts: Array(7).fill('A post') }).success).toBe(false);
-    expect(ProfileRead.safeParse({ bio: 'x'.repeat(201) }).success).toBe(false);
+    expect(ProfileRead.safeParse({ bio: 'x'.repeat(PROFILE_READ_LIMITS.bio + 1) }).success).toBe(
+      false,
+    );
   });
 });
 

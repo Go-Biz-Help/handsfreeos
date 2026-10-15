@@ -708,6 +708,13 @@ export interface NetworkWheelKept {
   readonly edits: readonly boolean[];
   readonly doneAt: string | null;
 }
+/** Another network's profile in Get ready, kept on the person's setup row (`setup.network_profiles`). */
+export interface NetworkProfileKept {
+  readonly ticks?: ProfileTicks;
+  readonly check?: ProfileCheck | null;
+}
+export type NetworkProfilesKept = Partial<Record<OtherPlatform, NetworkProfileKept>>;
+
 export type NetworkWheelsKept = Partial<Record<OtherPlatform, NetworkWheelKept>>;
 
 /**
@@ -957,6 +964,8 @@ export const setup = addonOutreach.table(
     profile: jsonb('profile').$type<ProfileTicks>().notNull().default({}),
     /** The AI's latest check of their own Facebook profile (../profile-check.ts): never what the page said. */
     profileCheck: jsonb('profile_check').$type<ProfileCheck>(),
+    /** Each other network's profile in Get ready, as the two above are Facebook's: its ticks and the AI's check. */
+    networkProfiles: jsonb('network_profiles').$type<NetworkProfilesKept>().notNull().default({}),
     /** When they OK'd how their messages read (Get ready's Your messages), the offer's version then, and the samples. */
     messagesAt: ts('messages_at'),
     messagesVersion: integer('messages_version'),

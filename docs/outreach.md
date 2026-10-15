@@ -1256,6 +1256,14 @@ code" (decision 45's install step). Settled too:
   Today's `friend_request` limit to what's left, and Today says it (`week`). Checks go by network too:
   `outreach.checks.next` takes a `platform`, lists that network's people, and keeps to its own profiles read a day
   (`checksPerDay`), halved by a warning there alone.
+- **Each network's profile in Get ready is its own.** A LinkedIn day waits on LinkedIn's profile, never on
+  Facebook's (`readinessFor` and `outreach.readiness` take a `platform`; Start my day and Today ask with theirs).
+  LinkedIn's checklist (`PROFILE_ITEMS_ON`) has its photo, banner, headline (the `bio`, up to 220 characters), About,
+  Experience, Featured and activity; its AI (`LINKEDIN_PROFILE_CHECK_SYSTEM`) writes three headlines, the opening of
+  an About (`aboutDraft`) and a banner line. Its ticks and check are kept in `setup.network_profiles` (20261027007300),
+  Facebook's in their columns as before; `outreach.readiness.profile` and `outreach.profile.check_save` take the
+  network, and `ProfileRead` says which network the extension read. The not-ready words name it: "Your LinkedIn
+  profile isn’t ready yet."
 - **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
   they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
   a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook
