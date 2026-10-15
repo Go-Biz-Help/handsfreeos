@@ -6,8 +6,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NO_LISTS, type ListsSaved } from '@hfos/core/addons/outreach/lists';
 import { freshState } from '../src/auto/plan';
-import { readPage } from '../src/facebook/page';
-import { requestsPage } from '../src/facebook/friends';
+import { readPage } from '../src/networks/facebook/page';
+import { requestsPage } from '../src/networks/facebook/friends';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import { load } from './load';

@@ -278,7 +278,7 @@ async function setDay(
     const { choices: settings, rules } = await automationOf(ctx, me, Date.now(), platform);
     if (!settings.on) throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
     // Nothing outreach-like until they're ready (decision 63): the first item left says where to finish it.
-    const ready = await readinessFor(ctx, me);
+    const ready = await readinessFor(ctx, me, platform);
     if (!ready.ready) throw HfosError.rule('outreach_not_ready', 409, notReadyWords(ready));
     if (settings.sending === 'off')
       throw HfosError.rule(

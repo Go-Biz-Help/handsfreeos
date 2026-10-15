@@ -3,9 +3,9 @@
  * check, and the bio put in with Edit bio and Save. The page is our best guess at Facebook's, not a saved one.
  */
 import { describe, expect, it } from 'vitest';
-import { bioOf, readOwnProfile, writeBio } from '../src/facebook/own-profile';
-import { readPage } from '../src/facebook/page';
-import { classifyUrl } from '../src/facebook/urls';
+import { bioOf, readOwnProfile, writeBio } from '../src/networks/facebook/own-profile';
+import { readPage } from '../src/networks/facebook/page';
+import { classifyUrl } from '../src/networks/facebook/urls';
 import { boxEverything, load } from './load';
 
 const URL = 'https://www.facebook.com/casey.owner.7';

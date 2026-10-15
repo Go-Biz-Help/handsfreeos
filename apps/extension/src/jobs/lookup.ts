@@ -10,8 +10,8 @@
  */
 import type { AskResult, AskTask } from '@hfos/core/addons/outreach/asks';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
-import { linesOf, ownsPage, pageHeading, POSTS_READ } from '../facebook/lookup';
-import { workUrl } from '../facebook/urls';
+import { linesOf, ownsPage, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
+import { workUrl } from '../networks/facebook/urls';
 import { readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 
 type LookupTask = Extract<AskTask, { kind: 'lookup' }>;

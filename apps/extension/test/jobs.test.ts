@@ -5,8 +5,8 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { DAILY_JOBS, freshState, nextDaily } from '../src/auto/plan';
-import { readPage } from '../src/facebook/page';
-import type { ChatSummary } from '../src/facebook/types';
+import { readPage } from '../src/networks/facebook/page';
+import type { ChatSummary } from '../src/networks/facebook/types';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { ChatMemory } from '../src/jobs/chats';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';

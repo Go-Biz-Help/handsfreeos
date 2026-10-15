@@ -1,0 +1,74 @@
+/**
+ * Who wrote back on LinkedIn (src/networks/linkedin/replies.ts), as ./replies.test.ts does Facebook's: the
+ * conversations in messaging's list whose last line isn't yours, and the one open beside it when its last message is
+ * theirs; never a group, never what they wrote. And what the background sends of them, as LinkedIn's. Read on the page
+ * as written and again with a bare box around every element.
+ */
+import { describe, expect, it } from 'vitest';
+import { repliesInput, sightingKey, toSend } from '../src/hfos/replies';
+import { readReplies } from '../src/networks/linkedin/replies';
+import { boxEverything, load } from './load';
+
+const LI = 'https://www.linkedin.com';
+const THREAD = `${LI}/messaging/thread/2-MadeUpThreadDana0001==/`;
+const SHAPES = [
+  ['as written', (doc: Document) => doc],
+  ['with a bare box around every element', boxEverything],
+] as const;
+
+describe.each(SHAPES)('replies on LinkedIn, %s', (_, shape) => {
+  // A chat's side is measured on screen; jsdom draws nothing.
+  const read = (url: string) =>
+    readReplies(shape(load('linkedin-chat.html', url)), url, { sideOf: () => null });
+
+  it('in messaging: the open conversation, with who it’s with, and the list’s time', () => {
+    expect(read(THREAD)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '2-MadeUpThreadDana0001==',
+        profile: {
+          id: 'ACoAAFakeDanaReyes123',
+          username: null,
+          url: `${LI}/in/ACoAAFakeDanaReyes123/`,
+        },
+        when: '2:21 PM',
+      },
+    ]);
+  });
+
+  it('in the list alone: theirs, never yours ("You: …") and never a group', () => {
+    expect(read(`${LI}/messaging/`)).toEqual([
+      { name: 'Dana Reyes', threadKey: '2-MadeUpThreadDana0001==', profile: null, when: '2:21 PM' },
+    ]);
+  });
+
+  it('nowhere else: a chat window over the feed is the person’s own to read', () => {
+    expect(read(`${LI}/feed/`)).toEqual([]);
+  });
+
+  it('sends nothing they wrote', () => {
+    expect(JSON.stringify(read(THREAD))).not.toContain('Tuesday');
+  });
+});
+
+describe('what the background sends of LinkedIn’s', () => {
+  const dana = {
+    name: 'Dana Reyes',
+    threadKey: '2-MadeUpThreadDana0001==',
+    profile: null,
+    when: '2:21 PM',
+  };
+
+  it('says they’re LinkedIn’s, and keeps them apart from Facebook’s', () => {
+    expect(repliesInput('ws-1', [dana], true, 'linkedin')).toEqual({
+      workspaceId: 'ws-1',
+      platform: 'linkedin',
+      looking: true,
+      seen: [{ name: 'Dana Reyes', threadKey: '2-MadeUpThreadDana0001==', profile: null }],
+    });
+    expect(sightingKey(dana, 'linkedin')).not.toBe(sightingKey(dana));
+    const now = new Date('2026-10-15T15:00:00');
+    // Sent lately as Facebook's: still news on LinkedIn.
+    expect(toSend([dana], { [sightingKey(dana)]: now.getTime() }, now, 'linkedin')).toEqual([dana]);
+  });
+});

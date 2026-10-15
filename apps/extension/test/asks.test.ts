@@ -6,8 +6,8 @@
  * with Stop pressed, looking someone up for drafts, and saving the person's groups and friends.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { groupsListPage, scrollPage } from '../src/facebook/browse';
-import { readPage } from '../src/facebook/page';
+import { groupsListPage, scrollPage } from '../src/networks/facebook/browse';
+import { readPage } from '../src/networks/facebook/page';
 import { askEventFor, lineDue, withEnd, type WaitingEnd } from '../src/hfos/asks';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { HandOverReply, Hfos, Job, JobTab } from '../src/jobs/job';

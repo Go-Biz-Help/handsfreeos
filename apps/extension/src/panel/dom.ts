@@ -1,7 +1,7 @@
 /**
  * The side panel's drawing helpers. Everything a page or HandsFreeOS said goes in as text, never as HTML.
  */
-import { facebookUrl } from '../facebook/urls';
+import { kitOf } from '../networks';
 import { counted } from '../words';
 
 export type Child = Node | string | null | undefined | false;
@@ -20,9 +20,9 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
-/** A link to Facebook, opened in a new tab. Only Facebook's own addresses become links. */
+/** A link to a network's page, opened in a new tab. Only the networks' own addresses become links. */
 export function link(text: string, url: string | null | undefined): Node {
-  if (!url || !facebookUrl(url)) return document.createTextNode(text);
+  if (!url || !kitOf(url)) return document.createTextNode(text);
   return h('a', { href: url, target: '_blank', rel: 'noreferrer' }, text);
 }
 

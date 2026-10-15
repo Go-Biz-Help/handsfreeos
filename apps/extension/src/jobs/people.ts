@@ -8,10 +8,10 @@
  * friends list weekly (../auto/lists.ts). It loads each list a screen at a time, and saves what loaded. Nothing is
  * pressed on Facebook but View sent requests.
  */
-import type { Person, ReadResult } from '../facebook/types';
-import type { FetchStep } from '../facebook/fetch';
-import { listBeside } from '../facebook/friends';
-import { profileKey } from '../facebook/urls';
+import type { Person, ReadResult } from '../networks/facebook/types';
+import type { FetchStep } from '../networks/facebook/fetch';
+import { listBeside } from '../networks/facebook/friends';
+import { profileKey } from '../networks/facebook/urls';
 import { friendsSave, groupSave, isAdminsPage, listOnPage } from '../hfos/saves';
 import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';

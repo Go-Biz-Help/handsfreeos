@@ -5,7 +5,7 @@
  * playbooks. Nothing is pressed on Facebook: no group is joined.
  */
 import { GROUPS_SAVE_MOST } from '@hfos/core/addons/outreach/groups';
-import type { GroupLink } from '../facebook/types';
+import type { GroupLink } from '../networks/facebook/types';
 import { groupsSave } from '../hfos/saves';
 import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';

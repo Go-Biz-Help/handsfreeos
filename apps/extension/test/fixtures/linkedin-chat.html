@@ -1,0 +1,172 @@
+<!doctype html>
+<!--
+  An approximation of LinkedIn messaging with a conversation open (/messaging/thread/<id>/) as LinkedIn draws it in
+  2026, written by hand: not a saved LinkedIn page, and nobody real. The list of conversations is on the left; the
+  conversation's header links to the other person by their member id; its messages are a list that starts with a card
+  about them, then the days ("Oct 3", "Today") and runs of messages. Each run starts with the sender's picture, name
+  and time, yours as theirs, and a line for screen readers saying who sent the run and when; the rest of a run is
+  messages alone. The box to write in is at the foot.
+-->
+<html lang="en">
+  <head>
+    <title>(1) Messaging | LinkedIn</title>
+  </head>
+  <body>
+    <header class="_g7k2">
+      <nav aria-label="Primary Navigation">
+        <a href="https://www.linkedin.com/messaging/"><span>Messaging</span></a>
+        <button type="button" aria-expanded="false">
+          <img alt="Chris Gee" src="me.jpg" /><span>Me</span>
+        </button>
+      </nav>
+    </header>
+    <main class="_q2w8">
+      <div class="_lp">
+        <h2 class="_t">Messaging</h2>
+        <input aria-label="Search messages" />
+        <div>
+          <button type="button" aria-pressed="true"><span>Focused</span></button>
+          <button type="button"><span>Unread</span></button>
+          <button type="button"><span>InMail</span></button>
+        </div>
+        <ul aria-label="Conversation List" class="_cl">
+          <li>
+            <a href="/messaging/thread/2-MadeUpThreadDana0001==/" class="_ci">
+              <div>
+                <img alt="Dana Reyes" src="d.jpg" /><span class="_vh0">Status is reachable</span>
+              </div>
+              <div>
+                <div>
+                  <h3><span>Dana Reyes</span></h3>
+                  <time>2:21 PM</time>
+                </div>
+                <p>Dana: Tuesday works. Talk then!</p>
+              </div>
+            </a>
+            <button
+              type="button"
+              aria-label="Open the options list in your conversation with Dana Reyes"
+            >
+              <svg aria-hidden="true"></svg>
+            </button>
+          </li>
+          <li>
+            <a href="/messaging/thread/2-MadeUpThreadSam0002==/" class="_ci">
+              <div><img alt="Sam Lee" src="s.jpg" /></div>
+              <div>
+                <div>
+                  <h3><span>Sam Lee</span></h3>
+                  <time>Oct 3</time>
+                </div>
+                <p>You: Thanks Sam, talk soon</p>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="/messaging/thread/2-MadeUpThreadGroup0003==/" class="_ci">
+              <div><img alt="" src="g.jpg" /></div>
+              <div>
+                <div>
+                  <h3><span>Dana Reyes, Sam Lee and Avery Lane</span></h3>
+                  <time>Sep 29</time>
+                </div>
+                <p>Avery: See everyone Thursday</p>
+              </div>
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div class="_tp">
+        <div class="_tb">
+          <a href="https://www.linkedin.com/in/ACoAAFakeDanaReyes123"
+            ><h2 class="_n">Dana Reyes</h2></a
+          >
+          <span class="_vh0">Status is reachable</span>
+          <p>Owner at Acme Plumbing | Helping Austin homeowners since 2009</p>
+          <button
+            type="button"
+            aria-label="Open the options list in your conversation with Dana Reyes"
+          >
+            <svg aria-hidden="true"></svg>
+          </button>
+        </div>
+        <div class="_ml">
+          <ul class="_m0">
+            <li class="_pc">
+              <a href="https://www.linkedin.com/in/ACoAAFakeDanaReyes123"
+                ><img alt="Dana Reyes" src="d.jpg"
+              /></a>
+              <div>
+                <a href="https://www.linkedin.com/in/ACoAAFakeDanaReyes123"
+                  ><span>Dana Reyes</span></a
+                >
+                <span> · 1st</span>
+              </div>
+              <p>Owner at Acme Plumbing | Helping Austin homeowners since 2009</p>
+            </li>
+            <li class="_ev">
+              <time class="_th">Oct 3</time>
+            </li>
+            <li class="_ev">
+              <div class="_g">
+                <a href="https://www.linkedin.com/in/chris-gee-12/"
+                  ><img alt="Chris Gee" src="me.jpg"
+                /></a>
+                <span class="_vh0">Chris Gee sent the following message at 4:05 PM</span>
+                <div><span>Chris Gee</span> <time>4:05 PM</time></div>
+                <p dir="ltr">
+                  Hi Dana, thanks for connecting. I saw your post about water heaters.
+                </p>
+              </div>
+            </li>
+            <li class="_ev">
+              <p dir="ltr">Do you handle commercial jobs too?</p>
+            </li>
+            <li class="_ev">
+              <time class="_th">Today</time>
+              <div class="_g">
+                <a href="https://www.linkedin.com/in/ACoAAFakeDanaReyes123"
+                  ><img alt="Dana Reyes" src="d.jpg"
+                /></a>
+                <span class="_vh0">Dana Reyes sent the following messages at 2:15 PM</span>
+                <div><span>Dana Reyes</span> <time>2:15 PM</time></div>
+                <p dir="ltr">Hi Chris! Yes, we do a few office buildings.</p>
+              </div>
+            </li>
+            <li class="_ev">
+              <p dir="ltr">Happy to talk. Is Tuesday good?</p>
+              <button type="button" aria-label="React with thumbs up"><span>👍</span></button>
+            </li>
+            <li class="_ev">
+              <div class="_g">
+                <a href="https://www.linkedin.com/in/chris-gee-12/"
+                  ><img alt="Chris Gee" src="me.jpg"
+                /></a>
+                <span class="_vh0">Chris Gee sent the following message at 2:20 PM</span>
+                <div><span>Chris Gee</span> <time>2:20 PM</time></div>
+                <p dir="ltr">Tuesday at 10 works for me.</p>
+              </div>
+            </li>
+            <li class="_ev">
+              <div class="_g">
+                <a href="https://www.linkedin.com/in/ACoAAFakeDanaReyes123"
+                  ><img alt="Dana Reyes" src="d.jpg"
+                /></a>
+                <span class="_vh0">Dana Reyes sent the following message at 2:21 PM</span>
+                <div><span>Dana Reyes</span> <time>2:21 PM</time></div>
+                <p dir="ltr">Tuesday works. Talk then!</p>
+                <img alt="Seen by Dana Reyes at 2:22 PM" src="seen.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+        <form class="_f">
+          <div role="textbox" contenteditable="true" aria-label="Write a message…">
+            <p><br /></p>
+          </div>
+          <button type="submit"><span>Send</span></button>
+        </form>
+      </div>
+    </main>
+  </body>
+</html>

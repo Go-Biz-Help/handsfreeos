@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ownsPage, pageHeading } from '../src/facebook/lookup';
-import type { Named, ReadResult } from '../src/facebook/types';
+import { ownsPage, pageHeading } from '../src/networks/facebook/lookup';
+import type { Named, ReadResult } from '../src/networks/facebook/types';
 
 const page: Named = {
   name: 'Consultmyapp',

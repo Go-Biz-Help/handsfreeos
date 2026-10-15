@@ -14,6 +14,14 @@ import { LIKE_PICK_SYSTEM, likePickSystem } from '../../src/addons/outreach/like
 import { inNetworkWords } from '../../src/addons/outreach/networks';
 import { POST_CHECK_SYSTEM, postCheckSystem } from '../../src/addons/outreach/posts';
 import {
+  checkedProfileCheck,
+  PROFILE_CHECK_SYSTEM,
+  PROFILE_ITEMS_ON,
+  profileCheckPrompt,
+  profileCheckSystem,
+  ProfileRead,
+} from '../../src/addons/outreach/profile-check';
+import {
   DRAFT_KINDS,
   TODAY_DRAFT_SYSTEM,
   todayDraftPrompt,
@@ -94,5 +102,41 @@ describe('each network’s words for the AI', () => {
     expect(likePickSystem('linkedin')).toContain('before sending them an invitation to connect');
     expect(todayKindWords('friend_request')).toBe('Send a friend request');
     expect(todayKindWords('friend_request', 'linkedin')).toBe('Send an invitation to connect');
+  });
+
+  it('checks a LinkedIn profile by its own list, with headlines and an About to start from', () => {
+    expect(profileCheckSystem()).toBe(PROFILE_CHECK_SYSTEM);
+    expect(profileCheckSystem('linkedin')).not.toMatch(FACEBOOK_WORDS);
+    const read = ProfileRead.parse({
+      platform: 'linkedin',
+      name: 'Sam Lee',
+      picture: 'Sam Lee',
+      bio: 'Accountant',
+      intro: ['Owner at Bright Books'],
+    });
+    expect(profileCheckPrompt(read, null)).toContain('Score this LinkedIn profile.');
+    expect(profileCheckPrompt(read, null)).toContain('bio (the headline): Accountant');
+    const check = checkedProfileCheck(
+      {
+        items: Object.fromEntries(
+          PROFILE_ITEMS_ON.linkedin.map((i) => [i, { ok: true, why: 'Looks right.', fix: 'x' }]),
+        ) as never,
+        bios: ['h'.repeat(200), 'g'.repeat(221)],
+        aboutDraft: 'I help small firms — and their owners — book more calls.',
+        coverLine: 'More booked calls',
+        feature: [],
+      },
+      read,
+      '2026-10-15T10:00:00.000Z',
+      1,
+    );
+    expect(Object.keys(check.items)).toEqual([...PROFILE_ITEMS_ON.linkedin]);
+    // Nothing read for the banner or About: never right, whatever the AI says.
+    expect(check.items.cover.ok).toBe(false);
+    expect(check.items.about?.ok).toBe(false);
+    expect(check.items.bio.ok).toBe(true);
+    // Headlines up to LinkedIn's 220 characters, and an About with no long dashes.
+    expect(check.bios).toEqual(['h'.repeat(200)]);
+    expect(check.aboutDraft).not.toContain('—');
   });
 });
