@@ -387,7 +387,7 @@ the web.
 
 People on a business's team follow the setup in HandsFreeOS (Social Outreach sends a first-timer there; Settings →
 Set up again, or the Carry on line on any tab, opens it), which has the download and these steps in plain
-words (decision 60). HandsFreeOS hands out the build itself, made with every deploy: the web app's `build` (and
+words (decision 71). HandsFreeOS hands out the build itself, made with every deploy: the web app's `build` (and
 `dev`) first runs `scripts/download.mjs`, which builds the extension for the HandsFreeOS the web app talks to (its
 `NEXT_PUBLIC_` settings, so Vercel's for a deploy and the local stack's on your computer) and zips it with
 `manifest.json` at the top to `apps/web/public/downloads/hfos-social.zip`. Nothing to release or commit: bump the
