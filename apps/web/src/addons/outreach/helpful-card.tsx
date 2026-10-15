@@ -218,7 +218,7 @@ function Today({
               {H.copy}
             </Button>
             <a
-              href={post.groupUrl}
+              href={post.groupUrl ?? undefined}
               target="_blank"
               rel="noreferrer"
               className={buttonClassName({ variant: 'ghost', size: 'sm' })}

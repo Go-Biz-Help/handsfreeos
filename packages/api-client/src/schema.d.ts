@@ -6907,7 +6907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
@@ -36115,6 +36115,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     groupId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36868,14 +36873,15 @@ export interface operations {
                      * @default scroll
                      * @enum {string}
                      */
-                    found?: "scroll" | "find" | "watch";
-                    group: {
+                    found?: "scroll" | "find" | "watch" | "search";
+                    /** @default null */
+                    group?: {
                         id: string | null;
                         /** @default null */
                         name?: string | null;
                         slug: string | null;
                         url: string;
-                    };
+                    } | null;
                     /**
                      * @default facebook
                      * @enum {string}
@@ -36911,8 +36917,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         checking: number;
-                        /** Format: uuid */
-                        groupId: string;
+                        groupId: string | null;
                         posts: {
                             check: ("waiting" | "good" | "not" | "failed") | null;
                             done: boolean;
@@ -65823,6 +65828,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65843,14 +65853,15 @@ export interface operations {
                             /** Format: date-time */
                             askedAt: string;
                             comments: number;
-                            /** Format: uuid */
-                            groupId: string;
+                            groupId: string | null;
                             groupName: string | null;
-                            groupUrl: string;
+                            groupUrl: string | null;
                             /** Format: uuid */
                             helpfulId: string;
                             /** @enum {string} */
                             how: "copy" | "after_ok" | "own";
+                            /** @enum {string} */
+                            platform?: "facebook" | "linkedin";
                             playbookName: string | null;
                             postedAt: string | null;
                             postUrl: string | null;
@@ -65879,6 +65890,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     helpfulId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65894,14 +65910,14 @@ export interface operations {
                     "application/json": {
                         post: {
                             groupName: string | null;
-                            groupUrl: string;
+                            groupUrl: string | null;
                             /** Format: uuid */
                             helpfulId: string;
                             text: string;
                         } | null;
                         read: {
                             groupName: string | null;
-                            groupUrl: string;
+                            groupUrl: string | null;
                             /** Format: uuid */
                             helpfulId: string;
                             postUrl: string | null;

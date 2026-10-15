@@ -106,7 +106,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               tx,
               sql`select e.comment, h.body, g.name as group from addon_outreach.engagements e
                   join addon_outreach.helpful h on h.id = e.helpful_id
-                  join addon_outreach.groups g on g.id = h.group_id
+                  left join addon_outreach.groups g on g.id = h.group_id
                   where e.workspace_id = ${ws} and e.user_id = ${ctx.userId} and e.profile_id = ${profileId}
                     and e.kind = 'comment' and e.comment is not null
                   order by e.seen_at desc limit 1`,
