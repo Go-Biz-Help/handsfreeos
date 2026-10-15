@@ -33,6 +33,8 @@ export interface NetworkWords {
   readonly friendRequests: string;
   /** Where its one-to-one chats are: "Messenger", "LinkedIn messaging". */
   readonly messaging: string;
+  /** How a message there reads, for the AI: "the way people message friends". */
+  readonly messageLike: string;
 }
 
 export interface NetworkKit {
@@ -76,6 +78,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
       friendRequest: 'friend request',
       friendRequests: 'friend requests',
       messaging: 'Messenger',
+      messageLike: 'the way people message friends',
     },
   },
   linkedin: {
@@ -100,6 +103,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
       friendRequest: 'invitation to connect',
       friendRequests: 'invitations to connect',
       messaging: 'LinkedIn messaging',
+      messageLike: 'the way people message someone they know from work',
     },
   },
 };
@@ -153,3 +157,37 @@ export function profileMisfit(
     return `That isn’t a ${kit.name} profile’s name. Send the name in its ${kit.name} address.`;
   return null;
 }
+
+/**
+ * A prompt's or a line's Facebook words in a network's own: its name, its messaging, what it calls a friend and a
+ * friend request. Facebook's come back as written. Only for the add-on's own words, never for what a person wrote: a
+ * name or a message passes through untouched only because it isn't given to this.
+ */
+export function inNetworkWords(text: string, platform: Platform): string {
+  if (platform === 'facebook') return text;
+  const kit = NETWORKS[platform];
+  const w = kit.words;
+  return text
+    .replace(
+      /\b(a|A) friend request\b/g,
+      (_, a: string) => `${an(a, w.friendRequest)} ${w.friendRequest}`,
+    )
+    .replace(/Facebook Messenger|Messenger/g, w.messaging)
+    .replace(/Facebook/g, kit.name)
+    .replace(/\bfriend requests\b/g, w.friendRequests)
+    .replace(/\bfriend request\b/g, w.friendRequest)
+    .replace(/\bFriend requests\b/g, cap(w.friendRequests))
+    .replace(/\bFriend request\b/g, cap(w.friendRequest))
+    .replace(/\bfriends\b/g, w.friends)
+    .replace(/\bfriend\b/g, w.friend)
+    .replace(/\bFriends\b/g, cap(w.friends))
+    .replace(/\bFriend\b/g, cap(w.friend));
+}
+
+const cap = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+
+/** "a" or "an" before a word, keeping the capital of the one it replaces. */
+const an = (was: string, word: string) => {
+  const article = /^[aeiou]/i.test(word) ? 'an' : 'a';
+  return was === 'A' ? cap(article) : article;
+};

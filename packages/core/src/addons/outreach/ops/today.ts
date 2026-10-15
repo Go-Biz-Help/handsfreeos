@@ -22,7 +22,7 @@ import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { type DailyStep } from '../limits';
-import { networkLimitsNow } from '../networks';
+import { inNetworkWords, networkLimitsNow } from '../networks';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -984,9 +984,11 @@ export const today = defineAddonQuery(outreachAddon, {
         const send = drafted.open(i.profileId, i.kind);
         const k = i.profileId ? knownOf.get(i.profileId) : undefined;
         const answer = i.kind === 'reply' ? k?.answer : null;
+        const why = answer ? [ANSWERS[answer], ...i.why] : i.why;
         return {
           ...i,
-          ...(answer ? { why: [ANSWERS[answer], ...i.why] } : {}),
+          // Each line in the network's own words: "Asked to be your connection" on LinkedIn.
+          why: why.map((w) => inNetworkWords(w, input.platform)),
           personId: k?.person_id ?? null,
           demoBooked: k?.marked ?? false,
           recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],

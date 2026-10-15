@@ -1280,6 +1280,12 @@ code" (decision 45's install step). Settled too:
   (`NetworkUrl`, `ThreadKey`), and every save that keeps a profile refuses one that isn't on the network named
   (`requireFits`, `profileMisfit`, `outreach_wrong_network`). The database keeps ids to short, plain characters
   (20261027006900).
+- **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
+  they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
+  a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook
+  words in the network's ("an invitation to connect", "LinkedIn messaging"), never what a person wrote, and leaves
+  Facebook's prompts word for word. Today's lines and kinds say them too (`todayKindWords`). A post off a group, as
+  LinkedIn's post search finds, is "on LinkedIn".
 - **A heartbeat tells nobody:** a beat that changes nothing writes only `last_seen_at`: no event, no broadcast and no
   command receipt (`receipt: false`). A feed line, a new state, a different working computer or coming back online
   tells the app once; a new line alone at most every 45 seconds (the extension sends one at most every 20), and a
@@ -1451,8 +1457,13 @@ code" (decision 45's install step). Settled too:
   `ops/common.ts`, the name compared with one space between words and no capitals). A stranger who shares the name is
   left alone too: the safe side. Every list that pitches goes through `pitchable`; the Don't pitch list itself shows
   only who was put on it.
-- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, or kept under its name on its
-  network, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
+- **Don't pitch and Never contact cover every profile on a customer** (Chris, 2026-10-15). A customer's Facebook and
+  LinkedIn profiles are one person once both are on them in Contacts, so either on a list covers the other, on any
+  network (`customerNever` and `offPeople` in `ops/common.ts`). Across networks only the customer counts, never the
+  name. And someone pitched or booked through one of their profiles, by anyone here, isn't started again through
+  another: `inPlay` leaves them out of every pick on Today but a reply they're owed (`reachedElsewhere`).
+- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, kept under its name on its
+  network, or on its customer, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
   requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.

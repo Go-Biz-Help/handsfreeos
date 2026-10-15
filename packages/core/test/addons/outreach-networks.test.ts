@@ -536,3 +536,102 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 });
+
+describe('one person on two networks', () => {
+  const at = () => new Date().toISOString();
+  const reach = async (
+    u: TestUser,
+    platform: 'facebook' | 'linkedin',
+    profile: { id: string | null; username: string; url: string },
+    name: string,
+  ) =>
+    (
+      await runAs(u, ws, 'outreach.touch.save', {
+        platform,
+        kind: 'friend_request',
+        profile,
+        name,
+        at: at(),
+      })
+    ).profileId as string;
+  const like = (
+    u: TestUser,
+    platform: 'facebook' | 'linkedin',
+    profile: { id: string | null; username: string; url: string },
+    name: string,
+  ) => runAs(u, ws, 'outreach.touch.save', { platform, kind: 'like', profile, name, at: at() });
+  /** Ties a profile to a customer in Contacts: a new one, or the one named. Their id. */
+  const contact = async (u: TestUser, profileId: string, personId: string | null = null) =>
+    (await runWith(u, ws, 'outreach.profile.contact', { profileId, personId }, { channel: 'web' }))
+      .personId as string;
+  const linkedIn = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.linkedin.com/in/${slug}/`,
+  });
+  const facebook = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.facebook.com/${slug}`,
+  });
+
+  it('covers every profile on a customer with Don’t pitch and Never contact, and never a name alone', async () => {
+    const pat = await teammate('Pat Morgan');
+    const fb = facebook('jordan.blake.3');
+    const li = linkedIn('jordan-blake-cpa');
+    const namesake = linkedIn('jordan-blake-9');
+    const onFacebook = await reach(pat, 'facebook', fb, 'Jordan Blake');
+    const onLinkedIn = await reach(pat, 'linkedin', li, 'Jordan B.');
+    await reach(pat, 'linkedin', namesake, 'Jordan Blake');
+    await contact(pat, onLinkedIn, await contact(pat, onFacebook));
+
+    // Don't pitch on their Facebook covers their LinkedIn: the same customer. Another Jordan Blake there isn't them.
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onFacebook, dontPitch: true });
+    expect(await refused(like(pat, 'linkedin', li, 'Jordan B.'))).toBe('outreach_dont_pitch');
+    await like(pat, 'linkedin', namesake, 'Jordan Blake');
+    const [listed] = await rows<{ twin: boolean }>(
+      admin(),
+      sql`select exists (select 1 from addon_outreach.profiles tw
+            where tw.person_id = p.person_id and tw.id <> p.id and tw.dont_pitch) as twin
+          from addon_outreach.profiles p where p.id = ${onLinkedIn}`,
+    );
+    expect(listed!.twin).toBe(true);
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onFacebook, dontPitch: false });
+    await like(pat, 'linkedin', li, 'Jordan B.');
+
+    // Never contact on their LinkedIn covers their Facebook.
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onLinkedIn, neverContact: true });
+    expect(await refused(like(pat, 'facebook', fb, 'Jordan Blake'))).toBe('outreach_never_contact');
+    await runAs(pat, ws, 'outreach.friend.set', { profileId: onLinkedIn, neverContact: false });
+    await like(pat, 'facebook', fb, 'Jordan Blake');
+  });
+
+  it('doesn’t start someone again on LinkedIn once they were pitched or booked on Facebook', async () => {
+    const lee = await teammate('Lee Harper');
+    const onFacebook = await reach(lee, 'facebook', facebook('casey.north.4'), 'Casey North');
+    const onLinkedIn = await reach(lee, 'linkedin', linkedIn('casey-north'), 'Casey North');
+    await contact(lee, onLinkedIn, await contact(lee, onFacebook));
+    // The AI found Casey a good fit among Lee's LinkedIn connections: Reconnect.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, why, looked_at)
+          values (${ws}, ${lee.id}, ${onLinkedIn}, 'good', array['Runs a small accounting firm'], now())`,
+    );
+    const onLinkedInToday = async () =>
+      (await runAs(lee, ws, 'outreach.today', { platform: 'linkedin' })).items
+        .filter((i: { name: string }) => i.name === 'Casey North')
+        .map((i: { kind: string }) => i.kind);
+    expect(await onLinkedInToday()).toEqual(['reconnect']);
+
+    await runAs(lee, ws, 'outreach.stage.mark', { profileId: onFacebook, mark: 'pitched' });
+    expect(await onLinkedInToday()).toEqual([]);
+    await runAs(lee, ws, 'outreach.stage.mark', { profileId: onFacebook, mark: 'open' });
+    expect(await onLinkedInToday()).toEqual(['reconnect']);
+
+    // Booked on Facebook, by anyone here: the same.
+    await runAs(lee, ws, 'outreach.demo.mark', { profileId: onFacebook, booked: true });
+    expect(await onLinkedInToday()).toEqual([]);
+    await runAs(lee, ws, 'outreach.demo.mark', { profileId: onFacebook, booked: false });
+    expect(await onLinkedInToday()).toEqual(['reconnect']);
+  });
+});

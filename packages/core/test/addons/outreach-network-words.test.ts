@@ -1,0 +1,98 @@
+/**
+ * The AI hears each network's own words (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Words and the AI"): a
+ * LinkedIn draft, chat read, check, like or post check never says Facebook, Messenger or friend request, and
+ * Facebook's prompts are exactly as they were.
+ */
+import { describe, expect, it } from 'vitest';
+import {
+  CHAT_READ_SYSTEM,
+  chatReadPrompt,
+  chatReadSystem,
+} from '../../src/addons/outreach/chat-read';
+import { CHECK_SYSTEM, checkPrompt, checkSystem } from '../../src/addons/outreach/checks';
+import { LIKE_PICK_SYSTEM, likePickSystem } from '../../src/addons/outreach/like-pick';
+import { inNetworkWords } from '../../src/addons/outreach/networks';
+import { POST_CHECK_SYSTEM, postCheckSystem } from '../../src/addons/outreach/posts';
+import {
+  DRAFT_KINDS,
+  TODAY_DRAFT_SYSTEM,
+  todayDraftPrompt,
+  todayDraftSystem,
+  todayKindWords,
+} from '../../src/addons/outreach/today';
+
+const FACEBOOK_WORDS = /Facebook|Messenger|friend request|\bfriends?\b/i;
+
+const draft = (kind: (typeof DRAFT_KINDS)[number], platform?: 'facebook' | 'linkedin') =>
+  todayDraftPrompt({
+    kind,
+    business: 'Bright Books',
+    name: 'Sam Lee',
+    facts: [],
+    recent: [],
+    playbook: null,
+    post:
+      kind === 'comment' || kind === 'warm_lead' ? { text: 'Who do you use?', group: null } : null,
+    ...(platform ? { platform } : {}),
+  });
+
+describe('each network’s words for the AI', () => {
+  it('puts Facebook’s words in LinkedIn’s, and leaves Facebook’s as they are', () => {
+    expect(inNetworkWords('Send them a friend request on Facebook.', 'facebook')).toBe(
+      'Send them a friend request on Facebook.',
+    );
+    expect(
+      inNetworkWords(
+        'A friend request on Facebook, then a Facebook Messenger chat with friends. Be friendly.',
+        'linkedin',
+      ),
+    ).toBe(
+      'An invitation to connect on LinkedIn, then a LinkedIn messaging chat with connections. Be friendly.',
+    );
+  });
+
+  it('keeps Facebook’s prompts word for word', () => {
+    expect(todayDraftSystem()).toBe(TODAY_DRAFT_SYSTEM);
+    expect(todayDraftSystem('facebook')).toBe(TODAY_DRAFT_SYSTEM);
+    expect(chatReadSystem('facebook')).toBe(CHAT_READ_SYSTEM);
+    expect(checkSystem('facebook')).toBe(CHECK_SYSTEM);
+    expect(likePickSystem('facebook')).toBe(LIKE_PICK_SYSTEM);
+    expect(postCheckSystem('facebook')).toBe(POST_CHECK_SYSTEM);
+    for (const kind of DRAFT_KINDS) expect(draft(kind, 'facebook')).toBe(draft(kind));
+    expect(TODAY_DRAFT_SYSTEM).toContain('short Facebook messages');
+    expect(draft('opener')).toContain('accepted the owner’s friend request');
+    expect(draft('comment')).toContain('posted this in a Facebook group');
+  });
+
+  it('tells LinkedIn’s AI LinkedIn’s words, and never Facebook’s', () => {
+    for (const text of [
+      todayDraftSystem('linkedin'),
+      chatReadSystem('linkedin'),
+      checkSystem('linkedin'),
+      likePickSystem('linkedin'),
+      postCheckSystem('linkedin'),
+      chatReadPrompt([], [], [], 'linkedin'),
+      checkPrompt({
+        business: 'Bright Books',
+        name: 'Sam Lee',
+        facts: [],
+        lines: [],
+        chat: null,
+        playbooks: [],
+        platform: 'linkedin',
+      }),
+      ...DRAFT_KINDS.map((kind) => draft(kind, 'linkedin')),
+    ])
+      expect(text).not.toMatch(FACEBOOK_WORDS);
+    expect(todayDraftSystem('linkedin')).toContain('short LinkedIn messages');
+    expect(draft('opener', 'linkedin')).toContain('accepted the owner’s invitation to connect');
+    expect(draft('reconnect', 'linkedin')).toContain('the owner’s connection');
+    // A post off a group, from LinkedIn's post search or the person's own feed, is on LinkedIn.
+    expect(draft('comment', 'linkedin')).toContain('They posted this on LinkedIn.');
+    expect(draft('warm_lead', 'linkedin')).toContain('own helpful post on LinkedIn');
+    expect(postCheckSystem('linkedin')).toContain('find posts on LinkedIn');
+    expect(likePickSystem('linkedin')).toContain('before sending them an invitation to connect');
+    expect(todayKindWords('friend_request')).toBe('Send a friend request');
+    expect(todayKindWords('friend_request', 'linkedin')).toBe('Send an invitation to connect');
+  });
+});
