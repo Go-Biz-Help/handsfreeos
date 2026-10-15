@@ -12,6 +12,10 @@
  * Revoking asks for a reason and will not proceed without one, because the reason is kept forever and a
  * revocation nobody explained cannot be defended a year later when the business asks.
  *
+ * A free seat is on the moment it is approved or given, to any business, applied or not, and stays on until it
+ * is revoked. Only a paid seat is held behind a claim link. A seat still held from before, or one that lapsed,
+ * can be turned on from its row.
+ *
  * The offers open one after another by themselves (0092): each card says what it is waiting for, and the
  * earlier offer says when a later one has taken its place on the website. The page only reports this — the
  * switch happens in the database, in the same transaction as the approval that crossed the line.
@@ -21,9 +25,12 @@ import {
   FOUNDING_ANOTHER,
   FOUNDING_WORDS,
   foundingApplicationLine,
+  foundingOfferIsPaid,
   foundingBusinessLabel,
   foundingClaimPath,
   foundingFirstChoice,
+  foundingFirstOffer,
+  foundingGivableOffers,
   foundingGivenBackLine,
   foundingOfferCard,
   foundingOfferPriceLine,
@@ -55,6 +62,7 @@ export function FoundingPage({ queue }: { queue: Queue }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approving, setApproving] = useState<Application | null>(null);
+  const [giving, setGiving] = useState(false);
   const [revoking, setRevoking] = useState<Grant | null>(null);
   /** The claim link just made. Shown once: only its hash is kept, so closing this is the last chance to copy it. */
   const [issued, setIssued] = useState<{ business: string; link: string; until: string } | null>(
@@ -83,6 +91,15 @@ export function FoundingPage({ queue }: { queue: Queue }) {
   };
 
   const { pending, held, gone } = foundingQueueParts(queue);
+
+  /** A seat held but not on, or one that lapsed: on their only workspace now, for good. */
+  const turnOn = (g: Grant) =>
+    run(`on:${g.grantId}`, () =>
+      call('/v1/commands/founding.give', {
+        offerId: g.offerId,
+        organizationId: g.organizationId,
+      }),
+    );
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -158,9 +175,14 @@ export function FoundingPage({ queue }: { queue: Queue }) {
         </ul>
       )}
 
-      <h2 className="mt-8 text-base font-semibold">
-        {deskCountHeading(FOUNDING_WORDS.seatsOut, held.length)}
-      </h2>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">
+          {deskCountHeading(FOUNDING_WORDS.seatsOut, held.length)}
+        </h2>
+        <Button size="sm" onClick={() => setGiving(true)}>
+          {FOUNDING_WORDS.give}
+        </Button>
+      </div>
       {held.length === 0 ? (
         <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.noSeatsOut}</p>
       ) : (
@@ -177,9 +199,16 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                   <p className="mt-1 text-[13px] text-danger-text">{foundingSeatProblem(g)}</p>
                 ) : null}
               </div>
-              <Button size="sm" variant="secondary" onClick={() => setRevoking(g)}>
-                {FOUNDING_WORDS.revoke}
-              </Button>
+              <div className="flex gap-2">
+                {g.status === 'reserved' && !foundingOfferIsPaid(g.offerId, queue.offers) ? (
+                  <Button size="sm" disabled={busy === `on:${g.grantId}`} onClick={() => turnOn(g)}>
+                    {FOUNDING_WORDS.turnOn}
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="secondary" onClick={() => setRevoking(g)}>
+                  {FOUNDING_WORDS.revoke}
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
@@ -216,6 +245,15 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                   >
                     {FOUNDING_WORDS.undo}
                   </Button>
+                ) : !foundingOfferIsPaid(g.offerId, queue.offers) ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy === `on:${g.grantId}`}
+                    onClick={() => turnOn(g)}
+                  >
+                    {FOUNDING_WORDS.turnOn}
+                  </Button>
                 ) : null}
               </li>
             ))}
@@ -226,25 +264,42 @@ export function FoundingPage({ queue }: { queue: Queue }) {
       {approving ? (
         <ApproveDialog
           application={approving}
+          paid={foundingOfferIsPaid(approving.offerId, queue.offers)}
           busy={busy === `approve:${approving.applicationId}`}
           onClose={() => setApproving(null)}
-          onApprove={async (organizationId, note) => {
-            let out: { claimToken: string; expiresAt: string } | null = null;
+          onApprove={async (organizationId, workspaceId, note) => {
+            type Made = { claimToken: string | null; expiresAt: string | null };
+            let out: Made | null = null;
             const ok = await run(`approve:${approving.applicationId}`, async () => {
               out = (await call('/v1/commands/founding.approve', {
                 applicationId: approving.applicationId,
                 organizationId,
+                workspaceId,
                 note,
-              })) as { claimToken: string; expiresAt: string };
+              })) as Made;
             });
             if (!ok || !out) return;
-            const made: { claimToken: string; expiresAt: string } = out;
+            const made: Made = out;
             setApproving(null);
-            setIssued({
-              business: approving.businessName,
-              link: `${window.location.origin}${foundingClaimPath(made.claimToken)}`,
-              until: made.expiresAt,
-            });
+            // A free seat is simply on. Only a paid one comes back with a link to send.
+            if (made.claimToken && made.expiresAt)
+              setIssued({
+                business: approving.businessName,
+                link: `${window.location.origin}${foundingClaimPath(made.claimToken)}`,
+                until: made.expiresAt,
+              });
+          }}
+        />
+      ) : null}
+
+      {giving ? (
+        <GiveDialog
+          offers={foundingGivableOffers(queue.offers)}
+          busy={busy === 'give'}
+          onClose={() => setGiving(false)}
+          onGive={async (input) => {
+            const ok = await run('give', () => call('/v1/commands/founding.give', input));
+            if (ok) setGiving(false);
           }}
         />
       ) : null}
@@ -376,29 +431,12 @@ function OfferCard({
   );
 }
 
-function ApproveDialog({
-  application,
-  busy,
-  onClose,
-  onApprove,
-}: {
-  application: Application;
-  busy: boolean;
-  onClose: () => void;
-  onApprove: (organizationId: string, note: string) => void;
-}) {
-  // Matched on the email they applied with, owners and admins only: the people who can take the seat up.
-  const theirs = foundingTheirBusinesses(application);
-  // A founder with one business is the usual case, so that one is picked for you.
-  const [choice, setChoice] = useState(foundingFirstChoice(theirs));
-  const [term, setTerm] = useState('');
+/** Businesses whose name has `term` in it, a moment after typing stops. Null until there's something to look for. */
+function useBusinessSearch(term: string, on: boolean): FoundingPickable[] | null {
   const [found, setFound] = useState<FoundingPickable[] | null>(null);
-  const [foundChoice, setFoundChoice] = useState('');
-  const [note, setNote] = useState('');
-
   useEffect(() => {
     const search = term.trim();
-    if (choice !== FOUNDING_ANOTHER || search.length < 2) {
+    if (!on || search.length < 2) {
       setFound(null);
       return;
     }
@@ -418,7 +456,6 @@ function ApproveDialog({
             label: foundingBusinessLabel(b.name, b.organizationName),
           })),
         );
-        setFoundChoice('');
       } catch {
         if (!cancelled) setFound([]);
       }
@@ -427,18 +464,47 @@ function ApproveDialog({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [choice, term]);
+  }, [on, term]);
+  return found;
+}
+
+function ApproveDialog({
+  application,
+  paid,
+  busy,
+  onClose,
+  onApprove,
+}: {
+  application: Application;
+  /** A paid seat is held behind a link; a free one is on at once. */
+  paid: boolean;
+  busy: boolean;
+  onClose: () => void;
+  onApprove: (organizationId: string, workspaceId: string, note: string) => void;
+}) {
+  // Matched on the email they applied with, owners and admins only: the people who can take the seat up.
+  const theirs = foundingTheirBusinesses(application);
+  // A founder with one business is the usual case, so that one is picked for you.
+  const [choice, setChoice] = useState(foundingFirstChoice(theirs));
+  const [term, setTerm] = useState('');
+  const found = useBusinessSearch(term, choice === FOUNDING_ANOTHER);
+  const [foundChoice, setFoundChoice] = useState('');
+  const [note, setNote] = useState('');
+  // A pick from an earlier search doesn't carry over to this one.
+  const chosen = found?.some((b) => b.workspaceId === foundChoice) ? foundChoice : '';
 
   const picked =
     choice === FOUNDING_ANOTHER
-      ? found?.find((b) => b.workspaceId === foundChoice)
+      ? found?.find((b) => b.workspaceId === chosen)
       : theirs.find((b) => b.workspaceId === choice);
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent
         title={FOUNDING_WORDS.approveTitle(application.businessName)}
-        description={FOUNDING_WORDS.approveDescription}
+        description={
+          paid ? FOUNDING_WORDS.approveDescription : FOUNDING_WORDS.approveFreeDescription
+        }
       >
         <div className="mt-4 flex flex-col gap-3">
           <Field
@@ -487,14 +553,14 @@ function ApproveDialog({
                   label={FOUNDING_WORDS.business}
                   htmlFor="founding-approve-found"
                   hint={
-                    theirs.some((b) => b.workspaceId === foundChoice)
+                    theirs.some((b) => b.workspaceId === chosen)
                       ? undefined
                       : FOUNDING_WORDS.notTheirsHint(application.email)
                   }
                 >
                   <select
                     id="founding-approve-found"
-                    value={foundChoice}
+                    value={chosen}
                     onChange={(e) => setFoundChoice(e.target.value)}
                     className="h-10 rounded-control border border-border bg-card px-2.5 text-sm"
                   >
@@ -530,9 +596,131 @@ function ApproveDialog({
           </Button>
           <Button
             disabled={busy || !picked}
-            onClick={() => picked && onApprove(picked.organizationId, note)}
+            onClick={() => picked && onApprove(picked.organizationId, picked.workspaceId, note)}
           >
-            {busy ? FOUNDING_WORDS.approving : FOUNDING_WORDS.approveAndHold}
+            {busy
+              ? paid
+                ? FOUNDING_WORDS.approving
+                : FOUNDING_WORDS.giving
+              : paid
+                ? FOUNDING_WORDS.approveAndHold
+                : FOUNDING_WORDS.approveAndTurnOn}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** A seat for any business, applied or not: found by name, on its workspace at once, kept until revoked. */
+function GiveDialog({
+  offers,
+  busy,
+  onClose,
+  onGive,
+}: {
+  offers: readonly Offer[];
+  busy: boolean;
+  onClose: () => void;
+  onGive: (input: {
+    offerId: string;
+    organizationId: string;
+    workspaceId: string;
+    note: string;
+  }) => void;
+}) {
+  const [term, setTerm] = useState('');
+  const found = useBusinessSearch(term, true);
+  const [foundChoice, setFoundChoice] = useState('');
+  const [offerId, setOfferId] = useState(foundingFirstOffer(offers));
+  const [note, setNote] = useState('');
+  // A pick from an earlier search doesn't carry over to this one.
+  const chosen = found?.some((b) => b.workspaceId === foundChoice) ? foundChoice : '';
+  const picked = found?.find((b) => b.workspaceId === chosen);
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent title={FOUNDING_WORDS.giveTitle} description={FOUNDING_WORDS.giveDescription}>
+        <div className="mt-4 flex flex-col gap-3">
+          <Field label={FOUNDING_WORDS.searchBusinesses} htmlFor="founding-give-search">
+            <Input
+              id="founding-give-search"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder={FOUNDING_WORDS.searchPlaceholder}
+              autoComplete="off"
+              autoFocus
+            />
+          </Field>
+          {found === null ? null : found.length === 0 ? (
+            <p className="text-[13px] text-text-3">{FOUNDING_WORDS.noBusiness}</p>
+          ) : (
+            <Field label={FOUNDING_WORDS.business} htmlFor="founding-give-found">
+              <select
+                id="founding-give-found"
+                value={chosen}
+                onChange={(e) => setFoundChoice(e.target.value)}
+                className="h-10 rounded-control border border-border bg-card px-2.5 text-sm"
+              >
+                <option value="" disabled>
+                  {FOUNDING_WORDS.pickOne}
+                </option>
+                {found.map((b) => (
+                  <option key={b.workspaceId} value={b.workspaceId}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {offers.length === 0 ? (
+            <p className="text-[13px] text-text-3">{FOUNDING_WORDS.noOfferOpen}</p>
+          ) : offers.length > 1 ? (
+            <Field label={FOUNDING_WORDS.offer} htmlFor="founding-give-offer">
+              <select
+                id="founding-give-offer"
+                value={offerId}
+                onChange={(e) => setOfferId(e.target.value)}
+                className="h-10 rounded-control border border-border bg-card px-2.5 text-sm"
+              >
+                {offers.map((o) => (
+                  <option key={o.offerId} value={o.offerId}>
+                    {o.name} · {foundingOfferPriceLine(o)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+          <Field
+            label={FOUNDING_WORDS.whyThem}
+            htmlFor="founding-give-note"
+            hint={FOUNDING_WORDS.whyThemHint}
+          >
+            <Textarea
+              id="founding-give-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+            />
+          </Field>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {FOUNDING_WORDS.cancel}
+          </Button>
+          <Button
+            disabled={busy || !picked || !offerId}
+            onClick={() =>
+              picked &&
+              onGive({
+                offerId,
+                organizationId: picked.organizationId,
+                workspaceId: picked.workspaceId,
+                note,
+              })
+            }
+          >
+            {busy ? FOUNDING_WORDS.giving : FOUNDING_WORDS.giveSeat}
           </Button>
         </div>
       </DialogContent>

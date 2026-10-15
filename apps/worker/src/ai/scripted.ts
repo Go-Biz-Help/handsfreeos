@@ -2257,7 +2257,57 @@ export const MAIN_OFFER_RULES: readonly ScriptRule[] = [
   { when: /Score this offer\.$/, json: (m) => scriptedOfferScore(m) },
 ];
 
+/**
+ * Placing the texting section in a business's own policy (core's policy-update.ts): the whole document, the section
+ * before the contact details (else at the end), the date line given today's date, and a sentence sharing information
+ * for marketing given the carve-out. Not a policy when it never says privacy or terms.
+ */
+function scriptedPolicyPlace(message: string) {
+  const doc = unquote(quotedBlock(message, 'document') ?? '');
+  const today = /^Today: (.*)$/m.exec(message)?.[1] ?? '';
+  const blocks = [...doc.matchAll(/^\[(\d+)\] (heading|paragraph|item): (.*)$/gm)].map((m) => ({
+    n: Number(m[1]),
+    kind: m[2]!,
+    text: m[3]!,
+  }));
+  const last = Math.max(0, blocks.length - 1);
+  const contact = blocks.find((b) => b.kind === 'heading' && /contact/i.test(b.text));
+  const changes = blocks.flatMap((b) =>
+    /\b(last updated|effective)\b/i.test(b.text) && today
+      ? [
+          {
+            block: b.n,
+            action: 'replace',
+            text: `Last updated: ${today}`,
+            why: 'The date changes with it.',
+          },
+        ]
+      : /\bshare\b.*\bmarketing\b/i.test(b.text)
+        ? [
+            {
+              block: b.n,
+              action: 'replace',
+              text: `${b.text} Mobile numbers and text messaging opt-in data are never shared for marketing.`,
+              why: 'It let numbers be shared for marketing.',
+            },
+          ]
+        : [],
+  );
+  return {
+    isDocument: /privacy|terms/i.test(doc),
+    start: 0,
+    end: last,
+    after: contact && contact.n > 0 ? contact.n - 1 : last,
+    changes,
+  };
+}
+
+export const POLICY_RULES: readonly ScriptRule[] = [
+  { when: /Place the new section\.$/, json: (m) => scriptedPolicyPlace(m) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...POLICY_RULES,
   ...MEETING_RULES,
   ...MAIN_OFFER_RULES,
   ...KNOWLEDGE_RULES,

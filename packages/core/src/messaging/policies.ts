@@ -27,6 +27,8 @@ export interface PolicyBusiness {
   readonly phone?: string;
   /** The business also texts offers, with a separate box for them, so the policy and terms say so. */
   readonly offers?: boolean;
+  /** Where the privacy policy is, so the terms can link to it. Left out, the terms name it without a link. */
+  readonly privacyUrl?: string;
   readonly address?: {
     readonly line1?: string;
     readonly city?: string;
@@ -186,7 +188,9 @@ export function termsOfService(business: PolicyBusiness, on: Date = new Date()):
             (business.email?.trim() ? `, or email ${business.email.trim()}` : '') +
             '.',
           'Mobile carriers are not liable for delayed or undelivered messages. How we handle your number ' +
-            'is set out in our privacy policy: we never share or sell it for anyone else’s marketing.',
+            'is set out in our privacy policy' +
+            (business.privacyUrl?.trim() ? ` at ${business.privacyUrl.trim()}` : '') +
+            ': we never share or sell it for anyone else’s marketing.',
         ],
       },
       {
@@ -206,6 +210,14 @@ export function termsOfService(business: PolicyBusiness, on: Date = new Date()):
       { heading: 'Contact us', paragraphs: [contactBlock(business)] },
     ],
   };
+}
+
+/** The section about text messages, for a business adding it to a policy or terms of its own. */
+export function textingSection(kind: 'privacy' | 'terms', business: PolicyBusiness): PolicySection {
+  const policy = kind === 'privacy' ? privacyPolicy(business) : termsOfService(business);
+  const section = policy.sections.find((s) => s.heading === 'Text messages');
+  if (!section) throw new Error('A generated policy always has a Text messages section.');
+  return section;
 }
 
 /** Flattens a generated policy to plain text, for a business pasting it into its own website. */

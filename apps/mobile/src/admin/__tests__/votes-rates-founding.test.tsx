@@ -348,11 +348,23 @@ beforeEach(() => {
       nextCursor: null,
       totals: { businesses: 1, newThisWeek: 0, activeThisWeek: 0 },
     },
+    // A free seat: on at once, with no link.
     '/v1/commands/founding.approve': {
       grantId: G1,
       offerId: 'founding_partner',
-      expiresAt: '2026-10-14T15:00:00.000Z',
-      claimToken: CLAIM,
+      status: 'active',
+      workspaceId: WS1,
+      expiresAt: null,
+      claimToken: null,
+      remaining: 0,
+    },
+    '/v1/commands/founding.give': {
+      grantId: G1,
+      offerId: 'founding_partner',
+      organizationId: ORG2,
+      workspaceId: WS2,
+      plan: 'founding_free',
+      creditedCents: 1000,
       remaining: 0,
     },
     '/v1/commands/founding.decline': { applicationId: A1, status: 'declined' },
@@ -567,9 +579,86 @@ describe('Founding', () => {
       screen.getByText('Paid $497, but the seat was taken back while they were paying.'),
     ).toBeTruthy();
     expect(screen.getByText(foundingGivenBackLine(QUEUE.grants[3]!))).toBeTruthy();
-    // Only a revoked seat can be undone; one nobody took up has simply gone back.
+    // Only a revoked seat can be undone; one nobody took up is turned back on instead.
     expect(screen.getByTestId(`founding-undo-${G3}`)).toBeTruthy();
     expect(screen.queryByTestId(`founding-undo-${G4}`)).toBeNull();
+    expect(screen.getByTestId(`founding-on-${G4}`)).toBeTruthy();
+    // A seat held but not on can be turned on; one in use can't be turned on again.
+    expect(screen.getByTestId(`founding-on-${G1}`)).toBeTruthy();
+    expect(screen.queryByTestId(`founding-on-${G2}`)).toBeNull();
+  });
+
+  it('never offers one press to turn on a $497 seat held for payment', async () => {
+    answers['/v1/queries/platform.founding'] = {
+      ...QUEUE,
+      grants: [
+        grant({ offerId: 'founding_lifetime' }),
+        grant({ grantId: G4, offerId: 'founding_lifetime', status: 'expired' }),
+      ],
+    };
+    await showDesk(<Founding />, () => answers);
+    expect(await screen.findByTestId(`founding-revoke-${G1}`)).toBeTruthy();
+    expect(screen.queryByTestId(`founding-on-${G1}`)).toBeNull();
+    expect(screen.queryByTestId(`founding-on-${G4}`)).toBeNull();
+  });
+
+  it('turns on a seat that was held or lapsed, on the business’s workspace', async () => {
+    await showDesk(<Founding />, () => answers);
+    await fireEvent.press(await screen.findByTestId(`founding-on-${G1}`));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/founding.give')).toEqual({
+        offerId: 'founding_partner',
+        organizationId: ORG1,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(MONEY_DESK_WORDS.turnedOn('Lone Star Group'));
+    await waitFor(() => expect(sent('/v1/queries/platform.founding')).toHaveLength(2));
+    await fireEvent.press(screen.getByTestId(`founding-on-${G4}`));
+    await waitFor(() => expect(sent('/v1/commands/founding.give')).toHaveLength(2));
+  });
+
+  it('gives a seat to any business, found by name, with no application', async () => {
+    await showDesk(<Founding />, () => answers);
+    await fireEvent.press(await screen.findByTestId('founding-give'));
+    expect(screen.getByText(FOUNDING_WORDS.giveTitle)).toBeTruthy();
+    expect(screen.getByTestId('founding-give-go').props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    // Only one founding offer is open, so there's nothing to choose between.
+    expect(screen.queryByTestId('founding-give-offer-founding_partner')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('founding-give-search'), 'hill');
+    await waitFor(() =>
+      expect(lastBody('/v1/queries/platform.business.list')).toEqual({
+        search: 'hill',
+        sort: 'name',
+        limit: 20,
+      }),
+    );
+    await fireEvent.press(await screen.findByTestId(`founding-give-found-${WS2}`));
+    await fireEvent.changeText(screen.getByTestId('founding-give-note'), 'Helped us test texting.');
+    await fireEvent.press(screen.getByTestId('founding-give-go'));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/founding.give')).toEqual({
+        offerId: 'founding_partner',
+        organizationId: ORG2,
+        workspaceId: WS2,
+        note: 'Helped us test texting.',
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      MONEY_DESK_WORDS.turnedOn('Hill Country Plumbing · in Hill Country Services'),
+    );
+    await waitFor(() => expect(sent('/v1/queries/platform.founding')).toHaveLength(2));
+  });
+
+  it('says in the sheet why a seat could not be given', async () => {
+    answers['/v1/commands/founding.give'] = null;
+    await showDesk(<Founding />, () => answers);
+    await fireEvent.press(await screen.findByTestId('founding-give'));
+    await fireEvent.changeText(screen.getByTestId('founding-give-search'), 'hill');
+    await fireEvent.press(await screen.findByTestId(`founding-give-found-${WS2}`));
+    await fireEvent.press(screen.getByTestId('founding-give-go'));
+    expect(await screen.findByTestId('founding-give-problem')).toHaveTextContent(NO_SIGNAL);
   });
 
   it('raises a cap, and says so when what’s typed isn’t a number of seats', async () => {
@@ -626,23 +715,60 @@ describe('Founding', () => {
     expect(toast.show).toHaveBeenCalledWith('Declined Lone Star HVAC.');
   });
 
-  it('approves onto the one business they run, and shows the claim link once', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+  it('approves a free seat onto the one business they run, and it is simply on', async () => {
     await showDesk(<Founding />, () => answers);
     await fireEvent.press(await screen.findByTestId(`founding-approve-${A1}`));
     expect(screen.getByText('Approve Lone Star HVAC')).toBeTruthy();
+    expect(screen.getByText(FOUNDING_WORDS.approveFreeDescription)).toBeTruthy();
     expect(screen.getByTestId(`founding-business-${WS1}`)).toHaveTextContent(
       'Lone Star HVAC · in Lone Star Group · owner',
     );
     expect(screen.getByTestId(`founding-business-${WS1}`).props.accessibilityState).toMatchObject({
       checked: true,
     });
+    expect(screen.getByTestId('founding-approve-go')).toHaveTextContent(
+      FOUNDING_WORDS.approveAndTurnOn,
+    );
     await fireEvent.changeText(screen.getByTestId('founding-note'), 'Early, and they’ll talk.');
     await fireEvent.press(screen.getByTestId('founding-approve-go'));
     await waitFor(() =>
       expect(lastBody('/v1/commands/founding.approve')).toEqual({
         applicationId: A1,
         organizationId: ORG1,
+        workspaceId: WS1,
+        note: 'Early, and they’ll talk.',
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(MONEY_DESK_WORDS.turnedOn('Lone Star HVAC'));
+    expect(screen.queryByTestId('founding-link')).toBeNull();
+    await waitFor(() => expect(sent('/v1/queries/platform.founding')).toHaveLength(2));
+  });
+
+  it('holds a paid seat, and shows the claim link once', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    answers['/v1/queries/platform.founding'] = {
+      ...QUEUE,
+      applications: [application({ offerId: 'founding_lifetime' })],
+    };
+    answers['/v1/commands/founding.approve'] = {
+      grantId: G1,
+      offerId: 'founding_lifetime',
+      status: 'reserved',
+      workspaceId: null,
+      expiresAt: '2026-10-14T15:00:00.000Z',
+      claimToken: CLAIM,
+      remaining: 99,
+    };
+    await showDesk(<Founding />, () => answers);
+    await fireEvent.press(await screen.findByTestId(`founding-approve-${A1}`));
+    expect(screen.getByText(FOUNDING_WORDS.approveDescription)).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('founding-note'), 'Early, and they’ll talk.');
+    await fireEvent.press(screen.getByTestId('founding-approve-go'));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/founding.approve')).toEqual({
+        applicationId: A1,
+        organizationId: ORG1,
+        workspaceId: WS1,
         note: 'Early, and they’ll talk.',
       }),
     );
@@ -686,6 +812,7 @@ describe('Founding', () => {
       expect(lastBody('/v1/commands/founding.approve')).toEqual({
         applicationId: A2,
         organizationId: ORG2,
+        workspaceId: WS2,
         note: '',
       }),
     );

@@ -56,6 +56,7 @@ import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
 import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
+import { registerPolicyUpdateRoutes } from './policy-update';
 import { SafeFetchError } from './safe-fetch';
 import { registerSiteRoutes } from './sites';
 import { registerSpeechRoutes } from './speech';
@@ -313,6 +314,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);
+  // A business's own policy or terms, given back with the texting section in place (20261027006500).
+  await registerPolicyUpdateRoutes(app, deps);
   await registerFoundingRoutes(app, deps);
   // A form on the business's own website, and services sending leads over (M14 slice B).
   await registerIntakeRoutes(app, deps);
