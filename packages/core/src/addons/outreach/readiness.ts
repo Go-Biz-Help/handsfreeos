@@ -82,6 +82,8 @@ export interface ReadyFacts {
     readonly niche: string | null;
     readonly problem: string | null;
     readonly proof: readonly string[];
+    /** Its short video's link (decision 69): Your messages waits on one. */
+    readonly videoLink: string | null;
   }[];
   readonly profile: ProfileTicks;
   /** The AI's latest check of the person's profile, read by the extension; null until one is. */
@@ -177,18 +179,25 @@ export function readinessOf(f: ReadyFacts): Readiness {
               left: W.profile(PROFILE_ITEMS.length - counted.length),
             };
 
-  // OK'd since the live version; OK'd before it changed wants a look again. Samples need the offer and a niche first.
+  // OK'd since the live version, with a playbook's short video linked (decision 69, the business's: an owner or admin
+  // links it); OK'd before the version changed wants a look again. Samples need the offer and a niche first.
+  const video = f.playbooks.some((p) => filled(p.videoLink));
+  const okd = f.messages !== null && live !== null && f.messages.version === live;
   const messages: ReadyItemState =
-    f.messages && live !== null && f.messages.version === live
+    okd && video
       ? { item: 'messages', state: 'done', whose: 'person', left: null }
-      : f.messages && live !== null
-        ? { item: 'messages', state: 'look_again', whose: 'person', left: W.messagesAgain }
-        : {
-            item: 'messages',
-            state: 'todo',
-            whose: 'person',
-            left: f.offer && withNiche ? W.messages : W.messagesFirst,
-          };
+      : okd
+        ? f.canPlaybooks
+          ? { item: 'messages', state: 'todo', whose: 'person', left: W.messagesVideo }
+          : { item: 'messages', state: 'waiting', whose: 'business', left: W.messagesVideoWaiting }
+        : f.messages && live !== null
+          ? { item: 'messages', state: 'look_again', whose: 'person', left: W.messagesAgain }
+          : {
+              item: 'messages',
+              state: 'todo',
+              whose: 'person',
+              left: f.offer && withNiche ? W.messages : W.messagesFirst,
+            };
 
   const numbers: ReadyItemState =
     f.numbers.goal !== null && f.numbers.at !== null
@@ -436,6 +445,10 @@ export const READY_WORDS = {
     messagesFirst:
       'Once your main offer is live and a playbook has its niche, see sample messages for it here.',
     messagesAgain: 'Your main offer changed. Look at your messages again so they still fit.',
+    messagesVideo:
+      'Link your playbook’s short video: the AI writes its script under Playbooks → Short video.',
+    messagesVideoWaiting:
+      'Waiting on the playbook’s short video. Ask an owner or admin of this business to link it under Playbooks → Short video.',
     numbers: 'Set a goal for calls booked a month, and see what it takes each day.',
   },
   /** Why Start my day is refused, by the first item left. */
@@ -455,7 +468,8 @@ export const READY_WORDS = {
     first: 'First message, once they accept',
     video: 'If they say yes: the video',
     link: 'If they want a call: the link',
-    noVideo: 'Your playbook has no video yet, so a yes gets your booking link next.',
+    noVideo:
+      'Your playbook has no short video linked yet. Until it does, a yes gets your booking link next.',
     followUps: (n: number) => `If they go quiet: ${plural(n, 'follow-up')}`,
     checkIn: 'Then once a month: a check-in',
     ok: 'They read right',

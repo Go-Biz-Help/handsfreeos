@@ -103,6 +103,7 @@ export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutpu
       niche: p.details.niche ?? null,
       problem: p.details.problem ?? null,
       proof: p.details.proof ?? [],
+      videoLink: p.details.videoLink ?? null,
     })),
     profile,
     profileCheck,
