@@ -12,7 +12,7 @@
  */
 import {
   CHAT_READ_SCHEMA,
-  CHAT_READ_SYSTEM,
+  chatReadSystem,
   ChatReadAnswer,
   chatReadPlaybook,
   chatReadPrompt,
@@ -22,6 +22,7 @@ import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { chatRead } from '@hfos/core/addons/outreach/ops/chats';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand } from '@hfos/core/server';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
@@ -55,9 +56,14 @@ export async function downloadSaved(ctx: AddonEventContext): Promise<void> {
 /** `outreach.read_chats`: reads a batch of the business's waiting chats, and comes back for the rest. */
 export async function readChatsJob(ctx: AddonJobContext): Promise<JobResult> {
   const { chats, playbooks } = await asWorker(ctx.db, ctx.scope, async (tx) => ({
-    chats: await rows<{ id: string; last_at: Date | string; recent: DownloadMessage[] }>(
+    chats: await rows<{
+      id: string;
+      last_at: Date | string;
+      recent: DownloadMessage[];
+      platform: Platform;
+    }>(
       tx,
-      sql`select id, last_at, recent from addon_outreach.file_chats
+      sql`select id, last_at, recent, platform from addon_outreach.file_chats
           where workspace_id = ${ctx.scope.workspaceId} and read_state = 'waiting'
           order by last_at desc limit ${READ_CHATS_BATCH + 1}`,
     ),
@@ -80,8 +86,10 @@ export async function readChatsJob(ctx: AddonJobContext): Promise<JobResult> {
     let read: ReturnType<typeof checkedChatRead> | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: CHAT_READ_SYSTEM,
-        messages: [{ role: 'user', content: chatReadPrompt(chat.recent, tags, looking) }],
+        system: chatReadSystem(chat.platform),
+        messages: [
+          { role: 'user', content: chatReadPrompt(chat.recent, tags, looking, chat.platform) },
+        ],
         schema: CHAT_READ_SCHEMA,
         zod: ChatReadAnswer,
         maxTokens: 600,

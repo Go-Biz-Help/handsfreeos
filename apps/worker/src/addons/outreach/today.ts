@@ -40,7 +40,7 @@ import {
   draftOfferOf,
   DRAFTS_FOR,
   TODAY_DRAFT_SCHEMA,
-  TODAY_DRAFT_SYSTEM,
+  todayDraftSystem,
   TodayDraftAnswer,
   TodayDraftInput,
   todayDraftPrompt,
@@ -49,6 +49,7 @@ import {
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
 import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   AI_BUDGET_MESSAGE,
@@ -114,12 +115,13 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       const [profile] = profileId
         ? await rows<{
             name: string;
+            platform: Platform;
             intro: string[];
             mutual_friends: number | null;
             group: string | null;
           }>(
             tx,
-            sql`select p.name, p.intro, p.mutual_friends, g.name as group
+            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
@@ -261,9 +263,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           followUps: paceOf(playbook?.details.pace ?? null).followUps,
         }
       : null;
+    // The network the message goes on: the profile's.
+    const platform = found.profile?.platform ?? 'facebook';
     const draft = async (kind: DraftKind) => {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: TODAY_DRAFT_SYSTEM,
+        system: todayDraftSystem(platform),
         messages: [
           {
             role: 'user',
@@ -290,6 +294,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               opener,
               voice: found.voice,
               lastAt: found.lastAt,
+              platform,
             }),
           },
         ],
