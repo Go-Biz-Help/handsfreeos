@@ -14,10 +14,9 @@ timeline, turns what the rep promised into tasks, and scores the call against th
 It was two planned add-ons, AI Sales Coach and Live Sales Assist (`salesassist`). They're one add-on now, built
 under the planned id `salescoach`.
 
-**Where it stands (2026-10-14):** rounds 0, 1 and 2 are built, and round 4's learning from wins, in `development`
-(staff hand it to test businesses), with the differences from this plan noted under "What changed while building".
-`docs/salescoach.md` is the guide for working on it. Rounds 0 to 3 and round 4's learning from wins are built;
-round 4's trends and Spanish are next.
+**Where it stands (2026-10-15):** rounds 0 to 3 are built, and round 4's learning from wins and trends, in
+`development` (staff hand it to test businesses), with the differences from this plan noted under "What changed
+while building". `docs/salescoach.md` is the guide for working on it. Round 4's Spanish is next.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -148,6 +147,19 @@ round 4's trends and Spanish are next.
   answers that worked are offered to the owner as new playbook lines ("this answer to price closed 6 of 9").
 - **Trends.** A rep's talk time, objections won and steps skipped over time; the owner's view of every rep.
 - **Spanish** calls and conversations.
+
+### What changed while building round 4's trends
+
+- **No new tables.** Trends are worked out from the write-ups each time (`salescoach.trends`): a few hundred rows a
+  quarter for a small team, so nothing is kept that could drift from them.
+- **"Objections won" is objections answered,** with wins (the customer booked, accepted, paid or won within a week)
+  as their own number beside it.
+- **Talk time counts calls and Zoom meetings only.** A written conversation's share of the words isn't talk time.
+- **Steps skipped** count only against a playbook of the same shape as when the call happened, since a step's id is
+  its place in the script.
+- **The owner's view is row security's,** not a separate screen: whoever reviews gets every rep's trend and the
+  team's from the same query, and a rep gets their own.
+- **On the phone** the Trends tab opens on the web, like Coached and Playbooks.
 
 ## What HandsFreeOS needs from outside
 

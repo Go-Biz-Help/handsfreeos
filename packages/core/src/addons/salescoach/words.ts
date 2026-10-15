@@ -3,7 +3,7 @@
  */
 import type { CardKind } from './coach';
 
-export const SALESCOACH_VIEWS = ['live', 'calls', 'playbooks'] as const;
+export const SALESCOACH_VIEWS = ['live', 'calls', 'trends', 'playbooks'] as const;
 export type SalescoachView = (typeof SALESCOACH_VIEWS)[number];
 /** The tabs, and the panel HandsFreeOS's app inside Zoom opens (`zoom`, no tab of its own). */
 export const SALESCOACH_PAGE_VIEWS = [...SALESCOACH_VIEWS, 'zoom'] as const;
@@ -13,7 +13,7 @@ export const SALESCOACH_WORDS = {
   title: 'AI Sales Coach',
   pageAbout:
     'While you’re on a call, the coach listens and shows you what to say next from your playbook. After it, you get notes, a follow-up and a score.',
-  tabs: { live: 'Live call', calls: 'Coached', playbooks: 'Playbooks' } as Record<
+  tabs: { live: 'Live call', calls: 'Coached', trends: 'Trends', playbooks: 'Playbooks' } as Record<
     SalescoachView,
     string
   >,
@@ -104,6 +104,43 @@ export const SALESCOACH_WORDS = {
     live: 'On the call now',
     noCustomer: 'A caller nobody knows yet',
     openConversation: 'Open the conversation',
+  },
+  /** How coached calls are going over time (round four, ./trends.ts): a rep's own, and the owner's view. */
+  trends: {
+    team: 'Your team',
+    teamAbout:
+      'Every rep’s coached calls and conversations, against the same number of weeks before. Pick a rep to see their weeks.',
+    mine: 'Your coached calls',
+    mineAbout:
+      'How your coached calls and conversations are going, against the same number of weeks before.',
+    repAbout: (name: string) =>
+      `How ${name}’s coached calls and conversations are going, against the same number of weeks before.`,
+    everyone: 'Everyone',
+    period: (weeks: number) => `${weeks} weeks`,
+    none: 'Nothing to show yet. Trends start once calls or conversations have been coached and written up.',
+    noneHere: 'Nothing coached in these weeks.',
+    coached: 'Coached',
+    score: 'Average score',
+    talk: 'Talk time',
+    talkAbout: 'Your share of the talking on calls and meetings. 35 to 60% is the sweet spot.',
+    objections: 'Objections answered',
+    steps: 'Script steps done',
+    wins: 'Wins',
+    winsAbout: 'A job booked, an estimate accepted, a payment or a deal won within a week.',
+    rep: 'Rep',
+    weekly: 'Score by week',
+    weeklyAbout: 'The average score of each week’s coached calls. Weeks with none are left out.',
+    weekOf: (date: string) => `Week of ${date}`,
+    week: 'Week',
+    asTable: 'See as a table',
+    skipped: 'Steps skipped most',
+    skippedAbout: 'From calls with a playbook. Practice these, or move them in the script.',
+    skippedLine: (skipped: number, of: number) => `Skipped on ${skipped} of ${of} calls`,
+    noSkipped: 'No step is skipped often. Steps show here after at least 3 calls with them.',
+    before: (v: string) => `was ${v}`,
+    beforeNone: 'nothing before',
+    percent: (v: number | null) => (v === null ? '—' : `${v}%`),
+    ofCount: (part: number, of: number) => (of === 0 ? '—' : `${part} of ${of}`),
   },
   suggest: {
     title: 'Suggested replies',
