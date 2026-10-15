@@ -81620,6 +81620,9 @@
                           "each"
                         ]
                       },
+                      "dayReport": {
+                        "type": "boolean"
+                      },
                       "voice": {
                         "type": "object",
                         "properties": {
@@ -81765,6 +81768,10 @@
                             "each"
                           ]
                         },
+                        "dayReport": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "voice": {
                           "default": {
                             "shorthand": false,
@@ -81814,6 +81821,7 @@
                         "readChats",
                         "markPosts",
                         "pushes",
+                        "dayReport",
                         "voice"
                       ],
                       "additionalProperties": false
@@ -171670,6 +171678,10 @@
                             "each"
                           ]
                         },
+                        "dayReport": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "voice": {
                           "default": {
                             "shorthand": false,
@@ -171719,6 +171731,7 @@
                         "readChats",
                         "markPosts",
                         "pushes",
+                        "dayReport",
                         "voice"
                       ],
                       "additionalProperties": false
@@ -177109,6 +177122,386 @@
                     "page",
                     "pages",
                     "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.tracking": {
+      "post": {
+        "operationId": "query_outreach_tracking",
+        "summary": "The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook and by the main offer’s version, and their latest week’s review. Owners and admins can see everyone’s counts.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "period": {
+                    "default": "week",
+                    "type": "string",
+                    "enum": [
+                      "today",
+                      "week",
+                      "month"
+                    ]
+                  },
+                  "everyone": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string",
+                      "enum": [
+                        "today",
+                        "week",
+                        "month"
+                      ]
+                    },
+                    "everyone": {
+                      "type": "boolean"
+                    },
+                    "numbers": {
+                      "type": "object",
+                      "properties": {
+                        "messages": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "positive": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "booked": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "messages",
+                        "positive",
+                        "booked"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rates": {
+                      "type": "object",
+                      "properties": {
+                        "yes": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "books": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "yes",
+                        "books"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "target": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "goal": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "messages": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "positive": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "booked": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "goal",
+                            "messages",
+                            "positive",
+                            "booked"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "byPlaybook": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messages": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "positive": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "booked": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "playbookId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "messages",
+                          "positive",
+                          "booked",
+                          "playbookId",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "byVersion": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messages": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "positive": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "booked": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          "live": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "messages",
+                          "positive",
+                          "booked",
+                          "version",
+                          "live"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "review": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "headline": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "why": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "steps": {
+                              "minItems": 1,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              }
+                            },
+                            "week": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "fix": {
+                              "type": "string",
+                              "enum": [
+                                "volume",
+                                "message",
+                                "video",
+                                "on_track"
+                              ]
+                            },
+                            "numbers": {
+                              "type": "object",
+                              "properties": {
+                                "messages": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "positive": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "booked": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "messages",
+                                "positive",
+                                "booked"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "target": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "by": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "rules"
+                              ]
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "headline",
+                            "why",
+                            "steps",
+                            "week",
+                            "fix",
+                            "numbers",
+                            "target",
+                            "by",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "timezone",
+                    "period",
+                    "everyone",
+                    "numbers",
+                    "rates",
+                    "target",
+                    "byPlaybook",
+                    "byVersion",
+                    "review"
                   ],
                   "additionalProperties": false
                 }

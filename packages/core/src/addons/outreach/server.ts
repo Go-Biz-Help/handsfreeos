@@ -31,6 +31,7 @@ import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { postCommands } from './ops/posts';
 import { todayQueries } from './ops/today';
+import { trackingCommands, trackingQueries } from './ops/tracking';
 import { waitingCommands, waitingQueries } from './ops/waiting';
 
 export const outreachAddonServer: AddonServerModule = {
@@ -62,6 +63,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...groupCheckCommands,
     ...helpfulCommands,
     ...countryCommands,
+    ...trackingCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -87,5 +89,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...groupCheckQueries,
     ...helpfulQueries,
     ...countryQueries,
+    ...trackingQueries,
   ],
 };

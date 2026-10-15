@@ -17517,6 +17517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook and by the main offer’s version, and their latest week’s review. Owners and admins can see everyone’s counts.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_tracking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.waiting": {
         parameters: {
             query?: never;
@@ -34504,6 +34524,7 @@ export interface operations {
                         /** @default true */
                         collect?: boolean;
                         confirmRequests: boolean;
+                        dayReport?: boolean;
                         hours: {
                             days: number[];
                             end: number;
@@ -34582,6 +34603,8 @@ export interface operations {
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
+                            /** @default true */
+                            dayReport: boolean;
                             hours: {
                                 days: number[];
                                 end: number;
@@ -64181,6 +64204,8 @@ export interface operations {
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
+                            /** @default true */
+                            dayReport: boolean;
                             hours: {
                                 days: number[];
                                 end: number;
@@ -65945,6 +65970,95 @@ export interface operations {
                             ok: number;
                             on: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_tracking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default week
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        byPlaybook: {
+                            booked: number;
+                            messages: number;
+                            name: string | null;
+                            playbookId: string | null;
+                            positive: number;
+                        }[];
+                        byVersion: {
+                            booked: number;
+                            live: boolean;
+                            messages: number;
+                            positive: number;
+                            version: number;
+                        }[];
+                        everyone: boolean;
+                        /** Format: date-time */
+                        from: string;
+                        numbers: {
+                            booked: number;
+                            messages: number;
+                            positive: number;
+                        };
+                        /** @enum {string} */
+                        period: "today" | "week" | "month";
+                        rates: {
+                            books: number | null;
+                            yes: number | null;
+                        };
+                        review: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            by: "ai" | "rules";
+                            /** @enum {string} */
+                            fix: "volume" | "message" | "video" | "on_track";
+                            headline: string;
+                            numbers: {
+                                booked: number;
+                                messages: number;
+                                positive: number;
+                            };
+                            steps: string[];
+                            target: number | null;
+                            /** Format: date */
+                            week: string;
+                            why: string;
+                        } | null;
+                        target: {
+                            booked: number;
+                            goal: number;
+                            messages: number;
+                            positive: number;
+                        } | null;
+                        timezone: string;
                     };
                 };
             };

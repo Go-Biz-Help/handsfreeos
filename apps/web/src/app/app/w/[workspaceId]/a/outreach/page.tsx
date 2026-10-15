@@ -313,17 +313,31 @@ export default async function OutreachPage({
       );
     }
     if (shown.view === 'results') {
+      // The three numbers (decision 70): left out when they can't be had, so the rest still shows.
+      const trackingOf = (everyone: boolean) =>
+        api
+          .POST('/v1/queries/outreach.tracking', {
+            body: { workspaceId, period: shown.period, everyone },
+          })
+          .then((r) => r.data ?? null)
+          .catch(() => null);
       // Everyone's steps only once it's known they may see them.
-      const [got, own] = await Promise.all([workspace, shown.everyone ? null : activityOf(false)]);
+      const [got, own, ownNumbers] = await Promise.all([
+        workspace,
+        shown.everyone ? null : activityOf(false),
+        shown.everyone ? null : trackingOf(false),
+      ]);
       const canManage = got.workspace.permissions.includes('outreach.manage');
-      const activity = own ?? (await activityOf(canManage));
+      const [activity, tracking] = own
+        ? [own, ownNumbers]
+        : await Promise.all([activityOf(canManage), trackingOf(canManage)]);
       return (
         <OutreachHome
           workspaceId={workspaceId}
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
           canManage={canManage}
-          shown={{ view: 'results', activity, period: shown.period }}
+          shown={{ view: 'results', activity, tracking, period: shown.period }}
         />
       );
     }

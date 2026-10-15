@@ -7236,6 +7236,9 @@
                 "type": "string",
                 "enum": ["bundled", "each"]
               },
+              "dayReport": {
+                "type": "boolean"
+              },
               "voice": {
                 "type": "object",
                 "properties": {

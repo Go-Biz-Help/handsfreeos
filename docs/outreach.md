@@ -956,14 +956,16 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
       (found and warming up counted above it), one stage or a search a list; moving someone to another stage is in
       their menu; and Friends and Chats beside it.
     - **Groups**, as it was; why its buttons wait is said once under the tabs, as on People.
-    - **Results** (`?view=results`, the old `?view=activity`): demos booked first, then reached, chats started, wrote
-      back and booked, each with how many of the step before made it, what was done along the way, by group and by
-      person. The day against the limits moved to Today's strip.
+    - **Results** (`?view=results`, the old `?view=activity`): the three numbers to watch every day against the
+      person's targets, the two rates, the week's review, and the numbers by playbook and offer version (decision
+      70); then demos booked, reached, chats started, wrote back and booked, each with how many of the step before
+      made it, what was done along the way, by group and by person. The day against the limits moved to Today's strip.
     - **Settings**, the gear: a menu of My settings, Business settings, Playbooks, Your computer and Start fresh;
       where a new person starts is folded to a line until changed.
     - **On the phone** the same four tabs at the top of one screen, with the gear for Settings (Playbooks and the
       computer in it): Today with the strip, Needs you (offline as before) and the list; People with the Pipeline
-      and Chats, Friends on the web; Groups; and Results, a summary with the posts liked and commented on (the
+      and Chats, Friends on the web; Groups; and Results, the three numbers and the week's review (decision 70), a
+      summary with the posts liked and commented on (the
       person's own; a tap opens the post on Facebook), person by person and the team's posts on the web.
     - **The panel** (0.26.0): the business and a state chip in the top bar; the first run's three steps over signing
       in; **Next up** with today's steps as bars and Start or Stop; **Needs you**; **Done today**, the newest steps
@@ -1073,6 +1075,31 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     version 5); a script written for an older main offer version says so. **Your messages** is done only once a
     playbook in use has its video linked: an owner or admin links it, and anyone else waits on them. The phone shows
     the script and changes the link; the script is written on the web. Built.
+70. **The daily numbers** (the main offer plan's step 8; `tracking.ts`, the boards in `design/tracking`; the owner's
+    decision: the day's report is on to start). Results leads with the three numbers the video says to watch every
+    day: first messages sent, said yes (`stages.positive_at`) and calls booked (`demos`, not taken back), for today,
+    the last 7 days or the last 30 (`outreach.tracking`). Each has the person's target from their goal on Get ready's
+    Your numbers (`targetFor`: the first messages the goal takes at the worst rate, never past Facebook's safe pace,
+    and the yeses and calls it takes), and the two rates between them stand against the usual ones (4 to 8% say yes,
+    1 in 3 of them book), "too few to tell yet" under 25 first messages or 3 yeses. Below them, by playbook (the one a
+    first message's opener came from, `opener_uses`) and by the main offer's version each person was first pitched
+    with (`follow_ups`). Someone counts as messaged from their first chat started or first pitch, whichever came
+    first. Owners and admins see everyone's counts, with no targets and no review: each person's answers and
+    conversations are their own, so every count comes through `private.outreach_numbers`, counts only, and the main
+    offer page's numbers by version now count the team's yeses too. **The day's report**: at the end of the person's
+    working hours on a day they sent something, a push with the day's numbers and how far from the target ("Today:
+    14 messages, 2 said yes, 1 booked. 1 more message hits your target."), on their add-ons switch, off in My
+    settings (`dayReport`; a screen from before it keeps the one kept). One job a person (`outreach.day_report`),
+    armed when they start their day or save their settings and by the morning push, back each working day while they
+    note steps. **The week's review**: on Monday at the morning push's hour, for each person who noted a step in the
+    last two weeks, the AI reads last week's numbers (Monday to Sunday) and says what to fix first, in the video's
+    order (`fixFirst`): too few messages (volume), then fewer than 4% saying yes (the message or the offer), then
+    fewer than 1 in 3 booking (the video and the follow-ups), else keep going. Counted against the AI limit; when the
+    AI can't write it (the day's limit, the wallet, an answer it can't use), the numbers' own words (`rulesReview`).
+    Kept for Results (`addon_outreach.reviews`, each person's own) and pushed, once. **A new main offer**
+    (`main_offer.published`) pushes to whoever OK'd their messages against an older version, as Get ready asks them to
+    look again. The phone shows the numbers, the review and the breakdowns on Results, and the switch in its settings.
+    Built.
 
 ## Rules worth knowing before changing anything
 

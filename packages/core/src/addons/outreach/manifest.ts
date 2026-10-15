@@ -146,7 +146,9 @@ export const outreachAddon = defineAddon({
     // pushes to them at once (decision 43, ./asks.ts). A post asking for what the business offers pushes to the person
     // who found it at once (decision 49, ./posts.ts). A helpful post asked for is written by the AI (decision 50,
     // ./helpful.ts). People found in a group or asking to be friends, and a change to the country setting, have the AI
-    // work out where they live when the setting skips anyone (decision 61, ./countries.ts).
+    // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
+    // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
+    // older one (decision 70, ./tracking.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -165,6 +167,9 @@ export const outreachAddon = defineAddon({
       'outreach.ask.progressed',
       'outreach.group.saved',
       'outreach.friends.saved',
+      'outreach.day.started',
+      'outreach.automation.saved',
+      'main_offer.published',
     ],
   },
   jobs: [
@@ -178,6 +183,8 @@ export const outreachAddon = defineAddon({
     'outreach.live_prune',
     'outreach.waiting_push',
     'outreach.guess_countries',
+    'outreach.day_report',
+    'outreach.review',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → Business settings.
@@ -210,6 +217,7 @@ export const outreachAddon = defineAddon({
     'posts',
     'profiles',
     'replies',
+    'reviews',
     'sends',
     'setup',
     'stages',

@@ -56,6 +56,7 @@ import type {
   Readiness,
   Tidy,
   TodayList,
+  Tracking,
   Waiting,
   WheelsList,
 } from './types';
@@ -80,7 +81,12 @@ export type OutreachShown =
       readonly team: LiveTeam | null;
       readonly asks: Asks;
     }
-  | { readonly view: 'results'; readonly activity: Activity; readonly period: ActivityPeriod }
+  | {
+      readonly view: 'results';
+      readonly activity: Activity;
+      readonly tracking: Tracking | null;
+      readonly period: ActivityPeriod;
+    }
   | {
       readonly view: 'pipeline';
       readonly pipeline: Pipeline;
@@ -343,6 +349,7 @@ export function OutreachHome({
         <ActivityView
           workspaceId={workspaceId}
           activity={shown.activity}
+          tracking={shown.tracking}
           period={shown.period}
           canManage={canManage}
         />
