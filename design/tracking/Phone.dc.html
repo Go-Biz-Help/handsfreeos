@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The phone’s Results: your numbers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning-soft:#2d2210;--warning-text:#f5c97a}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13.5px}.xs{font-size:12.5px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:10px}.stack{display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:3px;border-radius:10px;background:var(--card-2);border:1px solid var(--border)}
+.seg button{height:36px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13.5px;font-weight:500;color:var(--text-2)}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:var(--shadow-1)}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card)}
+.tile.win{background:var(--success-soft);border-color:var(--success-soft)}
+.big{font-size:24px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.bar{height:5px;border-radius:999px;background:var(--card-2);overflow:hidden}.bar span{display:block;height:100%;background:var(--accent);border-radius:999px}
+.tile.win .bar{background:var(--card)}.tile.win .bar span{background:var(--success)}
+.line{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--border)}
+.line:first-child{border-top:0}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.b-like{background:var(--success-soft);color:var(--success-text)}.b-below{background:var(--warning-soft);color:var(--warning-text)}
+.steps{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);background:var(--card);padding:6px 4px 20px}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-2);padding:6px 0;text-decoration:none}
+.tabbar a.on{color:var(--accent-text)}
+.icon{width:18px;height:18px;flex:none}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 390px; height: 844px; display: flex; flex-direction: column;">
+<header class="row" style="height: 56px; padding: 0 8px 0 4px; background: var(--card); border-bottom: 1px solid var(--border);">
+<a href="#" aria-label="Back" class="row" style="width: 44px; height: 44px; justify-content: center; color: var(--text);"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+<h1 style="font-size: 17px; font-weight: 600; flex: 1;">Results</h1>
+</header>
+
+<div class="stack" style="flex: 1; overflow: auto; padding: 14px 16px; gap: 12px;">
+<div class="seg" role="group" aria-label="How far back"><button type="button">Today</button><button type="button" class="on">7 days</button><button type="button">30 days</button></div>
+
+<div class="stack" style="gap: 6px;">
+<div class="row" style="justify-content: space-between;"><h2 style="font-size: 16px; font-weight: 600;">Your numbers</h2><span class="xs faint">Goal: 8 calls a month</span></div>
+<div class="tiles">
+<div class="tile"><span class="xs muted">Messages sent</span><span class="big">62</span><div class="bar"><span style="width: 83%;"></span></div><span class="xs faint">Target 75</span></div>
+<div class="tile"><span class="xs muted">Said yes</span><span class="big">4</span><div class="bar"><span style="width: 73%;"></span></div><span class="xs faint">Target 5.5</span></div>
+<div class="tile win"><span class="xs" style="color: var(--success-text);">Calls booked</span><span class="big" style="color: var(--success-text);">1</span><div class="bar"><span style="width: 56%;"></span></div><span class="xs" style="color: var(--success-text);">Target 1.8</span></div>
+</div>
+</div>
+
+<section class="card" aria-label="The rates">
+<div class="line"><div class="stack"><span class="small" style="font-weight: 600;">Said yes: 6.5%</span><span class="xs faint">4 of 62 messages · Most get 4 to 8%</span></div><span class="badge b-like">Like most</span></div>
+<div class="line"><div class="stack"><span class="small" style="font-weight: 600;">Booked a call: 25%</span><span class="xs faint">1 of 4 yeses · Most book 1 in 3</span></div><span class="badge b-below">Below most</span></div>
+</section>
+
+<section class="card stack" style="padding: 14px; gap: 8px;" aria-labelledby="pr-title">
+<span class="overline">Your week’s review · Week of Oct 5</span>
+<h2 id="pr-title" style="font-size: 16px; font-weight: 600;">Send more messages first</h2>
+<p class="small">You sent 62 first messages last week. Your goal takes about 75. Too few messages is the most common reason for too few calls.</p>
+<ol class="steps">
+<li>Start your day on each of your working days.</li>
+<li>Let the extension send first messages after your OK.</li>
+<li>Add a group or two full of roofers.</li>
+</ol>
+<p class="xs faint">Written by the AI from your numbers</p>
+</section>
+
+<section class="card" aria-labelledby="pp-title">
+<h3 id="pp-title" class="small" style="font-weight: 600; padding: 12px 14px 0;">By playbook</h3>
+<div class="line"><span class="small">Roofers</span><span class="xs muted" style="font-variant-numeric: tabular-nums;">40 sent · 3 yes · 1 booked</span></div>
+<div class="line"><span class="small">Plumbers</span><span class="xs muted" style="font-variant-numeric: tabular-nums;">18 sent · 1 yes · 0 booked</span></div>
+</section>
+<section class="card" aria-labelledby="pv-title">
+<h3 id="pv-title" class="small" style="font-weight: 600; padding: 12px 14px 0;">By offer version</h3>
+<div class="line"><span class="small">Version 2, live</span><span class="xs muted" style="font-variant-numeric: tabular-nums;">50 sent · 3 yes · 1 booked</span></div>
+<div class="line"><span class="small">Version 1</span><span class="xs muted" style="font-variant-numeric: tabular-nums;">12 sent · 1 yes · 0 booked</span></div>
+</section>
+</div>
+
+<nav class="tabbar" aria-label="Main">
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Inbox</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"></rect><rect x="14" y="3" width="7" height="11" rx="1"></rect></svg>Pipeline</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Calendar</a>
+<a class="on" href="#" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>More</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>
