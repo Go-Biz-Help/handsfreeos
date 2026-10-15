@@ -1424,8 +1424,13 @@ code" (decision 45's install step). Settled too:
   `ops/common.ts`, the name compared with one space between words and no capitals). A stranger who shares the name is
   left alone too: the safe side. Every list that pitches goes through `pitchable`; the Don't pitch list itself shows
   only who was put on it.
-- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, or kept under its name on its
-  network, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
+- **Don't pitch and Never contact cover every profile on a customer** (Chris, 2026-10-15). A customer's Facebook and
+  LinkedIn profiles are one person once both are on them in Contacts, so either on a list covers the other, on any
+  network (`customerNever` and `offPeople` in `ops/common.ts`). Across networks only the customer counts, never the
+  name. And someone pitched or booked through one of their profiles, by anyone here, isn't started again through
+  another: `inPlay` leaves them out of every pick on Today but a reply they're owed (`reachedElsewhere`).
+- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, kept under its name on its
+  network, or on its customer, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
   requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
