@@ -779,13 +779,8 @@ export const days = addonOutreach.table(
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
-  // One a person and network (`days_user_platform_idx`). The one a person (`days_workspace_id_user_id_key`) goes
-  // once the code keying a day by its network is deployed (20261027006800).
-  (t) => [
-    unique().on(t.workspaceId, t.id),
-    unique().on(t.workspaceId, t.userId),
-    unique().on(t.workspaceId, t.userId, t.platform),
-  ],
+  // One a person and network (`days_user_platform_idx`).
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
 /** The feed of the extension's steps, and the day's starts, stops and warnings (./live.ts). */

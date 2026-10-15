@@ -6,9 +6,9 @@
  */
 import { z } from 'zod';
 import { DownloadMessageInput, type DownloadMessage } from './download';
-import { RECENT_MESSAGES, THREAD_KEY } from './limits';
+import { RECENT_MESSAGES } from './limits';
 import { PLATFORM_KEYS } from './playbooks';
-import { PersonName, ProfileRef } from './saves';
+import { PersonName, ProfileRef, ThreadKey } from './saves';
 
 /** The most chats one call brings: the extension sends them as it reads them. */
 export const COLLECT_CHATS_MOST = 10;
@@ -17,7 +17,7 @@ export const CollectedChat = z.object({
   /** Who it's with, as the chat shows them. */
   name: PersonName,
   thread: z.object({
-    id: z.string().regex(THREAD_KEY, 'Send the chat’s number from its link.'),
+    id: ThreadKey,
     encrypted: z.boolean().default(false),
   }),
   /** Their profile, when the chat links to it. */

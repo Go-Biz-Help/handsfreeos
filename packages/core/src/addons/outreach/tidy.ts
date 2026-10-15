@@ -20,7 +20,7 @@ import {
   type TidyKind,
 } from './limits';
 import { PLATFORM_KEYS } from './playbooks';
-import { FacebookUrl, PersonName, ProfileRef } from './saves';
+import { NetworkUrl, PersonName, ProfileRef } from './saves';
 
 export {
   TIDY_KIND_KEYS,
@@ -171,7 +171,7 @@ export const WarningNoteInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
   words: z.array(z.string().trim().min(1).max(300)).min(1).max(5),
-  url: FacebookUrl.nullable().default(null),
+  url: NetworkUrl.nullable().default(null),
 });
 export type WarningNoteInput = z.input<typeof WarningNoteInput>;
 

@@ -37210,6 +37210,11 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     looking?: boolean;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     seen: {
                         name: string;
                         /** @default null */

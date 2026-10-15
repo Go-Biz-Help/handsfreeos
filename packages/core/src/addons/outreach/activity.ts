@@ -6,16 +6,9 @@
  */
 import { z } from 'zod';
 import { relativeTimeAgo } from '../../workflows/approval-words';
-import {
-  GROUP_ID,
-  GROUP_SLUG,
-  NAME_MOST,
-  THREAD_KEY,
-  TOUCH_KIND_KEYS,
-  TOUCH_STEPS,
-} from './limits';
+import { GROUP_ID, GROUP_SLUG, NAME_MOST, TOUCH_KIND_KEYS, TOUCH_STEPS } from './limits';
 import { PLATFORM_KEYS } from './playbooks';
-import { FacebookUrl, PersonName, ProfileRef } from './saves';
+import { NetworkUrl, PersonName, ProfileRef, ThreadKey } from './saves';
 import { WarningState } from './tidy';
 
 export {
@@ -36,7 +29,7 @@ export const GroupRef = z
   .object({
     id: z.string().regex(GROUP_ID).nullable(),
     slug: z.string().regex(GROUP_SLUG).nullable(),
-    url: FacebookUrl,
+    url: NetworkUrl,
     /** Its name as the page showed it, when it did. */
     name: z.string().trim().min(1).max(NAME_MOST).nullable().default(null),
   })
@@ -55,9 +48,9 @@ export const TouchSaveInput = z.object({
   /** The group they were found in, when the page said. */
   group: GroupRef.nullable().default(null),
   /** The post liked or commented on. */
-  postUrl: FacebookUrl.nullable().default(null),
+  postUrl: NetworkUrl.nullable().default(null),
   /** The chat a message went in: the number in its link. */
-  threadKey: z.string().regex(THREAD_KEY).nullable().default(null),
+  threadKey: ThreadKey.nullable().default(null),
   /** A message answering theirs: the chat's last message before it was from them, as the page showed it. */
   replying: z.boolean().nullable().default(null),
   /** Taken by the extension on its own (decision 26), not pressed by the person. */

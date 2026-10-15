@@ -20,7 +20,7 @@ import { GroupRef } from './activity';
 import { quoted, says } from './fit';
 import { WHEN_MOST } from './limits';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
-import { FacebookUrl, PersonName, ProfileRef } from './saves';
+import { NetworkUrl, PersonName, ProfileRef } from './saves';
 
 /** How much of a post is kept and read: enough for what they asked. */
 export const POST_TEXT_MOST = 2000;
@@ -163,7 +163,7 @@ export function postLook(playbooks: readonly PostLookPlaybook[], text: string): 
 
 export const PostIn = z.object({
   /** The post's own link. */
-  url: FacebookUrl,
+  url: NetworkUrl,
   /** Who wrote it: their profile, as its link showed it. A post with nobody named isn't worth a comment. */
   author: ProfileRef,
   name: PersonName,

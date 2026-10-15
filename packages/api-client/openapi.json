@@ -79486,31 +79486,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "username": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9.]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -79644,8 +79633,7 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9._-]{1,64}$"
+                        "type": "string"
                       },
                       "encrypted": {
                         "default": false,
@@ -79653,8 +79641,7 @@
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -79673,31 +79660,20 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "pattern": "^\\d{1,30}$"
-                              },
-                              {
-                                "type": "null"
-                              }
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "username": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9.]{1,100}$"
-                              },
-                              {
-                                "type": "null"
-                              }
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "url": {
                             "type": "string",
-                            "maxLength": 500,
-                            "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                            "maxLength": 500
                           }
                         },
                         "required": [
@@ -79965,31 +79941,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "username": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9.]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -80033,8 +79998,7 @@
                           },
                           "url": {
                             "type": "string",
-                            "maxLength": 500,
-                            "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                            "maxLength": 500
                           },
                           "name": {
                             "default": null,
@@ -80066,8 +80030,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       },
                       {
                         "type": "null"
@@ -80076,14 +80039,9 @@
                   },
                   "threadKey": {
                     "default": null,
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9._-]{1,64}$"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "replying": {
@@ -80249,31 +80207,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "username": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9.]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -80407,31 +80354,20 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^\\d{1,30}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "username": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "url": {
                               "type": "string",
-                              "maxLength": 500,
-                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                              "maxLength": 500
                             }
                           },
                           "required": [
@@ -80549,31 +80485,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "username": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9.]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -81023,8 +80948,7 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "type": "string",
-                              "pattern": "^[A-Za-z0-9._-]{1,64}$"
+                              "type": "string"
                             },
                             "encrypted": {
                               "default": false,
@@ -81042,31 +80966,20 @@
                               "type": "object",
                               "properties": {
                                 "id": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "pattern": "^\\d{1,30}$"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 },
                                 "username": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 },
                                 "url": {
                                   "type": "string",
-                                  "maxLength": 500,
-                                  "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                                  "maxLength": 500
                                 }
                               },
                               "required": [
@@ -81218,8 +81131,7 @@
                             },
                             "url": {
                               "type": "string",
-                              "maxLength": 500,
-                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                              "maxLength": 500
                             },
                             "name": {
                               "default": null,
@@ -81371,8 +81283,7 @@
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       },
                       "name": {
                         "default": null,
@@ -81466,31 +81377,20 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^\\d{1,30}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "username": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "url": {
                               "type": "string",
-                              "maxLength": 500,
-                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                              "maxLength": 500
                             }
                           },
                           "required": [
@@ -81627,31 +81527,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "username": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9.]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -81758,8 +81647,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       },
                       {
                         "type": "null"
@@ -81888,8 +81776,7 @@
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       },
                       "name": {
                         "default": null,
@@ -81920,38 +81807,26 @@
                       "properties": {
                         "url": {
                           "type": "string",
-                          "maxLength": 500,
-                          "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                          "maxLength": 500
                         },
                         "author": {
                           "type": "object",
                           "properties": {
                             "id": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^\\d{1,30}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "username": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "url": {
                               "type": "string",
-                              "maxLength": 500,
-                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                              "maxLength": 500
                             }
                           },
                           "required": [
@@ -82191,6 +82066,14 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
+                  },
                   "seen": {
                     "minItems": 1,
                     "maxItems": 20,
@@ -82205,14 +82088,9 @@
                         },
                         "threadKey": {
                           "default": null,
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "pattern": "^[0-9]{1,30}$"
-                            },
-                            {
-                              "type": "null"
-                            }
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         },
                         "profile": {
@@ -82222,31 +82100,20 @@
                               "type": "object",
                               "properties": {
                                 "id": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "pattern": "^\\d{1,30}$"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 },
                                 "username": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 },
                                 "url": {
                                   "type": "string",
-                                  "maxLength": 500,
-                                  "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                                  "maxLength": 500
                                 }
                               },
                               "required": [
@@ -82442,31 +82309,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^\\d{1,30}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "username": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9.]{1,100}$"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "url": {
                         "type": "string",
-                        "maxLength": 500,
-                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        "maxLength": 500
                       }
                     },
                     "required": [
@@ -83200,7 +83056,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "maxLength": 64
+                        "maxLength": 128
                       },
                       {
                         "type": "null"
@@ -90244,31 +90100,20 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^\\d{1,30}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "username": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "url": {
                               "type": "string",
-                              "maxLength": 500,
-                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                              "maxLength": 500
                             }
                           },
                           "required": [
@@ -90326,31 +90171,20 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^\\d{1,30}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "username": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "url": {
                               "type": "string",
-                              "maxLength": 500,
-                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                              "maxLength": 500
                             }
                           },
                           "required": [
@@ -169845,25 +169679,15 @@
                       "type": "object",
                       "properties": {
                         "id": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "pattern": "^\\d{1,30}$"
-                            },
-                            {
-                              "type": "null"
-                            }
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         },
                         "username": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "pattern": "^[A-Za-z0-9.]{1,100}$"
-                            },
-                            {
-                              "type": "null"
-                            }
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         }
                       },
@@ -169878,8 +169702,7 @@
                     "maxItems": 50,
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "pattern": "^[A-Za-z0-9._-]{1,64}$"
+                      "type": "string"
                     }
                   },
                   "names": {

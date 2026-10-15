@@ -1222,8 +1222,15 @@ code" (decision 45's install step). Settled too:
   kept apart, but nothing reads or saves a LinkedIn page yet: the live view, the team's, the activity panel, the
   checks, joining groups and every ask are Facebook's, and so are training wheels, which only Facebook's warning puts
   back on until each network has its own settings. A new place that reads a warning, a day or the day's counts names
-  its network. Until the one-a-person key on `days` goes (the migration after 20261027006800), a person keeps one
-  day row, so a day on a second network can't be kept beside a Facebook one yet.
+  its network.
+- **Each network has its kit** (`networks.ts`, `NETWORKS`): its name, the start of its links, the shape of a
+  profile's id and name and a chat's id, how many friends it allows, its starting daily limits (LinkedIn's: 15
+  invitations, at most 80 in any 7 days, 15 first messages, 20 follow-ups, 10 comments, 30 likes, 40 profiles read,
+  20 old invitations withdrawn), and its words for a friend, a friend request and its messaging. What differs from one
+  network to the next goes there, never into an `if`. Saves take a link and ids of any network it knows
+  (`NetworkUrl`, `ThreadKey`), and every save that keeps a profile refuses one that isn't on the network named
+  (`requireFits`, `profileMisfit`, `outreach_wrong_network`). The database keeps ids to short, plain characters
+  (20261027006900).
 - **A heartbeat tells nobody:** a beat that changes nothing writes only `last_seen_at`: no event, no broadcast and no
   command receipt (`receipt: false`). A feed line, a new state, a different working computer or coming back online
   tells the app once; a new line alone at most every 45 seconds (the extension sends one at most every 20), and a
