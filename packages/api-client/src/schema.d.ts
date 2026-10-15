@@ -36042,6 +36042,17 @@ export interface operations {
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
                             videoLink?: string | null;
+                            videoScript?: {
+                                /** Format: date-time */
+                                at: string;
+                                parts: {
+                                    /** @enum {string} */
+                                    part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                    say: string;
+                                    show: string;
+                                }[];
+                                version: number | null;
+                            } | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -36106,6 +36117,17 @@ export interface operations {
                         usefulLink?: string | null;
                         usefulWhat?: string | null;
                         videoLink?: string | null;
+                        videoScript?: {
+                            /** Format: date-time */
+                            at: string;
+                            parts: {
+                                /** @enum {string} */
+                                part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                say: string;
+                                show: string;
+                            }[];
+                            version: number | null;
+                        } | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -36169,6 +36191,17 @@ export interface operations {
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
                             videoLink?: string | null;
+                            videoScript?: {
+                                /** Format: date-time */
+                                at: string;
+                                parts: {
+                                    /** @enum {string} */
+                                    part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                    say: string;
+                                    show: string;
+                                }[];
+                                version: number | null;
+                            } | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -65396,6 +65429,17 @@ export interface operations {
                                 usefulLink?: string | null;
                                 usefulWhat?: string | null;
                                 videoLink?: string | null;
+                                videoScript?: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    parts: {
+                                        /** @enum {string} */
+                                        part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                        say: string;
+                                        show: string;
+                                    }[];
+                                    version: number | null;
+                                } | null;
                             };
                             /** Format: uuid */
                             id: string;

@@ -64,8 +64,20 @@ export function ReadyItems({
   onChange?: (next: Readiness) => void;
 }) {
   const [open, setOpen] = useState<'profile' | 'messages' | 'numbers' | null>(null);
-  const go = (item: ReadyItem): ReactNode => {
+  const go = (item: ReadyItem, left: string | null): ReactNode => {
     const label = R.items[item].go;
+    // OK'd, with the playbook's short video still to link: its step in the playbook (decision 69).
+    if (item === 'messages' && left === R.left.messagesVideo)
+      return (
+        <ButtonLink
+          size="sm"
+          variant="secondary"
+          href={outreachHref(workspaceId, { view: 'playbooks' })}
+          data-testid="ready-add-video"
+        >
+          {R.items.messages.goVideo}
+        </ButtonLink>
+      );
     if (item === 'offer')
       return (
         <ButtonLink
@@ -137,7 +149,7 @@ export function ReadyItems({
                     {R.states.waiting}
                   </span>
                 ) : (
-                  go(i.item)
+                  go(i.item, i.left)
                 )}
               </div>
             </li>

@@ -1,0 +1,25 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-15T06:20:00Z" },
+  "title": "Short video boards",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 1320, "title": "1 · Playbook: Your short video" },
+    "Ready.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 820, "title": "2 · Get ready: Your messages waits on the video" },
+    "Phone.dc.html": { "x": 2720, "y": 0, "w": 390, "h": 844, "title": "3 · The phone’s playbook: the video" }
+  },
+  "order": ["Main.dc.html", "Ready.dc.html", "Phone.dc.html"],
+  "notes": {
+    "row1": { "x": 0, "y": -260, "text": "Step 7: the short video", "kind": "title1", "maxW": 3110 }
+  },
+  "designSystems": [
+    {
+      "title": "HandsFreeOS",
+      "namespace": "handsfreeos",
+      "artifact": "https://claude.ai/artifact/Wg4vApwZ5jowNZ2NdSDN7P",
+      "version": null,
+      "copiedAt": "2026-10-15T06:20:00Z"
+    }
+  ]
+}

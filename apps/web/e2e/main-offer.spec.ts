@@ -171,7 +171,27 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-useful-link')).toHaveValue(
     'https://summit.test/checklist',
   );
-  for (let i = 0; i < 9; i++) await playbook.getByTestId('playbook-next').click();
+  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+
+  // The short video: the AI writes its script from the offer and the niche, one part is written again, and the link
+  // is put in (an address without https:// gets it).
+  await playbook.getByTestId('playbook-video-write').click();
+  const parts = playbook.getByTestId('playbook-video-parts');
+  await expect(parts.getByRole('listitem')).toHaveCount(6);
+  await expect(playbook.getByTestId('playbook-video-say-who')).toHaveValue(
+    /Roofers with 2 to 3 crews/,
+  );
+  await playbook.getByTestId('playbook-video-improve-call').click();
+  await expect(playbook.getByTestId('playbook-video-say-call')).toHaveValue(
+    /Said even more plainly\./,
+  );
+  await playbook.getByTestId('playbook-video-link').fill('www.loom.com/share/abc123');
+  await playbook.getByTestId('playbook-video-link').blur();
+  await expect(playbook.getByTestId('playbook-video-link')).toHaveValue(
+    'https://www.loom.com/share/abc123',
+  );
+  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('review-video')).toContainText('Video linked, with its script');
   await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
   await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');
   await expect(playbook.getByTestId('review-offer')).toContainText(
@@ -234,7 +254,8 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   const samples = messages.getByTestId('ready-messages-samples');
   await expect(samples).toContainText('First message, once they accept');
   await expect(samples).toContainText('If they go quiet: 6 follow-ups');
-  await expect(samples).toContainText('Your playbook has no video yet');
+  await expect(samples).toContainText('If they say yes: the video');
+  await expect(samples).toContainText('[video link]');
   await messages.getByTestId('ready-messages-ok').click();
   await expect(ready.getByTestId('ready-messages')).toHaveAttribute('data-state', 'done');
 

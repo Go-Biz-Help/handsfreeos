@@ -3,6 +3,7 @@ import type { LiveOutput, LiveTeamOutput } from '@hfos/core/addons/outreach/live
 import type { HelpfulListOutput } from '@hfos/core/addons/outreach/helpful';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
+import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -718,6 +719,24 @@ describe('A playbook on the phone', () => {
     expect(sectionWords(PLAYBOOK.details, 'offer')).toBe('A 20-minute demo');
     expect(sectionWords(PLAYBOOK.details, 'signs')).toBe('Nothing yet.');
     expect(sectionWords(PLAYBOOK.details, 'goal')).toBe('Book a demo');
+    // The short video: its link, and the script written on the computer, part by part.
+    expect(sectionWords(PLAYBOOK.details, 'video')).toBe(
+      'No video yet\n\nWrite the script on your computer, under Playbooks in HandsFreeOS.',
+    );
+    const scripted = sectionWords(
+      {
+        ...PLAYBOOK.details,
+        videoLink: 'https://www.loom.com/share/abc123',
+        videoScript: {
+          parts: VIDEO_PART_KEYS.map((part) => ({ part, say: `Say ${part}.`, show: 'You' })),
+          at: '2026-10-15T09:00:00.000Z',
+          version: 1,
+        },
+      },
+      'video',
+    );
+    expect(scripted).toContain('https://www.loom.com/share/abc123');
+    expect(scripted).toContain('1 · Who it’s for, and the problem\nSay who.\nShow: You');
   });
 
   it('lets owners and admins change a part, and says what’s wrong when it can’t be saved', async () => {

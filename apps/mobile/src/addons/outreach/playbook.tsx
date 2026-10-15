@@ -1,3 +1,4 @@
+import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   ANSWER_NEXT_KEYS,
@@ -64,6 +65,8 @@ export const SECTION_FIELDS: Readonly<
   groupWords: ['groupWords'],
   steps: ['steps'],
   pace: ['pace'],
+  // The short video's link (decision 69): its script is written on the web, with the AI.
+  video: ['videoLink'],
   tone: ['tone'],
   samples: ['samples'],
   openers: ['openerStyles', 'ownOpeners'],
@@ -112,6 +115,20 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
           details.steps.includes('follow_up') ? paceOf(details.pace).followUps : null,
         ) || W.empty
       );
+    case 'video': {
+      const script = details.videoScript;
+      return [
+        details.videoLink?.trim() || V.summary(false, Boolean(script)),
+        script
+          ? [
+              V.runs(scriptMinutes(script)),
+              ...script.parts.map(
+                (p, i) => `${i + 1} · ${VIDEO_PARTS[p.part].title}\n${p.say}\n${V.show}: ${p.show}`,
+              ),
+            ].join('\n\n')
+          : V.onComputer,
+      ].join('\n\n');
+    }
     case 'openers':
       return list([...details.openerStyles, ...details.ownOpeners]);
     case 'questions':
@@ -460,6 +477,20 @@ function SectionEditor({
             placeholder={W.linkLabel}
             multiline={false}
           />
+        </>
+      );
+    case 'video':
+      return (
+        <>
+          <WordsInput
+            value={d.videoLink ?? null}
+            onChange={(link) => set({ videoLink: link?.trim() || null })}
+            placeholder={V.linkPlaceholder}
+            multiline={false}
+            testID="playbook-video-link"
+          />
+          <Note>{V.linkHint}</Note>
+          <Note>{V.onComputer}</Note>
         </>
       );
     case 'audience':

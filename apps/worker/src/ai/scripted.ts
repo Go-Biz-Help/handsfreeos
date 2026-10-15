@@ -1908,7 +1908,42 @@ function scriptedSamples(message: string) {
   };
 }
 
+/**
+ * A short video's script (`outreach.video.script`): every part, plain, with the playbook's niche in the first; or, asked
+ * to write one part again, that part alone.
+ */
+function scriptedVideoScript(message: string) {
+  const again = /Write the part "(\w+)"/.exec(message)?.[1];
+  const niche = /Niche: (.+)/.exec(message)?.[1]?.trim() ?? 'businesses like yours';
+  const say: Record<string, string> = {
+    who: `If you run ${niche}, this is for you. Most of you tell me the same thing: the work comes in waves.`,
+    cost: 'Every slow week costs you crews sitting idle and jobs you never hear about.',
+    method:
+      'Here’s how it works, in three steps: we find them, we ask straight out, we book the call.',
+    proof: 'Here’s a real result: [your result].',
+    call: 'A quick call shows how it would work for you, with your numbers.',
+    next: 'If that sounds good, just reply and I’ll send you a few times.',
+  };
+  const show: Record<string, string> = {
+    who: 'You, to the camera',
+    cost: 'You, to the camera',
+    method: 'A slide with the three steps',
+    proof: 'A screenshot of the result',
+    call: 'You, to the camera',
+    next: 'You, to the camera',
+  };
+  const keys = again ? [again] : Object.keys(say);
+  return {
+    parts: keys.map((part) => ({
+      part,
+      say: again ? `${say[part] ?? 'Said again.'} Said even more plainly.` : say[part]!,
+      show: show[part] ?? 'You, to the camera',
+    })),
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the video script\.$/, json: (message) => scriptedVideoScript(message) },
   { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
