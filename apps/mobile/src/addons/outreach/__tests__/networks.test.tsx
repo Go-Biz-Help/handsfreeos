@@ -178,6 +178,7 @@ describe('A network’s list for today', () => {
       sending: 'off',
       wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
       ready: true,
+      week: null,
     };
     await render(
       <TodayBody
