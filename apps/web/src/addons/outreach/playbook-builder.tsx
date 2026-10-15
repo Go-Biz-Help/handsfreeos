@@ -35,17 +35,31 @@ import {
   type PlaybookStep,
   type PlaybookTemplateKey,
 } from '@hfos/core/addons/outreach/playbooks';
+import {
+  scriptMinutes,
+  VIDEO_LIMITS,
+  VIDEO_PARTS,
+  VIDEO_SHOWS,
+  VIDEO_TIPS,
+  VIDEO_WORDS as V,
+  type VideoDraft,
+  type VideoPart,
+  type VideoScript,
+} from '@hfos/core/addons/outreach/video';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Check,
   CheckCircle2,
   ExternalLink,
   Info,
   MessageCircleQuestion,
   Plus,
+  Sparkles,
+  Video,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -83,6 +97,8 @@ interface Draft {
   proof: string[];
   usefulWhat: string;
   usefulLink: string;
+  videoLink: string;
+  videoScript: VideoScript | null;
   audience: string;
   signs: string[];
   skip: string[];
@@ -111,6 +127,8 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   proof: d.proof ?? [],
   usefulWhat: d.usefulWhat ?? '',
   usefulLink: d.usefulLink ?? '',
+  videoLink: d.videoLink ?? '',
+  videoScript: d.videoScript ?? null,
   audience: d.audience ?? '',
   signs: d.signs,
   skip: d.skip,
@@ -170,6 +188,8 @@ const toDetails = (d: Draft): PlaybookDetails => ({
   proof: d.proof,
   usefulWhat: orNull(d.usefulWhat),
   usefulLink: orNull(d.usefulLink),
+  videoLink: orNull(d.videoLink),
+  videoScript: d.videoScript,
   audience: orNull(d.audience),
   signs: d.signs,
   skip: d.skip,
@@ -242,6 +262,7 @@ type StepKey =
   | 'skip'
   | 'where'
   | 'steps'
+  | 'video'
   | 'tags'
   | 'conversation'
   | 'voice'
@@ -312,6 +333,13 @@ const STEPS: readonly Step[] = [
     fields: ['steps', 'pace'],
   },
   {
+    key: 'video',
+    part: 'Short video',
+    title: V.title,
+    blurb: V.hint,
+    fields: ['videoLink', 'videoScript'],
+  },
+  {
     key: 'tags',
     part: 'Tags',
     title: 'Which of your tags may it use?',
@@ -366,6 +394,7 @@ export function PlaybookBuilder({
   bookingPages,
   brandedOrigin,
   mainOffer,
+  mainOfferVersion = null,
   doneHref,
 }: {
   workspaceId: string;
@@ -381,6 +410,8 @@ export function PlaybookBuilder({
   brandedOrigin: string | null;
   /** The business's live main offer (core's, docs/main-offer.md), which a playbook narrows; null with none live. */
   mainOffer: PlaybookOffer | null;
+  /** Its live version, which the short video's script was written for or not. */
+  mainOfferVersion?: number | null;
   /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
   doneHref?: string;
 }) {
@@ -1010,6 +1041,19 @@ export function PlaybookBuilder({
             </div>
           ) : null}
         </div>
+      );
+      break;
+    case 'video':
+      body = (
+        <VideoStep
+          workspaceId={workspaceId}
+          draft={draft}
+          liveVersion={mainOfferVersion}
+          onScript={(script) => set('videoScript', script)}
+          onLink={(link) => set('videoLink', link)}
+          linkIssue={issueAt('videoLink')}
+          scriptIssue={issueIn('videoScript')}
+        />
       );
       break;
     case 'tags':
@@ -1672,6 +1716,19 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
         </>
       );
     }
+    case 'video':
+      return (
+        <>
+          {d.videoLink.trim() || d.videoScript ? (
+            V.summary(Boolean(d.videoLink.trim()), d.videoScript !== null)
+          ) : (
+            <Missing>{V.summary(false, false)}</Missing>
+          )}
+          {d.videoScript ? (
+            <div className="text-[13px] text-text-2">{V.runs(scriptMinutes(d.videoScript))}</div>
+          ) : null}
+        </>
+      );
     case 'tags':
       return d.tags.length ? (
         <div className="flex flex-wrap gap-1.5">
@@ -1867,6 +1924,201 @@ function FollowUpPace({
         <p className="text-[12px] text-text-3">
           Until they answer, say no, or you stop it. Nobody gets the same message twice.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The playbook's short video (decision 69): the AI writes its script from the main offer and the niche, part by part,
+ * each with what to say and what to show, and writes one part again on Improve; the business changes the words as it
+ * likes, records it, and pastes its link. All of it is saved with the playbook.
+ */
+function VideoStep({
+  workspaceId,
+  draft,
+  liveVersion,
+  onScript,
+  onLink,
+  linkIssue,
+  scriptIssue,
+}: {
+  workspaceId: string;
+  draft: Draft;
+  liveVersion: number | null;
+  onScript: (script: VideoScript) => void;
+  onLink: (link: string) => void;
+  linkIssue: string | undefined;
+  scriptIssue: string | undefined;
+}) {
+  const [busy, setBusy] = useState<'write' | VideoPart | null>(null);
+  const script = draft.videoScript;
+  const older =
+    script !== null &&
+    script.version !== null &&
+    liveVersion !== null &&
+    script.version !== liveVersion;
+  const videoDraft: VideoDraft = {
+    name: draft.name,
+    niche: draft.niche,
+    problem: draft.problem,
+    proof: draft.proof,
+    offer: draft.offer,
+    tone: draft.tone,
+    avoid: draft.avoid,
+    disclaimer: draft.disclaimer,
+  };
+  const ask = async (part: VideoPart | null) => {
+    setBusy(part ?? 'write');
+    try {
+      onScript(
+        await workerPost<VideoScript>('/v1/addons/outreach/actions/outreach.video.script', {
+          workspaceId,
+          input: part
+            ? { draft: videoDraft, mode: 'improve', part, script }
+            : { draft: videoDraft, mode: 'write' },
+        }),
+      );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const change = (part: VideoPart, key: 'say' | 'show', value: string) => {
+    if (!script) return;
+    onScript({
+      ...script,
+      parts: script.parts.map((p) => (p.part === part ? { ...p, [key]: value } : p)),
+    });
+  };
+  return (
+    <div className="space-y-5" data-testid="playbook-video">
+      <section className="rounded-card border border-border bg-card p-5">
+        {script ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] text-text-2" data-testid="playbook-video-runs">
+                {V.runs(scriptMinutes(script))}
+                {script.version ? ` · written for your main offer, version ${script.version}` : ''}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === 'write'}
+                disabled={busy !== null}
+                onClick={() => void ask(null)}
+                data-testid="playbook-video-again"
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {V.again}
+              </Button>
+            </div>
+            {older ? (
+              <p
+                role="status"
+                className="mt-3 rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
+              >
+                {V.older(script.version!)}
+              </p>
+            ) : null}
+            {scriptIssue ? (
+              <p className="mt-3 text-[13px] text-danger-text" role="alert">
+                {scriptIssue}
+              </p>
+            ) : null}
+            <ol className="mt-2 divide-y divide-border" data-testid="playbook-video-parts">
+              {script.parts.map((p, i) => (
+                <li key={p.part} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 py-4">
+                  <span
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-card-2 text-[12.5px] font-semibold text-text-2"
+                    aria-hidden="true"
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="font-semibold">{VIDEO_PARTS[p.part].title}</span>
+                        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-card-2 px-2.5 text-[12px] font-medium text-text-2">
+                          <Video className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          {VIDEO_SHOWS[VIDEO_PARTS[p.part].shows]}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        loading={busy === p.part}
+                        disabled={busy !== null}
+                        onClick={() => void ask(p.part)}
+                        data-testid={`playbook-video-improve-${p.part}`}
+                      >
+                        {V.improve}
+                      </Button>
+                    </div>
+                    <Field label={V.say} htmlFor={`pb-video-say-${p.part}`}>
+                      <Textarea
+                        id={`pb-video-say-${p.part}`}
+                        value={p.say}
+                        rows={3}
+                        maxLength={VIDEO_LIMITS.say}
+                        onChange={(e) => change(p.part, 'say', e.target.value)}
+                        data-testid={`playbook-video-say-${p.part}`}
+                      />
+                    </Field>
+                    <Field label={V.show} htmlFor={`pb-video-show-${p.part}`}>
+                      <Input
+                        id={`pb-video-show-${p.part}`}
+                        value={p.show}
+                        maxLength={VIDEO_LIMITS.show}
+                        onChange={(e) => change(p.part, 'show', e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <div className="flex flex-col items-start gap-3 rounded-card border border-dashed border-border-strong bg-card-2 p-5">
+            <p className="text-[13.5px] text-text-2">{V.none}</p>
+            <Button
+              loading={busy === 'write'}
+              onClick={() => void ask(null)}
+              data-testid="playbook-video-write"
+            >
+              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+              {V.write}
+            </Button>
+          </div>
+        )}
+      </section>
+      <div className="grid gap-5 md:grid-cols-2">
+        <section className="rounded-card border border-border bg-card p-5">
+          <Field label={V.link} htmlFor="pb-video-link" hint={V.linkHint} error={linkIssue}>
+            <Input
+              id="pb-video-link"
+              value={draft.videoLink}
+              placeholder={V.linkPlaceholder}
+              inputMode="url"
+              maxLength={VIDEO_LIMITS.link}
+              onChange={(e) => onLink(e.target.value)}
+              onBlur={() => onLink(withScheme(draft.videoLink))}
+              data-testid="playbook-video-link"
+            />
+          </Field>
+        </section>
+        <section className="rounded-card border border-border bg-card p-5">
+          <h3 className="text-[15px] font-semibold">{V.tips}</h3>
+          <ul className="mt-2.5 space-y-2">
+            {VIDEO_TIPS.map((tip) => (
+              <li key={tip} className="flex gap-2 text-[13px] text-text-2">
+                <Check className="mt-0.5 h-4 w-4 flex-none text-accent-text" strokeWidth={1.75} />
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </div>
   );

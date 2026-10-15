@@ -21,8 +21,8 @@ theirs first, then new ones (growth part 3), posts asking for what the business 
 helpful posts with the people who engage (growth part 5), the owner's notes after trying it (decisions 51 to 58:
 how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), the redesign
 (decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look), and the main
-offer's plan so far (decisions 62 to 68: the playbook's niche, Get ready, the profile's check, and the conversation:
-warm up, ask straight out, the video, the link, follow-ups until they answer).
+offer's plan so far (decisions 62 to 69: the playbook's niche, Get ready, the profile's check, the conversation:
+warm up, ask straight out, the video, the link, follow-ups until they answer; and the short video's script).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -998,8 +998,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     playbook picks one niche inside its who, with that niche's biggest problem and its own proof, picked from the
     offer's or its own and never invented. The AI says when a niche looks like a second offer. A playbook's offer
     starts as the main offer's outcome in a few words, and it keeps something useful to send someone who never
-    answered. Built (data version 3). The new pace came with the plan's step 6 (decision 67); the short video's link
-    and script come with step 7.
+    answered. Built (data version 3). The new pace came with the plan's step 6 (decision 67), and the short video's
+    link and script with step 7 (decision 69).
 63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
     results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
     live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), every item
@@ -1013,7 +1013,7 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
     `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
     days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** joined with
-    the plan's step 6 (decision 68), so it's five items; the video's link comes with step 7.
+    the plan's step 6 (decision 68), so it's five items, and waits on the playbook's short video (decision 69).
 64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
     person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
     it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
@@ -1062,6 +1062,17 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     worker's `outreach.messages.samples`): the first messages, the video, the link, the follow-ups with their days, and
     a check-in. They OK how they read against the live version (`outreach.readiness.messages`), and a new version
     asks again. The phone shows the samples written on the computer and OKs them. Built.
+69. **The short video, scripted by the AI** (the owner's decisions: the AI writes the script; one video per
+    playbook, each person's own later). On the playbook, under **Short video**, the AI writes the script from the
+    live main offer and the playbook's niche (the worker's `outreach.video.script`, `video.ts`): six parts, each with
+    what to say and what to show (who it's for and the problem, what it costs them, how it works, proof, why a call
+    helps, what to do next), 2 to 4 minutes spoken. **Improve** writes one part again, **Write it again** the whole
+    script, and the business changes the words as it likes. Proof comes only from the real results given; with none,
+    the script leaves "[your result]" to fill in. Recording tips sit beside it, and the person records it themselves
+    and pastes its link (Loom, YouTube or Google Drive: https, with a real host). The playbook keeps both (data
+    version 5); a script written for an older main offer version says so. **Your messages** is done only once a
+    playbook in use has its video linked: an owner or admin links it, and anyone else waits on them. The phone shows
+    the script and changes the link; the script is written on the web. Built.
 
 ## Rules worth knowing before changing anything
 
@@ -1480,6 +1491,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
 - **Data version 4:** the pace became how many follow-ups (5 to 7) and the quiet days before each, and a playbook got
   a video link (optional, kept on a save that leaves it out, `PLAYBOOK_KEPT_KEYS`). A pace saved before keeps its
   spacing when the business changed it (`paceOf`); an old phone's `followUpAfterDays` is taken and ignored.
+- **Data version 5:** a playbook got its video's script (`videoScript`, every part once, in order), kept on a save that
+  leaves it out like the parts before it. The AI's script is only ever offered: the builder puts it on the playbook,
+  and the playbook's save checks it.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from

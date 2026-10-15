@@ -413,13 +413,15 @@ export const READY_WORDS = {
       label: 'Your messages',
       why: 'See what goes out in your name before anything does, and that it sounds like you.',
       go: 'See your messages',
+      /** OK'd, and the playbook's short video isn't linked yet: an owner or admin adds it. */
+      goVideo: 'Add the video',
     },
     numbers: {
       label: 'Your numbers',
       why: 'A goal for the month says how many people to reach each day.',
       go: 'Set your goal',
     },
-  } satisfies Record<ReadyItem, { label: string; why: string; go: string }>,
+  } satisfies Record<ReadyItem, { label: string; why: string; go: string; goVideo?: string }>,
   states: {
     done: 'Done',
     todo: 'To do',

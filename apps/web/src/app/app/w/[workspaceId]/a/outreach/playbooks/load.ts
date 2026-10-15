@@ -37,5 +37,7 @@ export async function builderData(workspaceId: string) {
     mainOffer: offer.live
       ? playbookOffer(offer.live.parts as MainOfferParts, offer.live.line)
       : null,
+    /** Its live version: the short video's script says when it was written for an older one. */
+    mainOfferVersion: offer.live?.version ?? null,
   };
 }
