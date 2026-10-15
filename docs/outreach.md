@@ -21,8 +21,9 @@ theirs first, then new ones (growth part 3), posts asking for what the business 
 helpful posts with the people who engage (growth part 5), the owner's notes after trying it (decisions 51 to 58:
 how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), the redesign
 (decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look), and the main
-offer's plan so far (decisions 62 to 69: the playbook's niche, Get ready, the profile's check, the conversation:
-warm up, ask straight out, the video, the link, follow-ups until they answer; and the short video's script).
+offer's plan (decisions 62 to 70: the playbook's niche, Get ready, the profile's check, the conversation: warm up,
+ask straight out, the video, the link, follow-ups until they answer; the short video's script; and the daily numbers,
+with the day's report and the week's review).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -466,7 +467,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   the bare Social Outreach page, and the extension opens it in a tab when they sign in (decision 21a); the
   phone's Social Outreach screen says to set it up on a computer until it's finished (`SETUP_WORDS.onPhone`, while
   `finishedAt` is empty, whether or not the web's line was hidden). The extension downloads from HandsFreeOS itself
-  (decision 60): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
+  (decision 71): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
   version and size, and the steps to load it into Chrome with Developer mode. A business that keeps its own copy
   pastes its link under **Where your team gets the extension** (Business settings, on the web and the phone), and
   everyone's download is that one instead.
@@ -730,19 +731,7 @@ openers on group posts") and answered its questions the same day. These are sett
     take turns with them, and a results card shows the replies and demos for each. Built.
 24. **The demo link is built now,** so a booking through it counts by itself. The "Demo booked" mark stays too.
     Built.
-
-The owner asked on 12 Oct 2026 for the extension's zip to be in HandsFreeOS for people to download, with the steps to
-install it in Chrome with Developer mode. That replaces "kept wherever the team keeps files, never in HandsFreeOS's
-code" (decision 45's install step). Settled too:
-
-60. **HandsFreeOS hands out the extension.** The web app serves the build its own code makes
-    (`/downloads/hfos-social.zip`): every deploy zips the extension as it builds, so nobody releases or uploads
-    anything by hand, and a deploy always hands out the extension its code has. The setup's install step
-    and Settings → Your computer have **Download HandsFreeOS Social** with its version and size, and the steps:
-    unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
-    Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
-    signed in. A business's own link (**Where your team gets the extension**) still wins when it gives one. Built.
-61. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
+25. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
     tab, friend requests stay off Today for 2 days, and the extension stops for the day. Built.
 
 They come in three parts: cancelling and unfriending with the warnings (17 and 25); then openers on group posts, help
@@ -1101,6 +1090,18 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     look again. The phone shows the numbers, the review and the breakdowns on Results, and the switch in its settings.
     Built.
 
+The owner asked on 12 Oct 2026 for the extension's zip to be in HandsFreeOS for people to download, with the steps to
+install it in Chrome with Developer mode. That replaces "kept wherever the team keeps files, never in HandsFreeOS's
+code" (decision 45's install step). Settled too:
+
+71. **HandsFreeOS hands out the extension.** The web app serves the build its own code makes
+    (`/downloads/hfos-social.zip`): every deploy zips the extension as it builds, so nobody releases or uploads
+    anything by hand, and a deploy always hands out the extension its code has. The setup's install step
+    and Settings → Your computer have **Download HandsFreeOS Social** with its version and size, and the steps:
+    unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
+    Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
+    signed in. A business's own link (**Where your team gets the extension**) still wins when it gives one. Built.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -1161,7 +1162,7 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   or hidden (`showsSetupBanner`). The groups step lists the groups the person is in that the extension saved last
   (`groups.latest`), which **Save my groups** (an ask, there and on the Groups tab) fills from their own groups page
   (facebook.com/groups/joins/), where each group listed is saved as one they're in.
-- **HandsFreeOS hands out the extension** (decision 60): the web app's `build` and `dev` first run the extension's
+- **HandsFreeOS hands out the extension** (decision 71): the web app's `build` and `dev` first run the extension's
   `scripts/download.mjs`, which builds it for the HandsFreeOS the web app's own settings name (`NEXT_PUBLIC_API_URL`,
   `NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, read as Next.js
   reads them) and zips it to `apps/web/public/downloads/hfos-social.zip`, which git ignores. `next.config.ts` gives
@@ -1521,6 +1522,17 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
 - **Data version 5:** a playbook got its video's script (`videoScript`, every part once, in order), kept on a save that
   leaves it out like the parts before it. The AI's script is only ever offered: the builder puts it on the playbook,
   and the playbook's save checks it.
+- **The team's numbers come through one function** (decision 70): `private.outreach_numbers` counts first messages,
+  yeses and calls booked for one person or, for owners, admins and the worker, everyone, and gives back counts only.
+  `stages` and `follow_ups` are each person's own, so a query joining them for anyone else sees only the asker's rows;
+  count through the function instead, as `outreach.tracking` and `outreach.offer.versions` do. Someone counts as
+  messaged once, from their first chat started or first pitch, whichever came first.
+- **The rule picks what to fix; the AI only words it** (decision 70). `fixFirst` decides from the week's numbers, in the
+  video's order, and the AI is told which one and writes about that alone. Without the AI, `rulesReview` says it. One
+  review a person a week (`reviews`, unique by week): the Monday job skips anyone whose week is kept, so a run tried
+  again for one the AI was busy on does only that one, and nobody hears it twice.
+- **The day's report goes only on a day with something to tell**, at the end of the person's working hours on the
+  business's clock, while `dayReport` is on; a save from a screen that sends none keeps the one kept.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
@@ -1561,6 +1573,12 @@ extension builds from before the bare-bones one (0.19.0, settings part 4), which
 computer has that build or newer, raise the API's `MIN_EXTENSION_VERSION` to it (apps/extension/README.md, "Load it
 in Chrome"), and the two commands can be retired; Add to Contacts is `outreach.profile.contact` and Save to their card
 `outreach.chat.keep`.
+
+From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
+the profile's read and the bio's edit (decision 64) follow page outlines, not yet tried on the owner's account; the
+phone OKs messages and changes the video's link, but the samples and the script are written on the web; and yeses
+were first kept with step 6 (`stages.positive_at`), so weeks before it count none, and people pitched before it have
+no offer version.
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
 came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,

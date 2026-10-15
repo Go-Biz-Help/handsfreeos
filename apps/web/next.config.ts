@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import type { NextConfig } from 'next';
 
 /**
- * The browser extension this web app hands out (docs/outreach.md, decision 60): `build` and `dev` zip it into
+ * The browser extension this web app hands out (docs/outreach.md, decision 71): `build` and `dev` zip it into
  * public/downloads first (apps/extension/scripts/download.mjs), and the download button says its version and size.
  */
 const EXTENSION_ZIP = 'public/downloads/hfos-social.zip';

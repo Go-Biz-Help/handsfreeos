@@ -353,8 +353,8 @@ offer, price) is its starting point.
 
 ## What this changes in Social Outreach's decisions
 
-New decisions, numbered from 62 in docs/outreach.md (the numbering there repeats 60 and 61; tidy that when these go
-in):
+New decisions, numbered from 62 in docs/outreach.md (the numbering there repeated 60 and 61; step 9 made the warning
+25, as the code calls it, and handing out the extension 71):
 
 - **62. The main offer comes first.** Social Outreach uses core's main offer; a playbook narrows its who.
 - **63. Ready before the first day.** The readiness check holds Start my day and everything Today would send.
@@ -411,8 +411,9 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    (the AI's, or the numbers' own without it; kept in `addon_outreach.reviews` and pushed), and a push to whoever OK'd
    their messages when a new main offer goes live, from the boards in `design/tracking` (Chris approved them,
    2026-10-15: "build it"). Migration `20261027006600`. docs/outreach.md, decision 70.
-9. **Docs.** `docs/main-offer.md` (new, with its rules worth knowing), docs/outreach.md (what's built, the
-   decisions, the rules), docs/addon-architecture.md (`uses`), and a row in CLAUDE.md's Read first table.
+9. **Docs. Built.** `docs/main-offer.md` (what's built, how Social Outreach uses it, its rules worth knowing, what's
+   not yet), docs/outreach.md (what's built, decision 70's rules, the decisions numbered once each, what's not yet),
+   docs/addon-architecture.md (the rule for `uses`), the README's main offer section, and CLAUDE.md's Read first row.
 
 Steps 1 and 2 are core and come first. Steps 3 to 8 are the add-on's, in that order, because the readiness check
 needs the niche and the conversation needs the readiness check.

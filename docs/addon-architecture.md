@@ -446,6 +446,15 @@ add-on's failure never holds up core's handlers or another add-on's.
 **Core never points into an add-on.** No foreign key from `app` or `platform` into `addon_<id>`; an add-on's tables
 reference core and cascade with the business. The catalogue test checks both.
 
+**An add-on names the parts of core it uses; core never names an add-on** (the main offer's plan, docs/main-offer.md).
+A part of core that only some add-ons need (the business's main offer, today) is built in core and listed in
+`CORE_FEATURES`; an add-on that needs it says so in `uses`, and `manifestIssues` refuses one that isn't listed. Its
+capability is current only while an add-on that names it runs (`coreFeatureOn`, `coreFeatureRunning`), its screens ask
+that capability, and its commands refuse otherwise, naming the add-ons that bring it (`addonsUsing`). Its data is kept,
+hidden, while none runs. An add-on hears it change through core's events under `consumes` (`main_offer.published`),
+and shows what it does with it through a panel slot on core's page (`main_offer.panels`): core never reads an add-on's
+tables to show how it's used. A new one is a new name in `CORE_FEATURES`, its capability, and the same refusal.
+
 **History says which add-on did what.** The kernel stamps `_addon` and `addon_id` on every event and audit row an
 add-on's work causes, so it reads after the add-on is gone, and a purge knows exactly which details to drop.
 

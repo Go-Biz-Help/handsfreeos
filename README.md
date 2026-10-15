@@ -215,6 +215,10 @@ Optional features a business turns on for itself — property management, rent c
 
 `pnpm addon:new <id>` starts one. `docs/addon-architecture.md` covers the pieces, the owner's decisions and what isn't done yet; `docs/addon-readiness-audit.md` is the audit behind it.
 
+## The main offer
+
+A business's one main offer (who it helps, the result, how fast, how, the guarantee and the price) is built a step at a time with the AI in **Settings** → **Main offer**, scored, and published as versions that never change. It's core's, but shows only while an add-on that uses it is on (Social Outreach today): playbooks narrow it to a niche, nobody's outreach starts until it's live, every message is written from the version each person was first sent, and Results shows how each version does. `docs/main-offer.md` covers the parts, the rules and what isn't done yet.
+
 ## How the pieces fit
 
 - **Security lives in the database.** App tables sit in schema `app`, which Supabase's REST API never exposes. The API connects as `hfos_api` and switches to the `authenticated` role with the verified JWT claims for every transaction, so row-level security decides what each request can see. The worker connects as `hfos_worker` and is scoped to one tenant per job. Nothing in the apps can bypass RLS; the database suite in `packages/db/test` proves it.
