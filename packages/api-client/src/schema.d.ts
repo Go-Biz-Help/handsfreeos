@@ -65356,6 +65356,11 @@ export interface operations {
                 "application/json": {
                     /** @default 40 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     profileId?: string;
                     /** Format: uuid */
@@ -66924,6 +66929,11 @@ export interface operations {
                             slowerUntil: string;
                             today: boolean;
                             words: string;
+                        } | null;
+                        /** @default null */
+                        week: {
+                            done: number;
+                            most: number;
                         } | null;
                         wheels: {
                             daysLeft: number;
