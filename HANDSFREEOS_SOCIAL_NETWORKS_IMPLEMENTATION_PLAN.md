@@ -54,33 +54,91 @@ messages often closed to strangers, and posts and comments do the warming up. Ti
 
 ## What has to change first: the groundwork
 
-Today the network is in a few places and assumed everywhere else. The groundwork makes it explicit, with no change to
-what Facebook users see.
+A thin layer is ready: `PLATFORMS` in `playbooks.ts`, saves that take a `platform` (defaulting to Facebook), profile
+and group look-ups by network, a customer's source ("Facebook" from `sourceFor`), the Social card, Don't pitch's
+twins matched per network, and a playbook's `details.platforms`, which the builder shows as Facebook only. Everything
+above that assumes Facebook: the rules, the words, the AI's prompts, the settings and the whole extension. Nothing
+picks a network anywhere.
 
-- **The data.** Seven tables have `platform text check (platform in ('facebook'))`: profiles, threads, touches, the
-  download file's three tables and warnings. The rest (friends, groups, posts, checks, joins, helpful posts,
-  engagements, list saves, stages, follow-ups, sends, needs, asks, daily counts) take the network from the profile or
-  group they point at, or assume Facebook. Each gets what it needs: through its profile or group where it has one,
-  or a `platform` column of its own (lists, warnings, limits, asks, the helpful post). Unique keys that hold one row
-  a person (list saves, the day's helpful post, a warning's words a day) get the network in them.
-- **One list of networks.** `PLATFORMS` in `playbooks.ts` stays the one copy in code. In the database, a domain
-  (`addon_outreach.network`) holds the list, so adding a network is one line in one migration, not seven checks.
-  Drizzle mirrors it; the parity test must cope, or we keep the checks and write them out each time.
-- **Settings.** The daily limits (`DAILY_LIMITS`, the business's `rules`, each person's `AutomationSettings`) become a
-  map by network. Each network's starting limits come from its kit. The working hours, the voice, pushes and the
-  day's report stay one per person.
-- **Asks.** Each kind of ask names its network (`profile_read` on LinkedIn is a different job from Facebook's), and
-  `ASK_KIND_SINCE` names the build per network. "Facebook warned you today" becomes "LinkedIn warned you today" and
-  holds back only that network's asks.
-- **Today, People and Results** carry the network on every row, with a small mark (the network's name, never a
-  logo we don't have rights to). Filters by network where the lists are long. Results add "by network" beside "by
-  playbook" and "by offer version".
-- **Words.** Every "Facebook" in `OUTREACH_WORDS`, Today's items, the Pipeline's stages ("friends") and the setup
-  becomes the network's word from its kit, or a word for all of them ("connected", "your networks").
-- **The extension.** Host permissions and content scripts per network, asked for only when the person turns that
-  network on (optional host permissions), so it never runs on a site they don't use. `workUrl` checks the kit's
-  hosts. The runner, the asks and the once-a-day jobs take a network. Facebook's readers move under
-  `src/networks/facebook/` unchanged; their tests stay as they are.
+The groundwork makes the network explicit, with no change to what Facebook users see.
+
+### The data
+
+- **Seven tables carry `platform text check (platform in ('facebook'))`:** profiles, threads, groups, and the
+  download file's imports, file_people and file_chats, and warnings. Their unique keys already hold the network. A
+  domain (`addon_outreach.network`) replaces the seven checks, so a new network is one line in one migration. Drizzle
+  mirrors it; if the parity test can't, we keep writing the checks out.
+- **Seventeen take it from the profile or group they point at** (sends, stages, checks, follow-ups, opener uses,
+  replies, demos, friends, friend ends, touches, needs, posts, engagements, group people, my groups, joins, helpful).
+  They need nothing new, but every query that counts or picks from them must join to the network.
+- **Ids are Facebook's shape.** A profile's `platform_id` is numbers only and its `username` letters, numbers and
+  dots; a group's id and a reply's `thread_key` are numbers only (`limits.ts` mirrors them). LinkedIn's member ids look
+  like `ACoAA…` and its addresses have hyphens; Instagram, X and TikTok names have underscores. Each kit gives its own
+  shapes, checked in core, and the database checks loosen to "short, plain characters".
+- **Friendship is two-way.** `profiles.friendship`, `mutual_friends` and `friends.state` know friends, requests and
+  not friends. LinkedIn fits (connected, invited, not connected, plus how far: 1st, 2nd, 3rd). Instagram, Threads, X
+  and TikTok need following and followed by, each way on its own. Add those states now, so the follow networks don't
+  need the table changed again.
+- **Steps are Facebook's.** `touches.kind` (friend request, like, comment, message), `needs.step`, `friend_ends.kind`
+  (cancel, unfriend), `computers.doing` and `file_people.list`. They become general steps (connect, follow, like,
+  comment, message, withdraw, remove), each kit saying which it has and what it calls them.
+- **One row a person, with no network:** `automation` (its columns are Facebook choices: like first, confirm
+  requests, join groups, tidying), `list_saves`, `setup` (the profile check and its ticks) and `days`. Settings,
+  lists and the profile check get the network in the key, or a map by network inside the row. `days` stays one a
+  person: one Start my day for all their networks.
+- **Asks have no network.** Their open-ask key is the kind and a target that's often empty (`''`, `'best'`), so a
+  LinkedIn ask and a Facebook one of the same kind would answer each other. Asks get a `platform` column, in the key.
+
+### The rules
+
+- **Daily counts are per person, not per network.** `ops/today.ts` counts `touches` by person alone, and Today takes
+  a `platform` it then ignores. LinkedIn's steps would use up Facebook's limits. The counts, the limits
+  (`DAILY_LIMITS`, the business's `dailyLimits`, each person's settings) and `pastLimitWords` all go by network, each
+  kit giving its starting numbers. LinkedIn's weekly invitation cap adds a rolling 7-day count beside the daily one.
+- **A warning stops everything.** `warningOf` and `warnedToday` ignore the network the warning has; a warning halves
+  every limit, stops the day and puts training wheels back on, and the extension's `hfos.warned` is one for all. A
+  warning becomes the network's: that network's limits halve and its steps and asks stop for the day; the others go
+  on. Training wheels still come back, since they're the person's.
+- **One computer, one turn.** One working computer, one runner and one turn for asks (`auto/turns.ts`) stay: every
+  network's steps go through the same line, one at a time, which also keeps each network's pace natural.
+- **The same human on two networks** has two profiles, so two stages, two conversations and two pitches. Don't pitch
+  and Never contact don't cross networks; only the Friend or family tag on a customer does. See question 6.
+- **Facebook-only links.** `FacebookUrl` (`saves.ts`) checks links in saves, steps, posts, tidying, needs and the
+  web's and phone's Needs you. It becomes a check by network.
+
+### Words and the AI
+
+- **The prompts live in core** and the worker imports them: 14 of 15 say Facebook (only the niche fit doesn't). Each
+  takes the network's words from its kit: "connection" or "friend", "LinkedIn messaging" or "Messenger".
+- **About 280 strings** on screens say Facebook (about 150 in core's words and prompts, 40 on the web, 15 on the
+  phone, 70 in the extension), with about 75 "friend request" and 15 "Messenger". Each becomes the network's word or
+  a word for all of them ("connected", "your networks").
+- **Today, People and Results** show the network on every row as its name, never a logo we don't have the right to
+  use. Long lists filter by network, and Results add "by network" beside "by playbook" and "by offer version".
+- **Two lists of networks.** Core's messaging has its own `MetaPlatform` (`facebook`, `instagram`, in
+  `messaging/social.ts`). They stay apart: one is the business's Pages, the other a person's own accounts.
+
+### The extension
+
+- **Only Facebook's sites.** The manifest's host permissions and content scripts, `workUrl`, the background (which
+  takes notes only from Facebook tabs), `content.ts` (which dispatches to 15 Facebook readers), `messages.ts`'s
+  types, and `'facebook'` written out in `hfos/saves.ts`, `hfos/warned.ts`, `jobs/chats.ts`, `jobs/tidy.ts` and
+  `auto/run.ts`.
+- **Already neutral:** sign-in, the beat, asks, following settings, Needs you, the prompt, setup, the panel, the
+  turns, `auto/plan.ts`'s timing, the `Job` and `JobTab` shapes, the noting queue and `WorkTab` (but for `workUrl`).
+- **Worth lifting out:** button plans as data (`FETCH_PLANS`, `TIDY_PLANS`, `AUTO_PLANS`), run by `doStep` and
+  `doPath` in `facebook/fetch.ts`. That engine is the same on any site.
+- **What a kit gives the extension**, from how `src/facebook/` is used now: its addresses (what kind of page, the
+  person, group, chat or post a link points at, its work hosts); `readPage` and its readers (profile, people, groups,
+  posts, chat, warnings); noting (a click or Enter that was a step, an answer to a request); spotting replies and
+  looking as the person goes; browsing (open a chat, scroll a list); its button plans; the runner's presses (read
+  their posts, like one, comment, write a message, check it's the same person); compose, join and look-up; its own
+  profile; its words (English for now), its times and the outline.
+- **New sites, asked for when turned on.** Each network's sites go in optional host permissions, asked the first time
+  the person turns that network on, so the extension never runs on a site they don't use. Adding them as required
+  permissions would make Chrome ask everyone again on update.
+- **Facebook moves in first.** `src/facebook/` becomes `src/networks/facebook/` behind the kit's shape, with its
+  tests unchanged.
 
 ## LinkedIn
 
@@ -211,8 +269,10 @@ Each has what I'd pick, and why.
    person's choice already guards it. Say (b) if the account risk worries you more than the time saved.
 5. **The invitation's note.** Recommend no note to start (free accounts get about 5 a month), warm up first instead,
    and a setting to add a note for people with notes to spare.
-6. **Never contact and Don't pitch across networks.** Today they cover one profile, and the same name on the same
-   network. Recommend: once two profiles are on the same customer, putting one on either list covers the other.
+6. **The same person on two networks.** Today Don't pitch and Never contact cover one profile, and the same name on
+   the same network, so someone on Facebook and LinkedIn could be pitched twice. Recommend: once two profiles are on
+   the same customer, either list covers both, and someone pitched or booked on one network isn't started again on
+   the other. Nothing is matched across networks by name alone.
 7. **One goal or one per network?** Recommend one monthly goal and one set of daily targets, with Results showing
    each network's share.
 8. **InMail and Sales Navigator.** Recommend later, after LinkedIn works for free accounts.
@@ -225,8 +285,9 @@ Each has what I'd pick, and why.
 
 ## Build order
 
-1. **Groundwork in core:** the network domain, `platform` where it's missing, unique keys with the network, limits
-   and warnings per network, asks per network, the words. Facebook behaves as before; every test passes unchanged.
+1. **Groundwork in core:** the network domain, looser id checks, the general steps and follow states, `platform` on
+   asks and in the per-person keys, counts, limits and warnings by network, and the prompts and words taking the
+   network's. Facebook behaves as before; every test passes unchanged.
 2. **Groundwork in the extension:** `src/networks/` with the kit's shape, Facebook moved in, optional host
    permissions, `workUrl` per kit, the runner and jobs taking a network. Same behavior; the extension's tests pass
    unchanged.
