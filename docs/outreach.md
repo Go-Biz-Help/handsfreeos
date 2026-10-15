@@ -1583,4 +1583,6 @@ no offer version.
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
 came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, and joining groups, decision 48, are built), in the order above: tidying on its own, then team sharing, the after-demo workflow, birthday notes and
-templates, then LinkedIn and Instagram.
+templates, then LinkedIn and Instagram. LinkedIn and the networks after it are planned in
+HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md: one add-on, a kit per network, and each network on its own, so a
+warning or a pause on one never affects the others (Chris, 15 Oct 2026).
