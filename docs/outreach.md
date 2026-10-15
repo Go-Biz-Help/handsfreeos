@@ -1265,10 +1265,10 @@ code" (decision 45's install step). Settled too:
     counts too; every network's when left out).
   - **Results add "By network"** beside "By playbook" and "By offer version" (`outreach.tracking`'s `byNetwork`):
     one goal for every network, each network's share of the first messages. `private.outreach_numbers` gives each
-    count's network, from the profile reached (20261027007300).
+    count's network, from the profile reached (20261027007400).
   - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
     on each; **the setup has a step to pick networks** (`networks`, between the team's rules and the person's own
-    settings, 20261027007300).
+    settings, 20261027007400).
   - **Screens say a network's own words** from its kit, or a word for all of them: an invitation to connect or a
     friend request (`dailyWordsOn`, `todayKindsOn`, `sendingModesOn`, `ticksOn`), LinkedIn messaging or Messenger
     (`chatUrlOn`, `openChatWords`), and a warning's note names its network (`warningNote`'s `platform`).
