@@ -39,12 +39,14 @@ import {
 } from '../live';
 import { dailyLimitsNow, WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
+import { notReadyWords } from '../readiness';
 import { computers, days, liveSteps } from '../tables';
 import { todayLimits } from '../today';
 import { automationOf, everyoneAutomation } from './automation';
 import { asksWaiting } from './ask-rows';
 import { inWorkspace, type Ctx } from './common';
 import { listsOf } from './lists';
+import { readinessFor } from './readiness';
 import { businessToday, dayOf, dayShown, keepDay, writeLine } from './day';
 import { dayCounts } from './today';
 import { waitingFor } from './waiting';
@@ -268,6 +270,9 @@ async function setDay(
         409,
         'Facebook showed you a warning today, so the extension stays stopped until tomorrow. Your daily limits are halved for a week.',
       );
+    // Nothing outreach-like until they're ready (decision 63): the first item left says where to finish it.
+    const ready = await readinessFor(ctx, me);
+    if (!ready.ready) throw HfosError.rule('outreach_not_ready', 409, notReadyWords(ready));
     const { settings, rules } = await automationOf(ctx, me);
     if (settings.sending === 'off')
       throw HfosError.rule(

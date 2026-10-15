@@ -4857,6 +4857,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/main_offer.discard_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Throw away the main offer’s draft. The live version stays as it is.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.draft_discarded.
+         */
+        post: operations["command_main_offer_discard_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/main_offer.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the main offer’s scored draft the live version. Everything that uses the offer starts saying it; the version before is kept.
+         * @description Risk level 2. Requires main_offer.manage. Emits main_offer.published.
+         */
+        post: operations["command_main_offer_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/main_offer.save_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the main offer’s draft: who it helps, the outcome, timeframe, method, guarantee, price and proof. The live version keeps running until the draft is published.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.draft_saved.
+         */
+        post: operations["command_main_offer_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/maintenance.set_schedule": {
         parameters: {
             query?: never;
@@ -5667,7 +5727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take an offer off the list. The AI teammate stops mentioning it at once.
+         * Take a promotion off the list. The AI teammate stops mentioning it at once.
          * @description Risk level 1. Requires knowledge.manage. Emits offer.archived.
          */
         post: operations["command_offer_archive"];
@@ -5687,7 +5747,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add an offer the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.
+         * Add a promotion the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.
          * @description Risk level 1. Requires knowledge.manage. Emits offer.created.
          */
         post: operations["command_offer_create"];
@@ -5707,7 +5767,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change an offer’s name, details or dates.
+         * Change a promotion’s name, details or dates.
          * @description Risk level 1. Requires knowledge.manage. Emits offer.updated.
          */
         post: operations["command_offer_update"];
@@ -6791,6 +6851,46 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.readiness.numbers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person sets their goal for calls booked a month and the days they work (kept in their working hours), having seen what it takes each day.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved, outreach.automation.saved.
+         */
+        post: operations["command_outreach_readiness_numbers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.readiness.profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person ticks an item on their Facebook profile list as done (or takes it back), against the main offer live now.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_readiness_profile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16377,6 +16477,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/main_offer.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s main offer: the live version, the draft being edited with its score and what it still needs, and whether an add-on that uses it is on.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_main_offer_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/main_offer.versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every version of the main offer published, the newest first.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_main_offer_versions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/maintenance.for_person": {
         parameters: {
             query?: never;
@@ -17171,6 +17311,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_playbook_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get ready for your best results: where each of the person’s items stands before the extension reaches anyone for them (the business’s main offer, a playbook with a niche, their profile, their numbers), what’s left of each, and their goal and working days.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_readiness"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30661,6 +30821,151 @@ export interface operations {
             };
         };
     };
+    command_main_offer_discard_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        discarded: boolean;
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_main_offer_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    anyway?: string;
+                    revision: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_main_offer_save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    parts: {
+                        /** @default {} */
+                        guarantee?: {
+                            promise?: string;
+                            qualifies?: string;
+                            when?: string;
+                        };
+                        /** @default {} */
+                        inAFewWords?: {
+                            guarantee?: string;
+                            outcome?: string;
+                        };
+                        line?: string;
+                        /** @default {} */
+                        method?: {
+                            different?: string;
+                            steps?: string[];
+                        };
+                        /** @default {} */
+                        niche?: {
+                            bestCustomer?: string;
+                            howLong?: string;
+                            lookalikes?: string;
+                            result?: string;
+                            theirSize?: string;
+                            theirWork?: string;
+                        };
+                        /** @default {} */
+                        outcome?: {
+                            measure?: string;
+                            result?: string;
+                            why?: string;
+                        };
+                        /** @default {} */
+                        price?: {
+                            amount?: string;
+                            structure?: string;
+                            value?: string;
+                        };
+                        /** @default [] */
+                        proof?: string[];
+                        /** @default {} */
+                        timeframe?: {
+                            typical?: string;
+                            why?: string;
+                        };
+                        /** @default {} */
+                        who?: {
+                            problem?: string;
+                            size?: string;
+                            slice?: string;
+                            work?: string;
+                        };
+                    };
+                    revision: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
     command_maintenance_set_schedule: {
         parameters: {
             query?: never;
@@ -33551,7 +33856,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -33724,6 +34029,13 @@ export interface operations {
                         kind: "research";
                         /** Format: uuid */
                         profileId: string;
+                    } | {
+                        /** @enum {string} */
+                        kind: "profile_read";
+                    } | {
+                        bio: string;
+                        /** @enum {string} */
+                        kind: "profile_edit";
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -33747,7 +34059,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -33851,7 +34163,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -33917,7 +34229,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -34007,6 +34319,13 @@ export interface operations {
                                 name: string;
                                 /** Format: uuid */
                                 profileId: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "profile_read";
+                            } | {
+                                bio: string;
+                                /** @enum {string} */
+                                kind: "profile_edit";
                             };
                         } | null;
                         waiting: number;
@@ -35538,6 +35857,7 @@ export interface operations {
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
                             link: string | null;
+                            niche?: string | null;
                             offer: string | null;
                             /** @default [] */
                             openerStyles: string[];
@@ -35548,6 +35868,8 @@ export interface operations {
                                 messageAfterDays: number;
                             };
                             platforms: "facebook"[];
+                            problem?: string | null;
+                            proof?: string[];
                             questions: {
                                 answers: {
                                     label: string;
@@ -35563,6 +35885,8 @@ export interface operations {
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                             tags: string[];
                             tone: string | null;
+                            usefulLink?: string | null;
+                            usefulWhat?: string | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -35594,6 +35918,7 @@ export interface operations {
                         goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                         groupWords: string[];
                         link: string | null;
+                        niche?: string | null;
                         offer: string | null;
                         /** @default [] */
                         openerStyles?: string[];
@@ -35604,6 +35929,8 @@ export interface operations {
                             messageAfterDays: number;
                         };
                         platforms: "facebook"[];
+                        problem?: string | null;
+                        proof?: string[];
                         questions: {
                             answers: {
                                 label: string;
@@ -35619,6 +35946,8 @@ export interface operations {
                         steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                         tags: string[];
                         tone: string | null;
+                        usefulLink?: string | null;
+                        usefulWhat?: string | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -35649,6 +35978,7 @@ export interface operations {
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
                             link: string | null;
+                            niche?: string | null;
                             offer: string | null;
                             /** @default [] */
                             openerStyles: string[];
@@ -35659,6 +35989,8 @@ export interface operations {
                                 messageAfterDays: number;
                             };
                             platforms: "facebook"[];
+                            problem?: string | null;
+                            proof?: string[];
                             questions: {
                                 answers: {
                                     label: string;
@@ -35674,6 +36006,8 @@ export interface operations {
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                             tags: string[];
                             tone: string | null;
+                            usefulLink?: string | null;
+                            usefulWhat?: string | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -35877,6 +36211,205 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_readiness_numbers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    days: number[];
+                    goal: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_readiness_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    done: boolean;
+                    /** @enum {string} */
+                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
                     };
                 };
             };
@@ -36167,7 +36700,7 @@ export interface operations {
                     /** @enum {boolean} */
                     hideBanner?: true;
                     /** @enum {string} */
-                    reached?: "playbooks" | "rules" | "settings" | "extension" | "groups";
+                    reached?: "playbooks" | "ready" | "rules" | "settings" | "extension" | "groups";
                     /** @enum {boolean} */
                     started?: true;
                     /** Format: uuid */
@@ -36204,10 +36737,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -36745,7 +37278,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -36779,7 +37312,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -60425,6 +60958,285 @@ export interface operations {
             };
         };
     };
+    query_main_offer_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bar: number;
+                        comesWith: string[];
+                        draft: {
+                            at: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            missing: {
+                                label: string;
+                                path: string;
+                            }[];
+                            parts: {
+                                /** @default {} */
+                                guarantee: {
+                                    promise?: string;
+                                    qualifies?: string;
+                                    when?: string;
+                                };
+                                /** @default {} */
+                                inAFewWords: {
+                                    guarantee?: string;
+                                    outcome?: string;
+                                };
+                                line?: string;
+                                /** @default {} */
+                                method: {
+                                    different?: string;
+                                    steps?: string[];
+                                };
+                                /** @default {} */
+                                niche: {
+                                    bestCustomer?: string;
+                                    howLong?: string;
+                                    lookalikes?: string;
+                                    result?: string;
+                                    theirSize?: string;
+                                    theirWork?: string;
+                                };
+                                /** @default {} */
+                                outcome: {
+                                    measure?: string;
+                                    result?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                price: {
+                                    amount?: string;
+                                    structure?: string;
+                                    value?: string;
+                                };
+                                /** @default [] */
+                                proof: string[];
+                                /** @default {} */
+                                timeframe: {
+                                    typical?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                who: {
+                                    problem?: string;
+                                    size?: string;
+                                    slice?: string;
+                                    work?: string;
+                                };
+                            };
+                            score: {
+                                fix: string;
+                                flags: {
+                                    generic: boolean;
+                                    hardToBelieve: boolean;
+                                    vague: boolean;
+                                };
+                                parts: {
+                                    guarantee: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    method: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    outcome: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    price: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    timeframe: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    who: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                };
+                                threeSeconds: boolean;
+                                /** @enum {string} */
+                                weakest: "who" | "outcome" | "timeframe" | "method" | "guarantee" | "price";
+                            } | null;
+                        } | null;
+                        inUse: boolean;
+                        live: {
+                            anyway: string | null;
+                            line: string;
+                            parts: {
+                                /** @default {} */
+                                guarantee: {
+                                    promise?: string;
+                                    qualifies?: string;
+                                    when?: string;
+                                };
+                                /** @default {} */
+                                inAFewWords: {
+                                    guarantee?: string;
+                                    outcome?: string;
+                                };
+                                line?: string;
+                                /** @default {} */
+                                method: {
+                                    different?: string;
+                                    steps?: string[];
+                                };
+                                /** @default {} */
+                                niche: {
+                                    bestCustomer?: string;
+                                    howLong?: string;
+                                    lookalikes?: string;
+                                    result?: string;
+                                    theirSize?: string;
+                                    theirWork?: string;
+                                };
+                                /** @default {} */
+                                outcome: {
+                                    measure?: string;
+                                    result?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                price: {
+                                    amount?: string;
+                                    structure?: string;
+                                    value?: string;
+                                };
+                                /** @default [] */
+                                proof: string[];
+                                /** @default {} */
+                                timeframe: {
+                                    typical?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                who: {
+                                    problem?: string;
+                                    size?: string;
+                                    slice?: string;
+                                    work?: string;
+                                };
+                            };
+                            /** Format: date-time */
+                            publishedAt: string;
+                            publishedBy: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            score: {
+                                fix: string;
+                                flags: {
+                                    generic: boolean;
+                                    hardToBelieve: boolean;
+                                    vague: boolean;
+                                };
+                                parts: {
+                                    guarantee: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    method: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    outcome: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    price: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    timeframe: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                    who: {
+                                        score: number;
+                                        why: string;
+                                    };
+                                };
+                                threeSeconds: boolean;
+                                /** @enum {string} */
+                                weakest: "who" | "outcome" | "timeframe" | "method" | "guarantee" | "price";
+                            };
+                            version: number;
+                        } | null;
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    query_main_offer_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        versions: {
+                            anyway: string | null;
+                            line: string;
+                            lowest: number;
+                            /** Format: date-time */
+                            publishedAt: string;
+                            publishedBy: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_maintenance_for_person: {
         parameters: {
             query?: never;
@@ -62838,7 +63650,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -62861,7 +63673,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
                             reply: ("carry_on" | "skip") | null;
                             result: {
@@ -64197,6 +65009,7 @@ export interface operations {
                                 goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                                 groupWords: string[];
                                 link: string | null;
+                                niche?: string | null;
                                 offer: string | null;
                                 /** @default [] */
                                 openerStyles: string[];
@@ -64207,6 +65020,8 @@ export interface operations {
                                     messageAfterDays: number;
                                 };
                                 platforms: "facebook"[];
+                                problem?: string | null;
+                                proof?: string[];
                                 questions: {
                                     answers: {
                                         label: string;
@@ -64222,6 +65037,8 @@ export interface operations {
                                 steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                                 tags: string[];
                                 tone: string | null;
+                                usefulLink?: string | null;
+                                usefulWhat?: string | null;
                             };
                             /** Format: uuid */
                             id: string;
@@ -64230,6 +65047,103 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
                     };
                 };
             };
@@ -64347,10 +65261,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -64522,6 +65436,7 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        ready: boolean;
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warning: {
@@ -64587,7 +65502,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                                 line: string | null;
                                 reply: ("carry_on" | "skip") | null;
                                 result: {

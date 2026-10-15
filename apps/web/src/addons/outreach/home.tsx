@@ -53,6 +53,7 @@ import type {
   Openers,
   Pipeline,
   PlaybookList,
+  Readiness,
   Tidy,
   TodayList,
   Waiting,
@@ -70,6 +71,8 @@ export type OutreachShown =
       readonly live: Live | null;
       /** Everything that needs the person: null when it couldn't be had. */
       readonly waiting: Waiting | null;
+      /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
+      readonly readiness: Readiness | null;
     }
   | {
       readonly view: 'live';
@@ -332,6 +335,7 @@ export function OutreachHome({
           asks={shown.asks}
           live={shown.live}
           waiting={shown.waiting}
+          readiness={shown.readiness}
         />
       ) : shown.view === 'live' ? (
         <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} asks={shown.asks} />

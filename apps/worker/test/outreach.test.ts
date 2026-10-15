@@ -1,6 +1,7 @@
 /**
  * Social Outreach in the worker (docs/outreach.md): data version 2 brings a playbook saved before its questions had
- * answers, and before it had a pace, into today's shape when a reinstall brings it back. Run as the worker runs it.
+ * answers, and before it had a pace, into today's shape when a reinstall brings it back; version 3 gives one saved
+ * before it had a niche, problem, proof and something useful to send those, empty. Run as the worker runs it.
  */
 import { PlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -24,8 +25,8 @@ beforeAll(async () => {
 
 afterAll(closeTestDbs);
 
-describe('Social Outreach’s data version 2', () => {
-  it('gives an older playbook’s questions answers and a pace, and leaves today’s alone', async () => {
+describe('Social Outreach’s data versions 2 and 3', () => {
+  it('gives an older playbook’s questions answers, a pace and empty v3 parts, and leaves today’s alone', async () => {
     const before = {
       goal: 'demo',
       offer: null,
@@ -48,6 +49,11 @@ describe('Social Outreach’s data version 2', () => {
       ...before,
       questions: [{ id: 'q1', text: 'Is it doing what you need?', answers: [] }],
       pace: { messageAfterDays: 2, followUpAfterDays: 5 },
+      niche: 'Roofers with 2 to 3 crews',
+      problem: null,
+      proof: [],
+      usefulWhat: null,
+      usefulLink: null,
     });
     const [old, current] = await rows<{ id: string }>(
       admin(),
@@ -57,10 +63,12 @@ describe('Social Outreach’s data version 2', () => {
           returning id`,
     );
 
-    const step = outreachAddonWorker.dataMigrations![2]!;
-    await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
-      step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
-    );
+    for (const v of [2, 3]) {
+      const step = outreachAddonWorker.dataMigrations![v]!;
+      await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
+        step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
+      );
+    }
 
     const after = await rows<{ id: string; details: unknown; updated: boolean }>(
       admin(),
@@ -74,6 +82,9 @@ describe('Social Outreach’s data version 2', () => {
         { id: 'q2', text: 'Which one?', answers: [] },
       ],
       pace: { messageAfterDays: 1, followUpAfterDays: 3 },
+      niche: null,
+      proof: [],
+      usefulLink: null,
     });
     expect(got(current!.id)).toMatchObject({ details: today, updated: false });
   });

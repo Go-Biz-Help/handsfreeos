@@ -47,19 +47,22 @@ import { Note, Part, useOutreachAnswer, useOutreachContext } from './kit';
 /** Asked again this often while a screen with asks is open: an ask moves on within seconds. */
 export const ASKS_REFETCH_SECONDS = 15;
 
-/** What a screen asked: one tab's kinds, or all of them (the Live screen). */
+/** What a screen asked: one tab's kinds, or all of them (the Live screen). With `on` false, nothing's asked. */
 export function useAsks(
   tab: keyof typeof ASK_KINDS_FOR | null,
   screen: string,
+  on = true,
 ): LiveAnswer<AsksOutput> {
   const ws = useOutreachContext().workspaceId;
   return useOutreachAnswer(
-    async () =>
-      unwrap(
-        await api.POST('/v1/queries/outreach.asks', {
-          body: { workspaceId: ws, ...(tab ? { kinds: [...ASK_KINDS_FOR[tab]] } : {}) },
-        }),
-      ),
+    on
+      ? async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.asks', {
+              body: { workspaceId: ws, ...(tab ? { kinds: [...ASK_KINDS_FOR[tab]] } : {}) },
+            }),
+          )
+      : null,
     `asks:${ws}:${tab ?? 'all'}`,
     screen,
     { everySeconds: ASKS_REFETCH_SECONDS },

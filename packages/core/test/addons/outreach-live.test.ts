@@ -32,7 +32,14 @@ import {
   warningLine,
   warningPushWords,
 } from '../../src/addons/outreach/live';
+import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
+
+const crmPlaybook = {
+  name: 'CRM demos',
+  template: 'crm_demos',
+  details: PLAYBOOK_TEMPLATES.crm_demos.details,
+};
 
 const admin = () => testDbs().admin.db;
 const MIN = 60_000;
@@ -217,6 +224,8 @@ describe('live status and control', () => {
     await admin()
       .insert(workspaceMemberships)
       .values({ workspaceId: ws, userId: member.id, role: 'member' });
+    // A playbook with a niche: one of the things a person needs before their day starts (decision 63).
+    await runAs(owner, ws, 'outreach.playbook.save', crmPlaybook);
   }, 60_000);
   afterAll(closeTestDbs);
 
@@ -376,6 +385,7 @@ describe('live status and control', () => {
   it('says who can let it work on its own when the business allows nothing else', async () => {
     const solo = await createTestUser('outl-solo', { fullName: 'Sky Solo' });
     const soloWs = await outreachBusiness(solo, 'Outreach Solo Co');
+    await runAs(solo, soloWs, 'outreach.playbook.save', crmPlaybook);
     await rows(
       admin(),
       sql`update app.addon_installations

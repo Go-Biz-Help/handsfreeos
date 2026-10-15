@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Main offer: find your niche</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rs:focus-visible,.opt:focus-visible,.link:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.input{width:100%;height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{flex:0 1 300px;min-width:240px;background:var(--card);border-right:1px solid var(--border);padding:24px 14px 20px;display:flex;flex-direction:column;gap:2px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.pane{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;padding:32px 48px 24px;display:flex;flex-direction:column;gap:20px;max-width:880px}
+.foot{flex:none;min-height:72px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 48px;background:var(--card);border-top:1px solid var(--border)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;padding:14px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);font:inherit;color:var(--text);cursor:pointer}
+.opt:hover{background:var(--card-2)}
+.opt.on{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.dot{width:18px;height:18px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px;background:var(--card)}
+.opt.on .dot{border:5px solid var(--accent)}
+.link{border:0;background:none;padding:0;font:inherit;color:var(--accent-text);cursor:pointer;font-weight:500}
+.link:hover{text-decoration:underline}
+.ai{color:var(--accent-text)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Building your main offer</span>
+<a class="btn btn-ghost" href="Main.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Your main offer</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 30 minutes. Every answer is kept as you go.</p>
+<a class="rs cur" href="BuilderNiche.dc.html" aria-current="step"><span class="rn">1</span><span class="stack"><span class="rt">Your niche</span><span class="rd">Start from your best customer</span></span></a>
+<a class="rs" href="#"><span class="rn">2</span><span class="stack"><span class="rt">Who</span><span class="rd">Who it’s for, and their problem</span></span></a>
+<a class="rs" href="#"><span class="rn">3</span><span class="stack"><span class="rt">Outcome</span><span class="rd">The result they get</span></span></a>
+<a class="rs" href="#"><span class="rn">4</span><span class="stack"><span class="rt">Timeframe</span><span class="rd">How fast</span></span></a>
+<a class="rs" href="BuilderMethod.dc.html"><span class="rn">5</span><span class="stack"><span class="rt">Method</span><span class="rd">How you do it, in 3 to 5 steps</span></span></a>
+<a class="rs" href="BuilderPart.dc.html"><span class="rn">6</span><span class="stack"><span class="rt">Guarantee</span><span class="rd">What if it doesn’t work</span></span></a>
+<a class="rs" href="#"><span class="rn">7</span><span class="stack"><span class="rt">Price</span><span class="rd">What it costs, and why it’s worth it</span></span></a>
+<a class="rs" href="#"><span class="rn">8</span><span class="stack"><span class="rt">Proof</span><span class="rd">Real results</span></span></a>
+<a class="rs" href="BuilderLine.dc.html"><span class="rn">9</span><span class="stack"><span class="rt">Put it together</span><span class="rd">Your offer in one line</span></span></a>
+<a class="rs" href="BuilderScore.dc.html"><span class="rn">10</span><span class="stack"><span class="rt">Score and go live</span><span class="rd">Every part needs 7</span></span></a>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">1 of 10</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Start with your best customer</h1>
+<p class="muted" style="max-width: 640px;">Proof beats potential. The customers you already got a great result for are the easiest to win again. This niche is for your outreach only; you can still work with anyone.</p>
+</div>
+
+<sc-if value="{{ hasCustomers }}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px;">
+<div><label class="label" for="best">Who’s the best customer you’ve had?</label><input id="best" class="input" value="Peak Roofing, a roofer with 3 crews"></div>
+<div><label class="label" for="work">What line of work are they in?</label><input id="work" class="input" value="Roofing"></div>
+<div><label class="label" for="size">How big were they when they came to you?</label><input id="size" class="input" value="3 crews, about $1.5M a year"></div>
+<div><label class="label" for="long">How long did the result take?</label><input id="long" class="input" value="60 days"></div>
+<div style="grid-column: 1 / -1;"><label class="label" for="res">What result did you get them?</label><input id="res" class="input" value="22 booked roof inspections after the March hail, 9 of them signed"></div>
+<div style="grid-column: 1 / -1;"><label class="label" for="like">Who looks just like them, that you could find 100 of now?</label><input id="like" class="input" placeholder="Other roofers with 2 to 4 crews in Colorado"><div class="hint">Don’t worry about how you’ll find them yet. Social Outreach does that.</div></div>
+</div>
+<div class="row" style="flex-wrap: wrap;">
+<button class="btn btn-secondary" onClick="{{ ask }}"><svg class="icon ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path></svg>Find my niche</button>
+<button class="link small" onClick="{{ noCustomers }}">I don’t have customers yet</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ noneYet }}" hint-placeholder-val="{{ false }}">
+<div class="panel" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-weight: 500;">No past customers? That’s fine.</span>
+<p class="small muted">Pick the most painful problem in a line of work you know and can easily reach. The AI looks at your business and suggests three, with what those customers want most.</p>
+<div class="row" style="flex-wrap: wrap;">
+<button class="btn btn-secondary" onClick="{{ ask }}"><svg class="icon ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path></svg>Suggest niches for me</button>
+<button class="link small" onClick="{{ haveCustomers }}">I do have a best customer</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ asked }}" hint-placeholder-val="{{ true }}">
+<div class="stack" style="gap: 10px;" role="radiogroup" aria-label="Niches to start with">
+<div class="row" style="justify-content: space-between;"><span style="font-weight: 600;">Three niches to start with</span><span class="xs faint">From the AI · nothing is used until you pick</span></div>
+<sc-for list="{{ options }}" as="o" hint-placeholder-count="3">
+<button class="{{ o.cls }}" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}">
+<span class="dot" aria-hidden="true"></span>
+<span class="stack" style="gap: 3px; min-width: 0;">
+<span style="font-weight: 500;">{{ o.who }}</span>
+<span class="small">{{ o.problem }}</span>
+<span class="small muted">{{ o.why }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="Main.dc.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a>
+<div style="flex: 1;"></div>
+<span class="xs faint">Draft saved 2:14 PM</span>
+<a class="btn btn-primary btn-lg" href="#">Use this niche and continue</a>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { none: false, asked: true, pick: 0 };
+  }
+  renderVals() {
+    const st = this.state;
+    const list = st.none
+      ? [
+          ['Homeowners with roofs over 15 years old', 'Worried a storm will start a leak, and no idea what a new roof costs', 'Easy to reach in local Facebook groups, and they want a straight price before anything else.'],
+          ['Property managers with 20 or more homes', 'Repair calls pile up and roofers don’t show', 'One yes brings steady work across many roofs.'],
+          ['Real estate agents', 'A roof problem kills the sale at inspection', 'They need a fast, written report to keep a deal alive.']
+        ]
+      : [
+          ['Roofers with 2 to 4 crews', 'No steady jobs between storms, so crews sit idle', 'You already got Peak Roofing 22 inspections. Proof beats potential.'],
+          ['Gutter and siding companies with 2 or 3 crews', 'Slow winters and jobs that come only by word of mouth', 'Close to what you did for Peak, and the same homeowners.'],
+          ['New roofing companies under 2 years old', 'No reviews yet and no steady way to find jobs', 'They want work fast, but you have less proof for them.']
+        ];
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      hasCustomers: !st.none,
+      noneYet: st.none,
+      asked: st.asked,
+      ask: () => this.setState({ asked: true, pick: 0 }),
+      noCustomers: () => this.setState({ none: true, asked: false }),
+      haveCustomers: () => this.setState({ none: false, asked: false }),
+      options: list.map(([who, problem, why], i) => ({
+        who, problem, why,
+        on: st.pick === i,
+        cls: 'opt' + (st.pick === i ? ' on' : ''),
+        pick: () => this.setState({ pick: i })
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

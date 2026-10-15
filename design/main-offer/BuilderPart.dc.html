@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Main offer: your guarantee</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rs:focus-visible,.ex:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.textarea{width:100%;min-height:72px;padding:10px 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;line-height:1.45;resize:vertical}
+.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px}
+.hint{font-size:12.5px;color:var(--text-3)}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{flex:0 1 300px;min-width:240px;background:var(--card);border-right:1px solid var(--border);padding:24px 14px 20px;display:flex;flex-direction:column;gap:2px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rn.done{border-color:var(--success);background:var(--success);color:#fff}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.pane{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;padding:32px 48px 24px;display:flex;flex-direction:column;gap:24px;max-width:880px}
+.foot{flex:none;min-height:72px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 48px;background:var(--card);border-top:1px solid var(--border)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.ex{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;border:1px dashed var(--border-strong);background:transparent;font:inherit;font-size:13px;color:var(--text-2);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ex:hover{background:var(--card-2);color:var(--text)}
+.tools{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ai{color:var(--accent-text)}
+.choice{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-top:1px solid var(--border)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 900px; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Building your main offer</span>
+<a class="btn btn-ghost" href="Main.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Your main offer</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 30 minutes. Every answer is kept as you go.</p>
+<a class="rs" href="BuilderNiche.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Your niche</span><span class="rd">Roofers with 2 to 4 crews</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Who</span><span class="rd">No steady jobs between storms</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Outcome</span><span class="rd">10 to 20 booked inspections a month</span></span></a>
+<a class="rs" href="#"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Timeframe</span><span class="rd">Within 60 days</span></span></a>
+<a class="rs" href="BuilderMethod.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Method</span><span class="rd">4 steps</span></span></a>
+<a class="rs cur" href="BuilderPart.dc.html" aria-current="step"><span class="rn">6</span><span class="stack"><span class="rt">Guarantee</span><span class="rd">What if it doesn’t work</span></span></a>
+<a class="rs" href="#"><span class="rn">7</span><span class="stack"><span class="rt">Price</span><span class="rd">What it costs, and why it’s worth it</span></span></a>
+<a class="rs" href="#"><span class="rn">8</span><span class="stack"><span class="rt">Proof</span><span class="rd">Real results</span></span></a>
+<a class="rs" href="BuilderLine.dc.html"><span class="rn">9</span><span class="stack"><span class="rt">Put it together</span><span class="rd">Your offer in one line</span></span></a>
+<a class="rs" href="BuilderScore.dc.html"><span class="rn">10</span><span class="stack"><span class="rt">Score and go live</span><span class="rd">Every part needs 7</span></span></a>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">6 of 10</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Your guarantee</h1>
+<p class="muted" style="max-width: 660px;">What they get if it doesn’t work. It takes the risk off them, so the only question left is whether they trust you. It covers customers who qualify, so you never promise everyone everything.</p>
+</div>
+
+<div>
+<label class="label" for="promise">What do you promise if it doesn’t work?</label>
+<textarea id="promise" class="textarea">We work for free until you get 10 booked inspections</textarea>
+<div class="tools">
+<button class="btn btn-ghost btn-sm"><svg class="icon ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>Improve</button>
+<span class="xs faint">· Examples to model, not to copy:</span>
+<button class="ex">If it leaks in the next 10 years, we fix it free</button>
+<button class="ex">On time or the service call is free</button>
+</div>
+<div class="panel" style="margin-top: 12px;">
+<div class="row" style="padding: 12px 16px; justify-content: space-between;"><span class="small" style="font-weight: 600;">Pick one, or keep yours</span><button class="btn btn-ghost btn-sm" aria-label="Close the AI’s options"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="choice"><span class="small" style="flex: 1;">If you don’t get 10 booked inspections in 60 days, you don’t pay for that month.</span><button class="btn btn-secondary btn-sm">Use this</button></div>
+<div class="choice"><span class="small" style="flex: 1;">We keep working for free until you have 10 booked inspections.</span><button class="btn btn-secondary btn-sm">Use this</button></div>
+<div class="choice"><span class="small" style="flex: 1;">Get 10 booked inspections in 60 days, or your money back for the time it took.</span><button class="btn btn-secondary btn-sm">Use this</button></div>
+</div>
+</div>
+
+<div>
+<label class="label" for="when">When does it apply?</label>
+<textarea id="when" class="textarea" placeholder="They follow the plan and keep the appointments"></textarea>
+<div class="tools">
+<button class="btn btn-ghost btn-sm"><svg class="icon ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>Write it for me</button>
+<span class="xs faint">· Examples:</span>
+<button class="ex">They follow the plan and keep the appointments</button>
+<button class="ex">Within 30 days of the work being done</button>
+</div>
+</div>
+
+<div>
+<label class="label" for="who">Who qualifies?</label>
+<textarea id="who" class="textarea" placeholder="Roofers who answer new leads within the hour"></textarea>
+<div class="hint" style="margin-top: 6px;">A customer who can’t get the result through no fault of yours isn’t one to promise it to. Say who is.</div>
+<div class="tools">
+<button class="btn btn-ghost btn-sm"><svg class="icon ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>Write it for me</button>
+<span class="xs faint">· Examples:</span>
+<button class="ex">A home built after 1990, in our service area</button>
+<button class="ex">At least 6 months in business</button>
+</div>
+</div>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="BuilderMethod.dc.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a>
+<div style="flex: 1;"></div>
+<span class="xs faint">Draft saved 2:31 PM</span>
+<a class="btn btn-primary btn-lg" href="#">Continue</a>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light'
+    };
+  }
+}
+</script>
+</body>
+</html>

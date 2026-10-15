@@ -15,6 +15,7 @@ import {
   shownState,
   stateTone,
 } from '@hfos/core/addons/outreach/live';
+import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -37,7 +38,16 @@ const DOT: Record<ReturnType<typeof stateTone>, string> = {
   plain: 'bg-text-3 shadow-[0_0_0_4px_var(--card-2)]',
 };
 
-export function StatusStrip({ workspaceId, live }: { workspaceId: string; live: Live }) {
+export function StatusStrip({
+  workspaceId,
+  live,
+  ready = true,
+}: {
+  workspaceId: string;
+  live: Live;
+  /** Whether the person is ready (decision 63): until they are, Start my day waits and says why. */
+  ready?: boolean;
+}) {
   useRefetchWhileShown();
   const now = useServerNow(live.now);
   const { busy, act } = useAct();
@@ -133,7 +143,7 @@ export function StatusStrip({ workspaceId, live }: { workspaceId: string; live: 
               size="sm"
               onClick={() => press('start')}
               loading={busy === 'start'}
-              disabled={busy !== null || sendingOff || live.day.why === 'warning'}
+              disabled={busy !== null || !ready || sendingOff || live.day.why === 'warning'}
               data-testid="live-start"
             >
               {W.startDay}
@@ -200,6 +210,14 @@ export function StatusStrip({ workspaceId, live }: { workspaceId: string; live: 
           {warningNote(live.warning)}
         </p>
       ) : null}
+      {ready ? null : (
+        <p
+          className="rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
+          data-testid="live-not-ready"
+        >
+          {READY_WORDS.stripNotReady}
+        </p>
+      )}
       {sendingOff ? (
         <p
           className="rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"

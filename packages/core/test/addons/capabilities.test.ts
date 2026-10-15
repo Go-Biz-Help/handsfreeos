@@ -100,8 +100,9 @@ describe('capabilitySets', () => {
     for (const id of TWELVE)
       for (const c of FIXTURE_CATALOG.find((m) => m.id === id)!.capabilities)
         expect(current.has(c.id)).toBe(true);
+    // None of the fixtures uses a part of core only some add-ons need (the main offer), so those aren't here.
     expect(current.size).toBe(
-      CORE_CAPABILITIES.length +
+      CORE_CAPABILITIES.filter((c) => !c.feature).length +
         TWELVE.reduce(
           (n, id) => n + FIXTURE_CATALOG.find((m) => m.id === id)!.capabilities.length,
           0,

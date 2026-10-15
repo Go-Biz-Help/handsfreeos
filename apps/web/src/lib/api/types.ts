@@ -186,6 +186,9 @@ export type KnowledgeProfileGet = Ok<'/v1/queries/knowledge.profile'>;
 // Milestone 18: the offers the AI teammate shares
 export type OfferList = Ok<'/v1/queries/offer.list'>;
 export type Offer = OfferList['offers'][number];
+// The business's main offer (docs/main-offer.md): its page in Settings and the builder.
+export type MainOfferGet = Ok<'/v1/queries/main_offer.get'>;
+export type MainOfferVersions = Ok<'/v1/queries/main_offer.versions'>['versions'];
 export type KnowledgeProfileValue = KnowledgeProfileGet['profile'];
 export type KnowledgeItemList = Ok<'/v1/queries/knowledge_item.list'>;
 export type KnowledgeItem = KnowledgeItemList['items'][number];

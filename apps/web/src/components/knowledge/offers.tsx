@@ -63,13 +63,13 @@ export function OfferList({
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (!draft.name.trim()) return setErrors({ name: 'Name the offer.' });
+    if (!draft.name.trim()) return setErrors({ name: 'Name the promotion.' });
     setBusy(true);
     setErrors({});
     try {
       if (editing === 'new') await createOffer(workspaceId, draft);
       else if (editing) await updateOffer(workspaceId, editing, draft);
-      toast.success(editing === 'new' ? 'Offer added.' : 'Offer saved.');
+      toast.success(editing === 'new' ? 'Promotion added.' : 'Promotion saved.');
       setEditing(null);
       router.refresh();
     } catch (err) {
@@ -147,7 +147,7 @@ export function OfferList({
         </div>
         <div className="flex gap-2">
           <Button type="submit" disabled={busy} data-testid="offer-save">
-            {editing === 'new' ? 'Add offer' : 'Save'}
+            {editing === 'new' ? 'Add promotion' : 'Save'}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
             Cancel
@@ -160,20 +160,20 @@ export function OfferList({
   return (
     <div className="flex max-w-[760px] flex-col gap-3" data-testid="offers">
       <p className="text-[13px] leading-[1.5] text-text-2">
-        What you’re running right now. Your AI teammate tells customers about the offers that are
-        running today, and never makes one up. It doesn’t take them off a bill; your team does.
+        What you’re running right now. Your AI teammate tells customers about the promotions that
+        are running today, and never makes one up. It doesn’t take them off a bill; your team does.
       </p>
       {canManage && editing === null ? (
         <div>
           <Button size="sm" onClick={() => open(null)} data-testid="offer-add">
             <Plus className="h-4 w-4" strokeWidth={1.75} />
-            Add an offer
+            Add a promotion
           </Button>
         </div>
       ) : null}
       {editing === 'new' ? form : null}
       {!offers.length && editing !== 'new' ? (
-        <EmptyState title="No offers yet" dashed>
+        <EmptyState title="No promotions yet" dashed>
           Add one and your AI teammate starts sharing it right away.
         </EmptyState>
       ) : null}

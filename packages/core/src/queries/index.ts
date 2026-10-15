@@ -100,6 +100,7 @@ import { permissionSettings } from './permission';
 import { migrationQueries } from './migration';
 import { walletQueries } from './wallet';
 import { offerList } from './offer';
+import { mainOfferGet, mainOfferVersionList } from './main-offer';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -328,6 +329,8 @@ export const queries: readonly QueryDef[] = [
   knowledgeProfileGet,
   knowledgeItemList,
   offerList,
+  mainOfferGet,
+  mainOfferVersionList,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,
@@ -458,6 +461,7 @@ export * from './port';
 export * from './branded-domain';
 export * from './founding';
 export * from './offer';
+export * from './main-offer';
 export * from './relationship';
 export * from './support-access';
 export * from './record-hold';

@@ -91,7 +91,7 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'Something to teach the AI',
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
-  offer_lapsing: 'Offer ending',
+  offer_lapsing: 'Promotion ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alert',
 };
@@ -130,7 +130,7 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'Things to teach the AI',
   website_changed: 'Website changes',
   faq_suggestions: 'Questions to answer',
-  offer_lapsing: 'Offers ending',
+  offer_lapsing: 'Promotions ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alerts',
 };
@@ -582,7 +582,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   ai_corrections: 'Add to what the AI knows',
   website_changed: 'Review updates',
   faq_suggestions: 'Answer',
-  offer_lapsing: 'Open the offer',
+  offer_lapsing: 'Open the promotion',
   texting_rejected: 'Fix and send again',
   addon_alert: 'Open',
 };
@@ -669,7 +669,7 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   ai_corrections: 'What the AI learns is yours to decide.',
   website_changed: 'What the AI learns is yours to decide.',
   faq_suggestions: 'Only you know the answer.',
-  offer_lapsing: 'Whether an offer runs longer is your call.',
+  offer_lapsing: 'Whether a promotion runs longer is your call.',
   texting_rejected: 'Only you can fix the details the carriers turned down.',
   addon_alert: 'The add-on that raised this says when it’s done.',
 };

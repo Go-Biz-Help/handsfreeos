@@ -37,6 +37,7 @@ import {
   oneByOne,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
+import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
@@ -66,8 +67,18 @@ import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
+import { GetReadyCard } from './get-ready';
 import { StatusStrip } from './status-strip';
-import type { Asks, HelpfulList, Live, TodayItem, TodayList, Waiting, WheelsList } from './types';
+import type {
+  Asks,
+  HelpfulList,
+  Live,
+  Readiness,
+  TodayItem,
+  TodayList,
+  Waiting,
+  WheelsList,
+} from './types';
 import { useAct } from './use-act';
 import { NeedsYou } from './waiting-view';
 
@@ -98,9 +109,12 @@ export function TodayView({
   asks,
   live,
   waiting,
+  readiness,
 }: {
   workspaceId: string;
   today: TodayList;
+  /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
+  readiness: Readiness | null;
   /** Today's helpful post, and those up lately (decision 50). */
   helpful: HelpfulList;
   /** Who's on training wheels: for owners and admins, else null. */
@@ -136,7 +150,7 @@ export function TodayView({
     });
   return (
     <div data-testid="outreach-today">
-      {live ? <StatusStrip workspaceId={workspaceId} live={live} /> : null}
+      {live ? <StatusStrip workspaceId={workspaceId} live={live} ready={!readiness} /> : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           {today.warning && !live?.warning ? (
@@ -155,6 +169,9 @@ export function TodayView({
             >
               {wheelsWords(today.wheels)}
             </p>
+          ) : null}
+          {readiness ? (
+            <GetReadyCard workspaceId={workspaceId} readiness={readiness} asks={asks} />
           ) : null}
           {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
           <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
@@ -181,6 +198,9 @@ export function TodayView({
                   </Button>
                 ) : null}
               </div>
+              {readiness ? (
+                <p className="-mt-1 text-[13px] text-text-2">{READY_WORDS.repliesStill}</p>
+              ) : null}
               <Card className="p-0" data-testid="today-list">
                 <ul>
                   {items.map((item, i) => (
@@ -196,7 +216,7 @@ export function TodayView({
                 </ul>
               </Card>
             </section>
-          ) : (
+          ) : readiness ? null : (
             <TodayStart workspaceId={workspaceId} />
           )}
         </div>

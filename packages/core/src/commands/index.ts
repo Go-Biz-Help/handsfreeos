@@ -291,6 +291,12 @@ import {
   knowledgeSuggestionReject,
 } from './knowledge';
 import { offerArchive, offerCreate, offerUpdate } from './offer';
+import {
+  mainOfferDiscardDraft,
+  mainOfferPublish,
+  mainOfferSaveDraft,
+  mainOfferScoreSave,
+} from './main-offer';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
 import {
   portalAccessGive,
@@ -910,6 +916,10 @@ export const commands: readonly CommandDef[] = [
   offerCreate,
   offerUpdate,
   offerArchive,
+  mainOfferSaveDraft,
+  mainOfferDiscardDraft,
+  mainOfferScoreSave,
+  mainOfferPublish,
   knowledgeItemImportFaqs,
   knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,
@@ -1146,6 +1156,7 @@ export * from './ai-setup-template';
 export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';
+export * from './main-offer';
 export * from './chat-verify';
 export * from './portal-access';
 export * from './portal-files';

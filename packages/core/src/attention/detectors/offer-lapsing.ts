@@ -1,5 +1,5 @@
 /**
- * An offer about to end (Automations' "Offer ending"): an offer from Knowledge → Offers whose end date is three days
+ * An offer about to end (Automations' "Promotion ending"): an offer from Knowledge → Promotions whose end date is three days
  * away or less. Time to extend it, or to send one last campaign while it still runs. It goes once the offer is
  * extended past the window, archived, or over.
  */

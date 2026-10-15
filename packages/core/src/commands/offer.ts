@@ -37,7 +37,7 @@ async function requireOffer(ctx: CommandContext, offerId: string) {
     .for('update');
   if (!row)
     throw HfosError.notFound(
-      'That offer isn’t there anymore. It may have been archived. Refresh and try again.',
+      'That promotion isn’t there anymore. It may have been archived. Refresh and try again.',
     );
   return row;
 }
@@ -45,7 +45,7 @@ async function requireOffer(ctx: CommandContext, offerId: string) {
 export const offerCreate = defineCommand({
   name: 'offer.create',
   description:
-    'Add an offer the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.',
+    'Add a promotion the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.',
   risk: 1,
   input: OfferCreateInput,
   output: OfferCreateOutput,
@@ -79,7 +79,7 @@ export const offerCreate = defineCommand({
 
 export const offerUpdate = defineCommand({
   name: 'offer.update',
-  description: 'Change an offer’s name, details or dates.',
+  description: 'Change a promotion’s name, details or dates.',
   risk: 1,
   input: OfferUpdateInput,
   output: OfferUpdateOutput,
@@ -105,7 +105,7 @@ export const offerUpdate = defineCommand({
     if (startsOn && endsOn && endsOn < startsOn)
       throw HfosError.validation(
         [{ path: 'endsOn', message: 'End on or after the start.' }],
-        `This offer would end on ${formatDateOnly(endsOn)}, before it starts on ${formatDateOnly(startsOn)}. Pick an end date on or after the start.`,
+        `This promotion would end on ${formatDateOnly(endsOn)}, before it starts on ${formatDateOnly(startsOn)}. Pick an end date on or after the start.`,
       );
     const updated = Object.keys(patch);
     if (!updated.length) return { offerId: before.id, updated };
@@ -125,7 +125,7 @@ export const offerUpdate = defineCommand({
 
 export const offerArchive = defineCommand({
   name: 'offer.archive',
-  description: 'Take an offer off the list. The AI teammate stops mentioning it at once.',
+  description: 'Take a promotion off the list. The AI teammate stops mentioning it at once.',
   risk: 1,
   input: OfferArchiveInput,
   output: OfferArchiveOutput,

@@ -20,7 +20,11 @@ import {
   run,
   setupTeam,
 } from '../../../packages/core/test/calendar-helpers';
-import { outreachBusiness, runAs } from '../../../packages/core/test/addons/outreach-fixture';
+import {
+  getReady,
+  outreachBusiness,
+  runAs,
+} from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
 import { MORNING_JOB } from '../src/addons/outreach/alerts';
 import { LIVE_PRUNE_JOB } from '../src/addons/outreach/live';
@@ -183,7 +187,8 @@ describe('phone alerts', () => {
       },
     ]);
 
-    // The morning push is armed; at the business's hour, the person hears what's on their list.
+    // The morning push is armed; at the business's hour, the person hears what's on their list (once they're ready).
+    await getReady(ws, [owner.id]);
     const [armed] = await rows<{ id: string }>(
       admin(),
       sql`select id from app.scheduled_jobs

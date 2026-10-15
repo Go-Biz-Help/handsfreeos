@@ -21,6 +21,8 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  OwnProfileAnswer,
+  OwnProfileAsk,
 } from './messages';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -127,21 +129,42 @@ export class WorkTab {
   async ask(message: AutoAsk): Promise<AutoAnswer>;
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
+  async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
-    message: FetchAsk | AutoAsk | JoinAsk | GroupPostAsk | BrowseAsk | Ask,
-  ): Promise<FetchAnswer | AutoAnswer | JoinAnswer | GroupPostAnswer | BrowseAnswer | Answer> {
+    message: FetchAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | BrowseAsk | Ask,
+  ): Promise<
+    | FetchAnswer
+    | AutoAnswer
+    | JoinAnswer
+    | GroupPostAnswer
+    | OwnProfileAnswer
+    | BrowseAnswer
+    | Answer
+  > {
     if (this.id === null) return { ok: false, error: 'The Facebook tab was closed.' };
     const id = this.id;
     try {
       return (await chrome.tabs.sendMessage(id, message)) as
-        FetchAnswer | AutoAnswer | JoinAnswer | GroupPostAnswer | BrowseAnswer | Answer;
+        | FetchAnswer
+        | AutoAnswer
+        | JoinAnswer
+        | GroupPostAnswer
+        | OwnProfileAnswer
+        | BrowseAnswer
+        | Answer;
     } catch {
       try {
         await chrome.scripting.executeScript({ target: { tabId: id }, files: ['content.js'] });
         return (await chrome.tabs.sendMessage(id, message)) as
-          FetchAnswer | AutoAnswer | JoinAnswer | GroupPostAnswer | BrowseAnswer | Answer;
+          | FetchAnswer
+          | AutoAnswer
+          | JoinAnswer
+          | GroupPostAnswer
+          | OwnProfileAnswer
+          | BrowseAnswer
+          | Answer;
       } catch {
         return {
           ok: false,

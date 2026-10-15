@@ -13,7 +13,7 @@ const LIVE = [
   'knowledge_source',
 ];
 
-/** Overview · Items · Documents · Website · Offers · Suggestions (with how many are waiting). */
+/** Overview · Items · Documents · Website · Promotions · Suggestions (with how many are waiting). */
 export function KnowledgeSubnav({
   workspaceId,
   pending,
@@ -32,7 +32,7 @@ export function KnowledgeSubnav({
     { href: `${base}/items`, label: 'Items' },
     { href: `${base}/documents`, label: 'Documents' },
     { href: `${base}/website`, label: 'Website' },
-    { href: `${base}/offers`, label: 'Offers' },
+    { href: `${base}/offers`, label: 'Promotions' },
     { href: `${base}/suggestions`, label: 'Suggestions', count: pending },
   ];
   return (

@@ -1,0 +1,305 @@
+/**
+ * Get ready for your best results (../readiness.ts; docs/outreach.md, decision 63): where each item stands for the
+ * person, worked out each time from what's kept, and their own two: the profile items they tick, and their numbers.
+ * `readinessFor` is what Start my day, Today's list and the extension's own helpful posts ask before anything
+ * outreach-like happens. Each person reads and writes only their own.
+ */
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { mainOffers, mainOfferVersions } from '@hfos/db/schema';
+import { HfosError } from '../../../errors';
+import { requireHuman, userIdOf } from '../../../kernel/actor';
+import { scopeCan } from '../../../kernel/execute';
+import { changeMoment } from '../../../kernel/moment';
+import { MainOfferParts } from '../../../main-offer/parts';
+import type { Permission } from '../../../permissions';
+import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { dayList } from '../automation';
+import { DAILY_LIMITS } from '../limits';
+import { outreachAddon } from '../manifest';
+import { ProfileCheck } from '../profile-check';
+import {
+  NumbersInput,
+  ProfileCheckSaveInput,
+  ProfileTickInput,
+  ProfileTicks,
+  readinessOf,
+  ReadinessInput,
+  ReadinessOutput,
+  type Readiness,
+} from '../readiness';
+import { automation, setup } from '../tables';
+import { automationOf } from './automation';
+import { inWorkspace, type Ctx } from './common';
+import { playbooksInUse } from './friends';
+
+/** The main offer's live version and the one before it, as the readiness reads them. */
+async function liveOffer(ctx: Ctx) {
+  const ws = ctx.scope.workspaceId!;
+  const [kept] = await ctx.tx
+    .select({ live: mainOffers.liveVersion })
+    .from(mainOffers)
+    .where(eq(mainOffers.workspaceId, ws));
+  const live = kept?.live ?? null;
+  if (live === null) return null;
+  const versions = await ctx.tx
+    .select({
+      version: mainOfferVersions.version,
+      parts: mainOfferVersions.parts,
+      line: mainOfferVersions.line,
+    })
+    .from(mainOfferVersions)
+    .where(
+      and(
+        eq(mainOfferVersions.workspaceId, ws),
+        inArray(mainOfferVersions.version, live > 1 ? [live, live - 1] : [live]),
+      ),
+    )
+    .orderBy(desc(mainOfferVersions.version));
+  const now = versions.find((v) => v.version === live);
+  if (!now) return null;
+  const before = versions.find((v) => v.version === live - 1);
+  const read = (parts: unknown) => MainOfferParts.safeParse(parts).data ?? MainOfferParts.parse({});
+  return {
+    version: live,
+    line: now.line,
+    parts: read(now.parts),
+    before: before ? read(before.parts) : null,
+  };
+}
+
+async function setupRow(ctx: Ctx, me: string) {
+  const [row] = await ctx.tx
+    .select()
+    .from(setup)
+    .where(and(eq(setup.workspaceId, ctx.scope.workspaceId!), eq(setup.userId, me)));
+  return row;
+}
+
+/** Everything Get ready shows the person, and whether they're ready (the worker asking on their behalf counts as them). */
+export async function readinessFor(ctx: Ctx, me: string): Promise<ReadinessOutput> {
+  const [offer, playbooks, row, auto] = await Promise.all([
+    liveOffer(ctx),
+    playbooksInUse(ctx),
+    setupRow(ctx, me),
+    automationOf(ctx, me),
+  ]);
+  const profile = ProfileTicks.safeParse(row?.profile ?? {}).data ?? {};
+  const profileCheck = ProfileCheck.safeParse(row?.profileCheck ?? null).data ?? null;
+  const numbers = {
+    goal: row?.callsGoal ?? null,
+    at: row?.numbersAt?.toISOString() ?? null,
+  };
+  const r: Readiness = readinessOf({
+    offer,
+    playbooks: playbooks.map((p) => ({
+      name: p.name,
+      niche: p.details.niche ?? null,
+      problem: p.details.problem ?? null,
+      proof: p.details.proof ?? [],
+    })),
+    profile,
+    profileCheck,
+    numbers,
+    canOffer: scopeCan(ctx.scope, 'main_offer.manage' as Permission),
+    canPlaybooks: scopeCan(ctx.scope, 'outreach.manage' as Permission),
+  });
+  return {
+    ...r,
+    items: [...r.items],
+    changed: [...r.changed],
+    offer: offer ? { version: offer.version, line: offer.line } : null,
+    profile,
+    profileCheck,
+    numbers: {
+      ...numbers,
+      days: dayList(auto.settings.hours.days),
+      canSend: Math.min(
+        DAILY_LIMITS.first_message,
+        auto.rules.dailyLimits.first_message ?? DAILY_LIMITS.first_message,
+      ),
+    },
+  };
+}
+
+/** The person asking: only a person gets ready. */
+function meOf(ctx: Ctx): string {
+  const me = userIdOf(ctx.actor);
+  if (!me) throw HfosError.forbidden('Only a person gets ready for Social Outreach.');
+  return me;
+}
+
+export const readinessGet = defineAddonQuery(outreachAddon, {
+  name: 'outreach.readiness',
+  description:
+    'Get ready for your best results: where each of the person’s items stands before the extension reaches anyone for them (the business’s main offer, a playbook with a niche, their profile, their numbers), what’s left of each, and their goal and working days.',
+  input: ReadinessInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx) {
+    return readinessFor(ctx, meOf(ctx));
+  },
+});
+
+export const readinessProfile = defineAddonCommand(outreachAddon, {
+  name: 'outreach.readiness.profile',
+  description:
+    'The person ticks an item on their Facebook profile list as done (or takes it back), against the main offer live now.',
+  risk: 0,
+  input: ProfileTickInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const [row, offer] = await Promise.all([setupRow(ctx, me), liveOffer(ctx)]);
+    const ticks: ProfileTicks = { ...(ProfileTicks.safeParse(row?.profile ?? {}).data ?? {}) };
+    if (input.done) ticks[input.item] = { at: at.toISOString(), version: offer?.version ?? null };
+    else delete ticks[input.item];
+    const [kept] = await ctx.tx
+      .insert(setup)
+      .values({ workspaceId: ws, userId: me, profile: ticks, updatedAt: at })
+      .onConflictDoUpdate({
+        target: [setup.workspaceId, setup.userId],
+        set: { profile: ticks, updatedAt: at },
+      })
+      .returning({ id: setup.id });
+    await ctx.emit({
+      type: 'outreach.readiness.saved',
+      entityType: 'outreach_setup',
+      entityId: kept!.id,
+      payload: { userId: me, part: 'profile' },
+    });
+    return readinessFor(ctx, me);
+  },
+});
+
+export const readinessNumbers = defineAddonCommand(outreachAddon, {
+  name: 'outreach.readiness.numbers',
+  description:
+    'The person sets their goal for calls booked a month and the days they work (kept in their working hours), having seen what it takes each day.',
+  risk: 0,
+  input: NumbersInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved', 'outreach.automation.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const [kept] = await ctx.tx
+      .insert(setup)
+      .values({ workspaceId: ws, userId: me, callsGoal: input.goal, numbersAt: at, updatedAt: at })
+      .onConflictDoUpdate({
+        target: [setup.workspaceId, setup.userId],
+        set: { callsGoal: input.goal, numbersAt: at, updatedAt: at },
+      })
+      .returning({ id: setup.id });
+    // The days are their working hours': changed here, they're the person's own choice, kept with the rest of their
+    // settings (the business's defaults until now, when they had none of their own).
+    const { settings: s } = await automationOf(ctx, me);
+    const days = dayList(input.days);
+    if (days.join() !== dayList(s.hours.days).join()) {
+      const [row] = await ctx.tx
+        .insert(automation)
+        .values({
+          workspaceId: ws,
+          userId: me,
+          sending: s.sending,
+          replies: s.replies,
+          warmUp: s.warmUp,
+          confirmRequests: s.confirmRequests,
+          collect: s.collect,
+          joinGroups: s.joinGroups,
+          watchPosts: s.watchPosts,
+          posting: s.posting,
+          hoursStart: s.hours.start,
+          hoursEnd: s.hours.end,
+          days,
+          noting: s.noting,
+          readChats: s.readChats,
+          markPosts: s.markPosts,
+          pushes: s.pushes,
+          voiceShorthand: s.voice.shorthand,
+          voiceAcronyms: s.voice.acronyms,
+          voiceEmoji: s.voice.emoji,
+          voiceSplit: s.voice.split,
+          changedBy: null,
+          updatedAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [automation.workspaceId, automation.userId],
+          set: { days, changedBy: null, updatedAt: at },
+        })
+        .returning();
+      await ctx.emit({
+        type: 'outreach.automation.saved',
+        entityType: 'outreach_automation',
+        entityId: row!.id,
+        payload: {
+          userId: me,
+          sending: s.sending,
+          replies: s.replies,
+          warmUp: s.warmUp,
+          confirmRequests: s.confirmRequests,
+          collect: s.collect,
+          byOther: false,
+        },
+      });
+    }
+    await ctx.emit({
+      type: 'outreach.readiness.saved',
+      entityType: 'outreach_setup',
+      entityId: kept!.id,
+      payload: { userId: me, part: 'numbers' },
+    });
+    return readinessFor(ctx, me);
+  },
+});
+
+/**
+ * The AI's check of the person's own profile, which the extension read (../profile-check.ts, decision 64): the worker's
+ * alone, after the AI answers. Only the answer is kept; what the page said never reaches here.
+ */
+export const profileCheckSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.profile.check_save',
+  description:
+    'Keeps the AI’s check of a person’s own Facebook profile, read by their extension: each item right or not and what to change, bios to pick from, a cover line and what to feature.',
+  risk: 0,
+  input: ProfileCheckSaveInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const at = changeMoment(ctx.meta);
+    const [kept] = await ctx.tx
+      .insert(setup)
+      .values({
+        workspaceId: ctx.scope.workspaceId!,
+        userId: input.userId,
+        profileCheck: input.check,
+        updatedAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [setup.workspaceId, setup.userId],
+        set: { profileCheck: input.check, updatedAt: at },
+      })
+      .returning({ id: setup.id });
+    await ctx.emit({
+      type: 'outreach.readiness.saved',
+      entityType: 'outreach_setup',
+      entityId: kept!.id,
+      payload: { userId: input.userId, part: 'profile_check' },
+    });
+    return readinessFor(ctx, input.userId);
+  },
+});
+
+export const readinessCommands = [readinessProfile, readinessNumbers, profileCheckSave] as const;
+export const readinessQueries = [readinessGet] as const;

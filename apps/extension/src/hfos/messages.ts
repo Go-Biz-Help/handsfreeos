@@ -3,11 +3,13 @@
  * sign-in and makes every call to HandsFreeOS (./session.ts), so the panels open in different windows share one
  * sign-in and never refresh it twice at once. Both ends are the extension's own; Facebook's tabs never see these.
  */
+import type { ProfileCheck, ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
+import type { ReadyItem, ReadyState } from '@hfos/core/addons/outreach/readiness';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
 import type { AutoState } from '../auto/plan';
 
@@ -187,6 +189,21 @@ export interface AutoStatus {
    * the latest steps. Null when HandsFreeOS couldn't say; missing from a background before 0.26.
    */
   readonly today?: TodaySoFar | null;
+  /**
+   * Get ready (decision 63): what's left before the extension reaches anyone for the person, for the panel's card.
+   * Null when HandsFreeOS couldn't say; missing from a background before 0.31.
+   */
+  readonly ready?: ReadyShown | null;
+}
+
+/** Get ready's items as the panel shows them (packages/core/src/addons/outreach/readiness.ts). */
+export interface ReadyShown {
+  readonly ready: boolean;
+  readonly items: readonly {
+    readonly item: ReadyItem;
+    readonly state: ReadyState;
+    readonly left: string | null;
+  }[];
 }
 
 /** Today's steps against the daily limits, and the newest of the day's feed. */
@@ -228,6 +245,12 @@ export type HfosAsk =
       readonly type: 'hfos-draft';
       readonly workspaceId: string;
       readonly input: TodayDraftInput;
+    }
+  /** The person's own profile, read here, for the AI's check (decision 64): kept by HandsFreeOS, only its answer. */
+  | {
+      readonly type: 'hfos-profile-check';
+      readonly workspaceId: string;
+      readonly input: ProfileRead;
     }
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
@@ -289,6 +312,7 @@ export interface HfosValues {
   readonly 'hfos-save-group': GroupSaved;
   readonly 'hfos-groups': GroupsList;
   readonly 'hfos-draft': Drafts;
+  readonly 'hfos-profile-check': ProfileCheck;
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;

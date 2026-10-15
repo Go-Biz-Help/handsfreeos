@@ -1,5 +1,5 @@
 /**
- * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36 and 45): its steps and where it opens, the
+ * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36, 45 and 63): its steps and where it opens, the
  * summary beside them, the extension's link as a business setting, and each person's own progress on the database:
  * who's a first-timer, what the extension signing in does and doesn't count as, and what the steps show.
  */
@@ -41,8 +41,8 @@ describe('the setup’s steps', () => {
   const member = setupSteps(false);
 
   it('has the team’s rules only for owners and admins, before their own settings', () => {
-    expect(manager).toEqual(['playbooks', 'rules', 'settings', 'extension', 'groups']);
-    expect(member).toEqual(['playbooks', 'settings', 'extension', 'groups']);
+    expect(manager).toEqual(['playbooks', 'ready', 'rules', 'settings', 'extension', 'groups']);
+    expect(member).toEqual(['playbooks', 'ready', 'settings', 'extension', 'groups']);
   });
 
   it('only moves forward, and counts a member’s steps right', () => {
@@ -50,21 +50,23 @@ describe('the setup’s steps', () => {
     expect(laterStep('extension', 'settings')).toBe('extension');
     expect(laterStep('settings', null)).toBe('settings');
     expect(stepsDone(null, member)).toBe(0);
-    expect(stepsDone('settings', member)).toBe(2);
-    expect(stepsDone('settings', manager)).toBe(3);
-    expect(stepsDone('groups', member)).toBe(4);
+    expect(stepsDone('settings', member)).toBe(3);
+    expect(stepsDone('settings', manager)).toBe(4);
+    expect(stepsDone('groups', member)).toBe(5);
   });
 
   it('goes on and back through the person’s own steps', () => {
-    expect(nextScreen('playbooks', member)).toBe('settings');
-    expect(nextScreen('playbooks', manager)).toBe('rules');
+    // Get ready comes after the playbooks, for everyone (decision 63).
+    expect(nextScreen('playbooks', member)).toBe('ready');
+    expect(nextScreen('ready', member)).toBe('settings');
+    expect(nextScreen('ready', manager)).toBe('rules');
     expect(nextScreen('groups', member)).toBe('done');
-    expect(previousStep('settings', member)).toBe('playbooks');
+    expect(previousStep('settings', member)).toBe('ready');
     expect(previousStep('playbooks', member)).toBeNull();
     expect(previousStep('done', member)).toBe('groups');
     // Back from the first step is the welcome, and there's none before it.
     expect(previousScreen('playbooks', member)).toBe('welcome');
-    expect(previousScreen('settings', member)).toBe('playbooks');
+    expect(previousScreen('settings', member)).toBe('ready');
     expect(previousScreen('welcome', member)).toBeNull();
     expect(readSetupStep('extension')).toBe('extension');
     expect(readSetupStep('welcome')).toBe('welcome');
@@ -82,8 +84,9 @@ describe('the setup’s steps', () => {
     // Nothing finished yet: the welcome, before the steps; asked for, it opens any time.
     expect(open(null, null)).toBe('welcome');
     expect(open('settings', 'welcome')).toBe('welcome');
-    expect(open('playbooks', null, manager)).toBe('rules');
-    expect(open('playbooks', null)).toBe('settings');
+    expect(open('playbooks', null, manager)).toBe('ready');
+    expect(open('ready', null, manager)).toBe('rules');
+    expect(open('ready', null)).toBe('settings');
     expect(open('settings', null)).toBe('extension');
     // The last step finished but not the setup: it opens on the last.
     expect(open('groups', null)).toBe('groups');
@@ -92,7 +95,7 @@ describe('the setup’s steps', () => {
     expect(open('groups', null, member, '2026-10-10T10:00:00Z', true)).toBe('playbooks');
     expect(open('groups', 'extension', member, null, true)).toBe('extension');
     // A step asked for: not past the one they'd come back to, unless they've finished; never one that isn't theirs.
-    expect(open('playbooks', 'groups')).toBe('settings');
+    expect(open('playbooks', 'groups')).toBe('ready');
     expect(open('playbooks', 'playbooks')).toBe('playbooks');
     expect(open(null, 'rules')).toBe('playbooks');
     expect(open('groups', 'done')).toBe('groups');
@@ -251,7 +254,7 @@ describe('each person’s setup', () => {
   it('starts a new person as a first-timer, with their own steps', async () => {
     const mine = await runAs(owner, ws, 'outreach.setup', {});
     expect(mine).toMatchObject({
-      steps: ['playbooks', 'rules', 'settings', 'extension', 'groups'],
+      steps: ['playbooks', 'ready', 'rules', 'settings', 'extension', 'groups'],
       reached: null,
       firstTime: true,
       banner: true,
@@ -263,7 +266,7 @@ describe('each person’s setup', () => {
     });
     const theirs = await runAs(member, ws, 'outreach.setup', {});
     expect(theirs).toMatchObject({
-      steps: ['playbooks', 'settings', 'extension', 'groups'],
+      steps: ['playbooks', 'ready', 'settings', 'extension', 'groups'],
       firstTime: true,
       canManage: false,
     });

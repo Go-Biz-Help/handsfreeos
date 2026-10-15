@@ -15,6 +15,8 @@ export type Chat = Chats['chats'][number];
 export type Groups = Ok<'/v1/queries/outreach.groups'>;
 export type Group = Groups['groups'][number];
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
+/** Get ready (packages/core/src/addons/outreach/readiness.ts, decision 63): what's left before the extension reaches anyone. */
+export type Readiness = Ok<'/v1/queries/outreach.readiness'>;
 /** Today's helpful post and those up lately (decision 50). */
 export type HelpfulList = Ok<'/v1/queries/outreach.helpful'>;
 export type TodayItem = TodayList['items'][number];

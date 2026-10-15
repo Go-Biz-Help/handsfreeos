@@ -48,6 +48,7 @@ import {
   type Ctx,
 } from './common';
 import { playbooksInUse } from './friends';
+import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -165,6 +166,9 @@ export const today = defineAddonQuery(outreachAddon, {
       done,
       dailyLimitsNow(slowsNow(warning, now) || wheels.on, rules.dailyLimits),
     );
+    // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
+    // done on its own: Get ready shows in place of the rest.
+    const ready = (await readinessFor(ctx, me)).ready;
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
@@ -803,14 +807,15 @@ export const today = defineAddonQuery(outreachAddon, {
       });
     return {
       limits,
-      items: listedItems,
+      items: ready ? listedItems : listedItems.filter((i) => i.kind === 'reply'),
       readAdmins: readAdmins.map((g) => ({ groupId: g.id, name: g.name, url: g.url })),
       hasPlaybook: playbooks.length > 0,
       warning,
-      auto: autoKinds(settings),
-      messages: messageKinds(settings),
+      auto: ready ? autoKinds(settings) : [],
+      messages: messageKinds(settings).filter((k) => ready || k === 'reply'),
       sending: settings.sending,
       wheels,
+      ready,
     };
   },
 });

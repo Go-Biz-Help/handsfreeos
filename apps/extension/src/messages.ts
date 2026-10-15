@@ -3,6 +3,8 @@
  * works there; and what the background asks the offscreen page that reads Facebook's file (src/offscreen.ts). Every
  * end is the extension's own: Facebook's scripts never see these messages.
  */
+import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
+import type { BioResult } from './facebook/own-profile';
 import type { Answered, Seen, Step } from './facebook/actions';
 import type { AutoResult, TheirPost } from './facebook/auto';
 import type { FetchStep, StepResult } from './facebook/fetch';
@@ -92,6 +94,18 @@ export type GroupPostAsk =
 export type GroupPostAnswer =
   | { readonly ok: true; readonly result: PostResult }
   | { readonly ok: true; readonly comments: Engaged[]; readonly reactions: Engaged[] }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * The person's own profile (src/facebook/own-profile.ts, decision 64): read what a stranger sees first, or put the bio
+ * they picked in.
+ */
+export type OwnProfileAsk =
+  { readonly type: 'hfos-own-profile' } | { readonly type: 'hfos-write-bio'; readonly bio: string };
+
+export type OwnProfileAnswer =
+  | { readonly ok: true; readonly read: ProfileRead }
+  | { readonly ok: true; readonly result: BioResult }
   | { readonly ok: false; readonly error: string };
 
 export type AutoAnswer =

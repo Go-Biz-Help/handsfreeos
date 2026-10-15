@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { registerTeammateRoutes } from '../ai-team/routes';
 import { registerAssistantRoutes } from '../assistant/routes';
 import { registerKnowledgeRoutes } from '../knowledge/routes';
+import { registerMainOfferRoutes } from '../main-offer/routes';
 import { registerMoneyLinkRoutes } from '../money/link-routes';
 import { registerWalletCardRoutes } from '../money/wallet-card-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
@@ -316,6 +317,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // A form on the business's own website, and services sending leads over (M14 slice B).
   await registerIntakeRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
+  await registerMainOfferRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);
   await registerBuilderRoutes(app, deps);
   await registerTemplateRoutes(app, deps);
