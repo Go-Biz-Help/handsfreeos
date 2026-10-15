@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { workspaceTimezone } from '../../../crm/records';
+import { intlTimeZone } from '../../../intl/engine-zones';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
 import {
@@ -681,9 +682,13 @@ export const today = defineAddonQuery(outreachAddon, {
       followLeft -= quiet.length;
       // Which follow-up of how many, and since when a check-in's been quiet, on the business's calendar.
       const { followUps: of } = await conversationPace(ctx);
-      const timeZone = quiet.length ? await workspaceTimezone(ctx.tx, ws) : 'UTC';
+      const zone = quiet.length ? await workspaceTimezone(ctx.tx, ws) : 'UTC';
       const day = (at: Date | string) =>
-        new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone });
+        new Date(at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          timeZone: intlTimeZone(zone),
+        });
       for (const f of quiet)
         items.push(
           item({
