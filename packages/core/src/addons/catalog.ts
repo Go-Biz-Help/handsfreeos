@@ -15,9 +15,10 @@ import type { AddonManifest } from './manifest';
 import { PLANNED_ADDONS } from './planned';
 import { realestateAddon } from './realestate/manifest';
 import { outreachAddon } from './outreach/manifest';
+import { salescoachAddon } from './salescoach/manifest';
 
 /** The add-ons with code: one line each, which `pnpm addon:new` writes. */
-export const BUILT_ADDONS: Catalog = [realestateAddon, outreachAddon];
+export const BUILT_ADDONS: Catalog = [realestateAddon, outreachAddon, salescoachAddon];
 
 /**
  * Every add-on: the built ones, then every planned one (./planned.ts) that isn't built yet. Building a planned one

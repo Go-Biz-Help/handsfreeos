@@ -4,7 +4,8 @@
  * `v0:<x-zm-request-timestamp>:<the raw body>`. It also checks the URL when the subscription is saved
  * (`endpoint.url_validation`). Someone removing the app in Zoom (`app_deauthorized`) disconnects and erases their
  * Zoom connections here. A transcript that's ready (`recording.transcript_completed`) is matched to its
- * appointment by the meeting's id and handed to `appointment.transcript_fetch`; nothing is downloaded here.
+ * appointment by the meeting's id and handed to `appointment.transcript_fetch`; nothing is downloaded here. The
+ * coaching Zoom app has its own webhook (./live-routes.ts).
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { executeCommand, meetingConnectionRevoke } from '@hfos/core/server';
@@ -20,6 +21,17 @@ const MAX_AGE_MS = 5 * 60_000;
 
 export const zoomSignature = (secret: string, timestamp: string, rawBody: string): string =>
   `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${rawBody}`, 'utf8').digest('hex')}`;
+
+/** A Zoom webhook signed with `secret` in the last five minutes, so a captured one can't be played again later. */
+export function zoomSigned(
+  secret: string | null,
+  timestamp: string,
+  signature: string,
+  rawBody: string,
+): boolean {
+  const fresh = Math.abs(Date.now() - Number(timestamp) * 1000) <= MAX_AGE_MS;
+  return !!secret && fresh && sameText(signature, zoomSignature(secret, timestamp, rawBody));
+}
 
 function sameText(a: string, b: string): boolean {
   const x = Buffer.from(a);
@@ -60,8 +72,7 @@ export async function registerZoomRoutes(app: FastifyInstance, deps: HttpDeps): 
       const rawBody = typeof req.body === 'string' ? req.body : '';
       const timestamp = String(req.headers['x-zm-request-timestamp'] ?? '');
       const signature = String(req.headers['x-zm-signature'] ?? '');
-      const fresh = Math.abs(Date.now() - Number(timestamp) * 1000) <= MAX_AGE_MS;
-      if (!secret || !fresh || !sameText(signature, zoomSignature(secret, timestamp, rawBody))) {
+      if (!secret || !zoomSigned(secret, timestamp, signature, rawBody)) {
         deps.log.warn('rejected an unsigned, stale or mis-signed Zoom webhook');
         return reply.code(401).type('text/plain').send('Invalid signature');
       }

@@ -4,6 +4,7 @@ import { createGoogleCalendar } from './google';
 import { createGraphCalendar } from './graph';
 import type { CalendarProvider, CalendarProviderName } from './provider';
 import { createFakeZoom, FAKE_ZOOM_WEBHOOK_SECRET, type FakeZoom } from '../meetings/fake';
+import { createFakeZoomLive, createZoomLive, type ZoomLiveApp } from '../meetings/zoom-live';
 import {
   createFakeMeet,
   createGoogleMeet,
@@ -25,6 +26,11 @@ export interface CalendarServices {
   readonly fakeZoom: FakeZoom | null;
   /** What Zoom's webhooks are signed with; null leaves the webhook refusing everything. */
   readonly zoomWebhookSecret: string | null;
+  /**
+   * The coaching Zoom app (meetings/zoom-live.ts), apart from the meeting-link one: who a Zoom user is, and what signs
+   * a meeting's live stream and the app's webhooks. Null without its keys, and no meeting is heard.
+   */
+  readonly zoomLive: ZoomLiveApp | null;
   /** Google Meet transcripts, read with the host's Google calendar sign-in. */
   readonly meet: MeetTranscripts;
   /** Local and tests: the stand-in Meet. Null with the real one. */
@@ -46,6 +52,7 @@ export function fakeCalendarServices(
     meetings: { zoom: fakeZoom },
     fakeZoom,
     zoomWebhookSecret: FAKE_ZOOM_WEBHOOK_SECRET,
+    zoomLive: createFakeZoomLive(),
     meet: fakeMeet,
     fakeMeet,
   };
@@ -75,6 +82,11 @@ export function createCalendars(env: WorkerEnv): CalendarServices {
     },
     fakeZoom: null,
     zoomWebhookSecret: env.zoomWebhookSecret,
+    zoomLive: createZoomLive({
+      clientId: env.zoomLiveClientId,
+      clientSecret: env.zoomLiveClientSecret,
+      webhookSecret: env.zoomLiveWebhookSecret,
+    }),
     meet: createGoogleMeet(),
     fakeMeet: null,
   };

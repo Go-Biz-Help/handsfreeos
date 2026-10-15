@@ -547,6 +547,9 @@ importers:
       '@xyflow/react':
         specifier: 12.11.6
         version: 12.11.6(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@zoom/appssdk':
+        specifier: 0.16.41
+        version: 0.16.41
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -3869,6 +3872,9 @@ packages:
 
   '@xyflow/system@0.0.82':
     resolution: {integrity: sha512-4DKnL3CGtCGLRSmgDqaajRVgeksMXq/Yw4wPfdMfm7JvdIiWHGzVYOfFUztiATwdBXZqUU6HhehwUdbV9G23PQ==}
+
+  '@zoom/appssdk@0.16.41':
+    resolution: {integrity: sha512-FVxuczrcjznGBlqtK76xSDGgyYZBDp9Re6/ONcWT8q/g6o2u83EY3H27UJo+0avcDHdXGY5/hz56pB41yX9jkQ==}
 
   abab@2.0.6:
     resolution: {integrity: sha512-j2afSsaIENvHZN2B8GOpF566vZ5WVk5opAiMTvWgaQT8DkbOqsTfvNAvHoRGU2zzP8cPoqys+xHTRDWW8L+/BA==}
@@ -11521,6 +11527,8 @@ snapshots:
       d3-interpolate: 3.0.1
       d3-selection: 3.0.0
       d3-zoom: 3.0.0
+
+  '@zoom/appssdk@0.16.41': {}
 
   abab@2.0.6: {}
 

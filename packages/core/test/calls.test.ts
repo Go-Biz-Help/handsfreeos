@@ -184,6 +184,24 @@ describe('calls', () => {
       status: 'in_progress',
       answeredNumber: MIKE,
     });
+    // The moment it's answered is said once, with the teammate on it, for what listens live (an add-on coaching).
+    await sys(callUpdateStatus, {
+      workspaceId: wsId,
+      callId: started.callId,
+      status: 'in_progress',
+      answeredNumber: MIKE,
+    });
+    const answered = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'call.answered' and entity_id = ${started.callId}`,
+    );
+    expect(answered).toHaveLength(1);
+    expect(answered[0]!.payload).toMatchObject({
+      direction: 'outbound',
+      teamUserId: member.id,
+      answeredNumber: MIKE,
+      conversationId: started.conversationId,
+    });
     expect(
       await sys(callUpdateStatus, {
         workspaceId: wsId,

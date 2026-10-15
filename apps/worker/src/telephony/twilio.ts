@@ -1369,6 +1369,24 @@ export function createTwilioTelephony(master: {
       }
     },
 
+    async startCallStream(account, callSid, stream) {
+      const params = Object.entries(stream.params).flatMap(([name, value], i) => [
+        [`Parameter${i + 1}.Name`, name],
+        [`Parameter${i + 1}.Value`, value],
+      ]);
+      try {
+        await call(
+          credsOf(account),
+          'POST',
+          `${API}/Accounts/${account.sid}/Calls/${callSid}/Streams.json`,
+          { Url: stream.url, Track: 'both_tracks', ...Object.fromEntries(params) },
+        );
+      } catch (e) {
+        // Already over: gone (404), or "Call is not in-progress" (21220).
+        if (!(e instanceof ProviderError && (e.httpStatus === 404 || e.code === '21220'))) throw e;
+      }
+    },
+
     async transcribeRecording(account, recordingSid) {
       const creds = credsOf(account);
       const res = await call<{ sid: string }>(creds, 'POST', `${INTELLIGENCE}/Transcripts`, {

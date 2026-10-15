@@ -1,4 +1,5 @@
 'use client';
+import { AddonSlot } from '@/components/addons/slot';
 import {
   CHAT_BLOCKED_NOTE,
   checkRich,
@@ -792,6 +793,20 @@ export function Composer({
   // Photos show as pictures; email's files, and Messenger's and Instagram's other files, as chips.
   const photos = email ? [] : files.filter((f) => f.photo);
   const others = email ? files : social ? files.filter((f) => !f.photo) : [];
+  // What add-ons suggest writing (Sales Coach's replies), above the box. A click fills the box, never sends.
+  const suggested =
+    target.conversationId && !off ? (
+      <AddonSlot
+        name="composer.suggestions"
+        workspaceId={target.workspaceId}
+        conversationId={target.conversationId}
+        channel={mode}
+        onUse={(words) => {
+          setText(words);
+          area.current?.focus();
+        }}
+      />
+    ) : null;
   const tray =
     photos.length > 0 ? (
       <div className="flex items-center gap-2" data-testid="attachment-tray">
@@ -848,6 +863,7 @@ export function Composer({
       >
         {handover}
         {noteBox}
+        {suggested ? <div className="px-3 pt-2.5 empty:hidden">{suggested}</div> : null}
         {tray ? <div className="px-3 pt-2.5">{tray}</div> : null}
         {chips ? <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">{chips}</div> : null}
         <div
@@ -1100,6 +1116,7 @@ export function Composer({
         </div>
       ) : null}
       {email && !off && variant === 'sheet' ? subjectInput : null}
+      {suggested}
       {tray}
       {rich && richOn && !off ? (
         <RichEditor

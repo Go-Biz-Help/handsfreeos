@@ -124,7 +124,8 @@ export const taskCreate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.created'],
-  actors: ['human', 'workflow', 'ai_employee'],
+  // The system too, for an add-on acting for someone: Sales Coach turns what a rep promised on a call into tasks.
+  actors: ['human', 'workflow', 'ai_employee', 'system'],
   offline: 'anytime',
   async handler(ctx, input) {
     await assertAiReach(ctx, input);

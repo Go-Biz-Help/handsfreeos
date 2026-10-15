@@ -93,6 +93,8 @@ export function voiceUrls(publicUrl: string) {
     dialResultAfterAi: `${base}/dial-result?after=ai`,
     /** The live stream to the AI teammate (M18 step 5): the same host, over a websocket. */
     agent: `${base.replace(/^http/, 'ws')}/agent`,
+    /** A person's call heard live, for the add-ons that listen (telephony/live.ts). */
+    live: `${base.replace(/^http/, 'ws')}/live`,
     /**
      * A live test call's stream (the test console over the phone line), to the machine that holds the console's
      * end of the call: the stream route sends it on there when another machine picks it up.

@@ -18153,6 +18153,215 @@
         }
       }
     },
+    "/v1/commands/live_meeting.claim": {
+      "post": {
+        "operationId": "command_live_meeting_claim",
+        "summary": "From HandsFreeOS’s app inside Zoom: this meeting is yours, so the add-ons that listen hear it once Zoom starts its stream. Finds the customer from the appointment the meeting was made for, unless you pick one. Asking again finds the same claim.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits live_meeting.claimed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "provider": {
+                    "default": "zoom",
+                    "type": "string",
+                    "enum": [
+                      "zoom"
+                    ]
+                  },
+                  "meetingUuid": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "meetingNumber": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9]{6,20}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "screenName": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "personId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "meetingUuid"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "liveMeetingId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "live",
+                        "ended"
+                      ]
+                    },
+                    "appointmentId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "person": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "liveMeetingId",
+                    "state",
+                    "appointmentId",
+                    "person"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/live_meeting_account.disconnect": {
+      "post": {
+        "operationId": "command_live_meeting_account_disconnect",
+        "summary": "Disconnect your Zoom from HandsFreeOS’s coaching app in this business. Meetings aren’t coached until you connect again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits live_meeting_account.disconnected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "accountId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "accountId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "accountId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/call_suggestion.decide": {
       "post": {
         "operationId": "command_call_suggestion_decide",
@@ -88892,6 +89101,696 @@
         }
       }
     },
+    "/v1/commands/salescoach.playbook.save": {
+      "post": {
+        "operationId": "command_salescoach_playbook_save",
+        "summary": "Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. The first one, or one marked usual, is the one calls use.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.manage. Emits salescoach.playbook.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "playbookId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "kind": {
+                    "default": "any",
+                    "type": "string",
+                    "enum": [
+                      "first_call",
+                      "estimate",
+                      "follow_up",
+                      "any"
+                    ]
+                  },
+                  "isDefault": {
+                    "type": "boolean"
+                  },
+                  "details": {
+                    "type": "object",
+                    "properties": {
+                      "steps": {
+                        "default": [],
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][0-9]{1,3}$"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "say": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 600
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title"
+                          ]
+                        }
+                      },
+                      "objections": {
+                        "default": [],
+                        "maxItems": 40,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][0-9]{1,3}$"
+                            },
+                            "objection": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "answer": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "objection",
+                            "answer"
+                          ]
+                        }
+                      },
+                      "points": {
+                        "default": [],
+                        "maxItems": 40,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][0-9]{1,3}$"
+                            },
+                            "topic": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "fact": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 600
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "topic",
+                            "fact"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "name",
+                  "details"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "first_call",
+                        "estimate",
+                        "follow_up",
+                        "any"
+                      ]
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "steps": {
+                          "default": [],
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][0-9]{1,3}$"
+                              },
+                              "title": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "say": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 600
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "say"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "objections": {
+                          "default": [],
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][0-9]{1,3}$"
+                              },
+                              "objection": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 160
+                              },
+                              "answer": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 800
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "objection",
+                              "answer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "points": {
+                          "default": [],
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][0-9]{1,3}$"
+                              },
+                              "topic": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "fact": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 600
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "topic",
+                              "fact"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "steps",
+                        "objections",
+                        "points"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "archivedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                    "isDefault",
+                    "details",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/salescoach.playbook.archive": {
+      "post": {
+        "operationId": "command_salescoach_playbook_archive",
+        "summary": "Put a sales playbook away, or bring an archived one back. Putting the usual one away makes the next one in use the usual one.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.manage. Emits salescoach.playbook.archived.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "playbookId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "playbookId",
+                  "archived"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "first_call",
+                        "estimate",
+                        "follow_up",
+                        "any"
+                      ]
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "steps": {
+                          "default": [],
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][0-9]{1,3}$"
+                              },
+                              "title": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "say": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 600
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "say"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "objections": {
+                          "default": [],
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][0-9]{1,3}$"
+                              },
+                              "objection": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 160
+                              },
+                              "answer": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 800
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "objection",
+                              "answer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "points": {
+                          "default": [],
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][0-9]{1,3}$"
+                              },
+                              "topic": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "fact": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 600
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "topic",
+                              "fact"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "steps",
+                        "objections",
+                        "points"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "archivedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                    "isDefault",
+                    "details",
+                    "archivedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/salescoach.card.dismiss": {
+      "post": {
+        "operationId": "command_salescoach_card_dismiss",
+        "summary": "Put away a card the coach showed you on a call.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires salescoach.use. Emits salescoach.card.dismissed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "cardId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "cardId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cardId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "cardId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/salescoach.call.stop": {
+      "post": {
+        "operationId": "command_salescoach_call_stop",
+        "summary": "Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.use. Emits salescoach.call.stopped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "coachedCallId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "coachedCallId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "writing",
+                        "done",
+                        "failed",
+                        "stopped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/salescoach.lesson.decide": {
+      "post": {
+        "operationId": "command_salescoach_lesson_decide",
+        "summary": "Use a lesson the coach learned from wins, which changes the playbook (a better answer replaces the objection’s, a new objection is added), or dismiss it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.manage. Emits salescoach.lesson.decided, salescoach.playbook.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "lessonId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "use": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "lessonId",
+                  "use"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "used",
+                        "dismissed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -115552,6 +116451,95 @@
                   },
                   "required": [
                     "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/live_meeting_account.mine": {
+      "post": {
+        "operationId": "query_live_meeting_account_mine",
+        "summary": "Your Zoom linked to HandsFreeOS’s coaching app in this business, if it is.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Any signed-in user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "account": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "enum": [
+                                "zoom"
+                              ]
+                            },
+                            "accountEmail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "connectedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "provider",
+                            "accountEmail",
+                            "connectedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "account"
                   ],
                   "additionalProperties": false
                 }
@@ -175696,6 +176684,1492 @@
                     "page",
                     "pages",
                     "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.playbook.list": {
+      "post": {
+        "operationId": "query_salescoach_playbook_list",
+        "summary": "The business’s sales playbooks (script steps, objections with their answers, talking points): the usual one first, then the rest in use, then any archived.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "playbooks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "first_call",
+                              "estimate",
+                              "follow_up",
+                              "any"
+                            ]
+                          },
+                          "isDefault": {
+                            "type": "boolean"
+                          },
+                          "details": {
+                            "type": "object",
+                            "properties": {
+                              "steps": {
+                                "default": [],
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][0-9]{1,3}$"
+                                    },
+                                    "title": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 80
+                                    },
+                                    "say": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "say"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "objections": {
+                                "default": [],
+                                "maxItems": 40,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][0-9]{1,3}$"
+                                    },
+                                    "objection": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 160
+                                    },
+                                    "answer": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 800
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "objection",
+                                    "answer"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "points": {
+                                "default": [],
+                                "maxItems": 40,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][0-9]{1,3}$"
+                                    },
+                                    "topic": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 80
+                                    },
+                                    "fact": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "topic",
+                                    "fact"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "steps",
+                              "objections",
+                              "points"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "archivedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "kind",
+                          "isDefault",
+                          "details",
+                          "archivedAt",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "playbooks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.live": {
+      "post": {
+        "operationId": "query_salescoach_live",
+        "summary": "Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "call": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "callId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "liveMeetingId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "live",
+                                "writing",
+                                "done",
+                                "failed",
+                                "stopped"
+                              ]
+                            },
+                            "person": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "playbook": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "details": {
+                                      "type": "object",
+                                      "properties": {
+                                        "steps": {
+                                          "default": [],
+                                          "maxItems": 20,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "pattern": "^[a-z][0-9]{1,3}$"
+                                              },
+                                              "title": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 80
+                                              },
+                                              "say": {
+                                                "default": "",
+                                                "type": "string",
+                                                "maxLength": 600
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "title",
+                                              "say"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "objections": {
+                                          "default": [],
+                                          "maxItems": 40,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "pattern": "^[a-z][0-9]{1,3}$"
+                                              },
+                                              "objection": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 160
+                                              },
+                                              "answer": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 800
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "objection",
+                                              "answer"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "points": {
+                                          "default": [],
+                                          "maxItems": 40,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "pattern": "^[a-z][0-9]{1,3}$"
+                                              },
+                                              "topic": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 80
+                                              },
+                                              "fact": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 600
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "topic",
+                                              "fact"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "steps",
+                                        "objections",
+                                        "points"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "details"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "step": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "startedAt": {
+                              "type": "string"
+                            },
+                            "cards": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "objection",
+                                      "fact",
+                                      "step",
+                                      "question"
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "say": {
+                                    "type": "string"
+                                  },
+                                  "heard": {
+                                    "type": "string"
+                                  },
+                                  "objectionId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "createdAt": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "kind",
+                                  "title",
+                                  "say",
+                                  "heard",
+                                  "objectionId",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "callId",
+                            "liveMeetingId",
+                            "state",
+                            "person",
+                            "playbook",
+                            "step",
+                            "startedAt",
+                            "cards"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "call"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.call.list": {
+      "post": {
+        "operationId": "query_salescoach_call_list",
+        "summary": "Coached calls, newest first, with the rep, the customer and the score: your own, or everyone’s for people who review calls.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "limit": {
+                    "default": 50,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "callId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "conversationId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "channel": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "sms",
+                                  "email",
+                                  "chat",
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "liveMeetingId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "live",
+                              "writing",
+                              "done",
+                              "failed",
+                              "stopped"
+                            ]
+                          },
+                          "rep": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "person": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "playbookName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "startedAt": {
+                            "type": "string"
+                          },
+                          "endedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "score": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "wonHow": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booked",
+                                  "estimate",
+                                  "paid",
+                                  "deal"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "callId",
+                          "conversationId",
+                          "channel",
+                          "liveMeetingId",
+                          "state",
+                          "rep",
+                          "person",
+                          "playbookName",
+                          "startedAt",
+                          "endedAt",
+                          "score",
+                          "wonHow"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "calls"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.call.get": {
+      "post": {
+        "operationId": "query_salescoach_call_get",
+        "summary": "One coached call: what was said, the cards the coach showed, and the write-up with its notes, promises, follow-up, objections, tips and score.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "coachedCallId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "coachedCallId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "call": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "callId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "conversationId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "channel": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "sms",
+                                "email",
+                                "chat",
+                                "portal",
+                                "messenger",
+                                "instagram"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "liveMeetingId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "writing",
+                            "done",
+                            "failed",
+                            "stopped"
+                          ]
+                        },
+                        "rep": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "person": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "playbookName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "startedAt": {
+                          "type": "string"
+                        },
+                        "endedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "score": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "wonHow": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "booked",
+                                "estimate",
+                                "paid",
+                                "deal"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "speaker": {
+                                "type": "string",
+                                "enum": [
+                                  "customer",
+                                  "team"
+                                ]
+                              },
+                              "text": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "atMs": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "speaker",
+                              "text",
+                              "atMs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "result": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "summary": {
+                                  "type": "string"
+                                },
+                                "notes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "promises": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "what": {
+                                        "type": "string"
+                                      },
+                                      "due": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "what",
+                                      "due"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "followUp": {
+                                  "type": "string"
+                                },
+                                "objections": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "said": {
+                                        "type": "string"
+                                      },
+                                      "answered": {
+                                        "type": "boolean"
+                                      },
+                                      "answer": {
+                                        "default": "",
+                                        "type": "string"
+                                      },
+                                      "objectionId": {
+                                        "default": null,
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "said",
+                                      "answered",
+                                      "answer",
+                                      "objectionId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "stepsCovered": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "tips": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "score": {
+                                  "type": "object",
+                                  "properties": {
+                                    "total": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    "steps": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "covered": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "of": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            }
+                                          },
+                                          "required": [
+                                            "covered",
+                                            "of"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "objections": {
+                                      "type": "object",
+                                      "properties": {
+                                        "answered": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "of": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "answered",
+                                        "of"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "talkShare": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    }
+                                  },
+                                  "required": [
+                                    "total",
+                                    "steps",
+                                    "objections",
+                                    "talkShare"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "summary",
+                                "notes",
+                                "promises",
+                                "followUp",
+                                "objections",
+                                "stepsCovered",
+                                "tips",
+                                "score"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "failure": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "cards": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "objection",
+                                  "fact",
+                                  "step",
+                                  "question"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "say": {
+                                "type": "string"
+                              },
+                              "heard": {
+                                "type": "string"
+                              },
+                              "objectionId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "title",
+                              "say",
+                              "heard",
+                              "objectionId",
+                              "createdAt"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "callId",
+                        "conversationId",
+                        "channel",
+                        "liveMeetingId",
+                        "state",
+                        "rep",
+                        "person",
+                        "playbookName",
+                        "startedAt",
+                        "endedAt",
+                        "score",
+                        "wonHow",
+                        "lines",
+                        "result",
+                        "failure",
+                        "cards"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "call"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.suggestions": {
+      "post": {
+        "operationId": "query_salescoach_suggestions",
+        "summary": "Replies the coach suggests for the customer’s newest message in a conversation, until someone replies after it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "conversationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestions": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "messageId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "replies": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "objectionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "messageId",
+                            "replies",
+                            "objectionId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "suggestions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/salescoach.lesson.list": {
+      "post": {
+        "operationId": "query_salescoach_lesson_list",
+        "summary": "What the coach learned from wins, waiting for an owner or admin: better answers to the playbooks’ objections, and objections to add.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires salescoach.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lessons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "playbookId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "playbookName": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "better_answer",
+                              "new_objection"
+                            ]
+                          },
+                          "objectionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "objection": {
+                            "type": "string"
+                          },
+                          "current": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "answer": {
+                            "type": "string"
+                          },
+                          "wins": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "of": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "playbookId",
+                          "playbookName",
+                          "kind",
+                          "objectionId",
+                          "objection",
+                          "current",
+                          "answer",
+                          "wins",
+                          "of",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "lessons"
                   ],
                   "additionalProperties": false
                 }

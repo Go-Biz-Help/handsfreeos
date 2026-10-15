@@ -1935,6 +1935,161 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   },
 ];
 
+/** Sales Coach's parts of a playbook in the ask (coach.ts `playbookText`): each line's id and its words. */
+function coachParts(text: string, kind: 's' | 'o' | 'p'): { id: string; words: string }[] {
+  return [...text.matchAll(new RegExp(`^\\[(${kind}[0-9]+)\\] (.*)$`, 'gm'))].map((m) => ({
+    id: m[1]!,
+    words: unquote(m[2]!),
+  }));
+}
+const coachSaid = (message: string, who: 'Customer' | 'Rep') =>
+  [...message.matchAll(new RegExp(`^${who}: (.*)$`, 'gm'))].map((m) => unquote(m[1]!));
+const PRICE_WORDS = /\b(?:expensive|price|cost|too much|afford)\b/i;
+
+/**
+ * Sales Coach live (coach.ts): a customer worried about price gets the playbook's first objection's answer; a
+ * question gets the first talking point; anything else no card. The call is at the script's second step once the
+ * customer has spoken twice.
+ */
+function scriptedCoachCard(message: string, context: string) {
+  const said = coachSaid(message, 'Customer');
+  const last = said.at(-1) ?? '';
+  const steps = coachParts(context, 's');
+  const objection = coachParts(context, 'o')[0];
+  const point = coachParts(context, 'p')[0];
+  const step = (steps[said.length >= 2 ? 1 : 0] ?? steps[0])?.id ?? null;
+  if (PRICE_WORDS.test(last) && objection) {
+    const [heard, answer] = objection.words.split(' → ');
+    return {
+      step,
+      card: {
+        kind: 'objection',
+        title: (heard ?? 'Price').replace(/^"|"$/g, ''),
+        say: answer ?? objection.words,
+        heard: last,
+        objectionId: objection.id,
+      },
+    };
+  }
+  if (last.includes('?') && point)
+    return {
+      step,
+      card: { kind: 'fact', title: 'They asked', say: point.words, heard: last, objectionId: null },
+    };
+  return { step, card: null };
+}
+
+/** Sales Coach's write-up (coach.ts): every step covered, the rep's "I'll …" as promises, price worries answered. */
+function scriptedCoachWriteUp(message: string) {
+  const customer = coachSaid(message, 'Customer');
+  const rep = coachSaid(message, 'Rep');
+  return {
+    summary: `The customer said: ${customer[0] ?? 'nothing much'}`,
+    notes: customer.slice(0, 3),
+    promises: rep
+      .flatMap((l) => /\bI(?:’|')ll ([^.]+)/.exec(l)?.[1] ?? [])
+      .map((what) => ({ what: what[0]!.toUpperCase() + what.slice(1), due: null })),
+    followUp: 'Thanks for the call today. I’ll be in touch with the next step.',
+    // A price worry, answered with the rep's next line, is the playbook's first objection.
+    objections: customer
+      .filter((l) => PRICE_WORDS.test(l))
+      .map((l) => ({
+        said: l,
+        answered: true,
+        answer: rep.find((r) => /\bfee|warranty|worth|lasts?\b/i.test(r)) ?? rep.at(-1) ?? '',
+        objectionId: coachParts(message, 'o')[0]?.id ?? null,
+      })),
+    stepsCovered: coachParts(message, 's').map((s) => s.id),
+    tips: ['Ask for the booking before you hang up.'],
+  };
+}
+
+/** Sales Coach's playbook to start from: the pasted script's lines as steps, or three made up from the business. */
+function scriptedCoachPlaybook(message: string) {
+  const script = quotedBlock(message, 'script');
+  const lines = script
+    ? unquote(script)
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+    : ['Say hello and who you are', 'Ask what they need', 'Book the visit'];
+  return {
+    name: script ? 'Our script' : 'First call',
+    steps: lines.slice(0, 8).map((title) => ({ title, say: '' })),
+    objections: [
+      { objection: 'It’s too expensive', answer: 'I hear you. What were you hoping to spend?' },
+    ],
+    points: [{ topic: 'Warranty', fact: '[warranty length]' }],
+  };
+}
+
+/**
+ * Sales Coach's replies to suggest (suggest.ts): a customer worried about price gets the playbook's first objection's
+ * answer first; everyone gets a question back and a short "I'll check".
+ */
+function scriptedCoachReplies(message: string, context: string) {
+  const last = [...message.matchAll(/^Customer: (.*)$/gm)].map((m) => unquote(m[1]!)).at(-1) ?? '';
+  const objection = coachParts(context, 'o')[0];
+  const answer = objection?.words.split(' → ')[1];
+  const priced = PRICE_WORDS.test(last) && objection && answer;
+  return {
+    replies: [
+      ...(priced ? [{ label: 'Answer the price worry', text: answer }] : []),
+      {
+        label: 'Ask a question',
+        text: 'Thanks for reaching out! What’s going on, and when works for you?',
+      },
+      { label: 'Check and come back', text: 'Let me check on that and get right back to you.' },
+      { label: 'One too many', text: 'This fourth one is dropped.' },
+    ],
+    objectionId: priced ? objection.id : null,
+  };
+}
+
+/**
+ * Sales Coach's lessons (learn.ts): each playbook objection's first winning answer as its better answer, and what
+ * came up in two or more wins, said the same way, as a new objection.
+ */
+function scriptedCoachLessons(message: string) {
+  const winning = quotedBlock(message, 'winning_answers') ?? '';
+  const better = [...winning.matchAll(/^\[(o\d+)\][^\n]*\n- (.*)$/gm)].map((m) => ({
+    objectionId: m[1]!,
+    answer: unquote(m[2]!),
+  }));
+  const fresh = [
+    ...(quotedBlock(message, 'new_in_wins') ?? '').matchAll(
+      /^(\d+)\. They said: (.*) — the rep answered: (.*)$/gm,
+    ),
+  ].map((m) => ({ n: Number(m[1]), said: unquote(m[2]!), answer: unquote(m[3]!) }));
+  const groups = new Map<string, typeof fresh>();
+  for (const f of fresh)
+    groups.set(f.said.toLowerCase(), [...(groups.get(f.said.toLowerCase()) ?? []), f]);
+  const added = [...groups.values()]
+    .filter((g) => g.length >= 2)
+    .map((g) => ({ objection: g[0]!.said, answer: g[0]!.answer, wins: g.map((f) => f.n) }));
+  return { better, added };
+}
+
+export const SALESCOACH_RULES: readonly ScriptRule[] = [
+  {
+    when: /Suggest playbook answers from what won\.$/,
+    json: (message) => scriptedCoachLessons(message),
+  },
+  {
+    when: /Suggest replies to the customer’s last message\.$/,
+    json: (message, context) => scriptedCoachReplies(message, context),
+  },
+  {
+    when: /What should the rep see now\?$/,
+    json: (message, context) => scriptedCoachCard(message, context),
+  },
+  {
+    when: /Write up this (?:call|conversation|video call)\.$/,
+    json: (message) => scriptedCoachWriteUp(message),
+  },
+  { when: /Write the playbook\.$/, json: (message) => scriptedCoachPlaybook(message) },
+];
+
 /**
  * A recorded call's review (meetings/review.ts): the summary names the appointment; a quote someone promised
  * becomes a task due in two days and a follow-up; a call that promised nothing suggests nothing.
@@ -2057,6 +2212,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...CLIENT_UPDATE_RULES,
   ...LISTING_RULES,
   ...OUTREACH_RULES,
+  ...SALESCOACH_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

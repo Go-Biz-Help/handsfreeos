@@ -47,4 +47,6 @@ export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   // Social Outreach (decision 44): its page, whichever tab (`?view=`), and a playbook.
   'a/outreach',
   'a/outreach/playbooks/:playbookId',
+  // AI Sales Coach: the live call (its other tabs stay on the web).
+  'a/salescoach',
 ]);

@@ -2,6 +2,7 @@
 import { Grip, Mic, MicOff, Pencil, Phone } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { AddonSlot } from '@/components/addons/slot';
 import { LogActivitySheet } from '@/components/timeline/log-activity-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { useCalls, type CallView } from '@/lib/calls/call-provider';
@@ -135,6 +136,16 @@ function LiveBar({ view }: { view: LiveView }) {
   return (
     <>
       {keypad && connected ? <Keypad onDigit={calls.sendDigit} /> : null}
+      {connected && !keypad ? (
+        // What add-ons show the person on the call (Sales Coach's cards), just above the bar.
+        <div
+          data-testid="call-panels"
+          style={{ pointerEvents: 'auto' }}
+          className="fixed bottom-[76px] left-1/2 z-[64] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 empty:hidden max-md:bottom-[calc(144px+env(safe-area-inset-bottom))]"
+        >
+          <AddonSlot name="call.panels" workspaceId={calls.workspaceId} personId={personId} />
+        </div>
+      ) : null}
       <div
         role="region"
         aria-label="Call in progress"

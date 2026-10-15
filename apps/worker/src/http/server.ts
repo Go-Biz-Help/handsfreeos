@@ -1,3 +1,4 @@
+import { registerZoomLiveRoutes } from '../meetings/live-routes';
 import { registerZoomRoutes } from '../meetings/routes';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
@@ -67,6 +68,7 @@ import { registerMetaRoutes } from '../social/routes';
 import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
 import { registerVoiceAgentRoute } from './voice-agent';
+import { registerLiveCallRoute } from './live-calls';
 
 export type { HttpDeps } from './common';
 
@@ -264,9 +266,12 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerVoiceRoutes(app, deps);
   // The AI teammate answering calls live (M18 step 5): Twilio streams the call to it over a websocket.
   await registerVoiceAgentRoute(app, deps);
+  // After the teammate's stream, which registers the websocket plugin it needs too.
+  registerLiveCallRoute(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
   await registerZoomRoutes(app, deps);
+  await registerZoomLiveRoutes(app, deps);
   // Facebook Messenger and Instagram: Meta's webhook, and its deauthorize and data deletion callbacks.
   await registerMetaRoutes(app, deps);
   // Signing in to the CRM a business is leaving (M11).

@@ -131,6 +131,56 @@ export interface AddonWorkerModule {
    * browser suite, never production), tried before core's: how a customer's words reach its teammate tools.
    */
   readonly scriptedTeammate?: readonly TeammateRule[];
+  /**
+   * What it does with a call it hears live (its manifest's `liveCalls`; telephony/live.ts): each finished line as
+   * it's said, both sides, in order, as the system acting for it. Nothing here holds up the call; a hook that throws
+   * is logged, and the next line still comes.
+   */
+  readonly liveCalls?: AddonLiveCalls;
+}
+
+/** A call heard live: which, who on the team is on it, and the customer when the call knows them. */
+/** What's heard live: a phone call (core's call), or a Zoom meeting someone claimed (core's live meeting). */
+export interface LiveCall {
+  /** The call's or the meeting's id: one of these is heard once at a time. */
+  readonly key: string;
+  readonly kind: 'call' | 'meeting';
+  /** Core's call, for a phone call. */
+  readonly callId: string | null;
+  /** Core's live meeting (`app.live_meetings`), for a Zoom meeting. */
+  readonly liveMeetingId: string | null;
+  /** Twilio's sid for a phone call; Zoom's stream id for a meeting. */
+  readonly callSid: string;
+  readonly teamUserId: string;
+  /** Who called whom, on a phone call; null for a meeting. */
+  readonly direction: 'inbound' | 'outbound' | null;
+  readonly personId: string | null;
+  readonly conversationId: string | null;
+}
+
+/** One thing said on a call heard live. */
+export interface LiveLine {
+  readonly speaker: 'customer' | 'team';
+  readonly text: string;
+  /** How far into the call it was finished, in milliseconds. */
+  readonly atMs: number;
+}
+
+export interface AddonLiveCalls {
+  readonly onStart?: (ctx: AddonScopeContext, call: LiveCall) => Promise<void>;
+  /** `line` was just said; `lines` is everything said so far, it included. */
+  readonly onLine: (
+    ctx: AddonScopeContext,
+    call: LiveCall,
+    line: LiveLine,
+    lines: readonly LiveLine[],
+  ) => Promise<void>;
+  /** The call (or its stream) ended: everything that was said. */
+  readonly onEnd?: (
+    ctx: AddonScopeContext,
+    call: LiveCall,
+    lines: readonly LiveLine[],
+  ) => Promise<void>;
 }
 
 /** The AI teammate's reply an add-on checks (round seven). */

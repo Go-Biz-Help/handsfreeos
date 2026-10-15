@@ -29,6 +29,7 @@ import {
   Wrench as realestateVendorsIcon,
 } from 'lucide-react';
 import { Handshake as outreachAddonIcon } from 'lucide-react';
+import { Headset as salescoachAddonIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -49,6 +50,14 @@ export type SlotEntities = EverySlot<{
   };
   'conversation.panels': { readonly conversationId: string };
   'home.cards': object;
+  /** Above the bar of a call in progress, for the person on it: the customer, when the call knows who it is. */
+  'call.panels': { readonly personId: string | null };
+  /** Above a conversation's message box: the channel being written in, and a way to put words in the box. */
+  'composer.suggestions': {
+    readonly conversationId: string;
+    readonly channel: string;
+    readonly onUse: (text: string) => void;
+  };
   'main_offer.panels': object;
 }>;
 
@@ -186,5 +195,14 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       'main_offer.panels': () => import('./outreach/offer-panel'),
     },
     settings: () => import('./outreach/settings-link'),
+  },
+  salescoach: {
+    icon: salescoachAddonIcon,
+    // The cards above the call bar while someone is on a call.
+    slots: {
+      'call.panels': () => import('./salescoach/call-panel'),
+      // Replies to suggest above a conversation's message box.
+      'composer.suggestions': () => import('./salescoach/composer-suggestions'),
+    },
   },
 };

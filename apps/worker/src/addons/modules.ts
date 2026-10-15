@@ -6,8 +6,10 @@
 import type { AddonWorkerModule } from './types';
 import { realestateAddonWorker } from './realestate/index';
 import { outreachAddonWorker } from './outreach/index';
+import { salescoachAddonWorker } from './salescoach/index';
 
 export const ADDON_WORKER_MODULES: readonly AddonWorkerModule[] = [
   realestateAddonWorker,
   outreachAddonWorker,
+  salescoachAddonWorker,
 ];

@@ -61,6 +61,7 @@ import {
   onUnmatchedClaimed,
 } from './email';
 import { onFileDeleted } from './file-removed';
+import { onCallAnswered } from '../telephony/live';
 import { onFileReceived } from './file-received';
 import { onLeadQualified } from './qualifying-alerts';
 import { onImportRequested } from './import-run';
@@ -215,6 +216,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'message.schedule_cancelled': onScheduleCancelled,
     // A call through someone's own cell rings it first; confirming a cell calls it (telephony/cell.ts).
     'call.started': onBridgeRequested,
+    // Someone answered: the add-ons that hear calls live start hearing this one (telephony/live.ts).
+    'call.answered': onCallAnswered,
     'call.bridge_cancelled': onBridgeCancelled,
     'user_phone.verification_requested': onVerificationRequested,
     // Someone deleted their account: the job takes them off each business, then the profile and sign-in go.

@@ -707,6 +707,7 @@ export const callUpdateStatus = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: [
+    'call.answered',
     'call.completed',
     'call.missed',
     'call.bridge_unanswered',
@@ -736,6 +737,25 @@ export const callUpdateStatus = defineCommand({
     if (Object.keys(patch).length === 0) return { callId: c.id, status: c.status, changed: false };
     await ctx.tx.update(calls).set(patch).where(eq(calls.id, c.id));
     const next = { ...c, ...patch } as Call;
+    // Someone is on the call with the customer now: what listens to a call live (an add-on that coaches) starts
+    // here, so it's said once, the moment it's first answered, with who on the team is on it when that's known.
+    if (patch.answeredAt && !ending)
+      await ctx.emit({
+        type: 'call.answered',
+        entityType: 'call',
+        entityId: c.id,
+        payload: {
+          conversationId: next.conversationId,
+          personId: next.personId,
+          phoneNumberId: next.phoneNumberId,
+          direction: next.direction,
+          answeredVia: next.answeredVia,
+          teamUserId:
+            next.answeredByUserId ?? (next.direction === 'outbound' ? next.placedBy : null),
+          answeredNumber: next.answeredNumber,
+        },
+        after: { with: formatPhone(counterpartOf(next)), direction: next.direction },
+      });
     if (ending) await settleCall(ctx, next, at);
     return { callId: c.id, status: next.status, changed: true };
   },
