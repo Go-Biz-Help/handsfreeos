@@ -228,7 +228,10 @@ async function handOver(u: Under, says: string, how: 'stuck' | 'typing'): Promis
   if (u.halted !== null) return 'stop';
   // What it couldn't find, noted with the page's outline before the person changes the page (decision 74).
   if (how === 'stuck')
-    await reporterFor(u)({ note: 'A step it couldn’t find was handed to the person.', outline: true });
+    await reporterFor(u)({
+      note: 'A step it couldn’t find was handed to the person.',
+      outline: true,
+    });
   const waited = new Promise<HandOverReply>((done) => (u.answered = done));
   await u.tab.focus().catch(() => undefined);
   const words = askStuckPushWords(how, how === 'typing' ? null : says);

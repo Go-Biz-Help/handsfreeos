@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.47.0 now.
+    Built in 0.44.0; the extension is 0.48.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1183,6 +1183,26 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 
     Built on the web and the phone. The phone has the same menu and parts, each part a screen pushed over the menu
     (`?part=` in its address), and no Start fresh. The setup keeps its own Save and Next buttons.
+
+74. **The extension says what it saw** (Chris, 16 Oct 2026: "build all three"). Testing LinkedIn took a round trip
+    for every miss: the person tried, said what went wrong, pasted an outline, and waited for a fix. Now the person's
+    computer reports for itself (core's `reports.ts`, the extension's `src/jobs/report.ts`, extension 0.48.0):
+    - **A note of each page a job read** (`outreach.report.save`, table `reports`): the page's kind and its address
+      as the outline masks it ({1}, {2}… for people's and groups' parts), whether Chrome showed the page (it draws
+      nothing in a window hidden behind another), what the readers found (counts, yes or no, and the network's own
+      section names from the outline's headings; never words), a line on what was missing, and the page's outline
+      when something was: everything a person wrote is "[2 words]", as in the panel's own outline. Noted: every read
+      of the person's own profile; a step handed to the person; an ask that didn't finish; a step of LinkedIn's day
+      that didn't go; and every page of Check LinkedIn. Each person's own (restrictive policy, as `asks`); an ask's
+      notes go with it, and the day's steps' after a week (`outreach.live_prune`). Never for the file kinds, whose
+      pages are Facebook's own download and password ones.
+    - **Check LinkedIn** (`checkup`, on LinkedIn's page in Settings, the person's own): one press opens their profile,
+      feed, connections, a people search, a posts search, their messages and one connection's profile, reads each
+      without pressing anything, and notes each with its outline. Its window is in front for about a minute, then
+      theirs comes back. It stops on any LinkedIn warning.
+    - **What's blocking, on screen**: the extension says with its beat which networks Chrome lets it on
+      (`computers.allowed`). An ask on a network it isn't allowed on waits, and says what to press (Allow on the
+      network in the extension's panel, then Allow in Chrome's box); so does that network's page in Settings.
 
 ## Rules worth knowing before changing anything
 
@@ -1719,6 +1739,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   a request, a comment, a post) checks `readinessFor` first, as `outreach.today`, `outreach.day.start` and
   `outreach.helpful.next` do; a reply to someone who wrote first is never held. The tests' fixture gets a business
   ready before those three (`getReady` in `outreach-fixture.ts`); one made with `{ ready: false }` isn't.
+- **A note of what the extension saw keeps the page's shape, never its words** (decision 74): `reports` holds counts,
+  yes or no, the network's own section names, the masked address and the outline, in which everything a person
+  wrote is "[2 words]" and people's and groups' links are {1}, {2}…; never anything read off the page as text.
+  It's the person's own, never their business's, and goes after a week. A note that can't be made or sent never
+  stops a job.
 - **The profile's check keeps the AI's answer, never the page** (decision 64): what the extension read goes to the
   worker's `outreach.profile.check` and no further. The check is saved by `outreach.profile.check_save`, which only
   the system runs, after `checkedProfileCheck`: an item with nothing read is never right, and a bio over 101

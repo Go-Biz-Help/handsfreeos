@@ -71,7 +71,9 @@ export const allowedOn = (allowed: readonly Platform[] | null | undefined, platf
   allowed == null || allowed.includes(platform);
 
 const listed = (items: readonly string[]) =>
-  items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : (items[0] ?? '');
+  items.length > 1
+    ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+    : (items[0] ?? '');
 
 export const REPORT_WORDS = {
   /** Under an ask its computer can't do yet, and on the computer's card. */
