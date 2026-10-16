@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { CopyField } from '@/components/ui/copy-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn, relativeTime } from '@/lib/utils';
+import { DeleteCall } from './delete-call';
 import { salescoachHref } from './home';
 import type { CoachedCall, CoachedCallSummary } from './types';
 
@@ -51,10 +52,13 @@ export function CallsList({
   workspaceId,
   calls,
   reviews,
+  canDelete,
 }: {
   workspaceId: string;
   calls: readonly CoachedCallSummary[];
   reviews: boolean;
+  /** May delete a coached call for good (`salescoach.delete`). */
+  canDelete?: boolean;
 }) {
   if (calls.length === 0)
     return (
@@ -65,29 +69,33 @@ export function CallsList({
   return (
     <Card className="divide-y divide-border" data-testid="coached-calls">
       {calls.map((c) => (
-        <Link
-          key={c.id}
-          href={salescoachHref(workspaceId, 'calls', c.id)}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-card-2"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-medium">
-              {c.person?.name ?? W.calls.noCustomer}
+        <div key={c.id} className="flex items-center gap-1 pr-2 hover:bg-card-2">
+          <Link
+            href={salescoachHref(workspaceId, 'calls', c.id)}
+            className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-medium">
+                {c.person?.name ?? W.calls.noCustomer}
+              </div>
+              <div className="truncate text-[12.5px] text-text-3">
+                {[
+                  W.calls.channels[c.channel ?? 'call'],
+                  c.language && c.language !== 'en' ? W.calls.inLanguage(c.language) : null,
+                  reviews ? c.rep?.name : null,
+                  c.playbookName,
+                  relativeTime(c.startedAt),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
             </div>
-            <div className="truncate text-[12.5px] text-text-3">
-              {[
-                W.calls.channels[c.channel ?? 'call'],
-                c.language && c.language !== 'en' ? W.calls.inLanguage(c.language) : null,
-                reviews ? c.rep?.name : null,
-                c.playbookName,
-                relativeTime(c.startedAt),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </div>
-          </div>
-          <StateBadge c={c} />
-        </Link>
+            <StateBadge c={c} />
+          </Link>
+          {canDelete && c.state !== 'live' && c.state !== 'writing' ? (
+            <DeleteCall workspaceId={workspaceId} coachedCallId={c.id} compact />
+          ) : null}
+        </div>
       ))}
     </Card>
   );
@@ -111,7 +119,16 @@ function Section({
   );
 }
 
-export function CallDetail({ workspaceId, call }: { workspaceId: string; call: CoachedCall }) {
+export function CallDetail({
+  workspaceId,
+  call,
+  canDelete,
+}: {
+  workspaceId: string;
+  call: CoachedCall;
+  /** May delete a coached call for good (`salescoach.delete`). */
+  canDelete?: boolean;
+}) {
   const r = call.result;
   return (
     <div className="space-y-4" data-testid="coached-call">
@@ -163,6 +180,9 @@ export function CallDetail({ workspaceId, call }: { workspaceId: string; call: C
         ) : (
           <StateBadge c={{ state: call.state, score: null, wonHow: call.wonHow }} />
         )}
+        {canDelete && call.state !== 'live' && call.state !== 'writing' ? (
+          <DeleteCall workspaceId={workspaceId} coachedCallId={call.id} />
+        ) : null}
       </Card>
       {call.failure ? <p className="text-[13.5px] text-text-2">{call.failure}</p> : null}
       {r ? (

@@ -736,6 +736,42 @@ export const callGet = defineAddonQuery(salescoachAddon, {
   },
 });
 
+/**
+ * Deleting a coached call for good (Chris, 2026-10-16): owners, or whoever an owner gives `salescoach.delete`. It goes
+ * at once, with what was said, its cards and its write-up; what it already made stays (the timeline line, and the
+ * tasks for what was promised). Not while the coach is still hearing it or writing it up. Never the AI's (risk 4).
+ */
+export const callDelete = defineAddonCommand(salescoachAddon, {
+  name: 'salescoach.call.delete',
+  description:
+    'Delete a coached call for good: what was said, the cards and the write-up. Its notes on the customer’s timeline and its tasks stay.',
+  risk: 4,
+  input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
+  output: z.object({ deleted: z.boolean() }),
+  permission: 'salescoach.delete',
+  scope: inWorkspace,
+  emits: ['salescoach.call.deleted'],
+  async handler(ctx, input) {
+    const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
+    if (c.state === 'live' || c.state === 'writing')
+      throw HfosError.rule(
+        'salescoach_call_in_progress',
+        409,
+        c.state === 'live'
+          ? 'The coach is still on this call. Delete it once the call has ended.'
+          : 'The coach is still writing this call up. Try again in a minute.',
+      );
+    await ctx.tx.delete(coachedCalls).where(eq(coachedCalls.id, c.id));
+    await ctx.emit({
+      type: 'salescoach.call.deleted',
+      entityType: 'salescoach_call',
+      entityId: c.id,
+      payload: { callId: c.callId, userId: c.userId, startedAt: c.startedAt.toISOString() },
+    });
+    return { deleted: true };
+  },
+});
+
 export const callCommands = [
   callBegin,
   cardAdd,
@@ -744,5 +780,6 @@ export const callCommands = [
   conversationFinish,
   cardDismiss,
   callStop,
+  callDelete,
 ] as const;
 export const callQueries = [live, callList, callGet] as const;

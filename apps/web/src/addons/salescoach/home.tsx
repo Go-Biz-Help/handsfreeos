@@ -34,12 +34,15 @@ export function SalescoachHome({
   shown,
   canManage,
   reviews,
+  canDelete = false,
 }: {
   workspaceId: string;
   shown: SalescoachShown;
   canManage: boolean;
   /** Sees everyone's coached calls. */
   reviews: boolean;
+  /** May delete a coached call for good (`salescoach.delete`; owners, unless given). */
+  canDelete?: boolean;
 }) {
   // Inside Zoom's narrow side panel: the coach alone, no tabs.
   if (shown.view === 'zoom')
@@ -77,10 +80,15 @@ export function SalescoachHome({
       </nav>
       {shown.view === 'live' ? <LiveCoach workspaceId={workspaceId} /> : null}
       {shown.view === 'calls' && 'call' in shown ? (
-        <CallDetail workspaceId={workspaceId} call={shown.call} />
+        <CallDetail workspaceId={workspaceId} call={shown.call} canDelete={canDelete} />
       ) : null}
       {shown.view === 'calls' && 'calls' in shown ? (
-        <CallsList workspaceId={workspaceId} calls={shown.calls} reviews={reviews} />
+        <CallsList
+          workspaceId={workspaceId}
+          calls={shown.calls}
+          reviews={reviews}
+          canDelete={canDelete}
+        />
       ) : null}
       {shown.view === 'trends' ? (
         <TrendsView
