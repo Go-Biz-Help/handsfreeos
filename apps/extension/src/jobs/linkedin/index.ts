@@ -16,12 +16,15 @@
  *   copy of your data, in a tab they can see, where they type their password; then brought in from their downloads
  *   (./file.ts).
  * - `post`: the helpful post they OK'd, put up on their own feed (./helpful.ts).
+ * - `checkup`: Check LinkedIn, their main pages read without pressing anything, each noted with its outline
+ *   (./checkup.ts, decision 74).
  */
 import { ASK_CHATS, type AskResult, type AskTaken } from '@hfos/core/addons/outreach/asks';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../chats';
 import type { Job, JobEnd } from '../job';
 import { checkConnections, researchOnLinkedIn } from './checks';
+import { checkLinkedIn } from './checkup';
 import { bringInLinkedIn, getLinkedInFile } from './file';
 import { postOnLinkedIn } from './helpful';
 import { lookupOnLinkedIn } from './lookup';
@@ -68,6 +71,8 @@ export async function linkedInAsk(task: AskTaken['task'], job: Job): Promise<End
       return findPostsBySearch(job, task.words);
     case 'post':
       return postOnLinkedIn(job, task.helpfulId);
+    case 'checkup':
+      return checkLinkedIn(job);
     default:
       // A kind HandsFreeOS doesn't ask on LinkedIn, or one this build doesn't know: it ends saying so.
       return {

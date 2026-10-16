@@ -442,6 +442,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.friend.end', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-report':
+      return call(
+        api().POST('/v1/commands/outreach.report.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-warning':
       return call(
         api().POST('/v1/commands/outreach.warning.note', { body: ask.input }),

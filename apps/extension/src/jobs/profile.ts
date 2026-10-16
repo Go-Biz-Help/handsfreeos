@@ -13,6 +13,7 @@
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
 import { readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
+import { ownProfileNote } from './report';
 
 /** Facebook takes this to the person's own profile, whoever they are. */
 export const OWN_PROFILE_URL = 'https://www.facebook.com/me';
@@ -40,6 +41,8 @@ async function readAndCheck(job: Job): Promise<JobEnd> {
   const answer = await job.tab.ask({ type: 'hfos-own-profile' });
   if (!answer.ok) return failed(answer.error);
   if (!('read' in answer)) return failed('Facebook didn’t show your profile.');
+  // What was and wasn't read, noted (decision 74).
+  await job.report?.(ownProfileNote(answer.read));
   if (job.stopped()) return { line: 'Stopped.', warned: false };
   job.progress('Checking it with the AI…');
   valueOf(

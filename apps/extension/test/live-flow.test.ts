@@ -7,6 +7,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveDay } from '@hfos/core/addons/outreach/live';
 import { AUTO_STATE_KEY, freshState, type AutoState } from '../src/auto/plan';
+import { NETWORKS_KEY } from '../src/networks/on';
 import {
   beat,
   dayChange,
@@ -186,6 +187,18 @@ describe('the beat', () => {
     const line = (sent!.body.status as { line: string }).line;
     expect(line).toHaveLength(300);
     expect(line.endsWith('…')).toBe(true);
+  });
+
+  it('says which networks Chrome lets it on, so HandsFreeOS can say what to press', async () => {
+    store.set(NETWORKS_KEY, {
+      facebook: { on: true, allowed: true },
+      linkedin: { on: true, allowed: false },
+    });
+    answers['/v1/commands/outreach.live.beat'] = { status: 200, data: beatAnswer() };
+    await beat(true);
+    const sent = posted.filter((p) => p.path === '/v1/commands/outreach.live.beat').at(-1);
+    expect((sent!.body.computer as { allowed: unknown }).allowed).toEqual(['facebook']);
+    store.delete(NETWORKS_KEY);
   });
 
   it('has the runner end what it’s doing when the day was stopped in the app', async () => {
