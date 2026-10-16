@@ -20,7 +20,7 @@ is on the canvas **Main offer: notes, direction and tries** (https://claude.ai/a
 Review, Compare, and Picks applied.
 
 **Where it stands (2026-10-16):** built, steps 1 to 4, on branch `claude/compassionate-hypatia-62wvlc`: the
-migration (`20261027007800_main_offer_tries.sql`, not yet on the hosted database), the fuller score, the direction,
+migration (`20261027007800_main_offer_tries.sql`, on the hosted database 2026-10-16), the fuller score, the direction,
 the tries' commands and query, the AI's prompts and checks, the worker's `POST /v1/main-offer/try`, the builder's
 Review, Compare and applied views with Settings → Main offer's, and the docs (docs/main-offer.md). Chris approved the
 boards (2026-10-16: "boards approved").
