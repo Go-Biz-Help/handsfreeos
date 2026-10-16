@@ -11,7 +11,7 @@
  * (src/networks/linkedin/browse.ts). It stops on any LinkedIn warning.
  */
 import type { FriendList } from '@hfos/core/addons/outreach/friends';
-import { linkedInItem, linkedInListSave } from '../../hfos/saves';
+import { linkedInListSave, linkedInItem } from '../../hfos/saves';
 import type { Invitation, Person } from '../../networks/linkedin/types';
 import { profileKey } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
