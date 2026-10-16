@@ -124,11 +124,16 @@ review before anyone outside Go Biz Help's Zoom account can add it.
    and offers **Pick the customer** (the appointment's, when the meeting was made for one, is taken at once); the
    write-up lands on whoever was named by the time the meeting ends. A stream nobody here can be heard for is left
    alone, and Zoom tells the meeting the app couldn't reach it.
+   **One meeting, one coached call.** Zoom can start two streams for one meeting under two of its ids (the app's own
+   start and the auto-start, a moment apart). A person is in one meeting at a time, so a stream for someone already
+   heard is left alone; one under another id while their claim of the last ten minutes waits takes that claim; and
+   the panel, opened in a meeting Zoom started hearing on its own, finds that live claim.
 4. **Hearing it.** `RtmsStream` connects to Zoom's signaling and media sockets, signs both handshakes with the
    coaching Zoom app's id and secret, asks only for Zoom's own English transcript, and answers Zoom's keep-alives. Each transcript
    message names its speaker: the rep (by the name they show in the meeting) is the team's side, anyone else the
    customer's. Lines go to the add-ons exactly as a phone call's do (`addons/live-fanout.ts`), so the cards come the
-   same way, on the panel and on the Live call tab. No audio reaches HandsFreeOS. It's billed as live listening.
+   same way, on the panel and on the Live call tab. No audio reaches HandsFreeOS. It's billed by the minute as `speech.meeting.minute` (3¢: Zoom's
+   Developer Pack credits at 1.5×; see "The AI's hearing and voice" in `docs/operations.md`).
 5. **After.** When Zoom ends the stream (the meeting ends, or the rep presses **Stop coaching**, which stops the
    stream in Zoom), the claim is ended and the meeting is written up like a call: notes on the customer's timeline
    ("Marco’s Zoom call was coached…"), a task for each promise, and a score.

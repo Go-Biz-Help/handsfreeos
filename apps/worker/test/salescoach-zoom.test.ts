@@ -316,6 +316,15 @@ describe('a Zoom meeting heard live', () => {
         sql`select state from app.live_meetings where id = ${liveMeetingId}`,
       );
       expect(lm!.state).toBe('ended');
+      // Zoom's transcript is on the balance on its own line, not as Deepgram's listening.
+      const used = await waitFor('the minutes noted', async () => {
+        const r = await rows<{ rate_key: string }>(
+          admin(),
+          sql`select rate_key from app.speech_usage where ref = ${streamId}`,
+        );
+        return r.length ? r : null;
+      });
+      expect(used.map((u) => u.rate_key)).toEqual(['speech.meeting.minute']);
 
       await drain();
       expect((await coached(liveMeetingId))!.state).toBe('done');
@@ -358,6 +367,11 @@ describe('a Zoom meeting heard live', () => {
       });
       expect(someoneElse).toBeNull();
       expect(zoom.sent).toEqual([]);
+      // Done with it: a claim left waiting would be Marco's meeting for the next few minutes.
+      await rows(
+        admin(),
+        sql`update app.live_meetings set state = 'ended' where meeting_uuid = ${meetingUuid}`,
+      );
     } finally {
       await zoom.close();
     }
@@ -411,6 +425,71 @@ describe('a Zoom meeting heard live', () => {
     } finally {
       await zoom.close();
     }
+  });
+
+  it('coaches one meeting once, when Zoom starts two streams for it under two ids', async () => {
+    const twoStreams = async (first: string, second: string) => {
+      const ids = [`stream-${randomUUID()}`, `stream-${randomUUID()}`] as const;
+      const zooms = await Promise.all([zoomStream(first, ids[0]), zoomStream(second, ids[1])]);
+      const started = (uuid: string, i: 0 | 1) =>
+        onStreamStarted(deps(), {
+          meetingUuid: uuid,
+          streamId: ids[i],
+          serverUrl: zooms[i]!.url,
+          operatorId: 'zoom-marco',
+        });
+      return { zooms, started };
+    };
+    const live = async (uuid: string) =>
+      (
+        await rows<{ id: string; state: string }>(
+          admin(),
+          sql`select id, state from app.live_meetings where meeting_uuid = ${uuid}`,
+        )
+      )[0];
+
+    // The app claimed it first; Zoom's other stream, under another id, takes that claim, and the app's own is left.
+    const a1 = `mtg-${randomUUID()}==`;
+    const a2 = `mtg-${randomUUID()}==`;
+    const { liveMeetingId } = await claim(a1);
+    const one = await twoStreams(a1, a2);
+    try {
+      const first = await one.started(a2, 1);
+      expect(first).not.toBeNull();
+      expect(await live(a1)).toMatchObject({ id: liveMeetingId, state: 'live' });
+      expect(await live(a2)).toBeUndefined();
+      expect(await one.started(a1, 0)).toBeNull();
+      first!.stop();
+      await waitFor('the first meeting ended', async () =>
+        (await live(a1))?.state === 'ended' ? true : null,
+      );
+    } finally {
+      await Promise.all(one.zooms.map((z) => z.close()));
+    }
+
+    // Zoom's auto-start came first: the app, opened after under another id, finds that meeting live.
+    const b1 = `mtg-${randomUUID()}==`;
+    const b2 = `mtg-${randomUUID()}==`;
+    const two = await twoStreams(b1, b2);
+    try {
+      const heard = await two.started(b1, 0);
+      expect(heard).not.toBeNull();
+      const auto = await live(b1);
+      const opened = await claim(b2);
+      expect(opened).toMatchObject({
+        liveMeetingId: auto!.id,
+        state: 'live',
+        person: { id: rosaId },
+      });
+      expect(await two.started(b2, 1)).toBeNull();
+      heard!.stop();
+      await waitFor('the second meeting ended', async () =>
+        (await live(b1))?.state === 'ended' ? true : null,
+      );
+    } finally {
+      await Promise.all(two.zooms.map((z) => z.close()));
+    }
+    await drain();
   });
 
   it('coaches a meeting in Spanish: the words to say in Spanish, the notes in English', async () => {

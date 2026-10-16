@@ -9295,6 +9295,13 @@ rounded once. With `WALLET_MODE` off nothing is billed and the totals wait. A bu
 `20261009000100_speech_is_counted_in_characters.sql` and `20261009000200_speech_on_the_wallet.sql`. Transcripts
 made by Twilio (the fallback without a Deepgram key) are not on the balance.
 
+**A coached Zoom meeting is on the balance as its own line, at 1.5×.** Zoom transcribes it (Realtime Media
+Streams), drawing on Go Biz Help's Zoom Developer Pack credits: about 0.02 credits, $0.02, a minute with the
+transcript. It's `speech.meeting.minute`, 3¢ a minute, in the same running totals as the rest of speech ("AI voice:
+listening in Zoom meetings"). Keep the Developer Pack topped up: without credits Zoom won't start a stream at all.
+Needs `20261027007800_zoom_meetings_on_the_wallet.sql`. If Zoom's rate changes, change the line's cost on the card
+the usual way.
+
 **The carriers' fees for texting from a local number are not on the balance.** The business pays them by card,
 at cost, before its registration goes to the carriers (see "Paying the carriers' fees"). The rate card still has
 their four lines (`a2p.brand.registration`, `a2p.brand.vetting`, `a2p.campaign.vetting`, `a2p.campaign.month`, at

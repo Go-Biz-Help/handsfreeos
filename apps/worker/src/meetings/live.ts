@@ -22,7 +22,8 @@
  * show) is the team's side, anyone else the customer's. Each is handed to the add-ons as a finished line
  * (addons/live-fanout.ts), like a phone call's. When the stream ends (Zoom says so, either socket closes, or
  * `meeting.rtms_stopped`), the add-ons hear the end and the claim is ended. Nothing of the meeting is kept by core.
- * What it heard is billed as live listening, one stream.
+ * What it heard is billed by the minute on its own line (`speech.meeting.minute`): Zoom charges Go Biz Help's Developer
+ * Pack for the stream and its transcript, not Deepgram.
  *
  * Zoom's transcript is its own: no audio comes here and nothing goes to the speech service.
  */
@@ -403,7 +404,8 @@ export class ZoomLiveSession {
       );
       await noteSpeech(this.deps, this.claim.scope, [
         {
-          key: 'speech.live.minute',
+          // Zoom's transcript, on Go Biz Help's Developer Pack: its own line, not Deepgram's.
+          key: 'speech.meeting.minute',
           quantity: speechMinutes((Date.now() - this.started) / 1000),
           source: 'call',
           ref: this.started_.streamId,
@@ -438,6 +440,45 @@ export interface StreamStartedInput {
  * here and an add-on listens for them, gets it claimed for them, in the business they linked most recently. Their
  * name in HandsFreeOS stands in for their name in the meeting until the app says it.
  */
+/**
+ * A person is in one meeting at a time. Zoom can start two streams for one meeting under two of its ids (the app's own
+ * start and its auto-start, a moment apart), and each would be coached as a meeting of its own. So a stream for
+ * someone already heard is left alone, and one that comes under another id while their claim of a few minutes ago
+ * still waits takes that claim.
+ */
+const HEARD_FOR_MS = 4 * 60 * 60_000;
+const CLAIM_FRESH_MS = 10 * 60_000;
+
+interface TheirMeeting extends Record<string, unknown> {
+  readonly id: string;
+  readonly state: string;
+  readonly person_id: string | null;
+  readonly screen_name: string | null;
+}
+
+/** The person's meeting heard now, or their claim of the last few minutes still waiting; the heard one first. */
+async function theirMeeting(
+  deps: Parameters<typeof onStreamStarted>[0],
+  scope: TenantScope,
+  userId: string,
+  exceptId: string | null = null,
+): Promise<TheirMeeting | null> {
+  const heardSince = new Date(Date.now() - HEARD_FOR_MS).toISOString();
+  const claimedSince = new Date(Date.now() - CLAIM_FRESH_MS).toISOString();
+  const [m] = await asWorker(deps.db, scope, (tx) =>
+    rows<TheirMeeting>(
+      tx,
+      sql`select id, state, person_id, screen_name from app.live_meetings
+          where workspace_id = ${scope.workspaceId} and user_id = ${userId} and provider = 'zoom'
+            and id is distinct from ${exceptId}::uuid
+            and ((state = 'live' and started_at > ${heardSince}::timestamptz)
+              or (state = 'waiting' and created_at > ${claimedSince}::timestamptz))
+          order by (state = 'live') desc, created_at desc limit 1`,
+    ),
+  );
+  return m ?? null;
+}
+
 async function claimForOperator(
   deps: Parameters<typeof onStreamStarted>[0],
   input: StreamStartedInput,
@@ -468,6 +509,28 @@ async function claimForOperator(
       liveListenersFor(tx, l.scope.workspaceId, l.userId, deps.modules, deps.catalog),
     );
     if (listens.length === 0) continue;
+    const [who] = await asWorker(deps.db, l.scope, (tx) =>
+      rows<{ name: string | null }>(
+        tx,
+        sql`select full_name as name from app.users where id = ${l.userId}`,
+      ),
+    );
+    const theirs = await theirMeeting(deps, l.scope, l.userId);
+    if (theirs?.state === 'live') {
+      deps.log.info('a second Zoom stream for someone already heard: left alone');
+      return null;
+    }
+    // Their claim from the app, a moment ago, under another of Zoom's ids for this meeting.
+    if (theirs)
+      return {
+        live_meeting_id: theirs.id,
+        workspace_id: l.scope.workspaceId,
+        organization_id: l.scope.organizationId,
+        user_id: l.userId,
+        external_user_id: operatorId,
+        person_id: theirs.person_id,
+        screen_name: theirs.screen_name ?? (who?.name?.trim() || null),
+      };
     const made = await executeCommand(
       deps.db,
       liveMeetingAutoClaim,
@@ -481,12 +544,6 @@ async function claimForOperator(
       workerMeta(),
     );
     if (made.output.state !== 'waiting') return null;
-    const [who] = await asWorker(deps.db, l.scope, (tx) =>
-      rows<{ name: string | null }>(
-        tx,
-        sql`select full_name as name from app.users where id = ${l.userId}`,
-      ),
-    );
     return {
       live_meeting_id: made.output.liveMeetingId,
       workspace_id: l.scope.workspaceId,
@@ -540,6 +597,11 @@ export async function onStreamStarted(
     return null;
   }
   const scope = { workspaceId: claim.workspace_id, organizationId: claim.organization_id };
+  // Already heard in this meeting under another of Zoom's ids: one meeting, one coached call.
+  if ((await theirMeeting(deps, scope, claim.user_id, claim.live_meeting_id))?.state === 'live') {
+    deps.log.info('a second Zoom stream for someone already heard: left alone');
+    return null;
+  }
   const addons = await asWorker(deps.db, scope, (tx) =>
     liveListenersFor(tx, scope.workspaceId, claim.user_id, deps.modules, deps.catalog),
   );

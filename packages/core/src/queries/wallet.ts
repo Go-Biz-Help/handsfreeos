@@ -320,6 +320,7 @@ export const usagePrices = defineQuery({
         tenOf('speech.live.minute', 'The AI listening on a call', 'for 10 minutes'),
         tenOf('speech.recording.minute', 'Talk turned into words', 'for 10 minutes'),
         tenOf('speech.voice.kchar', 'The AI speaking', 'for 10,000 characters'),
+        tenOf('speech.meeting.minute', 'The coach listening in a Zoom meeting', 'for 10 minutes'),
       ],
     };
   },
