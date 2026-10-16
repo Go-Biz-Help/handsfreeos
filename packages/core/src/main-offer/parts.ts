@@ -18,7 +18,7 @@ export const MAIN_OFFER_LIMITS = {
   /** A short answer: a line of work, a size, a price. */
   short: 160,
   /** A sentence or two: the problem, why it matters, the guarantee. */
-  long: 600,
+  long: 800,
   /** One step of the method. */
   step: 160,
   /** The method's steps: 3 to 5 to publish. */
@@ -27,7 +27,7 @@ export const MAIN_OFFER_LIMITS = {
   proofLine: 300,
   proof: 10,
   /** The one-line offer. */
-  line: 600,
+  line: 1200,
   /** The outcome and the guarantee in a few words each, for messages. */
   inAFewWords: 120,
 } as const;
