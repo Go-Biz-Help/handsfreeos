@@ -80,6 +80,7 @@ export const KEPT_FOR_BUSINESS = [
   'hfos.auto.linkedin',
   'hfos.replies',
   'hfos.facebookFile',
+  'hfos.linkedinFile',
   'hfos.ask',
   'hfos.ask.linkedin',
   'hfos.ask.ends',

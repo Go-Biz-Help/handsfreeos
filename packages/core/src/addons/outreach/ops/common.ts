@@ -433,11 +433,14 @@ export async function keptProfile(
 export interface FriendSeen {
   readonly profileId: string;
   readonly state: FriendState;
+  /** When it began, when the list said (LinkedIn's file): else it begins now. */
+  readonly since?: Date | null;
 }
 
 /**
  * Where the person's own Facebook stands with some profiles, as seen or noted at `at`. A new state starts its
- * `since`, and the same one seen again only moves `seen_at`. A later look stays when what's sent is older (a step
+ * `since` (then, or when the list said it began), and the same one seen again only moves `seen_at`, and `since` back
+ * to an earlier beginning the list said. A later look stays when what's sent is older (a step
  * that waited to send), and "not friends" never replaces a request they turned down, which says more. Keep stays as
  * it was. The profiles whose state changed, or that had none.
  */
@@ -465,12 +468,16 @@ export async function keepFriendStates(
     ).map((f) => [f.profileId, f]),
   );
   const write = new Map<string, { state: FriendState; since: Date; seenAt: Date }>();
-  for (const { profileId, state: seenState } of seen) {
+  for (const { profileId, state: seenState, since: said } of seen) {
     const was = had.get(profileId);
     if (was && was.seenAt > at) continue;
     const state = was?.state === 'declined' && seenState === 'not_friends' ? 'declined' : seenState;
     if (was?.state !== state) changed.add(profileId);
-    write.set(profileId, { state, since: was?.state === state ? was.since : at, seenAt: at });
+    // A beginning the list said, never later than now; for a state that stays, only one earlier than kept.
+    const began = said && said < at ? said : null;
+    const since =
+      was?.state === state ? (began && began < was.since ? began : was.since) : (began ?? at);
+    write.set(profileId, { state, since, seenAt: at });
   }
   if (write.size)
     await ctx.tx

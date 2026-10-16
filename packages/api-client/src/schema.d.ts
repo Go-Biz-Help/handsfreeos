@@ -35938,6 +35938,7 @@ export interface operations {
                             url: string;
                             username: string | null;
                         };
+                        since?: string | null;
                     }[];
                     /**
                      * @default facebook

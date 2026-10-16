@@ -7,9 +7,11 @@
  */
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import type { LinkedInFilePart } from './hfos/files';
 import type { BioResult } from './networks/facebook/own-profile';
 import type { AutoResult, TheirPost } from './networks/facebook/auto';
-import type { FetchStep, StepResult } from './networks/facebook/fetch';
+import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
@@ -20,18 +22,11 @@ export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outlin
 
 /**
  * What the panel asks a tab on one of Facebook's download pages while it gets the person's file
- * (src/networks/facebook/fetch.ts), or on a profile while it cancels a request or unfriends: one step, waiting up to `waitMs`
- * for it to show; or, along a path, the furthest step from `from` on that's there.
+ * (src/networks/facebook/fetch.ts), or LinkedIn's Get a copy of your data (src/networks/linkedin/data.ts), or on a
+ * profile while it cancels a request or unfriends: one step, waiting up to `waitMs` for it to show; or, along a path,
+ * the furthest step from `from` on that's there.
  */
-export type FetchAsk = (
-  | { readonly type: 'hfos-fetch-step'; readonly step: FetchStep; readonly waitMs: number }
-  | {
-      readonly type: 'hfos-fetch-path';
-      readonly steps: readonly FetchStep[];
-      readonly from: number;
-      readonly waitMs: number;
-    }
-) & {
+export type FetchAsk = StepAsk & {
   /**
    * On someone's profile: one the person ticked, to cancel a request or unfriend (src/networks/facebook/tidy.ts), or one on
    * their list, to send a friend request or confirm theirs (src/networks/facebook/auto.ts).
@@ -195,12 +190,17 @@ export const READ_CHATS_KEY = 'hfos.readChats';
 export const MARK_POSTS_KEY = 'hfos.markPosts';
 
 /**
- * What the background asks the offscreen page (src/offscreen.ts) while it brings Facebook's file in
- * (src/jobs/file-in.ts): read these zips where Chrome saved them and keep what's in them; then each part to send in
- * turn. A service worker can't open the person's files; an extension page can.
+ * What the background asks the offscreen page (src/offscreen.ts) while it brings a network's file in
+ * (src/jobs/file-in.ts, src/jobs/linkedin/file.ts): read these zips where Chrome saved them, as Facebook's unless said,
+ * and keep what's in them; then each part to send in turn. A service worker can't open the person's files; an
+ * extension page can.
  */
 export type OffscreenAsk = { readonly target: 'offscreen' } & (
-  | { readonly type: 'hfos-file-read'; readonly paths: readonly string[] }
+  | {
+      readonly type: 'hfos-file-read';
+      readonly paths: readonly string[];
+      readonly platform?: Platform;
+    }
   | { readonly type: 'hfos-file-part'; readonly i: number }
 );
 
@@ -211,9 +211,17 @@ export type OffscreenAnswer =
       readonly parts: number;
       readonly people: number;
       readonly chats: number;
+      /** LinkedIn's: its connections, the invitations still waiting, and the people with no link to save them by. */
+      readonly connections?: number;
+      readonly invitations?: number;
+      readonly noLink?: number;
     }
   | {
       readonly ok: true;
       readonly part: DownloadPart;
+    }
+  | {
+      readonly ok: true;
+      readonly linkedin: LinkedInFilePart;
     }
   | { readonly ok: false; readonly error: string };

@@ -12,6 +12,9 @@
  *   Headline, anything unexpected handed to them (./profile.ts).
  * - `cancel`: the old invitations they ticked, withdrawn from Sent invitations in a tab they can see (./withdraw.ts).
  * - `posts`: LinkedIn's post search with the playbooks' words, the latest first (./posts.ts).
+ * - `file_request`, `file_download` and `file_in`: their copy of their data asked for and downloaded on LinkedIn's Get a
+ *   copy of your data, in a tab they can see, where they type their password; then brought in from their downloads
+ *   (./file.ts).
  * - `post`: not yet (part 6): it ends at once saying so, and nothing is opened.
  */
 import { ASK_CHATS, type AskResult, type AskTaken } from '@hfos/core/addons/outreach/asks';
@@ -19,6 +22,7 @@ import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../chats';
 import type { Job, JobEnd } from '../job';
 import { checkConnections, researchOnLinkedIn } from './checks';
+import { bringInLinkedIn, getLinkedInFile } from './file';
 import { lookupOnLinkedIn } from './lookup';
 import { checkInvitations, saveConnections } from './people';
 import { findPostsBySearch } from './posts';
@@ -34,6 +38,12 @@ export const LINKEDIN_POST_LATER =
 /** Does an ask on LinkedIn with the job that does it. */
 export async function linkedInAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
   switch (task.kind) {
+    case 'file_request':
+      return getLinkedInFile(job, 'request');
+    case 'file_download':
+      return getLinkedInFile(job, 'download');
+    case 'file_in':
+      return bringInLinkedIn(job);
     case 'friends':
       return saveConnections(job);
     case 'requests':

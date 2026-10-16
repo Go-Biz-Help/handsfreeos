@@ -17,6 +17,7 @@ import {
   NETWORK_CHOICES_DEFAULTS,
   NETWORKS_DEFAULTS,
 } from '../../src/addons/outreach/automation';
+import { tooOldFor } from '../../src/addons/outreach/asks';
 import { preDaySteps } from '../../src/addons/outreach/lists';
 import { networkOfLink, NETWORKS, profileMisfit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
@@ -536,6 +537,26 @@ describe('each network’s own lists, asks and Today', () => {
     expect(await refused(ask(old, 'linkedin', { kind: 'friends' }))).toBe(
       'outreach_extension_too_old',
     );
+  });
+
+  it('ask for LinkedIn’s data file only of a build that gets it there', async () => {
+    expect(tooOldFor('0.41.0', 'file_in', 'linkedin')).toBe(true);
+    expect(tooOldFor('0.42.0', 'file_in', 'linkedin')).toBe(false);
+    // Facebook's file every build here gets.
+    expect(tooOldFor('0.41.0', 'file_in')).toBe(false);
+    const dana = await teammate('Harper Quinn');
+    const pc = randomUUID();
+    await runAs(dana, ws, 'outreach.automation.save', { settings: linkedInOn });
+    await beat(dana, pc, '0.41.0');
+    expect(await refused(ask(dana, 'linkedin', { kind: 'file_request' }))).toBe(
+      'outreach_extension_too_old',
+    );
+    expect((await ask(dana, undefined, { kind: 'file_request' })).fresh).toBe(true);
+    await beat(dana, pc, '0.42.0');
+    expect(await ask(dana, 'linkedin', { kind: 'file_request' })).toMatchObject({
+      fresh: true,
+      ask: { platform: 'linkedin', kind: 'file_request' },
+    });
   });
 });
 
@@ -1095,5 +1116,74 @@ describe('growing on LinkedIn', () => {
       );
     expect(await today('linkedin')).toContain('warm_lead: Mo Lane');
     expect(await today()).not.toContain('warm_lead: Mo Lane');
+  });
+});
+
+describe('LinkedIn’s data file', () => {
+  const DAY = 86_400_000;
+  const li = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.linkedin.com/in/${slug}/`,
+  });
+  const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
+  const sinceOf = async (u: TestUser, slug: string) => {
+    const [row] = await rows<{ state: string; since: Date }>(
+      admin(),
+      sql`select f.state, f.since from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.user_id = ${u.id} and p.username = ${slug}`,
+    );
+    return row ? { state: row.state, since: new Date(row.since).toISOString() } : null;
+  };
+
+  it('keeps when each began, so an invitation sent long ago is old at once', async () => {
+    const kai = await teammate('Kai Morgan');
+    const longAgo = daysAgo(60);
+    const before = Date.now();
+    await runAs(kai, ws, 'outreach.friends.save', {
+      platform: 'linkedin',
+      list: 'sent',
+      people: [
+        { profile: li('ava-long-ago'), name: 'Ava Long', mutualFriends: null, since: longAgo },
+        { profile: li('ben-new-one'), name: 'Ben New', mutualFriends: null },
+        // A date ahead of now is taken as now.
+        { profile: li('cy-ahead'), name: 'Cy Ahead', mutualFriends: null, since: daysAgo(-3) },
+      ],
+    });
+    expect(await sinceOf(kai, 'ava-long-ago')).toEqual({ state: 'request_sent', since: longAgo });
+    expect(Date.parse((await sinceOf(kai, 'cy-ahead'))!.since)).toBeLessThanOrEqual(Date.now());
+    expect(Date.parse((await sinceOf(kai, 'cy-ahead'))!.since)).toBeGreaterThanOrEqual(
+      before - 1000,
+    );
+    const tidy = await runAs(kai, ws, 'outreach.friends.tidy', { platform: 'linkedin' });
+    expect(tidy.cancel.map((c: { name: string }) => c.name)).toEqual(['Ava Long']);
+
+    // Seen again: a later look keeps when it began; a list that says an earlier beginning moves it back.
+    await runAs(kai, ws, 'outreach.friends.save', {
+      platform: 'linkedin',
+      list: 'sent',
+      people: [{ profile: li('ava-long-ago'), name: 'Ava Long', mutualFriends: null }],
+    });
+    expect((await sinceOf(kai, 'ava-long-ago'))!.since).toBe(longAgo);
+    const earlier = daysAgo(90);
+    await runAs(kai, ws, 'outreach.friends.save', {
+      platform: 'linkedin',
+      list: 'sent',
+      people: [
+        { profile: li('ben-new-one'), name: 'Ben New', mutualFriends: null, since: earlier },
+      ],
+    });
+    expect((await sinceOf(kai, 'ben-new-one'))!.since).toBe(earlier);
+    // A connection since a year ago is one since then.
+    const connected = daysAgo(400);
+    await runAs(kai, ws, 'outreach.friends.save', {
+      platform: 'linkedin',
+      list: 'friends',
+      people: [
+        { profile: li('cy-ahead'), name: 'Cy Ahead', mutualFriends: null, since: connected },
+      ],
+    });
+    expect(await sinceOf(kai, 'cy-ahead')).toEqual({ state: 'friends', since: connected });
   });
 });

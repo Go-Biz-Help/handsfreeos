@@ -13,6 +13,7 @@ import {
   type OutlineOptions as BaseOptions,
   type OutlineSite,
 } from '../outline';
+import { DATA_WORDS } from './data';
 import type { ReadResult } from './types';
 import { linkedinUrl } from './urls';
 import { degreeOnly, isSentWhen, isWhen, UI_WORDS } from './vocabulary';
@@ -77,6 +78,10 @@ const PATH_WORDS = new Set(
     'life',
     'members',
     'new',
+    'mypreferences',
+    'd',
+    'download-my-data',
+    'member-data',
   ].map((w) => w.toLowerCase()),
 );
 
@@ -184,6 +189,7 @@ export function maskText(text: string): string {
     kept: (t) =>
       UI_WORDS.has(t.toLowerCase()) ||
       OWN_WORDS.has(t.toLowerCase()) ||
+      DATA_WORDS.has(t.toLowerCase()) ||
       isWhen(t) ||
       isSentWhen(t) ||
       degreeOnly(t) !== null ||

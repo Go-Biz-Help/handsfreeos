@@ -67,7 +67,7 @@ export interface Job {
    * (that person), or Stop. Only what the person asked for has one; the runner's daily jobs never hand over.
    */
   readonly handOver?: (says: string) => Promise<HandOverReply>;
-  /** Facebook asks for the person's password or PIN: said while the job waits; null once it's gone on. */
+  /** The network asks for the person's password (or Facebook's PIN): said while the job waits; null once it's gone on. */
   readonly typing?: (line: string | null) => void;
 }
 

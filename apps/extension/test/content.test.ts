@@ -88,11 +88,19 @@ describe('a tab’s script, by its network', () => {
 
   it('on LinkedIn, never does Facebook’s steps, and its own only on their own pages', async () => {
     const page = await tab('linkedin-feed.html', LINKEDIN_FEED, on);
-    for (const type of ['hfos-fetch-step', 'hfos-scroll-feed', 'hfos-join', 'hfos-write-bio-x'])
+    for (const type of ['hfos-scroll-feed', 'hfos-join', 'hfos-write-bio-x'])
       expect(await page.ask({ type, text: 'Hi' })).toEqual({
         ok: false,
         error: 'The extension doesn’t do that on LinkedIn pages.',
       });
+    // The file's steps, only on Get a copy of your data.
+    expect(
+      await page.ask({
+        type: 'hfos-fetch-step',
+        step: { action: 'press', words: ['Request archive'], says: 'Press it.' },
+        waitMs: 0,
+      }),
+    ).toEqual({ ok: false, error: 'LinkedIn didn’t open its Get a copy of your data page.' });
     // LinkedIn's runner's own steps, each only on its own page.
     expect(await page.ask({ type: 'hfos-like-post', index: 0, url: null })).toEqual({
       ok: false,
@@ -128,6 +136,33 @@ describe('a tab’s script, by its network', () => {
     expect(
       await page.ask({ type: 'hfos-open-chat', threadId: '2-MadeUpThreadDana0001==' }),
     ).toEqual({ ok: false });
+  });
+
+  it('on LinkedIn’s Get a copy of your data: does the file’s steps there', async () => {
+    const page = await tab(
+      'linkedin-data.html',
+      'https://www.linkedin.com/mypreferences/d/download-my-data',
+      on,
+    );
+    expect(
+      await page.ask({
+        type: 'hfos-fetch-step',
+        step: {
+          action: 'pick',
+          words: ['Want something in particular'],
+          anywhere: true,
+          says: 'Pick it.',
+        },
+        waitMs: 0,
+      }),
+    ).toMatchObject({ ok: true, result: 'done' });
+    expect(
+      await page.ask({
+        type: 'hfos-fetch-step',
+        step: { action: 'stopIf', words: ['being prepared'], says: 'Already asked.' },
+        waitMs: 0,
+      }),
+    ).toMatchObject({ ok: true, result: 'missing' });
   });
 
   it('on LinkedIn’s own profile: reads it for the AI’s check, as LinkedIn’s', async () => {

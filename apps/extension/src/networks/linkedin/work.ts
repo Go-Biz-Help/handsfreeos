@@ -7,6 +7,7 @@
  *   conversation opened from that list (./browse.ts).
  * - Their own profile read for the AI's check, and the headline they picked put in (./own-profile.ts).
  * - On Sent invitations, the one to a member they ticked withdrawn (./withdraw.ts).
+ * - On Get a copy of your data alone, the steps that ask for their archive and download it (./data.ts).
  * - Once the person lets LinkedIn's runner work on its own (src/auto/linkedin.ts), on the pages of people on their
  *   list for today: their posts read and one liked, Connect without a note, the comment the AI drafted, and the
  *   messages they OK'd (./auto.ts).
@@ -19,6 +20,8 @@ import type {
   BrowseAnswer,
   ConnectAsk,
   BrowseAsk,
+  FetchAnswer,
+  FetchAsk,
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
@@ -34,7 +37,9 @@ import {
   writeComment,
   writeMessage,
 } from './auto';
+import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
+import { dataPage } from './data';
 import { readOwnProfile, writeHeadline } from './own-profile';
 import { classifyUrl } from './urls';
 import { sentPage, withdraw } from './withdraw';
@@ -53,6 +58,8 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-comment',
   'hfos-message',
   'hfos-open-message',
+  'hfos-fetch-step',
+  'hfos-fetch-path',
 ]);
 
 type WorkAsk =
@@ -61,7 +68,8 @@ type WorkAsk =
   | WithdrawAsk
   | AutoAsk
   | ConnectAsk
-  | OpenMessageAsk;
+  | OpenMessageAsk
+  | FetchAsk;
 
 /** Whether the tab shows a profile: the person's own, after linkedin.com/in/me/ took it there. */
 const onProfile = (href: string) => {
@@ -82,6 +90,13 @@ async function withdrawStep(ask: WithdrawAsk): Promise<WithdrawAnswer> {
   if (!sentPage(location.href))
     return { ok: false, error: 'LinkedIn didn’t open the invitations you’ve sent.' };
   return { ok: true, result: await withdraw(document, location.href, ask.profile) };
+}
+
+/** One of the file's steps (./data.ts), on Get a copy of your data alone, looked for till it shows. */
+async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
+  if (!dataPage(location.href))
+    return { ok: false, error: 'LinkedIn didn’t open its Get a copy of your data page.' };
+  return { ok: true, ...(await stepOnPage(document, ask)) };
 }
 
 /** The runner's steps (./auto.ts), each only on its own kind of page. */
@@ -145,5 +160,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-message':
     case 'hfos-open-message':
       return autoStep(known);
+    case 'hfos-fetch-step':
+    case 'hfos-fetch-path':
+      return fetchStep(known);
   }
 }

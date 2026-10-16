@@ -33,17 +33,12 @@ import type {
 import { likeTheirPost, readTheirPosts, writeComment, writeMessage } from './auto';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
 import { readComments, readReactions, writeGroupPost } from './compose';
-import { doPath, doStep, fetchPage, type StepResult } from './fetch';
+import { fetchPage, stepOnPage } from './fetch';
 import { requestsPage } from './friends';
 import { answerJoin, pressJoin } from './join';
 import { readOwnProfile, writeBio } from './own-profile';
 import { tidyPage } from './tidy';
 import { classifyUrl } from './urls';
-
-/** How often a step that isn't on the page yet is looked for again, while Facebook draws the next screen. */
-const LOOK_AGAIN_MS = 300;
-
-const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** One of the panel's steps on a download page, looked for until it shows or `waitMs` is up. */
 async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
@@ -61,20 +56,7 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
           ? 'Facebook didn’t open your friend requests.'
           : 'This isn’t one of Facebook’s download pages.',
     };
-  const until = Date.now() + ask.waitMs;
-  for (;;) {
-    let result: StepResult;
-    let at: number | undefined;
-    if (ask.type === 'hfos-fetch-step') result = doStep(document, ask.step);
-    else {
-      const went = doPath(document, ask.steps, ask.from);
-      result = 'at' in went ? 'done' : went.result;
-      at = 'at' in went ? went.at : undefined;
-    }
-    if (result === 'done' || result === 'already' || result === 'stop' || Date.now() >= until)
-      return { ok: true, result, at };
-    await pause(LOOK_AGAIN_MS);
-  }
+  return { ok: true, ...(await stepOnPage(document, ask)) };
 }
 
 /** One of the runner's steps (./auto.ts): a like on someone's profile, a comment on a post, or a message. */

@@ -7,9 +7,10 @@
  *
  * A service worker can't open the person's files, so the reading happens in an offscreen page of the extension's own
  * (src/offscreen.ts), made for this and closed after; Chrome lets it open them once the person turns on **Allow
- * access to file URLs** for the extension. It never opens Facebook, so a warning that day doesn't stop it.
+ * access to file URLs** for the extension. It never opens Facebook, so a warning that day doesn't stop it. LinkedIn's
+ * file comes in the same way, with its own finder and parts (./linkedin/file.ts).
  */
-import { isFacebookZip } from '../hfos/files';
+import { isFacebookZip, type DownloadSeen } from '../hfos/files';
 import type { OffscreenAnswer, OffscreenAsk } from '../messages';
 import { counted } from '../words';
 import { fileKept, keepFile } from './file';
@@ -28,8 +29,19 @@ export interface FoundFile {
   readonly path: string;
 }
 
-/** Facebook's zips among Chrome's downloads, the newest first. */
-export async function findFiles(): Promise<FoundFile[]> {
+/** What the finders need to know of one of Chrome's downloads. */
+const seen = (item: chrome.downloads.DownloadItem): DownloadSeen => ({
+  url: item.url,
+  finalUrl: item.finalUrl,
+  referrer: item.referrer,
+  filename: item.filename,
+  mime: item.mime,
+});
+
+/** A network's zips among Chrome's downloads, the newest first: Facebook's unless said. */
+export async function findFiles(
+  isZip: (item: DownloadSeen) => boolean = isFacebookZip,
+): Promise<FoundFile[]> {
   try {
     const items = await chrome.downloads.search({
       state: 'complete',
@@ -38,15 +50,7 @@ export async function findFiles(): Promise<FoundFile[]> {
       limit: 200,
     });
     return items
-      .filter((item) =>
-        isFacebookZip({
-          url: item.url,
-          finalUrl: item.finalUrl,
-          referrer: item.referrer,
-          filename: item.filename,
-          mime: item.mime,
-        }),
-      )
+      .filter((item) => isZip(seen(item)))
       .slice(0, FILES_MOST)
       .map((item) => ({ id: item.id, path: item.filename }));
   } catch {
@@ -54,11 +58,29 @@ export async function findFiles(): Promise<FoundFile[]> {
   }
 }
 
+/** A network's zip Chrome started downloading since a moment, done or not: its path, or null. */
+export async function startedSince(
+  isZip: (item: DownloadSeen) => boolean,
+  since: number,
+): Promise<string | null> {
+  try {
+    const items = await chrome.downloads.search({
+      startedAfter: new Date(since).toISOString(),
+      orderBy: ['-startTime'],
+      limit: 20,
+    });
+    const found = items.find((item) => item.state !== 'interrupted' && isZip(seen(item)));
+    return found ? found.filename : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether the person let the extension open their files. */
 export const fileAccess = (): Promise<boolean> =>
   chrome.extension.isAllowedFileSchemeAccess().catch(() => false);
 
-async function offscreen(ask: OffscreenAsk): Promise<OffscreenAnswer> {
+export async function offscreen(ask: OffscreenAsk): Promise<OffscreenAnswer> {
   const answer = (await chrome.runtime
     .sendMessage(ask)
     .catch(() => null)) as OffscreenAnswer | null;
@@ -67,12 +89,13 @@ async function offscreen(ask: OffscreenAsk): Promise<OffscreenAnswer> {
   return answer;
 }
 
-async function openReader(): Promise<void> {
+/** Opens the offscreen page that reads a network's zips (Facebook's unless said). */
+export async function openReader(network = 'Facebook'): Promise<void> {
   await chrome.offscreen.closeDocument().catch(() => undefined);
   await chrome.offscreen.createDocument({
     url: 'offscreen.html',
     reasons: ['BLOBS'],
-    justification: 'Reads the Facebook zips the person downloaded, where Chrome saved them.',
+    justification: `Reads the ${network} zips the person downloaded, where Chrome saved them.`,
   });
 }
 

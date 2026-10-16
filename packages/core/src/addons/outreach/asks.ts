@@ -95,6 +95,16 @@ export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
   linkedin: '0.40.0',
 };
 
+/**
+ * On a network but Facebook, the first build that does a kind there when it came after the network's first: LinkedIn's
+ * data file (asked for, downloaded and brought in) came in 0.42.0.
+ */
+export const ASK_KIND_SINCE_ON: Readonly<
+  Partial<Record<Platform, Readonly<Partial<Record<AskKind, string>>>>>
+> = {
+  linkedin: { file_request: '0.42.0', file_download: '0.42.0', file_in: '0.42.0' },
+};
+
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
 export const targetOn = (platform: Platform, target: string): string =>
   platform === 'facebook' ? target : `${platform}:${target}`;
@@ -791,9 +801,11 @@ export const tooOldFor = (
 ): boolean => {
   const since = ASK_KIND_SINCE[kind];
   const network = ASK_NETWORK_SINCE[platform];
+  const there = ASK_KIND_SINCE_ON[platform]?.[kind];
   return (
     (since !== undefined && !appVersionAtLeast(version, since)) ||
-    (network !== undefined && !appVersionAtLeast(version, network))
+    (network !== undefined && !appVersionAtLeast(version, network)) ||
+    (there !== undefined && !appVersionAtLeast(version, there))
   );
 };
 
