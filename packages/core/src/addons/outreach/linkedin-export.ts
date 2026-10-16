@@ -59,7 +59,7 @@ export function csvRows(text: string): string[][] {
   let row: string[] = [];
   let field = '';
   let quoted = false;
-  const s = text.replace(/^﻿/, '');
+  const s = text.replace(/^\uFEFF/, '');
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
     if (quoted) {
