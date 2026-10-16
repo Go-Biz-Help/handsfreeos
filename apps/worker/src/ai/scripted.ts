@@ -2259,9 +2259,26 @@ function scriptedOfferScore(message: string) {
   const weakest = (Object.keys(parts) as (keyof typeof parts)[]).reduce((a, b) =>
     parts[b] < parts[a] ? b : a,
   );
+  // With the owner's direction, the who is judged by it, as the real score is told to.
+  const directed = quotedBlock(message, 'direction') !== null;
   return {
     parts: Object.fromEntries(
-      Object.entries(parts).map(([k, score]) => [k, { score, why: `The ${k} as written.` }]),
+      Object.entries(parts).map(([k, score]) => [
+        k,
+        {
+          score,
+          why: `The ${k} as written.`,
+          good: score >= 7 ? [`The ${k} is clear and specific.`] : [],
+          holding:
+            score === 3
+              ? [`The ${k} isn’t written yet.`]
+              : score < 7
+                ? [`The ${k} still has a [placeholder] to fill in.`]
+                : [],
+          fix: score < 7 ? `Fill in the ${k}.` : '',
+          followedDirection: directed && k === 'who',
+        },
+      ]),
     ),
     weakest,
     fix: `Make the ${weakest} more specific.`,
@@ -2270,7 +2287,58 @@ function scriptedOfferScore(message: string) {
   };
 }
 
+/**
+ * A try of the main offer: the who widened to businesses that live on leads, the outcome and guarantee spelled out, a
+ * timeframe with a [days] blank, and the method and price written back as they were, so they count as left alone.
+ * Why each part changed names the note on it when there is one, else the direction.
+ */
+function scriptedOfferTry(message: string) {
+  const offer = unquote(quotedBlock(message, 'offer') ?? '');
+  const steps = offer
+    .slice(offer.indexOf('Method:\n') + 8, offer.indexOf('\n  What’s different'))
+    .split('\n')
+    .map((l) => l.replace(/^- /, '').trim())
+    .filter((l) => l && l !== '(none yet)');
+  const notes = unquote(quotedBlock(message, 'notes') ?? '');
+  const noted = (label: string) =>
+    notes.includes(`${label}:`) ? `Followed your note on the ${label.toLowerCase()}.` : '';
+  const why = (label: string) => noted(label) || 'Followed your direction.';
+  const price = offerLine(message, 'Price').split(';')[0] ?? '';
+  return {
+    who: {
+      work: 'Businesses that live on leads',
+      slice: 'like home services, real estate and insurance',
+      size: '',
+      problem: 'They lose work because nobody answers fast enough',
+    },
+    outcome: {
+      result: `${offerLine(message, 'Outcome') || 'More booked work'}, and a word on what needs you`,
+      measure: '',
+      why: '',
+    },
+    timeframe: { typical: 'Answering your leads within [days]', why: '' },
+    method: { steps, different: offerLine(message, 'What’s different', true) },
+    guarantee: {
+      promise: `${offerLine(message, 'Guarantee') || 'A month free'}, for leads that call, text or fill a form`,
+      when: '',
+      qualifies: '',
+    },
+    price: { amount: price, structure: '', value: '' },
+    line: 'We help businesses that live on leads answer every one fast.',
+    inAFewWords: { outcome: 'every lead answered fast', guarantee: 'a month free if not' },
+    why: {
+      who: why('Who'),
+      outcome: why('Outcome'),
+      timeframe: why('Timeframe'),
+      method: '',
+      guarantee: why('Guarantee'),
+      price: '',
+    },
+  };
+}
+
 export const MAIN_OFFER_RULES: readonly ScriptRule[] = [
+  { when: /Write a new try of this offer\.$/, json: (m) => scriptedOfferTry(m) },
   { when: /Suggest niches to start with\.$/, json: (m) => scriptedOfferNiche(m) },
   { when: /Help write this part of the offer\.$/, json: (m) => scriptedOfferAssist(m) },
   { when: /Score this offer\.$/, json: (m) => scriptedOfferScore(m) },

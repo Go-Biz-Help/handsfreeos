@@ -19,9 +19,10 @@ It builds on the main offer as it is (docs/main-offer.md, HANDSFREEOS_MAIN_OFFER
 is on the canvas **Main offer: notes, direction and tries** (https://claude.ai/artifact/14rYNgQfLT3v8xBhAsFkiw):
 Review, Compare, and Picks applied.
 
-**Where it stands (2026-10-16):** step 1 is built on branch `claude/compassionate-hypatia-62wvlc`: the migration
-(`20261027007700_main_offer_tries.sql`, not yet on the hosted database), the fuller score, the direction, the tries'
-commands and query, and the AI's prompts and checks. Chris approved the boards (2026-10-16: "boards approved").
+**Where it stands (2026-10-16):** steps 1 and 2 are built on branch `claude/compassionate-hypatia-62wvlc`: the
+migration (`20261027007700_main_offer_tries.sql`, not yet on the hosted database), the fuller score, the direction,
+the tries' commands and query, the AI's prompts and checks, and the worker's `POST /v1/main-offer/try`. The screens
+are next. Chris approved the boards (2026-10-16: "boards approved").
 
 ## Decisions (Chris, 2026-10-16)
 
@@ -183,6 +184,8 @@ New refusals, in the error-message rules' words:
   on the part you want rewritten."
 - `main_offer_try_gone` (409), with the version's number: "That try is from before version 3 went live. Make a
   new one from your draft."
+- `main_offer_try_unchanged` (422), when the AI left every part it was free to change as it was: "The AI left every
+  part as it was this time. Add a note on what you'd like changed, or try again."
 - `main_offer_no_draft` and `main_offer_draft_moved`, as today.
 
 Core still never names an add-on, and no add-on reads the tries. Social Outreach hears `main_offer.published` as now,
@@ -238,7 +241,9 @@ Each step ships on its own, with its tests, and leaves the builder working.
    **Built.** The words for the screens are `MAIN_OFFER_TRY_WORDS`, `OFFER_NOTE_PICKS` and `OFFER_DIRECTION_PICKS`
    in `words.ts`.
 2. **The worker: the try.** `POST /v1/main-offer/try`, the direction read by the score, Improve, Write it for me and
-   the niche finder, and the scripted stand-in's rule.
+   the niche finder, and the scripted stand-in's rule. **Built.** The scripted score also answers what's working,
+   what's holding a part back and its fix, and marks the who as scored with the direction when there is one, so the
+   screens have something to show without a model.
 3. **The web: Review, Compare and the applied step**, from the approved boards, and Settings → Main offer's Working,
    Holding it back and direction.
 4. **Docs.** docs/main-offer.md: what's built, the direction and the tries under its rules, and the refusals.
