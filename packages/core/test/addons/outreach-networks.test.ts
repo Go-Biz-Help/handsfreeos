@@ -539,11 +539,15 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 
-  it('ask for LinkedIn’s data file only of a build that gets it there', async () => {
+  it('ask for LinkedIn’s data file and post only of a build that does them there', async () => {
     expect(tooOldFor('0.41.0', 'file_in', 'linkedin')).toBe(true);
     expect(tooOldFor('0.42.0', 'file_in', 'linkedin')).toBe(false);
     // Facebook's file every build here gets.
     expect(tooOldFor('0.41.0', 'file_in')).toBe(false);
+    // LinkedIn's helpful post on the person's feed came after.
+    expect(tooOldFor('0.42.0', 'post', 'linkedin')).toBe(true);
+    expect(tooOldFor('0.43.0', 'post', 'linkedin')).toBe(false);
+    expect(tooOldFor('0.24.0', 'post')).toBe(false);
     const dana = await teammate('Harper Quinn');
     const pc = randomUUID();
     await runAs(dana, ws, 'outreach.automation.save', { settings: linkedInOn });

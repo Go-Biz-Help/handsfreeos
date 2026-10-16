@@ -15,7 +15,7 @@
  * - `file_request`, `file_download` and `file_in`: their copy of their data asked for and downloaded on LinkedIn's Get a
  *   copy of your data, in a tab they can see, where they type their password; then brought in from their downloads
  *   (./file.ts).
- * - `post`: not yet (part 6): it ends at once saying so, and nothing is opened.
+ * - `post`: the helpful post they OK'd, put up on their own feed (./helpful.ts).
  */
 import { ASK_CHATS, type AskResult, type AskTaken } from '@hfos/core/addons/outreach/asks';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
@@ -23,6 +23,7 @@ import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../chats';
 import type { Job, JobEnd } from '../job';
 import { checkConnections, researchOnLinkedIn } from './checks';
 import { bringInLinkedIn, getLinkedInFile } from './file';
+import { postOnLinkedIn } from './helpful';
 import { lookupOnLinkedIn } from './lookup';
 import { checkInvitations, saveConnections } from './people';
 import { findPostsBySearch } from './posts';
@@ -30,10 +31,6 @@ import { linkedInHeadlineEdit, linkedInProfileRead } from './profile';
 import { withdrawInvitations } from './withdraw';
 
 type Ended = JobEnd & { readonly result?: AskResult | null };
-
-/** Putting a post up on LinkedIn comes with part 6: till then, said plainly, with what to do instead. */
-export const LINKEDIN_POST_LATER =
-  'Your computer can’t put a post up on LinkedIn yet. Copy it from Today and post it on your LinkedIn feed yourself.';
 
 /** Does an ask on LinkedIn with the job that does it. */
 export async function linkedInAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
@@ -70,7 +67,7 @@ export async function linkedInAsk(task: AskTaken['task'], job: Job): Promise<End
     case 'posts':
       return findPostsBySearch(job, task.words);
     case 'post':
-      return { line: LINKEDIN_POST_LATER, warned: false, failed: true };
+      return postOnLinkedIn(job, task.helpfulId);
     default:
       // A kind HandsFreeOS doesn't ask on LinkedIn, or one this build doesn't know: it ends saying so.
       return {

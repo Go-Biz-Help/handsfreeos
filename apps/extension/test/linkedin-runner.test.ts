@@ -28,6 +28,8 @@ const world = vi.hoisted(() => ({
   posted: [] as { path: string; body: Record<string, unknown> }[],
   answers: {} as Record<string, (body: Record<string, unknown>) => unknown>,
   hfos: {} as Record<string, (ask: Record<string, unknown>) => unknown>,
+  /** The person's LinkedIn choices. */
+  choices: {} as Record<string, unknown>,
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -70,7 +72,7 @@ vi.mock('../src/hfos/follow', () => ({
     timezone: 'America/Chicago',
     settings: {
       voice: { split: false },
-      networks: { linkedin: { on: true, sending: 'steps', collect: false } },
+      networks: { linkedin: world.choices },
     },
   }),
 }));
@@ -95,6 +97,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 vi.mock('../src/tab', async () => {
   const { readPage } = await import('../src/networks/linkedin/page');
   const auto = await import('../src/networks/linkedin/auto');
+  const compose = await import('../src/networks/linkedin/compose');
   return {
     WorkTab: class {
       private doc: Document | null = null;
@@ -153,6 +156,11 @@ vi.mock('../src/tab', async () => {
             };
           case 'hfos-open-message':
             return { ok: auto.openMessage(doc) };
+          case 'hfos-feed-post':
+            return {
+              ok: true,
+              ...(await compose.writeFeedPost(doc, this.at, message.text as string)),
+            };
           default:
             return { ok: false };
         }
@@ -275,6 +283,7 @@ beforeEach(() => {
   world.answers = {};
   world.hfos = {};
   world.behave = () => undefined;
+  world.choices = { on: true, sending: 'steps', collect: false, posting: 'after_ok' };
   store.set(NETWORKS_KEY, {
     facebook: { on: true, allowed: true },
     linkedin: { on: true, allowed: true },
@@ -299,6 +308,9 @@ describe('what it does on LinkedIn’s list', () => {
     ]);
     expect(nextLinkedInDaily({ daily: {} })).toBe('requests');
     expect(nextLinkedInDaily({ daily: { requests: 'x', checks: 'y' } })).toBe('chats');
+    expect(
+      nextLinkedInDaily({ daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w' } }),
+    ).toBe('helpful');
   });
 
   it('sends an invitation without a note from their profile, and notes it as LinkedIn’s', async () => {
@@ -488,6 +500,67 @@ describe('its day', () => {
       platform: 'linkedin',
     });
     expect(alarms.has('hfos-auto-linkedin')).toBe(true);
+  });
+
+  it('puts today’s helpful post up on their own feed when LinkedIn posting is its own', async () => {
+    keep(day('started'));
+    world.choices = { on: true, sending: 'steps', collect: false, posting: 'own' };
+    const saved = new Date().toISOString();
+    world.hfos['hfos-lists'] = () => ({
+      friendsAt: saved,
+      requestsAt: saved,
+      sentAt: saved,
+      groupsAt: null,
+      groupChecksAt: null,
+      tidyAt: saved,
+      checksAt: saved,
+    });
+    const post = `${LI}/feed/update/urn:li:activity:7380000000000000500/`;
+    world.hfos['hfos-helpful-next'] = () => ({
+      post: {
+        helpfulId: '0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e',
+        groupName: null,
+        groupUrl: null,
+        text: 'Three things to check before you call a plumber.',
+      },
+      read: [],
+    });
+    world.hfos['hfos-helpful-posted'] = () => ({ state: 'posted' });
+    world.pages = () => ({ fixture: 'linkedin-feed.html' });
+    world.behave = (doc) => {
+      let into: Element | null = null;
+      doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+        if (into) into.textContent = text ?? '';
+        doc.getElementById('share-post')?.removeAttribute('disabled');
+        return true;
+      };
+      [...doc.querySelectorAll('main button')]
+        .find((b) => b.textContent?.trim() === 'Start a post')!
+        .addEventListener('click', () => {
+          const box = load('linkedin-share-box.html', doc.location.href);
+          const outlet = doc.importNode(box.getElementById('modal-outlet')!, true);
+          doc.body.append(outlet);
+          const writing = outlet.querySelector('[role="textbox"]')!;
+          writing.addEventListener('click', () => (into = writing));
+          outlet.querySelector('#share-post')!.addEventListener('click', () => {
+            outlet.remove();
+            doc.body.insertAdjacentHTML('beforeend', `<a href="${post}">View post</a>`);
+          });
+        });
+    };
+    await linkedInTick();
+    expect(world.opened).toEqual([`${LI}/feed/`]);
+    expect(world.asked.find((a) => a.type === 'hfos-helpful-next')?.input).toMatchObject({
+      platform: 'linkedin',
+    });
+    expect(world.asked.find((a) => a.type === 'hfos-helpful-posted')?.input).toMatchObject({
+      posted: true,
+      url: post,
+    });
+    expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({
+      line: 'Helpful post: Put your helpful post up on your LinkedIn feed.',
+      helpfulUp: true,
+    });
   });
 
   it('does nothing on a day LinkedIn warned them', async () => {

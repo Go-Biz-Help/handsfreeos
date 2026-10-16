@@ -27,9 +27,14 @@ const plain = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
  * The post among those the page shows that starts the way this one does (Facebook may cut a long one short with See
- * more): its link.
+ * more, and LinkedIn with …more): its link. Any network's read.
  */
-export function foundPost(page: ReadResult, text: string): string | null {
+export function foundPost(
+  page: {
+    readonly posts?: readonly Pick<NonNullable<ReadResult['posts']>[number], 'text' | 'url'>[];
+  },
+  text: string,
+): string | null {
   const mine = plain(text).slice(0, 60);
   if (!mine) return null;
   return (

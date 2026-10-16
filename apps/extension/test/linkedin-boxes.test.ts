@@ -17,6 +17,12 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
   ['linkedin-own-profile-full.html', 'https://www.linkedin.com/in/chris-gee-12/'],
   ['linkedin-company.html', 'https://www.linkedin.com/company/acme-plumbing-atx/about/'],
   ['linkedin-activity.html', 'https://www.linkedin.com/in/dana-reyes-4b2a1c/recent-activity/all/'],
+  [
+    'linkedin-own-post.html',
+    'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000500/',
+  ],
+  ['linkedin-own-post.html', 'https://www.linkedin.com/in/me/recent-activity/all/'],
+  ['linkedin-data.html', 'https://www.linkedin.com/mypreferences/d/download-my-data'],
   ['linkedin-connections.html', 'https://www.linkedin.com/mynetwork/invite-connect/connections/'],
   ['linkedin-invitations.html', 'https://www.linkedin.com/mynetwork/invitation-manager/received/'],
   ['linkedin-invitations-sent.html', 'https://www.linkedin.com/mynetwork/invitation-manager/sent/'],

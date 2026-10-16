@@ -30,7 +30,6 @@ vi.mock('../src/jobs/job', async (original) => ({
 }));
 
 const { runAsk } = await import('../src/asks/run');
-const { LINKEDIN_POST_LATER } = await import('../src/jobs/linkedin');
 const { warnedLine } = await import('../src/jobs/job');
 
 const store = new Map<string, unknown>();
@@ -775,17 +774,5 @@ describe('finding posts with LinkedIn’s post search', () => {
     expect(opened).toEqual([]);
     expect(end).toMatchObject({ failed: true });
     expect(end.line).toContain('On the Playbooks tab, add some under Words to search for groups');
-  });
-});
-
-describe('a post on LinkedIn', () => {
-  it('waits for a later build: it ends at once saying so, with nothing opened', async () => {
-    const { tab, opened } = fakeTab(() => 'linkedin-feed.html');
-    const end = await onLinkedIn(
-      { kind: 'post', helpfulId: '0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e' },
-      jobWith(tab, fakeHfos().hfos).job,
-    );
-    expect(opened).toEqual([]);
-    expect(end).toEqual({ line: LINKEDIN_POST_LATER, warned: false, failed: true });
   });
 });

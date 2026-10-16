@@ -97,12 +97,12 @@ export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
 
 /**
  * On a network but Facebook, the first build that does a kind there when it came after the network's first: LinkedIn's
- * data file (asked for, downloaded and brought in) came in 0.42.0.
+ * data file (asked for, downloaded and brought in) came in 0.42.0, and its helpful post on the person's feed in 0.43.0.
  */
 export const ASK_KIND_SINCE_ON: Readonly<
   Partial<Record<Platform, Readonly<Partial<Record<AskKind, string>>>>>
 > = {
-  linkedin: { file_request: '0.42.0', file_download: '0.42.0', file_in: '0.42.0' },
+  linkedin: { file_request: '0.42.0', file_download: '0.42.0', file_in: '0.42.0', post: '0.43.0' },
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
