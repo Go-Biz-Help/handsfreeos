@@ -40,6 +40,11 @@ export interface JobTab {
   loaded?(id: number): Promise<unknown>;
   /** Brings it to the front, for a step handed to the person. */
   focus?(): Promise<void>;
+  /**
+   * Brings it to the front while `work` runs, then the person's own window back: for a page that draws only what's on
+   * screen.
+   */
+  inFront?<T>(work: () => Promise<T>): Promise<T>;
   /** Closes it, and its window when it has one of its own: done with the network's pages before the job ends. */
   close?(): Promise<void>;
   ask(message: Ask): Promise<Answer>;

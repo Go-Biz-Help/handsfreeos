@@ -27,12 +27,13 @@ import { chargeUsage, rateCard, type WalletDeps } from './wallet';
 
 export type SpeechKey = Extract<
   UsageKey,
-  'speech.live.minute' | 'speech.recording.minute' | 'speech.voice.kchar'
+  'speech.live.minute' | 'speech.recording.minute' | 'speech.voice.kchar' | 'speech.meeting.minute'
 >;
 export const SPEECH_KEYS: readonly SpeechKey[] = [
   'speech.live.minute',
   'speech.recording.minute',
   'speech.voice.kchar',
+  'speech.meeting.minute',
 ];
 
 export type SpeechSource = 'talk' | 'call' | 'transcript';
@@ -95,6 +96,7 @@ export const SPEECH_SUBJECTS: Readonly<Record<SpeechKey, string>> = {
   'speech.live.minute': 'AI voice: listening on calls',
   'speech.recording.minute': 'AI voice: turning speech into words',
   'speech.voice.kchar': 'AI voice: speaking',
+  'speech.meeting.minute': 'AI voice: listening in Zoom meetings',
 };
 
 const isSpeechKey = (v: string): v is SpeechKey => (SPEECH_KEYS as readonly string[]).includes(v);

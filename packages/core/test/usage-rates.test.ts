@@ -177,6 +177,8 @@ describe('the seeded card', () => {
       'speech.live.minute': 2,
       'speech.recording.minute': 1,
       'speech.voice.kchar': 5,
+      // Zoom's transcript of a coached meeting, at 1.5× its Developer Pack credits.
+      'speech.meeting.minute': 3,
       'ai.unknown.mtok': 2250,
       // The carriers' texting registration fees, at exactly what Twilio charges us.
       'a2p.brand.registration': 450,
@@ -207,10 +209,13 @@ describe('the seeded card', () => {
     expect(priceOf(SEED_CARD, 'speech.live.minute', 60).amountCents).toBe(83);
     expect(priceOf(SEED_CARD, 'speech.recording.minute', 60).amountCents).toBe(47);
     expect(priceOf(SEED_CARD, 'speech.voice.kchar', 100).amountCents).toBe(450);
+    // An hour of a coached Zoom meeting: Zoom's 2¢ a minute, at 1.5×.
+    expect(priceOf(SEED_CARD, 'speech.meeting.minute', 60).amountCents).toBe(180);
     for (const key of [
       'speech.live.minute',
       'speech.recording.minute',
       'speech.voice.kchar',
+      'speech.meeting.minute',
     ] as const)
       expect(SEED_CARD.rates[key].markupBp, key).toBe(15_000);
   });

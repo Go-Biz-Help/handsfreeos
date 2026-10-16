@@ -73718,8 +73718,10 @@ export interface operations {
                             failure: string | null;
                             /** Format: uuid */
                             id: string;
+                            language: string | null;
                             lines: {
                                 atMs: number;
+                                language?: string | null;
                                 /** @enum {string} */
                                 speaker: "customer" | "team";
                                 text: string;
@@ -73738,6 +73740,8 @@ export interface operations {
                             } | null;
                             result: {
                                 followUp: string;
+                                /** @default null */
+                                language: string | null;
                                 notes: string[];
                                 objections: {
                                     /** @default  */
@@ -73814,6 +73818,7 @@ export interface operations {
                             endedAt: string | null;
                             /** Format: uuid */
                             id: string;
+                            language: string | null;
                             liveMeetingId: string | null;
                             person: {
                                 /** Format: uuid */
