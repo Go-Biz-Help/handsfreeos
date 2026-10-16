@@ -181,6 +181,25 @@ export function companyFromUrl(url: URL): CompanyRef | null {
   return id ? { id, url: `${LINKEDIN}/company/${id}/` } : null;
 }
 
+/** A page that isn't a person, posting as itself: a company's (/company/…) or one of its showcase pages (/showcase/…). */
+export function pageFromUrl(url: URL): CompanyRef | null {
+  const company = companyFromUrl(url);
+  if (company) return company;
+  const [first, second] = pathParts(url);
+  const id = first === 'showcase' && second ? usernameOf(second) : null;
+  return id ? { id, url: `${LINKEDIN}/showcase/${id}/` } : null;
+}
+
+/**
+ * The post a group's link highlights: LinkedIn's newer feed links a group post's header to its group with the post's
+ * own name in the address (/groups/<number>/?highlightedUpdateUrn=urn:li:activity:…).
+ */
+export function highlightedPostFrom(url: URL): string | null {
+  return pathParts(url)[0] === 'groups'
+    ? postFromUrn(url.searchParams.get('highlightedUpdateUrn'))
+    : null;
+}
+
 /** A link read from a page, for the readers and the tests: what each of the above makes of it, or null. */
 const fromLink =
   <T>(read: (url: URL) => T | null) =>

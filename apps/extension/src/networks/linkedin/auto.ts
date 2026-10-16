@@ -3,11 +3,15 @@
  * "LinkedIn, part by part", 5), once the person lets it, each only on the page it's for, in the tab (./work.ts):
  *
  * - **Like** the post of theirs the runner picked, on their activity: only a post they wrote, only its own Like (never
- *   a comment's), and only when none of the person's reactions is on it already.
+ *   a comment's), and only when none of the person's reactions is on it already. In LinkedIn's newer layout (the
+ *   owner's outlines of 16 Oct 2026) that's the post bar's reaction button, found by where it is (./posts.ts,
+ *   `barOf`), and it's liked once the button shows a reaction given (`reactionChange`).
  * - **Connect** on their profile, without a note (Chris: LinkedIn invitations go with no note): Connect in the top
  *   card, or under More when Follow comes first; then the box's **Send without a note**. It never types a note, and a
  *   box that asks for anything (their email, a note it insists on) is left for the person.
- * - **A comment** in the post's own box, never a reply's, sent with that box's own button.
+ * - **A comment** in the post's own box, never a reply's, sent with that box's own button: one saying Comment or Post
+ *   (or, a best reading of LinkedIn's newer words, "Post comment", "Submit comment"); anything else is left for the
+ *   person.
  * - **A message** in the conversation with them: on its page, or in the window their profile's **Message** opens,
  *   typing only into that conversation's box, and leaving one with writing in it alone.
  *
@@ -20,7 +24,15 @@ import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
 import { CONTROLS, mainOf, wordsOf } from './dom';
 import { peopleLinked } from './people';
-import { postBoxes, postIn, readPost } from './posts';
+import {
+  barOf,
+  otherReactions,
+  postBoxes,
+  postIn,
+  reactionChange,
+  reactionState,
+  readPost,
+} from './posts';
 import { inTopCard, readProfile } from './profile';
 import type { ProfileRef } from './types';
 import { classifyUrl, comparable, sameMember } from './urls';
@@ -43,7 +55,7 @@ const WITHOUT_NOTE = /^send without a note$/i;
 /** Its other ways of sending: when it offers no note at all. */
 const SEND_INVITE = /^(send|send now|send invitation)$/i;
 /** What sends a comment, in the comment's own form. */
-const SENDS_COMMENT = /^(comment|post)$/i;
+const SENDS_COMMENT = /^(comment|post|post comment|submit comment)$/i;
 /** What sends a message. */
 const SENDS_MESSAGE = /^(send|send message)$/i;
 /** A reply's box, which a comment never goes in. */
@@ -99,13 +111,14 @@ export function theirPosts(
   });
 }
 
-/** A post's own Like, shown. */
+/** A post's own Like, shown: the older layout's says so; the newer's is its bar's reaction button. */
 function likeOf(box: Element): HTMLElement | null {
-  return (
-    [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
-      (control) => !inNested(control, box) && shown(control) && says(control, OWN_LIKE),
-    ) ?? null
+  const older = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
+    (control) => !inNested(control, box) && shown(control) && says(control, OWN_LIKE),
   );
+  if (older) return older;
+  const reaction = barOf(box)?.reaction as HTMLElement | null | undefined;
+  return reaction && shown(reaction) ? reaction : null;
 }
 
 /** Likes the post of theirs picked (by its link, else its place among theirs), and waits for the like to show. */
@@ -121,8 +134,16 @@ export async function likeTheirPost(
   if (reacted(one.box)) return { result: 'already', postUrl: one.post.url };
   const like = likeOf(one.box);
   if (!like) return { result: 'none', postUrl: one.post.url };
+  const before = reactionState(like);
+  const others = otherReactions(mainOf(doc), one.box);
   like.click();
-  const went = await waitFor(() => (reacted(one.box) ? true : null), 5_000);
+  // Liked: it says so, or (the newer layout) its button shows a reaction given since.
+  const given = () => {
+    if (reacted(one.box)) return true;
+    const now = barOf(one.box)?.reaction;
+    return !!now && reactionChange(before, reactionState(now), others) === 'added';
+  };
+  const went = await waitFor(() => (given() ? true : null), 5_000);
   return { result: went ? 'done' : 'not_sent', postUrl: one.post.url };
 }
 
@@ -201,10 +222,15 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
 
 // ------------------------------------------------------------------------------------------------ writing
 
-/** The button that sends what's in a box: in the form around it, after the box, saying `pattern`. */
+/**
+ * The button that sends what's in a box: after the box, saying `pattern`, among its own buttons: in the form around
+ * it, or (LinkedIn's newer layout has none) the boxes around it that link nowhere. A box that links somewhere holds
+ * more than the box's own buttons: a comment and its writer, the next post.
+ */
 function sendFor(box: Element, pattern: RegExp): HTMLElement | null {
   let up = box.parentElement;
   for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
+    if ([...up.querySelectorAll('a[href]')].some((link) => !box.contains(link))) return null;
     const sends = [...up.querySelectorAll<HTMLElement>(`${CONTROLS}, [type="submit"]`)].filter(
       (control) => isAfter(control, box) && shown(control) && says(control, pattern),
     );

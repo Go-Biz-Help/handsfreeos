@@ -1,0 +1,3836 @@
+<!doctype html>
+<!--
+  The feed (/feed/) as LinkedIn drew it for the owner on 16 Oct 2026, just after he liked the first post: rebuilt by
+  hand from the page outline he sent (its elements, nesting, attributes, data-testids and LinkedIn's own words), with
+  made-up people, words and links in place of the hidden ones, and 11 of its 15 posts. Not a saved LinkedIn page, and
+  nobody real. LinkedIn's newer layout: each post a div role="listitem" in the div role="list" data-testid="mainFeed",
+  under an h2 for screen readers; its header with the author's /in/ link, their headline line and the time, and
+  Follow, "Open control menu for post by …" and "Hide post by …"; on a post someone else liked, reposted or commented
+  on, a line about them above an hr, with the author under it; the words in a box named "expandable-text-box"; and
+  its bar: a reaction button (its count in it), the reactions menu, Comment, Repost and a Send link. The first post's
+  bar is the liked one ("[4 words]" in the outline, every other post "[5 words]"), and it has its comment box open
+  (LinkedIn's tiptap editor) and two comments, which aren't articles here. The hidden labels are a best reading of
+  LinkedIn's: "Reaction button state: like" and "… no reaction", "Open reactions menu", "Feed post", "Text editor for
+  creating comment"; the video player's words are Video.js's own. The top bar was left out of the outline: it's the
+  one the older pages here have. LinkedIn holds links inside links, and paragraphs inside paragraphs, which HTML written
+  by hand can't: the inner one is written <span data-as="a" href="…"> (or data-as="p"), and test/load.ts makes it what
+  it was. Each empty box beside a lone child is one the outline counted: it prints a bare box only when it holds more
+  than one.
+-->
+<html lang="en">
+  <head>
+    <title>Feed | LinkedIn</title>
+  </head>
+  <body>
+    <div>
+      <section>
+        <h2 data-testid="toasts-title">Toast messages</h2>
+      </section>
+      <div>
+        <div>
+          <div aria-label="Skip navigation links">
+            <div>
+              <button type="button">
+                <span>Skip to search</span>
+              </button>
+              <button type="button">
+                <span>Skip to main content</span>
+              </button>
+              <button type="button">
+                <span>Keyboard shortcuts help menu</span>
+              </button>
+              <button type="button">
+                <span>Skip to messaging</span>
+              </button>
+              <button type="button">
+                <span>Skip to notifications</span>
+              </button>
+              <button aria-label="Close jump menu" type="button">
+                <svg aria-hidden="true"></svg>
+              </button>
+            </div>
+          </div>
+          <div></div>
+        </div>
+        <div>
+          <header>
+            <nav aria-label="Primary Navigation">
+              <a href="https://www.linkedin.com/feed/"><span>Home</span></a>
+              <a href="https://www.linkedin.com/mynetwork/"><span>My Network</span></a>
+              <a href="https://www.linkedin.com/messaging/"><span>Messaging</span></a>
+              <button type="button" aria-expanded="false">
+                <img
+                  alt="Chris Gee"
+                  src="https://media.licdn.com/dms/image/v2/MadeUpMe/profile-displayphoto-shrink_100_100/0/1/me.jpg"
+                /><span>Me</span>
+              </button>
+            </nav>
+          </header>
+          <main>
+            <div>
+              <aside aria-label="Sidebar">
+                <div>
+                  <div>
+                    <a href="/in/chris-gee-12/">
+                      <div>
+                        <figure aria-hidden="true">
+                          <svg aria-hidden="true"></svg>
+                          <img alt="" />
+                        </figure>
+                        <figure>
+                          <svg role="img" aria-label="Chris Gee" aria-hidden="false"></svg>
+                          <img alt="Chris Gee" />
+                        </figure>
+                      </div>
+                    </a>
+                    <div>
+                      <a href="/in/chris-gee-12/">
+                        <div>
+                          <p>
+                            <span>Chris Gee</span>
+                          </p>
+                          <p>
+                            <span
+                              >Helping home service businesses answer every lead and book more jobs
+                              | Founder at Gee Consulting | Speaker on missed calls, follow-up and
+                              local growth</span
+                            >
+                          </p>
+                          <p>Round Rock, Texas</p>
+                        </div>
+                      </a>
+                      <a href="/in/chris-gee-12/">
+                        <div>
+                          <figure aria-hidden="true">
+                            <svg aria-hidden="true"></svg>
+                            <img alt="" />
+                          </figure>
+                          <p>Gee Consulting LLC</p>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                  <div role="menu">
+                    <a href="/me/profile-views/">
+                      <div aria-label="6 profile viewers">
+                        <p>Profile viewers</p>
+                        <p>6</p>
+                      </div>
+                    </a>
+                    <a href="/analytics/creator/content/">
+                      <div aria-label="10 post impressions">
+                        <p>Post impressions</p>
+                        <p>10</p>
+                      </div>
+                    </a>
+                  </div>
+                  <div role="menu">
+                    <p>Pages you manage</p>
+                    <hr role="presentation" />
+                    <a href="/company/107000001/admin/">
+                      <div>
+                        <figure>
+                          <svg
+                            role="img"
+                            aria-label="Gee Consulting LLC logo"
+                            aria-hidden="false"
+                          ></svg>
+                          <img alt="Gee Consulting LLC logo" />
+                        </figure>
+                        <p>
+                          <span>Gee Consulting LLC</span>
+                        </p>
+                      </div>
+                    </a>
+                    <a href="/company/107000001/admin/notifications/">
+                      <div>
+                        <p>Activity</p>
+                        <p>2</p>
+                      </div>
+                    </a>
+                    <hr role="presentation" />
+                    <a href="/company/107000002/admin/">
+                      <div>
+                        <figure>
+                          <svg
+                            role="img"
+                            aria-label="Austin Home Pros logo"
+                            aria-hidden="false"
+                          ></svg>
+                          <img alt="Austin Home Pros logo" />
+                        </figure>
+                        <p>
+                          <span>Austin Home Pros</span>
+                        </p>
+                      </div>
+                    </a>
+                    <a href="/company/107000002/admin/notifications/">
+                      <div>
+                        <p>Activity</p>
+                        <p>0</p>
+                      </div>
+                    </a>
+                    <hr role="presentation" />
+                    <a href="/company/107000003/admin/">
+                      <div>
+                        <figure>
+                          <svg
+                            role="img"
+                            aria-label="Lead Answer Desk logo"
+                            aria-hidden="false"
+                          ></svg>
+                          <img alt="Lead Answer Desk logo" />
+                        </figure>
+                        <p>
+                          <span>Lead Answer Desk</span>
+                        </p>
+                      </div>
+                    </a>
+                    <a href="/company/107000003/admin/notifications/">
+                      <div>
+                        <p>Activity</p>
+                        <p>0</p>
+                      </div>
+                    </a>
+                    <hr role="presentation" />
+                    <p>Grow your business faster</p>
+                    <div role="button">
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>
+                          <strong>Try Premium Page</strong>
+                        </p>
+                      </div>
+                    </div>
+                    <a href="/sales/home/">
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>Try Sales Navigator</p>
+                      </div>
+                    </a>
+                  </div>
+                  <div role="menu">
+                    <a href="/my-items/saved-posts/">
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>Saved items</p>
+                      </div>
+                    </a>
+                    <a href="/groups/">
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>Groups</p>
+                      </div>
+                    </a>
+                    <a href="/mynetwork/network-manager/newsletters/">
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>Newsletters</p>
+                      </div>
+                    </a>
+                    <a href="/events/">
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>Events</p>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </aside>
+              <section aria-label="Feed posts">
+                <div role="list" data-testid="mainFeed">
+                  <div role="listitem">
+                    <div role="listitem">
+                      <div>
+                        <div>
+                          <svg aria-hidden="true"></svg>
+                          <div>
+                            <p>Are you seeing posts that are relevant to you today?</p>
+                            <p>Your answer helps us improve your feed.</p>
+                          </div>
+                        </div>
+                        <div>
+                          <button aria-label="Yes, these posts are relevant today" type="button">
+                            <span>Yes</span>
+                          </button>
+                          <button
+                            aria-label="Somewhat, some of these posts are relevant"
+                            type="button"
+                          >
+                            <span>Somewhat</span>
+                          </button>
+                          <button aria-label="No, these posts are not relevant today" type="button">
+                            <span>No</span>
+                          </button>
+                        </div>
+                      </div>
+                      <button aria-label="Dismiss" type="button">
+                        <svg aria-hidden="true"></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <div>
+                        <a href="/in/chris-gee-12/">
+                          <figure aria-hidden="true">
+                            <svg aria-hidden="true"></svg>
+                            <img alt="" />
+                          </figure>
+                        </a>
+                        <div role="button">
+                          <div aria-label="Start a post">
+                            <div>
+                              <p>Start a post</p>
+                              <p></p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <div role="button">
+                          <div>
+                            <svg aria-hidden="true"></svg>
+                            <p>Video</p>
+                          </div>
+                        </div>
+                        <div role="button">
+                          <div>
+                            <svg aria-hidden="true"></svg>
+                            <p>Photo</p>
+                          </div>
+                        </div>
+                        <a href="/article/new/">
+                          <div>
+                            <svg aria-hidden="true"></svg>
+                            <p>Write article</p>
+                          </div>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div role="button" aria-expanded="false">
+                      <div>
+                        <hr role="presentation" />
+                        <p>
+                          Sort by:
+                          <strong>Top</strong>
+                        </p>
+                        <svg aria-hidden="true"></svg>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <button type="button">
+                      <span>
+                        <svg aria-hidden="true"></svg>
+                        <span>New posts</span>
+                      </span>
+                    </button>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a href="/in/marisol-vega-roofing/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Marisol Vega’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Marisol Vega’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/marisol-vega-roofing/">
+                            <div aria-label="Marisol Vega Verified • 3rd+">
+                              <p>
+                                <span>Marisol Vega</span>
+                              </p>
+                              <p>
+                                <span>
+                                  <span aria-hidden="true">
+                                    <svg aria-hidden="true"></svg>
+                                  </span>
+                                  • 3rd+
+                                </span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span
+                              >Owner at Vega Roofing | Storm damage and roof replacement across
+                              Central Texas</span
+                            >
+                          </p>
+                          <p>
+                            <a
+                              aria-label="Visit my website"
+                              href="/redir/redirect/?url=https%3A%2F%2Fvegaroofing.example%2F&amp;urlhash=Ab12&amp;mt=website&amp;isSdui=true"
+                              >Visit my website</a
+                            >
+                          </p>
+                          <p>
+                            <span>1d</span>
+                          </p>
+                          <a href="/in/marisol-vega-roofing/">
+                            <div aria-label="Marisol Vega Verified • 3rd+"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Marisol Vega" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Marisol Vega"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Marisol Vega" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Hail season is here, and most roof claims we see start with damage nobody
+                          noticed.
+                          <br />
+                          <br />
+                          Hi, I’m
+                          <a
+                            aria-label="View Marisol Vega’s profile"
+                            href="/in/marisol-vega-roofing/"
+                          >
+                            <strong>Marisol Vega</strong>
+                          </a>
+                          and this is why.
+                          <br />
+                          <br />
+                          After every storm we walk the roof, the gutters and the attic before
+                          writing anything.
+                          <br />
+                          <br />
+                          Here is what we look for first:
+                          <br />
+                          <br />
+                          1. Granules in the gutters, which means the shingles are wearing.
+                          <br />
+                          <br />
+                          2. Dents on the soft metals: vents, flashing and the gutter itself. They
+                          tell you how big the hail was.
+                          <br />
+                          <br />
+                          3. Soft spots in the decking near the valleys, where water sits longest
+                          and rot starts before you see a stain.
+                          <br />
+                          <br />
+                          4. Lifted or creased shingles on the side that faced the wind.
+                          <br />
+                          <br />
+                          5. Water stains on the attic sheathing, always.
+                          <br />
+                          <br />
+                          None of these take more than an hour to check, and all of them matter.
+                          <br />
+                          <br />
+                          Insurance adjusters see dozens of roofs a week. If you can show them
+                          photos of each one, the claim goes faster.
+                          <br />
+                          <br />
+                          Homeowners: take photos of your roof every spring, before storms come.
+                          <br />
+                          <br />
+                          Roofers: send your customers a short checklist after every job so they
+                          know what to watch for next season.
+                          <br />
+                          <br />
+                          We put ours on the fridge magnet we leave behind, and it brings us more
+                          calls than any ad.
+                          <br />
+                          <br />
+                          If you’re in Central Texas and not sure what you’re looking at, send me a
+                          photo and I’ll tell you.
+                          <br />
+                          <br />
+                          No charge, no pressure, no sales pitch.
+                          <br />
+                          <br />
+                          Stay safe out there this season, everyone.
+                          <br />
+                          <br />
+                          Full checklist on our site:
+                          <a
+                            aria-label="Open link"
+                            href="/redir/redirect/?url=https%3A%2F%2Fvegaroofing.example%2Fchecklist&amp;urlhash=Cd34&amp;mt=link&amp;isSdui=true"
+                          >
+                            <strong>vegaroofing.example/checklist</strong>
+                          </a>
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <div role="region" aria-label="Video player">
+                        <video></video>
+                        <picture>
+                          <img alt="" />
+                        </picture>
+                        <div>
+                          <div></div>
+                          <div></div>
+                        </div>
+                        <div dir="ltr">
+                          <span>Video Player is loading.</span>
+                        </div>
+                        <button title="Play Video" type="button">
+                          <span aria-hidden="true"></span>
+                          <span>Play Video</span>
+                        </button>
+                        <div dir="ltr">
+                          <button title="Play" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Play</span>
+                          </button>
+                          <button title="Skip Backward" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Skip Backward</span>
+                          </button>
+                          <button title="Skip Forward" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Skip Forward</span>
+                          </button>
+                          <div>
+                            <button title="Mute" type="button">
+                              <span aria-hidden="true"></span>
+                              <span>Mute</span>
+                            </button>
+                            <div role="slider" aria-label="Volume Level">
+                              <div aria-hidden="true"></div>
+                            </div>
+                          </div>
+                          <div>
+                            <span role="presentation">Current Time</span>
+                            <span role="presentation">0:15</span>
+                          </div>
+                          <div aria-hidden="true">
+                            <span>/</span>
+                          </div>
+                          <div>
+                            <span role="presentation">Duration</span>
+                            <span role="presentation">0:50</span>
+                          </div>
+                          <div role="slider" aria-label="Progress Bar">
+                            <div>
+                              <span>
+                                <span>Loaded</span>
+                                :
+                                <span>0%</span>
+                              </span>
+                              <div></div>
+                            </div>
+                            <div aria-hidden="true"></div>
+                            <div aria-hidden="true">
+                              <div aria-hidden="true">0:15</div>
+                            </div>
+                          </div>
+                          <div>
+                            <span>Stream Type</span>
+                            LIVE
+                          </div>
+                          <button title="Seek to live, currently behind live" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Seek to live, currently behind live</span>
+                            <span aria-hidden="true">LIVE</span>
+                          </button>
+                          <div>
+                            <span role="presentation">Remaining Time</span>
+                            <span aria-hidden="true">-</span>
+                            <span role="presentation">0:35</span>
+                          </div>
+                          <div>
+                            <div>1x</div>
+                            <button aria-expanded="false" title="Playback Rate" type="button">
+                              <span aria-hidden="true"></span>
+                              <span>Playback Rate</span>
+                            </button>
+                            <ul></ul>
+                          </div>
+                          <div>
+                            <button aria-expanded="false" title="Chapters" type="button">
+                              <span aria-hidden="true"></span>
+                              <span>Chapters</span>
+                            </button>
+                            <ul>
+                              <li>Chapters</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <button aria-expanded="false" title="Descriptions" type="button">
+                              <span aria-hidden="true"></span>
+                              <span>Descriptions</span>
+                            </button>
+                            <ul>
+                              <li role="menuitemradio">
+                                <span>descriptions off</span>
+                                <span>, selected</span>
+                              </li>
+                            </ul>
+                          </div>
+                          <div>
+                            <button aria-expanded="false" title="Captions" type="button">
+                              <span aria-hidden="true"></span>
+                              <span>Captions</span>
+                            </button>
+                            <ul>
+                              <li role="menuitem">
+                                <span>captions settings</span>
+                                <span>, opens captions settings dialog</span>
+                              </li>
+                              <li role="menuitemradio">
+                                <span>captions off</span>
+                                <span>, selected</span>
+                              </li>
+                            </ul>
+                          </div>
+                          <div>
+                            <button aria-expanded="false" title="Audio Track" type="button">
+                              <span aria-hidden="true"></span>
+                              <span>Audio Track</span>
+                            </button>
+                            <ul>
+                              <li role="menuitemradio">
+                                <span>English</span>
+                                <span>, selected</span>
+                              </li>
+                            </ul>
+                          </div>
+                          <button title="Picture-in-Picture" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Picture-in-Picture</span>
+                          </button>
+                          <button title="Fullscreen" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Fullscreen</span>
+                          </button>
+                        </div>
+                        <div role="dialog" aria-label="Modal Window" aria-hidden="true">
+                          <p>This is a modal window.</p>
+                          <div role="document"></div>
+                        </div>
+                        <div role="dialog" aria-label="Caption Settings Dialog" aria-hidden="true">
+                          <p>
+                            Beginning of dialog window. Escape will cancel and close the window.
+                          </p>
+                          <div role="document">
+                            <div>
+                              <fieldset>
+                                <legend>Text</legend>
+                                <span>
+                                  <label>Color</label>
+                                  <select>
+                                    <option>White</option>
+                                    <option>Black</option>
+                                    <option>Red</option>
+                                    <option>Green</option>
+                                    <option>Blue</option>
+                                    <option>Yellow</option>
+                                    <option>Magenta</option>
+                                    <option>Cyan</option>
+                                  </select>
+                                </span>
+                                <span>
+                                  <label>Opacity</label>
+                                  <select>
+                                    <option>Opaque</option>
+                                    <option>Semi-Transparent</option>
+                                  </select>
+                                </span>
+                              </fieldset>
+                              <fieldset>
+                                <legend>Text Background</legend>
+                                <span>
+                                  <label>Color</label>
+                                  <select>
+                                    <option>White</option>
+                                    <option>Black</option>
+                                    <option>Red</option>
+                                    <option>Green</option>
+                                    <option>Blue</option>
+                                    <option>Yellow</option>
+                                    <option>Magenta</option>
+                                    <option>Cyan</option>
+                                  </select>
+                                </span>
+                                <span>
+                                  <label>Opacity</label>
+                                  <select>
+                                    <option>Opaque</option>
+                                    <option>Semi-Transparent</option>
+                                    <option>Transparent</option>
+                                  </select>
+                                </span>
+                              </fieldset>
+                              <fieldset>
+                                <legend>Caption Area Background</legend>
+                                <span>
+                                  <label>Color</label>
+                                  <select>
+                                    <option>White</option>
+                                    <option>Black</option>
+                                    <option>Red</option>
+                                    <option>Green</option>
+                                    <option>Blue</option>
+                                    <option>Yellow</option>
+                                    <option>Magenta</option>
+                                    <option>Cyan</option>
+                                  </select>
+                                </span>
+                                <span>
+                                  <label>Opacity</label>
+                                  <select>
+                                    <option>Transparent</option>
+                                    <option>Semi-Transparent</option>
+                                    <option>Opaque</option>
+                                  </select>
+                                </span>
+                              </fieldset>
+                            </div>
+                            <div>
+                              <fieldset>
+                                <legend>Font Size</legend>
+                                <select>
+                                  <option>50%</option>
+                                  <option>75%</option>
+                                  <option>100%</option>
+                                  <option>125%</option>
+                                  <option>150%</option>
+                                  <option>175%</option>
+                                  <option>200%</option>
+                                  <option>300%</option>
+                                  <option>400%</option>
+                                </select>
+                              </fieldset>
+                              <fieldset>
+                                <legend>Text Edge Style</legend>
+                                <select>
+                                  <option>None</option>
+                                  <option>Raised</option>
+                                  <option>Depressed</option>
+                                  <option>Uniform</option>
+                                  <option>Drop shadow</option>
+                                </select>
+                              </fieldset>
+                              <fieldset>
+                                <legend>Font Family</legend>
+                                <select>
+                                  <option>Proportional Sans-Serif</option>
+                                  <option>Monospace Sans-Serif</option>
+                                  <option>Proportional Serif</option>
+                                  <option>Monospace Serif</option>
+                                  <option>Casual</option>
+                                  <option>Script</option>
+                                  <option>Small Caps</option>
+                                </select>
+                              </fieldset>
+                            </div>
+                            <div>
+                              <button
+                                title="Reset all settings to the default values"
+                                type="button"
+                              >
+                                Reset
+                              </button>
+                              <button title="Done" type="button">Done</button>
+                            </div>
+                          </div>
+                          <button title="Close Modal Dialog" type="button">
+                            <span aria-hidden="true"></span>
+                            <span>Close Modal Dialog</span>
+                          </button>
+                          <p>End of dialog window.</p>
+                        </div>
+                      </div>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: like" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>55</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>9</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>2</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>55<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                    <div>
+                      <div>
+                        <div>
+                          <div role="status"></div>
+                          <div data-testid="ui-core-tiptap-text-editor-wrapper">
+                            <div
+                              role="textbox"
+                              aria-label="Text editor for creating comment"
+                              dir="auto"
+                              contenteditable="true"
+                            >
+                              <p>
+                                <br />
+                              </p>
+                            </div>
+                            <div data-testid="ui-core-tiptap-text-editor-cursor"></div>
+                          </div>
+                        </div>
+                        <div>
+                          <button aria-label="Add an emoji" aria-expanded="false" type="button">
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                          <button aria-label="Add a GIF" aria-expanded="false" type="button">
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                          <button aria-label="Add photo" type="button">
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div></div>
+                    </div>
+                    <div>
+                      <div role="button" aria-expanded="false">
+                        <div>
+                          <p>Most relevant</p>
+                          <svg aria-hidden="true"></svg>
+                        </div>
+                      </div>
+                      <div
+                        data-testid="EgsIgIC27NyD58/QAQ-commentListt8theZDIudXsI7aDqe-3SDhuMAn9eJkq1c_3Ax73ecwFeedType_MAIN_FEED_RELEVANCE"
+                      >
+                        <div>
+                          <a href="/in/owen-park-roofing/">
+                            <figure>
+                              <svg
+                                role="img"
+                                aria-label="View Owen Park’s profile"
+                                aria-hidden="false"
+                              ></svg>
+                              <img alt="View Owen Park’s profile" />
+                            </figure>
+                          </a>
+                          <div>
+                            <div>
+                              <a href="/in/owen-park-roofing/">
+                                <div>
+                                  <p>
+                                    <span>
+                                      <span>Owen Park 3rd+</span>
+                                      <span aria-hidden="true">
+                                        Owen Park
+                                        <span>• 3rd+</span>
+                                      </span>
+                                    </span>
+                                  </p>
+                                  <p>
+                                    <span
+                                      >Roofing estimator at Hill Country Exteriors | Insurance
+                                      claims, inspections and storm response</span
+                                    >
+                                  </p>
+                                </div>
+                              </a>
+                              <p>
+                                <span>1h</span>
+                              </p>
+                              <div role="button">
+                                <div aria-label="Follow Owen Park">
+                                  <p>
+                                    <span>Follow</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                aria-label="View more options for Owen Park’s comment"
+                                aria-expanded="false"
+                                type="button"
+                              >
+                                <svg aria-hidden="true"></svg>
+                              </button>
+                            </div>
+                            <p>
+                              <span data-testid="expandable-text-box"
+                                >We did exactly this for my parents’ house after the April storm.
+                                The granules in the gutters were the first thing the adjuster asked
+                                about, and having photos from the year before made the claim go
+                                through in two weeks instead of two months. Sharing your checklist
+                                with our customers too. Thanks for posting this!</span
+                              >
+                            </p>
+                            <div>
+                              <div>
+                                <div role="button">
+                                  <div>
+                                    <svg
+                                      role="img"
+                                      aria-label="Reaction button state: no reaction"
+                                      aria-hidden="false"
+                                    ></svg>
+                                    <p>
+                                      <span>
+                                        <span>0</span>
+                                        <span aria-hidden="true"></span>
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  aria-label="Open reactions menu"
+                                  aria-expanded="false"
+                                  type="button"
+                                >
+                                  <svg aria-hidden="true"></svg>
+                                </button>
+                              </div>
+                              <button aria-label="Reply" type="button">
+                                <svg aria-hidden="true"></svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <a href="/in/lena-ortiz-adjuster/">
+                            <figure>
+                              <svg
+                                role="img"
+                                aria-label="View Lena Ortiz’s profile"
+                                aria-hidden="false"
+                              ></svg>
+                              <img alt="View Lena Ortiz’s profile" />
+                            </figure>
+                          </a>
+                          <div>
+                            <div>
+                              <a href="/in/lena-ortiz-adjuster/">
+                                <div>
+                                  <p>
+                                    <span>
+                                      <span>Lena Ortiz Verified Premium 3rd+</span>
+                                      <span aria-hidden="true">
+                                        Lena Ortiz
+                                        <span aria-hidden="true">
+                                          <svg aria-hidden="true"></svg>
+                                        </span>
+                                        <span>• 3rd+</span>
+                                      </span>
+                                    </span>
+                                  </p>
+                                  <p>
+                                    <span
+                                      >Insurance adjuster helping Texas homeowners get storm claims
+                                      paid fairly and fast</span
+                                    >
+                                  </p>
+                                </div>
+                              </a>
+                              <p>
+                                <span>1h</span>
+                              </p>
+                              <div role="button">
+                                <div aria-label="Follow Lena Ortiz">
+                                  <p>
+                                    <span>Follow</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                aria-label="View more options for Lena Ortiz’s comment"
+                                aria-expanded="false"
+                                type="button"
+                              >
+                                <svg aria-hidden="true"></svg>
+                              </button>
+                            </div>
+                            <p>
+                              <span data-testid="expandable-text-box">
+                                Saved:
+                                <a
+                                  aria-label="Open link"
+                                  href="/redir/redirect/?url=https%3A%2F%2Fvegaroofing.example%2Fchecklist%3Fref%3Dcomment&amp;urlhash=Ef56&amp;mt=comment&amp;isSdui=true"
+                                >
+                                  <strong>vegaroofing.example/checklist</strong>
+                                </a>
+                                Thanks!
+                              </span>
+                            </p>
+                            <div>
+                              <div>
+                                <div role="button">
+                                  <div>
+                                    <svg
+                                      role="img"
+                                      aria-label="Reaction button state: no reaction"
+                                      aria-hidden="false"
+                                    ></svg>
+                                    <p>
+                                      <span>
+                                        <span>0</span>
+                                        <span aria-hidden="true"></span>
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  aria-label="Open reactions menu"
+                                  aria-expanded="false"
+                                  type="button"
+                                >
+                                  <svg aria-hidden="true"></svg>
+                                </button>
+                              </div>
+                              <button aria-label="Reply" type="button">
+                                <svg aria-hidden="true"></svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div role="button">
+                        <p>Load 7 more comments</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a href="/company/fieldpro-software/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="Logo of FieldPro Software"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="Logo of FieldPro Software" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/company/fieldpro-software/">
+                            <div aria-label="FieldPro Software Verified">
+                              <p>
+                                <span>FieldPro Software</span>
+                              </p>
+                              <p>
+                                <span>
+                                  <span aria-hidden="true">
+                                    <svg aria-hidden="true"></svg>
+                                  </span>
+                                  <span></span>
+                                </span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>315,293 followers</span>
+                          </p>
+                          <p>
+                            <span>Promoted</span>
+                          </p>
+                          <a href="/company/fieldpro-software/">
+                            <div aria-label="FieldPro Software Verified"></div>
+                          </a>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by FieldPro Software"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <div>
+                        <p>
+                          <span data-testid="expandable-text-box"
+                            >Stop losing jobs to voicemail. Try FieldPro free for 14 days.</span
+                          >
+                        </p>
+                        <div>
+                          <a href="/feed/">
+                            <figure>
+                              <svg
+                                role="img"
+                                aria-label="Screenshot of the FieldPro scheduling board on a laptop"
+                                aria-hidden="false"
+                              ></svg>
+                              <img alt="Screenshot of the FieldPro scheduling board on a laptop" />
+                            </figure>
+                          </a>
+                          <a href="/feed/">
+                            <div>
+                              <p>
+                                <span>
+                                  <span>Answer every call, book more</span>
+                                  <span aria-hidden="true">Answer every call, book more</span>
+                                </span>
+                              </p>
+                              <p>
+                                <span>FieldPro Software</span>
+                              </p>
+                            </div>
+                          </a>
+                        </div>
+                        <a aria-label="Download" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Download</span>
+                          </span>
+                        </a>
+                        <hr role="presentation" />
+                      </div>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>79</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>2</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>2</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>79<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a href="/in/sam-lee-77/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Sam Lee’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Sam Lee’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/sam-lee-77/">
+                            <div aria-label="Sam Lee Verified • 1st">
+                              <p>
+                                <span>Sam Lee</span>
+                              </p>
+                              <p>
+                                <span>
+                                  <span aria-hidden="true">
+                                    <svg aria-hidden="true"></svg>
+                                  </span>
+                                  • 1st
+                                </span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span
+                              >Owner at Lee Heating &amp; Air | HVAC repair and installs for
+                              Pflugerville and Round Rock homes</span
+                            >
+                          </p>
+                          <p>
+                            <span>5d</span>
+                          </p>
+                          <a href="/in/sam-lee-77/">
+                            <div aria-label="Sam Lee Verified • 1st"></div>
+                          </a>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by Sam Lee"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Sam Lee" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Big news: after nine years running the business from my truck, we just
+                          opened our first shop with
+                          <a aria-label="View Lee Heating’s page" href="/company/lee-heating-air/">
+                            <strong>Lee Heating</strong> </a
+                          >.
+                          <br />
+                          <br />
+                          Nine years ago I started Lee Heating with one van, a ladder and a phone
+                          that rang at all hours. Today we opened a real shop with room for six
+                          trucks, a training bay for our apprentices and a front desk so customers
+                          can finally talk to a person instead of my voicemail. Thank you to every
+                          customer who trusted a one-man crew, and to the team who made this
+                          possible.
+                          <br />
+                          <br />
+                          <a
+                            aria-label="Open link"
+                            href="/redir/redirect/?url=https%3A%2F%2Fleeheating.example%2Fjobs&amp;urlhash=Gh78&amp;mt=post&amp;isSdui=true"
+                          >
+                            <strong>leeheating.example/jobs</strong>
+                          </a>
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <a
+                        href="/redir/redirect/?url=https%3A%2F%2Fleeheating.example%2Fjobs%2Fhvac&amp;urlhash=Ij90&amp;mt=preview&amp;isSdui=true"
+                      >
+                        <div>
+                          <figure aria-hidden="true">
+                            <svg aria-hidden="true"></svg>
+                            <img alt="" />
+                          </figure>
+                          <div>
+                            <p>
+                              <span>
+                                <span
+                                  >We’re hiring two HVAC technicians in Pflugerville, Texas. Apply
+                                  today</span
+                                >
+                                <span aria-hidden="true"
+                                  >We’re hiring two HVAC technicians in Pflugerville, Texas. Apply
+                                  today</span
+                                >
+                              </span>
+                            </p>
+                            <p>
+                              <span>leeheating.example</span>
+                            </p>
+                          </div>
+                        </div>
+                      </a>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>59</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>9</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>59<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a href="/in/priya-raman-remodels/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Priya Raman’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Priya Raman’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/priya-raman-remodels/">
+                            <div aria-label="Priya Raman Verified • 3rd+">
+                              <p>
+                                <span>Priya Raman</span>
+                              </p>
+                              <p>
+                                <span>
+                                  <span aria-hidden="true">
+                                    <svg aria-hidden="true"></svg>
+                                  </span>
+                                  • 3rd+
+                                </span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span
+                              >Kitchen and bath remodeler in Austin | 20 years of cabinets, tile and
+                              happy clients | Licensed and insured</span
+                            >
+                          </p>
+                          <p>
+                            <a
+                              aria-label="Book a consultation"
+                              href="/redir/redirect/?url=https%3A%2F%2Framanremodels.example%2F&amp;urlhash=Kl12&amp;mt=button&amp;isSdui=true"
+                              >Book a consultation</a
+                            >
+                          </p>
+                          <p>
+                            <span>1d</span>
+                          </p>
+                          <a href="/in/priya-raman-remodels/">
+                            <div aria-label="Priya Raman Verified • 3rd+"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Priya Raman" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Priya Raman"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Priya Raman" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          We finished this kitchen in Travis Heights last week.
+                          <br />
+                          <br />
+                          The owners had one request for us:
+                          <br />
+                          <br />
+                          Storage.
+                          <br />
+                          <br />
+                          So we moved the fridge, added a pantry wall and doubled the drawers.
+                          <br />
+                          The old layout had three cabinets nobody could reach without a stool.
+                          <br />
+                          <br />
+                          Here’s what made the biggest difference:
+                          <br />
+                          <br />
+                          • Drawers instead of base cabinets
+                          <br />
+                          • A pantry wall where the desk was
+                          <br />
+                          • Outlets inside the cabinets for the coffee maker and toaster
+                          <br />
+                          <br />
+                          • Under-cabinet lights on their own switch, so nobody wakes the house at
+                          six
+                          <br />
+                          • A tall cabinet by the door for brooms and mops
+                          <br />
+                          <br />
+                          The hardest part was not the build. It was getting the electrician, the
+                          plumber and the countertop crew in the same week without anyone waiting on
+                          anyone.
+                          <br />
+                          <br />
+                          Lesson:
+                          <br />
+                          <br />
+                          A shared calendar beats fifty texts, every single time.
+                          <br />
+                          <br />
+                          We now book every trade on one board.
+                          <br />
+                          <br />
+                          Nobody waits, nobody double-books, and the client sees it all.
+                          <br />
+                          <br />
+                          Questions about kitchens? Ask away.
+                          <br />
+                          I answer every comment, usually within the same day.
+                          <br />
+                          <br />
+                          Before/after below.
+                          <br />
+                          Swipe to see the old layout next to the new one we built.
+                          <br />
+                          <br />
+                          If you’re a contractor in Austin and want to swap notes on scheduling
+                          trades, my inbox is open.
+                          <br />
+                          <br />
+                          And if you’re a homeowner planning a remodel next year, start now: the
+                          good crews book out six months ahead.
+                          <br />
+                          <br />
+                          Huge thanks to the crew who made this one happen, and to the owners for
+                          trusting us with their home.
+                          <br />
+                          <br />
+                          More photos on our page.
+                          <br />
+                          Have a good week.
+                          <br />
+                          <br />
+                          🏡
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <a href="/feed/">
+                        <figure>
+                          <img alt="Kitchen remodel" />
+                        </figure>
+                      </a>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>422</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>140</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>10</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>422<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <div>
+                          <svg aria-hidden="true"></svg>
+                          <p>Chris, unlock your full potential</p>
+                          <p>
+                            Get 4x more profile views and messages from recruiters and clients with
+                            a month of Premium.
+                          </p>
+                          <a
+                            href="/sales/trial/?incentiveId=MadeUpIncentive&amp;mcid=MadeUpMcid&amp;src=feed"
+                          >
+                            <span>Try now</span>
+                          </a>
+                        </div>
+                        <div>
+                          <button
+                            aria-label="Open control menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                          <a
+                            href="/sales/trial/?incentiveId=MadeUpIncentive&amp;mcid=MadeUpMcid&amp;src=feed"
+                          >
+                            <figure>
+                              <svg role="img" aria-label="Premium logo" aria-hidden="false"></svg>
+                              <img alt="Premium logo" />
+                            </figure>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <div>
+                          <a href="/in/taylor-reed-5/">
+                            <figure>
+                              <svg
+                                role="img"
+                                aria-label="View Taylor Reed’s profile"
+                                aria-hidden="false"
+                              ></svg>
+                              <img alt="View Taylor Reed’s profile" />
+                            </figure>
+                          </a>
+                          <p>
+                            <span>
+                              <a aria-label="View Taylor Reed’s profile" href="/in/taylor-reed-5/">
+                                <strong>Taylor Reed</strong>
+                              </a>
+                              commented on this
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by Nina Alvarez"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Nina Alvarez" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <hr role="presentation" />
+                      <div>
+                        <a
+                          href="/groups/8765432/?q=highlightedFeedForGroups&amp;highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7380000000000000611"
+                        >
+                          <div aria-label="Nina Alvarez in Central Texas Home Services Pros">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                          </div>
+                        </a>
+                        <div>
+                          <a
+                            href="/groups/8765432/?q=highlightedFeedForGroups&amp;highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7380000000000000611"
+                          >
+                            <div aria-label="Visit the group">
+                              <p>
+                                <span>Central Texas Home Services Pros Network</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>
+                              Nina Alvarez
+                              <span>• 2nd</span>
+                            </span>
+                          </p>
+                          <p>
+                            <a
+                              aria-label="Visit my website"
+                              href="/redir/redirect/?url=https%3A%2F%2Fninaalvarez.example%2F&amp;urlhash=Mn34&amp;mt=site&amp;isSdui=true"
+                              >Visit my website</a
+                            >
+                          </p>
+                          <p>
+                            <span>1d</span>
+                          </p>
+                          <a
+                            href="/groups/8765432/?q=highlightedFeedForGroups&amp;highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7380000000000000611"
+                          >
+                            <div aria-label="Visit the group"></div>
+                          </a>
+                        </div>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Need a referral, please!
+                          <br />
+                          <br />
+                          <br />
+                          Our water heater started leaking last night and the first company can’t
+                          come until Monday.
+                          <br />
+                          <br />
+                          <br />
+                          Does anyone here know a licensed plumber in Round Rock or Georgetown who
+                          does same-day repairs? We’re happy to pay for an emergency visit if it
+                          means hot water by tonight.
+                          <br />
+                          <br />
+                          Details and photos are here:
+                          <a
+                            aria-label="Open link"
+                            href="/redir/redirect/?url=https%3A%2F%2Fphotos.example%2Fheater&amp;urlhash=Op56&amp;mt=photo&amp;isSdui=true"
+                          >
+                            <strong>photos.example/heater</strong>
+                          </a>
+                          <br />
+                          <br />
+                          cc
+                          <a aria-label="View Jordan Blake’s profile" href="/in/jordan-blake-09/">
+                            <strong>Jordan Blake</strong>
+                          </a>
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <a href="/feed/">
+                        <figure>
+                          <img alt="Leaking heater" />
+                        </figure>
+                      </a>
+                      <div>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>754</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>36</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>25</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>754<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <div>
+                          <a href="/in/morgan-ellis-3/">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                          </a>
+                          <p>
+                            <span>
+                              Reposted by
+                              <a
+                                aria-label="View Morgan Ellis’s profile"
+                                href="/in/morgan-ellis-3/"
+                              >
+                                <strong>Morgan Ellis</strong>
+                              </a>
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by Rio Grande Plumbing"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Rio Grande Plumbing" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <hr role="presentation" />
+                      <div>
+                        <a href="/company/rio-grande-plumbing/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="Rio Grande Plumbing company logo"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="Rio Grande Plumbing company logo" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/company/rio-grande-plumbing/">
+                            <div aria-label="Rio Grande Plumbing">
+                              <p>
+                                <span>Rio Grande Plumbing</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>12h • Edited</span>
+                          </p>
+                          <a href="/company/rio-grande-plumbing/">
+                            <div aria-label="Rio Grande Plumbing"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Rio Grande Plumbing" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Winter is coming early to Central Texas this year.
+                          <br />
+                          <br />
+                          Is your plumbing ready for it?
+                          <br />
+                          Here’s our checklist for the first freeze:
+                          <br />
+                          1. Insulate exposed pipes: guide
+                          <a
+                            aria-label="Open link"
+                            href="/redir/redirect/?url=https%3A%2F%2Friogrande.example%2Ffreeze&amp;urlhash=Qr78&amp;mt=guide&amp;isSdui=true"
+                          >
+                            <strong>riogrande.example/freeze</strong>
+                          </a>
+                          <br />
+                          here
+                          <br />
+                          <br />
+                          2. Disconnect garden hoses
+                          <br />
+                          <br />
+                          3. Know where your main shut-off is
+                          <br />
+                          <br />
+                          4. Drip faucets
+                          <br />
+                          5. Insulate
+                          <br />
+                          6. Caulk
+                          <br />
+                          7. Heaters
+                          <br />
+                          8. Relax
+                          <br />
+                          Most frozen pipes we see could have been avoided.
+                          <br />
+                          <br />
+                          A frozen pipe can burst and flood a home in under an hour.
+                          <br />
+                          <br />
+                          If yours freezes, shut off the water at the main and call a licensed
+                          plumber right away.
+                          <br />
+                          <br />
+                          Our crews will be on call around the clock during every freeze this
+                          winter, with trucks in Austin, Round Rock, Georgetown and San Marcos so we
+                          can reach you fast.
+                          <br />
+                          <br />
+                          Stay warm, Texas.
+                          <br />
+                          Call us anytime:
+                          <br />
+                          512-555-0147 (24/7)
+                          <br />
+                          Or book online today.
+                          <br />
+                          <br />
+                          And a special shout-out to our newest master plumber, who passed his exam
+                          this month after four years with us.
+                          <br />
+                          <br />
+                          We’re proud of you,
+                          <br />
+                          <br />
+                          Congratulations again,
+                          <a
+                            aria-label="View Diego Ramirez Flores’s profile"
+                            href="/in/diego-ramirez-flores/"
+                          >
+                            <strong>Diego Ramirez Flores</strong>
+                          </a>
+                          — so well deserved, Diego!
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <a href="/feed/">
+                        <figure>
+                          <img
+                            alt="Rio Grande Plumbing crew standing beside three service trucks outside the Round Rock shop in winter"
+                          />
+                        </figure>
+                      </a>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>239</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>23</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>14</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>239<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <p>
+                          <span>Jobs recommended for you</span>
+                        </p>
+                        <div data-testid="carousel-container">
+                          <div data-testid="carousel-viewport-container">
+                            <button
+                              aria-label="Previous"
+                              data-testid="carousel-inline-left-button"
+                              type="button"
+                            >
+                              <svg aria-hidden="true"></svg>
+                            </button>
+                            <section role="list" data-testid="carousel">
+                              <ul data-testid="carousel-children-container">
+                                <li data-testid="carousel-child-container">
+                                  <a
+                                    href="/jobs/collections/?origin=QUALIFICATION_BOARD_FEED_MIXER_LANDING&amp;currentJobId=4100000001&amp;originToLandingJobPostings=true"
+                                  >
+                                    <div>
+                                      <figure aria-hidden="true">
+                                        <svg aria-hidden="true"></svg>
+                                        <img alt="" />
+                                      </figure>
+                                      <div>
+                                        <div>
+                                          <p>
+                                            <span>
+                                              <span>Office Manager, Plumbing</span>
+                                              <span aria-hidden="true"
+                                                >Office Manager, Plumbing</span
+                                              >
+                                            </span>
+                                          </p>
+                                          <p>Rio Grande Plumbing</p>
+                                          <p>
+                                            <span>Round Rock, TX (Hybrid)</span>
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <ul role="presentation">
+                                            <li>
+                                              <figure aria-hidden="true">
+                                                <svg aria-hidden="true"></svg>
+                                                <img alt="" />
+                                              </figure>
+                                            </li>
+                                            <li>
+                                              <figure aria-hidden="true">
+                                                <svg aria-hidden="true"></svg>
+                                                <img alt="" />
+                                              </figure>
+                                            </li>
+                                          </ul>
+                                          <p>
+                                            <span>2 connections work here</span>
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </a>
+                                </li>
+                                <li data-testid="carousel-child-container">
+                                  <a
+                                    href="/jobs/collections/?origin=QUALIFICATION_BOARD_FEED_MIXER_LANDING&amp;currentJobId=4100000002&amp;originToLandingJobPostings=false"
+                                  >
+                                    <div>
+                                      <figure aria-hidden="true">
+                                        <svg aria-hidden="true"></svg>
+                                        <img alt="" />
+                                      </figure>
+                                      <div>
+                                        <div>
+                                          <p>
+                                            <span>
+                                              <span
+                                                >Customer Success Manager for Home Services</span
+                                              >
+                                              <span aria-hidden="true">
+                                                Customer Success Manager role
+                                                <span aria-hidden="true">
+                                                  <svg aria-hidden="true"></svg>
+                                                </span>
+                                              </span>
+                                            </span>
+                                          </p>
+                                          <p>FieldPro</p>
+                                          <p>
+                                            <span>Remote, United States</span>
+                                          </p>
+                                        </div>
+                                        <div></div>
+                                      </div>
+                                    </div>
+                                  </a>
+                                </li>
+                                <li data-testid="carousel-child-container">
+                                  <a
+                                    href="/jobs/collections/?origin=QUALIFICATION_BOARD_FEED_MIXER_LANDING&amp;currentJobId=4100000003&amp;originToLandingJobPostings=null"
+                                  >
+                                    <div>
+                                      <figure aria-hidden="true">
+                                        <svg aria-hidden="true"></svg>
+                                        <img alt="" />
+                                      </figure>
+                                      <div>
+                                        <div>
+                                          <p>
+                                            <span>
+                                              <span aria-hidden="true"
+                                                >Dispatcher for Roofing and Storm Repair</span
+                                              >
+                                              <span></span>
+                                            </span>
+                                          </p>
+                                          <p>VegaRoofing</p>
+                                          <p>
+                                            <span>San Marcos, TX (On-site)</span>
+                                          </p>
+                                        </div>
+                                        <div></div>
+                                      </div>
+                                    </div>
+                                  </a>
+                                </li>
+                                <li data-testid="carousel-child-container">
+                                  <a
+                                    href="/jobs/collections/?origin=QUALIFICATION_BOARD_FEED_MIXER_LANDING&amp;currentJobId=4100000004&amp;originToLandingJobPostings=none"
+                                  >
+                                    <div>
+                                      <figure aria-hidden="true">
+                                        <svg aria-hidden="true"></svg>
+                                        <img alt="" />
+                                      </figure>
+                                      <div>
+                                        <div>
+                                          <p>
+                                            <span>
+                                              <span aria-hidden="true"
+                                                >Sales Representative, Residential Solar and
+                                                Roofing</span
+                                              >
+                                              <span></span>
+                                            </span>
+                                          </p>
+                                          <p>SolarPeak</p>
+                                          <p>
+                                            <span>Austin, Texas, US (Hybrid)</span>
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <figure aria-hidden="true">
+                                            <svg aria-hidden="true"></svg>
+                                            <img alt="" />
+                                          </figure>
+                                          <p>
+                                            <span>3 alumni work here</span>
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </a>
+                                </li>
+                                <li data-testid="carousel-child-container">
+                                  <a
+                                    href="/jobs/collections/?origin=QUALIFICATION_BOARD_FEED_MIXER_LANDING&amp;currentJobId=4100000005&amp;originToLandingJobPostings=empty"
+                                  >
+                                    <div>
+                                      <figure aria-hidden="true">
+                                        <svg aria-hidden="true"></svg>
+                                        <img alt="" />
+                                      </figure>
+                                      <div>
+                                        <div>
+                                          <p>
+                                            <span>
+                                              <span aria-hidden="true"
+                                                >Scheduling Coordinator, HVAC and Plumbing
+                                                Services</span
+                                              >
+                                              <span></span>
+                                            </span>
+                                          </p>
+                                          <p>Brooks</p>
+                                          <p>
+                                            <span>Pflugerville, Texas, US (On-site)</span>
+                                          </p>
+                                        </div>
+                                        <div></div>
+                                      </div>
+                                    </div>
+                                  </a>
+                                </li>
+                              </ul>
+                            </section>
+                            <button
+                              aria-label="Next"
+                              data-testid="carousel-inline-right-button"
+                              type="button"
+                            >
+                              <svg aria-hidden="true"></svg>
+                            </button>
+                          </div>
+                        </div>
+                        <hr role="presentation" />
+                        <a
+                          href="/jobs/collections/?origin=QUALIFICATION_BOARD_FEED_MIXER_LANDING&amp;currentJobId=4100000001&amp;originToLandingJobPostings=true"
+                        >
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>View jobs</span>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <div>
+                          <a href="/in/quinnharper/">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                          </a>
+                          <p>
+                            <span>
+                              <a aria-label="View Quinn Harper’s profile" href="/in/quinnharper/">
+                                <strong>Quinn Harper</strong>
+                              </a>
+                              finds this insightful
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by SalesForward Pro Tips"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <hr role="presentation" />
+                      <div>
+                        <a href="/showcase/salesforward-pro-tips/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="SalesForward Pro Tips showcase logo"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="SalesForward Pro Tips showcase logo" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/showcase/salesforward-pro-tips/">
+                            <div aria-label="SalesForward Pro Tips">
+                              <p>
+                                <span>SalesForward Pro Tips</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>770,996 followers</span>
+                          </p>
+                          <p>
+                            <span>Promoted</span>
+                          </p>
+                          <a href="/showcase/salesforward-pro-tips/">
+                            <div aria-label="SalesForward Pro Tips"></div>
+                          </a>
+                        </div>
+                      </div>
+                      <div>
+                        <p>
+                          <span data-testid="expandable-text-box">
+                            Most small business owners hate cold calling. Here are three ways to
+                            make your first call feel like a conversation.
+                            <br />
+                            <br />
+                            Our free six-week course walks you through scripts, follow-up and
+                            booking, with examples from roofers, plumbers and cleaners who doubled
+                            their calls.
+                            <button
+                              aria-hidden="true"
+                              data-testid="expandable-text-button"
+                              type="button"
+                            >
+                              <span>
+                                <span>…</span>
+                                <span>more</span>
+                              </span>
+                            </button>
+                          </span>
+                        </p>
+                        <div>
+                          <div>
+                            <div role="region" aria-label="Video player">
+                              <video></video>
+                              <picture>
+                                <img alt="" />
+                              </picture>
+                              <div>
+                                <div></div>
+                                <div></div>
+                              </div>
+                              <div dir="ltr">
+                                <span>Video Player is loading.</span>
+                              </div>
+                              <button title="Play Video" type="button">
+                                <span aria-hidden="true"></span>
+                                <span>Play Video</span>
+                              </button>
+                              <div dir="ltr">
+                                <button title="Play" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Play</span>
+                                </button>
+                                <button title="Skip Backward" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Skip Backward</span>
+                                </button>
+                                <button title="Skip Forward" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Skip Forward</span>
+                                </button>
+                                <div>
+                                  <button title="Mute" type="button">
+                                    <span aria-hidden="true"></span>
+                                    <span>Mute</span>
+                                  </button>
+                                  <div role="slider" aria-label="Volume Level">
+                                    <div aria-hidden="true"></div>
+                                  </div>
+                                </div>
+                                <div>
+                                  <span role="presentation">Current Time</span>
+                                  <span role="presentation">0:01</span>
+                                </div>
+                                <div aria-hidden="true">
+                                  <span>/</span>
+                                </div>
+                                <div>
+                                  <span role="presentation">Duration</span>
+                                  <span role="presentation">52:48</span>
+                                </div>
+                                <div role="slider" aria-label="Progress Bar">
+                                  <div>
+                                    <span>
+                                      <span>Loaded</span>
+                                      :
+                                      <span>0%</span>
+                                    </span>
+                                    <div></div>
+                                  </div>
+                                  <div aria-hidden="true"></div>
+                                  <div aria-hidden="true">
+                                    <div aria-hidden="true">00:01</div>
+                                  </div>
+                                </div>
+                                <div>
+                                  <span>Stream Type</span>
+                                  LIVE
+                                </div>
+                                <button title="Seek to live, currently behind live" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Seek to live, currently behind live</span>
+                                  <span aria-hidden="true">LIVE</span>
+                                </button>
+                                <div>
+                                  <span role="presentation">Remaining Time</span>
+                                  <span aria-hidden="true">-</span>
+                                  <span role="presentation">52:47</span>
+                                </div>
+                                <div>
+                                  <div>1x</div>
+                                  <button aria-expanded="false" title="Playback Rate" type="button">
+                                    <span aria-hidden="true"></span>
+                                    <span>Playback Rate</span>
+                                  </button>
+                                  <ul></ul>
+                                </div>
+                                <div>
+                                  <button aria-expanded="false" title="Chapters" type="button">
+                                    <span aria-hidden="true"></span>
+                                    <span>Chapters</span>
+                                  </button>
+                                  <ul>
+                                    <li>Chapters</li>
+                                  </ul>
+                                </div>
+                                <div>
+                                  <button aria-expanded="false" title="Descriptions" type="button">
+                                    <span aria-hidden="true"></span>
+                                    <span>Descriptions</span>
+                                  </button>
+                                  <ul>
+                                    <li role="menuitemradio">
+                                      <span>descriptions off</span>
+                                      <span>, selected</span>
+                                    </li>
+                                  </ul>
+                                </div>
+                                <div>
+                                  <button aria-expanded="false" title="Captions" type="button">
+                                    <span aria-hidden="true"></span>
+                                    <span>Captions</span>
+                                  </button>
+                                  <ul role="menu">
+                                    <li role="menuitem">
+                                      <span>captions settings</span>
+                                      <span>, opens captions settings dialog</span>
+                                    </li>
+                                    <li role="menuitemradio">
+                                      <span>captions off</span>
+                                      <span>, selected</span>
+                                    </li>
+                                    <li role="menuitemradio">
+                                      <span>
+                                        English
+                                        <span aria-hidden="true"></span>
+                                        <span>Captions</span>
+                                      </span>
+                                    </li>
+                                  </ul>
+                                </div>
+                                <div>
+                                  <button aria-expanded="false" title="Audio Track" type="button">
+                                    <span aria-hidden="true"></span>
+                                    <span>Audio Track</span>
+                                  </button>
+                                  <ul>
+                                    <li role="menuitemradio">
+                                      <span>English</span>
+                                      <span>, selected</span>
+                                    </li>
+                                  </ul>
+                                </div>
+                                <button title="Picture-in-Picture" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Picture-in-Picture</span>
+                                </button>
+                                <button title="Fullscreen" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Fullscreen</span>
+                                </button>
+                              </div>
+                              <div role="dialog" aria-label="Modal Window" aria-hidden="true">
+                                <p>This is a modal window.</p>
+                                <div role="document"></div>
+                              </div>
+                              <div
+                                role="dialog"
+                                aria-label="Caption Settings Dialog"
+                                aria-hidden="true"
+                              >
+                                <p>
+                                  Beginning of dialog window. Escape will cancel and close the
+                                  window.
+                                </p>
+                                <div role="document">
+                                  <div>
+                                    <fieldset>
+                                      <legend>Text</legend>
+                                      <span>
+                                        <label>Color</label>
+                                        <select>
+                                          <option>White</option>
+                                          <option>Black</option>
+                                          <option>Red</option>
+                                          <option>Green</option>
+                                          <option>Blue</option>
+                                          <option>Yellow</option>
+                                          <option>Magenta</option>
+                                          <option>Cyan</option>
+                                        </select>
+                                      </span>
+                                      <span>
+                                        <label>Opacity</label>
+                                        <select>
+                                          <option>Opaque</option>
+                                          <option>Semi-Transparent</option>
+                                        </select>
+                                      </span>
+                                    </fieldset>
+                                    <fieldset>
+                                      <legend>Text Background</legend>
+                                      <span>
+                                        <label>Color</label>
+                                        <select>
+                                          <option>White</option>
+                                          <option>Black</option>
+                                          <option>Red</option>
+                                          <option>Green</option>
+                                          <option>Blue</option>
+                                          <option>Yellow</option>
+                                          <option>Magenta</option>
+                                          <option>Cyan</option>
+                                        </select>
+                                      </span>
+                                      <span>
+                                        <label>Opacity</label>
+                                        <select>
+                                          <option>Opaque</option>
+                                          <option>Semi-Transparent</option>
+                                          <option>Transparent</option>
+                                        </select>
+                                      </span>
+                                    </fieldset>
+                                    <fieldset>
+                                      <legend>Caption Area Background</legend>
+                                      <span>
+                                        <label>Color</label>
+                                        <select>
+                                          <option>White</option>
+                                          <option>Black</option>
+                                          <option>Red</option>
+                                          <option>Green</option>
+                                          <option>Blue</option>
+                                          <option>Yellow</option>
+                                          <option>Magenta</option>
+                                          <option>Cyan</option>
+                                        </select>
+                                      </span>
+                                      <span>
+                                        <label>Opacity</label>
+                                        <select>
+                                          <option>Transparent</option>
+                                          <option>Semi-Transparent</option>
+                                          <option>Opaque</option>
+                                        </select>
+                                      </span>
+                                    </fieldset>
+                                  </div>
+                                  <div>
+                                    <fieldset>
+                                      <legend>Font Size</legend>
+                                      <select>
+                                        <option>50%</option>
+                                        <option>75%</option>
+                                        <option>100%</option>
+                                        <option>125%</option>
+                                        <option>150%</option>
+                                        <option>175%</option>
+                                        <option>200%</option>
+                                        <option>300%</option>
+                                        <option>400%</option>
+                                      </select>
+                                    </fieldset>
+                                    <fieldset>
+                                      <legend>Text Edge Style</legend>
+                                      <select>
+                                        <option>None</option>
+                                        <option>Raised</option>
+                                        <option>Depressed</option>
+                                        <option>Uniform</option>
+                                        <option>Drop shadow</option>
+                                      </select>
+                                    </fieldset>
+                                    <fieldset>
+                                      <legend>Font Family</legend>
+                                      <select>
+                                        <option>Proportional Sans-Serif</option>
+                                        <option>Monospace Sans-Serif</option>
+                                        <option>Proportional Serif</option>
+                                        <option>Monospace Serif</option>
+                                        <option>Casual</option>
+                                        <option>Script</option>
+                                        <option>Small Caps</option>
+                                      </select>
+                                    </fieldset>
+                                  </div>
+                                  <div>
+                                    <button
+                                      title="Reset all settings to the default values"
+                                      type="button"
+                                    >
+                                      Reset
+                                    </button>
+                                    <button title="Done" type="button">Done</button>
+                                  </div>
+                                </div>
+                                <button title="Close Modal Dialog" type="button">
+                                  <span aria-hidden="true"></span>
+                                  <span>Close Modal Dialog</span>
+                                </button>
+                                <p>End of dialog window.</p>
+                              </div>
+                            </div>
+                            <div role="button">
+                              <div>
+                                <a href="/feed/">
+                                  <div>
+                                    <p>
+                                      <span>Up next</span>
+                                    </p>
+                                    <div>
+                                      <p>
+                                        <span>Cold calling basics</span>
+                                      </p>
+                                      <p data-testid="remaining-watch-time">00:29</p>
+                                    </div>
+                                  </div>
+                                </a>
+                                <a href="/feed/"></a>
+                                <div>
+                                  <div>
+                                    <p>0:01</p>
+                                    <p>
+                                      <span>/</span>
+                                    </p>
+                                    <p>52:48</p>
+                                  </div>
+                                  <button
+                                    aria-label="Turn on captions"
+                                    data-testid="subtitle-toggle-btn"
+                                    type="button"
+                                  >
+                                    <svg aria-hidden="true"></svg>
+                                  </button>
+                                  <button
+                                    aria-label="Playback speed"
+                                    data-testid="playback-speed-btn"
+                                    type="button"
+                                  >
+                                    <span>1x</span>
+                                  </button>
+                                  <button
+                                    aria-label="Unmute"
+                                    aria-expanded="false"
+                                    data-testid="mute-toggle-btn"
+                                    type="button"
+                                  >
+                                    <svg aria-hidden="true"></svg>
+                                  </button>
+                                  <div role="status" data-testid="volume-a11y-live-region">
+                                    <span>Muted</span>
+                                  </div>
+                                  <button aria-label="Enter fullscreen" type="button">
+                                    <svg aria-hidden="true"></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <a href="/feed/">
+                            <div>
+                              <p>
+                                <span>SalesForward Academy</span>
+                              </p>
+                              <p>
+                                <span
+                                  >A free 6-week course on cold calling for small business
+                                  owners</span
+                                >
+                              </p>
+                              <p>
+                                <span aria-hidden="true">
+                                  <svg aria-hidden="true"></svg>
+                                </span>
+                                4.8 rating
+                              </p>
+                              <p>
+                                <span>Free course</span>
+                              </p>
+                            </div>
+                          </a>
+                          <hr role="presentation" />
+                          <a aria-label="Register" href="/feed/">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>Register</span>
+                            </span>
+                          </a>
+                          <hr role="presentation" />
+                        </div>
+                      </div>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>888</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>27</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>25</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>888<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a href="/in/averylane/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Avery Lane’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Avery Lane’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/averylane/">
+                            <div aria-label="Avery Lane Verified • 1st">
+                              <p>
+                                <span>Avery Lane</span>
+                              </p>
+                              <p>
+                                <span>
+                                  <span aria-hidden="true">
+                                    <svg aria-hidden="true"></svg>
+                                  </span>
+                                  • 1st
+                                </span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span
+                              >Landscape designer helping Austin homeowners build gardens that
+                              survive a Texas summer without much water</span
+                            >
+                          </p>
+                          <p>
+                            <span>2m</span>
+                          </p>
+                          <a href="/in/averylane/">
+                            <div aria-label="Avery Lane Verified • 1st"></div>
+                          </a>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by Avery Lane"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Avery Lane" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box"
+                          >We just finished this front yard in Crestview: no lawn, no sprinklers,
+                          and it looked great through August. Native grasses, salvia, agave and a
+                          little shade from a young live oak. I wrote up the plant list and what it
+                          cost in this week’s newsletter. Ask me anything.</span
+                        >
+                      </p>
+                      <div>
+                        <a href="/pulse/five-plants-august-avery-lane-a1b2c/">
+                          <figure>
+                            <img alt="Drought-tolerant front yard garden" />
+                          </figure>
+                        </a>
+                        <a href="/pulse/five-plants-august-avery-lane-a1b2c/">
+                          <div>
+                            <span data-as="a" href="/newsletters/7200000000000000001/">
+                              <div>
+                                <figure aria-hidden="true">
+                                  <svg aria-hidden="true"></svg>
+                                  <img alt="" />
+                                </figure>
+                                <p>
+                                  <span>Outdoor Living Notes</span>
+                                </p>
+                                <button
+                                  aria-label="Subscribe to Outdoor Living Notes newsletter"
+                                  type="button"
+                                >
+                                  <span>
+                                    <svg aria-hidden="true"></svg>
+                                    <span>Subscribe</span>
+                                  </span>
+                                </button>
+                              </div>
+                            </span>
+                            <p>
+                              <span>Five plants for August</span>
+                            </p>
+                            <p>
+                              <span>Avery Lane</span>
+                            </p>
+                          </div>
+                        </a>
+                      </div>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span></span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a
+                          href="/groups/6543210/?q=highlightedFeedForGroups&amp;highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7380000000000000622"
+                        >
+                          <div aria-label="Hugo Brandt posted in Austin Roofing and Gutters Pros">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                          </div>
+                        </a>
+                        <div>
+                          <a
+                            href="/groups/6543210/?q=highlightedFeedForGroups&amp;highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7380000000000000622"
+                          >
+                            <div aria-label="Go to the group page">
+                              <p>
+                                <span>Austin Roofing, Siding and Gutters Pros Network</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>
+                              Hugo Brandt
+                              <span>• 3rd+</span>
+                            </span>
+                          </p>
+                          <p>
+                            <span>11h</span>
+                          </p>
+                          <a
+                            href="/groups/6543210/?q=highlightedFeedForGroups&amp;highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7380000000000000622"
+                          >
+                            <div aria-label="Go to the group page"></div>
+                          </a>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by Hugo Brandt"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Hugo Brandt" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Quick poll, roofers:
+                          <br />
+                          👇
+                          <br />
+                          How do you chase an estimate that goes quiet?
+                          <br />
+                          —
+                          <br />
+                          Vote below and tell me why in the comments.
+                          <br />
+                          —
+                          <br />
+                          I’ll share the results next week.
+                          <br />
+                          Thanks for helping a fellow roofer.
+                          <br />
+                          Our team calls twice, then texts once.
+                          <br />
+                          Curious what works for all of you.
+                          <br />
+                          —
+                          <br />
+                          Big thanks to
+                          <br />
+                          mentor
+                          <a aria-label="View Dana Reyes’s profile" href="/in/dana-reyes-4b2a1c/">
+                            <strong>Dana Reyes</strong>
+                          </a>
+                          for this
+                          <br />
+                          —
+                          <br />
+                          Follow
+                          <a aria-label="View Dana Reyes’s profile" href="/in/dana-reyes-4b2a1c/">
+                            <strong>Dana Reyes</strong>
+                          </a>
+                          for more tips on running crews
+                          <br />
+                          —
+                          <br />
+                          <a
+                            aria-label="Search hashtag #roofing"
+                            href="/search/results/all/?keywords=roofing&amp;origin=HASH_TAG_FROM_FEED"
+                          >
+                            <strong>#roofing</strong>
+                          </a>
+                          <a
+                            aria-label="Search hashtag #contractors"
+                            href="/search/results/all/?keywords=contractors&amp;origin=HASH_TAG_FROM_FEED"
+                          >
+                            <strong>#contractors</strong>
+                          </a>
+                          <a
+                            aria-label="Search hashtag #sales"
+                            href="/search/results/all/?keywords=sales&amp;origin=HASH_TAG_FROM_FEED"
+                          >
+                            <strong>#sales</strong>
+                          </a>
+                          <a
+                            aria-label="Search hashtag #smallbusiness"
+                            href="/search/results/all/?keywords=smallbusiness&amp;origin=HASH_TAG_FROM_FEED"
+                          >
+                            <strong>#smallbusiness</strong>
+                          </a>
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <div>
+                        <a href="/feed/update/urn:li:activity:7380000000000000622/">
+                          <p>How do you chase an estimate that goes quiet?</p>
+                        </a>
+                        <p>
+                          The author can see how you vote.
+                          <a aria-label="Learn more" href="/help/linkedin/answer/a5094765/"
+                            >Learn more</a
+                          >
+                        </p>
+                        <div>
+                          <button type="button">
+                            <span>Phone call</span>
+                          </button>
+                          <button type="button">
+                            <span>Text message</span>
+                          </button>
+                          <button type="button">
+                            <span>Email first</span>
+                          </button>
+                          <button type="button">
+                            <span>We don’t</span>
+                          </button>
+                        </div>
+                        <div>
+                          <p>38 votes</p>
+                          <p>•</p>
+                          <p>1w left</p>
+                          <div>
+                            <p>•</p>
+                            <div role="button">
+                              <p>View results</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>4</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </button>
+                        <a href="/feed/">
+                          <div>4<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <div>
+                          <a href="/company/lonestar-supply/">
+                            <figure>
+                              <svg
+                                role="img"
+                                aria-label="LoneStar company logo"
+                                aria-hidden="false"
+                              ></svg>
+                              <img alt="LoneStar company logo" />
+                            </figure>
+                          </a>
+                          <p>
+                            <span>
+                              <a aria-label="View LoneStar’s page" href="/company/lonestar-supply/">
+                                <strong>LoneStar</strong>
+                              </a>
+                              reposted this
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          aria-label="Open control menu for post by Riley Ann Brooks"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <button aria-label="Hide post by Riley Ann Brooks" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <hr role="presentation" />
+                      <div>
+                        <a href="/in/riley-ann-brooks/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Riley Ann Brooks’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Riley Ann Brooks’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/riley-ann-brooks/">
+                            <div aria-label="Riley Ann Brooks 3rd+">
+                              <p>
+                                <span>Riley Ann Brooks</span>
+                              </p>
+                              <p>
+                                <span>• 3rd+</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span
+                              >Owner of Brooks HVAC | Heating and cooling for Austin homes since
+                              2012 | Hiring technicians and apprentices now</span
+                            >
+                          </p>
+                          <p>
+                            <span>15h</span>
+                          </p>
+                          <a href="/in/riley-ann-brooks/">
+                            <div aria-label="Riley Ann Brooks 3rd+"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Riley Ann Brooks" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Proud to be a supplier partner again this year with
+                          <a aria-label="View LoneStar’s page" href="/company/lonestar-supply/">
+                            <strong>LoneStar</strong>
+                          </a>
+                          — thanks for having us!
+                          <br />
+                          <br />
+                          We’ve worked with the LoneStar team for six years. Same-day parts, fair
+                          prices and people who answer the phone. That’s why we keep coming back.
+                          <br />
+                          <br />
+                          Apprentices: our door is open.
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <a href="/feed/">
+                        <figure>
+                          <img alt="Team photo" />
+                        </figure>
+                      </a>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>33</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>2</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>33<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a href="/in/elena-ruiz-tx/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Elena Ruiz’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Elena Ruiz’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/elena-ruiz-tx/">
+                            <div aria-label="Elena Ruiz Verified • 2nd">
+                              <p>
+                                <span>Elena Ruiz</span>
+                              </p>
+                              <p>
+                                <span>
+                                  <span aria-hidden="true">
+                                    <svg aria-hidden="true"></svg>
+                                  </span>
+                                  • 2nd
+                                </span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span
+                              >Solar sales lead at SolarBridge | Helping Texas homeowners cut their
+                              power bills</span
+                            >
+                          </p>
+                          <p>
+                            <span>
+                              Promoted by
+                              <a
+                                aria-label="View SolarBridge’s page"
+                                href="/company/solarbridge/posts/"
+                              >
+                                <strong>SolarBridge</strong>
+                              </a>
+                            </span>
+                          </p>
+                          <a href="/in/elena-ruiz-tx/">
+                            <div aria-label="Elena Ruiz Verified • 2nd"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Elena Ruiz" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Elena Ruiz"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Last month I helped forty families in Hays County switch to solar, and
+                          every one of them asked the same question:
+                          <br />
+                          <br />
+                          Will it actually pay for itself? So I sat down with our installers and our
+                          finance team and put together the real numbers for a typical Texas home,
+                          with no sales gloss.
+                          <br />
+                          <br />
+                          Short answer: for most homes it does, usually in seven to nine years,
+                          sooner if you add a battery.
+                          <br />
+                          <br />
+                          <a aria-label="View SolarBridge’s page" href="/company/solarbridge/">
+                            <strong>SolarBridge</strong>
+                          </a>
+                          has put the whole breakdown in an article, with the numbers for three real
+                          homes we finished this summer.
+                          <br />
+                          <br />
+                          What surprised me most was how much the roof matters. A roof that needs
+                          replacing in five years changes the math completely, so we now check every
+                          roof first.
+                          <br />
+                          If you’re a roofer in Central Texas, I’d love to compare notes. Our
+                          customers keep asking who we trust for roof work before an install.
+                          <br />
+                          <br />
+                          If you’re a homeowner, send me your last two power bills and I’ll tell you
+                          honestly whether solar makes sense for your house.
+                          <a
+                            aria-label="Open link"
+                            href="/redir/redirect/?url=https%3A%2F%2Fsolarbridge.example%2Fpayback&amp;urlhash=St90&amp;mt=article&amp;isSdui=true"
+                          >
+                            <strong>solarbridge.example/payback</strong>
+                          </a>
+                          <button
+                            aria-hidden="true"
+                            data-testid="expandable-text-button"
+                            type="button"
+                          >
+                            <span>
+                              <span>…</span>
+                              <span>more</span>
+                            </span>
+                          </button>
+                        </span>
+                      </p>
+                      <div>
+                        <a href="https://example.com/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="SolarBridge article image"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="SolarBridge article image" />
+                          </figure>
+                        </a>
+                        <a href="https://example.com/">
+                          <div>
+                            <div>
+                              <p>
+                                <span>
+                                  <span>How solar pays off in Texas</span>
+                                  <span aria-hidden="true">How solar pays off in Texas</span>
+                                </span>
+                              </p>
+                              <p>
+                                <span>solarbridge.example</span>
+                              </p>
+                            </div>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                      </div>
+                      <div>
+                        <a href="/feed/">
+                          <div aria-label="Open actor selection menu">
+                            <figure aria-hidden="true">
+                              <svg aria-hidden="true"></svg>
+                              <img alt="" />
+                            </figure>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                              <span>24</span>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>1</span>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>3</span>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/feed/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span></span>
+                          </span>
+                        </a>
+                        <a href="/feed/">
+                          <div>24<!-- -->reactions</div>
+                          <ul role="presentation">
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                            <li>
+                              <svg aria-hidden="true"></svg>
+                            </li>
+                          </ul>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <aside aria-label="Sidebar">
+                <div>
+                  <div>
+                    <div>
+                      <div>
+                        <p>LinkedIn News</p>
+                        <button aria-label="News info" aria-expanded="false" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <div>
+                        <a href="/news/story/small-businesses-ai-receptionists-7100001/">
+                          <div>
+                            <p>
+                              Small businesses lean on AI receptionists as hiring stays so tight
+                            </p>
+                            <div>
+                              <p>Top story</p>
+                              <p>•</p>
+                              <p>4,512 readers</p>
+                            </div>
+                          </div>
+                        </a>
+                        <a href="/news/story/home-service-bookings-climb-7100002/">
+                          <div>
+                            <p>Home service bookings climb ahead of the holidays</p>
+                            <div>
+                              <p>Featured story</p>
+                              <p>•</p>
+                              <p>2,307 readers</p>
+                            </div>
+                            <div>
+                              <figure aria-hidden="true">
+                                <img alt="" />
+                              </figure>
+                              <p>
+                                <span data-as="p">
+                                  Posted by
+                                  <strong>Morgan Ellis</strong>
+                                  and 3 others
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                        <a href="/news/story/texas-contractors-licensing-7100003/">
+                          <div>
+                            <p>Texas contractors face new licensing rules starting next year</p>
+                            <div>
+                              <p>Top story</p>
+                              <p>•</p>
+                              <p>1,120 readers</p>
+                            </div>
+                          </div>
+                        </a>
+                        <a href="/news/story/small-firms-software-7100004/">
+                          <div>
+                            <p>What small firms want from software now</p>
+                            <div>
+                              <p>Top story</p>
+                              <p>•</p>
+                              <p>980 readers</p>
+                            </div>
+                          </div>
+                        </a>
+                        <a href="/news/top-stories/today">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Show more news</span>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                    <div>
+                      <p>Today’s puzzles</p>
+                      <div>
+                        <a href="/games/zip/">
+                          <div aria-label="Play Zip">
+                            <div>
+                              <figure aria-hidden="true">
+                                <img alt="" />
+                              </figure>
+                              <div>
+                                <p>
+                                  <strong>Zip</strong>
+                                  #212
+                                </p>
+                                <p>Connect the dots</p>
+                              </div>
+                            </div>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <a href="/games/tango/">
+                          <div aria-label="Play Tango">
+                            <div>
+                              <figure aria-hidden="true">
+                                <img alt="" />
+                              </figure>
+                              <div>
+                                <p>
+                                  <strong>Tango</strong>
+                                  #371
+                                </p>
+                                <p>Harmonize the grid</p>
+                              </div>
+                            </div>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <a href="/games/queens/">
+                          <div aria-label="Play Queens">
+                            <div>
+                              <figure aria-hidden="true">
+                                <img alt="" />
+                              </figure>
+                              <div>
+                                <p>
+                                  <strong>Queens</strong>
+                                  #532
+                                </p>
+                                <p>Crown each region</p>
+                              </div>
+                            </div>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <a href="/games/mini-sudoku/">
+                          <div aria-label="Play Sudoku">
+                            <div>
+                              <figure aria-hidden="true">
+                                <img alt="" />
+                              </figure>
+                              <div>
+                                <p>
+                                  <strong>Mini Sudoku</strong>
+                                  #64
+                                </p>
+                                <p>The classic game</p>
+                              </div>
+                            </div>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </a>
+                        <button type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Show more</span>
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div>
+                      <iframe title="Advertisement"></iframe>
+                      <dialog>
+                        <button aria-label="Dismiss" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <div>
+                          <header>
+                            <h2>Share profile</h2>
+                          </header>
+                          <div data-testid="dialog-content">
+                            <div>
+                              <button type="button">
+                                <div>
+                                  <svg aria-hidden="true"></svg>
+                                  <div>
+                                    <p>Copy the link to your profile</p>
+                                    <p>Share it anywhere online</p>
+                                  </div>
+                                </div>
+                              </button>
+                              <button type="button">
+                                <div>
+                                  <svg aria-hidden="true"></svg>
+                                  <div>
+                                    <p>Send it in a message</p>
+                                    <p>
+                                      Share your profile with a connection on LinkedIn right away
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </dialog>
+                      <dialog>
+                        <button aria-label="Dismiss" type="button">
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                        <div>
+                          <header>
+                            <h2>Why are you reporting this?</h2>
+                          </header>
+                          <form>
+                            <div data-testid="dialog-content">
+                              <div>
+                                <p>
+                                  Your report is anonymous unless it’s about intellectual property.
+                                </p>
+                                <p>Select the option that best describes the problem.</p>
+                                <fieldset>
+                                  <div>
+                                    <div>
+                                      <input type="radio" />
+                                      <label>
+                                        <p>This is spam or fake</p>
+                                      </label>
+                                    </div>
+                                    <div>
+                                      <input type="radio" />
+                                      <label>
+                                        <p>This profile is pretending to be someone</p>
+                                      </label>
+                                    </div>
+                                  </div>
+                                </fieldset>
+                                <p>
+                                  If someone is in immediate danger, get help before reporting to
+                                  LinkedIn. Don’t wait.
+                                </p>
+                                <button type="button">
+                                  <span>Learn more here</span>
+                                </button>
+                              </div>
+                            </div>
+                            <footer>
+                              <button type="submit">
+                                <span>Next</span>
+                              </button>
+                            </footer>
+                          </form>
+                        </div>
+                      </dialog>
+                    </div>
+                    <div>
+                      <footer>
+                        <a href="https://example.com/">
+                          <p>About</p>
+                        </a>
+                        <a href="/accessibility/">
+                          <p>Accessibility</p>
+                        </a>
+                        <a href="/help/linkedin/">
+                          <p>Help Center</p>
+                        </a>
+                        <div role="button" aria-expanded="false">
+                          <div>
+                            <p>Privacy &amp; Terms</p>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </div>
+                        <a href="/help/linkedin/answer/a1342443/">
+                          <p>Ad Choices</p>
+                        </a>
+                        <a href="/ads/start/">
+                          <p>Advertising</p>
+                        </a>
+                        <div role="button" aria-expanded="false">
+                          <div>
+                            <p>Business Services</p>
+                            <svg aria-hidden="true"></svg>
+                          </div>
+                        </div>
+                        <a href="/mobile/">
+                          <p>Get the LinkedIn app</p>
+                        </a>
+                        <a href="/feed/">
+                          <p>More</p>
+                        </a>
+                      </footer>
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <p>LinkedIn Corporation © 2026</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </main>
+        </div>
+      </div>
+      <div data-testid="interop-shadowdom"></div>
+      <iframe data-testid="interop-iframe"></iframe>
+    </div>
+    <div role="status">Your feed updated</div>
+  </body>
+</html>

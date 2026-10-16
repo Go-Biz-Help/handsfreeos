@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.45.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.46.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -33,7 +33,9 @@ Facebook's and never waiting on it (below, "On its own on LinkedIn"). Since 0.42
 data (your connections, invitations and messages) and brings it in, as it does Facebook's file. Since 0.43.0 it
 puts your helpful post up on your own LinkedIn feed, once you OK it or on its own if you let it, and reads who
 engaged with it. Since 0.44.0 its panel no longer lists Needs you or its chats (decision 72): it says how many
-things need you, and you OK, change, skip and carry on in HandsFreeOS.
+things need you, and you OK, change, skip and carry on in HandsFreeOS. Since 0.46.0 its LinkedIn readers and the
+steps it notes there are tuned from the owner's page outlines of 16 Oct 2026, his feed and his own profile in
+LinkedIn's newer layout (below, "What it reads" and "What it notes"); they still read the older one.
 
 ## The networks
 
@@ -87,7 +89,34 @@ On LinkedIn (`src/networks/linkedin/`, read only while LinkedIn is on): a profil
 latest posts for Get ready's check, `own-profile.ts`), your connections, people search, your invitations both ways,
 the feed, post search, a post's own page, a group, messaging's list and an open conversation, notifications, a
 company's page and its About (`company.ts`, for a look-up), and LinkedIn's warnings. LinkedIn writes much of its text twice, once shown and once
-for screen readers: the readers read what's shown. As you go, only its warnings are looked at for now.
+for screen readers (in its newer layout often the screen readers' copy first): the readers read what's shown. As you
+go, only its warnings are looked at for now.
+
+**LinkedIn's newer layout** (0.46.0, tuned from the owner's page outlines of 16 Oct 2026; the pages rebuilt from
+them are `test/fixtures/linkedin-feed-2026-10.html` and `linkedin-own-profile-2026-10.html`) is plain `p`, `span`
+and `div` with `data-testid`s. The readers go by:
+
+- **Posts** (`posts.ts`): each a `div role="listitem"` in the feed's `div role="list" data-testid="mainFeed"` holding
+  one post's menu ("Open control menu for post by …"). Its author is the one that menu names, linked in its header;
+  where someone else is named above (liked, reposted, commented on), LinkedIn draws a line (`hr`) and the author is
+  under it. A group's post names its author without a link: read with their name and no profile, its own link from
+  the group link's `highlightedUpdateUrn`. Its words are its `expandable-text-box`, all of them (its "…more" only
+  shows them); its counts the numbers in its bar's reaction button and Comment; the line under the author's name is
+  their headline. Its bar (`barOf`): the post's own Comment, and before it the reaction button, or the button before
+  the reactions menu (one that opens a menu). Comments aren't articles there: each is the box of a Reply after the
+  bar. Promoted posts, and company and showcase pages', are read as theirs.
+- **Your profile** (`profile.ts`, `own-profile.ts`): the name is the top card's `h2`; the headline the first line
+  under it that isn't a link ("Add a verification badge" is); the photo a picture in the top card labelled with your
+  name or as a profile photo, its own label or the box's around it, and the banner one labelled as a background,
+  banner or cover (`picturesOf`); the About its `expandable-text-box` (not "Top skills" under it); each role under
+  Experience a link holding its lines (title, company · how, dates, place), and a company with several roles its own
+  link with its roles in a list after it, each read. Activity's "You haven’t posted yet" is no post. Nothing is
+  pressed to read any of it.
+
+The words LinkedIn's outline hid there and the readers now name (the reaction button's "Reaction button state: like"
+and "… no reaction", "Open reactions menu", "Feed post", "Text editor for creating comment", "Edit intro",
+"Background image") are a best reading; the readers never depend on them where they can go by structure, and the
+outline shows them as they are (`src/networks/linkedin/outline.ts`) so the next one confirms them.
 
 Facebook loads lists as you scroll, so a reader only sees what's on the page; the jobs scroll for more. A group's
 People tab shows only a few of each list, admins and moderators too: its **See all** pages are read the same way.
@@ -206,23 +235,35 @@ Answers to requests aren't outreach, so they don't count toward the daily limits
 **On LinkedIn** (`src/networks/linkedin/actions.ts`), while LinkedIn is on, the same steps, noted as LinkedIn's
 (`platform: 'linkedin'` on every save from a LinkedIn tab), by the same queue:
 
-| Step                  | Noted when you…                                                                                                          | To                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Invitation to connect | press **Connect**, then **Send without a note** or **Send** in the box LinkedIn opens; or Connect, when it sends at once | the profile it's at the top of (or under its **More**), or the one person its card names |
-| Like                  | press **Like** on a post or a comment, or pick a reaction over a post that has none of yours (not **Unreact**)           | whoever wrote the post or the comment                                                    |
-| Comment               | press **Comment** (or **Post**, **Reply**) under a box with something in it                                              | whoever wrote the post, or the comment you're replying under                             |
-| Message               | press **Send** in a conversation in LinkedIn messaging, or in a chat window over a page                                  | who it's with, with the conversation's id                                                |
-| Accept                | press **Accept** on an invitation you got, in My Network or at the top of their profile                                  | who sent it: as Confirm on Facebook                                                      |
-| Ignore                | press **Ignore** on one                                                                                                  | who sent it: as Delete on Facebook                                                       |
+| Step                  | Noted when you…                                                                                                                                                                                                                         | To                                                                                               |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Invitation to connect | press **Connect**, then **Send without a note** or **Send** in the box LinkedIn opens; or Connect, when it sends at once                                                                                                                | the profile it's at the top of (or under its **More**), or the one person its card names         |
+| Like                  | press **Like** on a post or a comment, or pick a reaction over a post that has none of yours (not **Unreact**); in LinkedIn's newer layout, its reaction button, or a reaction from the menu beside it, once the button shows one given | whoever wrote the post (the one under the line where someone else is named above) or the comment |
+| Comment               | press **Comment** (or **Post**, **Reply**) under a box with something in it; in the newer layout, any of the box's own buttons, once the box empties                                                                                    | whoever wrote the post, or the comment you're replying under                                     |
+| Message               | press **Send** in a conversation in LinkedIn messaging, or in a chat window over a page                                                                                                                                                 | who it's with, with the conversation's id                                                        |
+| Accept                | press **Accept** on an invitation you got, in My Network or at the top of their profile                                                                                                                                                 | who sent it: as Confirm on Facebook                                                              |
+| Ignore                | press **Ignore** on one                                                                                                                                                                                                                 | who sent it: as Delete on Facebook                                                               |
 
 - **Noted once it went.** LinkedIn mostly opens a box after Connect (Add a note, Send without a note): the invitation is
   noted when that box sends it, with a note or without, and never for what the note says. When no box opens, it's
   noted a moment later if the button no longer says Connect; a box left for 5 minutes, or one that names someone
   else, notes nothing. Enter in a comment's or a message's box counts only once the box empties after it, since in
   LinkedIn's boxes Enter may only start a new line; pressing the button after notes it once.
-- **Left out:** invitations to follow a page, go to an event or read a newsletter; a company's post; a chat with more
-  than one other person; a step to yourself (the name on the top bar's **Me**); groups, which aren't noted with a step
-  there yet.
+- **LinkedIn's newer layout** (0.46.0, from the owner's outlines of 16 Oct 2026; the owner's like then wasn't noted,
+  as the extension looked for "React Like", which that layout doesn't say). Its reaction button is labelled by its
+  state ("Reaction button state: no reaction", a best reading), so it's found by where it is, in the bar holding the
+  post's Comment, before the reactions menu (a comment's, before its Reply), and looked at again a moment after the
+  press (`LIKE_LOOK_MS`): a like is noted when the count in it went up, or its label changed from none of yours to one
+  (its words when they say, else how the other posts' buttons read), never when one was taken back or changed to
+  another; if LinkedIn draws the post again, it's found again by its menu. A reaction picked from the menu beside it
+  is looked for the same way after the next click. The comment box (LinkedIn's tiptap `div role="textbox"`) is sent
+  by a button whose words aren't known yet: a press on any of the box's own buttons with writing in it is noted once
+  the box empties, and only the last press before it did. A Reply under the box, with a comment and its writer
+  between, is never the box's.
+- **Left out:** invitations to follow a page, go to an event or read a newsletter; a company's or a showcase page's
+  post, and one LinkedIn was paid to show ("Promoted", "Promoted by …"); a group's post whose author isn't linked; a
+  chat with more than one other person; a step to yourself (the name on the top bar's **Me**, or your profile beside
+  the feed's **Start a post**); groups, which aren't noted with a step there yet.
 - **Who wrote back:** messaging's list, as you look at it, and the conversation open beside it, when the last line
   isn't yours (`src/networks/linkedin/replies.ts`); never a group, and never what they wrote. Sent as LinkedIn's.
 
@@ -317,21 +358,21 @@ LinkedIn's rules hold for every one (the plan's "The risk, said plainly"): a per
 reading only unless the ask says to press, a stop on any LinkedIn warning (in LinkedIn's words, and LinkedIn's alone),
 and nothing to get around LinkedIn's limits or checks (`src/jobs/linkedin/`, `src/networks/linkedin/work.ts`).
 
-| Ask (`kind`)                               | What it does                                                                                                                                                                                                                                                                                                                                               | Where it works, and its pace                                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Save my connections (`friends`)            | Scrolls My Network's connections slowly to the end (LinkedIn's own **Show more results** where the list stops loading) and saves them as your friends list, as LinkedIn's (`people.ts`)                                                                                                                                                                    | A window of its own, 6 to 12 seconds a screen, up to 150 screens                            |
-| Check my invitations (`requests`)          | Manage invitations: the ones you've got, then the ones you've sent, each saved as Facebook's friend requests are                                                                                                                                                                                                                                           | The same, up to 30 screens each                                                             |
-| Check my connections (`checks`), Research  | Asks HandsFreeOS who's next on LinkedIn (`outreach.checks.next`, `platform: 'linkedin'`), opens each profile, checks it's them by the name in its address or LinkedIn's id, reads it and sends the lines (`outreach.check.look`); one page each (`checks.ts`)                                                                                              | A window of its own, one every 15 to 30 seconds, on LinkedIn's own 40 a day: a look is seen |
-| Read my chats (`chats`)                    | Opens your conversations in LinkedIn messaging one at a time from its list, and sends each as LinkedIn's, with its thread id (`../chats.ts`, `LINKEDIN_MESSAGING`)                                                                                                                                                                                         | A window of its own, 7 to 14 seconds a chat, up to 150                                      |
-| Draft a message (`lookup`)                 | Their profile, then the About of the company their role links to: two pages, then the window closes before the AI drafts (`lookup.ts`)                                                                                                                                                                                                                     | A window of its own, closed after                                                           |
-| Read my profile (`profile_read`)           | linkedin.com/in/me/, checked it's yours, scrolled to its foot and back so LinkedIn draws every part (0.45.0), read as `outreach.profile.check` takes it: the headline as the bio, the About, Experience as the intro, Featured and the latest posts (`profile.ts`, `src/networks/linkedin/own-profile.ts`)                                                 | A window of its own, one read                                                               |
-| Put this one in (`profile_edit`)           | Presses the pencil by your name (**Edit intro**), types only into **Headline** in the box it opens, presses that box's **Save**, and checks the headline under your name; anything it doesn't expect it hands to you, never guessing                                                                                                                       | A window of its own, brought to the front if it hands the step over                         |
-| Withdraw the ticked invitations (`cancel`) | On Sent invitations, finds each one you ticked by the link to their profile, scrolling for it, presses **Withdraw** and the box's **Withdraw**, checks the row is gone, and notes it; one not on the list, read to its end, answered already (`withdraw.ts`)                                                                                               | A tab you can see (decision 17), one every 20 to 40 seconds, up to LinkedIn's 20 a day      |
-| Find posts (`posts`)                       | LinkedIn's post search, latest first, with your playbooks' words (HandsFreeOS picks them: the quoted words in their signs, then their words for groups), a few screens each; posts by people go to the AI, in no group (`posts.ts`)                                                                                                                        | A window of its own, 6 to 12 seconds a screen, 3 screens a search                           |
-| Put up your helpful post (`post`, 0.43.0)  | The one you OK'd, on your own feed: opens it, presses **Start a post**, types the post into the box LinkedIn opens, presses that box's **Post**, takes its link from LinkedIn's **View post** (else finds it among your own posts by its words), and notes it as LinkedIn's (`helpful.ts`, `src/networks/linkedin/compose.ts`)                             | A window of its own, one post                                                               |
-| Ask for my file (`file_request`, 0.42.0)   | On LinkedIn's **Get a copy of your data** (Settings, Data privacy): picks **Want something in particular?**, ticks Connections, Invitations, Messages and Profile, presses **Request archive**, and waits while you type your password till LinkedIn says it's preparing it; stops if it's making one already (`file.ts`, `src/networks/linkedin/data.ts`) | A tab you can see; you type your password there                                             |
-| Download my file (`file_download`)         | Once LinkedIn has emailed you, presses **Download archive** on the same page and waits for Chrome to start the download (and for your password, if LinkedIn asks); if nothing starts, it hands the step to you                                                                                                                                             | The same                                                                                    |
-| Bring it in (`file_in`)                    | Finds LinkedIn's zip in Chrome's downloads however it was downloaded, reads it (core's `readLinkedInExport`) and saves your connections as your friends list, the invitations still waiting both ways, each since when the file says, then each one-to-one chat's latest 20 messages, matched by name (`outreach.download.save`, chats only)               | The offscreen page; needs **Allow access to file URLs**; doesn't open LinkedIn              |
+| Ask (`kind`)                               | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                   | Where it works, and its pace                                                                |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Save my connections (`friends`)            | Scrolls My Network's connections slowly to the end (LinkedIn's own **Show more results** where the list stops loading) and saves them as your friends list, as LinkedIn's (`people.ts`)                                                                                                                                                                                                                                                        | A window of its own, 6 to 12 seconds a screen, up to 150 screens                            |
+| Check my invitations (`requests`)          | Manage invitations: the ones you've got, then the ones you've sent, each saved as Facebook's friend requests are                                                                                                                                                                                                                                                                                                                               | The same, up to 30 screens each                                                             |
+| Check my connections (`checks`), Research  | Asks HandsFreeOS who's next on LinkedIn (`outreach.checks.next`, `platform: 'linkedin'`), opens each profile, checks it's them by the name in its address or LinkedIn's id, reads it and sends the lines (`outreach.check.look`); one page each (`checks.ts`)                                                                                                                                                                                  | A window of its own, one every 15 to 30 seconds, on LinkedIn's own 40 a day: a look is seen |
+| Read my chats (`chats`)                    | Opens your conversations in LinkedIn messaging one at a time from its list, and sends each as LinkedIn's, with its thread id (`../chats.ts`, `LINKEDIN_MESSAGING`)                                                                                                                                                                                                                                                                             | A window of its own, 7 to 14 seconds a chat, up to 150                                      |
+| Draft a message (`lookup`)                 | Their profile, then the About of the company their role links to: two pages, then the window closes before the AI drafts (`lookup.ts`)                                                                                                                                                                                                                                                                                                         | A window of its own, closed after                                                           |
+| Read my profile (`profile_read`)           | linkedin.com/in/me/, checked it's yours, scrolled to its foot and back so LinkedIn draws every part (0.45.0), read as `outreach.profile.check` takes it: the headline as the bio, the About, Experience as the intro (every role), Featured and the latest posts, and whether it shows a photo and a banner; in LinkedIn's newer layout too (0.46.0, "What it reads"), pressing nothing (`profile.ts`, `src/networks/linkedin/own-profile.ts`) | A window of its own, one read                                                               |
+| Put this one in (`profile_edit`)           | Presses the pencil by your name (**Edit intro**), types only into **Headline** in the box it opens, presses that box's **Save**, and checks the headline under your name; anything it doesn't expect it hands to you, never guessing                                                                                                                                                                                                           | A window of its own, brought to the front if it hands the step over                         |
+| Withdraw the ticked invitations (`cancel`) | On Sent invitations, finds each one you ticked by the link to their profile, scrolling for it, presses **Withdraw** and the box's **Withdraw**, checks the row is gone, and notes it; one not on the list, read to its end, answered already (`withdraw.ts`)                                                                                                                                                                                   | A tab you can see (decision 17), one every 20 to 40 seconds, up to LinkedIn's 20 a day      |
+| Find posts (`posts`)                       | LinkedIn's post search, latest first, with your playbooks' words (HandsFreeOS picks them: the quoted words in their signs, then their words for groups), a few screens each; posts by people go to the AI, in no group (`posts.ts`)                                                                                                                                                                                                            | A window of its own, 6 to 12 seconds a screen, 3 screens a search                           |
+| Put up your helpful post (`post`, 0.43.0)  | The one you OK'd, on your own feed: opens it, presses **Start a post**, types the post into the box LinkedIn opens, presses that box's **Post**, takes its link from LinkedIn's **View post** (else finds it among your own posts by its words), and notes it as LinkedIn's (`helpful.ts`, `src/networks/linkedin/compose.ts`)                                                                                                                 | A window of its own, one post                                                               |
+| Ask for my file (`file_request`, 0.42.0)   | On LinkedIn's **Get a copy of your data** (Settings, Data privacy): picks **Want something in particular?**, ticks Connections, Invitations, Messages and Profile, presses **Request archive**, and waits while you type your password till LinkedIn says it's preparing it; stops if it's making one already (`file.ts`, `src/networks/linkedin/data.ts`)                                                                                     | A tab you can see; you type your password there                                             |
+| Download my file (`file_download`)         | Once LinkedIn has emailed you, presses **Download archive** on the same page and waits for Chrome to start the download (and for your password, if LinkedIn asks); if nothing starts, it hands the step to you                                                                                                                                                                                                                                 | The same                                                                                    |
+| Bring it in (`file_in`)                    | Finds LinkedIn's zip in Chrome's downloads however it was downloaded, reads it (core's `readLinkedInExport`) and saves your connections as your friends list, the invitations still waiting both ways, each since when the file says, then each one-to-one chat's latest 20 messages, matched by name (`outreach.download.save`, chats only)                                                                                                   | The offscreen page; needs **Allow access to file URLs**; doesn't open LinkedIn              |
 
 ## Reading as you go
 
@@ -633,9 +674,11 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   the row of someone you ticked, found by their profile link (`withdrawFor`, `sameMember`), then the box's own
   **Withdraw**. Anything not as expected it stops at and hands to you. `test/linkedin-asks.test.ts` walks each on
   made-up pages, as written and with bare boxes. On its own (`src/networks/linkedin/auto.ts`), it presses Like only on
-  a post they wrote, never a comment's; Connect and **Send without a note**, never typing a note; a comment only in the
-  post's own box, never a reply's; and a message only in the box of the conversation with them, never one with writing
-  in it. `test/linkedin-auto.test.ts` walks each, both ways. Your helpful post it types only into the box **Start a
+  a post they wrote, never a comment's (in LinkedIn's newer layout, the post bar's reaction button, found by where it
+  is); Connect and **Send without a note**, never typing a note; a comment only in the post's own box, never a
+  reply's, sent only with a button among the box's own that says Comment or Post (or "Post comment", "Submit
+  comment"), never one past a link; and a message only in the box of the conversation with them, never one with
+  writing in it. `test/linkedin-auto.test.ts` walks each, both ways. Your helpful post it types only into the box **Start a
   post** opens, while it's empty, and puts up with that box's own **Post**; who engaged it reads from your post and
   the box its reactions count opens, which it closes (`src/networks/linkedin/compose.ts`,
   `test/linkedin-helpful.test.ts`). For your file, on Get a copy of your data alone
@@ -729,8 +772,8 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   names. `test/actions.test.ts` takes each step on the hand-written pages, and again with bare boxes around everything;
   `test/linkedin-actions.test.ts` does LinkedIn's both ways in one.
 - **A step is noted once it went.** Where a page shows only a moment later whether a press sent anything (LinkedIn's
-  Connect and its box, Enter in a LinkedIn box), the kit says what to look at, and the tab looks then (`maybe` in
-  `src/networks/kit.ts`).
+  Connect and its box, Enter in a LinkedIn box, the newer layout's reaction button and the comment box's own buttons),
+  the kit says what to look at, and the tab looks then (`maybe` in `src/networks/kit.ts`).
 - **The background worker holds the sign-in.** It keeps the Supabase session in the extension's own storage and
   makes every call to HandsFreeOS (`src/hfos/session.ts`); the panel asks it (`src/hfos/messages.ts`), and it
   answers only the extension's own pages. The offscreen page answers only the extension's messages meant for it.
@@ -744,7 +787,11 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 - **No remote code.** Everything ships in the bundle; the stores forbid downloading code.
 - **No real pages in the repo.** The pages in `test/fixtures` are written by hand to look like Facebook's and
   LinkedIn's, with made-up people. A saved real page holds other people's names and messages, so tune the readers from
-  outlines instead.
+  outlines instead: `linkedin-feed-2026-10.html` and `linkedin-own-profile-2026-10.html` rebuild the owner's two
+  outlines of 16 Oct 2026 element for element, with made-up words and links where the outline hid them (their own
+  outlines come out as his did). HTML written by hand can't hold a link inside a link, as LinkedIn's pages do: a page
+  writes the inner one as `<span data-as="a" href="…">`, made a link when the tests load it (`test/load.ts`).
+  `test/linkedin-newer.test.ts` holds the readers and the steps on them.
 
 ## Where things are
 
