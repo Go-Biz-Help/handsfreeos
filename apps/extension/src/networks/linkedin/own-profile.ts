@@ -153,10 +153,11 @@ function picturesOf(
 function activityOf(main: Element, base: string): string[] {
   const section = sectionOf(main, /^activity$/i);
   if (!section) return [];
-  // The largest box around the heading that doesn't reach the next section.
+  // The largest box around the heading that reaches neither the next section nor the one above: with the sections
+  // below not drawn yet, the one above is all that stops it before About's words.
   let box: Element = section.heading;
   for (let up = box.parentElement; up && up !== main.parentElement; up = up.parentElement) {
-    if (section.end && up.contains(section.end)) break;
+    if ([section.end, section.above].some((other) => other && up.contains(other))) break;
     box = up;
   }
   const posts = readPosts(box, base).map((post) => post.text);

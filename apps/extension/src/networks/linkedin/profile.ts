@@ -138,14 +138,27 @@ function roleIn(entry: Element): Role | null {
   return { title, company: company || null, dates: lines.find((line) => DATES.test(line)) ?? null };
 }
 
-/** The section with this title, below the top: its heading, and the next heading, where its words end. */
+/**
+ * The section with this title, below the top: its heading, the next heading, where its words end, and the one before
+ * it, where the section above ends.
+ */
 export function sectionOf(
   root: Element,
   title: RegExp,
-): { readonly heading: Element; readonly end: Element | null } | null {
+): {
+  readonly heading: Element;
+  readonly end: Element | null;
+  readonly above: Element | null;
+} | null {
   const headings = headingsIn(root);
   const heading = sectionAt(headings, title);
-  return heading ? { heading, end: nextAfter(headings, heading) } : null;
+  return heading
+    ? {
+        heading,
+        end: nextAfter(headings, heading),
+        above: headings.filter((other) => isBefore(other, heading)).at(-1) ?? null,
+      }
+    : null;
 }
 
 /** The lines a section shows under its heading, less its buttons and LinkedIn's own words: none without one. */
