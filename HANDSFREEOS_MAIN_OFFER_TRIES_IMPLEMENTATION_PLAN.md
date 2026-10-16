@@ -266,7 +266,7 @@ Each step ships on its own, with its tests, and leaves the builder working.
 
 ## Not in this plan
 
-- The main offer on the phone.
+- The main offer on the phone: HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md.
 - A try for one part only. A note on one part with every other part kept does the same.
 - Keeping the direction with each version. The version keeps its score, which says where the direction changed it.
 - AI Sales Coach reading the direction, when it reads the main offer at all.
