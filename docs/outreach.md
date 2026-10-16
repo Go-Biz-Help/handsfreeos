@@ -1192,8 +1192,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       nothing in a window hidden behind another), what the readers found (counts, yes or no, and the network's own
       section names from the outline's headings; never words), a line on what was missing, and the page's outline
       when something was: everything a person wrote is "[2 words]", as in the panel's own outline. Noted: every read
-      of the person's own profile; a step handed to the person; an ask that didn't finish; a step of LinkedIn's day
-      that didn't go; and every page of Check LinkedIn. Each person's own (restrictive policy, as `asks`); an ask's
+      of the person's own profile; a step handed to the person; an ask that didn't finish; a step of the day
+      that didn't go, on any network; and every page of Check LinkedIn. Each person's own (restrictive policy, as `asks`); an ask's
       notes go with it, and the day's steps' after a week (`outreach.live_prune`). Never for the file kinds, whose
       pages are Facebook's own download and password ones.
     - **Check LinkedIn** (`checkup`, on LinkedIn's page in Settings, the person's own): one press opens their profile,

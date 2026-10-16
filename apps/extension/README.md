@@ -657,7 +657,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 Since 0.48.0 the extension also sends this itself (decision 74, `src/jobs/report.ts`): a note in HandsFreeOS of each
 page a job read, with what the readers found (counts and the network's own section names) and whether Chrome showed
 the page, and the outline when something was missing: every read of your own profile, a step handed to you, an ask
-that didn't finish, a step of LinkedIn's day that didn't go, and every page of **Check LinkedIn**. The beat says which
+that didn't finish, a step of the day that didn't go, on any network, and every page of **Check LinkedIn**. The beat says which
 networks Chrome lets it on, so HandsFreeOS can say what to press when an ask waits on one.
 
 ## Rules worth knowing before changing anything
