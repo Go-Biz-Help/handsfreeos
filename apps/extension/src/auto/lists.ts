@@ -10,9 +10,15 @@
  * (./daily.ts). The step under way is kept in the state (`beforeNow`) for the panel's live checklist.
  *
  * The runner that works on its own (./run.ts) asks `beforeDay` what's next and does it with `doBeforeDay`.
+ *
+ * Each network has its own lists and its own first day (packages/core/src/addons/outreach/lists.ts, `LIST_SAVES_ON`):
+ * LinkedIn's runner (./linkedin.ts) saves the person's connections, then the invitations they've got and the ones
+ * they've sent, each to its end, then works out which old invitations to withdraw and checks their connections for
+ * good fits once, by the same steps with LinkedIn's jobs (../jobs/linkedin/).
  */
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
   afterFirstSave,
   atKey,
@@ -28,8 +34,68 @@ import { checkFriends } from '../jobs/checks';
 import { saveGroups } from '../jobs/groups';
 import { checkGroups } from '../jobs/groups-check';
 import { valueOf, type Job, type JobEnd } from '../jobs/job';
+import { checkConnections } from '../jobs/linkedin/checks';
+import { saveConnections, saveInvitations } from '../jobs/linkedin/people';
 import { checkRequests, checkSent, FRIENDS_SCROLLS, saveFriends } from '../jobs/people';
 import { counted } from '../words';
+
+/** Each network's way of doing each step before its day: its jobs, and its words. */
+interface ListsOn {
+  readonly save: Readonly<Partial<Record<ListSave, (job: Job) => Promise<JobEnd>>>>;
+  readonly doing: Readonly<Partial<Record<ListSave, string>>>;
+  readonly names: Readonly<Partial<Record<ListSave, string>>>;
+  readonly checks: (job: Job) => Promise<JobEnd>;
+  readonly checking: string;
+  readonly checkName: string;
+  readonly tidying: string;
+  readonly tidied: (cancel: number, unfriend: number) => string;
+}
+
+const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
+  facebook: {
+    save: {
+      friends: saveFriends,
+      requests: (job) => checkRequests(job, FRIENDS_SCROLLS),
+      sent: checkSent,
+      groups: (job) => saveGroups(job, null),
+    },
+    doing: LIST_DOING,
+    names: LIST_NAMES,
+    checks: (job) => checkFriends(job, CHECKS_PER_DAY),
+    checking: 'Checking your friends for good fits…',
+    checkName: 'Check my friends',
+    tidying: 'Working out who to tidy up from your friends…',
+    tidied: (cancel, unfriend) =>
+      cancel || unfriend
+        ? `Suggested ${counted(cancel, 'old request')} to cancel and ${counted(unfriend, 'friend')} to unfriend. Tick the ones to go under Friends → Tidy up in HandsFreeOS.`
+        : 'Nobody to tidy up for now.',
+  },
+  linkedin: {
+    save: {
+      friends: saveConnections,
+      requests: (job) => saveInvitations(job, 'received'),
+      sent: (job) => saveInvitations(job, 'sent'),
+    },
+    doing: {
+      friends: 'Saving your LinkedIn connections first…',
+      requests: 'Saving the invitations you’ve got on LinkedIn first…',
+      sent: 'Saving the invitations you’ve sent on LinkedIn first…',
+    },
+    names: {
+      friends: 'Your connections',
+      requests: 'Invitations you’ve got',
+      sent: 'Invitations you’ve sent',
+    },
+    checks: (job) => checkConnections(job, CHECKS_PER_DAY),
+    checking: 'Checking your connections for good fits…',
+    checkName: 'Check my connections',
+    tidying: 'Working out which old invitations to withdraw…',
+    tidied: (cancel) =>
+      cancel
+        ? `Suggested ${counted(cancel, 'old invitation')} to withdraw. Tick the ones to go under Friends → Tidy up in HandsFreeOS, on LinkedIn.`
+        : 'No old invitations to withdraw for now.',
+  },
+};
 
 /** What to do before the day: save a list, check the groups, work out Tidy up, or check friends once. */
 export type BeforeDay =
@@ -51,40 +117,47 @@ export function beforeDay(
   tried: TriedBefore,
   now: number,
   timeZone: string,
+  platform: Platform = 'facebook',
 ): BeforeDay | null {
-  const first = !firstSaveDone(lists);
-  const due = listsDue(lists, now, timeZone).filter(
+  const first = !firstSaveDone(lists, platform);
+  const due = listsDue(lists, now, timeZone, platform).filter(
     (list) => tried[list] === undefined || (first && lists[atKey(list)] === null),
   );
   if (due[0]) return { do: 'save', list: due[0], first };
-  const after = afterFirstSave(lists);
+  const after = afterFirstSave(lists, platform);
   // The first check of the groups holds the day like the lists do: tried again till it's done.
   return after && (after === 'group_checks' || tried[after] === undefined) ? { do: after } : null;
 }
 
-/** What it says while it does each. */
-export function beforeDayDoing(step: BeforeDay): string {
-  if (step.do === 'save')
-    return step.first
-      ? LIST_DOING[step.list]
-      : LIST_DOING[step.list].replace(' first…', ' before your day…');
+/** What it says while it does each, on its network (Facebook's unless said). */
+export function beforeDayDoing(step: BeforeDay, platform: Platform = 'facebook'): string {
+  const on = LISTS_ON[platform];
+  if (step.do === 'save') {
+    const doing = on.doing[step.list] ?? LIST_DOING[step.list];
+    return step.first ? doing : doing.replace(' first…', ' before your day…');
+  }
   return step.do === 'group_checks'
     ? 'Checking your groups first…'
     : step.do === 'tidy'
-      ? 'Working out who to tidy up from your friends…'
-      : 'Checking your friends for good fits…';
+      ? on.tidying
+      : on.checking;
 }
 
 /** How it went, for the panel and the feed: "Your friends list: Saved 412 friends." */
-export function beforeDayLine(step: BeforeDay, end: JobEnd): string {
+export function beforeDayLine(
+  step: BeforeDay,
+  end: JobEnd,
+  platform: Platform = 'facebook',
+): string {
+  const on = LISTS_ON[platform];
   const name =
     step.do === 'save'
-      ? LIST_NAMES[step.list]
+      ? (on.names[step.list] ?? LIST_NAMES[step.list])
       : step.do === 'group_checks'
         ? 'Check my groups'
         : step.do === 'tidy'
           ? 'Tidy up'
-          : 'Check my friends';
+          : on.checkName;
   return `${name}: ${end.line}`;
 }
 
@@ -93,18 +166,20 @@ export function beforeDayLine(step: BeforeDay, end: JobEnd): string {
  * suggestions, or checks friends for good fits, and notes that. A list that stopped short isn't noted: it's saved
  * again.
  */
-export async function doBeforeDay(step: BeforeDay, job: Job): Promise<JobEnd> {
+export async function doBeforeDay(
+  step: BeforeDay,
+  job: Job,
+  platform: Platform = 'facebook',
+): Promise<JobEnd> {
+  const on = LISTS_ON[platform];
   const mark = async (list: ListMark) =>
-    valueOf(await job.hfos({ type: 'hfos-lists-saved', workspaceId: job.businessId, list }));
+    valueOf(
+      await job.hfos({ type: 'hfos-lists-saved', workspaceId: job.businessId, list, platform }),
+    );
   if (step.do === 'save') {
-    const end =
-      step.list === 'friends'
-        ? await saveFriends(job)
-        : step.list === 'requests'
-          ? await checkRequests(job, FRIENDS_SCROLLS)
-          : step.list === 'sent'
-            ? await checkSent(job)
-            : await saveGroups(job, null);
+    const save = on.save[step.list];
+    if (!save) return { line: 'Nothing to save on this network.', warned: false, failed: true };
+    const end = await save(job);
     // Read to its end, or as far as it reads (a very long list): noted. One the person stopped part way is saved again.
     if (!end.warned && !end.failed && (end.whole || !job.stopped())) await mark(step.list);
     return end;
@@ -115,19 +190,16 @@ export async function doBeforeDay(step: BeforeDay, job: Job): Promise<JobEnd> {
     return end;
   }
   if (step.do === 'tidy') {
-    const tidy = valueOf(await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId }));
+    const tidy = valueOf(
+      await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId, platform }),
+    );
     await mark('tidy');
-    const cancel = tidy.totals.cancel_request;
-    const unfriend = tidy.totals.unfriend;
     return {
-      line:
-        cancel || unfriend
-          ? `Suggested ${counted(cancel, 'old request')} to cancel and ${counted(unfriend, 'friend')} to unfriend. Tick the ones to go under Friends → Tidy up in HandsFreeOS.`
-          : 'Nobody to tidy up for now.',
+      line: on.tidied(tidy.totals.cancel_request, tidy.totals.unfriend),
       warned: false,
     };
   }
-  const end = await checkFriends(job, CHECKS_PER_DAY);
+  const end = await on.checks(job);
   if (!end.warned && !end.failed) await mark('checks');
   return end;
 }

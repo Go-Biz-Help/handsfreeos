@@ -17577,6 +17577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.posts.words": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_posts_words"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.readiness": {
         parameters: {
             query?: never;
@@ -36464,6 +36484,17 @@ export interface operations {
                             state: "none" | "started" | "stopped";
                             via: ("web" | "mobile" | "extension") | null;
                             why: ("person" | "warning") | null;
+                        };
+                        /** @default {} */
+                        days: {
+                            linkedin?: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
                         };
                         name: string;
                         stepsKept: string[];
@@ -66581,6 +66612,40 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_posts_words: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        words: string[];
                     };
                 };
             };

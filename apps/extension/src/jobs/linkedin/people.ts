@@ -80,6 +80,7 @@ async function invitations(
   job: Job,
   url: string,
   direction: Invitation['direction'],
+  scrolls = INVITATION_SCROLLS,
 ): Promise<{ count: number; added: number; whole: boolean } | JobEnd> {
   const list: FriendList = direction === 'received' ? 'requests' : 'sent';
   const which = direction === 'received' ? 'you’ve got' : 'you’ve sent';
@@ -87,7 +88,7 @@ async function invitations(
   await job.tab.open(url);
   const got = await gather(
     job,
-    INVITATION_SCROLLS,
+    scrolls,
     (page) =>
       page.kind === 'invitations'
         ? (page.invitations ?? []).filter((i) => i.direction === direction)
@@ -100,6 +101,32 @@ async function invitations(
   const saved = await saveList(job, got.items, list);
   if (ended(saved)) return saved;
   return { count: got.items.length, added: saved.added, whole: got.whole };
+}
+
+/**
+ * One way's invitations, saved to the end of the list, before LinkedIn's first day and as it refreshes them each
+ * morning (src/auto/lists.ts): `whole` says it got to the end.
+ */
+export async function saveInvitations(
+  job: Job,
+  direction: Invitation['direction'],
+): Promise<JobEnd> {
+  const got = await invitations(
+    job,
+    direction === 'received' ? INVITATIONS_RECEIVED : INVITATIONS_SENT,
+    direction,
+    CONNECTION_SCROLLS,
+  );
+  if (ended(got)) return got;
+  const whole = got.whole && !job.stopped();
+  const which = direction === 'received' ? 'you’ve got' : 'you’ve sent';
+  return {
+    line: got.count
+      ? `Saved ${counted(got.count, 'invitation')} ${which}${newOnes(got.added)}.`
+      : `No invitations ${which} waiting.`,
+    warned: false,
+    whole,
+  };
 }
 
 /** Opens the invitations the person's got and saves them; then the ones they've sent. */

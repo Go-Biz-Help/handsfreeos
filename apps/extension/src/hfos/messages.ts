@@ -256,8 +256,16 @@ export type HfosAsk =
   /** The people to tidy on a network (Facebook's unless said): requests to cancel, LinkedIn's invitations to withdraw. */
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string; readonly platform?: Platform }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
-  | { readonly type: 'hfos-lists'; readonly workspaceId: string }
-  | { readonly type: 'hfos-lists-saved'; readonly workspaceId: string; readonly list: ListMark }
+  /** A network's lists before its first day (Facebook's unless said), and one noted as saved. */
+  | { readonly type: 'hfos-lists'; readonly workspaceId: string; readonly platform?: Platform }
+  | {
+      readonly type: 'hfos-lists-saved';
+      readonly workspaceId: string;
+      readonly list: ListMark;
+      readonly platform?: Platform;
+    }
+  /** What to search a network's posts with: its runner's Find posts (LinkedIn's post search). */
+  | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
@@ -318,6 +326,7 @@ export interface HfosValues {
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;
+  readonly 'hfos-post-words': { readonly words: readonly string[] };
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;

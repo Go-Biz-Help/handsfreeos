@@ -20,6 +20,8 @@ import type { TriedBefore } from './lists';
 
 /** Where the runner keeps its state, which the panel watches. */
 export const AUTO_STATE_KEY = 'hfos.auto';
+/** Where LinkedIn's runner keeps its own (./linkedin.ts). */
+export const LINKEDIN_STATE_KEY = 'hfos.auto.linkedin';
 
 /** The kinds it does on its own, in the order it does them. */
 export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;

@@ -6,7 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NETWORKS_KEY, type NetworkStates } from '../src/networks/on';
 
 type Listener = (
@@ -66,7 +66,14 @@ async function tab(fixture: string, url: string, states: NetworkStates | null): 
   };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+// The script looks at its page as it settles, on timers of its own. They run on a clock that moves as time does, and
+// end with the test, before its page is taken away, so none fires on a page that's gone.
+beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 const on: NetworkStates = {
   facebook: { on: true, allowed: true },
@@ -88,11 +95,24 @@ describe('a tab’s script, by its network', () => {
 
   it('on LinkedIn, never does Facebook’s steps, and its own only on their own pages', async () => {
     const page = await tab('linkedin-feed.html', LINKEDIN_FEED, on);
-    for (const type of ['hfos-like-post', 'hfos-fetch-step', 'hfos-scroll-feed', 'hfos-message'])
+    for (const type of ['hfos-fetch-step', 'hfos-scroll-feed', 'hfos-join', 'hfos-write-bio-x'])
       expect(await page.ask({ type, text: 'Hi' })).toEqual({
         ok: false,
         error: 'The extension doesn’t do that on LinkedIn pages.',
       });
+    // LinkedIn's runner's own steps, each only on its own page.
+    expect(await page.ask({ type: 'hfos-like-post', index: 0, url: null })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open their posts.',
+    });
+    expect(await page.ask({ type: 'hfos-connect' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open their profile.',
+    });
+    expect(await page.ask({ type: 'hfos-message', text: 'Hi' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open a conversation with them.',
+    });
     expect(await page.ask({ type: 'hfos-own-profile' })).toEqual({
       ok: false,
       error: 'LinkedIn didn’t open your profile.',

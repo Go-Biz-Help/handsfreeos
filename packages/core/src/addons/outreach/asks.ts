@@ -66,6 +66,11 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   facebook: ASK_KIND_KEYS,
   linkedin: [
+    // LinkedIn's own copy of the person's data ("Get a copy of your data"): asked for, downloaded, brought in
+    // (./linkedin-export.ts). It has no chat backup.
+    'file_request',
+    'file_download',
+    'file_in',
     'requests',
     'friends',
     'checks',

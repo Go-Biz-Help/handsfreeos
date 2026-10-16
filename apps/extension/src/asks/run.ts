@@ -182,6 +182,12 @@ function answerWith_(u: Under, got: HandOverReply): void {
   then?.(got);
 }
 
+/** Ends a network's ask under way here at its next page, with these words: LinkedIn's Stop for today. */
+export function haltAsk(platform: Platform, line: string): void {
+  const u = unders.get(platform);
+  if (u) halt(u, line);
+}
+
 /** Ends what's under way at its next page, with these words. */
 function halt(u: Under, line: string, warned = false): void {
   if (u.halted === null) {

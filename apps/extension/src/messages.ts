@@ -71,7 +71,16 @@ export type AutoAsk =
       readonly url: string | null;
     }
   | { readonly type: 'hfos-comment'; readonly text: string }
-  | { readonly type: 'hfos-message'; readonly text: string };
+  /** On LinkedIn, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts). */
+  | { readonly type: 'hfos-message'; readonly text: string; readonly profile?: ProfileRef };
+
+/**
+ * LinkedIn's runner's own steps besides those (src/networks/linkedin/auto.ts): Connect on their profile without a
+ * note, whose answer is an `AutoAnswer`; and their profile's Message, which opens the conversation in a window over the
+ * page, whose answer is a `BrowseAnswer`.
+ */
+export type ConnectAsk = { readonly type: 'hfos-connect' };
+export type OpenMessageAsk = { readonly type: 'hfos-open-message' };
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what

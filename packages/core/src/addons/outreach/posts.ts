@@ -251,6 +251,15 @@ export const postCheckSystem = (platform: Platform = 'facebook') => {
 /** The most searches one Find posts makes on a network's post search. */
 export const POST_SEARCHES_MOST = 5;
 
+/** What to search a network's posts with, for its runner's once-a-day Find posts (`postSearchWords`). */
+export const PostWordsInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
+export type PostWordsInput = z.input<typeof PostWordsInput>;
+export const PostWordsOutput = z.object({ words: z.array(z.string()) });
+export type PostWordsOutput = z.output<typeof PostWordsOutput>;
+
 /**
  * What to search a network's posts with (LinkedIn's post search, latest first): the words the playbooks quote in
  * their signs ("“Owner”, “Founder” or “CEO” in their intro"), then their words for groups, each once, the playbooks

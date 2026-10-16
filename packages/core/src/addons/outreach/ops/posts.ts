@@ -8,7 +8,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import { defineAddonCommand } from '../../server';
+import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import {
   PostCheckInput,
@@ -20,6 +20,9 @@ import {
   PostSkipOutput,
   PostsSaveInput,
   PostsSaveOutput,
+  postSearchWords,
+  PostWordsInput,
+  PostWordsOutput,
 } from '../posts';
 import { posts, touches } from '../tables';
 import { keepGroup } from './activity';
@@ -213,4 +216,22 @@ export const postSkip = defineAddonCommand(outreachAddon, {
   },
 });
 
+/**
+ * The words to search a network's posts with (LinkedIn's post search, latest first): the playbooks' own, as an ask for
+ * Find posts takes them (`postSearchWords`). For the extension's runner, which finds posts once a day on its own.
+ */
+export const postWords = defineAddonQuery(outreachAddon, {
+  name: 'outreach.posts.words',
+  description:
+    'The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.',
+  input: PostWordsInput,
+  output: PostWordsOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    return { words: postSearchWords(await playbooksInUse(ctx), input.platform) };
+  },
+});
+
 export const postCommands = [postsSave, postCheck, postSkip] as const;
+export const postQueries = [postWords] as const;
