@@ -400,6 +400,7 @@ describe('the feed', () => {
       comments: 8,
       reactions: 42,
       company: null,
+      headline: 'Owner at Acme Plumbing | Helping Austin homeowners since 2009',
     },
     {
       // Sam Lee likes it; Avery Lane wrote it.
@@ -414,6 +415,7 @@ describe('the feed', () => {
       // "Dana Reyes and 11 others".
       reactions: 12,
       company: null,
+      headline: 'Landscape designer · I post about outdoor living',
     },
     {
       author: { name: 'Acme Plumbing', profile: null },
@@ -426,6 +428,8 @@ describe('the feed', () => {
         id: 'acme-plumbing-atx',
         url: 'https://www.linkedin.com/company/acme-plumbing-atx/',
       },
+      // Its followers, under its name, are LinkedIn's count: not a headline.
+      headline: null,
     },
   ];
 
@@ -499,6 +503,7 @@ describe('a post’s own page', () => {
         comments: 2,
         reactions: 42,
         company: null,
+        headline: null,
       },
     ]);
     expect(result.notes).toEqual([]);

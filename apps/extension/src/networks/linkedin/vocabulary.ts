@@ -62,7 +62,9 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'pending',
   'people',
   'posts',
+  'posts you share will be displayed here.',
   'premium',
+  'private to you',
   'promoted',
   'received',
   'recently added',
@@ -85,6 +87,8 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'status is offline',
   'status is online',
   'status is reachable',
+  'suggested for you',
+  'top skills',
   'unread',
   'verified',
   'view profile',
@@ -92,6 +96,8 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'withdraw',
   'write a message…',
   'you',
+  'you haven’t posted yet',
+  "you haven't posted yet",
   '…more',
   '…see more',
 ]);
@@ -120,13 +126,31 @@ export const REMOVE_CONNECTION = /^(remove connection|remove your connection( to
 export const OWN_PROFILE =
   /^(edit intro|open to|add profile section|add section|enhance profile|resources)$/i;
 
-/** A post's own bar, after what it says: Like (or "React Like"), Comment, Repost, Send. */
+/**
+ * A post's own bar, after what it says: Like (or "React Like"), Comment, Repost, Send. LinkedIn's newer layout (the
+ * owner's outlines of 16 Oct 2026) labels the reaction button by its state ("Reaction button state: no reaction"),
+ * and the readers find that one by where it is (./posts.ts, `barOf`), never by these words.
+ */
 export const LIKE = /^(like|react like|unreact like)$/i;
 export const COMMENT = /^comment$/i;
 export const REPOST = /^repost$/i;
 export const SEND = /^(send|send in a private message)$/i;
+/** A comment's own bar ends with Reply. */
+export const REPLY = /^reply$/i;
 /** The menu at the top of every post: "Open control menu for post by Dana Reyes". A comment's says "comment". */
 export const POST_MENU = /^open control menu for post\b/i;
+/** Who the post's menu says wrote it: "Open control menu for post by Dana Reyes" names Dana Reyes. */
+export const POST_MENU_BY = /^open control menu for post by (.+)$/i;
+/** What LinkedIn writes at the top of a post it was paid to show: "Promoted", "Promoted by SolarBridge". */
+export const PROMOTED = /^promoted\b/i;
+/**
+ * A reaction button's words, where LinkedIn says whether one of yours is on it: "Reaction button state: like" or
+ * "Unreact Like" (one is), "Reaction button state: no reaction", "React Like" or "Like" (none is). The readers go by
+ * what changes when it's pressed and use these only to say which way it changed (./posts.ts, `hasYours`).
+ */
+export const REACTED = /^unreact\b|\bbutton state:\s*(?!no reaction\b)\S/i;
+export const NOT_REACTED =
+  /\bno reaction\b|^react\b|^(like|celebrate|support|love|insightful|funny)$/i;
 
 /** Whether a button or its label is one of the above: one of LinkedIn's actions on someone, never a name or a place. */
 export function isAction(label: string): boolean {
