@@ -65,3 +65,37 @@ describe('where the extension’s tab may go', () => {
     expect(opened).toHaveLength(1);
   });
 });
+
+describe('a window of its own, in front while a page is read', () => {
+  const stub = (focused: number[]) =>
+    vi.stubGlobal('chrome', {
+      tabs: {
+        get: async (id: number) => ({ id, windowId: 9, status: 'complete' }),
+        update: async (id: number) => ({ id, windowId: 9 }),
+      },
+      windows: {
+        getLastFocused: async () => ({ id: 1 }),
+        update: async (id: number, { focused: front }: { focused: boolean }) =>
+          void (front && focused.push(id)),
+      },
+    });
+
+  it('comes to the front for the read, then puts the person’s window back', async () => {
+    const focused: number[] = [];
+    stub(focused);
+    const tab = new WorkTab('window');
+    await tab.adopt(4);
+    expect(await tab.inFront(async () => (focused.push(-1), 'read'))).toBe('read');
+    // Its own window (9), the read, then theirs (1) in front again.
+    expect(focused).toEqual([9, -1, 1]);
+  });
+
+  it('leaves a tab in the person’s own window as it is', async () => {
+    const focused: number[] = [];
+    stub(focused);
+    const tab = new WorkTab('view');
+    await tab.adopt(4);
+    expect(await tab.inFront(async () => 'read')).toBe('read');
+    expect(focused).toEqual([]);
+  });
+});

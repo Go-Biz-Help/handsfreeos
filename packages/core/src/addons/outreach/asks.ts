@@ -943,3 +943,25 @@ export function latestAskOn<
     ) ?? null
   );
 }
+
+/**
+ * The bio or headline put in last on a network, for its one line under the ones to pick from: none when it ended
+ * before the profile's latest read (`checkedAt`), as the ones it was about are gone. Putting one in reads the profile
+ * again before it ends, so its own read never hides it.
+ */
+export function bioEditShown<
+  A extends {
+    readonly kind: AskKind;
+    readonly target: string;
+    readonly platform?: Platform;
+    readonly endedAt: string | null;
+  },
+>(
+  asks: { readonly asks: readonly A[] } | null,
+  platform: Platform,
+  checkedAt: string | null,
+): A | null {
+  const edit = latestAskOn(asks, platform, 'profile_edit');
+  if (!edit || !checkedAt || edit.endedAt === null) return edit;
+  return Date.parse(edit.endedAt) < Date.parse(checkedAt) ? null : edit;
+}

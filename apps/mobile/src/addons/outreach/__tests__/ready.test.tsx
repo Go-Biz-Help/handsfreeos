@@ -253,6 +253,66 @@ describe('Get ready on the phone', () => {
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'profile_edit', bio: headline }, 'linkedin');
   });
 
+  it('says how the last headline put in went once, under them all, and none from before the latest read', async () => {
+    const check = {
+      items: Object.fromEntries(
+        PROFILE_ITEMS_ON.linkedin.map((i) => [
+          i,
+          { ok: false, why: 'Nothing read.', fix: 'Add it.' },
+        ]),
+      ) as NonNullable<ReadinessOutput['profileCheck']>['items'],
+      bios: ['I help roofers book inspections.', 'Booked inspections for roofers.'],
+      aboutDraft: null,
+      coverLine: null,
+      feature: [],
+      at: '2026-10-16T17:12:13.000Z',
+      version: 1,
+    };
+    const edit = (endedAt: string): AsksOutput['asks'][number] => ({
+      askId: '00000000-0000-4000-8000-000000000002',
+      platform: 'linkedin',
+      kind: 'profile_edit',
+      target: 'linkedin:',
+      about: null,
+      via: 'web',
+      state: 'failed',
+      line: 'Stopped.',
+      result: null,
+      reply: null,
+      askedAt: '2026-10-16T15:36:26.000Z',
+      startedAt: '2026-10-16T15:36:30.000Z',
+      endedAt,
+      computerName: 'Office laptop',
+    });
+    const asksWith = (ended: string): AsksOutput => ({
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: null,
+      warnedToday: false,
+      asks: [edit(ended)],
+    });
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const shown = async (ended: string) => {
+      const view = await render(
+        <GetReadyCard
+          readiness={{ ...notReady, platform: 'linkedin', profileCheck: check }}
+          asks={asksWith(ended)}
+          actions={actions}
+          onTick={jest.fn()}
+          onNumbers={jest.fn()}
+        />,
+      );
+      await fireEvent.press(screen.getByTestId('ready-open-profile'));
+      const lines = within(await screen.findByTestId('ready-bios')).queryAllByTestId('ask-line');
+      view.unmount();
+      return lines.length;
+    };
+    // Stopped before the latest read: its headlines are gone.
+    expect(await shown('2026-10-16T15:40:23.000Z')).toBe(0);
+    // Ended after it, as one put in ends after its own read: once, not under each.
+    expect(await shown('2026-10-16T17:12:20.000Z')).toBe(1);
+  });
+
   it('shows nothing once they’re ready', async () => {
     await render(
       <GetReadyCard

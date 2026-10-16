@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  bioEditShown,
   cantAskWhy,
   ASK_KIND_SINCE,
   askRepliesFor,
@@ -152,5 +153,24 @@ describe('the asks', () => {
     );
     // Put in by hand when the computer can't find Edit bio: Carry on once it's in.
     expect(askRepliesFor('profile_edit')).toEqual(['carry_on']);
+  });
+
+  it('shows the last bio put in on its network, unless it ended before the latest read', () => {
+    const edit = (platform: 'facebook' | 'linkedin', endedAt: string | null) => ({
+      kind: 'profile_edit' as const,
+      target: platform === 'facebook' ? '' : `${platform}:`,
+      platform,
+      endedAt,
+    });
+    const read = '2026-10-16T17:12:13.000Z';
+    const stopped = edit('linkedin', '2026-10-16T15:40:23.000Z');
+    expect(bioEditShown({ asks: [stopped] }, 'linkedin', read)).toBeNull();
+    expect(bioEditShown({ asks: [stopped] }, 'linkedin', null)).toBe(stopped);
+    // Put in after it, or still going: shown. Another network's never stands for it.
+    const done = edit('linkedin', '2026-10-16T17:12:20.000Z');
+    const going = edit('linkedin', null);
+    expect(bioEditShown({ asks: [done] }, 'linkedin', read)).toBe(done);
+    expect(bioEditShown({ asks: [going] }, 'linkedin', read)).toBe(going);
+    expect(bioEditShown({ asks: [edit('facebook', null)] }, 'linkedin', read)).toBeNull();
   });
 });
