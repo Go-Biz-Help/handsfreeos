@@ -1,5 +1,5 @@
 /**
- * The main offer's direction and the AI's tries (20261027007700): asked of the database rather than trusted.
+ * The main offer's direction and the AI's tries (20261027007800): asked of the database rather than trusted.
  *   1. Everyone in the business reads a try, and nobody outside it does.
  *   2. Only the worker keeps one, and only for the business it works for; nobody changes one after.
  *   3. The direction is the owner's or an admin's to change, never a member's, and never blank.
