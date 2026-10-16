@@ -44,6 +44,16 @@ export const PROFILE_BIO_MOST = Math.max(...Object.values(BIO_MOST_ON));
 /** The opening of an About the AI writes, on a network that has one. */
 export const ABOUT_DRAFT_MOST = 1200;
 
+/**
+ * The most the AI may write for a check on each network, in tokens: every item's two sentences, the bios, LinkedIn's
+ * About and the rest at their longest, with room to spare, as an answer cut off at the cap is thrown away whole. Only
+ * what's written is paid for. LinkedIn's 2,000 ran out once the whole profile was read (16 Oct 2026).
+ */
+export const PROFILE_CHECK_MAX_TOKENS: Readonly<Record<Platform, number>> = {
+  facebook: 2500,
+  linkedin: 4000,
+};
+
 /** What the extension reads off the person's own profile, each cut to fit before it's sent. */
 export const PROFILE_READ_LIMITS = {
   line: 300,
