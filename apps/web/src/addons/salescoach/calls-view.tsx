@@ -77,6 +77,7 @@ export function CallsList({
             <div className="truncate text-[12.5px] text-text-3">
               {[
                 W.calls.channels[c.channel ?? 'call'],
+                c.language && c.language !== 'en' ? W.calls.inLanguage(c.language) : null,
                 reviews ? c.rep?.name : null,
                 c.playbookName,
                 relativeTime(c.startedAt),
@@ -138,6 +139,7 @@ export function CallDetail({ workspaceId, call }: { workspaceId: string; call: C
           <div className="text-[13px] text-text-3">
             {[
               W.calls.channels[call.channel ?? 'call'],
+              call.language && call.language !== 'en' ? W.calls.inLanguage(call.language) : null,
               call.rep?.name,
               call.playbookName,
               relativeTime(call.startedAt),

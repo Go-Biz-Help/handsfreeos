@@ -2019,7 +2019,12 @@ function coachParts(text: string, kind: 's' | 'o' | 'p'): { id: string; words: s
 }
 const coachSaid = (message: string, who: 'Customer' | 'Rep') =>
   [...message.matchAll(new RegExp(`^${who}: (.*)$`, 'gm'))].map((m) => unquote(m[1]!));
-const PRICE_WORDS = /\b(?:expensive|price|cost|too much|afford)\b/i;
+const PRICE_WORDS = /\b(?:expensive|price|cost|too much|afford|caro|precio|cuesta)\b/i;
+/** The ask said the customer speaks Spanish (coach.ts `languageTag`): what goes to them is in Spanish. */
+const inSpanish = (message: string) =>
+  /<language>The customer speaks Spanish\.<\/language>/.test(message);
+/** The stand-in's "translation": the words marked as said in Spanish. */
+const spanish = (words: string) => `En español: ${words}`;
 
 /**
  * Sales Coach live (coach.ts): a customer worried about price gets the playbook's first objection's answer; a
@@ -2040,7 +2045,7 @@ function scriptedCoachCard(message: string, context: string) {
       card: {
         kind: 'objection',
         title: (heard ?? 'Price').replace(/^"|"$/g, ''),
-        say: answer ?? objection.words,
+        say: inSpanish(message) ? spanish(answer ?? objection.words) : (answer ?? objection.words),
         heard: last,
         objectionId: objection.id,
       },
@@ -2064,7 +2069,9 @@ function scriptedCoachWriteUp(message: string) {
     promises: rep
       .flatMap((l) => /\bI(?:’|')ll ([^.]+)/.exec(l)?.[1] ?? [])
       .map((what) => ({ what: what[0]!.toUpperCase() + what.slice(1), due: null })),
-    followUp: 'Thanks for the call today. I’ll be in touch with the next step.',
+    followUp: inSpanish(message)
+      ? 'Gracias por la llamada de hoy. Le escribo pronto con el siguiente paso.'
+      : 'Thanks for the call today. I’ll be in touch with the next step.',
     // A price worry, answered with the rep's next line, is the playbook's first objection.
     objections: customer
       .filter((l) => PRICE_WORDS.test(l))
@@ -2076,6 +2083,7 @@ function scriptedCoachWriteUp(message: string) {
       })),
     stepsCovered: coachParts(message, 's').map((s) => s.id),
     tips: ['Ask for the booking before you hang up.'],
+    language: inSpanish(message) ? 'es' : 'en',
   };
 }
 
@@ -2107,6 +2115,18 @@ function scriptedCoachReplies(message: string, context: string) {
   const objection = coachParts(context, 'o')[0];
   const answer = objection?.words.split(' → ')[1];
   const priced = PRICE_WORDS.test(last) && objection && answer;
+  if (inSpanish(message))
+    return {
+      replies: [
+        ...(priced ? [{ label: 'Answer the price worry', text: spanish(answer) }] : []),
+        {
+          label: 'Ask a question',
+          text: '¡Gracias por escribir! ¿Qué pasa y cuándo le viene bien?',
+        },
+        { label: 'Check and come back', text: 'Déjeme revisarlo y le respondo enseguida.' },
+      ],
+      objectionId: priced ? objection.id : null,
+    };
   return {
     replies: [
       ...(priced ? [{ label: 'Answer the price worry', text: answer }] : []),

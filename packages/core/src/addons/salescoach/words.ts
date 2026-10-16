@@ -106,6 +106,8 @@ export const SALESCOACH_WORDS = {
     live: 'On the call now',
     noCustomer: 'A caller nobody knows yet',
     openConversation: 'Open the conversation',
+    /** Shown beside a call that wasn't in English (round four's Spanish). */
+    inLanguage: (code: string) => ({ es: 'In Spanish' })[code] ?? `In ${code.toUpperCase()}`,
   },
   /** How coached calls are going over time (round four, ./trends.ts): a rep's own, and the owner's view. */
   trends: {

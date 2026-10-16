@@ -164,6 +164,8 @@ export interface LiveLine {
   readonly text: string;
   /** How far into the call it was finished, in milliseconds. */
   readonly atMs: number;
+  /** The language it was said in, two letters ('en', 'es'), when the listener said; Sales Coach's Spanish. */
+  readonly language?: string | null;
 }
 
 export interface AddonLiveCalls {

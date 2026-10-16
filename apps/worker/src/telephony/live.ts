@@ -26,7 +26,12 @@ import type { Sealer } from '../crypto';
 import type { EventHandler } from '../handlers/types';
 import { noteSpeech, speechMinutes } from '../money/speech-usage';
 import { tenantOf, type TenantScope } from '../services';
-import type { HeardWords, Listening, SpeechServices } from '../voice-agent/speech';
+import {
+  spokenLanguage,
+  type HeardWords,
+  type Listening,
+  type SpeechServices,
+} from '../voice-agent/speech';
 import { loadAccount } from './accounts';
 import { routingOf, voiceUrls } from './voice';
 
@@ -216,6 +221,8 @@ export class LiveCallSession {
   private readonly lines: LiveLine[] = [];
   private readonly listening = new Map<LiveLine['speaker'], Listening>();
   private readonly pending = new Map<LiveLine['speaker'], string[]>();
+  /** The language each side's half-said line is in, as the speech service last said. */
+  private readonly pendingLanguage = new Map<LiveLine['speaker'], string>();
   private readonly started = Date.now();
   private stopped = false;
   readonly call: LiveCall;
@@ -282,6 +289,8 @@ export class LiveCallSession {
 
   private heard(speaker: LiveLine['speaker'], w: HeardWords): void {
     if (w.final && w.text) this.pending.get(speaker)?.push(w.text);
+    const language = spokenLanguage(w.language);
+    if (w.final && language) this.pendingLanguage.set(speaker, language);
     if (w.endOfTurn) this.finishLine(speaker);
   }
 
@@ -291,7 +300,9 @@ export class LiveCallSession {
     const text = words.join(' ').trim();
     words.length = 0;
     if (!text) return;
-    const line: LiveLine = { speaker, text, atMs: Date.now() - this.started };
+    const language = this.pendingLanguage.get(speaker) ?? null;
+    this.pendingLanguage.delete(speaker);
+    const line: LiveLine = { speaker, text, atMs: Date.now() - this.started, language };
     this.lines.push(line);
     void this.fanout.line(line, this.lines.slice());
   }
