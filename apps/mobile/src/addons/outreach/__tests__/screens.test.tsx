@@ -1,4 +1,3 @@
-import { AUTOMATION_DEFAULTS, type AutomationOutput } from '@hfos/core/addons/outreach/automation';
 import type { LiveOutput, LiveTeamOutput } from '@hfos/core/addons/outreach/live';
 import type { HelpfulListOutput } from '@hfos/core/addons/outreach/helpful';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
@@ -17,14 +16,14 @@ import { LiveBody, pressShown } from '../live';
 import { OutreachMoreRow } from '../more';
 import { isSetUp, WebOnlyBody } from '../page';
 import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
-import { businessDraftOf, SettingsBody } from '../settings';
 import { TodayBody } from '../today';
-import { id, ME, TZ, WS } from './mocks';
+import { id, TZ, WS } from './mocks';
 
 /**
  * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
  * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
- * asking for what the business offers first, the settings, and a playbook changed a part at a time on what's there now.
+ * asking for what the business offers first, and a playbook changed a part at a time on what's there now. Settings
+ * have their own file (./settings.test.tsx).
  */
 
 jest.mock('expo-router', () => ({
@@ -607,152 +606,6 @@ describe('The live view on the phone', () => {
       />,
     );
     expect(screen.getByTestId('live-needs-signal')).toBeTruthy();
-  });
-});
-
-const AUTOMATION: AutomationOutput = {
-  settings: AUTOMATION_DEFAULTS,
-  timezone: TZ,
-  startedAt: null,
-  saved: false,
-  wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
-  networkWheels: { linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 } },
-  userId: ME,
-  name: 'Dana Reyes',
-  changedBy: null,
-  rules: {
-    sendingAllowed: ['off', 'steps'],
-    repliesAllowed: ['draft'],
-    postingAllowed: ['copy'],
-    dailyLimits: {},
-    networksAllowed: ['facebook', 'linkedin'],
-    networkLimits: {},
-  },
-};
-
-describe('Social Outreach’s settings on the phone', () => {
-  const props = () => ({
-    error: null,
-    mine: true,
-    people: null,
-    business: null,
-    manages: false,
-    online: true,
-    onRetry: jest.fn(),
-    onWhose: jest.fn(),
-    onSaveMine: jest.fn(async () => null),
-    onSaveBusiness: jest.fn(async () => null),
-  });
-
-  it('saves the person’s own choices, only those the business allows', async () => {
-    const p = props();
-    await render(<SettingsBody automation={AUTOMATION} {...p} />);
-    expect(screen.getByText('My settings')).toBeTruthy();
-    expect(screen.queryByTestId('settings-my-sending-everything')).toBeNull();
-    expect(screen.getByText(/Your business doesn’t allow:/)).toBeTruthy();
-    expect(screen.getByText(/An owner or admin of this business sets the choices/)).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('settings-my-sending-steps'));
-    await fireEvent.press(screen.getByTestId('settings-my-pushes-each'));
-    await fireEvent.press(screen.getByTestId('settings-my-start-up'));
-    // The day's report is on to start; they turn it off.
-    expect(screen.getByText('The day’s report')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
-    await fireEvent.press(screen.getByTestId('settings-my-save'));
-    expect(p.onSaveMine).toHaveBeenCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      sending: 'steps',
-      pushes: 'each',
-      dayReport: false,
-      hours: { ...AUTOMATION_DEFAULTS.hours, start: 10 },
-    });
-  });
-
-  it('lets owners and admins pick whose, and set the business’s', async () => {
-    const p = props();
-    const business = { contactsFromChats: 'tagged', weeklyReport: true };
-    await render(
-      <SettingsBody
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={business}
-        people={{
-          people: [
-            {
-              userId: ME,
-              name: 'Dana Reyes',
-              saved: false,
-              sending: 'off',
-              replies: 'draft',
-              wheels: false,
-            },
-            {
-              userId: id(7),
-              name: 'Riley Member',
-              saved: true,
-              sending: 'steps',
-              replies: 'draft',
-              wheels: true,
-            },
-          ],
-        }}
-      />,
-    );
-    expect(screen.getByText('Dana Reyes (not set yet)')).toBeTruthy();
-    await fireEvent.press(screen.getAllByTestId('settings-for-person')[1]!);
-    expect(p.onWhose).toHaveBeenCalledWith(id(7));
-    await fireEvent.press(screen.getByTestId('settings-contacts-everyone'));
-    await fireEvent.press(screen.getByTestId('settings-weekly'));
-    await fireEvent.press(screen.getByTestId('settings-morning-down'));
-    await fireEvent.press(screen.getByTestId('settings-business-save'));
-    expect(p.onSaveBusiness).toHaveBeenCalledWith({
-      ...businessDraftOf(business),
-      contactsFromChats: 'everyone',
-      weeklyReport: false,
-      morningPushHour: 7,
-    });
-  });
-
-  it('sets where the team gets the extension, checked as the save checks it', async () => {
-    const p = props();
-    await render(
-      <SettingsBody
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={{ contactsFromChats: 'tagged', extensionLink: 'http://old.example.test/x.zip' }}
-      />,
-    );
-    expect(screen.getByText('Where your team gets the extension')).toBeTruthy();
-    // A stored link that stopped passing reads as none.
-    expect(screen.getByTestId('settings-extension-link-input').props.value).toBe('');
-    await fireEvent.changeText(
-      screen.getByTestId('settings-extension-link-input'),
-      'http://files.example.test/social.zip',
-    );
-    await fireEvent.press(screen.getByTestId('settings-extension-link-save'));
-    expect(
-      screen.getByText(
-        'That isn’t a whole link starting https://. Paste the https link to the extension’s zip.',
-      ),
-    ).toBeTruthy();
-    expect(p.onSaveBusiness).not.toHaveBeenCalled();
-    await fireEvent.changeText(
-      screen.getByTestId('settings-extension-link-input'),
-      ' https://files.example.test/social.zip ',
-    );
-    await fireEvent.press(screen.getByTestId('settings-extension-link-save'));
-    expect(p.onSaveBusiness).toHaveBeenCalledWith(
-      { extensionLink: 'https://files.example.test/social.zip' },
-      'Saved. Everyone’s setup shows the link.',
-    );
-  });
-
-  it('can’t save with no signal', async () => {
-    await render(<SettingsBody automation={AUTOMATION} {...props()} online={false} />);
-    expect(
-      screen.getByText('Settings needs signal. Try again when you’re back online.'),
-    ).toBeTruthy();
   });
 });
 

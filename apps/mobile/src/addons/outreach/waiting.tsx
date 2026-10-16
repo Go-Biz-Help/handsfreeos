@@ -56,8 +56,8 @@ import { NetworkName } from './networks';
 import {
   NeedsSignal,
   Note,
-  openOutreach,
   openOutside,
+  openSettingsPart,
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
@@ -180,7 +180,8 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
-    onSettings: () => openOutreach(ws, 'settings'),
+    // How the phone hears of it is on General.
+    onSettings: () => openSettingsPart(ws, 'general'),
     askActions,
   };
 }

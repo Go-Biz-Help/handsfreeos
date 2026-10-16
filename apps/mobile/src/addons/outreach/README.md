@@ -13,6 +13,15 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   that ask the computer, and `person-menu.tsx` the menu on each of Today's people. Each has a pure `…Body` the
   tests draw with props, and a `…Screen` that asks for what it shows. Only the routes and `src/addons/registry.ts`
   import from here.
+- **Settings is a menu with a page for each part** (Chris, 2026-10-16; core's `settings-parts.ts`): `settings.tsx` is
+  the menu (General, each network with whether it's on, the networks still to come, Playbooks and Your computer, and
+  Settings for, for owners and admins) and a part's page, opened over it with `?part=` (`openSettingsPart` in
+  `kit.tsx`, which puts the part on the screen's address itself, since the manifest's link keeps only the query it
+  lists); an address with no part opens the menu. `settings-general.tsx` is General and its For your team,
+  `settings-network.tsx` a network's page and the team's say on it, `settings-bits.tsx` the controls and choices they
+  share. Every change saves as it's made, with no Save button (`autosave.ts`): a tap at once, a stepper after a short
+  pause, one save at a time, the page's line under its title saying how the latest went; a refused save goes back to
+  what's kept with the server's words. Only the extension's link has its own button.
 - **Words** are core's: `@hfos/core/addons/outreach/words` (`OUTREACH_WORDS`, which the web's tabs read too), and the
   add-on's own (`waiting-words.ts`, `live.ts`, `automation.ts`, `today.ts`, `groups.ts`, `chat-read.ts`,
   `playbooks.ts`, `asks.ts`) first.
@@ -26,7 +35,7 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   own Get ready (`useReadyProps(platform, onReady)`: LinkedIn's profile list, headlines and About); each other row's
   Start my day waits on its own readiness. The live screen shows one network's day, picked by name (`?net=`). The
   pipeline and chats show each row's network by name and narrow to one (`NetworkName`, `NetworkFilter`); Settings
-  has the Networks part and the business's networks and limits; a playbook has its networks part. A network's words
+  has a page for each network, with the team's say on it; a playbook has its networks part. A network's words
   are core's (`@hfos/core/addons/outreach/network-words`, `profileWordsOn`, `helpfulWordsOn`).
 
 ## What works with no signal

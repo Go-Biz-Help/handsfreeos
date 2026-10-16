@@ -66,4 +66,8 @@ export const SETTINGS_WORDS = {
   /** A network Chrome has to let the extension on, the first time. */
   allowInChrome: (name: string) =>
     `The first time, open the extension’s panel on a ${name} page and press Allow on ${name}, then Allow in Chrome’s box.`,
+  // The phone's
+  /** The phone's menu: the networks still to come, on one muted line under the others. */
+  comingLine: (names: readonly string[]) =>
+    `${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '')} are coming`,
 } as const;
