@@ -23,7 +23,7 @@ export type ChatReadState = (typeof CHAT_READ_STATES)[number];
 /** Who goes in Contacts once their chat is read (decision 3): everyone, the tagged, or only likely prospects. */
 export const CONTACTS_FROM_CHATS = ['everyone', 'tagged', 'prospects'] as const;
 export type ContactsFromChats = (typeof CONTACTS_FROM_CHATS)[number];
-/** The setting's choices, as Business settings and the Chats tab say them. */
+/** The setting's choices, as Settings → General (For your team) and the Chats tab say them. */
 export const CONTACTS_FROM_CHATS_WORDS: Record<ContactsFromChats, string> = {
   everyone: 'Everyone whose chat is read',
   tagged: 'Anyone given one of your tags, or who looks like a prospect',
@@ -37,7 +37,7 @@ export const MORNING_PUSH_HOUR = 8;
 export const EXTENSION_LINK_WORDS =
   'That isn’t a whole link starting https://. Paste the https link to the extension’s zip.';
 
-/** Social Outreach's settings for a business (Social Outreach → Settings → Business settings), checked on every save. */
+/** Social Outreach's settings for a business (Social Outreach → Settings, For your team), checked on every save. */
 export const OutreachSettingsSchema = z.object({
   /** Who from the chats brought in goes in Contacts. The tagged, unless the business says otherwise. */
   contactsFromChats: z.enum(CONTACTS_FROM_CHATS).default('tagged'),

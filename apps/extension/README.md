@@ -561,7 +561,7 @@ extension among its dev dependencies for that alone: Vercel skips a deploy that 
 on, so without it a change to the extension only would never be handed out. The zip keeps its name
 from version to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
 and press the reload arrow, and stay signed in. A business that keeps its own copy pastes its https link under Social
-Outreach → Settings → Business settings → **Where your team gets the extension** (on the web or the phone), and
+Outreach → Settings → General → **Where your team gets the extension** (on the web or the phone), and
 everyone's download is that one instead. When a business starts Social Outreach fresh, the extension
 forgets what it kept on the computer for it (chats read, steps not yet sent, the setup opened) the next time it loads
 its settings (`forgetOnFreshStart`). Once everyone has the bare-bones build (0.19.0, settings part 4, or
