@@ -9299,7 +9299,7 @@ made by Twilio (the fallback without a Deepgram key) are not on the balance.
 Streams), drawing on Go Biz Help's Zoom Developer Pack credits: about 0.02 credits, $0.02, a minute with the
 transcript. It's `speech.meeting.minute`, 3¢ a minute, in the same running totals as the rest of speech ("AI voice:
 listening in Zoom meetings"). Keep the Developer Pack topped up: without credits Zoom won't start a stream at all.
-Needs `20261027007800_zoom_meetings_on_the_wallet.sql`. If Zoom's rate changes, change the line's cost on the card
+Needs `20261027007900_zoom_meetings_on_the_wallet.sql`. If Zoom's rate changes, change the line's cost on the card
 the usual way.
 
 **The carriers' fees for texting from a local number are not on the balance.** The business pays them by card,
