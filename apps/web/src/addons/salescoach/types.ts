@@ -9,3 +9,5 @@ export type Playbook = PlaybookList['playbooks'][number];
 export type CoachedCalls = Ok<'/v1/queries/salescoach.call.list'>;
 export type CoachedCallSummary = CoachedCalls['calls'][number];
 export type CoachedCall = Ok<'/v1/queries/salescoach.call.get'>['call'];
+export type CoachTrends = Ok<'/v1/queries/salescoach.trends'>;
+export type CoachTrend = CoachTrends['team'];

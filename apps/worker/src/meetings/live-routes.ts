@@ -268,6 +268,16 @@ export async function registerZoomLiveRoutes(app: FastifyInstance, deps: HttpDep
               deps.log.error({ err: e }, 'could not hear a Zoom meeting'),
             );
           });
+        } else {
+          // Which of them is missing, never their values.
+          deps.log.warn(
+            {
+              meetingUuid: Boolean(meetingUuid),
+              streamId: Boolean(streamId),
+              serverUrl: Boolean(serverUrl),
+            },
+            'a Zoom stream started without what we need to hear it',
+          );
         }
       }
       // Everything else Zoom sends is acknowledged, so it doesn't retry.

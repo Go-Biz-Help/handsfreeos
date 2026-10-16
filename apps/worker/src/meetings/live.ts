@@ -6,7 +6,10 @@
  * (`live_meeting.claim`) and asks Zoom to start its Realtime Media Stream. Zoom then calls the coaching app's
  * `/webhooks/zoom-live` with `meeting.rtms_started`, naming the meeting, the stream and where to connect. `onStreamStarted` takes the newest
  * waiting claim on that meeting whose person's coaching-app Zoom account (`app.live_meeting_accounts`) started the
- * stream, and opens a `ZoomLiveSession`:
+ * stream, and opens a `ZoomLiveSession`. Zoom's auto-start (the app starts as its person joins) usually sends the stream
+ * before the app has claimed anything: then the stream's own Zoom user, when linked here, gets it claimed for them
+ * (`claimForOperator`), so the coach hears it from the start and the app, opened later, names the customer.
+ *
  *
  * 1. **Signaling** (a websocket to `server_urls`): a handshake signed with the coaching Zoom app's id and secret
  *    (HMAC-SHA256 of `<client id>,<meeting uuid>,<stream id>`, hex). Zoom answers with the media server.
@@ -25,6 +28,7 @@
 import { createHmac, randomInt } from 'node:crypto';
 import {
   executeCommand,
+  liveMeetingAutoClaim,
   liveMeetingEnded,
   liveMeetingStarted,
   type AddonManifest,
@@ -409,8 +413,76 @@ export interface StreamStartedInput {
 }
 
 /**
+ * Nobody claimed the meeting yet (Zoom's auto-start): the Zoom user who started the stream, where they're linked
+ * here and an add-on listens for them, gets it claimed for them, in the business they linked most recently. Their
+ * name in HandsFreeOS stands in for their name in the meeting until the app says it.
+ */
+async function claimForOperator(
+  deps: Parameters<typeof onStreamStarted>[0],
+  input: StreamStartedInput,
+): Promise<WaitingClaim | null> {
+  if (!input.operatorId) return null;
+  const operatorId = input.operatorId;
+  const accounts = await asWorker(deps.db, {}, (tx) =>
+    rows<{ account_id: string; workspace_id: string; organization_id: string }>(
+      tx,
+      sql`select account_id, workspace_id, organization_id
+          from private.live_meeting_accounts_by_external_user('zoom', ${operatorId})`,
+    ),
+  );
+  const linked: { scope: TenantScope; userId: string; at: number }[] = [];
+  for (const a of accounts) {
+    const scope = { workspaceId: a.workspace_id, organizationId: a.organization_id };
+    const [row] = await asWorker(deps.db, scope, (tx) =>
+      rows<{ user_id: string; at: Date }>(
+        tx,
+        sql`select user_id, updated_at as at from app.live_meeting_accounts where id = ${a.account_id}`,
+      ),
+    );
+    if (row) linked.push({ scope, userId: row.user_id, at: new Date(row.at).getTime() });
+  }
+  linked.sort((a, b) => b.at - a.at);
+  for (const l of linked) {
+    const listens = await asWorker(deps.db, l.scope, (tx) =>
+      liveListenersFor(tx, l.scope.workspaceId, l.userId, deps.modules, deps.catalog),
+    );
+    if (listens.length === 0) continue;
+    const made = await executeCommand(
+      deps.db,
+      liveMeetingAutoClaim,
+      {
+        workspaceId: l.scope.workspaceId,
+        userId: l.userId,
+        provider: 'zoom',
+        meetingUuid: input.meetingUuid,
+      },
+      systemActor(l.scope),
+      workerMeta(),
+    );
+    if (made.output.state !== 'waiting') return null;
+    const [who] = await asWorker(deps.db, l.scope, (tx) =>
+      rows<{ name: string | null }>(
+        tx,
+        sql`select full_name as name from app.users where id = ${l.userId}`,
+      ),
+    );
+    return {
+      live_meeting_id: made.output.liveMeetingId,
+      workspace_id: l.scope.workspaceId,
+      organization_id: l.scope.organizationId,
+      user_id: l.userId,
+      external_user_id: operatorId,
+      person_id: null,
+      screen_name: who?.name?.trim() || null,
+    };
+  }
+  return null;
+}
+
+/**
  * `meeting.rtms_started`: the stream of a meeting someone claimed. The newest waiting claim whose person's linked
- * Zoom account started it is heard; a stream nobody claimed (or whose person can't be heard) is left alone.
+ * Zoom account started it is heard; with no claim, the Zoom user who started it gets one when they're linked here
+ * (`claimForOperator`). A stream nobody here can be heard for is left alone.
  */
 export async function onStreamStarted(
   deps: ZoomSessionDeps & {
@@ -435,11 +507,15 @@ export async function onStreamStarted(
     ),
   );
   // Only someone whose Zoom is linked here, and when Zoom names who started it, that very account.
-  const claim = claims.find(
-    (c) => c.external_user_id && (!input.operatorId || c.external_user_id === input.operatorId),
-  );
+  const claim =
+    claims.find(
+      (c) => c.external_user_id && (!input.operatorId || c.external_user_id === input.operatorId),
+    ) ?? (await claimForOperator(deps, input));
   if (!claim) {
-    deps.log.info({ claims: claims.length }, 'a Zoom stream nobody here claimed');
+    deps.log.info(
+      { claims: claims.length, operator: Boolean(input.operatorId) },
+      'a Zoom stream nobody here claimed, or whose Zoom account isn’t linked here',
+    );
     return null;
   }
   const scope = { workspaceId: claim.workspace_id, organizationId: claim.organization_id };

@@ -6,9 +6,10 @@ the facts the customer just asked about. After the call it writes the notes, a f
 the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
-**Where it stands (2026-10-14):** rounds 0 to 3 and round 4's learning from wins are built, in `development` (staff
-hand it to test businesses): core's live listening, phone calls, written conversations (suggested replies, and a
-write-up once one goes quiet), Zoom meetings, and lessons from wins. Round 4's trends and Spanish are next. Zoom
+**Where it stands (2026-10-15):** rounds 0 to 3 and round 4's learning from wins and trends are built, in
+`development` (staff hand it to test businesses): core's live listening, phone calls, written conversations
+(suggested replies, and a write-up once one goes quiet), Zoom meetings, lessons from wins, and trends with the
+owner's view of every rep. Spanish is next. Zoom
 meetings use their own Zoom app, set up as in "The coaching Zoom app" in `docs/calendar-setup.md`, and need Zoom's
 review before anyone outside Go Biz Help's Zoom account can add it.
 
@@ -17,6 +18,7 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 | What                                      | Where                                                                                                                                                                                                                                                                                                                               |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                                                                                                                                                                  |
+| Trends and the owner's view               | `packages/core/src/addons/salescoach/trends.ts` (the math, pure), `ops/trends.ts` (`salescoach.trends`); the web's `trends-view.tsx` (`?view=trends`)                                                                                                                                                                               |
 | Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                                                                                                                                                                            |
 | A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                                                                                                                                                                         |
 | Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`                                                                                                                                                                                             |
@@ -116,6 +118,13 @@ review before anyone outside Go Biz Help's Zoom account can add it.
    (`startRTMS`) at once; otherwise after the rep picks. Zoom shows everyone that an app is listening. Zoom then calls
    the coaching app's `/webhooks/zoom-live` with `meeting.rtms_started`; the worker takes the newest waiting claim on
    that meeting whose rep's linked Zoom account started it (Zoom's `operator_id`), and opens `ZoomLiveSession`.
+   **Zoom's auto-start** (the app set to start as its person joins) sends the stream before the panel has claimed
+   anything. Then the worker claims the meeting for the Zoom user who started it, when they're linked here and an
+   add-on listens for them (`live_meeting.auto_claim`, in the business they linked most recently), and coaches it
+   without a customer, telling the rep's words by their name in HandsFreeOS. Opening the panel finds that claim live
+   and offers **Pick the customer** (the appointment's, when the meeting was made for one, is taken at once); the
+   write-up lands on whoever was named by the time the meeting ends. A stream nobody here can be heard for is left
+   alone, and Zoom tells the meeting the app couldn't reach it.
 4. **Hearing it.** `RtmsStream` connects to Zoom's signaling and media sockets, signs both handshakes with the
    coaching Zoom app's id and secret, asks only for Zoom's own English transcript, and answers Zoom's keep-alives. Each transcript
    message names its speaker: the rep (by the name they show in the meeting) is the team's side, anyone else the
@@ -147,6 +156,30 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 6. **Owners and admins decide** (`salescoach.manage`), under Playbooks → **What's working**: **Use it** changes the
    playbook (a better answer replaces the objection's, a new objection is added) and keeps the lesson as used; **Not
    now** dismisses it. Nothing in a playbook changes without a person.
+
+## Trends and the owner's view
+
+The **Trends** tab (`?view=trends`) shows how coached calls are going over 4, 12 or 26 weeks (`&weeks=`, 12 by
+default), each number against the same number of weeks before. It's worked out from the write-ups already kept,
+never stored, by `salescoach.trends`:
+
+1. **Which records count:** coached calls, Zoom meetings and written conversations that were written up
+   (`state = 'done'`). Stopped and failed ones have no score.
+2. **The weeks** run Monday to Sunday in the business's time zone (`workspaces.timezone`); the last is this week, so
+   far. A week with nothing coached is a gap on the chart, not a zero.
+3. **The numbers** (`tallyTrend`): the average score; **talk time**, the rep's average share of the talking on calls
+   and meetings only (a text's share of the words says nothing about talking too much); objections answered and
+   script steps done, added up across the write-ups; and **wins** (a job booked, an estimate accepted, a payment or a
+   deal won within a week, as in "Learning from wins").
+4. **Steps skipped most** (`skippedSteps`): counted against each playbook's steps as they are now, from calls whose
+   playbook had the same number of steps then (a step's id is its place in the script, so an edited playbook's old
+   calls would name other steps), and only once a step has been on at least 3 calls.
+5. **Who sees what** is row security's call, as for the Coached tab: a rep reads only their own coached calls, so
+   they see their own trend. Whoever reviews (`salescoach.review`; owners always) sees the owner's view first: the
+   team's numbers and score by week, and a row for every rep who was coached in the period or the one before, most
+   coached first. Each opens that rep's own (`&rep=`).
+
+The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
 
 ## Rules worth knowing before changing anything
 
@@ -181,6 +214,7 @@ review before anyone outside Go Biz Help's Zoom account can add it.
   approval; the appointment, or the rep's pick, says who it is for now.
 - **Picking up a Zoom stream again** after the worker restarts mid-meeting. The rep presses Start coaching again.
 - **Zoom webinars and Zoom Phone.** Meetings only.
-- **Trends and Spanish** (round 4).
+- **Spanish** (round 4).
+- **Trends in the phone app.** The Trends tab opens on the web from the phone for now.
 - **The live transcript replacing the after-call one**, so a coached call isn't transcribed twice.
 - **Its own push switch.** Objection pushes go as add-on notices (the `addons` switch) for now.
