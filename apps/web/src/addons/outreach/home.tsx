@@ -9,8 +9,9 @@
  *   and their chats as the AI read them.
  * - **Groups**: the groups saved and how they fit.
  * - **Results**: from reached to booked, by group and by person.
- * - **Settings**: every setting the extension follows, the business's playbooks, the person's computers, and Start
- *   fresh for owners.
+ * - **Settings**: a menu beside a page for each part (decision 73): General, then each network (its On or Off for the
+ *   person shown, and the networks still to come), then the business's playbooks, the person's computer, and Start
+ *   fresh for owners. On a phone the menu is a list to pick from, above the page.
  *
  * The page asks HandsFreeOS for what the view shows (`app/w/[workspaceId]/a/outreach/page.tsx`), with what the person
  * asked their computer to do on it: the buttons on People, Groups and Today ask the computer (./asks.tsx), and why
@@ -20,12 +21,30 @@ import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { networksOn } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  NEXT_NETWORKS,
+  SETTINGS_WORDS as S,
+  type SettingsPart,
+} from '@hfos/core/addons/outreach/settings-parts';
 import type { StageView } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { Settings } from 'lucide-react';
+import {
+  BookOpen,
+  CircleDashed,
+  Globe,
+  Laptop,
+  RotateCcw,
+  Settings,
+  SlidersHorizontal,
+} from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import type { ComponentType } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
+import { Badge } from '@/components/ui/badge';
+import { Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { ActivityView } from './activity-view';
 import { OUTREACH_TABS, outreachHref, TAB_VIEW, tabOf, type OutreachView } from './address';
@@ -37,7 +56,7 @@ import { LiveView } from './live-view';
 import type { Board } from './board';
 import { PipelineView } from './pipeline-view';
 import { PlaybooksView } from './playbooks-page';
-import { SettingsView } from './settings-view';
+import { SettingsView } from './settings-page';
 import { SetupBanner } from './setup-view';
 import type { NetworkLive } from './status-strip';
 import { TodayView } from './today-view';
@@ -138,6 +157,8 @@ export type OutreachShown =
   | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers }
   | {
       readonly view: 'settings';
+      /** The part shown (`?part=`). */
+      readonly part: SettingsPart;
       readonly me: Automation;
       readonly mine: boolean;
       readonly people: AutomationPeople | null;
@@ -186,53 +207,215 @@ function LinkSegments({
   );
 }
 
+/** A row of the Settings menu: a part, Playbooks, or a network still to come. */
+interface MenuRow {
+  readonly key: string;
+  readonly label: string;
+  readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** Null for a network still to come, which never opens. */
+  readonly href: string | null;
+  readonly active?: boolean;
+  /** A network's On or Off for the person shown, or Soon. */
+  readonly badge?: { readonly words: string; readonly on: boolean } | null;
+  readonly danger?: boolean;
+}
+
+/**
+ * The Settings tab's menu (decision 73, the "Social Outreach settings by platform" design): Settings with General;
+ * Networks, each with whether it's on for the person shown (left out when the page doesn't know, as on Playbooks),
+ * then the networks still to come; and More: Playbooks, Your computer (their own) and Start fresh (an owner's). A part
+ * keeps whose settings an owner or admin is looking at. On a phone it's a list to pick from, above the page.
+ */
 function SettingsMenu({
   workspaceId,
   view,
-  canManage,
+  part,
+  whose,
+  mine,
   canStartFresh,
+  networks,
 }: {
   workspaceId: string;
   view: OutreachView;
-  canManage: boolean;
+  /** The part shown, on the settings view. */
+  part: SettingsPart | null;
+  /** Someone else's id, when an owner or admin is looking at theirs. */
+  whose: string | null;
+  mine: boolean;
   canStartFresh: boolean;
+  /** The networks on for the person shown: null when it isn't known here. */
+  networks: readonly Platform[] | null;
 }) {
+  const router = useRouter();
   const P = W.settingsParts;
-  const settings = outreachHref(workspaceId, { view: 'settings' });
-  const row = (key: string, href: string, label: string, active: boolean, danger = false) => (
-    <Link
-      key={key}
-      href={href}
-      aria-current={active ? 'page' : undefined}
-      data-testid={`outreach-settings-part-${key}`}
-      className={cn(
-        'flex h-9 flex-none items-center whitespace-nowrap rounded-control px-2.5 text-[14px] font-medium transition-colors max-md:h-11',
-        active
-          ? 'bg-accent-soft text-accent-text'
-          : danger
-            ? 'text-danger-text hover:bg-card-2'
-            : 'text-text-2 hover:bg-card-2 hover:text-text',
-      )}
-    >
-      {label}
-    </Link>
-  );
+  const partHref = (p: SettingsPart, keepWhose = true) =>
+    outreachHref(workspaceId, {
+      view: 'settings',
+      part: p,
+      ...(keepWhose && whose ? { for: whose } : {}),
+    });
+  const groups: readonly { readonly label: string; readonly rows: readonly MenuRow[] }[] = [
+    {
+      label: S.menu.settings,
+      rows: [
+        {
+          key: 'general',
+          label: S.general,
+          icon: SlidersHorizontal,
+          href: partHref('general'),
+          active: part === 'general',
+        },
+      ],
+    },
+    {
+      label: S.menu.networks,
+      rows: [
+        ...PLATFORM_KEYS.map((p) => ({
+          key: p,
+          label: PLATFORMS[p],
+          icon: Globe,
+          href: partHref(p),
+          active: part === p,
+          badge: networks
+            ? networks.includes(p)
+              ? { words: S.on, on: true }
+              : { words: S.off, on: false }
+            : null,
+        })),
+        ...NEXT_NETWORKS.map((name) => ({
+          key: name.toLowerCase(),
+          label: name,
+          icon: CircleDashed,
+          href: null,
+          badge: { words: S.soon, on: false },
+        })),
+      ],
+    },
+    {
+      label: S.menu.more,
+      rows: [
+        {
+          key: 'playbooks',
+          label: P.playbooks,
+          icon: BookOpen,
+          href: outreachHref(workspaceId, { view: 'playbooks' }),
+          active: view === 'playbooks',
+        },
+        ...(mine
+          ? [
+              {
+                key: 'computer',
+                label: P.computer,
+                icon: Laptop,
+                href: partHref('computer'),
+                active: part === 'computer',
+              },
+            ]
+          : []),
+        // The business's, not the person's shown.
+        ...(canStartFresh
+          ? [
+              {
+                key: 'fresh',
+                label: P.fresh,
+                icon: RotateCcw,
+                href: partHref('fresh', false),
+                active: part === 'fresh',
+                danger: true,
+              },
+            ]
+          : []),
+      ],
+    },
+  ];
+  const current = groups.flatMap((g) => g.rows).find((r) => r.active);
   return (
-    <nav
-      aria-label={W.tabs.settings}
-      className="flex gap-0.5 overflow-x-auto md:sticky md:top-4 md:flex-col md:self-start"
-    >
-      {row('mine', `${settings}#mine`, P.mine, view === 'settings')}
-      {canManage ? row('business', `${settings}#business`, P.business, false) : null}
-      {row(
-        'playbooks',
-        outreachHref(workspaceId, { view: 'playbooks' }),
-        P.playbooks,
-        view === 'playbooks',
-      )}
-      {row('computer', `${settings}#computer`, P.computer, false)}
-      {canStartFresh ? row('fresh', `${settings}#fresh`, P.fresh, false, true) : null}
-    </nav>
+    <>
+      <Select
+        className="md:hidden"
+        aria-label={W.tabs.settings}
+        value={current?.href ?? ''}
+        onChange={(e) => router.push(e.target.value)}
+        data-testid="outreach-settings-picker"
+      >
+        {groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.rows.map((r) => (
+              <option key={r.key} value={r.href ?? r.key} disabled={r.href === null}>
+                {r.badge ? `${r.label} · ${r.badge.words}` : r.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </Select>
+      <nav
+        aria-label={W.tabs.settings}
+        className="flex flex-col gap-0.5 max-md:hidden md:sticky md:top-4 md:self-start"
+      >
+        {groups.map((g, i) => (
+          <div key={g.label} className="flex flex-col gap-0.5">
+            <div
+              className={cn(
+                'px-2.5 pb-1 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3',
+                i > 0 && 'pt-3',
+              )}
+            >
+              {g.label}
+            </div>
+            {g.rows.map((r) => {
+              const Icon = r.icon;
+              const inside = (
+                <>
+                  <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} />
+                  <span className="min-w-0 truncate">{r.label}</span>
+                  {r.href === null ? (
+                    <span className="ml-auto text-[12px] font-normal">{r.badge?.words}</span>
+                  ) : r.badge ? (
+                    <Badge
+                      variant={r.badge.on ? 'ok' : 'gray'}
+                      className="ml-auto"
+                      data-testid={`outreach-settings-part-${r.key}-state`}
+                    >
+                      {r.badge.words}
+                    </Badge>
+                  ) : null}
+                </>
+              );
+              const row =
+                'flex h-9 items-center gap-2.5 rounded-control px-2.5 text-[14px] font-medium';
+              return r.href === null ? (
+                <div
+                  key={r.key}
+                  aria-disabled="true"
+                  className={cn(row, 'cursor-default text-text-3')}
+                  data-testid={`outreach-settings-soon-${r.key}`}
+                >
+                  {inside}
+                </div>
+              ) : (
+                <Link
+                  key={r.key}
+                  href={r.href}
+                  aria-current={r.active ? 'page' : undefined}
+                  data-testid={`outreach-settings-part-${r.key}`}
+                  className={cn(
+                    row,
+                    'transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
+                    r.active
+                      ? 'bg-accent-soft text-accent-text'
+                      : r.danger
+                        ? 'text-danger-text hover:bg-card-2'
+                        : 'text-text-2 hover:bg-card-2 hover:text-text',
+                  )}
+                >
+                  {inside}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+    </>
   );
 }
 
@@ -316,17 +499,33 @@ export function OutreachHome({
       {/* Why the buttons that ask the computer wait: once, not on every card. */}
       {asks ? <ComputerNote asks={asks} className="mb-4" /> : null}
       {tab === 'settings' ? (
-        <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
-          <SettingsMenu
-            workspaceId={workspaceId}
-            view={shown.view}
-            canManage={canManage}
-            canStartFresh={canStartFresh}
-          />
-          <div className="min-w-0">
+        <div className="grid gap-x-8 gap-y-5 md:grid-cols-[220px_minmax(0,1fr)]">
+          {shown.view === 'settings' ? (
+            <SettingsMenu
+              workspaceId={workspaceId}
+              view={shown.view}
+              part={shown.part}
+              whose={shown.mine ? null : shown.me.userId}
+              mine={shown.mine}
+              canStartFresh={canStartFresh}
+              networks={networksOn(shown.me.settings, shown.me.rules.networksAllowed)}
+            />
+          ) : (
+            <SettingsMenu
+              workspaceId={workspaceId}
+              view={shown.view}
+              part={null}
+              whose={null}
+              mine
+              canStartFresh={canStartFresh}
+              networks={null}
+            />
+          )}
+          <div className="min-w-0 max-w-3xl">
             {shown.view === 'settings' ? (
               <SettingsView
                 workspaceId={workspaceId}
+                part={shown.part}
                 me={shown.me}
                 mine={shown.mine}
                 people={shown.people}

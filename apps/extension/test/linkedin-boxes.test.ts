@@ -56,6 +56,12 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
     'https://www.linkedin.com/search/results/people/?keywords=plumber',
   ],
   ['linkedin-loading.html', 'https://www.linkedin.com/search/results/people/?keywords=roofing'],
+  // LinkedIn's newer layout, from the owner's outlines of 16 Oct 2026.
+  ['linkedin-feed-2026-10.html', 'https://www.linkedin.com/feed/'],
+  [
+    'linkedin-own-profile-2026-10.html',
+    'https://www.linkedin.com/in/chris-gee-12/?isSelfProfile=true',
+  ],
 ];
 
 describe('LinkedIn pages with more boxes than their outline shows', () => {

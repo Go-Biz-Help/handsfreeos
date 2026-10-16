@@ -137,9 +137,14 @@ export interface ProfilePage {
   readonly mutualConnections: number | null;
 }
 
-/** A post on LinkedIn: Facebook's shape, and the company page that posted it when a company did. */
+/**
+ * A post on LinkedIn: Facebook's shape, the company page (or showcase page) that posted it when one did, and the line
+ * under its author's name.
+ */
 export interface Post extends FacebookPost {
   readonly company: CompanyRef | null;
+  /** What the author says about themselves under their name on the post: their headline. */
+  readonly headline: string | null;
 }
 
 /** One of your notifications: an invitation accepted, a reaction, a comment, a mention, a look at your profile. */

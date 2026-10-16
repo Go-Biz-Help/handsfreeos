@@ -1,5 +1,5 @@
 /**
- * AI Sales Coach's page: its tabs, and the one shown (`?view=`, app/app/w/[workspaceId]/a/salescoach/page.tsx); or,
+ * AI Sales Coach's page: its tabs (the live call, coached calls, trends and playbooks), and the one shown (`?view=`, app/app/w/[workspaceId]/a/salescoach/page.tsx); or,
  * inside a Zoom meeting, the Zoom panel alone (`zoom`).
  */
 import { SALESCOACH_VIEWS, SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils';
 import { CallDetail, CallsList } from './calls-view';
 import { LiveCoach } from './live-coach';
 import { PlaybooksView } from './playbooks-view';
-import type { CoachedCall, CoachedCallSummary, Playbook } from './types';
+import { TrendsView } from './trends-view';
+import type { CoachTrends, CoachedCall, CoachedCallSummary, Playbook } from './types';
 import { ZoomPanel } from './zoom-panel';
 
 export type SalescoachShown =
@@ -17,7 +18,13 @@ export type SalescoachShown =
   | { readonly view: 'zoom' }
   | { readonly view: 'calls'; readonly calls: readonly CoachedCallSummary[] }
   | { readonly view: 'calls'; readonly call: CoachedCall }
-  | { readonly view: 'playbooks'; readonly playbooks: readonly Playbook[] };
+  | { readonly view: 'playbooks'; readonly playbooks: readonly Playbook[] }
+  | {
+      readonly view: 'trends';
+      readonly trends: CoachTrends;
+      readonly weeks: number;
+      readonly rep: string | null;
+    };
 
 export const salescoachHref = (workspaceId: string, view: string, call?: string) =>
   `/app/w/${workspaceId}/a/salescoach?view=${view}${call ? `&call=${call}` : ''}`;
@@ -74,6 +81,15 @@ export function SalescoachHome({
       ) : null}
       {shown.view === 'calls' && 'calls' in shown ? (
         <CallsList workspaceId={workspaceId} calls={shown.calls} reviews={reviews} />
+      ) : null}
+      {shown.view === 'trends' ? (
+        <TrendsView
+          workspaceId={workspaceId}
+          trends={shown.trends}
+          weeks={shown.weeks}
+          rep={shown.rep}
+          reviews={reviews}
+        />
       ) : null}
       {shown.view === 'playbooks' ? (
         <PlaybooksView

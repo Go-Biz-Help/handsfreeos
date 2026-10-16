@@ -6,6 +6,9 @@
  * meeting. So the app first claims the meeting here (`live_meeting.claim`): whose it is, in which business, and the
  * customer it's with, found from the appointment the meeting was made for, or picked. The worker takes the waiting
  * claim when the stream starts (`.started`) and closes it when it stops (`.ended`); what was said is the add-ons'.
+ * When Zoom starts the stream on its own (the app's auto-start, as someone joins), it often comes before any claim:
+ * then the worker claims it for the person whose linked Zoom started it (`.auto_claim`), and the app, opened later,
+ * finds that claim and can still name the customer while it's live.
  *
  * It needs the person's Zoom linked here through the coaching Zoom app (a **live meeting account**, apart from the
  * Zoom connection that makes meeting links, so a slow Zoom review of one never holds up the other): added from
@@ -141,8 +144,6 @@ export const liveMeetingClaim = defineCommand({
           'That customer isn’t in this business anymore, or isn’t one you can see. Pick them again.',
         );
     }
-    const personId = input.personId !== undefined ? input.personId : (appt?.person_id ?? null);
-
     const open = await ctx.tx
       .select()
       .from(liveMeetings)
@@ -156,7 +157,12 @@ export const liveMeetingClaim = defineCommand({
         ),
       );
     let row = open[0];
-    if (row?.state === 'waiting') {
+    // Picked (or picked nobody) wins; otherwise the appointment's customer, or the one it had.
+    const personId =
+      input.personId !== undefined ? input.personId : (appt?.person_id ?? row?.personId ?? null);
+    // A claim the worker made when Zoom started the stream on its own is live already: the app still names the
+    // customer, and the meeting it's in.
+    if (row) {
       [row] = await ctx.tx
         .update(liveMeetings)
         .set({
@@ -167,7 +173,7 @@ export const liveMeetingClaim = defineCommand({
         })
         .where(eq(liveMeetings.id, row.id))
         .returning();
-    } else if (!row) {
+    } else {
       [row] = await ctx.tx
         .insert(liveMeetings)
         .values({
@@ -205,6 +211,85 @@ export const liveMeetingClaim = defineCommand({
 });
 
 // ---------- the worker's ----------
+
+/**
+ * Zoom started a meeting's stream before anyone claimed it (the app's auto-start, as its person joins): the worker
+ * claims it for the person whose linked Zoom account started it, so the coach hears it from the start. No customer
+ * yet: the app, opened in the meeting, names them (`live_meeting.claim` finds this claim), and the appointment does
+ * when the meeting was made for one. Asking again finds the same claim.
+ */
+export const liveMeetingAutoClaim = defineCommand({
+  name: 'live_meeting.auto_claim',
+  description:
+    'Worker: Zoom started the stream of a meeting nobody had claimed yet, so it’s claimed for the person whose linked Zoom account started it.',
+  risk: 0,
+  input: z.object({
+    workspaceId: uuid,
+    userId: uuid,
+    provider: LiveMeetingProvider.default('zoom'),
+    meetingUuid: z.string().trim().min(1).max(200),
+  }),
+  output: z.object({ liveMeetingId: uuid, state: z.enum(LIVE_MEETING_STATES) }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['live_meeting.claimed'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [linked] = await ctx.tx
+      .select({ id: liveMeetingAccounts.id })
+      .from(liveMeetingAccounts)
+      .where(
+        and(
+          eq(liveMeetingAccounts.workspaceId, ws),
+          eq(liveMeetingAccounts.userId, input.userId),
+          eq(liveMeetingAccounts.provider, input.provider),
+          eq(liveMeetingAccounts.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (!linked)
+      throw HfosError.rule(
+        'live_meeting_not_connected',
+        409,
+        'This person’s Zoom isn’t connected to HandsFreeOS in this business, so their meeting isn’t claimed for them.',
+      );
+    // The app may have claimed it a moment before: that claim stands.
+    const [made] = await rows<{ id: string; state: (typeof LIVE_MEETING_STATES)[number] }>(
+      ctx.tx,
+      sql`insert into app.live_meetings (workspace_id, user_id, provider, meeting_uuid)
+          values (${ws}, ${input.userId}, ${input.provider}, ${input.meetingUuid})
+          on conflict (workspace_id, user_id, provider, meeting_uuid) where state in ('waiting', 'live')
+          do nothing
+          returning id, state`,
+    );
+    if (made) {
+      await ctx.emit({
+        type: 'live_meeting.claimed',
+        entityType: 'live_meeting',
+        entityId: made.id,
+        payload: { provider: input.provider, appointmentId: null, personId: null, auto: true },
+      });
+      return { liveMeetingId: made.id, state: made.state };
+    }
+    const [open] = await ctx.tx
+      .select({ id: liveMeetings.id, state: liveMeetings.state })
+      .from(liveMeetings)
+      .where(
+        and(
+          eq(liveMeetings.workspaceId, ws),
+          eq(liveMeetings.userId, input.userId),
+          eq(liveMeetings.provider, input.provider),
+          eq(liveMeetings.meetingUuid, input.meetingUuid),
+          inArray(liveMeetings.state, ['waiting', 'live']),
+        ),
+      );
+    return {
+      liveMeetingId: open!.id,
+      state: open!.state as (typeof LIVE_MEETING_STATES)[number],
+    };
+  },
+});
 
 export const liveMeetingStarted = defineCommand({
   name: 'live_meeting.started',
@@ -447,6 +532,7 @@ export const liveMeetingAccountMine = defineQuery({
 
 export const liveMeetingCommands = [
   liveMeetingClaim,
+  liveMeetingAutoClaim,
   liveMeetingStarted,
   liveMeetingEnded,
   liveMeetingAccountLink,

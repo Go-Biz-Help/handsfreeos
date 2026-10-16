@@ -120,7 +120,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 - **Chats** (`/a/outreach?view=chats`, decision 3): each one-to-one chat in the file, read by the AI from its latest
   20 messages: a short summary, the playbooks' tags that fit, whether they look like a prospect, and a next step. The
   likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag and a name narrow it,
-  50 to a page. Who goes in Contacts is the business's setting (Social Outreach → Settings → Business settings):
+  50 to a page. Who goes in Contacts is the business's setting (Social Outreach → Settings → General, For your team):
   anyone tagged or looking like a prospect (the default), everyone, or only likely prospects. They're added with their tags and a timeline
   line with the summary; someone already in Contacts gets the tags whatever it says.
 - **Chats read live** (decision 3, without waiting for the file): the extension sends each one-to-one chat the person
@@ -186,7 +186,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
   requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
-  Business settings), and friends to unfriend: only once the download file is in, and only those never kept, not in
+  General, For your team), and friends to unfriend: only once the download file is in, and only those never kept, not in
   Contacts, not on Don't pitch, with no likely-prospect chat, friends for over six months and with no message or step
   in six months either way. Under the Friends tab's **Tidy up** the person ticks who and presses **Cancel the ticked
   requests** or **Unfriend the ticked**, which asks their computer (`cancel`, `unfriend`): it opens each profile in a
@@ -248,7 +248,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   the playbooks say.
 - **Only certain countries, or not them** (decision 61, `countries.ts`, `ops/countries.ts`, the worker's
   `countries.ts`, the web's `business-settings.tsx`, `country-picker.tsx` and `country-skipped.tsx`): Social
-  Outreach → Settings → Business settings has **Which countries to reach**: **Anywhere** (to start), **Only these
+  Outreach → Settings → General has, under For your team, **Which countries to reach**: **Anywhere** (to start), **Only these
   countries** or **Not these countries**, with the countries picked by name (ISO two-letter codes underneath, kept in
   the add-on's settings as `countries`). Each person kept as a profile has a country: the one a line on their profile
   shows ("Lives in Austin, Texas", then "From Lagos, Nigeria"; `countryFromLines`), **seen**; or, when none does,
@@ -295,7 +295,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   window) and tells HandsFreeOS who wrote last in each, never what (`outreach.replies.note`). One that answers a
   message of the person's the extension noted is a reply: their phone hears "Dana Reyes wrote back", unless they had
   that tab in front of them, and they're on Today as a reply owed until the person answers. At the business's hour
-  (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → Business settings, in the business's time
+  (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → General, For your team, in the business's time
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
 - **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
@@ -362,17 +362,21 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   who to unfriend is one call to HandsFreeOS, so it has no count. The web and the phone take the first step not done
   as the one under way. It shows only while the day is started, and goes once every step is done.
 
-- **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
-  `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the
-  extension follows is set here, never in the extension. **My settings** holds what it does on its own, Replies, the
-  working hours, the three switches it used to keep (**Note my steps on Facebook**, **Read chats as I open them**,
-  **Look for posts as I scroll a group**) and how the phone hears about messages waiting (`pushes`). **Business settings**, for owners
-  and admins, holds the choices people may pick, daily limits under the starting ones, where a new person starts
-  (`rules` in the business's Social Outreach settings), and the business's other Social Outreach settings
-  (`business-settings.tsx`), which used to be on the Add-ons page: that page now only links here (`settings-link.tsx`,
-  or a line saying where they are for people who can't change them). An owner or admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by". The extension
-  loads them when the person signs in and hears each change within seconds on the same live channel the web listens
-  on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
+- **Settings in HandsFreeOS** (decisions 37 to 40 and 73, `/a/outreach?view=settings&part=`, `automation.ts`,
+  `ops/automation.ts`, `settings-parts.ts`, the web's `settings-page.tsx`, `settings-view.tsx` and
+  `use-autosave.ts`, the extension's `src/hfos/follow.ts`): every setting the extension follows is set here, never in
+  the extension, a page for each part, each change saved as it's made. **General** holds the person's own on every
+  network: how the AI writes for them, the working hours and how the phone hears about messages waiting (`pushes`).
+  **Each network's page** holds On for you, what it does there on its own, Replies, helpful posts and along the way,
+  and on Facebook the three switches the extension used to keep (**Note my steps on Facebook**, **Read chats as I open
+  them**, **Look for posts as I scroll a group**). For owners and admins, **For your team** on General holds the
+  choices people may pick, where a new person starts (`rules` in the business's Social Outreach settings), and the
+  business's other Social Outreach settings (`business-settings.tsx`), which used to be on the Add-ons page: that page
+  now only links here (`settings-link.tsx`, or a line saying where they are for people who can't change them); and
+  **For your team on** each network's page holds whether the team may use it and its daily limits under the starting
+  ones. An owner or admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by".
+  The extension loads them when the person signs in and hears each change within seconds on the same live channel
+  the web listens on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
 - **Live status and control** (decision 41, `/a/outreach?view=live`, `live.ts`, `ops/live.ts`, `ops/day.ts`, the
   web's `live-view.tsx`, the extension's `src/hfos/live.ts`): the **Live** tab shows what the person's extension is
   doing right now, on which computer, the next step, today's counts against the limits, how many things wait for
@@ -440,8 +444,10 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   for you what needs the person there first (**Your computer needs you**), with **Carry on**, **Skip** and **Stop**
   (`outreach.ask.make`, `.reply`, `.cancel`, online); Playbooks are
   read by everyone and changed a part at a time by owners and admins, each save put on the playbook as it is now so a
-  change made meanwhile on the web stays; Settings has My settings, Settings for (owners and admins) and Business
-  settings, with **Where your team gets the extension** checked as the web's box checks it (`extensionLinkProblem`). Activity and Friends have a lot to look through, so they stay on the web (the manifest's `ui.phone`
+  change made meanwhile on the web stays; Settings has the web's menu and parts (decision 73), each part a screen
+  pushed over the menu (`?part=` in its address, the manifest's `ui.phone` reading `part` and `net`), with Settings
+  for (owners and admins), every change saved as it's made, and no Start fresh; **Where your team gets the
+  extension** is checked as the web's box checks it (`extensionLinkProblem`). Activity and Friends have a lot to look through, so they stay on the web (the manifest's `ui.phone`
   `web`), and so do their asks (the file, friend requests, friends, tidying), drafting a message with its look-up,
   copying an opener and the AI's playbook help. What the phone shows, but for Waiting for you's messages, needs
   signal, and says so plainly without it. What waits on the phone with no signal and goes when it's back
@@ -455,7 +461,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   `.cancel`), and the person menu's Add to Contacts, Demo booked and Don't pitch (`outreach.profile.contact`,
   `outreach.demo.mark`, `outreach.friend.set`). The words the web and the phone
   both say are core's `words.ts` (`OUTREACH_WORDS`), which the web reads too: its Settings, Waiting for you, Today
-  and Live tabs, its Business settings and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
+  and Live tabs, its Settings pages and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
   `sameNamePeople`), and its tabs' names and the labels its Playbooks, Groups and Chats tabs share with the phone. The web's step-by-step playbook builder keeps its own questions, which the phone doesn't ask. The helpers that write phone rows (`addon_phone_upsert` and the seals) run only as their owner: nobody
   signed in may call them.
 - **The setup** (decisions 36 and 45, `/a/outreach/setup`, `setup.ts`, `ops/setup.ts`, the web's `setup-view.tsx`):
@@ -473,7 +479,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   `finishedAt` is empty, whether or not the web's line was hidden). The extension downloads from HandsFreeOS itself
   (decision 71): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
   version and size, and the steps to load it into Chrome with Developer mode. A business that keeps its own copy
-  pastes its link under **Where your team gets the extension** (Business settings, on the web and the phone), and
+  pastes its link under **Where your team gets the extension** (Settings → General, For your team, on the web; and
+  on the phone), and
   everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
@@ -783,7 +790,7 @@ than a store extension, and for more features, and answered the questions the sa
     tries others with the rest, and Today puts people from them ahead of others who fit as well. The **weekly
     report**: on Monday at the morning push's hour (8 when that's off), each person who used the extension that week
     gets an email of their friend requests, chats started, replies and demos, their best group and their best
-    opener; an owner or admin with a team gets the team's too. It's on to start: Social Outreach → Settings → Business settings turns it
+    opener; an owner or admin with a team gets the team's too. It's on to start: Social Outreach → Settings → General (For your team) turns it
     off, and Settings → Account turns off all add-on emails (`packages/core/src/addons/outreach/results.ts`,
     `apps/worker/src/addons/outreach/weekly.ts`).
 35. **Automation and features are built side by side,** one PR at a time.
@@ -813,8 +820,9 @@ showing what's going on and prompting, the app and the phone live too, and answe
 (`questions-10-oct-settings.md` in the project's files). These are settled too:
 
 37. **Every setting lives in HandsFreeOS,** on Social Outreach's **Settings** tab: **My settings** and **Business
-    settings**. The extension keeps none of its own: it loads them when the person signs in and follows a change
-    within seconds while Chrome is open. Built (settings part 1).
+    settings** (updated by decision 73: a page for General, one for each network, Your computer and Start fresh). The
+    extension keeps none of its own: it loads them when the person signs in and follows a change within seconds while
+    Chrome is open. Built (settings part 1).
 38. **Each person picks their own, inside the business's rules:** the choices owners and admins allow, their daily
     limits (at most the starting ones), and the defaults a new person starts with. A choice the business stops
     allowing steps back to the nearest one it allows. Built.
@@ -960,7 +968,9 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
       70); then demos booked, reached, chats started, wrote back and booked, each with how many of the step before
       made it, what was done along the way, by group and by person. The day against the limits moved to Today's strip.
     - **Settings**, the gear: a menu of My settings, Business settings, Playbooks, Your computer and Start fresh;
-      where a new person starts is folded to a line until changed.
+      where a new person starts is folded to a line until changed. The menu is updated by decision 73: General, each
+      network, then Playbooks, Your computer and Start fresh, a page for each; where a new person starts stays
+      folded, on General.
     - **On the phone** the same four tabs at the top of one screen, with the gear for Settings (Playbooks and the
       computer in it): Today with the strip, Needs you (offline as before) and the list; People with the Pipeline
       and Chats, Friends on the web; Groups; and Results, the three numbers and the week's review (decision 70), a
@@ -1133,7 +1143,46 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built: the extension is 0.44.0.
+    Built in 0.44.0; the extension is 0.46.0 now.
+
+The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
+all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
+system ("Social Outreach settings by platform", a Design canvas), and said to build it like the design. That updates
+where decisions 37 and 59 put the settings; what they decided stands. Settled too:
+
+73. **Settings, a page for each part** (Chris, 16 Oct 2026). The Settings tab is a menu beside one page at a time
+    (`?view=settings&part=`, core's `settings-parts.ts`, the web's `settings-page.tsx`):
+    - **The menu:** Settings with **General**; Networks with each network the add-on works, saying **On** or **Off**
+      for the person shown, then the networks still to come (Instagram, Alignable, Threads, X and TikTok) as
+      **Soon**, which don't open; and More with **Playbooks**, **Your computer** (the person's own) and **Start
+      fresh** (an owner's). In a phone's browser it's a list to pick from, above the page. Owners and admins keep
+      **Settings for** above every page, and a part keeps whose settings they're looking at. An address naming no
+      part, or the old `#mine` and `#business`, opens General.
+    - **General** is the person's own on every network: how the AI writes for them, their working hours, and how their
+      phone and the extension tell them what waits, with the day's report; **Set up again**; and **Changed by**. For
+      owners and admins, **For your team**: the choices people may pick, where a new person starts (folded), where
+      the team gets the extension, who from chats goes in Contacts, when friend requests are suggested for
+      cancelling, the morning push, the weekly report and the countries it reaches. Who goes in Contacts and when to
+      cancel are one setting each for the whole business, on every network, so they're on General, not on Facebook's
+      page as the design drew them. Anyone else sees who sets the choices they may pick.
+    - **Each network's page**, in that network's words: **On for you** beside its name, which saves at once with its
+      line beside it (Chris, 2026-10-16). A network the business doesn't use says so and who can allow it; one that's
+      off says so. While it's on: the first time's **Allow** in Chrome (every network but Facebook), its training
+      wheels, what it does on its own, replies and helpful posts, along the way, on Facebook the extension's three
+      switches, and **Your daily limits on** it, read only: the business's own there, halved while its training
+      wheels are on, with its cap in any 7 days and the kit's other limits (`limitsShownOn`). For owners and admins,
+      **For your team on** it: **Your team may use** it (Facebook is always allowed), and its daily limits for each
+      person, at most its starting ones.
+    - **Every change saves as it's made** (the web's `use-autosave.ts`): no Save button, but the extension's link
+      box's own. A click saves at once, and typing after a short pause or on leaving the field; one save at a time
+      for each form, with a change made meanwhile in the next. The line under the page's title says changes save as
+      they're made, Saving…, Saved, or the server's words when one is refused, and the form goes back to what's kept.
+      A change saved elsewhere starts the form again only while nothing of its own waits or saves. The person's
+      settings go through `outreach.automation.save` and the business's through `addon.save_settings`, as before.
+    - A choice that starts training wheels starts them as soon as it's picked, so it says so before it's picked.
+
+    Built on the web and the phone. The phone has the same menu and parts, each part a screen pushed over the menu
+    (`?part=` in its address), and no Start fresh. The setup keeps its own Save and Next buttons.
 
 ## Rules worth knowing before changing anything
 
@@ -1282,19 +1331,18 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
   groups (`LIST_SAVES_ON`, `LIST_MARKS_ON`, `PRE_DAY_WORDS_ON`).
 - **Each network is in the app** (the plan's build order, step 3), on the web and the phone alike, from one copy of
   its logic and words in core (`network-words.ts`):
-  - **My settings has a Networks part:** each network with its switch, inside what the business allows; under any
-    other network, its own choices (the same as Facebook's, off to start) and its own training wheels, saved through
-    `outreach.automation.save`'s `networks`. Facebook's choices stay the settings' own (`choicesFor`, `withNetwork`).
-    A network the business doesn't use is shown off, saying why and who can change that. **A network's switch saves
-    at once** (Chris, 2026-10-16), on the web and the phone, for the person's own settings and for an owner or admin
-    changing someone else's: only that change, made on the last saved settings, so the form's other unsaved edits
-    stay in the form and are never saved by it. While it saves, the switch is busy and the other switches and Save
-    wait; once saved, a line beside it says so (`NETWORK_WORDS.switched`: "LinkedIn is on. The extension picks it up
-    in a few seconds."); refused, the switch goes back with the server's words. On the phone it needs signal, as Save
-    does. A network's choices under its switch, and everything else in My settings, save with **Save** at the
-    bottom. The setup's networks step keeps its own Next.
-  - **Business settings** allow networks (`networksAllowed`, Facebook always) and set each other network's daily
-    limits, each at most the kit's starting one (`networkLimits`).
+  - **Each network has its page in Settings** (decision 73, on the web and the phone): **On for you**
+    beside its name, inside what the business allows, and while it's on, its own choices (the same as Facebook's, off
+    to start on any other network) and its own training wheels, saved through `outreach.automation.save`'s
+    `networks`. Facebook's choices stay the settings' own (`choicesFor`, `withNetwork`). A network the business
+    doesn't use is shown off, saying why and who can change that (`NETWORK_WORDS.notAllowed`: owners and admins turn
+    on **Your team may use** it below, anyone else asks them). **The switch saves at once** (Chris, 2026-10-16), for
+    the person's own settings and for an owner or admin changing someone else's, as every change there does now:
+    while it saves, the switch is busy; once saved, a line beside it says so (`NETWORK_WORDS.switched`: "LinkedIn is
+    on. The extension picks it up in a few seconds."); refused, it goes back with the server's words. The setup's
+    networks step keeps its own Next.
+  - **For your team on a network's page** allows it (`networksAllowed`, Facebook always) and sets its daily limits
+    for each person, each at most the kit's starting one (`dailyLimits` for Facebook, `networkLimits` for the rest).
   - **Today is each network's:** `outreach.live` takes a `platform` and gives that network's day, warning, limits,
     choice and first lists (the computers, what the working one says and the feed stay the person's); with more than
     one network on, the strip is a row for each, by name, with its own Start my day and Stop for today and its own
@@ -1326,7 +1374,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The helpful post is each network's** (`outreach.helpful`, `.ask` and the `post` ask with its `platform`):
       LinkedIn's goes on the person's own feed, so the card says "Your LinkedIn feed" where a group's name would be,
       and **Open LinkedIn** in place of Open the group (`helpfulWordsOn`, `helpfulWhere`, `helpfulOpenUrl`), by
-      LinkedIn's own posting choice (`postingAboutOn` under it in My settings).
+      LinkedIn's own posting choice (`postingAboutOn` under it on LinkedIn's page in Settings).
     - **Today's comments on a post with no group** (LinkedIn's post search) say "On LinkedIn", and open the post; a
       warm lead from the person's own feed says "on LinkedIn" too.
     - **Friends narrowed to LinkedIn tidies LinkedIn alone:** its card offers withdrawing old invitations, never

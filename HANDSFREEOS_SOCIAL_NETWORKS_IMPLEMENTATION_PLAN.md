@@ -61,8 +61,9 @@ messages often closed to strangers, and posts and comments do the warming up. Ti
   - **In the worker**: the words its prompts use, so the AI hears "LinkedIn connection", never "Facebook friend".
   - **In the extension** (`apps/extension/src/networks/<id>/`): its addresses, its readers, the steps the person
     takes there (noting), the presses the runner makes, and its jobs. `src/facebook/` moves in as the first kit.
-- **Each person turns networks on** in My settings, inside what the business allows in Business settings. A network
-  that's off runs nothing, reads nothing and shows nothing.
+- **Each person turns networks on** in My settings, inside what the business allows in Business settings (since
+  decision 73, On for you and Your team may use it, on the network's own page in Settings). A network that's off runs
+  nothing, reads nothing and shows nothing.
 - **Each network runs on its own** (Chris's rule, below).
 - **The same person on two networks** is two profiles, and one customer once they're in Contacts (already allowed:
   "Two profiles on one customer are fine"). Nothing is matched across networks by name alone.
@@ -334,13 +335,13 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.44.0.
-2. **Check the business allows LinkedIn.** Social Outreach → Settings → Business settings → Networks your team may
-   use: LinkedIn is ticked, as it is to start. A business allows every network unless an owner or admin turns one
-   off there. Its daily limits start at the ones below.
-3. **Turn LinkedIn on for you.** Social Outreach → Settings → My settings → Networks: switch LinkedIn on. The switch
-   saves at once, and the line beside it says so (Chris, 2026-10-16). Its choices start off, and save with **Save**.
-   Leave them off, or turn on only the first ones, for the first day.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.46.0.
+2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
+   **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
+   turns one off there. Its daily limits for each person are below it, and start at the ones below.
+3. **Turn LinkedIn on for you.** On the same page, switch **On for you** on, beside LinkedIn's name. It saves at once,
+   and the line beside it says so (Chris, 2026-10-16). Its choices start off, and each saves as you pick it (decision
+   73). Leave them off, or turn on only the first ones, for the first day.
 4. **Let the extension on LinkedIn.** Open the panel, press **Allow on LinkedIn**, then **Allow** in Chrome's box.
    Reload any LinkedIn tab that was open before.
 5. **Get ready on LinkedIn.** On Today, pick LinkedIn's row. Under Get ready, press **Read my profile**, then:
@@ -374,3 +375,11 @@ days and stops invitations for 2, on LinkedIn only.
 
 The pages' words (the data page's "being prepared" line, its boxes, Start a post) are a best reading of LinkedIn's
 pages until this test. Where they differ, the step goes to you with its outline rather than failing quietly.
+
+What the test found so far (16 Oct 2026): LinkedIn shows its newer layout (plain text, `data-testid`s, posts as list
+items, a reaction button labelled by its state, never "React Like"), so a like he gave wasn't noted and his own
+profile was misread; and LinkedIn draws a profile's lower parts only as they scroll into view. 0.45.0 scrolls the
+profile to its foot before reading it; 0.46.0 reads the feed, likes, comments and his profile from his two outlines
+(the extension's README says what it still guesses). Outlines that would settle the rest: a post with words typed in
+its comment box, post search results and a post's own page, someone else's profile, a conversation with words typed,
+and a post with the reactions menu open.

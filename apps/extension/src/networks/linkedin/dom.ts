@@ -6,8 +6,9 @@
  * - its addresses, so collecting things by their links is done here with LinkedIn's (./urls.ts);
  * - its top bar, a `header` above the page with Home, My Network, Messaging and Me;
  * - that it writes much of its text twice: once to show, hidden from screen readers, and right after it once more
- *   for them, hidden from sight ("Dana Reyes" then "View Dana Reyes’ profile", "3h •" then "3 hours ago"). The
- *   readers read what's shown, as the person sees it, and leave the screen readers' copy out.
+ *   for them, hidden from sight ("Dana Reyes" then "View Dana Reyes’ profile", "3h •" then "3 hours ago"). Its newer
+ *   pages (the owner's outlines of 16 Oct 2026) often put the screen readers' copy first ("Owen Park 3rd+" then the
+ *   shown "Owen Park • 3rd+"). The readers read what's shown, as the person sees it, and leave the copy out.
  */
 import { clean, elementsIn, labelOf } from '../facebook/dom';
 import { linkedinUrl } from './urls';
@@ -70,6 +71,58 @@ function blockOf(element: Element, root: Node): Node {
 
 const tokensOf = (text: string) => new Set(text.toLowerCase().match(TOKENS) ?? []);
 
+/** The first piece of text inside an element that has any. */
+function firstText(element: Element): Node | null {
+  const walker = documentOf(element).createTreeWalker(element, SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode())
+    if ((node.nodeValue ?? '').trim()) return node;
+  return null;
+}
+
+/**
+ * The screen readers' copies LinkedIn's newer pages write before what they show: the element of text right before a
+ * piece hidden from screen readers, on the same line, holding nothing hidden itself, that shares a word or a number
+ * with it (`<span>Owen Park 3rd+</span><span aria-hidden="true">Owen Park • 3rd+</span>`). The largest element around
+ * that text on its line that doesn't hold the hidden piece, as for a copy after.
+ */
+function copiesBefore(root: Node): Set<Element> {
+  const copies = new Set<Element>();
+  const scope = root.nodeType === 9 ? (root as Document).documentElement : (root as Element);
+  if (!scope?.querySelectorAll) return copies;
+  for (const hidden of scope.querySelectorAll('[aria-hidden="true"]')) {
+    if (hidden.parentElement?.closest('[aria-hidden="true"]') || unread(hidden, root)) continue;
+    const words = tokensOf(hidden.textContent ?? '');
+    const first = words.size ? firstText(hidden) : null;
+    if (!first) continue;
+    const walker = documentOf(root).createTreeWalker(scope, SHOW_TEXT);
+    walker.currentNode = first;
+    let before = walker.previousNode();
+    while (before && !(before.nodeValue ?? '').trim()) before = walker.previousNode();
+    const parent = before?.parentElement;
+    if (!parent || hiddenFromReaders(parent) || unread(parent, root)) continue;
+    const line = blockOf(hidden, root);
+    if (blockOf(parent, root) !== line) continue;
+    let copy: Element = parent;
+    for (
+      let up = copy.parentElement;
+      up && up !== line && !up.contains(hidden);
+      up = up.parentElement
+    )
+      copy = up;
+    if (copy.contains(hidden) || copy === line || copy.querySelector('[aria-hidden="true"]'))
+      continue;
+    if ([...tokensOf(copy.textContent ?? '')].some((token) => words.has(token))) copies.add(copy);
+  }
+  return copies;
+}
+
+function inAny(element: Element, set: ReadonlySet<Element>, root: Node): boolean {
+  if (!set.size) return false;
+  for (let e: Element | null = element; e && e !== root; e = e.parentElement)
+    if (set.has(e)) return true;
+  return false;
+}
+
 const FOLLOWING = 0x4;
 
 /** Whether a node comes after `element` in the page and isn't inside it. */
@@ -95,10 +148,12 @@ export interface LineOptions {
  * an element of its own, that shares a word or a number with it: "View Dana Reyes’ profile" after "Dana Reyes",
  * "2nd degree connection" after "• 2nd". A hidden "·" between two parts of a line has no words, so the part after it
  * stays. A line LinkedIn writes twice ends with its copy: it stacks them ("Owner", "Acme Plumbing · Self-employed",
- * "Jan 2015 - Present") in `span`s it draws as blocks.
+ * "Jan 2015 - Present") in `span`s it draws as blocks. A copy written before the hidden piece is left out too
+ * (`copiesBefore`).
  */
 export function shownLines(root: Node, options: LineOptions = {}): string[] {
   const { max = 60, exclude, after = null, before = null } = options;
+  const copies = copiesBefore(root);
   const lines: string[] = [];
   let block: Node | null = null;
   let current = '';
@@ -133,6 +188,7 @@ export function shownLines(root: Node, options: LineOptions = {}): string[] {
     // Past `before`, everything else is too.
     if (before && (before.contains(node) || follows(node, before))) break;
     if (exclude && excluded(parent, exclude, root)) continue;
+    if (inAny(parent, copies, root)) continue;
     const here = blockOf(parent, root);
     if (here !== block) {
       push();

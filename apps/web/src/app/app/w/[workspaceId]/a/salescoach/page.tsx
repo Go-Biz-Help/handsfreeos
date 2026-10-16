@@ -1,3 +1,4 @@
+import { TREND_WEEKS } from '@hfos/core/addons/salescoach/trends';
 import { SALESCOACH_PAGE_VIEWS, type SalescoachPageView } from '@hfos/core/addons/salescoach/words';
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
@@ -9,9 +10,10 @@ export const metadata: Metadata = { title: 'AI Sales Coach' };
 const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
 
 /**
- * AI Sales Coach's page (its manifest's `ui.nav` points here), three tabs (`?view=`): the call the coach hears now,
+ * AI Sales Coach's page (its manifest's `ui.nav` points here), four tabs (`?view=`): the call the coach hears now,
  * for a call on someone's cell (`live`, the bare page); coached calls, each with its write-up (`calls`, and one call
- * with `&call=`); and the playbooks (`playbooks`), which owners and admins write (`salescoach.manage`). `zoom` is
+ * with `&call=`); trends over 4 to 26 weeks (`trends`, `&weeks=`), with every rep for people who review and one rep
+ * with `&rep=`; and the playbooks (`playbooks`), which owners and admins write (`salescoach.manage`). `zoom` is
  * the panel HandsFreeOS's app opens inside a Zoom meeting (its manifest's `liveCalls.zoom`, by way of /zoom). It opens
  * through the gate: "not available here" while the add-on is off, and not found for someone without
  * `salescoach.use`. Row security keeps each coached call to its rep and whoever reviews (`salescoach.review`).
@@ -30,6 +32,13 @@ export default async function SalescoachPage({
     ? (asked as SalescoachPageView)
     : 'live';
   const callId = one(sp['call']);
+  const askedWeeks = Number(one(sp['weeks']));
+  const weeks =
+    Number.isInteger(askedWeeks) && askedWeeks >= TREND_WEEKS.min && askedWeeks <= TREND_WEEKS.max
+      ? askedWeeks
+      : TREND_WEEKS.default;
+  const askedRep = one(sp['rep']);
+  const rep = askedRep && /^[0-9a-f-]{36}$/i.test(askedRep) ? askedRep : null;
   return addonPage(workspaceId, 'salescoach', 'salescoach.use', async () => {
     const { api } = await apiServer();
     const got = await api
@@ -57,16 +66,27 @@ export default async function SalescoachPage({
                   .then(unwrapPage)
               ).calls,
             }
-          : view === 'playbooks'
+          : view === 'trends'
             ? {
                 view,
-                playbooks: (
-                  await api
-                    .POST('/v1/queries/salescoach.playbook.list', { body: { workspaceId } })
-                    .then(unwrapPage)
-                ).playbooks,
+                weeks,
+                rep,
+                trends: await api
+                  .POST('/v1/queries/salescoach.trends', {
+                    body: { workspaceId, weeks, ...(rep ? { userId: rep } : {}) },
+                  })
+                  .then(unwrapPage),
               }
-            : { view };
+            : view === 'playbooks'
+              ? {
+                  view,
+                  playbooks: (
+                    await api
+                      .POST('/v1/queries/salescoach.playbook.list', { body: { workspaceId } })
+                      .then(unwrapPage)
+                  ).playbooks,
+                }
+              : { view };
     return (
       <SalescoachHome
         workspaceId={workspaceId}

@@ -6,7 +6,9 @@
  *   over the page (only there, and only while it's empty), and presses that box's own **Post**; then waits for the box
  *   to close, and takes the post's link from LinkedIn's **View post**, else from the top of the feed by its words.
  * - **Who engaged:** on one of the person's posts, each comment's writer and words, and who reacted, from the box its
- *   reactions count opens, which it closes after. Never the person themselves. Nothing else is pressed.
+ *   reactions count opens, which it closes after. Never the person themselves. Nothing else is pressed. In LinkedIn's
+ *   newer layout (the owner's outlines of 16 Oct 2026) comments aren't articles: each is the box of a Reply after the
+ *   post's bar (./posts.ts, `newerComments`), its words in its text box; and the count is a link ("55 reactions").
  *
  * Like the readers, it goes by what a person sees (words, labels, links, page order), never LinkedIn's class names.
  */
@@ -16,9 +18,9 @@ import { shown } from '../facebook/fetch';
 import { sameName } from '../facebook/people';
 import { hasWriting } from './actions';
 import { inNested, says, waitFor } from './auto';
-import { CONTROLS, mainOf, yourName } from './dom';
+import { CONTROLS, mainOf, shownLines, yourName } from './dom';
 import { peopleLinked } from './people';
-import { postBoxes, postIn, readPost } from './posts';
+import { commentWriter, newerComments, postBoxes, postIn, readPost, TEXT_BOX } from './posts';
 import { postOf } from './urls';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -172,6 +174,15 @@ export function readComments(doc: Document, href: string): Engaged[] {
     seen.add(who.profile.url);
     found.push({ name: who.name, profile: who.profile, comment: commentText(article) });
   }
+  // The newer layout's: the box of each Reply, its words in its text box.
+  for (const comment of newerComments(post)) {
+    const who = commentWriter(comment, href);
+    if (!who?.name || (you && sameName(who.name, you)) || seen.has(who.profile.url)) continue;
+    seen.add(who.profile.url);
+    const words = comment.querySelector(TEXT_BOX);
+    const text = words ? shownLines(words, { max: 40, exclude: CONTROLS }).join('\n') : '';
+    found.push({ name: who.name, profile: who.profile, comment: text || null });
+  }
   return found;
 }
 
@@ -195,7 +206,8 @@ function reactionsBox(doc: Document, href: string): Element | null {
 export async function readReactions(doc: Document, href: string): Promise<Engaged[]> {
   const post = postOnPage(doc);
   if (!post) return [];
-  const count = [...post.querySelectorAll<HTMLElement>(CONTROLS)].find(
+  // A button that says it, or in the newer layout a link.
+  const count = [...post.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].find(
     (c) => !inNested(c, post) && shown(c) && says(c, REACTIONS),
   );
   if (!count) return [];

@@ -32,6 +32,8 @@ const PAGES = [
   ['linkedin-reactions.html', `${LI}/feed/update/urn:li:activity:7380000000000000500/`],
   ['linkedin-data.html', `${LI}/mypreferences/d/download-my-data`],
   ['linkedin-data-ready.html', `${LI}/mypreferences/d/download-my-data`],
+  ['linkedin-feed-2026-10.html', `${LI}/feed/`],
+  ['linkedin-own-profile-2026-10.html', `${LI}/in/chris-gee-12/?isSelfProfile=true`],
 ] as const;
 
 const outlines = Object.fromEntries(

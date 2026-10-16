@@ -26,8 +26,9 @@ function searchWordsOf(list: PlaybookList | null): string {
  * (`?view=live`); People, everyone reached by where they stand (`?view=pipeline`, a board for everyone in play),
  * their friends and the Don't pitch list (`?view=friends`) and their chats as the AI read them (`?view=chats`); the
  * groups saved (`?view=groups`); Results (`?view=results`, and the old `?view=activity`); and Settings, every setting
- * the extension follows, with anyone's for owners and admins (`?view=settings&for=`), and the business's playbooks
- * with how each opener did (`?view=playbooks`). The Today tab's label counts what needs the person. It opens through
+ * the extension follows, a page for each part (`?view=settings&part=`, decision 73), with anyone's for owners and
+ * admins (`&for=`), and the business's playbooks with how each opener did (`?view=playbooks`). The Today tab's label
+ * counts what needs the person. It opens through
  * the gate: "not available here" while the add-on is off, and not found for someone without `outreach.use`. Owners
  * and admins (`outreach.manage`) write the playbooks and see everyone's results (`?who=everyone`); anyone else asking
  * for that sees their own. Someone who never saved their own settings and never started Social Outreach's setup is
@@ -70,7 +71,7 @@ export default async function OutreachPage({
           body: { workspaceId, ...(tab ? { kinds: [...ASK_KINDS_FOR[tab]] } : {}) },
         })
         .then(unwrapPage);
-    // What the person's computer is doing, and their day on a network: Today's strip, and Settings' computers. Left
+    // What the person's computer is doing, and their day on a network: Today's strip, and Settings' Your computer. Left
     // out when it can't be had.
     const liveOf = (platform?: Platform) =>
       api
@@ -92,6 +93,8 @@ export default async function OutreachPage({
       const canManage = got.workspace.permissions.includes('outreach.manage');
       // Someone else's, for owners and admins; anyone else asking sees their own.
       const whose = canManage && shown.for ? shown.for : undefined;
+      // Only Your computer shows the person's computers and the extension's download.
+      const computer = shown.part === 'computer' && !whose;
       const [me, people, business, live, setup] = await Promise.all([
         api
           .POST('/v1/queries/outreach.automation', {
@@ -108,12 +111,14 @@ export default async function OutreachPage({
               .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
               .then(unwrapPage)
           : null,
-        whose ? null : liveOf(),
+        computer ? liveOf() : null,
         // Where the team gets the extension: the business's own link, read as everyone reads it.
-        api
-          .POST('/v1/queries/outreach.setup', { body: { workspaceId } })
-          .then((r) => r.data ?? null)
-          .catch(() => null),
+        computer
+          ? api
+              .POST('/v1/queries/outreach.setup', { body: { workspaceId } })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
       ]);
       const canStartFresh = got.workspace.permissions.includes('addons.purge');
       return (
@@ -125,6 +130,7 @@ export default async function OutreachPage({
           canStartFresh={canStartFresh}
           shown={{
             view: 'settings',
+            part: shown.part,
             me,
             mine: !whose,
             people,

@@ -6,7 +6,9 @@
  * - **What it reads**, as core's `ProfileRead` for LinkedIn: the headline as the bio, the About, each role under
  *   Experience as an intro line ("Founder at Gee Consulting · 2019 - Present"), what's featured, and the latest posts
  *   under Activity. LinkedIn doesn't describe the photo and the banner as Facebook does, so it says only whether the
- *   top shows them.
+ *   top shows them: a picture there labelled with their name or as a profile photo (its own label, or the label of
+ *   the box around it, as LinkedIn's newer layout draws it), and one labelled as a background or banner. It reads it
+ *   all from the page as it is, pressing nothing: an About's or a role's "…more" only shows words already there.
  * - **Putting the headline in:** it presses the pencil on the top card (**Edit intro**), waits for the box it opens,
  *   writes the headline in the one field there labelled **Headline**, in place of what was there, presses that box's
  *   **Save**, and waits for the box to close and the line under the name to say it. It types in no other field and
@@ -15,17 +17,20 @@
  *   to the person, and never guesses.
  *
  * Like the rest of the readers it goes by what a person sees (words, labels, page order), never LinkedIn's class
- * names, and was written from what LinkedIn is known to show, not yet tried on a real account.
+ * names. It's tuned from the owner's outline of his own profile of 16 Oct 2026 (LinkedIn's newer layout:
+ * test/fixtures/linkedin-own-profile-2026-10.html), and still reads the older one.
  */
 import { PROFILE_READ_LIMITS, type ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import { clean } from '../facebook/dom';
 import { shown } from '../facebook/fetch';
 import { typeInto } from '../facebook/join';
-import { controlsIn, CONTROLS, mainOf, wordsOf } from './dom';
+import { sameName } from '../facebook/people';
+import { controlsIn, CONTROLS, mainOf, shownLines, wordsOf } from './dom';
 import { readPosts } from './posts';
 import { inTopCard, readProfile, rolesOf, sectionLines, sectionOf } from './profile';
 import type { Role } from './types';
 import { classifyUrl } from './urls';
+import { nameFrom } from './vocabulary';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -42,8 +47,12 @@ const FIELDS = 'input, textarea, [role="textbox"], [contenteditable="true"]';
 const FEATURED_KIND = /^(post|link|article|document|newsletter|image|video|media)$/i;
 const FEATURED_KIND_BEFORE = /^(post|link|article|document|newsletter|image|video|media)\s+/i;
 /** The top's pictures: the photo by their name or as LinkedIn labels it, and the banner. */
-const PHOTO = /\bprofile (photo|picture)\b|^photo of\b/i;
+const PHOTO = /\bprofile (photo|picture|image|pic)\b|^photo of\b|\bavatar\b/i;
 const BANNER = /\b(background|banner|cover)\b/i;
+/** LinkedIn's stand-in for someone with no photo: its address says so. */
+const GHOST = /ghost|static\.licdn\.com\/aero/i;
+/** The box LinkedIn's newer layout keeps a post's words in. */
+const TEXT_BOX = '[data-testid="expandable-text-box"]';
 /** How long the intro's box, and the headline saved, are waited on, and how often they're looked at. */
 const WAIT_MS = 8_000;
 const LOOK_MS = 400;
@@ -59,25 +68,88 @@ const roleLine = (role: Role) =>
     .filter(Boolean)
     .join(' · ');
 
-/** Whether the top shows their photo and a banner: LinkedIn doesn't say what's in them. */
+/** How long each step down waits for LinkedIn to draw what came into view, and how many steps it takes at most. */
+const LOAD_PAUSE_MS = 700;
+const LOAD_STEPS = 30;
+
+/** The box the profile scrolls in: one around the main column that scrolls by itself, else the page. */
+function scrollBoxOf(doc: Document): Element {
+  for (let box = mainOf(doc).parentElement; box; box = box.parentElement) {
+    if (box === doc.documentElement || box === doc.body) break;
+    const style = doc.defaultView?.getComputedStyle(box);
+    if (
+      style &&
+      box.scrollHeight > box.clientHeight + 4 &&
+      (style.overflowY === 'auto' || style.overflowY === 'scroll')
+    )
+      return box;
+  }
+  return doc.scrollingElement ?? doc.documentElement;
+}
+
+/**
+ * Scrolls the profile down to its foot, most of a screen at a time, then back to the top. LinkedIn draws Experience,
+ * Featured, Activity and the rest only as they come into view, so a read straight after the page opens misses them
+ * (the owner's test, 16 Oct 2026: no Experience, Featured or posts were read). It stops once the foot is reached and
+ * the page has stopped growing, or after `LOAD_STEPS`.
+ */
+export async function loadWholeProfile(doc: Document, pauseMs = LOAD_PAUSE_MS): Promise<void> {
+  const box = scrollBoxOf(doc);
+  let still = 0;
+  for (let step = 0; step < LOAD_STEPS && still < 2; step++) {
+    const height = box.scrollHeight;
+    box.scrollTop += Math.max(300, box.clientHeight * 0.8);
+    await pause(pauseMs);
+    const atFoot = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+    still = atFoot && box.scrollHeight === height ? still + 1 : 0;
+  }
+  box.scrollTop = 0;
+  await pause(pauseMs);
+}
+
+/** Whether a picture is LinkedIn's stand-in for no photo, by its address. */
+const ghost = (picture: Element) => {
+  const image = picture.matches('img') ? picture : picture.querySelector('img');
+  return GHOST.test(image?.getAttribute('src') ?? '');
+};
+
+/**
+ * Whether the top shows their photo and a banner: LinkedIn doesn't say what's in them. Each picture in the top card
+ * by its label: an image's own, or (LinkedIn's newer layout) the label of the box around a picture hidden from screen
+ * readers. Labelled as a background, banner or cover, it's the banner; with their name or as a profile photo, the
+ * photo, unless its address is LinkedIn's stand-in for someone with none.
+ */
 function picturesOf(
   main: Element,
   name: string | null,
 ): { picture: string | null; cover: string | null } {
   let picture: string | null = null;
   let cover: string | null = null;
-  for (const image of main.querySelectorAll('img[alt], [role="img"][aria-label]')) {
+  const pictures = [
+    ...main.querySelectorAll('img[alt], [role="img"][aria-label], [aria-label]'),
+  ].filter(
+    (element) =>
+      element.matches('img, [role="img"]') ||
+      (!element.matches(`${CONTROLS}, a[href]`) && element.querySelector('figure, img') !== null),
+  );
+  for (const image of pictures) {
     if (!inTopCard(image, main)) continue;
     const label = clean(image.getAttribute('alt') ?? image.getAttribute('aria-label'));
     if (!label) continue;
     if (BANNER.test(label)) cover ??= 'A banner image LinkedIn didn’t describe';
-    else if (PHOTO.test(label) || (name !== null && label === name))
+    else if (
+      (PHOTO.test(label) || (name !== null && sameName(nameFrom(label), name))) &&
+      !ghost(image)
+    )
       picture ??= 'A profile photo LinkedIn didn’t describe';
   }
   return { picture, cover };
 }
 
-/** The latest posts under Activity, newest first: the posts in the part of the page between it and the next heading. */
+/**
+ * The latest posts under Activity, newest first: the posts in the part of the page between it and the next heading,
+ * or where LinkedIn's newer layout draws them as cards, each card's words. None where it says you haven't posted.
+ */
 function activityOf(main: Element, base: string): string[] {
   const section = sectionOf(main, /^activity$/i);
   if (!section) return [];
@@ -87,8 +159,14 @@ function activityOf(main: Element, base: string): string[] {
     if (section.end && up.contains(section.end)) break;
     box = up;
   }
-  return readPosts(box, base)
-    .map((post) => post.text.slice(0, PROFILE_READ_LIMITS.post))
+  const posts = readPosts(box, base).map((post) => post.text);
+  const texts = posts.length
+    ? posts
+    : [...box.querySelectorAll(TEXT_BOX)].map((words) =>
+        shownLines(words, { max: 40, exclude: CONTROLS }).join('\n'),
+      );
+  return [...new Set(texts)]
+    .map((text) => text.slice(0, PROFILE_READ_LIMITS.post))
     .filter(Boolean)
     .slice(0, PROFILE_READ_LIMITS.posts);
 }
@@ -110,7 +188,7 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
     ...picturesOf(main, read.name),
     bio: cut(read.headline, PROFILE_READ_LIMITS.bio),
     about: read.about ? read.about.slice(0, PROFILE_READ_LIMITS.about) : null,
-    intro: rolesOf(main, PROFILE_READ_LIMITS.intro).map((role) =>
+    intro: rolesOf(main, PROFILE_READ_LIMITS.intro, href).map((role) =>
       roleLine(role).slice(0, PROFILE_READ_LIMITS.line),
     ),
     featured: [...new Set(featured)].slice(0, PROFILE_READ_LIMITS.featured),

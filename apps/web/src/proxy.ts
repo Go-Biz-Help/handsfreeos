@@ -52,13 +52,14 @@ export async function proxy(request: NextRequest) {
     url.pathname = '/sign-in';
     url.search = '';
     url.searchParams.set('next', safeNext(path + request.nextUrl.search));
-    return NextResponse.redirect(url);
+    // Zoom checks its headers on every answer, the step to sign-in included.
+    return zoomAppHeaders(request, sameOriginFrames(NextResponse.redirect(url)));
   }
   if (signedIn && AUTH_PAGES.includes(path)) {
     const url = request.nextUrl.clone();
     url.pathname = safeNext(request.nextUrl.searchParams.get('next'));
     url.search = '';
-    return NextResponse.redirect(url);
+    return zoomAppHeaders(request, sameOriginFrames(NextResponse.redirect(url)));
   }
   // Nothing else is meant to be embedded: no page of the app can be framed by another site (clickjacking).
   // Inside Zoom, its app pages also carry the headers Zoom requires (lib/zoom-app.ts).

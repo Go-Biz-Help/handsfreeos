@@ -3,13 +3,20 @@
  * place, About), their first role under Experience and the company page it links to, how far they are, mutual
  * connections, and where the two of you stand by the buttons at the top.
  *
- * LinkedIn draws a profile as a top card, with the name as its `h1`, and then sections, each under a heading of its
- * own (About, Activity, Experience…). The top is what comes between the name and the first of those headings. Where
- * you stand comes from its buttons, those under More among them: when Follow is the main button, Connect is in that
- * menu. Its place is what comes just before its Contact info link, and its id, where LinkedIn shows it, is in the
- * links of its mutual connections and its Message.
+ * LinkedIn draws a profile as a top card, with the name as its `h1` (an `h2` in its newer layout: the owner's outlines of
+ * 16 Oct 2026), and then sections, each under a heading of its own (About, Activity, Experience…). The top is what
+ * comes between the name and the first of those headings. Its headline is the first line there about them that isn't
+ * a link (the newer layout links "Add a verification badge" beside the name). Where you stand comes from its buttons,
+ * those under More among them: when Follow is the main button, Connect is in that menu. Its place is what comes just
+ * before its Contact info link, and its id, where LinkedIn shows it, is in the links of its mutual connections and its
+ * Message.
+ *
+ * Its About is the section's text box (`data-testid="expandable-text-box"`, the whole of it: "…more" only shows the
+ * rest) where it has one, else the section's lines; the newer layout's "Top skills" under it isn't the About. Each role
+ * under Experience is a link holding its lines (title, company · how, dates, place); a company with several roles has
+ * its own link (its name, how long) above a list of them. The older layout's roles are list items.
  */
-import { clean, elementsAfter, isAfter, outermost } from '../facebook/dom';
+import { clean, isAfter, isBefore, outermost } from '../facebook/dom';
 import {
   controlsIn,
   CONTROLS,
@@ -56,6 +63,10 @@ const HOW =
   /\s*·\s*(full-time|part-time|self-employed|freelance|contract|internship|apprenticeship|seasonal)$/i;
 /** The longest About LinkedIn takes. */
 const ABOUT_LONGEST = 2_600;
+/** The box LinkedIn's newer layout keeps an About's or a role's words in, all of them. */
+const TEXT_BOX = '[data-testid="expandable-text-box"]';
+/** What's between a line's parts on its own: "·" between the place and Contact info. */
+const ONLY_DOT = /^[·•|]$/;
 
 /** "(3) Dana Reyes | LinkedIn" → "Dana Reyes": the name in the page's title, when it has one. */
 export function nameFromTitle(title: string): string | null {
@@ -149,39 +160,116 @@ export function sectionLines(root: Element, title: RegExp, max = 40): string[] {
   }).filter((line) => !UI_WORDS.has(line.toLowerCase()));
 }
 
-/** Each entry under Experience, as its role (a company's first role, when it lists several), `max` at most. */
-export function rolesOf(root: Element, max = 6): Role[] {
+/** A role under Experience, with the company page its entry links to. */
+interface Entry {
+  readonly role: Role;
+  readonly company: CompanyLink | null;
+}
+
+const itemOf = (element: Element) => element.closest('li, [role="listitem"]');
+/** The lines a link or an entry shows, less its buttons and its words' box (a role's description). */
+const linesOf = (element: Element, max = 8) =>
+  shownLines(element, { max, exclude: `${CONTROLS}, ${TEXT_BOX}` });
+
+/** A role from its lines: its title, then the company (unless its group says it) and how, its dates and place. */
+function roleFrom(lines: readonly string[], company: string | null): Role | null {
+  const [title, second] = lines;
+  if (!title) return null;
+  const named = company ?? (second && !DATES.test(second) ? second.replace(HOW, '').trim() : null);
+  return { title, company: named || null, dates: lines.find((line) => DATES.test(line)) ?? null };
+}
+
+/**
+ * The company page an entry links to, with the name it gives it: the first link to one in the nearest box around
+ * the role (its own link left out: an older role's link is to its company, with the role's words) that holds no other
+ * role but its group's, before the role's words.
+ */
+function companyNear(
+  role: Element,
+  base: string,
+  others: readonly Element[],
+  group: Element | null,
+): CompanyLink | null {
+  let box = role.parentElement;
+  for (let steps = 0; box && steps < 6; steps++, box = box.parentElement) {
+    if (others.some((other) => other !== role && box!.contains(other) && !group?.contains(other)))
+      return null;
+    for (const anchor of box.querySelectorAll('a[href]')) {
+      if (anchor === role || isAfter(anchor, role)) continue;
+      const company = companyIn(anchor, base);
+      if (company) return company;
+    }
+  }
+  return null;
+}
+
+/** The company a link is to, with the name it gives it ("Acme Plumbing logo" gives "Acme Plumbing"). */
+function companyIn(anchor: Element, base: string): CompanyLink | null {
+  const url = linkedinUrl(anchor.getAttribute('href') ?? '', base);
+  const company = url ? companyFromUrl(url) : null;
+  if (!company) return null;
+  const name = namesOn([anchor])
+    .map((words) => words.replace(/\s+logo$/i, ''))
+    .find((words) => isNameLike(words));
+  return { name: name ?? '', company };
+}
+
+/**
+ * Each role under Experience, in page order. In LinkedIn's newer layout each is a link holding its lines, outside a
+ * list, but for a company with several roles: its own link (its name, how long) comes first and its roles are list
+ * items after it, each named with it. Where every role is a list item (the older layout), each item is one: a company
+ * and its role, or a company with its roles under it, whose first role is read.
+ */
+function experienceOf(root: Element, base: string): Entry[] {
   const section = sectionOf(root, /^experience$/i);
   if (!section) return [];
   const { heading, end } = section;
-  return outermost(root, 'li, [role="listitem"]')
-    .filter((entry) => isAfter(entry, heading) && (!end || isAfter(end, entry)))
-    .map(roleIn)
-    .filter((role): role is Role => role !== null)
+  const within = (element: Element) => isAfter(element, heading) && (!end || isAfter(end, element));
+  const links = [...root.querySelectorAll('a[href]')].filter(
+    (link) => within(link) && !link.closest(TEXT_BOX) && linesOf(link, 3).length >= 2,
+  );
+  if (!links.some((link) => !itemOf(link)))
+    return outermost(root, 'li, [role="listitem"]')
+      .filter(within)
+      .flatMap((entry) => {
+        const role = roleIn(entry);
+        return role
+          ? [
+              {
+                role,
+                company: companyIn(entry.querySelector('a[href*="/company/"]') ?? entry, base),
+              },
+            ]
+          : [];
+      });
+  const entries: Entry[] = [];
+  let group: { readonly box: Element; readonly name: string | null } | null = null;
+  links.forEach((link, i) => {
+    const next = links[i + 1];
+    const item = itemOf(link);
+    const nextItem = next ? itemOf(next) : null;
+    // A company's own link, its roles listed after it: the smallest box holding both is the company's.
+    if (next && nextItem && !nextItem.contains(link) && (!item || item.contains(next))) {
+      let box = link.parentElement;
+      while (box && !box.contains(next)) box = box.parentElement;
+      if (box && links.find((other) => box!.contains(other)) === link) {
+        group = { box, name: linesOf(link)[0] ?? null };
+        return;
+      }
+    }
+    const mine: { readonly box: Element; readonly name: string | null } | null =
+      group && group.box.contains(link) ? group : null;
+    const role = roleFrom(linesOf(link), mine?.name ?? null);
+    if (role) entries.push({ role, company: companyNear(link, base, links, mine?.box ?? null) });
+  });
+  return entries;
+}
+
+/** Each role under Experience, `max` at most: every role in the newer layout, a company's first in the older. */
+export function rolesOf(root: Element, max = 6, base = 'https://www.linkedin.com/'): Role[] {
+  return experienceOf(root, base)
+    .map((entry) => entry.role)
     .slice(0, max);
-}
-
-/** The first entry under a heading, before the next one: a list item. */
-function firstEntry(root: Element, heading: Element, end: Element | null): Element | null {
-  for (const element of elementsAfter(heading, root)) {
-    if (end && (element === end || isAfter(element, end))) return null;
-    if (element.matches('li, [role="listitem"]')) return element;
-  }
-  return null;
-}
-
-/** The company page an entry links to, with the name it gives it. */
-function companyLinkIn(entry: Element, base: string): CompanyLink | null {
-  for (const anchor of entry.querySelectorAll('a[href]')) {
-    const url = linkedinUrl(anchor.getAttribute('href') ?? '', base);
-    const company = url ? companyFromUrl(url) : null;
-    if (!company) continue;
-    const name = namesOn([anchor])
-      .map((words) => words.replace(/\s+logo$/i, ''))
-      .find((words) => isNameLike(words));
-    return { name: name ?? '', company };
-  }
-  return null;
 }
 
 /**
@@ -210,8 +298,17 @@ function topOf(headings: readonly Element[]): {
   readonly heading: Element | null;
   readonly end: Element | null;
 } {
+  const firstSection = headings.find((h) => SECTIONS.test(shownText(h))) ?? null;
+  // The name: the top card's h1; in the newer layout its h2, the first heading above the sections that's a name.
   const heading =
-    headings.find((h) => h.tagName === 'H1' && isNameLike(shownText(h, CONTROLS))) ?? null;
+    headings.find((h) => h.tagName === 'H1' && isNameLike(shownText(h, CONTROLS))) ??
+    headings.find(
+      (h) =>
+        (!firstSection || isBefore(h, firstSection)) &&
+        !SECTIONS.test(shownText(h)) &&
+        isNameLike(shownText(h, CONTROLS)),
+    ) ??
+    null;
   const end =
     headings.find((h) => (!heading || isAfter(h, heading)) && SECTIONS.test(shownText(h))) ?? null;
   return { heading, end };
@@ -253,7 +350,14 @@ export function readProfile(
       .flatMap((line) => line.split(/\s*[·•]\s*/))
       .map(degreeOnly)
       .find(Boolean) ?? null;
-  const headline = lines.find((line) => line !== name && aboutThem(line)) ?? null;
+  // Their headline: the first line about them that isn't a link ("Add a verification badge" beside the name).
+  const headline =
+    shownLines(root, {
+      max: 40,
+      after: heading,
+      before: end,
+      exclude: `${CONTROLS}, a[href]`,
+    }).find((line) => line !== name && aboutThem(line)) ?? null;
 
   // Their place is the line just before Contact info, on the same line or the one above.
   const contact = controls.find((control) => {
@@ -263,7 +367,9 @@ export function readProfile(
     );
   });
   const beforeContact = contact
-    ? shownLines(root, { max: 40, after: heading, before: contact, exclude: CONTROLS })
+    ? shownLines(root, { max: 40, after: heading, before: contact, exclude: CONTROLS }).filter(
+        (line) => !ONLY_DOT.test(line),
+      )
     : [];
   const place = beforeContact[beforeContact.length - 1]?.replace(/\s*[·•]\s*$/, '') ?? null;
   const location = place && place !== headline && aboutThem(place) ? place : null;
@@ -282,11 +388,17 @@ export function readProfile(
     connection !== 'self' && firstWords.some((word) => FOLLOW.test(word) || FOLLOWING.test(word));
 
   const about = sectionAt(headings, /^about$/i);
+  const aboutEnd = about ? nextAfter(headings, about) : null;
+  // The newer layout's About is its text box, all of it; "Top skills" under it isn't the About.
+  const aboutBox = about
+    ? ([...root.querySelectorAll(TEXT_BOX)].find(
+        (box) => isAfter(box, about) && (!aboutEnd || isAfter(aboutEnd, box)),
+      ) ?? null)
+    : null;
   const aboutText = about
-    ? shownLines(root, {
+    ? shownLines(aboutBox ?? root, {
         max: 80,
-        after: about,
-        before: nextAfter(headings, about),
+        ...(aboutBox ? {} : { after: about, before: aboutEnd }),
         exclude: CONTROLS,
       })
         .filter((line) => !UI_WORDS.has(line.toLowerCase()))
@@ -294,10 +406,9 @@ export function readProfile(
         .slice(0, ABOUT_LONGEST)
     : '';
 
-  const experience = sectionAt(headings, /^experience$/i);
-  const entry = experience ? firstEntry(root, experience, nextAfter(headings, experience)) : null;
-  const role = entry ? roleIn(entry) : null;
-  const linked = entry ? companyLinkIn(entry, base) : null;
+  const entry = experienceOf(root, base)[0];
+  const role = entry?.role ?? null;
+  const linked = entry?.company ?? null;
   const atTop = labels.map((label) => CURRENT_COMPANY.exec(label)?.[1]).find(Boolean) ?? null;
   const companyName = atTop ?? role?.company ?? (linked?.name || null);
 

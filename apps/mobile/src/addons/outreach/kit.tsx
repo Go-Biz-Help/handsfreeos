@@ -1,3 +1,4 @@
+import type { SettingsPart } from '@hfos/core/addons/outreach/settings-parts';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as Linking from 'expo-linking';
 import { router, type Href } from 'expo-router';
@@ -61,6 +62,25 @@ export function switchOutreach(workspaceId: string, view: OutreachTab): void {
   const target = targetOfLink(path, [config.webUrl]);
   if (target.kind === 'screen') router.replace(target.href as Href);
   else openWebPath(path);
+}
+
+/**
+ * Opens a part of Settings (General, or a network's) as its own screen over the menu, for someone else's when an
+ * owner or admin picked them (`for`). The add-on's links keep only the query its manifest lists, so the part goes on
+ * the screen's address here; with the screen on the web, the web's own page opens.
+ */
+export function openSettingsPart(
+  workspaceId: string,
+  part: SettingsPart,
+  whose?: string | null,
+): void {
+  const more = whose ? `for=${whose}` : '';
+  const target = targetOfLink(outreachPath(workspaceId, 'settings', more), [config.webUrl]);
+  if (target.kind === 'screen') router.push(`${target.href}&part=${part}` as Href);
+  else
+    openWebPath(
+      outreachPath(workspaceId, 'settings', [more, `part=${part}`].filter(Boolean).join('&')),
+    );
 }
 
 /** Opens a playbook's screen. */

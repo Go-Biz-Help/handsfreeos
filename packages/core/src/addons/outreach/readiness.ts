@@ -517,7 +517,7 @@ export const READY_WORDS = {
   /** Your messages' sheet (Get ready, decisions 65 to 67). */
   messages: {
     title: 'Your messages',
-    hint: 'What goes out in your name, written by the AI for someone in your playbook’s niche, in your voice. Nobody real: the names are made up. Change how they sound in My settings, or the playbook’s tone, then write them again.',
+    hint: 'What goes out in your name, written by the AI for someone in your playbook’s niche, in your voice. Nobody real: the names are made up. Change how they sound in Settings → General, or the playbook’s tone, then write them again.',
     write: 'Write samples',
     again: 'Write them again',
     first: 'First message, once they accept',

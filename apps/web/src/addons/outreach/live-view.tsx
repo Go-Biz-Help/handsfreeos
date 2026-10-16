@@ -258,7 +258,7 @@ function RightNow({
               {W.changeThatIn}{' '}
               <Link
                 className="font-medium text-accent-text underline-offset-2 hover:underline"
-                href={outreachHref(workspaceId, { view: 'settings' })}
+                href={outreachHref(workspaceId, { view: 'settings', part: platform })}
               >
                 {W.rows.settings}
               </Link>

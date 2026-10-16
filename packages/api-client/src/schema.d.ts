@@ -19537,6 +19537,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/salescoach.trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How coached calls are going over the last weeks against the weeks before: the score, talk time, objections answered, script steps done, wins and the steps skipped most, week by week. Your own, or every rep’s and the team’s for people who review calls.
+         * @description Requires salescoach.use.
+         */
+        post: operations["query_salescoach_trends"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/schedule.team": {
         parameters: {
             query?: never;
@@ -74033,6 +74053,151 @@ export interface operations {
                                 text: string;
                             }[];
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_salescoach_trends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId?: string;
+                    /** @default 12 */
+                    weeks?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reps: {
+                            previous: {
+                                coached: number;
+                                objections: {
+                                    answered: number;
+                                    of: number;
+                                };
+                                score: number | null;
+                                steps: {
+                                    covered: number;
+                                    of: number;
+                                };
+                                talkShare: number | null;
+                                wins: number;
+                            };
+                            rep: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            series: {
+                                coached: number;
+                                objections: {
+                                    answered: number;
+                                    of: number;
+                                };
+                                score: number | null;
+                                steps: {
+                                    covered: number;
+                                    of: number;
+                                };
+                                talkShare: number | null;
+                                week: string;
+                                wins: number;
+                            }[];
+                            skippedSteps: {
+                                of: number;
+                                playbookId: string;
+                                playbookName: string;
+                                skipped: number;
+                                stepId: string;
+                                title: string;
+                            }[];
+                            totals: {
+                                coached: number;
+                                objections: {
+                                    answered: number;
+                                    of: number;
+                                };
+                                score: number | null;
+                                steps: {
+                                    covered: number;
+                                    of: number;
+                                };
+                                talkShare: number | null;
+                                wins: number;
+                            };
+                        }[];
+                        team: {
+                            previous: {
+                                coached: number;
+                                objections: {
+                                    answered: number;
+                                    of: number;
+                                };
+                                score: number | null;
+                                steps: {
+                                    covered: number;
+                                    of: number;
+                                };
+                                talkShare: number | null;
+                                wins: number;
+                            };
+                            series: {
+                                coached: number;
+                                objections: {
+                                    answered: number;
+                                    of: number;
+                                };
+                                score: number | null;
+                                steps: {
+                                    covered: number;
+                                    of: number;
+                                };
+                                talkShare: number | null;
+                                week: string;
+                                wins: number;
+                            }[];
+                            skippedSteps: {
+                                of: number;
+                                playbookId: string;
+                                playbookName: string;
+                                skipped: number;
+                                stepId: string;
+                                title: string;
+                            }[];
+                            totals: {
+                                coached: number;
+                                objections: {
+                                    answered: number;
+                                    of: number;
+                                };
+                                score: number | null;
+                                steps: {
+                                    covered: number;
+                                    of: number;
+                                };
+                                talkShare: number | null;
+                                wins: number;
+                            };
+                        };
+                        timeZone: string;
+                        weeks: string[];
                     };
                 };
             };

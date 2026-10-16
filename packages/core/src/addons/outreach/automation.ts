@@ -110,6 +110,15 @@ export const WorkingHours = z
 export type WorkingHours = z.output<typeof WorkingHours>;
 
 /**
+ * Why working hours can't be kept as they are, in the person's words; null when they can. Settings save each change as
+ * it's made, so hours caught halfway (a start moved past the end) wait for this to clear rather than being refused.
+ */
+export function hoursProblem(hours: z.input<typeof WorkingHours>): string | null {
+  const out = WorkingHours.safeParse(hours);
+  return out.success ? null : (out.error.issues[0]?.message ?? null);
+}
+
+/**
  * A network's own choices of what the extension does there on its own (Chris, 2026-10-15: the same choices as
  * Facebook, each network's own). Facebook's are the person's choices in `AutomationSettings`; each other network keeps
  * its own in `networks`, off to start.
@@ -331,12 +340,14 @@ const notAllowedOf = (c: NetworkChoices, rules: BusinessRules): string[] =>
 /** What the business doesn't allow of these choices, in words to refuse them with; null when it's all allowed. */
 export function notAllowedWords(settings: AutomationSettings, rules: BusinessRules): string | null {
   const fix =
-    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.';
+    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → General.';
   const offNetworks = OTHER_PLATFORMS.filter(
     (p) => settings.networks[p].on && !rules.networksAllowed.includes(p),
   );
-  if (offNetworks.length)
-    return `Your business doesn’t use ${offNetworks.map((p) => PLATFORMS[p]).join(' or ')} for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.`;
+  if (offNetworks.length) {
+    const names = offNetworks.map((p) => PLATFORMS[p]).join(' or ');
+    return `Your business doesn’t use ${names} for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → ${names}.`;
+  }
   const facebook = notAllowedOf(choicesFor(settings, 'facebook'), rules);
   if (facebook.length) return `Your business doesn’t allow ${facebook.join(' or ')}. ${fix}`;
   for (const p of OTHER_PLATFORMS) {

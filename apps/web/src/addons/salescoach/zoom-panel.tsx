@@ -6,7 +6,8 @@
  * (`live_meeting.claim`, which finds the customer from the appointment the meeting was made for), and asks Zoom to
  * start the meeting's stream (`startRTMS`). The worker then hears it and the cards come as on a phone call
  * (./live-coach.tsx). Without a known customer it asks who the call is with first. **Stop coaching** asks Zoom to
- * stop the stream. Outside Zoom it says where to open it, and that the same cards show on the Live call tab.
+ * stop the stream. When Zoom started listening on its own as they joined (its auto-start), the worker has claimed the
+ * meeting already: the panel finds it live and offers to name the customer. Outside Zoom it says where to open it, and that the same cards show on the Live call tab.
  */
 import { SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
 import type zoomSdkType from '@zoom/appssdk';
@@ -143,7 +144,8 @@ export function ZoomPanel({ workspaceId }: { workspaceId: string }) {
     try {
       const got = await claim(p?.id ?? null);
       setPerson(got.person);
-      setPhase({ k: 'ready' });
+      // Zoom may have started listening on its own as you joined: then naming the customer is all there is to do.
+      setPhase({ k: got.state === 'live' ? 'on' : 'ready' });
     } catch (e) {
       setPhase({ k: 'failed', message: errorMessage(e) });
     }
@@ -257,6 +259,20 @@ export function ZoomPanel({ workspaceId }: { workspaceId: string }) {
       ) : null}
       {phase.k === 'on' || phase.k === 'stopping' ? (
         <>
+          <div className="flex items-center gap-2 text-[13px] text-text-2">
+            <span className="truncate">
+              {person ? W.zoom.withWhom(person.name) : W.zoom.noCustomerYet}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setPhase({ k: 'pick' })}
+              data-testid="zoom-change-customer"
+            >
+              {person ? W.zoom.change : W.zoom.pickCustomer}
+            </Button>
+          </div>
           <LiveCoach workspaceId={workspaceId} idle={W.zoom.waiting} ownStop={false} />
           <Button
             variant="ghost"

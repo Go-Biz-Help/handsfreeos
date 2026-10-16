@@ -16,26 +16,47 @@
  *   newsletter aren't these.
  * - **Like:** a post's Like ("React Like"), before it's pressed ("Unreact Like" takes it back), or one of the
  *   reactions LinkedIn shows over it while the post has none of theirs yet, to whoever wrote the post; a comment's
- *   ("React Like to Sam Lee’s comment"), to whoever wrote the comment.
+ *   ("React Like to Sam Lee’s comment"), to whoever wrote the comment. LinkedIn's newer layout (the owner's outlines
+ *   of 16 Oct 2026) labels its reaction button by its state, not by what pressing it does, so there the button is
+ *   found by where it is (the post's bar, the button before the reactions menu: ./posts.ts, `barOf`; a comment's, the
+ *   one before its Reply), and a moment after the press the tab looks at what changed: the count in it went up, or its
+ *   label went from none of theirs to one (`reactionChange`). A reaction picked from the menu beside it is looked for
+ *   the same way, after the next click. A post someone else is named above (liked, reposted, commented on) is its
+ *   author's, the one under the line LinkedIn draws there.
  * - **Comment:** the button that sends a comment box's words (Comment, Post, Reply), to whoever wrote the post, or for
- *   a reply, the comment it answers.
+ *   a reply, the comment it answers. In the newer layout the box's own buttons say nothing to go by: a press on one
+ *   right after the box, with writing in it, is a comment once the box empties.
  * - **Message:** Send in a conversation in LinkedIn messaging, to who it's with, with the conversation's id; or in a
  *   chat window over another page, to the one person the window links to.
  *
  * Enter in a comment's or a message's box counts only when the box empties after it: in LinkedIn's boxes Enter may
  * only start a new line. A step to yourself isn't one, and neither is a step the page can't tie to exactly one person
- * (a company's post, a group chat). Like the readers, they go by labels, links and page order, never class names, and
- * in English for now.
+ * (a company's or a showcase page's post, a post LinkedIn was paid to show, a group chat). Like the readers, they go by
+ * labels, links and page order, never class names, and in English for now.
  */
 import type { Answered, Reached, Step } from '../facebook/actions';
-import { clean, isBefore, labelOf, textWithEmoji } from '../facebook/dom';
+import { clean, isAfter, isBefore, labelOf, textWithEmoji } from '../facebook/dom';
 import { sameName } from '../facebook/people';
 import type { Noticed, Noticer } from '../kit';
 import { readChat } from './chat';
 import { CONTROLS, inTopBar, mainOf, shownLines, wordsOf, yourName } from './dom';
 import { notToConnect } from './invitations';
 import { aboutWhom, peopleLinked, rowLines } from './people';
-import { postBoxes, postIn, readPost } from './posts';
+import {
+  barOf,
+  commentWriter,
+  hasYours,
+  newerCommentOf,
+  opensMenu,
+  otherReactions,
+  postBoxes,
+  postHeader,
+  postIn,
+  reactionChange,
+  reactionState,
+  readPost,
+  type ReactionState,
+} from './posts';
 import { inTopCard, readProfile } from './profile';
 import type { ChatPage, PageAddress, ProfileRef, ThreadRef } from './types';
 import {
@@ -44,9 +65,10 @@ import {
   linkedinUrl,
   pathParts,
   profileFromUrl,
+  sameMember,
   threadFromUrl,
 } from './urls';
-import { ACCEPT, CONNECT, IGNORE } from './vocabulary';
+import { ACCEPT, COMMENT, CONNECT, IGNORE, POST_MENU, REPLY, REPOST, SEND } from './vocabulary';
 
 /** "Invite Dana Reyes to connect": who a Connect is for, when its label says. */
 const INVITE_NAMED = /^invite (.+) to connect$/i;
@@ -95,6 +117,15 @@ export const CONNECT_LOOK_MS = 2_500;
 export const INVITE_WAIT_MS = 5 * 60_000;
 /** How long after Enter it looks whether the box was sent, and emptied. */
 export const ENTER_LOOK_MS = 1_500;
+/** How long after a press on a reaction button (in the newer layout) it looks at what changed. */
+export const LIKE_LOOK_MS = 1_500;
+/** How long after the reactions menu opens the next click is taken as a pick in it. */
+export const PICK_WAIT_MS = 30_000;
+
+/** The box at the top of the feed that starts a post, beside a link to your own profile. */
+const START_A_POST = /^start a post\b/i;
+/** How far up from a reaction button the end of its bar (Comment, Repost, Reply) can be. */
+const BAR_END_STEPS = 8;
 
 const isShown = (element: Element) =>
   !element.closest('[aria-hidden="true"], [hidden]') &&
@@ -108,10 +139,34 @@ function rootOf(element: Element, doc: Document): Element {
   return main.contains(element) ? main : doc.body;
 }
 
-/** Whether someone is you: the name on the top bar's Me. */
-function isYou(person: Pick<Reached, 'name'>, doc: Document): boolean {
+/**
+ * Your own profile, where the page links it: beside the feed's "Start a post", the nearest box around it that links to
+ * one member.
+ */
+function yourProfile(doc: Document, base: string): ProfileRef | null {
+  const starts = [...doc.querySelectorAll(`[aria-label], ${CONTROLS}`)].filter(
+    (element) => !inTopBar(element) && wordsOf(element).some((words) => START_A_POST.test(words)),
+  );
+  for (const start of starts) {
+    let up = start.parentElement;
+    for (let steps = 0; up && steps < 4; steps++, up = up.parentElement) {
+      const people = peopleLinked(up.querySelectorAll('a[href]'), base);
+      if (people.length === 1) return people[0]!.profile;
+      if (people.length > 1) break;
+    }
+  }
+  return null;
+}
+
+/** Whether someone is you: the name on the top bar's Me, or your profile beside the feed's "Start a post". */
+function isYou(
+  person: Pick<Reached, 'name'> & { readonly profile?: ProfileRef },
+  doc: Document,
+): boolean {
   const you = yourName(doc);
-  return you !== null && sameName(you, person.name);
+  if (you !== null && sameName(you, person.name)) return true;
+  const yours = person.profile ? yourProfile(doc, doc.location?.href ?? LINKEDIN) : null;
+  return !!yours && !!person.profile && sameMember(yours, person.profile);
 }
 
 /** Whether a box to write in has something in it: words, or only an emoji. */
@@ -287,10 +342,16 @@ function commentAuthor(article: Element, base: string): Reached | null {
   return first?.name ? { name: first.name, profile: first.profile } : null;
 }
 
+/** Who wrote a comment in the newer layout: the first member its box links to, outside a box to write in. */
+function newerCommentAuthor(box: Element, base: string): Reached | null {
+  const first = commentWriter(box, base);
+  return first?.name ? { name: first.name, profile: first.profile } : null;
+}
+
 /** Whether the post already has one of the person's reactions: its own button pressed, or saying Unreact. */
 export function reacted(post: Element): boolean {
   const own = postIn(post);
-  return [...post.querySelectorAll(CONTROLS)].some((control) => {
+  const older = [...post.querySelectorAll(CONTROLS)].some((control) => {
     const nested = control.closest(NESTED);
     if (nested && nested !== own && nested !== post) return false;
     return (
@@ -298,7 +359,27 @@ export function reacted(post: Element): boolean {
       (control.getAttribute('aria-pressed') === 'true' || says(control, UNREACT))
     );
   });
+  if (older) return true;
+  // The newer layout's button says it by its state, or by how it differs from the other posts' on the page.
+  const reaction = barOf(post)?.reaction;
+  const root = post.ownerDocument.body;
+  return reaction ? hasYours(reactionState(reaction), otherReactions(root, post)) === true : false;
 }
+
+/**
+ * The member a post is noted to: its author, from its header (./posts.ts, `postHeader`), when that's a member with a
+ * profile, not a company's or a showcase page's post, not one LinkedIn was paid to show, and not yours.
+ */
+function postAuthor(post: Element, doc: Document, href: string): Reached | null {
+  const header = postHeader(post, href);
+  if (header.promoted || header.company || !header.author?.profile) return null;
+  const to = { name: header.author.name, profile: header.author.profile };
+  return isYou(to, doc) ? null : to;
+}
+
+/** The older layout's reaction controls, which say what they do: Like, "React Like", "Unreact Like", a comment's. */
+const olderReaction = (control: Element) =>
+  says(control, POST_REACTION) || says(control, COMMENT_REACTION) || says(control, UNREACT);
 
 function like(control: Element, doc: Document, href: string): Step | null {
   if (control.getAttribute('aria-pressed') === 'true' || says(control, UNREACT)) return null;
@@ -310,11 +391,7 @@ function like(control: Element, doc: Document, href: string): Step | null {
   // A reaction picked over a post that has one of theirs changes it: it isn't a new one.
   if (!comment && reacted(post)) return null;
   const read = readPost(post, href);
-  const to = comment
-    ? commentAuthor(comment, href)
-    : read?.author?.profile
-      ? { name: read.author.name, profile: read.author.profile }
-      : null;
+  const to = comment ? commentAuthor(comment, href) : postAuthor(post, doc, href);
   if (!to || isYou(to, doc)) return null;
   return {
     kind: 'like',
@@ -323,6 +400,141 @@ function like(control: Element, doc: Document, href: string): Step | null {
     postUrl: read?.url ?? null,
     thread: null,
     replying: null,
+  };
+}
+
+/**
+ * A press on a reaction button in LinkedIn's newer layout, or on the reactions menu beside it: the button, the like it
+ * would be, and how the button showed before (with how the other posts' show, to tell its words by).
+ */
+interface ReactionPress {
+  readonly post: Element;
+  readonly button: Element;
+  /** The comment's box, when the button is a comment's. */
+  readonly comment: Element | null;
+  /** The menu beside the button was pressed, not the button: a reaction is picked next. */
+  readonly viaMenu: boolean;
+  readonly step: Step;
+  readonly before: ReactionState;
+  readonly others: readonly ReactionState[];
+  /** The post's menu's words, and which of the posts with those words it is: to find it again if it's redrawn. */
+  readonly menu: string | null;
+  readonly nth: number;
+}
+
+/** The words of a post's menu ("Open control menu for post by Sam Lee"), which say whose it is. */
+function menuWords(post: Element): string | null {
+  for (const control of post.querySelectorAll(CONTROLS)) {
+    const words = wordsOf(control).find((w) => POST_MENU.test(w));
+    if (words) return words;
+  }
+  return null;
+}
+
+/** A post LinkedIn drew again since a press: the one with the same menu, in the same place among those. */
+function postAgain(press: ReactionPress): Element | null {
+  if (press.post.isConnected) return press.post;
+  if (!press.menu) return null;
+  const doc = press.post.ownerDocument;
+  return postBoxes(doc.body).filter((box) => menuWords(box) === press.menu)[press.nth] ?? null;
+}
+
+/** What ends a post's bar after its reaction button: its Comment, or Repost where it has none. */
+const POST_BAR_END = /^(comment|repost)$/i;
+
+/**
+ * A reaction button (or the menu beside it) in the newer layout, by where it is: right before what ends its bar (a
+ * post's Comment or Repost, a comment's Reply), or before the one menu between them. Null for anything else. Looked at
+ * in the few boxes around it, so a click elsewhere costs little.
+ */
+function reactionAt(control: Element, end: RegExp): { button: Element; viaMenu: boolean } | null {
+  let box = control.parentElement;
+  for (let steps = 0; box && steps < BAR_END_STEPS; steps++, box = box.parentElement) {
+    const controls = [...box.querySelectorAll(CONTROLS)];
+    const at = controls.indexOf(control);
+    const after = controls.slice(at + 1);
+    const reply = after.findIndex((c) => says(c, end));
+    if (at < 0 || reply < 0) continue;
+    const between = after.slice(0, reply);
+    if (between.length === 0) {
+      if (!opensMenu(control)) return { button: control, viaMenu: false };
+      const before = controls[at - 1];
+      return before && !opensMenu(before) ? { button: before, viaMenu: true } : null;
+    }
+    return between.length === 1 && opensMenu(between[0]!) && !opensMenu(control)
+      ? { button: control, viaMenu: false }
+      : null;
+  }
+  return null;
+}
+
+/** The like a press on a reaction button (or its menu) in the newer layout would be, and how it showed. */
+function reactionPress(control: Element, doc: Document, href: string): ReactionPress | null {
+  if ([COMMENT, REPOST, SEND, REPLY].some((words) => says(control, words))) return null;
+  // Where it is first, which is quick to see; then whose post it's in.
+  const onPost = reactionAt(control, POST_BAR_END);
+  const onComment = onPost ? null : reactionAt(control, REPLY);
+  if (!onPost && !onComment) return null;
+  const post = postAround(control, doc);
+  if (!post) return null;
+  const bar = barOf(post);
+  let button: Element | null = null;
+  let viaMenu = false;
+  let comment: Element | null = null;
+  if (onPost && bar?.reaction && control === bar.reaction) button = control;
+  else if (onPost && bar?.menu && control === bar.menu) {
+    button = bar.reaction;
+    viaMenu = true;
+  } else if (onComment && bar && isAfter(control, bar.box)) {
+    comment = newerCommentOf(onComment.button, post, bar);
+    if (!comment) return null;
+    ({ button, viaMenu } = onComment);
+  }
+  if (!button) return null;
+  const to = comment ? newerCommentAuthor(comment, href) : postAuthor(post, doc, href);
+  if (!to || isYou(to, doc)) return null;
+  const read = readPost(post, href);
+  const menu = menuWords(post);
+  return {
+    post,
+    button,
+    comment,
+    viaMenu,
+    step: {
+      kind: 'like',
+      to,
+      group: null,
+      postUrl: read?.url ?? null,
+      thread: null,
+      replying: null,
+    },
+    before: reactionState(button),
+    others: otherReactions(doc.body, post),
+    menu,
+    nth: postBoxes(doc.body)
+      .filter((box) => menuWords(box) === menu)
+      .indexOf(post),
+  };
+}
+
+/** A press to look at again in a moment: noted when the button then shows a reaction given, never one taken back. */
+function looked(press: ReactionPress): Noticed {
+  return {
+    kind: 'maybe',
+    step: press.step,
+    afterMs: LIKE_LOOK_MS,
+    went: () => {
+      // LinkedIn may draw the button, or the whole post, again: the post's own is found again by where it is.
+      const post = press.comment ? null : postAgain(press);
+      const button = press.button.isConnected
+        ? press.button
+        : post
+          ? (barOf(post)?.reaction ?? null)
+          : null;
+      return (
+        !!button && reactionChange(press.before, reactionState(button), press.others) === 'added'
+      );
+    },
   };
 }
 
@@ -342,7 +554,12 @@ function comment(box: Element, post: Element, doc: Document, base: string): Step
         .map((article) => commentAuthor(article, base))
         .filter((author): author is Reached => author !== null)
         .pop() ?? null;
-  if (!to && read?.author?.profile) to = { name: read.author.name, profile: read.author.profile };
+  if (!to && !inComment) {
+    // The newer layout's reply box sits in the comment it answers.
+    const newer = newerCommentOf(box, post, barOf(post));
+    if (newer) to = newerCommentAuthor(newer, base);
+  }
+  to ??= postAuthor(post, doc, base);
   if (!to || isYou(to, doc)) return null;
   return {
     kind: 'comment',
@@ -427,7 +644,9 @@ function written(box: Element, doc: Document, href: string): Step | null {
 
 /**
  * The box a send button sends: the last box to write in before it, in the nearest box around the button that has
- * any. Nothing when that box is empty, or comes after the button (a post's Comment button only opens its box).
+ * any. Nothing when that box is empty, or comes after the button (a post's Comment button only opens its box), or when
+ * a link comes between them: its own buttons come right after it, and a link between is a comment (and its writer)
+ * under the box, whose Reply isn't the box's.
  */
 function boxSentBy(control: Element): Element | null {
   let up = control.parentElement;
@@ -435,7 +654,11 @@ function boxSentBy(control: Element): Element | null {
     const boxes = [...up.querySelectorAll(WRITING)];
     if (boxes.length > 0) {
       const box = boxes.filter((b) => isBefore(b, control)).pop();
-      return box && hasWriting(box) ? box : null;
+      if (!box || !hasWriting(box)) return null;
+      const between = [...up.querySelectorAll('a[href]')].some(
+        (link) => isAfter(link, box) && isBefore(link, control) && !link.contains(control),
+      );
+      return between ? null : box;
     }
     up = up.parentElement;
   }
@@ -450,6 +673,23 @@ export function sentFrom(
 ): { readonly box: Element; readonly step: Step } | null {
   const control = controlAt(target);
   if (!control || (!says(control, SENDS_COMMENT) && !says(control, SENDS_MESSAGE))) return null;
+  const box = boxSentBy(control);
+  const step = box ? written(box, doc, href) : null;
+  return box && step ? { box, step } : null;
+}
+
+/**
+ * What a press on any other button right after a box with writing in it may send: in LinkedIn's newer layout the
+ * comment box's own buttons (its send among them) say nothing the extension knows, so the step is looked at a moment
+ * after, and noted once the box empties. Its emoji and picture buttons leave the writing in it.
+ */
+export function mayBeSentFrom(
+  target: Element,
+  doc: Document,
+  href: string,
+): { readonly box: Element; readonly step: Step } | null {
+  const control = controlAt(target);
+  if (!control || opensMenu(control)) return null;
   const box = boxSentBy(control);
   const step = box ? written(box, doc, href) : null;
   return box && step ? { box, step } : null;
@@ -542,15 +782,29 @@ export function answerFromClick(target: Element, doc: Document, href: string): A
 
 /**
  * Noting the person's steps on one LinkedIn page. It remembers the last Connect pressed until the box it opened sends
- * the invitation (or a few minutes pass, or another Connect is pressed), and when each box sent a comment or a message
- * from its button, so an Enter in it isn't noted again.
+ * the invitation (or a few minutes pass, or another Connect is pressed); the reactions menu last opened in the newer
+ * layout, until the next click; and, for each box to write in, its last press that may have sent it (its button, a
+ * button after it, or Enter), so only that one is noted when the box empties.
  */
 export function linkedInNoticer(now: () => number = Date.now): Noticer {
   let invited: { readonly press: ConnectPress; readonly step: Step; readonly at: number } | null =
     null;
-  const sentAt = new WeakMap<Element, number>();
+  let picking: { readonly press: ReactionPress; readonly at: number } | null = null;
+  let presses = 0;
+  const lastPress = new WeakMap<Element, number>();
+  /** A press that may send what's in a box: the last one before it empties is the one noted. */
+  const pressing = (box: Element) => {
+    const press = ++presses;
+    lastPress.set(box, press);
+    return press;
+  };
+  /** Sent: the box emptied, or went with the chat, and nothing pressed after this tried to send it. */
+  const emptied = (box: Element, press: number) =>
+    (!box.isConnected || !hasWriting(box)) && lastPress.get(box) === press;
   return {
     click(target, doc, href): Noticed | null {
+      const pick = picking && now() - picking.at <= PICK_WAIT_MS ? picking.press : null;
+      picking = null;
       const box = invitationSentBy(target);
       if (box) {
         const pressed = invited;
@@ -586,26 +840,47 @@ export function linkedInNoticer(now: () => number = Date.now): Noticer {
       }
       const sent = sentFrom(target, doc, href);
       if (sent) {
-        sentAt.set(sent.box, now());
+        pressing(sent.box);
         return { kind: 'step', step: sent.step };
       }
       const control = controlAt(target);
-      const liked = control ? like(control, doc, href) : null;
-      if (liked) return { kind: 'step', step: liked };
+      if (control) {
+        // The older layout's Like says what it does; the newer's is looked at a moment after.
+        const liked = like(control, doc, href);
+        if (liked) return { kind: 'step', step: liked };
+        const reaction = olderReaction(control) ? null : reactionPress(control, doc, href);
+        if (reaction?.viaMenu) {
+          picking = { press: reaction, at: now() };
+          return null;
+        }
+        if (reaction) return looked(reaction);
+      }
+      const maybe = mayBeSentFrom(target, doc, href);
+      if (maybe) {
+        const press = pressing(maybe.box);
+        return {
+          kind: 'maybe',
+          step: maybe.step,
+          afterMs: ENTER_LOOK_MS,
+          went: () => emptied(maybe.box, press),
+        };
+      }
       const answered = answerFromClick(target, doc, href);
-      return answered ? { kind: 'answer', answered } : null;
+      if (answered) return { kind: 'answer', answered };
+      // A reaction picked in the menu opened just before, wherever LinkedIn draws it: the post's button says.
+      return pick ? looked(pick) : null;
     },
     enter(target, doc, href): Noticed | null {
       const found = stepFromEnter(target, doc, href);
       if (!found) return null;
-      const at = now();
       const { box } = found;
+      const press = pressing(box);
       return {
         kind: 'maybe',
         step: found.step,
         afterMs: ENTER_LOOK_MS,
         // Sent: the box emptied, or went with the chat. Its button sent it since, and that was noted.
-        went: () => (!box.isConnected || !hasWriting(box)) && !((sentAt.get(box) ?? -1) >= at),
+        went: () => emptied(box, press),
       };
     },
   };

@@ -130,7 +130,7 @@ export const salescoachAddon = defineAddon({
   liveCalls: { permission: 'salescoach.use', zoom: { path: '', query: { view: 'zoom' } } },
   billing: { model: 'free' },
   ui: {
-    // One row in the side menu: the page has the live call, the coached calls and the playbooks (`?view=`).
+    // One row in the side menu: the page has the live call, the coached calls, the trends and the playbooks (`?view=`).
     nav: [{ key: 'salescoach', label: 'AI Sales Coach', icon: 'headset', path: '' }],
     // The cards above the web's call bar while someone is on a call,
     // and the replies it suggests above the message box in a written conversation.
@@ -139,7 +139,7 @@ export const salescoachAddon = defineAddon({
       { slot: 'composer.suggestions', permission: 'salescoach.use' },
     ],
     // On the phone: the live call (a cell call can't show a bar), from the push or under More.
-    phone: [{ path: '', query: ['view'], web: { view: ['calls', 'playbooks'] } }],
+    phone: [{ path: '', query: ['view'], web: { view: ['calls', 'trends', 'playbooks'] } }],
   },
   ai: {
     directory:

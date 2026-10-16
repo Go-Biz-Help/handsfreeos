@@ -11,8 +11,9 @@
  * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these).
  * - **Results** (`?view=results`, and the old `?view=activity`): the stretch of days (`?period=today`, `week` or
  *   `month`) and whose steps (`?who=everyone`, for owners and admins).
- * - **Settings** (`?view=settings`, whose with `?for=` someone's id, for owners and admins) and the business's playbooks
- *   (`?view=playbooks`).
+ * - **Settings** (`?view=settings`), a page for each part (`?part=general`, `facebook`, `linkedin`, `computer` or
+ *   `fresh`, General when left out; the old `#mine` and `#business` are General too), whose with `?for=` someone's id,
+ *   for owners and admins; and the business's playbooks (`?view=playbooks`).
  *
  * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today and Live take the network whose day they show, and
  * the pipeline, friends and chats the network they're narrowed to (`?net=linkedin`): Today's first network, and every
@@ -24,6 +25,7 @@ import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/fr
 import { GROUP_VIEWS, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { readNetwork } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { settingsPartOf, type SettingsPart } from '@hfos/core/addons/outreach/settings-parts';
 import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stages';
 
 export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
@@ -123,6 +125,8 @@ export interface OutreachAddress {
   readonly page: number;
   /** Whose settings, for an owner or admin: someone's id, or empty for their own. */
   readonly for: string;
+  /** Which part of Settings: General, a network's page, Your computer or Start fresh. */
+  readonly part: SettingsPart;
   /** Today's network, or the network a list is narrowed to: null for the first, or every one. */
   readonly net: Platform | null;
 }
@@ -147,13 +151,14 @@ export function readOutreachAddress(
     search: one(sp.q).trim().slice(0, 100),
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
     for: UUID.test(one(sp.for)) ? one(sp.for).toLowerCase() : '',
+    part: settingsPartOf(one(sp.part)),
     net: readNetwork(one(sp.net)),
   };
 }
 
 /**
  * A view's address: for the results their stretch and whose; for the pipeline, groups, friends and chats which, the
- * name searched for and the page; for settings, whose.
+ * name searched for and the page; for settings, the part and whose.
  */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
@@ -169,6 +174,7 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   )
     params.set('net', to.net);
   if (view === 'settings') {
+    if (to.part && to.part !== 'general') params.set('part', to.part);
     if (to.for) params.set('for', to.for);
   } else if (view === 'groups') {
     if (to.groups && to.groups !== 'work') params.set('show', to.groups);

@@ -7,6 +7,8 @@
  *   about price gets the playbook's answer on the rep's screen.
  * - **After it:** when Zoom ends the stream, the claim is ended and the meeting is written up like a call, with
  *   the notes on the customer's timeline.
+ * - **Zoom's auto-start:** a stream that comes before any claim is claimed for the linked Zoom user who started it,
+ *   and the customer picked in the app after, while it's live, is the write-up's.
  * - **Not hearing it:** a stream nobody claimed, or started by another Zoom account, is left alone; and the webhook
  *   refuses a stream on a server that isn't Zoom's.
  */
@@ -349,6 +351,56 @@ describe('a Zoom meeting heard live', () => {
       });
       expect(someoneElse).toBeNull();
       expect(zoom.sent).toEqual([]);
+    } finally {
+      await zoom.close();
+    }
+  });
+
+  it('claims a stream Zoom started on its own for the linked person, and takes the customer named while it’s live', async () => {
+    // Zoom's auto-start: the stream comes as Marco joins, before the app in the meeting claims anything.
+    const meetingUuid = `mtg-${randomUUID()}==`;
+    const streamId = `stream-${randomUUID()}`;
+    const zoom = await zoomStream(meetingUuid, streamId);
+    try {
+      const session = await onStreamStarted(deps(), {
+        meetingUuid,
+        streamId,
+        serverUrl: zoom.url,
+        operatorId: 'zoom-marco',
+      });
+      expect(session).not.toBeNull();
+      await waitFor('the stream to be ready', async () => zoom.ready());
+      const [lm] = await rows<{ id: string; state: string; user_id: string }>(
+        admin(),
+        sql`select id, state, user_id from app.live_meetings where meeting_uuid = ${meetingUuid}`,
+      );
+      expect(lm).toMatchObject({ state: 'live', user_id: rep.id });
+      // Until the app says his name in the meeting, his name here tells his words from the customer's.
+      zoom.say('Marco Member', 'Hi Rosa, thanks for making time to go over the estimate.');
+      zoom.say('Rosa Diaz', 'Sounds good, go ahead.');
+      // He opens the app and picks Rosa: the live claim takes her.
+      const named = await claim(meetingUuid);
+      expect(named).toMatchObject({
+        liveMeetingId: lm!.id,
+        state: 'live',
+        person: { id: rosaId },
+      });
+      await waitFor('both lines heard', async () => {
+        const c = await coached(lm!.id);
+        return c && c.state === 'live' ? c : null;
+      });
+      zoom.end();
+      const done = await waitFor('the write-up queued', async () => {
+        const c = await coached(lm!.id);
+        return c && c.state !== 'live' ? c : null;
+      });
+      expect(done.lines.map((l) => l.speaker)).toEqual(['team', 'customer']);
+      const [kept] = await rows<{ person_id: string | null }>(
+        admin(),
+        sql`select person_id from addon_salescoach.calls where id = ${done.id}`,
+      );
+      expect(kept!.person_id).toBe(rosaId);
+      await drain();
     } finally {
       await zoom.close();
     }
