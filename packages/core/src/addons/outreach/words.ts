@@ -282,10 +282,8 @@ export const OUTREACH_WORDS = {
     },
     openFacebook: 'Facebook',
   },
-  /** The Settings tab's parts. */
+  /** The Settings menu's parts under More; General and the networks are `SETTINGS_WORDS`' (decision 73). */
   settingsParts: {
-    mine: 'My settings',
-    business: 'Business settings',
     playbooks: 'Playbooks',
     computer: 'Your computer',
     fresh: 'Start fresh',
@@ -506,9 +504,6 @@ export const OUTREACH_WORDS = {
   changedSince: 'Someone changed this playbook meanwhile. Your change went on top of theirs.',
 
   // ---- Settings ----
-  settingsIntro:
-    'Everything the browser extension does is set here. It follows a change within a few seconds on every computer you’re signed in on.',
-  mySettings: 'My settings',
   settingsFor: 'Settings for',
   settingsOf: (name: string) => `Settings for ${name}`,
   notSetYet: ' (not set yet)',
@@ -524,7 +519,6 @@ export const OUTREACH_WORDS = {
     allowed: 'What people may pick',
     limits: 'Daily limits for each person',
     defaults: 'Where a new person starts',
-    business: 'Business settings',
     contacts: 'Who from Facebook chats goes in Contacts',
     cancelAfter: 'Suggest cancelling friend requests after',
     morning: 'Morning push',
@@ -609,13 +603,13 @@ export const OUTREACH_WORDS = {
       'Who from Facebook chats goes in Contacts, when friend requests are suggested for cancelling, the morning push, the weekly report, the choices people may pick, daily limits and where your team gets the extension.',
     open: 'Open Social Outreach settings',
     notOwner:
-      'Owners and admins change these under Social Outreach → Settings → Business settings.',
+      'Owners and admins change these in Social Outreach → Settings, under For your team on General and on each network’s page.',
     /** On the Chats tab, beside who goes in Contacts. */
     changeContacts: 'Change it in Settings',
-    contactsNotOwner: 'An owner or admin can change this in Settings → Business settings.',
+    contactsNotOwner: 'An owner or admin can change this in Settings → General.',
   },
   notAllowed: (choices: readonly string[]) =>
-    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that under Business settings.`,
+    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that in Settings → General.`,
   from: 'From',
   to: 'to',
   usual: 'The usual choice.',

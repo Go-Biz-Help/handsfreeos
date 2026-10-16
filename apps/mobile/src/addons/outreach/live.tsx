@@ -43,6 +43,7 @@ import {
   NeedsSignal,
   Note,
   openOutreach,
+  openSettingsPart,
   Part,
   QueuedNote,
   useOutreachAnswer,
@@ -180,7 +181,8 @@ export function useLiveProps(
     onStart: () => void press('started'),
     onStop: () => void press('stopped'),
     onWaiting: () => openOutreach(ws, 'today'),
-    onSettings: () => openOutreach(ws, 'settings'),
+    // What it does on its own is set on the network's own page of Settings.
+    onSettings: () => openSettingsPart(ws, platform),
     asks: asks.data,
     askActions,
   };

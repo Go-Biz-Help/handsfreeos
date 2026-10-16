@@ -290,7 +290,10 @@ async function setDay(
       throw HfosError.rule(
         'outreach_sending_off',
         409,
-        sendingOffWords(rules.sendingAllowed.some((m) => m !== 'off')),
+        sendingOffWords(
+          rules.sendingAllowed.some((m) => m !== 'off'),
+          platform,
+        ),
       );
   }
   // Pressed in the extension: that computer is the one the person is using, so it works. When that makes a different

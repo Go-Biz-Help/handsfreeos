@@ -438,9 +438,9 @@ export const warningPushWords = (
   body: `The extension stopped on ${PLATFORMS[platform]} for today.`,
 });
 
-/** Why Start my day can't start on a network the person doesn't work: where to turn it on. */
+/** Why Start my day can't start on a network the person doesn't work: where to turn it on, its page in Settings. */
 export const networkOffWords = (platform: Platform): string =>
-  `${PLATFORMS[platform]} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → My settings.`;
+  `${PLATFORMS[platform]} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → ${PLATFORMS[platform]}.`;
 
 /** Why Start my day stays refused after a warning: on the network that showed it, until tomorrow. */
 export const warnedTodayWords = (platform: Platform = 'facebook'): string => {
@@ -448,11 +448,17 @@ export const warnedTodayWords = (platform: Platform = 'facebook'): string => {
   return `${network} showed you a warning today, so the extension stays stopped on ${network} until tomorrow. Your ${network} limits are halved for a week.`;
 };
 
-/** Why Start my day can't start while the extension does nothing on its own: who can change that, and where. */
-export function sendingOffWords(businessAllowsMore: boolean): string {
+/**
+ * Why Start my day can't start while the extension does nothing on its own on a network: who can change that, and
+ * where (the network's page in Settings, or General's For your team).
+ */
+export function sendingOffWords(
+  businessAllowsMore: boolean,
+  platform: Platform = 'facebook',
+): string {
   return businessAllowsMore
-    ? 'The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → My settings.'
-    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → Business settings.';
+    ? `The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → ${PLATFORMS[platform]}.`
+    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → General.';
 }
 
 /** A computer's plain name, from Chrome's word for its system. */

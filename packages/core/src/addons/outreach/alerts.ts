@@ -7,8 +7,8 @@
  *   counts as a reply when the person's last message to them, as the extension noted it, came before: so once for
  *   each message of theirs, never for an old chat. Unless the person was looking at that tab just then, their phone
  *   hears "Dana Reyes wrote back".
- * - **The morning.** At the business's hour (`morningPushHour`, 8 to start; Social Outreach → Settings → Business
- *   settings), each person who used the extension lately and has something on their list for today hears how much.
+ * - **The morning.** At the business's hour (`morningPushHour`, 8 to start; Social Outreach → Settings → General,
+ *   For your team), each person who used the extension lately and has something on their list for today hears how much.
  *
  * Both are pushes on the person's add-ons switch (Settings → Notifications), opening Today. Nothing is pushed to
  * anyone else. Browser-safe: the extension builds what it tells, and the worker the words.

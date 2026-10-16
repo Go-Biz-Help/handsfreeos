@@ -179,7 +179,7 @@ export function StatusStrip({
             </p>
             {computer ? null : (
               <Link
-                href={`${outreachHref(workspaceId, { view: 'settings' })}#computer`}
+                href={outreachHref(workspaceId, { view: 'settings', part: 'computer' })}
                 className="text-[13px] font-medium text-accent-text hover:underline"
                 data-testid="today-status-get-extension"
               >
@@ -362,7 +362,7 @@ export function StatusStrip({
               {W.changeThatIn}{' '}
               <Link
                 className="font-medium text-accent-text underline-offset-2 hover:underline"
-                href={outreachHref(workspaceId, { view: 'settings' })}
+                href={outreachHref(workspaceId, { view: 'settings', part: shown.platform })}
               >
                 {W.tabs.settings}
               </Link>

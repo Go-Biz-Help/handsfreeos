@@ -39,6 +39,7 @@ export function ListRow({
   label,
   detail,
   end,
+  endWords,
   onPress,
   external,
   danger,
@@ -50,6 +51,8 @@ export function ListRow({
   label: string;
   detail?: string;
   end?: React.ReactNode;
+  /** What `end` says when it isn't words itself (a badge), for screen readers. */
+  endWords?: string;
   onPress?: () => void;
   external?: boolean;
   danger?: boolean;
@@ -87,7 +90,7 @@ export function ListRow({
       role={external ? 'link' : 'button'}
       // The row's own words, the value on the right included: "Appearance. Dark", not "Appearance", so a screen
       // reader says what the setting is set to and the flows can assert it off the row itself.
-      accessibilityLabel={[label, detail, typeof end === 'string' ? end : null]
+      accessibilityLabel={[label, detail, typeof end === 'string' ? end : (endWords ?? null)]
         .filter(Boolean)
         .join('. ')}
       disabled={disabled}
