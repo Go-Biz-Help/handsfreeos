@@ -97,7 +97,7 @@ export const oneByOne = (send: {
 
 /**
  * How many messages Approve all OKs, for its button: those listed that can go together, or, when more wait than are
- * listed, all the messages less those listed that wait on their own. The web and the extension say the same.
+ * listed, all the messages less those listed that wait on their own. Needs you on the web says it.
  */
 export function approveAllCount(
   items: readonly {

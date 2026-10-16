@@ -3,10 +3,11 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.43.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
-started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
-next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
-HandsFreeOS.
+**This is a test build (0.44.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
+signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
+you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
+itself, with its messages, chats and buttons, is in HandsFreeOS on the web and the phone.
 
 Signed in, it notes the friend requests, likes, comments and messages you send yourself, with the group you found
 each person in, and your answers to friend requests. In the Facebook tab in front of you it reads Facebook's
@@ -17,8 +18,9 @@ groups and their members, finding groups and posts, reading your chats for the A
 fits, cancelling old friend requests and unfriending the people you tick, and looking someone up before the AI drafts
 to them. It stops for the day on any
 Facebook warning, and tells HandsFreeOS what it's doing, so the app shows it live. Its icon shows how many things
-wait for you, and Chrome's pop-ups tell you of new ones, as your phone does. It never sends a message you haven't
-OK'd, and never clicks, scrolls or changes a page but for what you asked or let it do.
+wait for you, and Chrome's pop-ups tell you of new ones, as your phone does; a click opens Needs you in HandsFreeOS.
+It never sends a message you haven't OK'd, and never clicks, scrolls or changes a page but for what you asked or let
+it do.
 
 On LinkedIn, once you turn it on in HandsFreeOS and let Chrome open LinkedIn to it, it notes the invitations to
 connect, likes, comments and messages you send yourself, and your answers to invitations; it tells HandsFreeOS who
@@ -30,7 +32,8 @@ Since 0.41.0, once you let it and start your day on LinkedIn, it works your Link
 Facebook's and never waiting on it (below, "On its own on LinkedIn"). Since 0.42.0 it gets LinkedIn's copy of your
 data (your connections, invitations and messages) and brings it in, as it does Facebook's file. Since 0.43.0 it
 puts your helpful post up on your own LinkedIn feed, once you OK it or on its own if you let it, and reads who
-engaged with it.
+engaged with it. Since 0.44.0 its panel no longer lists Needs you or its chats (decision 72): it says how many
+things need you, and you OK, change, skip and carry on in HandsFreeOS.
 
 ## The networks
 
@@ -106,7 +109,8 @@ conversation, and is with whoever its header links to.
 ## The panel
 
 Press the extension's button on any page and Chrome's side panel opens beside it (`src/panel/`, `public/panel.html`).
-It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's look (decision 59):
+It shows progress and activity, and leaves the rest to HandsFreeOS, in HandsFreeOS's look (decisions 59 and 72).
+From top to bottom:
 
 - **The top bar**: the business it works for, and how it's doing (working, waiting for the next step, stopped,
   standing by) as a coloured chip, the same words and colours as HandsFreeOS's.
@@ -122,12 +126,18 @@ It shows what's going on and leaves the rest to HandsFreeOS, in HandsFreeOS's lo
   when your own steps today go past a daily limit (`pastLimitWords`: the limits count, they don't stop); today's steps
   against the daily limits, as bars, from `outreach.live`; **Start my day**, and **Stop for today** while the day
   goes, with HandsFreeOS's words when it refuses one; and anything you asked of it from HandsFreeOS while it goes,
-  with **Carry on**, **Skip** and **Stop**. Until you're ready (docs/outreach.md, decision 63), Next up is **Get ready
-  for your best results** instead: the main offer, a playbook's niche, your profile and your numbers, each ticked as
-  it's done, from `outreach.readiness`, with **Get ready in HandsFreeOS** (0.31.0). What only reads still goes
-  meanwhile, and replies to people who wrote to you.
-- **Needs you** (`src/panel/waiting.ts`), below: a message shows as the texts it would send, with **Send**, **Edit**
-  and **Skip**.
+  each network's on its own line with what it's doing and **Stop**. A step it hands you says what to do, then "When
+  you’ve done it, press Carry on in HandsFreeOS → Needs you." (", or Skip to leave this person." for someone you
+  ticked), with **Open Needs you**: Carry on and Skip are pressed there, never in the panel. Until you're ready
+  (docs/outreach.md, decision 63), Next up is **Get ready for your best results** instead: the main offer, a
+  playbook's niche, your profile and your numbers, each ticked as it's done, from `outreach.readiness`, with **Get
+  ready in HandsFreeOS** (0.31.0). What only reads still goes meanwhile, and replies to people who wrote to you.
+- **What needs you** (`src/panel/needs.ts`), one line under Next up while anything waits: "3 things need you in
+  HandsFreeOS" ("1 thing needs you in HandsFreeOS" for one), a link to Needs you on Today in HandsFreeOS. The count
+  is the icon's (below, "Needs you: the number and the pop-ups"); nothing shows when none wait. Nothing waiting is
+  listed or answered in the panel (decision 72): no messages, chats, replies, steps or friend requests.
+- **Each network's line** (`src/panel/networks.ts`): **Allow on LinkedIn** while Chrome hasn't let it on there, a
+  network's warning that day, and LinkedIn's runner's line.
 - **Done today**: the newest of the day's steps, as HandsFreeOS keeps them, with **See all**.
 - **At the foot**: your settings in one line, the hours and training wheels in it, with **Change in HandsFreeOS**;
   who's signed in, with **Sign out**; **Open HandsFreeOS**, which opens Social Outreach's Today for the business; and
@@ -274,12 +284,12 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
   (`lineDue`), with no receipt kept. How it ended goes with its own id and moment; with no connection it waits
   (`hfos.ask.ends`, at most 20) and goes with the next beat. Each network's ask under way is kept for the panel,
   Facebook's in `hfos.ask` and LinkedIn's in `hfos.ask.linkedin` (`askKeyOf`), and the panel shows each with its own
-  **Carry on**, **Skip** and **Stop**; one left there when the extension starts again (Chrome closed mid-way) is ended
-  as lost.
+  **Stop**; one left there when the extension starts again (Chrome closed mid-way) is ended as lost.
 - **Steps it hands to you:** a step it can't find on a network's file pages or a profile it hands to you: the tab
   comes to the front, Chrome pops up, your phone hears "Your computer needs you", and it waits for **Carry on** (or
-  **Skip**, for someone ticked) from the panel, Needs you, or the web, asking HandsFreeOS for your answer every
-  20 seconds. Half an hour with no answer stops it. While Facebook asks for your password or PIN, or LinkedIn for your
+  **Skip**, for someone ticked), pressed in Needs you in HandsFreeOS on the web or the phone (`outreach.ask.reply`).
+  The panel says what to do and to press Carry on there, with a link (decision 72). It hears the answer on the live
+  channel, or asks HandsFreeOS for it every 20 seconds. Half an hour with no answer stops it. While Facebook asks for your password or PIN, or LinkedIn for your
   password, it waits for you to type it there; it never types one.
 - **Stops:** **Stop**, in the panel or the app; Stop for today, pressed in the panel, the app or the phone, which ends
   Facebook's (the day the beat carries); another of your computers working now, which ends every network's; or a
@@ -489,29 +499,30 @@ web and the phone shows it as it happens (decision 41 in docs/outreach.md, `src/
 
 ## Needs you: the number and the pop-ups
 
-**Needs you**, in the panel, is the same list as Needs you on Today in HandsFreeOS (decisions 40, 42 and 59 in
-docs/outreach.md, `outreach.waiting`, the list once called Waiting for you): something you asked of your computer that needs you (**Carry on**,
-**Skip**, **Stop**), replies handed over to you, messages waiting for your OK, each under the chat so far (with **Approve
-all**, which leaves a reply handed over or one to someone who needs you, each to OK on its own), steps the extension
-couldn't do and hands to you (**I did it** or **Let it go**), and friend requests to decide (**Leave it**). The
-background keeps it (`src/hfos/waiting.ts`), and the panel draws it (`src/panel/waiting.ts`):
+**Needs you** is on Today in HandsFreeOS, on the web and the phone (decisions 40, 42, 59 and 72 in docs/outreach.md,
+`outreach.waiting`, the list once called Waiting for you): something you asked of your computer that needs you
+(**Carry on**, **Skip**, **Stop**), replies handed over to you, messages waiting for your OK, each under the chat so
+far (with **Approve all**), steps the extension couldn't do and hands to you (**I did it** or **Let it go**), and
+friend requests to decide (**Leave it**). Since 0.44.0 the extension never lists it or answers any of it (decision
+72, "The extension shows progress and activity only"): it counts it and tells you of it. The background keeps the
+count (`src/hfos/waiting.ts`), and the panel says it in a line (`src/panel/needs.ts`):
 
 - **The number on its icon** is everything waiting (`chrome.action.setBadgeText`, "99+" past 99). It's asked again a
   moment after a change of yours heard on the live channel (a message drafted, OK'd or sent, a step noted or handed
   over, a request answered), one HandsFreeOS made itself (a download brought in), or a change to your pushes, hours
-  or training wheels by anyone (an owner may change yours); after you act on one in the panel, after signing in, and
-  every 10 minutes with nothing heard (the `hfos-beat` alarm). Signed out, or with Social Outreach turned off or out
-  of your reach, there's none; with no connection, the last number stays.
+  or training wheels by anyone (an owner may change yours); when the panel opens, after signing in, and every 10
+  minutes with nothing heard (the `hfos-beat` alarm). Signed out, or with Social Outreach turned off or out of your
+  reach, there's none; with no connection, the last number stays.
+- **The panel's line**, under Next up: "3 things need you in HandsFreeOS" ("1 thing needs you in HandsFreeOS"), the
+  icon's number, as a link to Needs you (`outreachPath(…, 'waiting')`, which opens Today, at its `#needs-you`, from
+  `src/hfos/needs-you.ts`). Nothing shows when none wait, or while the count kept isn't for who's signed in and the
+  business they save to, so picking another business never shows the last one's.
 - **Chrome's pop-ups** (the `notifications` permission) follow your **pushes** setting, as your phone does: one for
   what's new at most every 2 hours in your working hours (to start), or one for each, with more than 3 at once going as
   one. A reply handed over pops up at once either way, and isn't told again in the bundled one; friend requests never
   pop up. Only the computer that works shows them (src/hfos/live.ts); the first look after signing in tells of what's
-  there, replies too, in one pop-up at most. A click opens the side panel in the window you last used (kept in the
-  session's storage, so a click that wakes the background still knows it); **Open in HandsFreeOS**, or a click Chrome
-  won't open the panel for, opens Today on the web.
-- **The panel's list** shows only while it's for who's signed in and the business they save to, so picking another
-  business never shows, or acts on, the last one's. **Approve all** names the same number as the web's. **I did it**
-  on a step the extension couldn't do again since says so, and the step stays.
+  there, replies too, in one pop-up at most. A click, or **Open in HandsFreeOS**, opens Needs you in HandsFreeOS in a
+  new tab, never the side panel. A step an ask hands you pops up the same way, and its Carry on is there.
 - **Steps it hands to you:** when the runner can't find a button or the box, Facebook shows a different page, or
   Facebook doesn't take a step, it hands the step to you (`outreach.need.note`, from the same waiting list as the
   steps it notes, so it keeps its moment offline), and still tries again another day. A message that didn't go is
@@ -695,8 +706,11 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 - **Asks one at a time on each network, from HandsFreeOS only.** Only the computer that works takes one, and only the
   person's own; each network's line takes its own (`platform`), and an ask and a step of the runner's never go at once
   on one network (`inTurn`, by network). Its line goes at most every 20 seconds, its end
-  keeps its moment and command id, and a step handed over waits half an hour at most. The panel's buttons only answer
-  the ask under way; they never start one.
+  keeps its moment and command id, and a step handed over waits half an hour at most. The panel's only button for an
+  ask is **Stop**, for the one under way; it never starts one, and Carry on and Skip are pressed in HandsFreeOS.
+- **The panel shows progress and activity only** (decision 72). It lists nothing waiting for the person and answers
+  none of it: no message to OK, chat so far, reply, step to do or friend request. It says how many things need them,
+  with a link to Needs you in HandsFreeOS, and a pop-up opens it there. `test/panel.test.ts` holds this.
 - **Saving only when asked in HandsFreeOS; steps noted as they happen.** Nothing is saved until the person asks for it
   in HandsFreeOS, or lets the extension work on its own, but for what the two switches send as they go. The four
   steps are the exception, noted with `outreach.touch.save` as they're taken, and adding nobody to Contacts. Both go
@@ -738,7 +752,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/networks/facebook/`                    | Facebook's kit: one reader per kind of page, the steps, the addresses, its words, the outline, the download steps, the runner's and asks' (`work.ts`)                                                                    |
 | `src/networks/linkedin/`                    | LinkedIn's kit: its readers, the steps you take there (`actions.ts`), who wrote back, its words, its warnings, its outline, and the asks' steps (`work.ts`)                                                              |
 | `src/content.ts`                            | The script in each tab of a network that's on, by its kit: reads the page when asked, looks at the tab in front of you, and notices your steps                                                                           |
-| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `waiting.ts` Needs you                                                                     |
+| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `needs.ts` how many things need you in HandsFreeOS                                         |
 | `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                                                                                      |
 | `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                                                                                          |
 | `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks; LinkedIn's in `linkedin/`                                              |
@@ -749,7 +763,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                                                                                          |
 | `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                     |
 | `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                                                                         |
-| `src/hfos/waiting.ts`                       | Needs you: the number on the icon and Chrome's pop-ups                                                                                                                                                                   |
+| `src/hfos/waiting.ts`                       | What needs you: the number on the icon and Chrome's pop-ups, which open Needs you in HandsFreeOS (its address and words in `src/hfos/needs-you.ts`)                                                                      |
 | `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                                                                                                |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                   |
 | `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                    |

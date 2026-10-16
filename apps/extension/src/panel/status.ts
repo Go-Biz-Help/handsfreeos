@@ -1,19 +1,20 @@
 /**
- * Next up, in the side panel (docs/outreach.md, decisions 26 to 33, 41, 43 and 59): how it's doing, in the top bar;
- * what the extension is doing or does next, and why it isn't working when it isn't (another computer works, noting is
- * off, Facebook warned you today); a warning when their own steps today go past a daily limit; today's steps against
- * the limits; **Start my day** and **Stop for today**, or Get ready's items until the person is ready (decision 63);
- * and what they asked of it from HandsFreeOS while it goes, each network's ask under way on its own line, with
- * **Carry on**, **Skip** and **Stop**. Under the list, Done today, the newest of the day's steps; at the foot, the
- * person's settings in one line (the hours and training wheels in it), with **Change in HandsFreeOS**. Everything else
- * is in HandsFreeOS. The background's runner does the work (src/auto/run.ts), and the asks (src/asks/run.ts).
+ * Next up, in the side panel (docs/outreach.md, decisions 26 to 33, 41, 43, 59 and 72): how it's doing, in the top
+ * bar; what the extension is doing or does next, and why it isn't working when it isn't (another computer works,
+ * noting is off, Facebook warned you today); a warning when their own steps today go past a daily limit; today's steps
+ * against the limits; **Start my day** and **Stop for today**, or Get ready's items until the person is ready
+ * (decision 63); and what they asked of it from HandsFreeOS while it goes, each network's ask under way on its own
+ * line with **Stop**. A step an ask hands the person says what to do, and to press **Carry on** in HandsFreeOS's
+ * Needs you, with a link there: the panel shows progress, and answers nothing waiting. Under the list, Done today,
+ * the newest of the day's steps; at the foot, the person's settings in one line (the hours and training wheels in it),
+ * with **Change in HandsFreeOS**. Everything else is in HandsFreeOS. The background's runner does the work
+ * (src/auto/run.ts), and the asks (src/asks/run.ts).
  */
 import {
   ASK_KINDS,
   askNeedsYou,
   askRepliesFor,
   type AskKind,
-  type AskReply,
 } from '@hfos/core/addons/outreach/asks';
 import { settingsSummary } from '@hfos/core/addons/outreach/automation';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
@@ -28,6 +29,7 @@ import { askKeyOf, type KeptAsk } from '../hfos/asks';
 import { SETTINGS_KEY } from '../hfos/follow';
 import { LIVE_KEY, reportedStatus } from '../hfos/live';
 import type { AutoStatus } from '../hfos/messages';
+import { carryOnWords, NEEDS_YOU_LINK, needsYouUrl } from '../hfos/needs-you';
 import { WARNED_KEY } from '../hfos/warned';
 import { ask } from './ask';
 import { ago, button, h, hfosLink, type Child } from './dom';
@@ -86,19 +88,22 @@ async function act(type: 'hfos-auto-start' | 'hfos-auto-stop'): Promise<void> {
   draw();
 }
 
-async function answerAsk(askId: string, reply: AskReply | 'stop'): Promise<void> {
-  const answer = await ask(
-    reply === 'stop' ? { type: 'hfos-ask-stop', askId } : { type: 'hfos-ask-reply', reply, askId },
-  );
+/** Stop, for an ask under way here. Carry on and Skip are pressed in HandsFreeOS, under Needs you (decision 72). */
+async function stopAsk(askId: string): Promise<void> {
+  const answer = await ask({ type: 'hfos-ask-stop', askId });
   refused = answer.ok ? null : answer.problem.message;
   draw();
 }
 
-/** What the person asked from HandsFreeOS, while it goes: on a network but Facebook, named. */
+/**
+ * What the person asked from HandsFreeOS, while it goes: on a network but Facebook, named. A step handed to them says
+ * what to do (its line), then to press Carry on in HandsFreeOS's Needs you, with a link there.
+ */
 function askView(a: KeptAsk): Child {
   const kind = a.kind as AskKind;
   const stuck = askNeedsYou(a.state);
-  const replies = a.state === 'stuck' ? askRepliesFor(kind) : [];
+  const carryOn = a.state === 'stuck' ? carryOnWords(askRepliesFor(kind)) : null;
+  const needsYou = carryOn && status?.webUrl ? needsYouUrl(status.webUrl, a.businessId) : null;
   const on = a.platform && a.platform !== 'facebook' ? `, on ${PLATFORMS[a.platform]}` : '';
   return h(
     'div',
@@ -111,15 +116,12 @@ function askView(a: KeptAsk): Child {
       a.about ? ` · ${a.about}` : '',
     ),
     a.line ? h('p', { role: 'status' }, a.line) : null,
+    carryOn ? h('p', {}, carryOn) : null,
     h(
       'div',
       { class: 'actions' },
-      ...replies.map((r) =>
-        button(r === 'carry_on' ? 'Carry on' : 'Skip', () => void answerAsk(a.askId, r), {
-          primary: r === 'carry_on',
-        }),
-      ),
-      button('Stop', () => void answerAsk(a.askId, 'stop')),
+      needsYou ? hfosLink(NEEDS_YOU_LINK, needsYou) : null,
+      button('Stop', () => void stopAsk(a.askId)),
     ),
   );
 }

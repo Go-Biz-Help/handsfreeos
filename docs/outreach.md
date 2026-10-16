@@ -384,11 +384,12 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   open. Last seen 2:14 PM." While it's shown, the tab asks again every minute, so a computer still beating never
   looks offline. A warning stops the day there too and pushes to the person's phone once that day. Owners
   and admins see each person's status, computer, counts and how many wait, never their lines or messages.
-- **Waiting for you** (decisions 40 and 42, `/a/outreach?view=waiting`, `waiting.ts`, `waiting-words.ts`,
+- **Waiting for you** (decisions 40, 42 and 72, `/a/outreach?view=waiting`, `waiting.ts`, `waiting-words.ts`,
   `ops/waiting.ts`, `ops/needs.ts`, the web's `waiting-view.tsx`, the worker's `waiting.ts`, the extension's
-  `src/hfos/waiting.ts` and `src/panel/waiting.ts`): one list of everything waiting for the person, worked out each
-  time (`outreach.waiting`), the same on the web's third tab, in the extension's panel after **Right now**, and as the
-  number on its icon. **Your computer needs you** (an ask with a step handed to the person, below, with **Carry on**, **Skip** and
+  `src/hfos/waiting.ts` and `src/panel/needs.ts`): one list of everything waiting for the person, worked out each
+  time (`outreach.waiting`), the same as **Needs you** on Today, on the web and the phone. The extension's panel no
+  longer lists it (decision 72, replacing the list in the panel that decisions 42 and 59 gave it): it says how many
+  things need the person in one line under Next up, with a link to Needs you, and the number is on its icon. **Your computer needs you** (an ask with a step handed to the person, below, with **Carry on**, **Skip** and
   **Stop**); **Replies handed over to you** (each waits for an OK of its own); **Messages to OK**, with **Approve all**,
   which leaves a reply handed over or one to someone who needs the person; **Steps it needs you for**, a step the
   extension couldn't do there and then (a button or box it couldn't find, a different page, Facebook not taking it, a
@@ -397,8 +398,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
   in their working hours ("5 messages wait for your OK", the default), or one for each; a reply handed over pushes at
-  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens the
-  side panel, or Waiting for you in HandsFreeOS.
+  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens
+  Needs you in HandsFreeOS in a tab (`outreachPath(…, 'waiting')`, at `#needs-you`), never the side panel (decision
+  72).
 - **Asking the extension** (decision 43, `asks.ts`, `ops/asks.ts`, `addon_outreach.asks`, the web's `asks.tsx`, the
   worker's `asks.ts`, the extension's `src/asks/run.ts` and `src/hfos/asks.ts`): what needs the browser is asked of
   the person's working computer from the app. The buttons on the Friends, Groups, Chats and Today tabs (and the
@@ -412,7 +414,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   connection). Each shows live under its button and in the Live tab's **Asked of your computer**, with **Stop**
   (`outreach.ask.cancel`). A step it can't find is handed to the person: the tab comes to the front, Chrome pops up,
   their phone hears "Your computer needs you", and Waiting for you lists it, with **Carry on** and, for someone
-  ticked, **Skip** (`outreach.ask.reply`), from the web, the panel or Waiting for you. A day with no computer on lets
+  ticked, **Skip** (`outreach.ask.reply`), pressed on the web or the phone; the extension hears the answer on the
+  live channel, or with its next look every 20 seconds. Its panel says what to do and to press Carry on in
+  HandsFreeOS → Needs you, with a link there, and keeps only **Stop** (decision 72). A day with no computer on lets
   an ask go; Chrome closing mid-way ends it as lost; half an hour with no answer stops it. Asks are kept a week.
 - **On the phone** (decision 44, `apps/mobile/src/addons/outreach/`, `words.ts`, `views/waiting.ts`): one item
   under More, **Social Outreach**, saying how many messages wait for the person's OK, opens the add-on's own screen:
@@ -545,7 +549,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | Messages on their own, and training wheels               | `sends.ts`, `ops/sends.ts`, `supabase/migrations/20261027001300_outreach_sends.sql`                                                                                                                                                                                                 |
 | Waiting for you, and steps it needs you for              | `waiting.ts`, `waiting-words.ts` (no zod of its own), `ops/waiting.ts`, `ops/needs.ts`, `supabase/migrations/20261027001600_outreach_waiting.sql`                                                                                                                                   |
 | Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                                                                                                                                                       |
-| The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                                                                                                                                                   |
+| The icon's number, the panel's line, and the pop-ups     | `apps/extension/src/hfos/waiting.ts`, `src/hfos/needs-you.ts`, `src/panel/needs.ts`, `src/background.ts`                                                                                                                                                                            |
 | Lists first, before the day (decision 60)                | `lists.ts`, `ops/lists.ts`, `apps/extension/src/auto/lists.ts`, `src/jobs/people.ts`, `src/jobs/groups.ts`, `src/jobs/groups-check.ts`, the web's `pre-day-list.tsx`, `supabase/migrations/20261027002800_outreach_list_saves.sql`, `20261027002830_outreach_list_saves_groups.sql` |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                                              |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
@@ -560,7 +564,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | The setup, in HandsFreeOS                                | `setup.ts`, `ops/setup.ts`, `apps/web/src/addons/outreach/setup-view.tsx`, `extension-link.tsx`, `/a/outreach/setup`                                                                                                                                                                |
 | The extension's first run, and the setup's table         | `apps/extension/src/hfos/setup.ts`, `supabase/migrations/20261027001900_outreach_setup.sql`                                                                                                                                                                                         |
 | How the AI writes, and a message as a few texts          | `voice.ts`, `today.ts` (`checkedDrafts`), `apps/worker/src/addons/outreach/today.ts`, `apps/extension/src/auto/run.ts`, `supabase/migrations/20261027002600_outreach_voice.sql`                                                                                                     |
-| The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`, `apps/extension/src/panel/waiting.ts`                                                                              |
+| The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`                                                                                                                     |
 | Don’t pitch covering a person kept twice                 | `ops/common.ts` (`neverTwins`, `pitchable`), `supabase/migrations/20261027002500_outreach_dont_pitch_twins.sql`                                                                                                                                                                     |
 | Start fresh                                              | `apps/web/src/addons/outreach/start-fresh.tsx`, core’s `addon.start_fresh`, `apps/extension/src/hfos/follow.ts` (`forgetOnFreshStart`)                                                                                                                                              |
 | The extension                                            | `apps/extension`                                                                                                                                                                                                                                                                    |
@@ -745,7 +749,8 @@ than a store extension, and for more features, and answered the questions the sa
     (c) **Approve all** each morning. Choosing (b) starts training wheels. Built: off and the steps of (a) in automation part 1;
     messages in automation part 3 (`packages/core/src/addons/outreach/sends.ts`). With any choice but off, the extension looks
     each person up and drafts their first message, follow-up or reply with the AI, which waits as "I'd send this" in
-    the panel and on Today: **Send** (changed or not), **Skip** (off the list for today), or **Approve all**. With
+    the panel (replaced by decision 72: in HandsFreeOS only) and on Today: **Send** (changed or not), **Skip** (off
+    the list for today), or **Approve all**. With
     (c) it drafts the day's messages first thing, before the other steps; with (a) after them. With (b), once the
     training wheels are off, a first message or follow-up goes as it is. What's OK'd, the extension sends in
     Messenger, in the chat when HandsFreeOS knows it, else from their profile's **Message**, at a person's pace, and
@@ -835,7 +840,9 @@ showing what's going on and prompting, the app and the phone live too, and answe
     **Right now** since settings part 4, the number on its icon, and pop-ups bundled as the phone's pushes are); "what it needs the person for" is a step the
     extension couldn't do there and then. Built on the phone too (settings part 5), on the same operations, its messages kept
     on the phone. The owner confirmed (10 October) that **Approve all** leaves out replies handed over and messages to
-    someone who needs the person: each waits for an OK of its own.
+    someone who needs the person: each waits for an OK of its own. The list in the extension's panel is replaced by
+    decision 72: the list is on the web and the phone only, and the extension keeps the number on its icon, the
+    pop-ups (which open it in HandsFreeOS) and a line in its panel saying how many things wait there.
 43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
     in the app; what needs the browser is started there and done by the extension. More can be added later. Built
     (settings part 4): the panel keeps signing in with the business picker, **Right now** (what it's doing, the next step, why
@@ -843,7 +850,9 @@ showing what's going on and prompting, the app and the phone live too, and answe
     and **Stop for today**, and an ask under way with **Carry on**, **Skip** and **Stop**), **Waiting for you**, and
     **Open HandsFreeOS**; the page outline stays, folded away in its footer. The rest is asked from the app's Friends,
     Groups, Chats and Today tabs (`asks`, **Asking the extension** above), and the phone's Groups and Chats screens
-    (settings part 5), and reading as the person goes moved into the Facebook tab itself.
+    (settings part 5), and reading as the person goes moved into the Facebook tab itself. Waiting for you in the panel,
+    and Carry on and Skip on the ask under way, are replaced by decision 72: the ask keeps only **Stop**, and a step
+    handed over says to press Carry on in HandsFreeOS → Needs you.
 44. **The whole add-on on the phone,** as one item under More: settings, Waiting for you (which works offline and
     sends when back online), the live view, Today, Groups, Chats, and Playbooks with editing. Built (settings part 5):
     Waiting for you's messages reach phones through records_v1's sealed arm, as rows of `addon_phone_rows` kept to
@@ -907,7 +916,8 @@ defaults, a few texts on to start), the choice made is said, for the owner to ch
     place and by username in another, so the same friend was kept twice, and only one was on the list. Don't pitch now
     covers a profile kept under the same name on the same network. Built.
 52. **See the chat so far when a message waits for an OK,** to know where it's going: its latest messages as chat
-    bubbles above it, on Today and Waiting for you on the web, the phone and the extension's panel. Built.
+    bubbles above it, on Today and Waiting for you on the web, the phone and the extension's panel. Built. The
+    extension's panel is replaced by decision 72: no message waits there, so it shows no chat bubbles.
 53. **The AI writes plainly:** everyday words a 10-year-old knows, short sentences, relaxed, and never a long dash.
     Each person picks their voice on the Settings tab (and in the setup's settings step), with a sample of how a
     message reads: short forms like "u" and "thx", text acronyms like "lol" and "btw", an emoji now and then, all off
@@ -960,6 +970,8 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
       in; **Next up** with today's steps as bars and Start or Stop; **Needs you**; **Done today**, the newest steps
       (both from `outreach.live`); and at the foot the settings line, who's signed in, Open HandsFreeOS and
       **Something look wrong on this page? Tell us**. Pushes and pop-ups say Today where they said Waiting for you.
+      The panel's **Needs you** is replaced by decision 72: a line under Next up says how many things need the
+      person in HandsFreeOS, with a link to Needs you there.
 
     Built.
 
@@ -1101,6 +1113,27 @@ code" (decision 45's install step). Settled too:
     unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
     Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
     signed in. A business's own link (**Where your team gets the extension**) still wins when it gives one. Built.
+
+The owner decided on 16 Oct 2026: "Get rid of the Needs you and chats on the extension. We should only see progress,
+activity, stuff like that on the extension. Everything else is shown in the HFOS web app." That replaces the parts of
+decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the extension's panel. Settled too:
+
+72. **The extension shows progress and activity only** (Chris, 16 Oct 2026). The panel keeps signing in, Next up
+    (what it's doing or does next, today's steps against the limits, **Start my day** and **Stop for today**), each
+    network's line (**Allow on LinkedIn**, its warnings, its runner's line), **Done today**, the settings line, the
+    link to HandsFreeOS, and **Copy page outline** and **Save page outline**. Needs you is on the web and the phone
+    alone: no message to OK, chat so far, reply, step to do or friend request is listed or answered in the panel.
+    - **A line under Next up** while anything waits: "3 things need you in HandsFreeOS" ("1 thing needs you…" for
+      one), a link to Needs you on Today (`outreachPath(…, 'waiting')`, at `#needs-you`); nothing when none wait. Its
+      count is the icon's, from `outreach.waiting`.
+    - **An ask under way** keeps its line and **Stop**. A step it hands the person says what to do, then to press
+      Carry on (and Skip, for someone ticked) in HandsFreeOS → Needs you, with a link there; Carry on and Skip are
+      pressed on the web or the phone (`outreach.ask.reply`), and the extension hears the answer on the live channel
+      or with its next look.
+    - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
+      HandsFreeOS in a tab, never the side panel.
+
+    Built: the extension is 0.44.0.
 
 ## Rules worth knowing before changing anything
 
@@ -1369,11 +1402,13 @@ code" (decision 45's install step). Settled too:
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end
   gets the first answer, and one sent after a Stop leaves it stopped.
-- **The panel shows; HandsFreeOS decides.** Nothing is saved from the panel: the people reached are kept as profiles
-  by noting, and Add to Contacts, Demo booked, Keep and Don't pitch are in the app (Keep on the web's Friends tab). The panel's only presses are
-  signing in and the business picker, Start my day and Stop for today, Waiting for you's, Carry on, Skip and Stop on
-  an ask under way, **Open HandsFreeOS**, and **Copy page outline** and **Save page outline** (folded under **Page
-  read wrong?**).
+- **The panel shows; HandsFreeOS decides** (decision 72: progress and activity only). Nothing is saved from the
+  panel: the people reached are kept as profiles by noting, and Add to Contacts, Demo booked, Keep and Don't pitch are
+  in the app (Keep on the web's Friends tab). The panel's only presses are signing in and the business picker, Start
+  my day and Stop for today, **Allow on LinkedIn**, **Stop** on an ask under way, its links into HandsFreeOS (Needs
+  you's among them), and **Copy page outline** and **Save page outline** (folded under **Something look wrong on this
+  page? Tell us**). Nothing waiting is answered there: Send, Edit, Skip, Approve all, I did it, Let it go, Leave it
+  and an ask's Carry on are pressed on the web or the phone.
 - **Offline is worked out by whoever shows it:** no beat for 3 minutes (`OFFLINE_MINUTES`), on the server's clock
   (`live.now`), so the note shows with no event. A heartbeat tells nobody, so the Live tab asks again every minute
   while it's shown (`LIVE_REFETCH_SECONDS`) to keep the last-seen time moving.
@@ -1417,9 +1452,9 @@ code" (decision 45's install step). Settled too:
   (`outreach_send_okd_since`); an OK that waited finds nothing to OK once the message was skipped meanwhile, and the
   phone's Approve all (`partial`) passes over those.
 - **Approve all leaves what needs the person** (`oneByOne`): a reply handed over (`handedOver`) and a message to
-  someone who needs them (`needsYou`) each wait for an OK of their own, on Today, in the panel and in Waiting for you.
-  Today's button counts only what it OKs; the web's and the panel's Waiting for you say the same number
-  (`approveAllCount`). The server holds to it, whatever the client: `outreach.send.approve` with none named, or with
+  someone who needs them (`needsYou`) each wait for an OK of their own, on Today and in Waiting for you.
+  Today's button counts only what it OKs; the web's Waiting for you says the same number (`approveAllCount`). The
+  server holds to it, whatever the client: `outreach.send.approve` with none named, or with
   `partial` (the phone's Approve all, any build), passes over them, and one named among others is refused
   (`outreach_send_one_by_one`); only one named alone, without `partial`, is OK'd.
 - **A need is a step the extension couldn't do there and then** (`needs`, `openNeed`): a button or box it couldn't

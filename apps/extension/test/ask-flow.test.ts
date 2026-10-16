@@ -286,6 +286,41 @@ describe('an ask from taking it to its end', () => {
     ]);
   });
 
+  it.each(['carry_on', 'skip'] as const)(
+    'takes %s for a step it handed over, pressed in HandsFreeOS’s Needs you, never the panel',
+    async (pressed) => {
+      // The step waits on a look every 20 seconds; that timer ends with the test.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        let got: unknown = null;
+        ending = async (j) => {
+          got = await j.handOver!('Couldn’t find that step on the page. Then press Carry on.');
+          return { line: 'Read 3 chats.', warned: false };
+        };
+        // Pressed on the web or the phone: the look's answer has it (outreach.ask.reply keeps it there).
+        answers['/v1/commands/outreach.ask.progress'] = (body) => ({
+          status: 200,
+          data: { cancelled: false, reply: body.state === 'stuck' ? pressed : null },
+        });
+        const { running } = await start();
+        letGo!();
+        await running;
+        expect(got).toBe(pressed);
+        const states = posted
+          .filter((p) => p.path === '/v1/commands/outreach.ask.progress')
+          .map((p) => p.body.state);
+        // Taken, handed over, then on again once the answer came.
+        expect(states).toEqual(['working', 'stuck', 'working']);
+        // The extension says nothing of its own about the answer: HandsFreeOS has it already.
+        expect(posted.some((p) => p.path === '/v1/commands/outreach.ask.reply')).toBe(false);
+        expect(ends()).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+      } finally {
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it('ends on a Facebook warning kept while it goes, from any tab', async () => {
     const { running } = await start();
     expect(job!.stopped()).toBe(false);

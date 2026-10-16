@@ -1,7 +1,8 @@
 'use client';
 /**
- * Needs you, at the top of Social Outreach's Today (docs/outreach.md, decisions 40, 42 and 59): everything waiting for
- * the person, in one list, the same as the extension's panel and the number on its icon (packages/core/src/addons/outreach/waiting.ts):
+ * Needs you, at the top of Social Outreach's Today (docs/outreach.md, decisions 40, 42, 59 and 72). The extension only
+ * counts it, on its icon and in a line in its panel, which links here at `#needs-you` as its pop-ups do, so the
+ * heading keeps that id. Everything waiting for the person, in one list (packages/core/src/addons/outreach/waiting.ts):
  *
  * - **Your computer needs you**: something asked of it from here hit a step it couldn't find, or Facebook wants a
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
