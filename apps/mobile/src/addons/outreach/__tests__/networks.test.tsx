@@ -2,11 +2,12 @@ import {
   AUTOMATION_DEFAULTS,
   NETWORKS_DEFAULTS,
   type AutomationOutput,
+  type AutomationSettings,
 } from '@hfos/core/addons/outreach/automation';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
 import { LiveStrip } from '../hub';
@@ -19,7 +20,7 @@ import { id, ME, TZ } from './mocks';
  * Each network on the phone (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Build order" step 3): Today's strip
  * a row for each network with its own Start my day, the list in its network's words, the network on each row of the
  * pipeline with a filter, and LinkedIn turned on in My settings with choices of its own, inside what the business
- * allows.
+ * allows: a network's switch saves at once, on its own (Chris, 2026-10-16), and its choices wait for Save.
  */
 
 jest.mock('expo-router', () => ({
@@ -296,8 +297,18 @@ const settingsProps = () => ({
   online: true,
   onRetry: jest.fn(),
   onWhose: jest.fn(),
-  onSaveMine: jest.fn(async () => null),
+  onSaveMine: jest.fn(
+    async (_settings: AutomationSettings, _options?: { quiet?: boolean }): Promise<string | null> =>
+      null,
+  ),
   onSaveBusiness: jest.fn(async () => null),
+});
+
+/** The defaults with LinkedIn turned on or off, and any other change. */
+const withLinkedIn = (on: boolean, more: Partial<AutomationSettings> = {}): AutomationSettings => ({
+  ...AUTOMATION_DEFAULTS,
+  ...more,
+  networks: { ...NETWORKS_DEFAULTS, linkedin: { ...NETWORKS_DEFAULTS.linkedin, on } },
 });
 
 describe('Networks in My settings on the phone', () => {
@@ -307,21 +318,120 @@ describe('Networks in My settings on the phone', () => {
     // Off to start: nothing of LinkedIn's shows until it's on.
     expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
+    // The switch saves at once, on its own.
+    expect(p.onSaveMine).toHaveBeenCalledTimes(1);
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true), { quiet: true });
     expect(
       screen.getByText(
         'Invitations to connect, likes and comments on their own; each message waits for one tap',
       ),
     ).toBeTruthy();
     expect(screen.getByText('Accept invitations from people who fit a playbook')).toBeTruthy();
+    // Its choices wait for Save.
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-sending-steps'));
+    expect(p.onSaveMine).toHaveBeenCalledTimes(1);
     await fireEvent.press(screen.getByTestId('settings-my-save'));
-    expect(p.onSaveMine).toHaveBeenCalledWith({
+    expect(p.onSaveMine).toHaveBeenLastCalledWith({
       ...AUTOMATION_DEFAULTS,
       networks: {
         ...NETWORKS_DEFAULTS,
         linkedin: { ...NETWORKS_DEFAULTS.linkedin, on: true, sending: 'steps' },
       },
     });
+  });
+
+  it('saves a network’s switch at once with only that change, never the form’s other edits', async () => {
+    const p = settingsProps();
+    await render(<SettingsBody automation={AUTOMATION} {...p} />);
+    // An edit not saved yet: the day's report turned off.
+    await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
+    // Only LinkedIn, on what's kept: the day's report isn't saved with it.
+    expect(p.onSaveMine).toHaveBeenCalledTimes(1);
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true), { quiet: true });
+    expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
+      'LinkedIn is on. The extension picks it up in a few seconds.',
+    );
+    // The form takes the switch too, its other edit as it was, still to save.
+    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeChecked();
+    expect(screen.getByTestId('settings-my-dayReport')).not.toBeChecked();
+    expect(screen.getByTestId('settings-my-save')).toBeEnabled();
+    // Save then keeps everything in the form, the switch's change with it.
+    await fireEvent.press(screen.getByTestId('settings-my-save'));
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true, { dayReport: false }));
+    // The next switch starts from what Save kept.
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(false, { dayReport: false }), {
+      quiet: true,
+    });
+    expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
+      /^LinkedIn is off\.$/,
+    );
+    expect(screen.getByTestId('settings-my-save')).toBeDisabled();
+  });
+
+  it('keeps the form’s other edits when the switch’s save comes back, and starts again when saved elsewhere', async () => {
+    const p = settingsProps();
+    const { rerender } = await render(<SettingsBody automation={AUTOMATION} {...p} />);
+    await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
+    // Asked again after the switch's save: what's kept is the switch's change, and the form's edit stays.
+    await rerender(
+      <SettingsBody automation={{ ...AUTOMATION, settings: withLinkedIn(true) }} {...p} />,
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeChecked();
+    expect(screen.getByTestId('settings-my-dayReport')).not.toBeChecked();
+    expect(screen.getByTestId('settings-my-save')).toBeEnabled();
+    // Saved somewhere else (the web, an owner): the form starts again from what's kept.
+    await rerender(
+      <SettingsBody
+        automation={{ ...AUTOMATION, settings: withLinkedIn(false, { pushes: 'each' }) }}
+        {...p}
+      />,
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeChecked();
+    expect(screen.getByTestId('settings-my-dayReport')).toBeChecked();
+    expect(screen.getByTestId('settings-my-save')).toBeDisabled();
+    // The next switch starts from that.
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true, { pushes: 'each' }), {
+      quiet: true,
+    });
+  });
+
+  it('keeps the switch busy while it saves, then puts it back and says why when it can’t be saved', async () => {
+    const p = settingsProps();
+    const refusal =
+      'Your business doesn’t use LinkedIn for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.';
+    let answer: (problem: string | null) => void = () => undefined;
+    p.onSaveMine.mockImplementationOnce(
+      () =>
+        new Promise<string | null>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    await render(<SettingsBody automation={AUTOMATION} {...p} />);
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
+    // While it saves: busy, and nothing else saves over it.
+    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeBusy();
+    expect(screen.getByTestId('settings-networks-facebook-on')).toBeDisabled();
+    expect(screen.getByTestId('settings-my-save')).toBeDisabled();
+    await act(async () => answer(refusal));
+    // Put back, with the server's words beside it.
+    expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeChecked();
+    expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeBusy();
+    expect(screen.getByTestId('settings-networks-linkedin-problem')).toHaveTextContent(refusal);
+    expect(screen.queryByTestId('settings-networks-linkedin-saved')).toBeNull();
+    expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
+  });
+
+  it('needs signal to flip a network’s switch, as Save does', async () => {
+    await render(<SettingsBody automation={AUTOMATION} {...settingsProps()} online={false} />);
+    expect(
+      screen.getByText('Settings needs signal. Try again when you’re back online.'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeDisabled();
+    expect(screen.getByTestId('settings-networks-facebook-on')).toBeDisabled();
   });
 
   it('says why a network the business doesn’t use can’t be turned on, and who can change it', async () => {

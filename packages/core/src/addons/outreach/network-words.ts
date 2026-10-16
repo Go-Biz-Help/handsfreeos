@@ -300,6 +300,12 @@ export const NETWORK_WORDS = {
   facebookChoices: 'What it does on Facebook is set in your main settings.',
   /** A network that's off for the person. */
   off: (name: string) => `${name} is off for you: nothing runs, reads or shows there.`,
+  /**
+   * Beside a network's switch in My settings once its save is done: the switch saves at once, on its own (Chris,
+   * 2026-10-16), while its choices wait for Save.
+   */
+  switched: (name: string, on: boolean) =>
+    on ? `${name} is on. The extension picks it up in a few seconds.` : `${name} is off.`,
   /** A network the business doesn't use: why, and who can change it. */
   notAllowed: (name: string, manages: boolean) =>
     `Your business doesn’t use ${name} for outreach. ${

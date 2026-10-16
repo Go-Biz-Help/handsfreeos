@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { api, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
@@ -19,6 +20,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   anyone from it.
  * - A first-timer is sent to the setup, which remembers where they got to, says what's left to get ready, ticks when the
  *   extension signs in, and can be done again from Settings.
+ * - A network's switch in My settings saves at once, with only that change (Chris, 2026-10-16); its choices and the
+ *   rest of the form wait for Save, and a switch that can't be saved goes back, saying why.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -711,4 +714,90 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   await expect(page.getByTestId('outreach-setup-banner')).toHaveCount(0);
   await page.getByTestId('outreach-setup-again-open').click();
   await expect(setup).toHaveAttribute('data-screen', 'playbooks');
+});
+
+test('a network’s switch in My settings saves at once with only that change, and its choices wait for Save', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-switch');
+  const workspaceId = await createBusiness(page, { name: 'Birch Road Bikes' });
+  await turnOnOutreach(page, email, workspaceId);
+  const { token } = await signInOwner(email);
+  type Kept = {
+    dayReport: boolean;
+    networks: Record<'facebook' | 'linkedin', { on: boolean; sending: string }>;
+  };
+  const kept = async () =>
+    (await api<{ settings: Kept }>(token, 'queries', 'outreach.automation', { workspaceId }))
+      .settings;
+  const isSave = (url: string, method: string) =>
+    method === 'POST' && url.endsWith('/v1/commands/outreach.automation.save');
+
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  const linkedIn = page.getByTestId('outreach-my-networks-linkedin-on');
+  const dayReport = page.getByTestId('outreach-my-dayReport');
+  await expect(linkedIn).toHaveAttribute('aria-checked', 'false');
+
+  // An edit not saved yet: the day's report turned off.
+  await dayReport.uncheck();
+
+  // LinkedIn on saves at once, with only that change: the day's report isn't saved with it.
+  const switched = page.waitForRequest((r) => isSave(r.url(), r.method()));
+  await linkedIn.click();
+  const sent = (await switched).postDataJSON() as { settings: Kept };
+  expect(sent.settings.networks.linkedin.on).toBe(true);
+  expect(sent.settings.dayReport).toBe(true);
+  await expect(page.getByTestId('outreach-my-networks-linkedin-saved')).toHaveText(
+    'LinkedIn is on. The extension picks it up in a few seconds.',
+  );
+  expect(await kept()).toMatchObject({ dayReport: true, networks: { linkedin: { on: true } } });
+  // The form keeps the switch and its other edit, still to save.
+  await expect(linkedIn).toHaveAttribute('aria-checked', 'true');
+  await expect(dayReport).not.toBeChecked();
+  await expect(page.getByTestId('outreach-my-save')).toBeEnabled();
+
+  // LinkedIn's choices wait for Save, which keeps the rest of the form with them.
+  await page.getByTestId('outreach-my-networks-linkedin-sending-steps').click();
+  expect((await kept()).networks.linkedin.sending).toBe('off');
+  const saved = page.waitForResponse((r) => isSave(r.url(), r.request().method()));
+  await page.getByTestId('outreach-my-save').click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.getByTestId('outreach-my-save')).toBeDisabled();
+  expect(await kept()).toMatchObject({
+    dayReport: false,
+    networks: { linkedin: { on: true, sending: 'steps' } },
+  });
+
+  // A switch that can't be saved goes back, with the server's words beside it: here, sent for someone who isn't in
+  // the business.
+  const save = '**/v1/commands/outreach.automation.save';
+  await page.route(save, (route) => {
+    const r = route.request();
+    if (r.method() !== 'POST') return route.continue();
+    const body = r.postDataJSON() as Record<string, unknown>;
+    return route.continue({ postData: JSON.stringify({ ...body, userId: randomUUID() }) });
+  });
+  await linkedIn.click();
+  await expect(page.getByTestId('outreach-my-networks-linkedin-problem')).toContainText(
+    'can’t use Social Outreach in this business',
+  );
+  await expect(linkedIn).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('outreach-my-networks-linkedin-saved')).toHaveCount(0);
+  await page.unroute(save);
+  expect((await kept()).networks.linkedin.on).toBe(true);
+
+  // Off, then: saved at once, and kept after a reload, with what Save kept.
+  await linkedIn.click();
+  await expect(page.getByTestId('outreach-my-networks-linkedin-saved')).toHaveText(
+    'LinkedIn is off.',
+  );
+  await expect(page.getByTestId('outreach-my-networks-linkedin-problem')).toHaveCount(0);
+  await page.reload();
+  await expect(linkedIn).toHaveAttribute('aria-checked', 'false');
+  await expect(dayReport).not.toBeChecked();
+  expect(await kept()).toMatchObject({
+    dayReport: false,
+    networks: { linkedin: { on: false, sending: 'steps' } },
+  });
 });

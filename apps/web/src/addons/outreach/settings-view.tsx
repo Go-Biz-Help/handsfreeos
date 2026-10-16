@@ -6,7 +6,8 @@
  * - **My settings:** the networks the person works, each other network's own choices under it (the same choices as
  *   Facebook's, off to start), what the extension does for them on Facebook on its own, its switches, how their phone
  *   hears what waits, and their working hours (`outreach.automation.save`). Only the choices the business allows show;
- *   a network it doesn't allow says why, and who can change that.
+ *   a network it doesn't allow says why, and who can change that. A network's switch saves at once, on its own (Chris,
+ *   2026-10-16); everything else waits for Save.
  * - **Someone else's:** owners and admins pick a person to see or change theirs; the person sees who did.
  * - **Business settings:** owners and admins set the choices people may pick, the networks the team may use and
  *   each one's daily limits under its starting ones, where a new person starts, where the team downloads the extension (./extension-link.tsx), and the business's
@@ -72,7 +73,7 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioCard } from '@/components/ui/radio-card';
 import { Switch } from '@/components/ui/switch';
-import { apiBrowser, unwrap } from '@/lib/api/client';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { ChatBubbles } from './chat-bubbles';
@@ -402,6 +403,13 @@ const wheelsOf = (me: Automation, platform: Platform): WheelsState =>
     ? me.networkWheels[platform as OtherPlatform]
     : me.wheels;
 
+/** Beside a network's switch once its save is done: that it's saved, or the server's words. */
+export interface SwitchSaid {
+  readonly platform: Platform;
+  readonly ok: boolean;
+  readonly words: string;
+}
+
 /**
  * The networks the person works (Chris: each person turns networks on, inside what the business allows), each with its
  * switch. Under any other network, its own choices, the same as Facebook's and off to start, and its own training
@@ -413,6 +421,10 @@ export function NetworksPart({
   me,
   manages,
   choices = true,
+  onSwitch,
+  switching = null,
+  saving = false,
+  said = null,
   testId,
 }: {
   value: AutomationSettings;
@@ -423,6 +435,17 @@ export function NetworksPart({
   manages: boolean;
   /** Each other network's choices under its switch: the setup's step has the switches alone. */
   choices?: boolean;
+  /**
+   * My settings: a network's switch saves at once, on its own (Chris, 2026-10-16), so flipping one calls this instead
+   * of only changing the form. The setup's step leaves it out: its Next saves.
+   */
+  onSwitch?: (platform: Platform, on: boolean) => void;
+  /** The network whose switch is saving. */
+  switching?: Platform | null;
+  /** A save is running: every switch waits for it, so one never undoes another. */
+  saving?: boolean;
+  /** Beside a switch, once its save is done. */
+  said?: SwitchSaid | null;
   testId: string;
 }) {
   const allowed = me.rules.networksAllowed;
@@ -444,12 +467,22 @@ export function NetworksPart({
                 <span className="text-[14px] font-semibold">{name}</span>
                 <Switch
                   checked={on}
-                  onChange={(next) => set({ on: next })}
+                  onChange={(next) => (onSwitch ? onSwitch(p, next) : set({ on: next }))}
                   label={name}
-                  disabled={!may}
+                  disabled={!may || saving}
+                  busy={switching === p}
                   testId={`${testId}-${p}-on`}
                 />
               </div>
+              {said?.platform === p ? (
+                <p
+                  role={said.ok ? 'status' : 'alert'}
+                  className={`text-[13px] ${said.ok ? 'text-success-text' : 'text-danger-text'}`}
+                  data-testid={`${testId}-${p}-${said.ok ? 'saved' : 'problem'}`}
+                >
+                  {said.words}
+                </p>
+              ) : null}
               {!may ? (
                 <p className="text-[13px] text-text-2" data-testid={`${testId}-${p}-not-allowed`}>
                   {NW.notAllowed(name, manages)}
@@ -511,9 +544,49 @@ function MySettings({
   me: Automation;
   manages: boolean;
 }) {
+  const router = useRouter();
   const [value, setValue] = useState<AutomationSettings>(me.settings);
+  // The page's copy of what's kept. A network's switch saves on it, so the form's other edits never go with the switch;
+  // after it, the next switch and Save start from what the switch kept.
+  const [saved, setSaved] = useState<AutomationSettings>(me.settings);
+  const [kept, setKept] = useState<AutomationSettings>(me.settings);
+  const [switching, setSwitching] = useState<{
+    platform: Platform;
+    next: AutomationSettings;
+  } | null>(null);
+  const [said, setSaid] = useState<SwitchSaid | null>(null);
   const { busy, act } = useAct();
   const theirs = me.userId;
+  // The page drawn again with what's kept. Saved somewhere else (Save, another screen, an owner): the form starts again
+  // from it. A switch's own save coming back leaves the form's other edits as they are.
+  if (!same(kept, me.settings)) {
+    setKept(me.settings);
+    setSaved(me.settings);
+    if (!same(me.settings, saved) && !same(me.settings, switching?.next)) setValue(me.settings);
+  }
+  /** A network's switch saves at once: only that change, on what's kept (Chris, 2026-10-16). */
+  const flip = async (platform: Platform, on: boolean) => {
+    const next = withNetwork(saved, platform, { on });
+    setValue((v) => withNetwork(v, platform, { on }));
+    setSwitching({ platform, next });
+    setSaid(null);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.automation.save', {
+          body: { workspaceId, userId: theirs, settings: next },
+        }),
+      );
+      setSaved(out.settings);
+      setSaid({ platform, ok: true, words: NW.switched(PLATFORMS[platform], on) });
+      router.refresh();
+    } catch (e) {
+      // Put back as it was, saying why in the server's words.
+      setValue((v) => withNetwork(v, platform, { on: !on }));
+      setSaid({ platform, ok: false, words: errorMessage(e) });
+    } finally {
+      setSwitching(null);
+    }
+  };
   return (
     <>
       {me.changedBy ? (
@@ -526,6 +599,10 @@ function MySettings({
         onChange={setValue}
         me={me}
         manages={manages}
+        onSwitch={(platform, on) => void flip(platform, on)}
+        switching={switching?.platform ?? null}
+        saving={switching !== null || busy !== null}
+        said={said}
         testId="outreach-my-networks"
       />
       {me.wheels.on ? (
@@ -545,16 +622,20 @@ function MySettings({
       ) : null}
       <Button
         size="sm"
-        disabled={(same(value, me.settings) && me.saved) || busy !== null}
+        disabled={(same(value, saved) && me.saved) || busy !== null || switching !== null}
         onClick={() =>
           void act(
             'save',
-            async () =>
-              unwrap(
+            async () => {
+              const out = unwrap(
                 await apiBrowser().POST('/v1/commands/outreach.automation.save', {
                   body: { workspaceId, userId: theirs, settings: value },
                 }),
-              ),
+              );
+              // What's kept now, at once: the next switch starts from it.
+              setSaved(out.settings);
+              setValue(out.settings);
+            },
             W.savedFollows,
           )
         }
@@ -854,8 +935,9 @@ export function SettingsView({
       ) : null}
       <Section id="mine" title={mine ? W.mySettings : W.settingsOf(me.name)}>
         <MySettings
-          // Saved somewhere else: the form starts again from what's kept.
-          key={`${me.userId}:${JSON.stringify(me.settings)}:${me.changedBy ?? ''}`}
+          // A form for each person. Saved somewhere else, it starts again from what's kept by itself, so a network
+          // switch's own save doesn't lose the form's other edits.
+          key={me.userId}
           workspaceId={workspaceId}
           me={me}
           manages={business !== null}

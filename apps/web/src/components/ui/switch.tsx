@@ -3,13 +3,14 @@ import { cn } from '@/lib/utils';
 
 /**
  * For settings that save the moment they are flipped. The visible label sits beside it in the row; `label`
- * names it for screen readers and on hover.
+ * names it for screen readers and on hover. `busy` while its save runs: it can't be flipped again until it's done.
  */
 export function Switch({
   checked,
   onChange,
   label,
   disabled,
+  busy = false,
   className,
   testId,
 }: {
@@ -17,6 +18,7 @@ export function Switch({
   onChange: (next: boolean) => void;
   label: string;
   disabled?: boolean;
+  busy?: boolean;
   className?: string;
   testId?: string;
 }) {
@@ -27,12 +29,14 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       title={label}
-      disabled={disabled}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
       onClick={() => onChange(!checked)}
       data-testid={testId}
       className={cn(
         'relative inline-flex h-5 w-9 flex-none rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
         checked ? 'bg-accent' : 'bg-border-strong',
+        busy && 'animate-pulse disabled:cursor-wait',
         className,
       )}
     >

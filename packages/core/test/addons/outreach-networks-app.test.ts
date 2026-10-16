@@ -29,6 +29,7 @@ import { dayWords } from '../../src/addons/outreach/live';
 import {
   chatUrlOn,
   dailyWordsOn,
+  NETWORK_WORDS,
   networkShown,
   networksOn,
   networksShown,
@@ -78,6 +79,14 @@ describe('a network’s words on screen', () => {
     expect(chatUrlOn('linkedin', null)).toBeNull();
     expect(shareWords(3, 4)).toBe('75% of first messages');
     expect(shareWords(0, 0)).toBe('');
+  });
+
+  it('says beside a network’s switch that it’s saved, as the switch saves at once', () => {
+    expect(NETWORK_WORDS.switched('LinkedIn', true)).toBe(
+      'LinkedIn is on. The extension picks it up in a few seconds.',
+    );
+    expect(NETWORK_WORDS.switched('LinkedIn', false)).toBe('LinkedIn is off.');
+    expect(NETWORK_WORDS.switched('Facebook', true)).toMatch(/^Facebook is on\./);
   });
 
   it('says a network’s day and its lists first in its words', () => {

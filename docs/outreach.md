@@ -1285,7 +1285,14 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
   - **My settings has a Networks part:** each network with its switch, inside what the business allows; under any
     other network, its own choices (the same as Facebook's, off to start) and its own training wheels, saved through
     `outreach.automation.save`'s `networks`. Facebook's choices stay the settings' own (`choicesFor`, `withNetwork`).
-    A network the business doesn't use is shown off, saying why and who can change that.
+    A network the business doesn't use is shown off, saying why and who can change that. **A network's switch saves
+    at once** (Chris, 2026-10-16), on the web and the phone, for the person's own settings and for an owner or admin
+    changing someone else's: only that change, made on the last saved settings, so the form's other unsaved edits
+    stay in the form and are never saved by it. While it saves, the switch is busy and the other switches and Save
+    wait; once saved, a line beside it says so (`NETWORK_WORDS.switched`: "LinkedIn is on. The extension picks it up
+    in a few seconds."); refused, the switch goes back with the server's words. On the phone it needs signal, as Save
+    does. A network's choices under its switch, and everything else in My settings, save with **Save** at the
+    bottom. The setup's networks step keeps its own Next.
   - **Business settings** allow networks (`networksAllowed`, Facebook always) and set each other network's daily
     limits, each at most the kit's starting one (`networkLimits`).
   - **Today is each network's:** `outreach.live` takes a `platform` and gives that network's day, warning, limits,
