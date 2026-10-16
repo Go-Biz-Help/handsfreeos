@@ -41,6 +41,7 @@ const person = (over: Partial<FriendsOutput['people'][number]> = {}) => ({
   personId: null,
   name: 'Ash Quill',
   url: 'https://www.facebook.com/ash.quill.4',
+  platform: 'facebook' as const,
   state: null,
   since: null,
   keep: false,

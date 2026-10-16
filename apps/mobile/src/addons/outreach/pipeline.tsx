@@ -10,7 +10,8 @@ import {
   type StagesOutput,
   type StageView,
 } from '@hfos/core/addons/outreach/stages';
-import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { chatUrlOn, openChatWords, openPageWords } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
@@ -27,13 +28,15 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
 import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import { NetworkFilter, NetworkName } from './networks';
 import { PersonMenu } from './person-menu';
 
 /**
  * The pipeline on the phone (decision 47), as the web's Pipeline tab: everyone the person reached on Facebook by where
  * they stand, everyone still in play first or one stage at a time, searched by name, Show more for the next page. Each
  * opens in Messenger or on Facebook, and has the marks the web has: ready to pitch, pitched, not a fit, back in play
- * (`outreach.stage.mark`), and the person menu. It needs signal.
+ * (`outreach.stage.mark`), and the person menu. Every network's people, each naming its network, or one network's.
+ * It needs signal.
  */
 
 export const stageViewOf = (show: string | undefined): StageView =>
@@ -46,11 +49,12 @@ export function PipelineScreen({ show, q }: { show?: string; q?: string }) {
   const [search, setSearch] = React.useState(q ?? '');
   const [asked, setAsked] = React.useState(q ?? '');
   const [pages, setPages] = React.useState(1);
+  const [net, setNet] = React.useState<Platform | null>(null);
   React.useEffect(() => {
     const t = setTimeout(() => setAsked(search.trim()), 400);
     return () => clearTimeout(t);
   }, [search]);
-  React.useEffect(() => setPages(1), [view, asked]);
+  React.useEffect(() => setPages(1), [view, asked, net]);
   const answer = useOutreachAnswer(
     async () => {
       const all: StagesOutput[] = [];
@@ -58,14 +62,20 @@ export function PipelineScreen({ show, q }: { show?: string; q?: string }) {
         all.push(
           unwrap(
             await api.POST('/v1/queries/outreach.stages', {
-              body: { workspaceId: ws, view, page, ...(asked ? { search: asked } : {}) },
+              body: {
+                workspaceId: ws,
+                view,
+                page,
+                ...(asked ? { search: asked } : {}),
+                ...(net ? { platform: net } : {}),
+              },
             }),
           ),
         );
       const last = all[all.length - 1]!;
       return { ...last, people: all.flatMap((a) => a.people) };
     },
-    `pipeline:${ws}:${view}:${asked}:${pages}`,
+    `pipeline:${ws}:${view}:${asked}:${pages}:${net ?? 'all'}`,
     W.rows.pipeline,
   );
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -85,6 +95,8 @@ export function PipelineScreen({ show, q }: { show?: string; q?: string }) {
     <PipelineBody
       view={view}
       onView={setView}
+      net={net}
+      onNet={setNet}
       search={search}
       onSearch={setSearch}
       pipeline={answer.data}
@@ -105,6 +117,8 @@ type Person = StagesOutput['people'][number];
 export function PipelineBody({
   view,
   onView,
+  net = null,
+  onNet,
   search,
   onSearch,
   pipeline,
@@ -117,6 +131,9 @@ export function PipelineBody({
 }: {
   view: StageView;
   onView: (v: StageView) => void;
+  /** The network it's narrowed to: null for every network. */
+  net?: Platform | null;
+  onNet?: (net: Platform | null) => void;
   search: string;
   onSearch: (s: string) => void;
   pipeline: StagesOutput | null;
@@ -145,6 +162,7 @@ export function PipelineBody({
           ))}
         </View>
       </ScrollView>
+      {onNet ? <NetworkFilter value={net} onChange={onNet} /> : null}
       <Input
         value={search}
         onChangeText={onSearch}
@@ -160,6 +178,7 @@ export function PipelineBody({
                 <View className="flex-row items-center gap-2">
                   <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
                     <Text className="text-[15px] font-semibold">{p.name}</Text>
+                    <NetworkName platform={p.platform} />
                     <Badge variant={p.stage === 'lost' ? 'gray' : 'accent'}>
                       <Text>{STAGES[p.stage]}</Text>
                     </Badge>
@@ -173,9 +192,9 @@ export function PipelineBody({
                     size="sm"
                     variant="ghost"
                     icon={ExternalLink}
-                    onPress={() => openOutside(messengerChatUrl(p.threadKey) ?? p.url)}
+                    onPress={() => openOutside(chatUrlOn(p.platform, p.threadKey) ?? p.url)}
                   >
-                    {p.threadKey ? W.openInMessenger : W.openOnFacebook}
+                    {p.threadKey ? openChatWords(p.platform) : openPageWords(p.platform)}
                   </Button>
                   {marksFor(p.stage).map((m) => (
                     <Button

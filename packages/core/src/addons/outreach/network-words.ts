@@ -1,0 +1,289 @@
+/**
+ * Social Outreach's networks on screen (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Networks in the app";
+ * docs/outreach.md, "Each network is in the app"): which networks a person works, a network's own words wherever a
+ * screen says one ("connection" or "friend", "invitation to connect" or "friend request", "LinkedIn messaging" or
+ * "Messenger"), and the words for turning a network on, the business's say, Today's strip, the network on each row,
+ * Results by network, the playbook's networks step and the setup's. One copy for the web and the phone.
+ *
+ * A network is shown by its name, never a logo (Chris). What differs from one network to the next is data here, keyed
+ * by network, or the kit's own words (./networks.ts), never an `if`.
+ *
+ * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
+ */
+import {
+  SENDING_MODES,
+  type AutomationSettings,
+  type NetworkChoices,
+  type SendingMode,
+} from './automation';
+import { DAILY_WORDS, type DailyStep } from './limits';
+import { networkOfLink, NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { TODAY_KINDS, type TodayKind } from './today';
+import { messengerChatUrl } from './waiting-words';
+import { OUTREACH_WORDS as W } from './words';
+
+/** The networks a filter offers: every one, then each network. */
+export const NETWORK_FILTERS = ['all', ...PLATFORM_KEYS] as const;
+export type NetworkFilter = (typeof NETWORK_FILTERS)[number];
+
+/** A network named in an address (`?net=`), or null when it names none. */
+export const readNetwork = (value: string | null | undefined): Platform | null =>
+  PLATFORM_KEYS.find((p) => p === value) ?? null;
+
+/**
+ * The networks a person works now, in the kit's order: those they turned on, and the business allows. Settings read
+ * through `withinRules` already have a network the business stopped allowing off.
+ */
+export function networksOn(
+  settings: Pick<AutomationSettings, 'networks'>,
+  allowed: readonly Platform[] = PLATFORM_KEYS,
+): Platform[] {
+  return PLATFORM_KEYS.filter((p) => settings.networks[p].on && allowed.includes(p));
+}
+
+/**
+ * The networks Today shows: those the person works, or Facebook's alone when they work none (its Start my day then
+ * says it's off, and where to turn it on).
+ */
+export function networksShown(
+  settings: Pick<AutomationSettings, 'networks'>,
+  allowed: readonly Platform[] = PLATFORM_KEYS,
+): Platform[] {
+  const on = networksOn(settings, allowed);
+  return on.length ? on : [PLATFORM_KEYS[0]];
+}
+
+/** The network Today opens on: the one asked for when the person works it, else the first they work. */
+export const networkShown = (shown: readonly Platform[], asked: Platform | null): Platform =>
+  asked && shown.includes(asked) ? asked : (shown[0] ?? PLATFORM_KEYS[0]);
+
+/**
+ * A person's settings with one network turned on or off, or its choices changed. Facebook's choices are the settings'
+ * own fields (`choicesFor`); any other network's are in `networks`.
+ */
+export function withNetwork(
+  settings: AutomationSettings,
+  platform: Platform,
+  change: Partial<NetworkChoices>,
+): AutomationSettings {
+  const { on, ...choices } = change;
+  // As `choicesFor` reads them: Facebook's are the settings' own fields.
+  const own = platform === 'facebook';
+  const networks = {
+    ...settings.networks,
+    [platform]: {
+      ...settings.networks[platform],
+      ...(on === undefined ? {} : { on }),
+      ...(own ? {} : choices),
+    },
+  } as AutomationSettings['networks'];
+  return own ? { ...settings, ...choices, networks } : { ...settings, networks };
+}
+
+const cap = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
+const an = (s: string) => `${/^[aeiou]/i.test(s) ? 'an' : 'a'} ${s}`;
+
+/** What each network calls what its kit's words don't say, as the screens say it. */
+interface MoreWords {
+  /** Today's step that says yes to someone's request to connect: "Confirm their request". */
+  readonly confirm: string;
+  /** Where its one-to-one chats open on the web, from a chat's id. */
+  readonly chatUrl: (threadKey: string) => string;
+  /** Along the way's switches, in its words: what each does, and a line about it. */
+  readonly ticks: Readonly<Record<AlongTick, readonly [string, string]>>;
+  /** The playbook's networks step: where it looks for people there. */
+  readonly where: string;
+  /**
+   * Whether Today has its helpful post (decision 50): written for one of the person's groups on Facebook. LinkedIn's
+   * goes on their own feed, with its sixth part.
+   */
+  readonly helpful: boolean;
+}
+
+/** The switches along the way, each network's own (`NetworkChoices`). */
+export const ALONG_TICKS = [
+  'warmUp',
+  'confirmRequests',
+  'collect',
+  'joinGroups',
+  'watchPosts',
+] as const satisfies readonly (keyof NetworkChoices)[];
+export type AlongTick = (typeof ALONG_TICKS)[number];
+
+const MORE: Readonly<Record<Platform, MoreWords>> = {
+  facebook: {
+    confirm: TODAY_KINDS.confirm,
+    chatUrl: (key) => messengerChatUrl(key)!,
+    ticks: {
+      warmUp: W.ticks.warmUp,
+      confirmRequests: W.ticks.confirmRequests,
+      collect: W.ticks.collect,
+      joinGroups: W.ticks.joinGroups,
+      watchPosts: W.ticks.watchPosts,
+    },
+    where: 'In the groups they’re in, found with the words below.',
+    helpful: true,
+  },
+  linkedin: {
+    confirm: 'Accept their invitation',
+    chatUrl: (key) => `https://www.linkedin.com/messaging/thread/${encodeURIComponent(key)}/`,
+    ticks: {
+      warmUp: [
+        'Look at their profile and like a post a day before each invitation',
+        'Invitations go with no note: the look and the like do the work a note would.',
+      ],
+      confirmRequests: [
+        'Accept invitations from people who fit a playbook',
+        'The rest wait for you.',
+      ],
+      collect: [
+        'Once a day, first: check invitations, find posts and read my chats',
+        'These fill the list it works from. It checks your connections for good fits too.',
+      ],
+      joinGroups: [
+        'Join good groups when my groups run low',
+        'LinkedIn groups are quiet, so it joins few, and only ones that fit your playbook.',
+      ],
+      watchPosts: [
+        'Look for new posts asking for what I offer, every hour or two',
+        'In your working hours, it searches LinkedIn’s newest posts for your playbook’s words. When one asks for what you offer, your phone hears at once and it goes to the top of your list.',
+      ],
+    },
+    where:
+      'In posts asking for what you offer, found with LinkedIn’s search, and among your connections.',
+    helpful: false,
+  },
+};
+
+/** The daily steps' names on a network: "Invitations to connect" on LinkedIn, "Friend requests" on Facebook. */
+export function dailyWordsOn(
+  platform: Platform,
+): Readonly<Record<DailyStep, { readonly label: string; readonly many: string }>> {
+  const w = NETWORKS[platform].words;
+  return {
+    ...DAILY_WORDS,
+    friend_request: { label: cap(w.friendRequests), many: w.friendRequests },
+  };
+}
+
+/** Today's kinds on a network: "Send an invitation to connect" and "Accept their invitation" on LinkedIn. */
+export function todayKindsOn(platform: Platform): Readonly<Record<TodayKind, string>> {
+  return {
+    ...TODAY_KINDS,
+    friend_request: `Send ${an(NETWORKS[platform].words.friendRequest)}`,
+    confirm: MORE[platform].confirm,
+  };
+}
+
+/** What the extension may do on its own on a network, in its words (Sending, decision 26). */
+export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode, string>> {
+  return {
+    ...SENDING_MODES,
+    steps: `${cap(NETWORKS[platform].words.friendRequests)}, likes and comments on their own; each message waits for one tap`,
+  };
+}
+
+/** Under what it does on its own on a network: its limits, its pace, and its warnings. */
+export const onItsOwnAbout = (platform: Platform): string =>
+  `It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from ${PLATFORMS[platform]}.`;
+
+/** Whether Today has its helpful post on a network. */
+export const helpfulOn = (platform: Platform): boolean => MORE[platform].helpful;
+
+/**
+ * The network something on a list is on, from its link: a message's, a step's or a request's profile. Facebook's when
+ * the link is on none the add-on knows.
+ */
+export const networkOfUrl = (url: string | null | undefined): Platform =>
+  (url ? networkOfLink(url) : null) ?? PLATFORM_KEYS[0];
+
+/** Along the way's switches on a network, in its words. */
+export const ticksOn = (
+  platform: Platform,
+): Readonly<Record<AlongTick, readonly [string, string]>> => MORE[platform].ticks;
+
+/** A chat's page on its network, from its id: Messenger's on Facebook, LinkedIn messaging's on LinkedIn. */
+export const chatUrlOn = (platform: Platform, threadKey: string | null): string | null =>
+  threadKey ? MORE[platform].chatUrl(threadKey) : null;
+
+/** "Open in Messenger", "Open in LinkedIn messaging". */
+export const openChatWords = (platform: Platform): string =>
+  `Open in ${NETWORKS[platform].words.messaging}`;
+
+/** "Open on Facebook", "Open on LinkedIn". */
+export const openPageWords = (platform: Platform): string => `Open on ${PLATFORMS[platform]}`;
+
+/** "40% of first messages": a network's share of them, beside Results by network. */
+export function shareWords(part: number, whole: number): string {
+  return whole > 0 ? `${Math.round((part / whole) * 100)}% of first messages` : '';
+}
+
+/** Social Outreach's words about networks, on the web and the phone. */
+export const NETWORK_WORDS = {
+  /** My settings' part. */
+  title: 'Networks',
+  about:
+    'Where you reach people. Each network has its own day, limits and choices, and a warning on one never stops another.',
+  /** Under Facebook, whose choices are the settings' own: below Networks, and the setup's next step. */
+  facebookChoices: 'What it does on Facebook is set in your main settings.',
+  /** A network that's off for the person. */
+  off: (name: string) => `${name} is off for you: nothing runs, reads or shows there.`,
+  /** A network the business doesn't use: why, and who can change it. */
+  notAllowed: (name: string, manages: boolean) =>
+    `Your business doesn’t use ${name} for outreach. ${
+      manages
+        ? 'Allow it under Business settings, below.'
+        : 'Ask an owner or admin of this business to allow it under Social Outreach → Settings → Business settings.'
+    }`,
+  /** The heading over a network's own choices. */
+  choicesOn: (name: string) => `What it does on ${name}`,
+  /** Under it: its choices are its own. */
+  choicesAbout: (name: string) =>
+    `${name}’s choices are its own, and start off. It keeps ${name}’s daily limits, goes at a person’s pace, and stops on ${name} for the day on any warning there.`,
+  /** The business's say (decision 38). */
+  allowedTitle: 'Networks your team may use',
+  allowedAbout:
+    'Facebook is always allowed. Someone who works a network you stop allowing has it turned off for them.',
+  alwaysAllowed: 'Always allowed',
+  limitsOn: (name: string) => `Daily limits on ${name}`,
+  limitsAbout: (name: string) =>
+    `Up to ${name}’s starting limits, which keep an account there safe. Halved for a week after a warning there, and on training wheels there.`,
+  /** Today's strip. */
+  stripTitle: 'Your networks',
+  listOn: (name: string) => `Your list for today on ${name}`,
+  showList: (name: string) => `Show ${name}’s list`,
+  notStarted: 'Not started today',
+  startAll: 'Start all',
+  stopAll: 'Stop all',
+  stoppedOn: (name: string) => `Stopped on ${name} for today. Your other networks go on.`,
+  /** Lists by network. */
+  filter: 'Network',
+  all: 'All networks',
+  /** The playbook's networks step. */
+  playbookTitle: 'Networks',
+  playbookAbout:
+    'Where this playbook looks for people. The niche, the offer, the conversation and the voice are the same on each.',
+  playbookAtLeastOne: 'Pick at least one network.',
+  where: (platform: Platform) => MORE[platform].where,
+} as const;
+
+/** Something waiting for the person (./waiting.ts), as much of it as says its network. */
+type Waited =
+  | { readonly kind: 'ask'; readonly ask: { readonly platform?: Platform } }
+  | { readonly kind: 'reply' | 'message'; readonly send: { readonly profileUrl: string | null } }
+  | { readonly kind: 'need'; readonly need: { readonly url: string | null } }
+  | { readonly kind: 'request'; readonly request: { readonly url: string } };
+
+/** The network something waiting for the person is on: Needs you marks each with its own (Chris). */
+export function networkOfWaiting(item: Waited): Platform {
+  switch (item.kind) {
+    case 'ask':
+      return item.ask.platform ?? PLATFORM_KEYS[0];
+    case 'need':
+      return networkOfUrl(item.need.url);
+    case 'request':
+      return networkOfUrl(item.request.url);
+    default:
+      return networkOfUrl(item.send.profileUrl);
+  }
+}

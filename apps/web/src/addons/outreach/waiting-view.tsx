@@ -12,14 +12,20 @@
  * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
  *   **Leave it**.
  *
- * It follows changes live: a message drafted or sent, a step noted on any computer, a request answered.
+ * It follows changes live: a message drafted or sent, a step noted on any computer, a request answered. One list for
+ * every network, each item marked with its network by name (`networkOfWaiting`), its links on that network.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
-import { FacebookUrl } from '@hfos/core/addons/outreach/saves';
+import {
+  chatUrlOn,
+  networkOfWaiting,
+  openChatWords,
+  openPageWords,
+} from '@hfos/core/addons/outreach/network-words';
+import { networkOfLink } from '@hfos/core/addons/outreach/networks';
 import {
   approveAllCount,
   approveAllWords,
-  messengerChatUrl,
   moreWords,
   needClearedWords,
   needTitle,
@@ -45,6 +51,7 @@ import { outreachHref } from './address';
 import { AskLine } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
+import { NetworkName } from './network-ui';
 import { PersonMenu } from './person-menu';
 import { Drafted } from './drafted';
 import type { Waiting, WaitingItem } from './types';
@@ -157,12 +164,15 @@ function Group({
             data-testid="waiting-item"
           >
             {item.kind === 'ask' ? (
-              <AskLine
-                workspaceId={workspaceId}
-                asks={{ timezone: waiting.timezone, computer: null, now: item.at }}
-                ask={item.ask}
-                named
-              />
+              <>
+                <NetworkName platform={networkOfWaiting(item)} className="mb-1 block" />
+                <AskLine
+                  workspaceId={workspaceId}
+                  asks={{ timezone: waiting.timezone, computer: null, now: item.at }}
+                  ask={item.ask}
+                  named
+                />
+              </>
             ) : item.kind === 'need' ? (
               <NeedRow workspaceId={workspaceId} item={item} timeZone={waiting.timezone} />
             ) : item.kind === 'request' ? (
@@ -223,7 +233,8 @@ function ApproveAll({ workspaceId, waiting }: { workspaceId: string; waiting: Wa
 
 function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
   const send = item.send;
-  const open = messengerChatUrl(send.threadKey) ?? send.profileUrl;
+  const platform = networkOfWaiting(item);
+  const open = chatUrlOn(platform, send.threadKey) ?? send.profileUrl;
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
@@ -239,6 +250,7 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
         ) : (
           <span className="text-[14px] font-medium">{send.name}</span>
         )}
+        <NetworkName platform={platform} />
         {item.kind === 'reply' ? <Badge variant="pending">{W.handedOver}</Badge> : null}
         <PersonMenu workspaceId={workspaceId} who={send} />
       </div>
@@ -281,15 +293,17 @@ function NeedRow({
       if (state === 'open') toast.info(said);
       else toast.success(said);
     });
-  const messenger = need.step === 'message' ? messengerChatUrl(need.threadKey) : null;
-  // Only a Facebook address is linked.
-  const onFacebook = need.url && FacebookUrl.safeParse(need.url).success ? need.url : null;
+  const platform = networkOfWaiting(item);
+  const messenger = need.step === 'message' ? chatUrlOn(platform, need.threadKey) : null;
+  // Only an address on a network the add-on knows is linked.
+  const onFacebook = need.url && networkOfLink(need.url) ? need.url : null;
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[14px] font-medium" data-testid="waiting-need">
           {needTitle(need.step, need.name)}
         </p>
+        <NetworkName platform={platform} />
         <PersonMenu workspaceId={workspaceId} who={need} />
       </div>
       <p className="mt-1 text-[12.5px] text-text-2">
@@ -320,7 +334,7 @@ function NeedRow({
             className={buttonClassName({ variant: 'ghost', size: 'sm' })}
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {messenger ? W.openInMessenger : W.openOnFacebook}
+            {messenger ? openChatWords(platform) : openPageWords(platform)}
           </a>
         ) : null}
         <Button
@@ -357,6 +371,7 @@ function RequestRow({
   timeZone: string;
 }) {
   const request = item.request;
+  const platform = networkOfWaiting(item);
   const { busy, act } = useAct();
   return (
     <div>
@@ -370,6 +385,7 @@ function RequestRow({
         >
           {request.name}
         </a>
+        <NetworkName platform={platform} />
         <span className="text-[12.5px] text-text-3">
           {W.asked(when(request.since, timeZone), request.mutualFriends)}
         </span>
@@ -386,7 +402,7 @@ function RequestRow({
           className={buttonClassName({ variant: 'ghost', size: 'sm' })}
         >
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {W.openOnFacebook}
+          {openPageWords(platform)}
         </a>
         <Button
           variant="ghost"

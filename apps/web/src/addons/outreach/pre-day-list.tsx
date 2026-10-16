@@ -5,9 +5,11 @@
  * check friends for good fits. Each is ticked once HandsFreeOS has it noted, and the one under way shows what the
  * extension says it's doing now ("Reading your friends… 1,240 friends so far."), from the live status that already
  * comes with `outreach.live`. Shown under Start my day, on Today's strip and the Live view; gone once all are done.
+ * Each network's are its own (`preDaySteps`' `platform`): LinkedIn's connections and invitations, with no groups.
  */
 import { preDayNow } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { Check, Circle, LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Live } from './types';
@@ -15,14 +17,17 @@ import type { Live } from './types';
 export function PreDayList({
   live,
   now,
+  platform = 'facebook',
   className,
 }: {
+  /** The network's live view: its lists and its day. */
   live: Live;
   now: number;
+  platform?: Platform;
   className?: string;
 }) {
   // The count under the step the computer says it's doing, while it works and is online.
-  const steps = preDaySteps(live.lists, preDayNow(live, now));
+  const steps = preDaySteps(live.lists, preDayNow(live, now), platform);
   if (!steps.length || live.day.state !== 'started') return null;
   return (
     <section

@@ -2,8 +2,8 @@
 /**
  * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36 and 45): a step at a time in the same card
  * as the main app's onboarding, with the summary beside it. Pick the playbooks, get ready (./get-ready.tsx), set the
- * team's rules (owners and admins), choose your own settings, install the extension and sign in, then bring in your
- * groups. Each step's button
+ * team's rules (owners and admins), pick your networks (each other network's choices under it, off to start), choose
+ * your own settings, install the extension and sign in, then bring in your groups. Each step's button
  * saves where the person got to (`outreach.setup.save`), so leaving and coming back opens on the next step
  * (`setupOpenAt`, in the page). The extension signing in ticks the install step live.
  *
@@ -41,7 +41,7 @@ import { outreachHref } from './address';
 import { AskButton, ComputerNote } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ReadyItems } from './get-ready';
-import { ChoicesForm, RulesForm } from './settings-view';
+import { ChoicesForm, NetworksPart, RulesForm } from './settings-view';
 import type { Asks, Automation, Readiness, Setup } from './types';
 import { useAct } from './use-act';
 
@@ -345,6 +345,30 @@ export function SetupView({
       <Note>{W.steps.rules.hint}</Note>
     );
     footer = <Footer back={back} />;
+  } else if (at === 'networks') {
+    body = (
+      <div className="flex flex-col gap-3" data-testid="outreach-setup-networks">
+        <NetworksPart
+          value={value}
+          onChange={setValue}
+          me={me}
+          manages={setup.canManage}
+          testId="outreach-setup-network"
+        />
+      </div>
+    );
+    footer = (
+      <Footer back={back}>
+        {primary('networks', W.next, async () =>
+          // Saved as they are, so the networks picked here are theirs before the next step.
+          unwrap(
+            await apiBrowser().POST('/v1/commands/outreach.automation.save', {
+              body: { workspaceId, settings: value },
+            }),
+          ),
+        )}
+      </Footer>
+    );
   } else if (at === 'settings') {
     body = (
       <div className="flex flex-col gap-3">

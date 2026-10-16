@@ -7,7 +7,8 @@ import { NumbersPart } from '../numbers';
 /**
  * The three numbers on the phone's Results (docs/outreach.md, decision 70): first messages sent, said yes and calls
  * booked against the person's targets, the two rates against the usual ones, the week's review, and the numbers by
- * playbook and by the offer's version; everyone's counts for owners and admins, with no targets and no review.
+ * playbook, by the offer's version and by network; everyone's counts for owners and admins, with no targets and no
+ * review.
  */
 
 const PLAYBOOK = '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e';
@@ -24,6 +25,10 @@ const TRACKING: TrackingOutput = {
     { playbookId: null, name: null, messages: 22, positive: 1, booked: 0 },
   ],
   byVersion: [{ version: 2, live: true, messages: 50, positive: 3, booked: 1 }],
+  byNetwork: [
+    { platform: 'facebook', messages: 47, positive: 3, booked: 1 },
+    { platform: 'linkedin', messages: 15, positive: 1, booked: 0 },
+  ],
   review: {
     week: '2026-10-05',
     fix: 'volume',
@@ -59,6 +64,11 @@ describe('the three numbers on the phone', () => {
     expect(screen.getByText('No playbook')).toBeTruthy();
     expect(screen.getByText('Version 2, live')).toBeTruthy();
     expect(screen.getByText('50 sent · 3 yes · 1 booked')).toBeTruthy();
+    // By network: one goal, and each network's share of the first messages.
+    expect(screen.getByText('By network')).toBeTruthy();
+    expect(screen.getByText('LinkedIn')).toBeTruthy();
+    expect(screen.getByText('24% of first messages')).toBeTruthy();
+    expect(screen.getByText('15 sent · 1 yes · 0 booked')).toBeTruthy();
   });
 
   it('shows the team’s counts with no targets and no review, and says when there’s no goal', async () => {

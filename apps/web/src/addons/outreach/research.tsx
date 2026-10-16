@@ -5,13 +5,14 @@
  * the AI has read them, and its answer after: a good fit, might fit or not, with the short why. Nothing shows for
  * someone never pitched. The rules and words are core's (`researchShown`, `RESEARCH_WORDS`), the phone's too.
  */
-import { latestAsk, researchAskState, researchTarget } from '@hfos/core/addons/outreach/asks';
+import { latestAskOn, researchAskState, researchTarget } from '@hfos/core/addons/outreach/asks';
 import {
   CHECK_VERDICTS,
   RESEARCH_WORDS,
   researchShown,
   type CheckVerdict,
 } from '@hfos/core/addons/outreach/checks';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { AskButton, AskLine } from './asks';
 import type { Asks } from './types';
@@ -28,6 +29,7 @@ export function ResearchSlot({
   workspaceId,
   asks,
   profileId,
+  platform = 'facebook',
   name,
   check,
   neverPitched,
@@ -39,6 +41,8 @@ export function ResearchSlot({
   /** The tab's asks, with Research's: null where they couldn't be had, and the button waits. */
   asks: Asks | null;
   profileId: string;
+  /** The network their profile is on: Research is asked there. */
+  platform?: Platform;
   name: string;
   check: {
     readonly verdict: CheckVerdict;
@@ -52,7 +56,7 @@ export function ResearchSlot({
   badge?: boolean;
   onAsked?: () => void;
 }) {
-  const latest = latestAsk(asks, 'research', researchTarget(profileId));
+  const latest = latestAskOn(asks, platform, 'research', researchTarget(profileId));
   const shown = researchShown({ check, neverPitched, ask: researchAskState(latest) });
   if (shown === 'hidden') return null;
   if (shown === 'result') {
@@ -93,6 +97,7 @@ export function ResearchSlot({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'research', profileId }}
+          platform={platform}
           label={RESEARCH_WORDS.button}
           variant="ghost"
           showLine={false}

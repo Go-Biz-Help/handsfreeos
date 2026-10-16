@@ -259,7 +259,14 @@ export const ComputerRenameInput = z.object({
 export type ComputerRenameInput = z.input<typeof ComputerRenameInput>;
 export const ComputerRenameOutput = z.object({ computerId: z.uuid(), name: z.string() });
 
-export const LiveInput = z.object({ workspaceId: z.uuid() });
+export const LiveInput = z.object({
+  workspaceId: z.uuid(),
+  /**
+   * The network whose day, warning, limits, choice and lists it gives: each network's are its own. The computers, what
+   * the working one says and the feed are the person's, the same for every network. Facebook's when left out.
+   */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type LiveInput = z.input<typeof LiveInput>;
 
 export const LiveOutput = z.object({
@@ -389,17 +396,22 @@ export const standDownWords = (workingName: string | null): string =>
   `${workingName ?? 'Another computer'} is working for you now, so this one stands by. Open the panel here to work from this computer instead.`;
 
 /**
- * Where the day stands, under Start my day and Stop for today: empty when nothing was pressed today. With the person's
- * lists, a day started the first time says it waits for them to be saved.
+ * Where a network's day stands (Facebook's when left out), under Start my day and Stop for today: empty when nothing
+ * was pressed today. With the person's lists there, a day started the first time says it waits for them to be saved.
  */
-export function dayWords(day: LiveDay, timeZone: string, lists?: ListsSaved | null): string {
+export function dayWords(
+  day: LiveDay,
+  timeZone: string,
+  lists?: ListsSaved | null,
+  platform: Platform = 'facebook',
+): string {
   if (day.state === 'none') return '';
-  if (day.why === 'warning') return 'Stopped for today: Facebook showed a warning.';
+  if (day.why === 'warning') return `Stopped for today: ${PLATFORMS[platform]} showed a warning.`;
   const at = day.at ? ` at ${clockWords(day.at, timeZone)}` : '';
   const via = day.via ? ` ${VIA_WORDS[day.via]}` : '';
   if (day.state !== 'started') return `Stopped for today${at}${via}.`;
   // The first time, the day waits for the person's lists to be saved (./lists.ts): it says why.
-  const waiting = listsWaitWords(lists, true);
+  const waiting = listsWaitWords(lists, true, platform);
   return waiting ? `Started${at}${via}. ${waiting}` : `Started${at}${via}.`;
 }
 

@@ -20,6 +20,11 @@
  * reply handed over or one to someone who needs the person, which wait for an OK of their own (`oneByOne`, decision
  * 42); the extension then sends them in Messenger. The same messages are in Waiting for you (./waiting-view.tsx). While the person's training wheels are on, it says what's left before they
  * come off; owners and admins see who's on them and can end them early.
+ *
+ * Each network has its own list (Chris: each network on its own): the strip at the top has a row for each network the
+ * person works, with its own Start my day and Stop for today and its own warning line, and the list is the one shown
+ * (`outreach.today` with its `platform`), in its words: an invitation to connect on LinkedIn, a friend request on
+ * Facebook. Asks made from it carry its network, and only the kinds it can be asked show.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
@@ -27,16 +32,19 @@ import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/o
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import {
   DRAFT_KINDS,
-  TODAY_KINDS,
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import { approveAllWords, oneByOne } from '@hfos/core/addons/outreach/waiting-words';
+import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks';
 import {
-  approveAllWords,
-  messengerChatUrl,
-  oneByOne,
-} from '@hfos/core/addons/outreach/waiting-words';
-import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
+  chatUrlOn,
+  dailyWordsOn,
+  helpfulOn,
+  NETWORK_WORDS as NW,
+  todayKindsOn,
+} from '@hfos/core/addons/outreach/network-words';
+import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -64,13 +72,13 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { AskButton, AskLine, latestAskOn, targetOf } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
 import { GetReadyCard } from './get-ready';
-import { StatusStrip } from './status-strip';
+import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
   Asks,
   HelpfulList,
@@ -99,23 +107,32 @@ const KIND_BADGE = {
   warm_lead: 'ok',
 } as const;
 
-/** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
-function openUrl(item: TodayItem): string | null {
+/**
+ * Where to open someone on the list: the post to comment on, their chat for a message in one (on its network's
+ * messaging), else their profile.
+ */
+function openUrl(item: TodayItem, platform: Platform): string | null {
   if (item.postUrl) return item.postUrl;
-  return messengerChatUrl(item.threadKey) ?? item.profileUrl;
+  return chatUrlOn(platform, item.threadKey) ?? item.profileUrl;
 }
 
 export function TodayView({
   workspaceId,
+  platform = 'facebook',
+  networks,
   today,
   helpful,
   wheels,
   asks,
-  live,
   waiting,
   readiness,
 }: {
   workspaceId: string;
+  /** The network whose list it is. */
+  platform?: Platform;
+  /** Each network the person works, with what their computer is doing there: the strip at the top. */
+  networks: readonly NetworkLive[];
+  /** The network's list for today. */
   today: TodayList;
   /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
   readiness: Readiness | null;
@@ -125,13 +142,14 @@ export function TodayView({
   wheels: WheelsList | null;
   /** The look-ups and group members asked of the person's computer from here. */
   asks: Asks;
-  /** What the person's computer is doing: the strip at the top. Null when it couldn't be had. */
-  live: Live | null;
   /** Everything that needs the person, first. Null when it couldn't be had. */
   waiting: Waiting | null;
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
+  const live = networks.find((n) => n.platform === platform)?.live ?? null;
+  const many = networks.length > 1;
+  const name = PLATFORMS[platform];
   // A message waiting for an OK is under Needs you; the list keeps everyone else, so nobody shows twice.
   const needs = new Set(
     (waiting?.items ?? []).flatMap((i) =>
@@ -154,7 +172,14 @@ export function TodayView({
     });
   return (
     <div data-testid="outreach-today">
-      {live ? <StatusStrip workspaceId={workspaceId} live={live} ready={!readiness} /> : null}
+      {networks.length ? (
+        <StatusStrip
+          workspaceId={workspaceId}
+          networks={networks}
+          platform={platform}
+          ready={!readiness}
+        />
+      ) : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           {today.warning && !live?.warning ? (
@@ -163,7 +188,7 @@ export function TodayView({
               data-testid="today-warning"
               className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
             >
-              {warningNote(today.warning)}
+              {warningNote(today.warning, Date.now(), platform)}
             </p>
           ) : null}
           {today.wheels.on ? (
@@ -178,12 +203,14 @@ export function TodayView({
             <GetReadyCard workspaceId={workspaceId} readiness={readiness} asks={asks} />
           ) : null}
           {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
-          <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
+          {helpfulOn(platform) ? (
+            <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
+          ) : null}
           {items.length ? (
             <section aria-labelledby="today-list-title" className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h2 id="today-list-title" className="text-lg font-semibold tracking-tight">
-                  {W.listTitle}
+                  {many ? NW.listOn(name) : W.listTitle}
                   <span className="font-medium text-text-3">
                     {' '}
                     · {items.length.toLocaleString()}
@@ -211,6 +238,7 @@ export function TodayView({
                     <TodayRow
                       key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
                       workspaceId={workspaceId}
+                      platform={platform}
                       item={item}
                       auto={today.auto.includes(item.kind)}
                       asks={asks}
@@ -221,7 +249,7 @@ export function TodayView({
               </Card>
             </section>
           ) : readiness ? null : (
-            <TodayStart workspaceId={workspaceId} />
+            <TodayStart workspaceId={workspaceId} platform={platform} />
           )}
         </div>
         <aside className="space-y-4">
@@ -229,10 +257,12 @@ export function TodayView({
           {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
           {!today.hasPlaybook ? (
             <Card className="p-4">
-              <h3 className="text-[15px] font-semibold">Friend requests need a playbook</h3>
+              <h3 className="text-[15px] font-semibold">
+                {`${dailyWordsOn(platform).friend_request.label} need a playbook`}
+              </h3>
               <p className="mt-1.5 text-[13px] text-text-2">
-                People from your groups are suggested once the business has a playbook saying who to
-                look for.
+                People who fit are suggested once the business has a playbook saying who to look
+                for.
               </p>
               <ButtonLink
                 size="sm"
@@ -244,7 +274,7 @@ export function TodayView({
               </ButtonLink>
             </Card>
           ) : null}
-          {today.readAdmins.length ? (
+          {today.readAdmins.length && askableOn(platform, 'members') ? (
             <Card className="p-4" data-testid="today-read-admins">
               <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
               <p className="mt-1.5 text-[13px] text-text-2">
@@ -281,14 +311,34 @@ export function TodayView({
   );
 }
 
-/** An empty list: what gives it something to work with, each a button to where it's done (decision 59). */
-function TodayStart({ workspaceId }: { workspaceId: string }) {
+/** What each of the empty list's steps asks the computer: shown only on a network that can be asked it. */
+const START_ASKS = { groups: 'groups', chats: 'chats', friends: 'checks' } as const;
+
+/**
+ * An empty list: what gives it something to work with, each a button to where it's done (decision 59), in its
+ * network's words, and only the steps its network can be asked.
+ */
+function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: Platform }) {
+  const words = NETWORKS[platform].words;
+  const steps = W.todayStart
+    .filter((step) => askableOn(platform, START_ASKS[step.to]))
+    .map((step) =>
+      step.to === 'chats'
+        ? { ...step, body: `The AI reads your ${words.messaging} chats and finds who fits.` }
+        : step.to === 'friends'
+          ? {
+              ...step,
+              title: `Check your ${words.friends}`,
+              body: `It looks for good fits among the ${words.friends} you already have.`,
+            }
+          : step,
+    );
   return (
     <Card className="p-5" data-testid="today-empty">
       <h2 className="text-[15px] font-semibold">{W.todayEmptyTitle}</h2>
       <p className="mt-1 text-[13px] text-text-2">{W.todayEmptyBody}</p>
       <ol className="mt-4 grid gap-2.5">
-        {W.todayStart.map((step, i) => (
+        {steps.map((step, i) => (
           <li
             key={step.to}
             className="flex flex-wrap items-center gap-3 rounded-menu border border-border p-3.5"
@@ -307,7 +357,10 @@ function TodayStart({ workspaceId }: { workspaceId: string }) {
             <ButtonLink
               size="sm"
               variant="secondary"
-              href={outreachHref(workspaceId, { view: step.to })}
+              href={outreachHref(workspaceId, {
+                view: step.to,
+                ...(step.to === 'groups' ? {} : { net: platform }),
+              })}
             >
               {step.button}
             </ButtonLink>
@@ -387,12 +440,15 @@ function HowItWorks() {
 
 function TodayRow({
   workspaceId,
+  platform,
   item,
   auto,
   asks,
   first = false,
 }: {
   workspaceId: string;
+  /** The network the list is on. */
+  platform: Platform;
   item: TodayItem;
   /** The extension does it on its own for you. */
   auto: boolean;
@@ -400,7 +456,7 @@ function TodayRow({
   /** The list's first row: no line above it. */
   first?: boolean;
 }) {
-  const url = openUrl(item);
+  const url = openUrl(item, platform);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
     <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
@@ -433,7 +489,7 @@ function TodayRow({
               {W.doneOnItsOwn}
             </Badge>
           ) : null}
-          <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
+          <Badge variant={KIND_BADGE[item.kind]}>{todayKindsOn(platform)[item.kind]}</Badge>
           <PersonMenu workspaceId={workspaceId} who={item} />
         </span>
       </div>
@@ -454,7 +510,13 @@ function TodayRow({
       {item.send ? (
         <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
       ) : draftKind ? (
-        <Drafts workspaceId={workspaceId} item={item} kind={draftKind} asks={asks} />
+        <Drafts
+          workspaceId={workspaceId}
+          platform={platform}
+          item={item}
+          kind={draftKind}
+          asks={asks}
+        />
       ) : null}
     </li>
   );
@@ -472,9 +534,10 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
       </p>
       <ul className="mt-2 space-y-2 text-[13px]">
         {wheels.people.map((p) => (
-          <li key={p.userId} className="flex items-center justify-between gap-3">
+          <li key={`${p.userId}:${p.platform}`} className="flex items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="font-medium">{p.name}</span>
+              <span className="text-text-3"> · {PLATFORMS[p.platform]}</span>
               <span className="block text-[12px] text-text-3">
                 {p.wheels.ok.toLocaleString()} of 25 OK’d ·{' '}
                 {p.wheels.daysLeft
@@ -488,11 +551,11 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
               disabled={busy !== null}
               onClick={() =>
                 void act(
-                  p.userId,
+                  `${p.userId}:${p.platform}`,
                   async () =>
                     unwrap(
                       await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
-                        body: { workspaceId, userId: p.userId },
+                        body: { workspaceId, userId: p.userId, platform: p.platform },
                       }),
                     ),
                   W.wheelsEnded(p.name),
@@ -510,14 +573,16 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
   );
 }
 
-/** The AI's drafts for a message, asked for when wanted: each to copy and send on Facebook. */
+/** The AI's drafts for a message, asked for when wanted: each to copy and send on its network. */
 function Drafts({
   workspaceId,
+  platform,
   item,
   kind,
   asks,
 }: {
   workspaceId: string;
+  platform: Platform;
   item: TodayItem;
   kind: DraftKind;
   asks: Asks;
@@ -528,17 +593,18 @@ function Drafts({
   const [draftedOpener, setOpener] = useState<DraftOpener | null>(null);
   /** What they were written as: a reply to a yes comes back as Send the video or Send the link. */
   const [draftedAs, setDraftedAs] = useState<DraftKind | null>(null);
-  // Looked up on Facebook first, while the computer is online and Facebook didn't warn them today.
+  // Looked up on its network first, while the computer is online and can be asked there.
   const lookup = {
     kind: 'lookup' as const,
     draft: { kind, profileId: item.profileId, chatId: item.chatId, postId: item.postId },
   };
-  const looked = latestAsk(asks, 'lookup', targetOf(lookup));
+  const looked = latestAskOn(asks, platform, 'lookup', targetOf(lookup));
   const online =
     asks.computer !== null &&
     asks.computer.online &&
     !asks.computer.signedOut &&
-    !(asks.warnedToday && onFacebook('lookup'));
+    cantAskWhy(asks, 'lookup', platform) === null;
+  const messaging = NETWORKS[platform].words.messaging;
   // Drafts asked for here come first; else the look-up's, once it's done.
   const fromLookup = !drafted.length && looked?.state === 'done' ? looked.result : null;
   const drafts = fromLookup?.drafts ?? drafted;
@@ -615,8 +681,8 @@ function Drafts({
       kind === 'comment' || kind === 'warm_lead'
         ? 'Copied. Paste it as a comment on the post.'
         : part
-          ? `Copied text ${part.n} of ${part.of}. Paste it in Messenger${part.n < part.of ? ', then copy the next' : ''}.`
-          : 'Copied. Paste it in Messenger.',
+          ? `Copied text ${part.n} of ${part.of}. Paste it in ${messaging}${part.n < part.of ? ', then copy the next' : ''}.`
+          : `Copied. Paste it in ${messaging}.`,
     );
     // A message copied a text at a time counts once, with its first.
     if (part && part.n > 1) return;
@@ -697,6 +763,7 @@ function Drafts({
             workspaceId={workspaceId}
             asks={asks}
             ask={lookup}
+            platform={platform}
             label={
               drafts.length
                 ? 'Look up and draft again'

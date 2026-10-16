@@ -156,6 +156,8 @@ export const FriendsInput = z.object({
   search: z.string().trim().max(100).optional(),
   /** Which page, from 1. One past the end shows the last. */
   page: z.number().int().min(1).max(100_000).default(1),
+  /** Only the people on one network, counts too; every network's when left out. */
+  platform: z.enum(PLATFORM_KEYS).optional(),
 });
 export type FriendsInput = z.input<typeof FriendsInput>;
 
@@ -176,7 +178,7 @@ export const FriendsOutput = z.object({
     /** The business's too. */
     neverContact: count,
   }),
-  /** Facebook's cap on friends. */
+  /** The network's cap on friends or connections: Facebook's when the list is every network's. */
   cap: count,
   /** The person's latest Facebook download file brought in: when Facebook made it, when it came, and what it held. */
   download: z
@@ -188,6 +190,8 @@ export const FriendsOutput = z.object({
       personId: z.uuid().nullable(),
       name: z.string(),
       url: z.string(),
+      /** The network their profile is on: each row shows it by name. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
       /** Where the person's own Facebook stands with them, when known, and since when. */
       state: z.enum(FRIEND_STATE_KEYS).nullable(),
       since: z.iso.datetime().nullable(),

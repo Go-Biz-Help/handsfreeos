@@ -635,14 +635,14 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   const setup = page.getByTestId('outreach-setup');
 
   // Carry on from the banner: the playbooks, where a template opens the builder and comes back here.
-  await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 6 done');
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 7 done');
   await page.getByTestId('outreach-setup-carry-on').click();
   // The welcome says what's ahead, then the first step.
   await expect(setup).toHaveAttribute('data-screen', 'welcome');
   await expect(page.getByTestId('outreach-setup-welcome')).toContainText('Your team’s rules');
   await page.getByTestId('outreach-setup-start').click();
   await expect(setup).toHaveAttribute('data-screen', 'playbooks');
-  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 6 · Playbooks');
+  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 7 · Playbooks');
   await expect(page.getByTestId('outreach-setup-template-crm_demos')).toHaveAttribute(
     'href',
     `/app/w/${workspaceId}/a/outreach/playbooks/new?template=crm_demos&from=setup`,
@@ -655,10 +655,20 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   await expect(page.getByTestId('ready-numbers')).toHaveAttribute('data-state', 'todo');
   await page.getByTestId('outreach-setup-next').click();
 
-  // The team's rules, kept as they are; then their own settings.
+  // The team's rules, kept as they are; then their networks, Facebook on to start; then their own settings.
   await expect(setup).toHaveAttribute('data-screen', 'rules');
   await expect(page.getByTestId('outreach-rules-save')).toHaveText('Keep these and carry on');
   await page.getByTestId('outreach-rules-save').click();
+  await expect(setup).toHaveAttribute('data-screen', 'networks');
+  await expect(page.getByTestId('outreach-setup-network-facebook-on')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByTestId('outreach-setup-network-linkedin-on')).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+  await page.getByTestId('outreach-setup-next').click();
   await expect(setup).toHaveAttribute('data-screen', 'settings');
   await page.getByTestId('outreach-setup-my-sending-steps').click();
   await page.getByTestId('outreach-setup-next').click();
@@ -687,7 +697,7 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   // Left for later: Today says how far they got, and Carry on opens where they left off.
   await page.getByTestId('outreach-setup-later').click();
   await page.getByTestId('outreach-tab-today').click();
-  await expect(page.getByTestId('outreach-setup-banner')).toContainText('4 of 6 done');
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText('5 of 7 done');
   await page.getByTestId('outreach-setup-carry-on').click();
   await expect(setup).toHaveAttribute('data-screen', 'extension');
   await expect(page.getByTestId('outreach-setup-resumed')).toBeVisible();

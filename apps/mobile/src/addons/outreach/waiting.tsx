@@ -1,13 +1,19 @@
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { FacebookUrl } from '@hfos/core/addons/outreach/saves';
+import {
+  chatUrlOn,
+  networkOfUrl,
+  openChatWords,
+  openPageWords,
+  todayKindsOn,
+} from '@hfos/core/addons/outreach/network-words';
+import { networkOfLink } from '@hfos/core/addons/outreach/networks';
 import {
   recentBubbles,
   RECENT_WORDS,
   SendText,
   type RecentMessage,
 } from '@hfos/core/addons/outreach/sends';
-import { TODAY_KINDS } from '@hfos/core/addons/outreach/today';
 import {
   approveAllFromPhone,
   type PhoneSend,
@@ -16,7 +22,6 @@ import {
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
 import {
   approveAllWords,
-  messengerChatUrl,
   moreWords,
   NEED_CLEARS,
   needClearedWords,
@@ -47,6 +52,7 @@ import { clearNeed, okAll, okSend, setAside, skipSend } from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
+import { NetworkName } from './networks';
 import {
   NeedsSignal,
   Note,
@@ -448,13 +454,16 @@ function SendCard({
   onChange: () => void;
   onSkip: () => void;
 }) {
-  const open = messengerChatUrl(send.threadKey) ?? send.profileUrl;
+  // Each on its own network, as its profile's link says (the phone's copy keeps no more).
+  const platform = networkOfUrl(send.profileUrl);
+  const open = chatUrlOn(platform, send.threadKey) ?? send.profileUrl;
   const why = oneByOneWords(send);
   return (
     <Card className="gap-2.5 px-4 py-3.5" testID="waiting-send">
       <View className="flex-row flex-wrap items-center gap-2">
         <Text className="text-[15px] font-semibold">{send.name}</Text>
-        <Text className="text-[12.5px] text-text-3">{TODAY_KINDS[send.kind]}</Text>
+        <NetworkName platform={platform} />
+        <Text className="text-[12.5px] text-text-3">{todayKindsOn(platform)[send.kind]}</Text>
         {send.handedOver ? (
           <Badge variant="pending">
             <Text>{W.handedOver}</Text>
@@ -503,7 +512,7 @@ function SendCard({
             onPress={() => openOutside(open)}
             testID="waiting-open"
           >
-            {send.threadKey ? W.openInMessenger : W.openOnFacebook}
+            {send.threadKey ? openChatWords(platform) : openPageWords(platform)}
           </Button>
         ) : null}
       </View>
@@ -577,13 +586,17 @@ function NeedCard({
   when: string;
   onClear: (how: NeedClear) => void;
 }) {
-  const messenger = need.step === 'message' ? messengerChatUrl(need.threadKey) : null;
-  // Only a Facebook address opens.
-  const onFacebook = need.url && FacebookUrl.safeParse(need.url).success ? need.url : null;
+  const platform = networkOfUrl(need.url);
+  const messenger = need.step === 'message' ? chatUrlOn(platform, need.threadKey) : null;
+  // Only an address on a network the add-on knows opens.
+  const onFacebook = need.url && networkOfLink(need.url) ? need.url : null;
   const why = needWhyWords(need.why);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-need-item">
-      <Text className="text-[15px] font-semibold">{needTitle(need.step, need.name)}</Text>
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Text className="text-[15px] font-semibold">{needTitle(need.step, need.name)}</Text>
+        <NetworkName platform={platform} />
+      </View>
       <Note>{[why, when].filter(Boolean).join(' · ')}</Note>
       {need.text ? (
         <Text
@@ -614,7 +627,7 @@ function NeedCard({
             icon={ExternalLink}
             onPress={() => openOutside(messenger ?? onFacebook)}
           >
-            {messenger ? W.openInMessenger : W.openOnFacebook}
+            {messenger ? openChatWords(platform) : openPageWords(platform)}
           </Button>
         ) : null}
       </View>
@@ -631,9 +644,13 @@ function RequestCard({
   when: string;
   onLeave: () => void;
 }) {
+  const platform = networkOfUrl(request.url);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-request-item">
-      <Text className="text-[15px] font-semibold">{request.name}</Text>
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Text className="text-[15px] font-semibold">{request.name}</Text>
+        <NetworkName platform={platform} />
+      </View>
       <Note>{W.asked(when, request.mutualFriends)}</Note>
       {request.why.length ? <Note>{request.why.join(' · ')}</Note> : null}
       <View className="flex-row flex-wrap gap-2">
@@ -643,7 +660,7 @@ function RequestCard({
           icon={ExternalLink}
           onPress={() => openOutside(request.url)}
         >
-          {W.openOnFacebook}
+          {openPageWords(platform)}
         </Button>
         <Button size="md" variant="ghost" icon={X} onPress={onLeave} testID="waiting-request-leave">
           {W.leaveIt}

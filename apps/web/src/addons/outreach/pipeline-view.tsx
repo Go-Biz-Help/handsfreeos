@@ -7,7 +7,7 @@
  * One stage, or a name searched for, is a list with its count. The person marks someone ready to pitch (Today then
  * offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply) or back in play when they know
  * better (`outreach.stage.mark`), from the person's menu. Which stage, a name searched for and the page are in the
- * address (./address.ts).
+ * address (./address.ts). Every network's people, each row naming its network, or one network's (`?net=`).
  */
 import {
   marksFor,
@@ -22,7 +22,8 @@ import {
   type StageMark,
   type StageView,
 } from '@hfos/core/addons/outreach/stages';
-import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -37,6 +38,7 @@ import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { BOARD_STAGES, type Board } from './board';
 import { Pager, SearchBox } from './friends-view';
+import { NetworkFilterControl, NetworkName } from './network-ui';
 import { PersonMenu } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Pipeline, PipelinePerson } from './types';
@@ -67,10 +69,13 @@ export function PipelineView({
   board = null,
   show,
   search,
+  net = null,
   asks = null,
 }: {
   workspaceId: string;
   pipeline: Pipeline;
+  /** The network it's narrowed to: null for every network. */
+  net?: Platform | null;
   /** What the person asked their computer here: Research's asks. Null when they couldn't be had. */
   asks?: Asks | null;
   /** Everyone in play by stage: shown in place of the list. */
@@ -82,17 +87,19 @@ export function PipelineView({
   const [pending, startTransition] = useTransition();
   // A Research ask's progress and end.
   useLiveRefresh(['outreach_ask'], 800);
-  const asked = useRef({ show, search });
-  const go = (to: { show?: StageView; search?: string; page?: number }) => {
+  const asked = useRef({ show, search, net });
+  const go = (to: { show?: StageView; search?: string; page?: number; net?: Platform | null }) => {
     asked.current = {
       show: to.show ?? asked.current.show,
       search: to.search ?? asked.current.search,
+      net: to.net === undefined ? asked.current.net : to.net,
     };
     const href = outreachHref(workspaceId, {
       view: 'pipeline',
       stages: asked.current.show,
       search: asked.current.search,
       page: to.page ?? 1,
+      net: asked.current.net,
     });
     startTransition(() => router.replace(href, { scroll: false }));
   };
@@ -131,6 +138,7 @@ export function PipelineView({
             }))}
           />
         </div>
+        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <div
@@ -140,6 +148,7 @@ export function PipelineView({
         {board && pipeline.counts.all ? (
           <BoardView
             workspaceId={workspaceId}
+            net={net}
             board={board}
             counts={pipeline.counts}
             asks={asks}
@@ -169,13 +178,14 @@ export function PipelineView({
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     <div className="min-w-0 text-[13.5px]">
                       <a
-                        href={messengerChatUrl(p.threadKey) ?? p.url}
+                        href={chatUrlOn(p.platform, p.threadKey) ?? p.url}
                         target="_blank"
                         rel="noreferrer"
                         className="font-medium text-accent-text hover:underline"
                       >
                         {p.name}
-                      </a>
+                      </a>{' '}
+                      <NetworkName platform={p.platform} />
                       {p.why.length ? (
                         <div className="text-[12.5px] text-text-3" data-testid="pipeline-why">
                           {p.why.join(' · ')}
@@ -202,6 +212,7 @@ export function PipelineView({
                     workspaceId={workspaceId}
                     asks={asks}
                     profileId={p.profileId}
+                    platform={p.platform}
                     name={p.name}
                     check={researchCheck(p)}
                     neverPitched={false}
@@ -243,6 +254,7 @@ export function PipelineView({
  */
 function BoardView({
   workspaceId,
+  net,
   board,
   counts,
   asks,
@@ -250,6 +262,7 @@ function BoardView({
   onMark,
 }: {
   workspaceId: string;
+  net: Platform | null;
   board: Board;
   counts: Pipeline['counts'];
   asks: Asks | null;
@@ -263,7 +276,7 @@ function BoardView({
         {counts.warming.toLocaleString()} · the extension works on these itself.{' '}
         {counts.lost ? (
           <Link
-            href={outreachHref(workspaceId, { view: 'pipeline', stages: 'lost' })}
+            href={outreachHref(workspaceId, { view: 'pipeline', stages: 'lost', net })}
             className="font-medium text-accent-text hover:underline"
           >
             {STAGES.lost} {counts.lost.toLocaleString()}
@@ -305,7 +318,7 @@ function BoardView({
                   </p>
                 ) : count > people.length ? (
                   <Link
-                    href={outreachHref(workspaceId, { view: 'pipeline', stages: stage })}
+                    href={outreachHref(workspaceId, { view: 'pipeline', stages: stage, net })}
                     className="flex h-8 items-center justify-center rounded-control text-[13px] font-medium text-text-2 hover:bg-card-3 hover:text-text"
                     data-testid={`pipeline-column-all-${stage}`}
                   >
@@ -341,7 +354,7 @@ function BoardCard({
     >
       <div className="flex items-start justify-between gap-2">
         <a
-          href={messengerChatUrl(p.threadKey) ?? p.url}
+          href={chatUrlOn(p.platform, p.threadKey) ?? p.url}
           target="_blank"
           rel="noreferrer"
           className="min-w-0 truncate text-[14px] font-medium hover:underline"
@@ -372,11 +385,15 @@ function BoardCard({
           {p.nextStep}
         </p>
       ) : null}
-      {p.lastAt ? <p className="text-[12px] text-text-3">Latest {relativeTime(p.lastAt)}</p> : null}
+      <p className="text-[12px] text-text-3">
+        <NetworkName platform={p.platform} />
+        {p.lastAt ? ` · Latest ${relativeTime(p.lastAt)}` : null}
+      </p>
       <ResearchSlot
         workspaceId={workspaceId}
         asks={asks}
         profileId={p.profileId}
+        platform={p.platform}
         name={p.name}
         check={researchCheck(p)}
         neverPitched={false}

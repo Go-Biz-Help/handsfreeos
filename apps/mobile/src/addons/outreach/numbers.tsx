@@ -7,6 +7,8 @@ import {
   type TrackingNumbers,
   type TrackingOutput,
 } from '@hfos/core/addons/outreach/tracking';
+import { shareWords } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -21,7 +23,8 @@ import { Note, Part } from './kit';
  * The three numbers on the phone's Results (docs/outreach.md, decision 70; the boards in design/tracking), as the
  * web's tab leads with them (apps/web/src/addons/outreach/tracking-view.tsx): first messages sent, said yes and calls
  * booked against the person's targets, the two rates against the usual ones, their latest week's review, and the
- * numbers by playbook and by the offer's version. Every word and rule is core's.
+ * numbers by playbook, by the offer's version and by network, with each network's share of one goal. Every word and
+ * rule is core's.
  */
 
 const KEYS = [
@@ -154,6 +157,16 @@ export function NumbersPart({ tracking }: { tracking: TrackingOutput }) {
         }))}
         testID="results-versions"
       />
+      <Breakdown
+        title={T.byNetwork}
+        rows={(tracking.byNetwork ?? []).map((n) => ({
+          key: n.platform,
+          name: PLATFORMS[n.platform],
+          detail: shareWords(n.messages, tracking.numbers.messages),
+          n,
+        }))}
+        testID="results-networks"
+      />
     </View>
   );
 }
@@ -195,7 +208,7 @@ function Breakdown({
   testID,
 }: {
   title: string;
-  rows: readonly { key: string; name: string; n: TrackingNumbers }[];
+  rows: readonly { key: string; name: string; detail?: string; n: TrackingNumbers }[];
   testID: string;
 }) {
   if (!rows.length) return null;
@@ -210,9 +223,12 @@ function Breakdown({
               i > 0 && 'border-t border-border',
             )}
           >
-            <Text className="flex-1 text-[14px]" numberOfLines={1}>
-              {r.name}
-            </Text>
+            <View className="flex-1 gap-0.5">
+              <Text className="text-[14px]" numberOfLines={1}>
+                {r.name}
+              </Text>
+              {r.detail ? <Note>{r.detail}</Note> : null}
+            </View>
             <Note>{lineOf(r.n)}</Note>
           </View>
         ))}

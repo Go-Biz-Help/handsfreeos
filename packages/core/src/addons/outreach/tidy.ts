@@ -19,7 +19,8 @@ import {
   WARNING_SLOWER_DAYS,
   type TidyKind,
 } from './limits';
-import { PLATFORM_KEYS } from './playbooks';
+import { NETWORKS } from './networks';
+import { PLATFORM_KEYS, type Platform } from './playbooks';
 import { NetworkUrl, PersonName, ProfileRef } from './saves';
 
 export {
@@ -65,15 +66,23 @@ export const WarningState = z.object({
 });
 export type WarningState = z.output<typeof WarningState>;
 
-/** The red note about a warning: what Facebook said, and what HandsFreeOS does about it. */
-export function warningNote(warning: WarningState, now = Date.now()): string {
+/**
+ * The red note about a warning: what the network said (Facebook when left out), and what HandsFreeOS does about it,
+ * on that network alone.
+ */
+export function warningNote(
+  warning: WarningState,
+  now = Date.now(),
+  platform: Platform = 'facebook',
+): string {
+  const { name, words } = NETWORKS[platform];
   const requests = new Date(warning.requestsFrom).getTime() > now;
-  const slower = `Your daily limits are halved until ${dayName(warning.slowerUntil)}`;
+  const slower = `Your ${name} limits are halved until ${dayName(warning.slowerUntil)}`;
   return [
-    `Facebook warned you: “${warning.words}”.`,
-    warning.today ? 'The extension stops for today.' : null,
+    `${name} warned you: “${warning.words}”.`,
+    warning.today ? `The extension stops on ${name} for today.` : null,
     requests
-      ? `${slower}, and friend requests are off your list until ${dayName(warning.requestsFrom)}.`
+      ? `${slower}, and ${words.friendRequests} are off your list until ${dayName(warning.requestsFrom)}.`
       : `${slower}.`,
   ]
     .filter(Boolean)
