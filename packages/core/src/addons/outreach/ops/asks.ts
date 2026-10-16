@@ -15,6 +15,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   ASK_KIND_KEYS,
   notOnNetworkWords,
+  bioTooLongWords,
   targetOn,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
@@ -310,6 +311,8 @@ export const askMake = defineAddonCommand(outreachAddon, {
     const { platform } = input;
     const notOn = notOnNetworkWords(platform, ask.kind);
     if (notOn) throw HfosError.rule('outreach_ask_not_on_network', 409, notOn);
+    const tooLong = ask.kind === 'profile_edit' ? bioTooLongWords(platform, ask.bio) : null;
+    if (tooLong) throw HfosError.rule('outreach_bio_too_long', 400, tooLong);
     // A network the person doesn't work asks nothing there.
     if (!(await automationOf(ctx, me, now, platform)).choices.on)
       throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));

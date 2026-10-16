@@ -412,3 +412,49 @@ export const howWords = (how: PostingMode): string =>
     : how === 'after_ok'
       ? 'Press OK and your computer posts it in the group.'
       : 'Your computer posts it on its own; put it aside to stop it.';
+
+/** Where a network's helpful post goes when it isn't a group: the person's own feed, and its page. */
+const FEEDS: Readonly<Partial<Record<Platform, { readonly name: string; readonly url: string }>>> =
+  {
+    linkedin: { name: 'Your LinkedIn feed', url: 'https://www.linkedin.com/feed/' },
+  };
+
+/**
+ * The helpful post's words on a network (Today's card): Facebook's, in a group, as they always were; LinkedIn's on
+ * the person's own feed, with Open LinkedIn in place of Open the group.
+ */
+export function helpfulWordsOn(platform: Platform = 'facebook') {
+  const feed = FEEDS[platform] ?? null;
+  const name = NETWORKS[platform].name;
+  if (!feed)
+    return {
+      ...HELPFUL_WORDS,
+      feed: null,
+      /** Where it opens to post it by hand: its group. */
+      open: HELPFUL_WORDS.openGroup,
+      how: howWords,
+    };
+  return {
+    ...HELPFUL_WORDS,
+    copied: `Copied. Start a post on ${name} and paste it, then press I posted it.`,
+    limit: 'One helpful post a day, on your own feed.',
+    feed,
+    open: `Open ${name}`,
+    how: (how: PostingMode): string =>
+      how === 'copy'
+        ? `Copy it, post it on your ${name} feed yourself, then press I posted it.`
+        : how === 'after_ok'
+          ? `Press OK and your computer posts it on your ${name} feed.`
+          : howWords(how),
+  };
+}
+
+/** Where a helpful post goes, as its card says it: "For Roofers of Ohio", or "Your LinkedIn feed". */
+export function helpfulWhere(post: Pick<HelpfulShown, 'groupName' | 'platform'>): string | null {
+  if (post.groupName) return `For ${post.groupName}`;
+  return FEEDS[post.platform ?? 'facebook']?.name ?? null;
+}
+
+/** The page to open to post it by hand: its group, or the network's feed. */
+export const helpfulOpenUrl = (post: Pick<HelpfulShown, 'groupUrl' | 'platform'>): string | null =>
+  post.groupUrl ?? FEEDS[post.platform ?? 'facebook']?.url ?? null;

@@ -14,7 +14,7 @@
  * - **Settings** (`?view=settings`, whose with `?for=` someone's id, for owners and admins) and the business's playbooks
  *   (`?view=playbooks`).
  *
- * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today takes the network whose list it shows, and
+ * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today and Live take the network whose day they show, and
  * the pipeline, friends and chats the network they're narrowed to (`?net=linkedin`): Today's first network, and every
  * network, when left out. A plain module, so the page reads it on the server and the tabs build their links from it.
  */
@@ -159,7 +159,14 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   const params = new URLSearchParams();
   const view = to.view ?? 'today';
   params.set('view', view);
-  if (to.net && (view === 'today' || view === 'pipeline' || view === 'friends' || view === 'chats'))
+  if (
+    to.net &&
+    (view === 'today' ||
+      view === 'live' ||
+      view === 'pipeline' ||
+      view === 'friends' ||
+      view === 'chats')
+  )
     params.set('net', to.net);
   if (view === 'settings') {
     if (to.for) params.set('for', to.for);

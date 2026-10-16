@@ -15,7 +15,7 @@ import {
   ASK_WORDS,
   askableOn,
   askOpen,
-  TIDY_PACE_WORDS,
+  type TIDY_ASK_KINDS,
 } from '@hfos/core/addons/outreach/asks';
 import {
   CHECK_VERDICTS,
@@ -33,6 +33,7 @@ import {
   FRIENDS_PAGE,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
+import { tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
@@ -51,7 +52,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton, AskLine, latestAsk } from './asks';
+import { AskButton, AskLine, latestAskOn } from './asks';
 import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
@@ -413,9 +414,9 @@ export function FriendsView({
               )}
             </Card>
           )}
-          {/* Tidying friends is Facebook's yet: LinkedIn's old invitations come with its own steps. */}
-          {askableOn(asking, 'unfriend') ? (
-            <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
+          {/* Each network's own tidying: LinkedIn withdraws old invitations, and never removes a connection. */}
+          {tidyWordsOn(asking).kinds.length ? (
+            <TidyCard workspaceId={workspaceId} platform={asking} tidy={tidy} asks={asks} />
           ) : null}
           <SkippedCountryCard workspaceId={workspaceId} />
         </div>
@@ -849,58 +850,53 @@ function CapCard({ counts, cap, platform }: { counts: Counts; cap: number; platf
 const dateWords = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-const TIDY = {
-  cancel: {
-    step: 'cancel_request',
-    list: 'cancel',
-    title: 'Old friend requests',
-    button: 'Cancel the ticked requests',
-    done: 'requests cancelled',
-  },
-  unfriend: {
-    step: 'unfriend',
-    list: 'unfriend',
-    title: 'Friends to unfriend',
-    button: 'Unfriend the ticked',
-    done: 'unfriended',
-  },
-} as const;
+type TidyAsk = (typeof TIDY_ASK_KINDS)[number];
 
 /**
- * Tidying up the person's friends (decisions 10, 12 and 17): old requests nobody answered, and friends suggested for
- * unfriending. They tick the ones to go, and their computer presses Cancel request or Unfriend on each profile,
- * slowly, in a tab they can see, stopping at today's limit and on any warning from Facebook.
+ * Tidying up the person's friends on a network (decisions 10, 12 and 17), in its words: old requests nobody answered,
+ * and friends suggested for unfriending, where the network has each (LinkedIn withdraws old invitations, and never
+ * removes a connection). They tick the ones to go, and their computer presses Cancel request, Withdraw or Unfriend on
+ * each profile, slowly, in a tab they can see, stopping at today's limit there and on any warning from that network.
  */
-function TidyCard({ workspaceId, tidy, asks }: { workspaceId: string; tidy: Tidy; asks: Asks }) {
-  const warnedToday = tidy.warning?.today === true || asks.warnedToday;
+function TidyCard({
+  workspaceId,
+  platform,
+  tidy,
+  asks,
+}: {
+  workspaceId: string;
+  platform: Platform;
+  tidy: Tidy;
+  asks: Asks;
+}) {
+  const T = tidyWordsOn(platform);
+  // Facebook's warning today is on the asks; any network's is on its own tidy answer.
+  const warnedToday = tidy.warning?.today === true || (platform === 'facebook' && asks.warnedToday);
   return (
     <Card className="mt-4 p-4" data-testid="friends-tidy">
-      <h3 className="text-[15px] font-semibold">Tidy up</h3>
-      <p className="mt-0.5 text-[12.5px] text-text-3">Tick the ones to go. {TIDY_PACE_WORDS}</p>
+      <h3 className="text-[15px] font-semibold">{T.title}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{T.about}</p>
       {tidy.warning ? (
         <p
           role="alert"
           className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
           data-testid="tidy-warning"
         >
-          {warningNote(tidy.warning)}
+          {warningNote(tidy.warning, Date.now(), platform)}
         </p>
       ) : null}
       <div className="mt-3 grid gap-5">
-        <TidyList
-          workspaceId={workspaceId}
-          tidy={tidy}
-          asks={asks}
-          kind="cancel"
-          warned={warnedToday}
-        />
-        <TidyList
-          workspaceId={workspaceId}
-          tidy={tidy}
-          asks={asks}
-          kind="unfriend"
-          warned={warnedToday}
-        />
+        {T.kinds.map((kind) => (
+          <TidyList
+            key={kind}
+            workspaceId={workspaceId}
+            platform={platform}
+            tidy={tidy}
+            asks={asks}
+            kind={kind}
+            warned={warnedToday}
+          />
+        ))}
       </div>
     </Card>
   );
@@ -908,23 +904,27 @@ function TidyCard({ workspaceId, tidy, asks }: { workspaceId: string; tidy: Tidy
 
 function TidyList({
   workspaceId,
+  platform,
   tidy,
   asks,
   kind,
   warned,
 }: {
   workspaceId: string;
+  platform: Platform;
   tidy: Tidy;
   asks: Asks;
-  kind: keyof typeof TIDY;
+  kind: TidyAsk;
   warned: boolean;
 }) {
-  const words = TIDY[kind];
-  const people = tidy[words.list].slice(0, ASK_TIDY_MOST);
+  const T = tidyWordsOn(platform);
+  const words = T[kind];
+  const step = T.step[kind];
+  const people = tidy[kind].slice(0, ASK_TIDY_MOST);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
-  const { done, most } = tidy.limits[words.step];
+  const { done, most } = tidy.limits[step];
   const room = Math.max(0, most - done);
-  const latest = latestAsk(asks, kind);
+  const latest = latestAskOn(asks, platform, kind);
   const open = latest !== null && askOpen(latest.state);
   // Only the ones still listed count: someone done since drops off the list, and out of the ticks.
   const picked = people.filter((p) => ticked.has(p.profileId)).map((p) => p.profileId);
@@ -941,17 +941,16 @@ function TidyList({
   return (
     <section data-testid={`tidy-${kind}`}>
       <h4 className="text-[13.5px] font-semibold">
-        {words.title} · {tidy.totals[words.step].toLocaleString()}
+        {words.title} · {tidy.totals[step].toLocaleString()}
       </h4>
       <p className="mt-0.5 text-[12.5px] text-text-3">
         {kind === 'cancel'
-          ? `Sent more than ${tidy.cancelAfterWeeks === 1 ? 'a week' : `${tidy.cancelAfterWeeks} weeks`} ago and not answered. Facebook pauses your requests when too many wait.`
-          : `No contact either way in six months, friends for longer, and not in Contacts, a prospect, kept or on Don’t pitch. You have ${tidy.friends.toLocaleString()} of ${tidy.cap.toLocaleString()} friends.`}
+          ? T.cancel.about(tidy.cancelAfterWeeks)
+          : T.unfriend.about(tidy.friends, tidy.cap)}
       </p>
       {kind === 'unfriend' && tidy.needsFile ? (
         <p className="mt-2 text-[12.5px] text-text-2" data-testid="tidy-needs-file">
-          Bring in your Facebook file first (Let the extension get your file, beside this): it says
-          when you last talked to each friend.
+          {T.unfriend.needsFile}
         </p>
       ) : !people.length ? (
         <p className="mt-2 text-[12.5px] text-text-2">Nobody right now.</p>
@@ -991,7 +990,7 @@ function TidyList({
               </li>
             ))}
           </ul>
-          {tidy.totals[words.step] > people.length ? (
+          {tidy.totals[step] > people.length ? (
             <p className="mt-1 text-[12.5px] text-text-3">
               The first {people.length} shown. Do these, and the next ones show.
             </p>
@@ -1011,6 +1010,7 @@ function TidyList({
                 workspaceId={workspaceId}
                 asks={asks}
                 ask={{ kind, profileIds: sending }}
+                platform={platform}
                 label={`${words.button} (${sending.length})`}
                 variant="primary"
                 disabled={room <= 0 || warned}

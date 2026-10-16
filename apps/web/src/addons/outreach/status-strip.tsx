@@ -49,6 +49,8 @@ const DOT: Record<ReturnType<typeof stateTone>, string> = {
 export interface NetworkLive {
   readonly platform: Platform;
   readonly live: Live;
+  /** Whether the person is ready there, its own profile counting: the strip's `ready` when not known. */
+  readonly ready?: boolean;
 }
 
 type Press = 'start' | 'stop';
@@ -66,9 +68,9 @@ const pressDay = async (workspaceId: string, platform: Platform, kind: Press) =>
         }),
   );
 
-/** Whether a network's day can be started now: ready, working on its own there, and no warning there today. */
-const canStart = (live: Live, ready: boolean) =>
-  ready && live.sending !== 'off' && live.day.why !== 'warning';
+/** Whether a network's day can be started now: ready there, working on its own there, and no warning there today. */
+const canStart = (n: NetworkLive, ready: boolean) =>
+  (n.ready ?? ready) && n.live.sending !== 'off' && n.live.day.why !== 'warning';
 
 export function StatusStrip({
   workspaceId,
@@ -119,7 +121,7 @@ export function StatusStrip({
       kind === 'start' ? W.started(computerOpen) : many ? NW.stoppedOn(PLATFORMS[p]) : W.stopped,
     );
   // Start all and Stop all just press each one that can be.
-  const toStart = networks.filter((n) => n.live.day.state !== 'started' && canStart(n.live, ready));
+  const toStart = networks.filter((n) => n.live.day.state !== 'started' && canStart(n, ready));
   const toStop = networks.filter((n) => n.live.day.state === 'started');
   const pressAll = (kind: Press) =>
     void act(
@@ -148,7 +150,7 @@ export function StatusStrip({
         size="sm"
         onClick={() => press(n.platform, 'start')}
         loading={busy === `${n.platform}:start`}
-        disabled={busy !== null || !canStart(n.live, ready)}
+        disabled={busy !== null || !canStart(n, ready)}
         data-testid={testId.replace('{}', 'start')}
       >
         {W.startDay}
@@ -223,7 +225,7 @@ export function StatusStrip({
             dayButton(shown, 'live-{}')
           )}
           <Link
-            href={outreachHref(workspaceId, { view: 'live' })}
+            href={outreachHref(workspaceId, { view: 'live', net: shown.platform })}
             className="px-1 text-[13px] font-medium text-accent-text hover:underline"
             data-testid="today-status-details"
           >
@@ -273,6 +275,15 @@ export function StatusStrip({
                 ) : null}
                 {n.live.sending === 'off' ? (
                   <p className="text-[12.5px] text-text-3">{W.sendingOffNote}</p>
+                ) : null}
+                {/* Its own profile to finish, when the one shown is ready: shown under its own list. */}
+                {ready && !here && n.ready === false ? (
+                  <p
+                    className="text-[12.5px] text-text-2"
+                    data-testid={`live-not-ready-${n.platform}`}
+                  >
+                    {READY_WORDS.stripNotReadyOn(name)}
+                  </p>
                 ) : null}
               </li>
             );

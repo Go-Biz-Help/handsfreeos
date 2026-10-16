@@ -84,6 +84,9 @@ export type OutreachShown =
       readonly live: Live;
       readonly team: LiveTeam | null;
       readonly asks: Asks;
+      /** The network whose day it shows, of those the person works. */
+      readonly platform: Platform;
+      readonly networks: readonly Platform[];
     }
   | {
       readonly view: 'results';
@@ -355,7 +358,14 @@ export function OutreachHome({
           readiness={shown.readiness}
         />
       ) : shown.view === 'live' ? (
-        <LiveView workspaceId={workspaceId} live={shown.live} team={shown.team} asks={shown.asks} />
+        <LiveView
+          workspaceId={workspaceId}
+          live={shown.live}
+          team={shown.team}
+          asks={shown.asks}
+          platform={shown.platform}
+          networks={shown.networks}
+        />
       ) : shown.view === 'results' ? (
         <ActivityView
           workspaceId={workspaceId}

@@ -16,8 +16,8 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
-import { dailyWordsOn } from '@hfos/core/addons/outreach/network-words';
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { dailyWordsOn, networkShown } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
@@ -48,6 +48,7 @@ import {
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
+import { useNetworksOn } from './networks';
 
 /**
  * The live view on the phone (decision 44): what the person's extension is doing now, asked again every minute while
@@ -94,8 +95,15 @@ export function StateChip({ state, testID }: { state: ShownState; testID?: strin
   );
 }
 
-export function LiveScreen() {
-  return <LiveBody {...useLiveProps()} />;
+/**
+ * The live screen: the day of the network picked, of those the person works (the one its address names, else their
+ * first, to start).
+ */
+export function LiveScreen({ net: start = null }: { net?: Platform | null }) {
+  const nets = useNetworksOn();
+  const [asked, setAsked] = React.useState<Platform | null>(start);
+  const net = networkShown(nets, asked);
+  return <LiveBody {...useLiveProps(true, net)} networks={nets} onNetwork={setAsked} />;
 }
 
 /**
@@ -194,9 +202,14 @@ export function LiveBody({
   onSettings,
   asks = null,
   askActions,
+  networks = [platform],
+  onNetwork,
 }: {
   /** The network whose day, warning and limits these are. */
   platform?: Platform;
+  /** The networks the person works: with more than one, their names pick whose day shows. */
+  networks?: readonly Platform[];
+  onNetwork?: (platform: Platform) => void;
   live: LiveOutput | null;
   /** When the answer on screen came. */
   at: number | null;
@@ -249,6 +262,22 @@ export function LiveBody({
       testID="outreach-live"
     >
       {!online ? <NeedsSignal words={W.needsSignal(W.rows.live)} testID="live-offline" /> : null}
+
+      {networks.length > 1 && onNetwork ? (
+        <View className="flex-row flex-wrap gap-1.5" testID="live-networks">
+          {networks.map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={p === platform ? 'secondary' : 'ghost'}
+              onPress={() => onNetwork(p)}
+              testID={`live-network-${p}`}
+            >
+              {PLATFORMS[p]}
+            </Button>
+          ))}
+        </View>
+      ) : null}
 
       <Part title={W.rightNow} testID="live-now">
         <Card className="gap-2 px-4 py-3.5">
