@@ -6,7 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NETWORKS_KEY, type NetworkStates } from '../src/networks/on';
 
 type Listener = (
@@ -66,7 +66,14 @@ async function tab(fixture: string, url: string, states: NetworkStates | null): 
   };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+// The script looks at its page as it settles, on timers of its own. They run on a clock that moves as time does, and
+// end with the test, before its page is taken away, so none fires on a page that's gone.
+beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 const on: NetworkStates = {
   facebook: { on: true, allowed: true },
