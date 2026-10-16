@@ -118,6 +118,13 @@ review before anyone outside Go Biz Help's Zoom account can add it.
    (`startRTMS`) at once; otherwise after the rep picks. Zoom shows everyone that an app is listening. Zoom then calls
    the coaching app's `/webhooks/zoom-live` with `meeting.rtms_started`; the worker takes the newest waiting claim on
    that meeting whose rep's linked Zoom account started it (Zoom's `operator_id`), and opens `ZoomLiveSession`.
+   **Zoom's auto-start** (the app set to start as its person joins) sends the stream before the panel has claimed
+   anything. Then the worker claims the meeting for the Zoom user who started it, when they're linked here and an
+   add-on listens for them (`live_meeting.auto_claim`, in the business they linked most recently), and coaches it
+   without a customer, telling the rep's words by their name in HandsFreeOS. Opening the panel finds that claim live
+   and offers **Pick the customer** (the appointment's, when the meeting was made for one, is taken at once); the
+   write-up lands on whoever was named by the time the meeting ends. A stream nobody here can be heard for is left
+   alone, and Zoom tells the meeting the app couldn't reach it.
 4. **Hearing it.** `RtmsStream` connects to Zoom's signaling and media sockets, signs both handshakes with the
    coaching Zoom app's id and secret, asks only for Zoom's own English transcript, and answers Zoom's keep-alives. Each transcript
    message names its speaker: the rep (by the name they show in the meeting) is the team's side, anyone else the

@@ -243,6 +243,6 @@ describe('salescoach.trends', () => {
     expect(all.team.previous.coached).toBe(1);
     const one = await ask(owner, { userId: other.id });
     expect(one.reps).toHaveLength(1);
-    expect(one.reps[0].totals).toMatchObject({ coached: 1, score: 50 });
+    expect(one.reps[0]!.totals).toMatchObject({ coached: 1, score: 50 });
   });
 });

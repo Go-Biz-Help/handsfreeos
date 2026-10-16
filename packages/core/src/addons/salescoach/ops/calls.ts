@@ -292,11 +292,20 @@ export const callEnd = defineAddonCommand(salescoachAddon, {
     if (c.state !== 'live') return { state: c.state };
     const heard = input.lines.some((l) => l.text.trim());
     const state = heard ? ('writing' as const) : ('failed' as const);
+    // A Zoom meeting Zoom started on its own was claimed without a customer; the app may have named them since.
+    const [named] =
+      !c.personId && c.liveMeetingId
+        ? await rows<{ person_id: string | null }>(
+            ctx.tx,
+            dbSql`select person_id from app.live_meetings where id = ${c.liveMeetingId}`,
+          )
+        : [];
     await ctx.tx
       .update(coachedCalls)
       .set({
         state,
         lines: input.lines,
+        ...(named?.person_id ? { personId: named.person_id } : {}),
         endedAt: changeMoment(ctx.meta),
         ...(heard ? {} : { failure: 'Nothing was heard on this call, so there’s no write-up.' }),
       })

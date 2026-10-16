@@ -47,6 +47,8 @@ export const SALESCOACH_WORDS = {
     whoWithHelp:
       'Pick the customer, so the notes, the follow-up and any tasks land on their record.',
     noCustomer: 'Coach without a customer',
+    noCustomerYet: 'No customer picked yet',
+    pickCustomer: 'Pick the customer',
     withWhom: (name: string) => `With ${name}`,
     change: 'Change',
     start: 'Start coaching',

@@ -306,6 +306,7 @@ describe('registry', () => {
       'meeting_connection.record_settings',
       'meeting_connection.revoke',
       'live_meeting.claim',
+      'live_meeting.auto_claim',
       'live_meeting.started',
       'live_meeting.ended',
       'live_meeting_account.link',
