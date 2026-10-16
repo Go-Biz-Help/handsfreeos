@@ -6,7 +6,11 @@
  *
  * The web and the phone open a part from its key (`?part=` on the web), and build the menu from these words. Browser-safe.
  */
-import { PLATFORM_KEYS, type Platform } from './networks';
+import { businessLimitsOn, type BusinessRules } from './automation';
+import { HELPFUL_PER_DAY } from './helpful';
+import { DAILY_STEPS, limitNow } from './limits';
+import { dailyWordsOn, helpfulOn, tidyWordsOn } from './network-words';
+import { networkLimitsNow, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 
 /** The parts, in the menu's order. */
 export const SETTINGS_PART_KEYS = ['general', ...PLATFORM_KEYS, 'computer', 'fresh'] as const;
@@ -66,8 +70,67 @@ export const SETTINGS_WORDS = {
   /** A network Chrome has to let the extension on, the first time. */
   allowInChrome: (name: string) =>
     `The first time, open the extension’s panel on a ${name} page and press Allow on ${name}, then Allow in Chrome’s box.`,
+  /** Your computer's page. */
+  computerAbout: 'The computers you’re signed in on, and the extension to download.',
+  /** Under a network's daily friend requests, when it also caps them in any 7 days (LinkedIn's 80). */
+  weekly: (n: number) => `At most ${n.toLocaleString('en-US')} in any 7 days`,
+  /** The kit's other limits a day, beside the daily steps. */
+  profilesRead: 'Profiles read',
+  helpfulPost: 'Helpful post',
   // The phone's
   /** The phone's menu: the networks still to come, on one muted line under the others. */
   comingLine: (names: readonly string[]) =>
     `${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '')} are coming`,
 } as const;
+
+/** One of a network's limits a day, as its page shows it. */
+export interface LimitShown {
+  readonly key: string;
+  readonly label: string;
+  /** How many a day, as it stands for the person. */
+  readonly most: number;
+  /** A line under it: the network's cap in any 7 days. */
+  readonly note: string | null;
+}
+
+const cap = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
+
+/**
+ * A person's limits a day on a network, as its page shows them, read only: each step at the business's own limit
+ * there, at most the network's starting one, halved while that network's training wheels are on (`slower`), with the
+ * network's cap in any 7 days under its requests; then the kit's others: profiles read for good fits, the helpful
+ * post and tidying up (halved too, as `slowerFor` halves tidying). Owners and admins set the steps on the same page.
+ */
+export function limitsShownOn(
+  platform: Platform,
+  rules: Pick<BusinessRules, 'dailyLimits' | 'networkLimits'>,
+  slower: boolean,
+): LimitShown[] {
+  const kit = NETWORKS[platform];
+  const now = networkLimitsNow(platform, slower, businessLimitsOn(rules, platform));
+  const words = dailyWordsOn(platform);
+  const tidy = tidyWordsOn(platform);
+  return [
+    ...DAILY_STEPS.map((step) => ({
+      key: step,
+      label: words[step].label,
+      most: now[step],
+      note:
+        step === 'friend_request' && kit.weeklyRequests !== null
+          ? SETTINGS_WORDS.weekly(kit.weeklyRequests)
+          : null,
+    })),
+    { key: 'checks', label: SETTINGS_WORDS.profilesRead, most: kit.checksPerDay, note: null },
+    ...(helpfulOn(platform)
+      ? [{ key: 'helpful', label: SETTINGS_WORDS.helpfulPost, most: HELPFUL_PER_DAY, note: null }]
+      : []),
+    ...tidy.kinds.map((kind) => ({
+      key: tidy.step[kind],
+      label: cap(
+        kind === 'cancel' ? tidy.cancel.done : `${kit.words.friends} ${tidy.unfriend.done}`,
+      ),
+      most: limitNow(kit.tidyLimits[tidy.step[kind]], slower),
+      note: null,
+    })),
+  ];
+}

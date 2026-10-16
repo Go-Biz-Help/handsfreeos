@@ -4,7 +4,7 @@
  *
  * - **The day's report** (`outreach.day_report`, one job a person): at the end of their working hours on a working
  *   day, their three numbers today against the target: "Today: 14 messages, 2 said yes, 1 booked. 1 more message hits
- *   your target." Only on a day with something to tell, and only while it's on (My settings; on to start). It's
+ *   your target." Only on a day with something to tell, and only while it's on (Settings → General; on to start). It's
  *   armed when they start their day or save their settings, and by the morning push for whoever noted a step lately,
  *   and comes back the next working day while they keep noting steps.
  * - **The week's review** (`outreach.review`, one job a business): on Monday at the morning push's hour (8 when that's

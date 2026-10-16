@@ -59,6 +59,45 @@ const roleLine = (role: Role) =>
     .filter(Boolean)
     .join(' · ');
 
+/** How long each step down waits for LinkedIn to draw what came into view, and how many steps it takes at most. */
+const LOAD_PAUSE_MS = 700;
+const LOAD_STEPS = 30;
+
+/** The box the profile scrolls in: one around the main column that scrolls by itself, else the page. */
+function scrollBoxOf(doc: Document): Element {
+  for (let box = mainOf(doc).parentElement; box; box = box.parentElement) {
+    if (box === doc.documentElement || box === doc.body) break;
+    const style = doc.defaultView?.getComputedStyle(box);
+    if (
+      style &&
+      box.scrollHeight > box.clientHeight + 4 &&
+      (style.overflowY === 'auto' || style.overflowY === 'scroll')
+    )
+      return box;
+  }
+  return doc.scrollingElement ?? doc.documentElement;
+}
+
+/**
+ * Scrolls the profile down to its foot, most of a screen at a time, then back to the top. LinkedIn draws Experience,
+ * Featured, Activity and the rest only as they come into view, so a read straight after the page opens misses them
+ * (the owner's test, 16 Oct 2026: no Experience, Featured or posts were read). It stops once the foot is reached and
+ * the page has stopped growing, or after `LOAD_STEPS`.
+ */
+export async function loadWholeProfile(doc: Document, pauseMs = LOAD_PAUSE_MS): Promise<void> {
+  const box = scrollBoxOf(doc);
+  let still = 0;
+  for (let step = 0; step < LOAD_STEPS && still < 2; step++) {
+    const height = box.scrollHeight;
+    box.scrollTop += Math.max(300, box.clientHeight * 0.8);
+    await pause(pauseMs);
+    const atFoot = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+    still = atFoot && box.scrollHeight === height ? still + 1 : 0;
+  }
+  box.scrollTop = 0;
+  await pause(pauseMs);
+}
+
 /** Whether the top shows their photo and a banner: LinkedIn doesn't say what's in them. */
 function picturesOf(
   main: Element,

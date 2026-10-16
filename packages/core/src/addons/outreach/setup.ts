@@ -403,7 +403,7 @@ export const SETUP_WORDS = {
   useTemplate: 'Use this one',
   writeOwn: 'Write your own',
   download: 'Download HandsFreeOS Social',
-  /** Where the team gets the extension (`extensionLink`): Business settings and the install step, on the web and the phone. */
+  /** Where the team gets the extension (`extensionLink`): Settings' For your team and the install step, on the web and the phone. */
   link: {
     title: 'Where your team gets the extension',
     about:

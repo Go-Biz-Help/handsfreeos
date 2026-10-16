@@ -187,7 +187,8 @@ export const outreachAddon = defineAddon({
     'outreach.review',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
-  // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → Business settings.
+  // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
+  // team, with each network's page for its own say.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
@@ -262,12 +263,13 @@ export const outreachAddon = defineAddon({
       { slot: 'main_offer.panels', permission: 'outreach.use' },
     ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
-    // links (`?view=waiting`, `live`, `today`) open the phone's screens; and a playbook. The activity and friends stay
-    // on the web, and their links open it.
+    // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
+    // network shown (`?net=`) with them; and a playbook. The activity and friends stay on the web, and their links
+    // open it.
     phone: [
       {
         path: '',
-        query: ['view', 'for', 'show', 'tag', 'q'],
+        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q'],
         web: { view: ['activity', 'friends'] },
       },
       { path: 'playbooks/:playbookId' },

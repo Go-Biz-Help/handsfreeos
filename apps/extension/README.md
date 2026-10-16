@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.44.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.45.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -324,7 +324,7 @@ and nothing to get around LinkedIn's limits or checks (`src/jobs/linkedin/`, `sr
 | Check my connections (`checks`), Research  | Asks HandsFreeOS who's next on LinkedIn (`outreach.checks.next`, `platform: 'linkedin'`), opens each profile, checks it's them by the name in its address or LinkedIn's id, reads it and sends the lines (`outreach.check.look`); one page each (`checks.ts`)                                                                                              | A window of its own, one every 15 to 30 seconds, on LinkedIn's own 40 a day: a look is seen |
 | Read my chats (`chats`)                    | Opens your conversations in LinkedIn messaging one at a time from its list, and sends each as LinkedIn's, with its thread id (`../chats.ts`, `LINKEDIN_MESSAGING`)                                                                                                                                                                                         | A window of its own, 7 to 14 seconds a chat, up to 150                                      |
 | Draft a message (`lookup`)                 | Their profile, then the About of the company their role links to: two pages, then the window closes before the AI drafts (`lookup.ts`)                                                                                                                                                                                                                     | A window of its own, closed after                                                           |
-| Read my profile (`profile_read`)           | linkedin.com/in/me/, checked it's yours, read as `outreach.profile.check` takes it: the headline as the bio, the About, Experience as the intro, Featured and the latest posts (`profile.ts`, `src/networks/linkedin/own-profile.ts`)                                                                                                                      | A window of its own, one read                                                               |
+| Read my profile (`profile_read`)           | linkedin.com/in/me/, checked it's yours, scrolled to its foot and back so LinkedIn draws every part (0.45.0), read as `outreach.profile.check` takes it: the headline as the bio, the About, Experience as the intro, Featured and the latest posts (`profile.ts`, `src/networks/linkedin/own-profile.ts`)                                                 | A window of its own, one read                                                               |
 | Put this one in (`profile_edit`)           | Presses the pencil by your name (**Edit intro**), types only into **Headline** in the box it opens, presses that box's **Save**, and checks the headline under your name; anything it doesn't expect it hands to you, never guessing                                                                                                                       | A window of its own, brought to the front if it hands the step over                         |
 | Withdraw the ticked invitations (`cancel`) | On Sent invitations, finds each one you ticked by the link to their profile, scrolling for it, presses **Withdraw** and the box's **Withdraw**, checks the row is gone, and notes it; one not on the list, read to its end, answered already (`withdraw.ts`)                                                                                               | A tab you can see (decision 17), one every 20 to 40 seconds, up to LinkedIn's 20 a day      |
 | Find posts (`posts`)                       | LinkedIn's post search, latest first, with your playbooks' words (HandsFreeOS picks them: the quoted words in their signs, then their words for groups), a few screens each; posts by people go to the AI, in no group (`posts.ts`)                                                                                                                        | A window of its own, 6 to 12 seconds a screen, 3 screens a search                           |
@@ -556,10 +556,12 @@ words (decision 71). HandsFreeOS hands out the build itself, made with every dep
 `dev`) first runs `scripts/download.mjs`, which builds the extension for the HandsFreeOS the web app talks to (its
 `NEXT_PUBLIC_` settings, so Vercel's for a deploy and the local stack's on your computer) and zips it with
 `manifest.json` at the top to `apps/web/public/downloads/hfos-social.zip`. Nothing to release or commit: bump the
-version in `package.json` and the next deploy hands it out (`test/download.test.ts` covers it). The zip keeps its name
+version in `package.json` and the next deploy hands it out (`test/download.test.ts` covers it). The web app lists the
+extension among its dev dependencies for that alone: Vercel skips a deploy that touches nothing the web app depends
+on, so without it a change to the extension only would never be handed out. The zip keeps its name
 from version to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
 and press the reload arrow, and stay signed in. A business that keeps its own copy pastes its https link under Social
-Outreach → Settings → Business settings → **Where your team gets the extension** (on the web or the phone), and
+Outreach → Settings → General → **Where your team gets the extension** (on the web or the phone), and
 everyone's download is that one instead. When a business starts Social Outreach fresh, the extension
 forgets what it kept on the computer for it (chats read, steps not yet sent, the setup opened) the next time it loads
 its settings (`forgetOnFreshStart`). Once everyone has the bare-bones build (0.19.0, settings part 4, or

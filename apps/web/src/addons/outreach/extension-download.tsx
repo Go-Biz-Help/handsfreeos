@@ -2,7 +2,7 @@
 /**
  * Getting the browser extension (docs/outreach.md, decisions 45 and 60): HandsFreeOS hands out its own build, zipped
  * into `public/downloads` as this web app builds (apps/extension/scripts/download.mjs; its version and size come
- * through next.config.ts), unless the business gave its own link (`extensionLink`, Business settings), and says how to
+ * through next.config.ts), unless the business gave its own link (`extensionLink`, Settings → General), and says how to
  * load it into Chrome with Developer mode, step by step. The setup's install step shows it all; the Settings tab folds
  * the steps away.
  */

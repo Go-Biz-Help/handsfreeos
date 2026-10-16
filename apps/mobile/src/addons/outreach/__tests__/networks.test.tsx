@@ -430,7 +430,7 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
       />,
     );
     expect(screen.getByTestId('settings-networks-linkedin-not-allowed')).toHaveTextContent(
-      'Your business doesn’t use LinkedIn for outreach. Ask an owner or admin of this business to allow it under Social Outreach → Settings → Business settings.',
+      'Your business doesn’t use LinkedIn for outreach. Ask an owner or admin of this business to allow it under Social Outreach → Settings → LinkedIn.',
     );
     expect(screen.getByTestId('settings-networks-linkedin-on')).toBeDisabled();
     expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeChecked();

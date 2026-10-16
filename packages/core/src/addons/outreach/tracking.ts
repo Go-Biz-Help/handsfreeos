@@ -9,7 +9,7 @@
  *   came from) and by the main offer's version each person was first pitched with (`outreach.tracking`). Owners and
  *   admins see everyone's, counts only.
  * - **The day's report** is a push at the end of the person's working hours, on their add-ons switch, on to start and
- *   off in My settings (`dayReport`): "Today: 14 messages, 2 said yes, 1 booked. 1 more message hits your target."
+ *   off in Settings → General (`dayReport`): "Today: 14 messages, 2 said yes, 1 booked. 1 more message hits your target."
  * - **The week's review**, on Monday morning: what to fix first, in the video's order (`fixFirst`): too few messages
  *   (volume, the most common fix), then few yeses (the message or the offer), then yeses but few calls (the video and
  *   the follow-ups). The AI writes it from last week's numbers, counted against the AI limit; with no AI, the words
@@ -433,7 +433,7 @@ export function rulesReview(
         why: `${sent}${targetMessages ? ` Your goal takes about ${targetMessages.toLocaleString('en-US')}.` : ''} Too few messages is the most common reason for too few calls.`,
         steps: [
           'Start your day on each of your working days, so the extension works its list.',
-          'Let the extension send first messages for you, under Settings → My settings → Sending.',
+          'Let the extension send first messages for you: under Settings, each network’s page has What it does on its own.',
           'Add a group or two full of your kind of people, under Groups.',
         ],
       };
