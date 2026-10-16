@@ -855,7 +855,8 @@ describe('a listing on the phone', () => {
     })!;
     expect(shows.sellerFirstName).toBe('Maria');
     expect(shows.settings).toMatchObject({ from: '00:00', to: '23:30', confirm: 'seller' });
-    expect(JSON.stringify(shows)).not.toMatch(/4417/);
+    // The lockbox code stays off the phone. A random id can hold 4417 too, so only digits standing alone count.
+    expect(JSON.stringify(shows)).not.toMatch(/(?<![\da-f-])4417(?![\da-f-])/i);
     expect(shows.showings.map((s) => [s.agentName, s.stateWords])).toEqual(
       expect.arrayContaining([
         ['Ana Ruiz', 'Waiting on Maria'],

@@ -53,7 +53,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Account                                                             | What HandsFreeOS uses it for                                                                                                                                                                            | Rough cost                                                                                                                                                                                                                                                                                   | More in                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                                                                                                                    | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                                                                                  | "The database: Supabase (hosted)"           |
-| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                                                                                                                         | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two, plus about $13 to $15 for the sync service                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
+| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                                                                                                                         | About $9.60 a month in `iad` with two API machines and one worker machine, or about $12.80 with two worker machines (about $12 and $16 in `dfw`), plus about $13 to $15 for the sync service                                                                                                 | "Hosting: the API and the worker on Fly.io" |
 | Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                                                                                                                       | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                                                                                       | "The web app on Vercel"                     |
 | Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                                                                                                                         | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance.                                                           | "The phone carrier: Twilio"                 |
 | Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                                                                                                                     | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                                                                                      | "Email: Postmark"                           |
@@ -1943,7 +1943,7 @@ Do the first deploy by hand. You can watch it, keep the worker to one machine, a
    fly status --app handsfreeos-api
    ```
 
-   You should see two machines. One is `started`. The other may be `stopped`.
+   You should see two machines, both `started`. If you see one, or one is `stopped`, see "Two API machines" in "Scaling, and keeping the apps running".
 
 9. Check that the worker's secrets are live.
 
@@ -2245,7 +2245,7 @@ After the redeploy:
 
 Each `fly.toml` tells Fly to call `GET /healthz` every 30 seconds, with a 5-second timeout. After a machine starts, Fly waits 10 seconds (API) or 15 seconds (worker) before the first check.
 
-- A machine that fails its check stops getting traffic until it passes again. Fly does not restart it.
+- A machine that fails its check stops getting traffic until it passes again. Fly does not restart it. The API's second machine takes the traffic meanwhile (see "Two API machines").
 - Fly runs only the checks in `fly.toml`. Treat the `HEALTHCHECK` lines in the Dockerfiles as unused on Fly.
 - `/healthz` only proves the program is running. Neither app checks the database there, and the worker does not check its loops. So a check can pass while the database connection is broken.
 
@@ -2280,6 +2280,25 @@ After every deploy:
 5. Sign in at `https://app.handsfreeos.com` with the account from "Create your first account" in "The database: Supabase (hosted)", and open **Contacts**.
 
    You should see your customer list. That proves the API can reach the database.
+
+### Get told when something goes down
+
+Fly's health checks move traffic away from a broken machine, but they tell nobody. An outside check that texts or emails you means you hear about an outage before your customers do.
+
+1. Make a free account at an uptime service, such as UptimeRobot (`https://uptimerobot.com`) or Better Stack (`https://betterstack.com/uptime`).
+2. Add an HTTPS check for each address below, at the shortest interval your plan allows. Where the service can look for a word in the answer, have it look for the text in the last column.
+
+   | Address                                        | What it checks                                                           | Text in a good answer |
+   | ---------------------------------------------- | ------------------------------------------------------------------------ | --------------------- |
+   | `https://api.handsfreeos.com/healthz`          | The API. When it's down, every page of the web app says something broke. | `"ok":true`           |
+   | `https://hooks.handsfreeos.com/healthz`        | The worker. When it's down, texts, emails and webhooks wait.             | `"ok":true`           |
+   | `https://sync.handsfreeos.com/probes/liveness` | The sync service. When it's down, phones stop syncing until it's back.   | `"ready":true`        |
+   | `https://app.handsfreeos.com/sign-in`          | The web app on Vercel.                                                   | `HandsFreeOS`         |
+
+3. Have it alert you by text or push notification as well as email, so you see it away from your desk.
+4. Subscribe to email updates on the status pages of the services HandsFreeOS runs on: Fly.io (`https://status.flyio.net`), Supabase (`https://status.supabase.com`) and Vercel (`https://www.vercel-status.com`).
+
+When an alert comes in, see "Every page says Something went wrong" in "Going live, and when something goes wrong".
 
 ### Reading logs
 
@@ -2426,10 +2445,10 @@ What a rollback does not undo:
 - Database migrations stay applied.
 - Fly does not keep old images forever, so roll back soon.
 
-### Scaling and the always-on worker
+### Scaling, and keeping the apps running
 
 - **The worker never stops.** Its `fly.toml` sets `auto_stop_machines = "off"`, so Fly never stops its machines. The `min_machines_running = 1` line in that file does nothing, because the setting only applies when machines are allowed to stop.
-- **The API keeps one machine warm.** `auto_stop_machines = "stop"` with `min_machines_running = 1` keeps one machine running. Other machines stop when idle and start when traffic arrives.
+- **The API runs two machines, both always on.** Its `fly.toml` sets `auto_stop_machines = "off"` too, so every API machine runs all the time. With two, the API keeps answering while Fly restarts one machine's host for maintenance, while a deploy replaces one machine, or while one fails its health check. With one, any of those stops every page of the web app until it's back. On 16 October 2026 Fly restarted every host in its fleet for maintenance, and the API, then running one machine, was down for about 20 minutes.
 - **Stops are graceful.** On a deploy or restart, Fly gives the worker up to 30 seconds to stop. It stops listening, then finishes the pass each of its loops is in. The API gets 15 seconds.
 
 To see every machine:
@@ -2437,6 +2456,40 @@ To see every machine:
 ```bash
 fly machines list --app handsfreeos-worker
 ```
+
+#### Two API machines
+
+1. Check the API's machines.
+
+   ```bash
+   fly machines list --app handsfreeos-api
+   ```
+
+   You should see two machines, both `started`, each with `1/1` under **CHECKS**.
+
+2. If one is `stopped`, start it with its ID from the list.
+
+   ```bash
+   fly machine start <machine id> --app handsfreeos-api
+   ```
+
+   You should see it `started` when you list the machines again.
+
+3. If there is only one machine, add a second. Fly shows what it will change and asks you to confirm. Type `y` and press Return.
+
+   ```bash
+   fly scale count 2 --app handsfreeos-api
+   ```
+
+   With three or more, every one of them runs and costs money. The same command takes the API back to two.
+
+Deploys keep the number of machines you have, so two stays two until you change it.
+
+What two machines change, compared with one:
+
+- About $4 a month more.
+- Up to 12 pooler clients for the API instead of 6. That is well inside the limits (see "How many connections the apps use" in "The database: Supabase (hosted)").
+- The limits on opening and accepting an invitation (30 and 10 a minute) are counted on each machine, so with two someone gets up to twice that.
 
 #### One worker machine or two
 
@@ -12373,6 +12426,40 @@ Two more errors come from Supabase's connection pooler, not from the worker, and
    You should see `worker started`.
 
 Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook, for mailboxes and calendars), missing Google Calendar values (the **Google** button in **Settings** → **My calendar**), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), a missing or wrong `ANTHROPIC_API_KEY` (the Assistant, and the AI teammate, whose conversations then all go to a person), a missing or wrong `OPENAI_API_KEY` (no backup, so the AI features stop while Claude is down), a missing `TURNSTILE_SECRET_KEY` (bookings and website chats then rely on their limits alone), and a missing `EXPO_ACCESS_TOKEN` (push notifications to phones). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
+
+#### Every page says Something went wrong
+
+**Symptom.** The web app shows **Something went wrong** with a **Reference** number, on every page or right after sign-in. `https://api.handsfreeos.com/healthz` doesn't answer.
+
+**Likely cause.** The API is down, so the web app can't load anything. Usually Fly is restarting the host under the API's machines, or Fly has a wider outage. A bad deploy looks the same, but then the API's log matches "The API refuses to start" above.
+
+**Fix.**
+
+1. Check Fly's status page, `https://status.flyio.net`. If it lists an incident in `iad`, the API comes back on its own once Fly is done with its host. A host restart takes about 15 to 20 minutes.
+
+2. Check the API's machines.
+
+   ```bash
+   fly machines list --app handsfreeos-api
+   ```
+
+   You should see two, both `started`, with `1/1` under **CHECKS**. If one machine is down and the other is fine, the API should still answer. If both are down, add a machine: Fly puts it on a host that is working.
+
+   ```bash
+   fly scale count 3 --app handsfreeos-api
+   ```
+
+   Once Fly's incident is over, go back to two with `fly scale count 2 --app handsfreeos-api`.
+
+3. Read the API's log.
+
+   ```bash
+   fly logs --app handsfreeos-api --no-tail
+   ```
+
+4. To see the error behind a **Reference** number, open `handsfreeos-web` in Vercel, then **Logs**, and search for the number. `status: 502` or `status: 503` in the line means the API didn't answer. Vercel keeps these logs for a day.
+
+The worker can go down the same way. Then texts, emails and webhooks wait, and the web app keeps working. Check it with `fly machines list --app handsfreeos-worker`, and add a machine with `fly scale count 2 --app handsfreeos-worker` (see "One worker machine or two" in "Hosting: the API and the worker on Fly.io").
 
 #### The Deploy workflow did nothing
 

@@ -23,10 +23,11 @@ kill_timeout = "15s"
 [http_service]
   internal_port = 4000
   force_https = true
-  auto_stop_machines = "stop"
+  # Two machines, both always running (`fly scale count 2`): while Fly restarts one machine's host, or a deploy
+  # replaces it, the other keeps answering. Idle machines are never stopped, because min_machines_running only keeps
+  # Fly from stopping machines below that number; it doesn't promise to start them again.
+  auto_stop_machines = "off"
   auto_start_machines = true
-  # One machine stays warm so the first request of the morning doesn't wait for a cold start.
-  min_machines_running = 1
 
   [[http_service.checks]]
     grace_period = "10s"
