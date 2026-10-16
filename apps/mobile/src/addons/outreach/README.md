@@ -22,9 +22,12 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
 - **Each network on its own** (docs/outreach.md, "Each network is in the app"): Today's strip is a row for each
   network the person works (`useNetworksOn` in `networks.tsx`), each with its own live answer and its own Start my
   day and Stop for today (`useLiveProps(full, platform)`, `startDay(ws, platform)`); the list below is the network
-  picked there (`useTodayProps(platform)`). The pipeline and chats show each row's network by name and narrow to
-  one (`NetworkName`, `NetworkFilter`); Settings has the Networks part and the business's networks and limits; a
-  playbook has its networks part. A network's words are core's (`@hfos/core/addons/outreach/network-words`).
+  picked there (`useTodayProps(platform)`), with its own helpful post (on LinkedIn, the person's own feed) and its
+  own Get ready (`useReadyProps(platform, onReady)`: LinkedIn's profile list, headlines and About); each other row's
+  Start my day waits on its own readiness. The live screen shows one network's day, picked by name (`?net=`). The
+  pipeline and chats show each row's network by name and narrow to one (`NetworkName`, `NetworkFilter`); Settings
+  has the Networks part and the business's networks and limits; a playbook has its networks part. A network's words
+  are core's (`@hfos/core/addons/outreach/network-words`, `profileWordsOn`, `helpfulWordsOn`).
 
 ## What works with no signal
 

@@ -266,6 +266,75 @@ describe('Today on the phone', () => {
     await fireEvent.press(screen.getByTestId('today-helpful-skip'));
     expect(actions.skip).toHaveBeenCalledWith(id(60));
   });
+
+  it('puts LinkedIn’s helpful post on the person’s own feed, to copy and post there', async () => {
+    const actions = { write: jest.fn(), ok: jest.fn(), posted: jest.fn(), skip: jest.fn() };
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+    };
+    const helpful: HelpfulListOutput = {
+      posts: [
+        {
+          helpfulId: id(70),
+          platform: 'linkedin',
+          groupId: null,
+          groupName: null,
+          groupUrl: null,
+          playbookName: 'CRM demos',
+          state: 'draft',
+          how: 'copy',
+          topic: 'Following up on quotes',
+          text: 'I follow up on every quote two days later.',
+          postUrl: null,
+          whyNot: null,
+          askedAt: new Date(NOW).toISOString(),
+          postedAt: null,
+          comments: 0,
+          reactions: 0,
+        },
+      ],
+      today: 1,
+      perDay: 1,
+      posting: 'copy',
+    };
+    await render(
+      <TodayBody
+        platform="linkedin"
+        today={today}
+        helpful={helpful}
+        onHelpful={actions}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const part = screen.getByTestId('today-helpful');
+    expect(within(part).getByText('One helpful post a day, on your own feed.')).toBeTruthy();
+    expect(within(part).getByText('Your LinkedIn feed · Following up on quotes')).toBeTruthy();
+    expect(
+      within(part).getByText(
+        'Copy it, post it on your LinkedIn feed yourself, then press I posted it.',
+      ),
+    ).toBeTruthy();
+    expect(within(part).getByTestId('today-helpful-open')).toHaveTextContent('Open LinkedIn');
+    expect(within(part).queryByText(/group/i)).toBeNull();
+    await fireEvent.press(screen.getByTestId('today-helpful-posted'));
+    expect(actions.posted).toHaveBeenCalledWith(id(70));
+  });
 });
 
 const liveHandlers = () => ({

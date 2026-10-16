@@ -314,8 +314,9 @@ export const today = defineAddonQuery(outreachAddon, {
               where x.profile_id = p.id and x.runs_group)
           order by e.profile_id, e.kind, e.seen_at desc`,
     );
+    // Where the post is: its group on Facebook, and the person's own feed elsewhere ("on LinkedIn").
     const did = (w: (typeof warm)[number]) =>
-      `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${w.group_name ? ` in ${w.group_name}` : ''}`;
+      `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${w.group_name ? ` in ${w.group_name}` : input.platform === 'facebook' ? '' : ` on ${NETWORKS[input.platform].name}`}`;
     const answers = warm
       .filter((w) => w.kind === 'comment' && w.comment && !w.answered)
       .slice(0, leftToday(limits, 'warm_lead'));
@@ -946,7 +947,12 @@ export const today = defineAddonQuery(outreachAddon, {
             asking: po.strong,
             why: [
               ...(po.check_why ? [po.check_why] : []),
-              ...(po.group_name ? [`In ${po.group_name}`] : []),
+              // A post off a group, from LinkedIn's post search, is on the network itself.
+              ...(po.group_name
+                ? [`In ${po.group_name}`]
+                : input.platform === 'facebook'
+                  ? []
+                  : [`On ${NETWORKS[input.platform].name}`]),
             ],
             playbookName: po.playbook_name,
           }),

@@ -6,13 +6,16 @@
  * their profile, read by their computer and checked by the AI (decision 64), with bios to put in and each item to tick
  * once it's right; their messages, samples the AI writes for their playbook in their voice, to OK (decisions 65 to 67);
  * and their goal with the math worked as they change it.
+ *
+ * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines up to
+ * 220 characters to put in, and an About to start from, each asked and ticked on LinkedIn.
  */
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import {
   numbersLines,
   numbersMath,
   numbersVerdict,
-  PROFILE_ITEMS,
+  profileWordsOn,
   READY_WORDS as R,
   tickCounts,
   CALLS_GOAL,
@@ -20,7 +23,7 @@ import {
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
 import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
-import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
+import { checkCounts, type AnyProfileItem } from '@hfos/core/addons/outreach/profile-check';
 import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -262,20 +265,22 @@ function ProfileSheet({
   onChange?: (next: Readiness) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  // The network's own profile: its list, its words, and its asks.
+  const platform = readiness.platform ?? 'facebook';
+  const P = profileWordsOn(platform);
   const live = readiness.offer?.version ?? null;
-  const on = (item: (typeof PROFILE_ITEMS)[number]) => tickCounts(readiness.profile[item], live);
+  const on = (item: AnyProfileItem) => tickCounts(readiness.profile[item], live);
   // The AI's check, when it's of the live version: what's right, and what to change.
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
-  const right = (item: (typeof PROFILE_ITEMS)[number]) =>
-    on(item) || check?.items[item].ok === true;
-  const ticked = PROFILE_ITEMS.filter(right).length;
+  const right = (item: AnyProfileItem) => on(item) || check?.items[item]?.ok === true;
+  const ticked = P.items.filter((i) => right(i.item)).length;
   const again = readiness.items.find((i) => i.item === 'profile')?.state === 'look_again';
-  const tick = async (item: (typeof PROFILE_ITEMS)[number]) => {
+  const tick = async (item: AnyProfileItem) => {
     setBusy(item);
     try {
       const next = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.readiness.profile', {
-          body: { workspaceId, item, done: !on(item) },
+          body: { workspaceId, platform, item, done: !on(item) },
         }),
       );
       onChange?.(next);
@@ -287,7 +292,7 @@ function ProfileSheet({
   };
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent title={R.profile.title} description={R.profile.hint}>
+      <SheetContent title={P.title} description={P.hint}>
         <div className="grid gap-4" data-testid="ready-profile-sheet">
           {again ? (
             <p
@@ -301,10 +306,8 @@ function ProfileSheet({
           {readiness.offer ? (
             <div className="grid gap-1.5">
               <div className="flex justify-between text-[13px] text-text-2">
-                <span>{R.profile.offer}</span>
-                <span className="tabular-nums">
-                  {R.profile.ticked(ticked, PROFILE_ITEMS.length)}
-                </span>
+                <span>{P.offer}</span>
+                <span className="tabular-nums">{P.ticked(ticked, P.items.length)}</span>
               </div>
               <p className="text-[13px] font-medium">“{readiness.offer.line}”</p>
             </div>
@@ -327,6 +330,7 @@ function ProfileSheet({
                 workspaceId={workspaceId}
                 asks={asks}
                 ask={{ kind: 'profile_read' }}
+                platform={platform}
                 label={check ? P.readAgain : P.read}
                 variant={check ? 'secondary' : 'primary'}
                 testId="ready-profile-read-ask"
@@ -334,8 +338,8 @@ function ProfileSheet({
             ) : null}
           </div>
           <ul className="divide-y divide-border">
-            {PROFILE_ITEMS.map((item) => {
-              const words = R.profile.items[item];
+            {P.items.map((words) => {
+              const { item } = words;
               const checked = on(item);
               const ai = check?.items[item] ?? null;
               return (
@@ -402,6 +406,7 @@ function ProfileSheet({
                       workspaceId={workspaceId}
                       asks={asks}
                       ask={{ kind: 'profile_edit', bio }}
+                      platform={platform}
                       label={P.useBio}
                       testId={`ready-bio-use-${i}`}
                     />
@@ -418,15 +423,34 @@ function ProfileSheet({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    void copyText(check.coverLine!, 'Copied. Put it on your cover image.')
-                  }
+                  onClick={() => void copyText(check.coverLine!, P.coverCopied)}
                   data-testid="ready-cover-copy"
                 >
                   Copy
                 </Button>
               </div>
               <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
+            </div>
+          ) : null}
+          {check?.aboutDraft && P.about ? (
+            <div className="grid gap-1.5" data-testid="ready-about">
+              <div>
+                <p className="font-semibold">{P.about}</p>
+                <p className="text-[13px] text-text-2">{P.aboutHint}</p>
+              </div>
+              <p className="whitespace-pre-wrap rounded-menu border border-border p-3 text-[14px]">
+                {check.aboutDraft}
+              </p>
+              <div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void copyText(check.aboutDraft!, P.aboutCopied ?? 'Copied.')}
+                  data-testid="ready-about-copy"
+                >
+                  Copy
+                </Button>
+              </div>
             </div>
           ) : null}
           {check?.feature.length ? (
@@ -441,7 +465,7 @@ function ProfileSheet({
           ) : null}
           <div className="flex justify-end">
             <Button onClick={onClose} data-testid="ready-profile-done">
-              {R.profile.done}
+              {P.done}
             </Button>
           </div>
         </div>
