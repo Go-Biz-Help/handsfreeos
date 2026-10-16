@@ -10,6 +10,7 @@ import {
   checkedProfileCheck,
   LINKEDIN_PROFILE_CHECK_SCHEMA,
   LinkedInProfileCheckAnswer,
+  PROFILE_CHECK_MAX_TOKENS,
   PROFILE_CHECK_SCHEMA,
   ProfileCheckAnswer,
   profileCheckPrompt,
@@ -35,7 +36,7 @@ export const profileCheck: AddonWorkerAction<ProfileRead> = {
     const asked = {
       system: profileCheckSystem(read.platform),
       messages: [{ role: 'user' as const, content: profileCheckPrompt(read, live?.offer ?? null) }],
-      maxTokens: read.platform === 'facebook' ? 1200 : 2000,
+      maxTokens: PROFILE_CHECK_MAX_TOKENS[read.platform],
       usage: { source: 'addon' as const, addonId: ctx.manifest.id },
     };
     try {

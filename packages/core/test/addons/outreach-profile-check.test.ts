@@ -11,14 +11,19 @@ import {
   AskInput,
   bioTooLongWords,
 } from '../../src/addons/outreach/asks';
+import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import { playbookOffer } from '../../src/addons/outreach/playbook-assist';
 import {
+  ABOUT_DRAFT_MOST,
+  BIO_MOST_ON,
   checkedProfileCheck,
   FACEBOOK_BIO_MOST,
   PROFILE_BIO_MOST,
   PROFILE_CHECK_ASK,
+  PROFILE_CHECK_MAX_TOKENS,
   PROFILE_CHECK_SYSTEM,
   PROFILE_ITEMS,
+  PROFILE_ITEMS_ON,
   PROFILE_READ_LIMITS,
   profileCheckPrompt,
   ProfileRead,
@@ -104,6 +109,27 @@ describe('the AI’s answer, checked', () => {
     ]);
     expect(got.coverLine).toBe('More booked jobs for roofers');
     expect(got.feature).toEqual(['A review', 'Your booking link']);
+  });
+
+  it('leaves the AI room for its longest answer on every network, as one cut off is lost', () => {
+    const words = (n: number) => 'more booked jobs '.repeat(n).slice(0, n);
+    for (const platform of PLATFORM_KEYS) {
+      const longest = {
+        items: Object.fromEntries(
+          PROFILE_ITEMS_ON[platform].map((i) => [
+            i,
+            { ok: false, why: words(300), fix: words(300) },
+          ]),
+        ),
+        bios: [1, 2, 3].map(() => words(BIO_MOST_ON[platform])),
+        aboutDraft: platform === 'facebook' ? null : words(ABOUT_DRAFT_MOST),
+        coverLine: words(120),
+        feature: [1, 2, 3].map(() => words(200)),
+      };
+      // At 3 characters a token, fewer than English takes, and a quarter of the cap to spare.
+      const tokens = Math.ceil(JSON.stringify(longest).length / 3);
+      expect(tokens).toBeLessThan(PROFILE_CHECK_MAX_TOKENS[platform] * 0.75);
+    }
   });
 });
 
