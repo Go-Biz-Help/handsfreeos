@@ -504,10 +504,6 @@ export const OUTREACH_WORDS = {
   changedSince: 'Someone changed this playbook meanwhile. Your change went on top of theirs.',
 
   // ---- Settings ----
-  // The phone's Settings before its pages (decision 73) still says these three; the web's pages don't.
-  settingsIntro:
-    'Everything the browser extension does is set here. It follows a change within a few seconds on every computer you’re signed in on.',
-  mySettings: 'My settings',
   settingsFor: 'Settings for',
   settingsOf: (name: string) => `Settings for ${name}`,
   notSetYet: ' (not set yet)',
@@ -523,7 +519,6 @@ export const OUTREACH_WORDS = {
     allowed: 'What people may pick',
     limits: 'Daily limits for each person',
     defaults: 'Where a new person starts',
-    business: 'Business settings',
     contacts: 'Who from Facebook chats goes in Contacts',
     cancelAfter: 'Suggest cancelling friend requests after',
     morning: 'Morning push',

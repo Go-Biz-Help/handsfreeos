@@ -3,24 +3,28 @@ import {
   NETWORKS_DEFAULTS,
   type AutomationOutput,
   type AutomationSettings,
+  type NetworkChoices,
 } from '@hfos/core/addons/outreach/automation';
+import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
+import { SAVE_PAUSE_MS } from '../autosave';
 import { LiveStrip } from '../hub';
 import { PipelineBody } from '../pipeline';
-import { SettingsBody } from '../settings';
+import { SettingsPartBody } from '../settings';
 import { TodayBody } from '../today';
 import { id, ME, TZ } from './mocks';
 
 /**
  * Each network on the phone (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Build order" step 3): Today's strip
  * a row for each network with its own Start my day, the list in its network's words, the network on each row of the
- * pipeline with a filter, and LinkedIn turned on in My settings with choices of its own, inside what the business
- * allows: a network's switch saves at once, on its own (Chris, 2026-10-16), and its choices wait for Save.
+ * pipeline with a filter, and each network's own page of Settings (Chris, 2026-10-16): its switch, its choices in its
+ * words inside what the business allows, its limits as they stand, and for owners and admins the team's say on it,
+ * each change saved as it's made.
  */
 
 jest.mock('expo-router', () => ({
@@ -288,119 +292,95 @@ const AUTOMATION: AutomationOutput = {
   },
 };
 
-const settingsProps = () => ({
+const partProps = () => ({
   error: null,
   mine: true,
-  people: null,
   business: null,
   manages: false,
   online: true,
   onRetry: jest.fn(),
-  onWhose: jest.fn(),
-  onSaveMine: jest.fn(
-    async (_settings: AutomationSettings, _options?: { quiet?: boolean }): Promise<string | null> =>
+  onSaveMine: jest.fn(async (_settings: AutomationSettings): Promise<string | null> => null),
+  onSaveBusiness: jest.fn(
+    async (_edit: (now: OutreachSettings) => Partial<OutreachSettings>): Promise<string | null> =>
       null,
   ),
-  onSaveBusiness: jest.fn(async () => null),
 });
 
-/** The defaults with LinkedIn turned on or off, and any other change. */
-const withLinkedIn = (on: boolean, more: Partial<AutomationSettings> = {}): AutomationSettings => ({
+/** The defaults with LinkedIn turned on or off, and its choices. */
+const withLinkedIn = (on: boolean, choices: Partial<NetworkChoices> = {}): AutomationSettings => ({
   ...AUTOMATION_DEFAULTS,
-  ...more,
-  networks: { ...NETWORKS_DEFAULTS, linkedin: { ...NETWORKS_DEFAULTS.linkedin, on } },
+  networks: { ...NETWORKS_DEFAULTS, linkedin: { ...NETWORKS_DEFAULTS.linkedin, on, ...choices } },
 });
 
-describe('Networks in My settings on the phone', () => {
-  it('turns LinkedIn on with its own choices, in its words, off to start', async () => {
-    const p = settingsProps();
-    await render(<SettingsBody automation={AUTOMATION} {...p} />);
+describe('A network’s page of Settings on the phone, saved as it’s changed', () => {
+  it('turns LinkedIn on at once, saying so beside the switch, and shows its own choices in its words', async () => {
+    const p = partProps();
+    await render(<SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} />);
+    expect(screen.getByTestId('screen-title')).toHaveTextContent('LinkedIn');
+    expect(screen.getByText('What the extension does for you on LinkedIn.')).toBeTruthy();
     // Off to start: nothing of LinkedIn's shows until it's on.
+    expect(screen.getByTestId('settings-networks-linkedin-off')).toHaveTextContent(
+      'LinkedIn is off for you: nothing runs, reads or shows there.',
+    );
     expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
-    // The switch saves at once, on its own.
     expect(p.onSaveMine).toHaveBeenCalledTimes(1);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true), { quiet: true });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true));
+    expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
+      'LinkedIn is on. The extension picks it up in a few seconds.',
+    );
     expect(
       screen.getByText(
         'Invitations to connect, likes and comments on their own; each message waits for one tap',
       ),
     ).toBeTruthy();
     expect(screen.getByText('Accept invitations from people who fit a playbook')).toBeTruthy();
-    // Its choices wait for Save.
+    expect(screen.getByTestId('settings-networks-linkedin-chrome')).toHaveTextContent(
+      /press Allow on LinkedIn, then Allow in Chrome’s box\.$/,
+    );
+    // Facebook's own switches aren't LinkedIn's.
+    expect(screen.queryByTestId('settings-networks-linkedin-noting')).toBeNull();
+    // Its choices save at once too, with the plain Saved.
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-sending-steps'));
-    expect(p.onSaveMine).toHaveBeenCalledTimes(1);
-    await fireEvent.press(screen.getByTestId('settings-my-save'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      networks: {
-        ...NETWORKS_DEFAULTS,
-        linkedin: { ...NETWORKS_DEFAULTS.linkedin, on: true, sending: 'steps' },
-      },
-    });
+    expect(p.onSaveMine).toHaveBeenCalledTimes(2);
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true, { sending: 'steps' }));
+    expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
+      'Saved. The extension follows it in a few seconds.',
+    );
+    expect(screen.queryByText('Save')).toBeNull();
   });
 
-  it('saves a network’s switch at once with only that change, never the form’s other edits', async () => {
-    const p = settingsProps();
-    await render(<SettingsBody automation={AUTOMATION} {...p} />);
-    // An edit not saved yet: the day's report turned off.
-    await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
-    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
-    // Only LinkedIn, on what's kept: the day's report isn't saved with it.
-    expect(p.onSaveMine).toHaveBeenCalledTimes(1);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true), { quiet: true });
-    expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
-      'LinkedIn is on. The extension picks it up in a few seconds.',
-    );
-    // The form takes the switch too, its other edit as it was, still to save.
-    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeChecked();
-    expect(screen.getByTestId('settings-my-dayReport')).not.toBeChecked();
-    expect(screen.getByTestId('settings-my-save')).toBeEnabled();
-    // Save then keeps everything in the form, the switch's change with it.
-    await fireEvent.press(screen.getByTestId('settings-my-save'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true, { dayReport: false }));
-    // The next switch starts from what Save kept.
-    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(false, { dayReport: false }), {
-      quiet: true,
-    });
-    expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
-      /^LinkedIn is off\.$/,
-    );
-    expect(screen.getByTestId('settings-my-save')).toBeDisabled();
-  });
-
-  it('keeps the form’s other edits when the switch’s save comes back, and starts again when saved elsewhere', async () => {
-    const p = settingsProps();
-    const { rerender } = await render(<SettingsBody automation={AUTOMATION} {...p} />);
-    await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
-    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
-    // Asked again after the switch's save: what's kept is the switch's change, and the form's edit stays.
-    await rerender(
-      <SettingsBody automation={{ ...AUTOMATION, settings: withLinkedIn(true) }} {...p} />,
-    );
-    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeChecked();
-    expect(screen.getByTestId('settings-my-dayReport')).not.toBeChecked();
-    expect(screen.getByTestId('settings-my-save')).toBeEnabled();
-    // Saved somewhere else (the web, an owner): the form starts again from what's kept.
-    await rerender(
-      <SettingsBody
-        automation={{ ...AUTOMATION, settings: withLinkedIn(false, { pushes: 'each' }) }}
-        {...p}
+  it('says beside a choice that it starts LinkedIn’s training wheels, until they’ve started', async () => {
+    const starts = /^Choosing this starts training wheels/;
+    const automation = { ...AUTOMATION, settings: withLinkedIn(true, { sending: 'steps' }) };
+    await render(<SettingsPartBody part="linkedin" automation={automation} {...partProps()} />);
+    const everything = screen.getByTestId('settings-networks-linkedin-sending-everything');
+    expect(within(everything).getByText(starts)).toBeTruthy();
+    expect(
+      within(screen.getByTestId('settings-networks-linkedin-replies-simple')).getByText(starts),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByTestId('settings-networks-linkedin-sending-approve_all')).queryByText(
+        starts,
+      ),
+    ).toBeNull();
+    // Started: each is as it is, and the page says where they stand.
+    const wheels = { on: true, from: '2026-10-09T15:00:00.000Z', ok: 3, daysLeft: 6, edits: 0 };
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...automation, networkWheels: { linkedin: wheels } }}
+        {...partProps()}
       />,
     );
-    expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeChecked();
-    expect(screen.getByTestId('settings-my-dayReport')).toBeChecked();
-    expect(screen.getByTestId('settings-my-save')).toBeDisabled();
-    // The next switch starts from that.
-    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true, { pushes: 'each' }), {
-      quiet: true,
-    });
+    expect(screen.queryByText(starts)).toBeNull();
+    expect(screen.getByTestId('settings-networks-linkedin-wheels')).toHaveTextContent(
+      /^Training wheels: every message waits for your OK/,
+    );
   });
 
-  it('keeps the switch busy while it saves, then puts it back and says why when it can’t be saved', async () => {
-    const p = settingsProps();
+  it('puts the switch back when it can’t be saved, with the server’s words beside it', async () => {
+    const p = partProps();
     const refusal =
       'Your business doesn’t use LinkedIn for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.';
     let answer: (problem: string | null) => void = () => undefined;
@@ -410,71 +390,182 @@ describe('Networks in My settings on the phone', () => {
           answer = resolve;
         }),
     );
-    await render(<SettingsBody automation={AUTOMATION} {...p} />);
+    await render(<SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} />);
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
-    // While it saves: busy, and nothing else saves over it.
-    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeBusy();
-    expect(screen.getByTestId('settings-networks-facebook-on')).toBeDisabled();
-    expect(screen.getByTestId('settings-my-save')).toBeDisabled();
+    expect(screen.getByTestId('settings-networks-linkedin-saving')).toHaveTextContent('Saving…');
     await act(async () => answer(refusal));
-    // Put back, with the server's words beside it.
     expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeChecked();
-    expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeBusy();
     expect(screen.getByTestId('settings-networks-linkedin-problem')).toHaveTextContent(refusal);
-    expect(screen.queryByTestId('settings-networks-linkedin-saved')).toBeNull();
     expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
   });
 
-  it('needs signal to flip a network’s switch, as Save does', async () => {
-    await render(<SettingsBody automation={AUTOMATION} {...settingsProps()} online={false} />);
+  it('needs signal: with none, the switch and the choices wait', async () => {
+    await render(
+      <SettingsPartBody part="facebook" automation={AUTOMATION} {...partProps()} online={false} />,
+    );
     expect(
       screen.getByText('Settings needs signal. Try again when you’re back online.'),
     ).toBeTruthy();
-    expect(screen.getByTestId('settings-networks-linkedin-on')).toBeDisabled();
-    expect(screen.getByTestId('settings-networks-facebook-on')).toBeDisabled();
+    for (const testID of [
+      'settings-networks-facebook-on',
+      'settings-networks-facebook-sending-steps',
+      'settings-networks-facebook-replies-simple',
+      'settings-networks-facebook-posting-own',
+      'settings-networks-facebook-warmUp',
+      'settings-networks-facebook-noting',
+    ])
+      expect(screen.getByTestId(testID)).toBeDisabled();
   });
 
-  it('says why a network the business doesn’t use can’t be turned on, and who can change it', async () => {
+  it('says only why a network the business doesn’t use can’t be turned on, and who can change it', async () => {
     await render(
-      <SettingsBody
+      <SettingsPartBody
+        part="linkedin"
         automation={{
           ...AUTOMATION,
+          settings: withLinkedIn(true),
           rules: { ...AUTOMATION.rules, networksAllowed: ['facebook'] },
         }}
-        {...settingsProps()}
+        {...partProps()}
       />,
     );
     expect(screen.getByTestId('settings-networks-linkedin-not-allowed')).toHaveTextContent(
       'Your business doesn’t use LinkedIn for outreach. Ask an owner or admin of this business to allow it under Social Outreach → Settings → LinkedIn.',
     );
     expect(screen.getByTestId('settings-networks-linkedin-on')).toBeDisabled();
+    expect(screen.getByTestId('settings-networks-linkedin-on')).not.toBeChecked();
+    expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
+    expect(screen.queryByTestId('settings-networks-linkedin-limits')).toBeNull();
   });
 
-  it('lets owners and admins allow networks and set LinkedIn’s own daily limits', async () => {
-    const p = settingsProps();
+  it('has Facebook’s own switches, and the person’s limits there as they stand, halved on training wheels', async () => {
+    const p = partProps();
+    const automation = {
+      ...AUTOMATION,
+      rules: { ...AUTOMATION.rules, dailyLimits: { friend_request: 12 } },
+    };
+    await render(<SettingsPartBody part="facebook" automation={automation} {...p} />);
+    expect(screen.getByText('Your daily limits on Facebook')).toBeTruthy();
+    expect(screen.getByTestId('settings-networks-facebook-limit-friend_request')).toHaveTextContent(
+      '12Friend requests',
+    );
+    expect(screen.getByTestId('settings-networks-facebook-limit-like')).toHaveTextContent(
+      '40Likes',
+    );
+    // No Chrome note on Facebook: the extension is let on there from the start.
+    expect(screen.queryByTestId('settings-networks-facebook-chrome')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-noting'));
+    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, noting: false });
     await render(
-      <SettingsBody
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={{ contactsFromChats: 'tagged' }}
+      <SettingsPartBody
+        part="facebook"
+        automation={{ ...automation, wheels: { ...automation.wheels, on: true } }}
+        {...partProps()}
       />,
     );
-    expect(screen.getByText('Daily limits on LinkedIn')).toBeTruthy();
-    await fireEvent.changeText(
-      screen.getByTestId('settings-rules-linkedin-limit-friend_request'),
-      '40',
+    expect(screen.getByTestId('settings-networks-facebook-limit-friend_request')).toHaveTextContent(
+      '6Friend requests',
     );
-    await fireEvent.press(screen.getByTestId('settings-business-save'));
-    // Never past LinkedIn's starting limit.
-    expect(p.onSaveBusiness).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        rules: expect.objectContaining({ networkLimits: { linkedin: { friend_request: 15 } } }),
-      }),
+  });
+
+  it('says LinkedIn’s limits in its words', async () => {
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true) }}
+        {...partProps()}
+      />,
     );
+    expect(screen.getByTestId('settings-networks-linkedin-limit-friend_request')).toHaveTextContent(
+      '15Invitations to connect',
+    );
+  });
+});
+
+/** What a save of the business's settings puts on what's kept now. */
+const savedOn = (
+  p: ReturnType<typeof partProps>,
+  now: Record<string, unknown>,
+): Partial<OutreachSettings> => p.onSaveBusiness.mock.lastCall![0](outreachSettings(now));
+
+describe('For your team on a network, for owners and admins', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('lets the team use LinkedIn or not, saved at once on what’s kept', async () => {
+    const p = partProps();
+    const kept = { weeklyReport: false, rules: { sendingAllowed: ['off', 'steps'] } };
+    await render(
+      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={kept} />,
+    );
+    expect(screen.getByText('For your team on LinkedIn')).toBeTruthy();
+    expect(screen.getByTestId('settings-rules-network-linkedin')).toBeChecked();
     await fireEvent.press(screen.getByTestId('settings-rules-network-linkedin'));
-    expect(screen.queryByText('Daily limits on LinkedIn')).toBeNull();
-    // Facebook is always allowed.
+    expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
+    // Only LinkedIn's say changes: General's rules stay as they're kept.
+    expect(savedOn(p, kept).rules).toMatchObject({
+      networksAllowed: ['facebook'],
+      sendingAllowed: ['off', 'steps'],
+    });
+    expect(savedOn(p, kept).weeklyReport).toBeUndefined();
+    expect(screen.getByTestId('settings-team-linkedin-saved')).toBeTruthy();
+    // Not allowed: no limits to set.
+    expect(screen.queryByTestId('settings-rules-linkedin-limit-friend_request')).toBeNull();
+  });
+
+  it('sets each person’s daily limits on LinkedIn, at most its starting ones, once the stepper stops', async () => {
+    jest.useFakeTimers();
+    const p = partProps();
+    await render(
+      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={{}} />,
+    );
+    // At LinkedIn's starting limit: never past it.
+    expect(screen.getByTestId('settings-rules-linkedin-limit-friend_request-up')).toBeDisabled();
+    expect(
+      screen.getByTestId('settings-rules-linkedin-limit-friend_request-value'),
+    ).toHaveTextContent('15');
+    await fireEvent.press(screen.getByTestId('settings-rules-linkedin-limit-friend_request-down'));
+    await fireEvent.press(screen.getByTestId('settings-rules-linkedin-limit-friend_request-down'));
+    expect(p.onSaveBusiness).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(SAVE_PAUSE_MS));
+    expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
+    expect(savedOn(p, {}).rules?.networkLimits).toEqual({ linkedin: { friend_request: 13 } });
+  });
+
+  it('keeps Facebook allowed always, with its limits for each person', async () => {
+    jest.useFakeTimers();
+    const p = partProps();
+    const kept = { rules: { networkLimits: { linkedin: { like: 5 } } } };
+    await render(
+      <SettingsPartBody part="facebook" automation={AUTOMATION} {...p} manages business={kept} />,
+    );
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeDisabled();
+    expect(screen.getByTestId('settings-rules-network-facebook')).toBeChecked();
+    expect(screen.getByText('Always allowed')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('settings-rules-facebook-limit-like-down'));
+    await act(async () => jest.advanceTimersByTime(SAVE_PAUSE_MS));
+    const rules = savedOn(p, kept).rules;
+    expect(rules?.dailyLimits).toEqual({ like: 39 });
+    // LinkedIn's, set on its page, stay.
+    expect(rules?.networkLimits).toEqual({ linkedin: { like: 5 } });
+  });
+
+  it('still shows the team’s part on a network the business doesn’t use', async () => {
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{
+          ...AUTOMATION,
+          rules: { ...AUTOMATION.rules, networksAllowed: ['facebook'] },
+        }}
+        {...partProps()}
+        manages
+        business={{ rules: { networksAllowed: ['facebook'] } }}
+      />,
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-not-allowed')).toHaveTextContent(
+      /^Your business doesn’t use LinkedIn for outreach\./,
+    );
+    expect(screen.getByTestId('settings-rules-network-linkedin')).not.toBeChecked();
+    expect(screen.getByTestId('settings-rules-network-linkedin')).toBeEnabled();
   });
 });

@@ -77,6 +77,10 @@ export const SETTINGS_WORDS = {
   /** The kit's other limits a day, beside the daily steps. */
   profilesRead: 'Profiles read',
   helpfulPost: 'Helpful post',
+  // The phone's
+  /** The phone's menu: the networks still to come, on one muted line under the others. */
+  comingLine: (names: readonly string[]) =>
+    `${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '')} are coming`,
 } as const;
 
 /** One of a network's limits a day, as its page shows it. */

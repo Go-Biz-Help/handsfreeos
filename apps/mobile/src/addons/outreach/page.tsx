@@ -24,7 +24,7 @@ import { SettingsScreen } from './settings';
  * Social Outreach's page on the phone (decisions 44 and 59), by its address's `?view=`, as the web's: four tabs and
  * the gear. Today (no `?view=`, `today`, and the old `waiting`) has what the computer is doing, Needs you and the
  * list; People is the Pipeline, Chats and the Never contact list; then Groups and Results; the gear opens Settings, with Playbooks there.
- * `live` is the computer's whole day. Friends, and the old Activity, have a lot to look through, so they stay on the
+ * Settings is a menu, and `?part=` one of its pages (General, or a network's). `live` is the computer's whole day. Friends, and the old Activity, have a lot to look through, so they stay on the
  * web: a link to them opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here anyway.
  */
 
@@ -49,6 +49,7 @@ export function OutreachPage(props: {
   tag?: string;
   q?: string;
   net?: string;
+  part?: string;
 }) {
   const ctx = useOutreachContext();
   return (
@@ -65,6 +66,7 @@ function OutreachView({
   tag,
   q,
   net,
+  part,
 }: {
   view?: string;
   for?: string;
@@ -72,6 +74,7 @@ function OutreachView({
   tag?: string;
   q?: string;
   net?: string;
+  part?: string;
 }) {
   const tab = PHONE_TABS.find((t) => t === view);
   const webTab = WEB_TABS.find((t) => t === view);
@@ -91,7 +94,7 @@ function OutreachView({
     case 'playbooks':
       return <PlaybooksScreen />;
     case 'settings':
-      return <SettingsScreen whose={whose} />;
+      return <SettingsScreen whose={whose} part={part} />;
     default:
       return webTab ? <WebOnlyScreen tab={webTab} /> : <TodayHub />;
   }
