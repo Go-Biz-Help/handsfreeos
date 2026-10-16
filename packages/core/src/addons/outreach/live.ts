@@ -221,7 +221,14 @@ export const LiveBeatOutput = z.object({
   working: z.boolean(),
   /** The one that works, when it isn't this one. */
   workingName: z.string().nullable(),
+  /** Facebook's day, which every build of the extension follows. */
   day: LiveDay,
+  /**
+   * Each other network's day (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Each network on its own"): LinkedIn's
+   * runner works only while LinkedIn's is started, and a stop there ends only LinkedIn's work. Empty from a HandsFreeOS
+   * before networks.
+   */
+  days: z.object({ linkedin: LiveDay }).partial().default({}),
   /** The ids of the lines sent that are kept now: the extension lets them go. */
   stepsKept: z.array(z.uuid()),
   /** Asks from HandsFreeOS waiting for this computer (./asks.ts): 0 when it isn't the one that works. */

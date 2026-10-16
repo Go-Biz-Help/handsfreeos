@@ -6,7 +6,8 @@
  * takes nothing from a network that's off. That script is never answered, and only the extension's own pages are. It
  * keeps each network's script on its site only while the person works that network and Chrome allows it
  * (src/networks/scripts.ts). Its alarm wakes the
- * runner that works on Facebook on its own, once the person turns that on (src/auto/run.ts). It does what the person
+ * runner that works on Facebook on its own, once the person turns that on (src/auto/run.ts), and LinkedIn's beside it
+ * (src/auto/linkedin.ts). It does what the person
  * asks of this computer from HandsFreeOS (src/asks/run.ts). It follows the person's settings in HandsFreeOS from the
  * moment they sign in (src/hfos/follow.ts), and sends a first-timer to HandsFreeOS's setup (src/hfos/setup.ts). Every
  * minute while someone is signed in it tells HandsFreeOS how things stand on this computer, and hears from it about
@@ -15,6 +16,7 @@
  */
 import { answerAsk, askSoon, askTabIds, heardAsk, recoverAsk, signInChanged } from './asks/run';
 import { AUTO_ALARM, answerAuto, runnerTabId, tick, wake } from './auto/run';
+import { LINKEDIN_ALARM, linkedInRunnerTabId, linkedInTick, wakeLinkedIn } from './auto/linkedin';
 import { kitOf } from './networks';
 import { isWorking, NETWORKS_KEY, statesNow } from './networks/on';
 import { syncNetworks } from './networks/scripts';
@@ -93,7 +95,11 @@ chrome.runtime.onMessage.addListener(
         if (!isWorking(kit, states)) return;
         // What the person's front tab showed; never the extension's own work, in the runner's or an ask's tab.
         if (type === 'hfos-looked') {
-          const ours = tabId !== null && (askTabIds().includes(tabId) || tabId === runnerTabId());
+          const ours =
+            tabId !== null &&
+            (askTabIds().includes(tabId) ||
+              tabId === runnerTabId() ||
+              tabId === linkedInRunnerTabId());
           if (!ours && isLooked(message)) void looked(message, kit.platform);
           return;
         }
@@ -146,6 +152,7 @@ chrome.runtime.onMessage.addListener(
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === AUTO_ALARM) void tick();
+  if (alarm.name === LINKEDIN_ALARM) void linkedInTick();
   if (alarm.name === BEAT_ALARM) {
     void beat(true);
     // Steps noted while HandsFreeOS couldn't be reached go now.
@@ -172,14 +179,21 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if (SETTINGS_KEY in changes || PLACE_KEY in changes) void syncNetworks();
   // A network just turned on and allowed: the asks waiting on its line start.
-  if (NETWORKS_KEY in changes) askSoon();
+  if (NETWORKS_KEY in changes) {
+    askSoon();
+    void linkedInTick();
+  }
 });
 chrome.permissions.onAdded.addListener(() => void syncNetworks());
 chrome.permissions.onRemoved.addListener(() => void syncNetworks());
 // Chrome started, or the extension was updated: the alarm may be gone.
-chrome.runtime.onStartup.addListener(() => void wake());
+chrome.runtime.onStartup.addListener(() => {
+  void wake();
+  void wakeLinkedIn();
+});
 chrome.runtime.onInstalled.addListener(() => {
   void wake();
+  void wakeLinkedIn();
   void syncNetworks();
   // What the old side panel kept, which nothing reads now.
   void chrome.storage.local.remove(['autoRead', 'hfos.recent']).catch(() => undefined);

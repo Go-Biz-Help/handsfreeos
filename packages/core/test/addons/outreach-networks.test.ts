@@ -595,6 +595,18 @@ describe('each network’s own line of asks', () => {
     expect(await stateOf(onFacebook.ask.askId)).toBe('working');
   });
 
+  it('say LinkedIn’s day in the beat’s answer, beside Facebook’s, for LinkedIn’s own runner', async () => {
+    const { u, pc } = await onLinkedIn('Rowan Hale');
+    const first = await beat(u, pc);
+    expect(first.day.state).toBe('none');
+    expect(first.days.linkedin).toMatchObject({ state: 'none' });
+    // Stop for today on LinkedIn: the beat says so for LinkedIn alone.
+    await runAs(u, ws, 'outreach.day.stop', { platform: 'linkedin' });
+    const after = await beat(u, pc);
+    expect(after.days.linkedin).toMatchObject({ state: 'stopped', why: 'person' });
+    expect(after.day.state).toBe('none');
+  });
+
   it('end LinkedIn’s waiting asks on a LinkedIn warning, in LinkedIn’s words, and leave Facebook’s', async () => {
     const { u, pc } = await onLinkedIn('Morgan Hale');
     const onFacebook = await ask(u, 'facebook', { kind: 'friends' });
@@ -626,6 +638,10 @@ describe('each network’s own line of asks', () => {
     expect(row!.task).toEqual({
       kind: 'posts',
       groups: null,
+      words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
+    });
+    // The same words for LinkedIn's runner, which finds posts once a day on its own.
+    expect(await runAs(u, ws, 'outreach.posts.words', { platform: 'linkedin' })).toEqual({
       words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
     });
     // Facebook's goes by groups, as before.

@@ -12,7 +12,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, RequestMeta } from '../../../kernel/types';
 import { onServerClock } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { businessDay } from '../automation';
+import { businessDay, OTHER_PLATFORMS } from '../automation';
 import {
   ComputerRenameInput,
   ComputerRenameOutput,
@@ -243,8 +243,13 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
       name: kept!.name,
       working: isWorking,
       workingName: isWorking ? null : (working?.name ?? null),
-      // The extension works on Facebook alone yet, so it follows Facebook's day.
+      // Facebook's day, as every build follows it; each other network's beside it, for its own runner.
       day: await dayOf(ctx, me, 'facebook', today),
+      days: Object.fromEntries(
+        await Promise.all(
+          OTHER_PLATFORMS.map(async (p) => [p, await dayOf(ctx, me, p, today)] as const),
+        ),
+      ),
       stepsKept: input.steps.map((s) => s.id),
       asks: isWorking ? await asksWaiting(ctx, me, now.getTime()) : 0,
     };

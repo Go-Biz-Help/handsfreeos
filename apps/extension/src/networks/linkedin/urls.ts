@@ -102,11 +102,16 @@ export function profileKey(profile: ProfileRef): string {
   return profile.username ? `user:${profile.username.toLowerCase()}` : `id:${profile.id ?? ''}`;
 }
 
+/** Whether two links can be told apart at all: both have the name in their address, or both LinkedIn's id. */
+export const comparable = (a: ProfileRef, b: ProfileRef): boolean =>
+  (!!a.username && !!b.username) || (!!a.id && !!b.id);
+
 /**
  * Whether two links are to the same member: by the name in their addresses when both have one, else by LinkedIn's
  * id when both have it. A name alone, as people write it, is never enough.
  */
 export function sameMember(a: ProfileRef, b: ProfileRef): boolean {
+  if (!comparable(a, b)) return false;
   if (a.username && b.username) return a.username.toLowerCase() === b.username.toLowerCase();
   return !!a.id && !!b.id && a.id === b.id;
 }

@@ -17,6 +17,8 @@ import type {
   AutoAsk,
   BrowseAnswer,
   BrowseAsk,
+  ConnectAsk,
+  OpenMessageAsk,
   FetchAnswer,
   FetchAsk,
   GroupPostAnswer,
@@ -133,6 +135,8 @@ export class WorkTab {
   async ask(message: FetchAsk): Promise<FetchAnswer>;
   async ask(message: PostsAsk): Promise<PostsAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
+  async ask(message: ConnectAsk): Promise<AutoAnswer>;
+  async ask(message: OpenMessageAsk): Promise<BrowseAnswer>;
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
@@ -141,7 +145,16 @@ export class WorkTab {
   async ask(message: Ask): Promise<Answer>;
   async ask(
     message:
-      FetchAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | WithdrawAsk | BrowseAsk | Ask,
+      | FetchAsk
+      | AutoAsk
+      | ConnectAsk
+      | OpenMessageAsk
+      | JoinAsk
+      | GroupPostAsk
+      | OwnProfileAsk
+      | WithdrawAsk
+      | BrowseAsk
+      | Ask,
   ): Promise<
     | FetchAnswer
     | AutoAnswer

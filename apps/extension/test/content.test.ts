@@ -88,11 +88,24 @@ describe('a tab’s script, by its network', () => {
 
   it('on LinkedIn, never does Facebook’s steps, and its own only on their own pages', async () => {
     const page = await tab('linkedin-feed.html', LINKEDIN_FEED, on);
-    for (const type of ['hfos-like-post', 'hfos-fetch-step', 'hfos-scroll-feed', 'hfos-message'])
+    for (const type of ['hfos-fetch-step', 'hfos-scroll-feed', 'hfos-join', 'hfos-write-bio-x'])
       expect(await page.ask({ type, text: 'Hi' })).toEqual({
         ok: false,
         error: 'The extension doesn’t do that on LinkedIn pages.',
       });
+    // LinkedIn's runner's own steps, each only on its own page.
+    expect(await page.ask({ type: 'hfos-like-post', index: 0, url: null })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open their posts.',
+    });
+    expect(await page.ask({ type: 'hfos-connect' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open their profile.',
+    });
+    expect(await page.ask({ type: 'hfos-message', text: 'Hi' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open a conversation with them.',
+    });
     expect(await page.ask({ type: 'hfos-own-profile' })).toEqual({
       ok: false,
       error: 'LinkedIn didn’t open your profile.',

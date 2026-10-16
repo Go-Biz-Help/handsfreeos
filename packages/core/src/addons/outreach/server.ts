@@ -29,7 +29,7 @@ import { readinessCommands, readinessQueries } from './ops/readiness';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
-import { postCommands } from './ops/posts';
+import { postCommands, postQueries } from './ops/posts';
 import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
 import { waitingCommands, waitingQueries } from './ops/waiting';
@@ -74,6 +74,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...groupQueries,
     ...todayQueries,
     ...tidyQueries,
+    ...postQueries,
     ...openerQueries,
     ...automationQueries,
     ...sendQueries,

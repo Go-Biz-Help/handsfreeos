@@ -288,7 +288,7 @@ function commentAuthor(article: Element, base: string): Reached | null {
 }
 
 /** Whether the post already has one of the person's reactions: its own button pressed, or saying Unreact. */
-function reacted(post: Element): boolean {
+export function reacted(post: Element): boolean {
   const own = postIn(post);
   return [...post.querySelectorAll(CONTROLS)].some((control) => {
     const nested = control.closest(NESTED);

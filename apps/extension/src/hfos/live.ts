@@ -46,8 +46,12 @@ export const LIVE_ACTIVE_KEY = 'hfos.live.active';
 export const LIVE_PRESS_KEY = 'hfos.live.press';
 export const BEAT_ALARM = 'hfos-beat';
 
-/** A beat's answer kept: what the runner and the panel follow, and whose it is. */
-export interface Kept extends LiveBeatOutput, Place {
+/**
+ * A beat's answer kept: what the runners and the panel follow, and whose it is. Each other network's day (`days`) is
+ * missing from one kept by a build before 0.41.0.
+ */
+export interface Kept extends Omit<LiveBeatOutput, 'days'>, Place {
+  readonly days?: LiveBeatOutput['days'];
   readonly at: number;
 }
 
@@ -285,13 +289,22 @@ const wake = (halt: boolean) => {
 };
 
 /**
- * Told of every beat sent (../asks/run.ts: asks may wait for this computer, and ends not yet taken go with it). Never
- * awaited: a beat doesn't wait for what's under way.
+ * Told of every beat sent (../asks/run.ts: asks may wait for this computer, and ends not yet taken go with it;
+ * ../auto/linkedin.ts: LinkedIn's day). Never awaited: a beat doesn't wait for what's under way.
  */
-let answered: (kept: Kept) => void = () => undefined;
+const beats = new Set<(kept: Kept) => void>();
 export function onBeat(fn: (kept: Kept) => void): void {
-  answered = fn;
+  beats.add(fn);
 }
+const answered = (kept: Kept) => {
+  for (const fn of beats) {
+    try {
+      fn(kept);
+    } catch (error) {
+      console.error('HandsFreeOS Social couldn’t follow a beat', error);
+    }
+  }
+};
 
 let told: Told | null = null;
 let running: Promise<Kept | null> | null = null;
