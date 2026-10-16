@@ -3,7 +3,8 @@
 The business's main offer: who it helps, the result, how fast, how, the guarantee and the price, built and scored
 with the AI. It's core's, so add-ons share it without reading each other's data, and it shows only while an add-on
 that uses it is on: Social Outreach now, AI Sales Coach later. The plan, with the owner's decisions and what comes
-next, is `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md`.
+next, is `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md`; the notes, the owner's direction and the AI's tries on its
+last step are `HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md`.
 
 It isn't the promotions under Knowledge (`app.offers`, the `offer.*` commands: "$50 off a tune-up through October"),
 HandsFreeOS's own founding offers, or Real Estate's offers on a home. Its name is `main_offer` in code and **Main
@@ -11,35 +12,40 @@ offer** on screen, everywhere.
 
 ## What's built
 
-The whole plan, steps 1 to 9. Core's part (steps 1 and 2) is below: the data, the commands and queries, showing it
-only with an add-on that uses it, the AI's help, and the screens, Settings → Main offer and the builder, from the boards
-in `design/main-offer`. Social Outreach's part (steps 3 to 8) is under **In Social Outreach**, and in full in
-docs/outreach.md, decisions 62 to 70.
+The whole plan, steps 1 to 9, and the tries plan, steps 1 to 4. Core's part is below: the data, the commands and
+queries, showing it only with an add-on that uses it, the AI's help, the owner's direction and the AI's tries, and the
+screens, Settings → Main offer and the builder, from the boards in `design/main-offer` (the tries' are 8 to 10).
+Social Outreach's part (steps 3 to 8) is under **In Social Outreach**, and in full in docs/outreach.md, decisions 62
+to 70.
 
-| What                                   | Where                                                                                                                                                      |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Its parts, the score, the bar          | `packages/core/src/main-offer/parts.ts` (browser-safe)                                                                                                     |
-| Commands                               | `packages/core/src/commands/main-offer.ts`                                                                                                                 |
-| Queries                                | `packages/core/src/queries/main-offer.ts`                                                                                                                  |
-| Schemas                                | `packages/core/src/schemas/main-offer.ts`                                                                                                                  |
-| Shown only with an add-on that uses it | `CORE_FEATURES` and the manifest's `uses` (`addons/manifest.ts`); `coreFeatureOn`, `coreFeatureRunning` and `addonsUsing` (`addons/capabilities.ts`)       |
-| The plain-writing rules                | `packages/core/src/writing.ts` (`PLAIN_WRITING`, `noDashes`), Social Outreach's before                                                                     |
-| Database                               | `20261027006100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`                                                                              |
-| The AI's help: prompts and checks      | `packages/core/src/main-offer/assist.ts` (the niche finder, Improve and Write it for me, the score)                                                        |
-| The AI's routes                        | `apps/worker/src/main-offer/routes.ts` (`/v1/main-offer/niche`, `/assist`, `/score`); the scripted stand-in's `MAIN_OFFER_RULES`                           |
-| Examples by line of work               | `packages/core/src/main-offer/examples.ts`                                                                                                                 |
-| What the screens say                   | `packages/core/src/main-offer/words.ts`                                                                                                                    |
-| Settings → Main offer                  | `apps/web/src/app/app/w/[workspaceId]/settings/main-offer/`, `apps/web/src/components/main-offer/page.tsx`                                                 |
-| The builder                            | `apps/web/src/app/app/w/[workspaceId]/main-offer/build/`, `apps/web/src/components/main-offer/builder.tsx`, `box.tsx`, `score.tsx`                         |
-| How a version is doing, from an add-on | `main_offer.panels`, an `<AddonSlot>` under the live version on Settings → Main offer; Social Outreach's is `apps/web/src/addons/outreach/offer-panel.tsx` |
-| A new version, heard by add-ons        | `main_offer.published` (`{ version }`), under an add-on's `events.consumes`; Social Outreach's is `apps/worker/src/addons/outreach/tracking.ts`            |
-| Tests                                  | `packages/core/test/main-offer.test.ts`, `main-offer-assist.test.ts`; `apps/worker/test/main-offer.test.ts`; `apps/web/e2e/main-offer.spec.ts`             |
+| What                                   | Where                                                                                                                                                                                     |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Its parts, the score, the bar          | `packages/core/src/main-offer/parts.ts` (browser-safe)                                                                                                                                    |
+| Commands                               | `packages/core/src/commands/main-offer.ts`                                                                                                                                                |
+| Queries                                | `packages/core/src/queries/main-offer.ts`                                                                                                                                                 |
+| Schemas                                | `packages/core/src/schemas/main-offer.ts`                                                                                                                                                 |
+| Shown only with an add-on that uses it | `CORE_FEATURES` and the manifest's `uses` (`addons/manifest.ts`); `coreFeatureOn`, `coreFeatureRunning` and `addonsUsing` (`addons/capabilities.ts`)                                      |
+| The plain-writing rules                | `packages/core/src/writing.ts` (`PLAIN_WRITING`, `noDashes`), Social Outreach's before                                                                                                    |
+| Database                               | `20261027006100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`; `20261027007700_main_offer_tries.sql`: the direction, `app.main_offer_tries`                               |
+| The AI's help: prompts and checks      | `packages/core/src/main-offer/assist.ts` (the niche finder, Improve and Write it for me, the score, a try)                                                                                |
+| The AI's routes                        | `apps/worker/src/main-offer/routes.ts` (`/v1/main-offer/niche`, `/assist`, `/score`, `/try`); the scripted stand-in's `MAIN_OFFER_RULES`                                                  |
+| Examples by line of work               | `packages/core/src/main-offer/examples.ts`                                                                                                                                                |
+| What the screens say                   | `packages/core/src/main-offer/words.ts`                                                                                                                                                   |
+| Settings → Main offer                  | `apps/web/src/app/app/w/[workspaceId]/settings/main-offer/`, `apps/web/src/components/main-offer/page.tsx`                                                                                |
+| The builder                            | `apps/web/src/app/app/w/[workspaceId]/main-offer/build/`, `apps/web/src/components/main-offer/builder.tsx`, `box.tsx`, `score.tsx`                                                        |
+| Its last step: review, compare, apply  | `apps/web/src/components/main-offer/review.tsx` (the part cards, the direction, Versions), `tries.tsx` (Compare, the applied step)                                                        |
+| How a version is doing, from an add-on | `main_offer.panels`, an `<AddonSlot>` under the live version on Settings → Main offer; Social Outreach's is `apps/web/src/addons/outreach/offer-panel.tsx`                                |
+| A new version, heard by add-ons        | `main_offer.published` (`{ version }`), under an add-on's `events.consumes`; Social Outreach's is `apps/worker/src/addons/outreach/tracking.ts`                                           |
+| Tests                                  | `packages/core/test/main-offer.test.ts`, `main-offer-assist.test.ts`; `packages/db/test/main-offer-rls.test.ts`; `apps/worker/test/main-offer.test.ts`; `apps/web/e2e/main-offer.spec.ts` |
 
 - **The parts** (`MainOfferParts`): the niche finder (the best customer ever and who looks like them), then who, outcome,
   timeframe, method, guarantee and price, each with the workbook's follow-ups; proof (real results, a line each, up to
   10); the one-line offer; and the outcome and guarantee in a few words each, for messages, which never carry the price.
-- **The score** (`MainOfferScore`): each of the six parts from 1 to 10 with why, the weakest part and its fix, the three
-  ways offers fail (vague, generic, hard to believe), and whether a stranger sees the outcome in three seconds.
+- **The score** (`MainOfferScore`): each of the six parts from 1 to 10 with why in a line, what's working (`good`),
+  what's holding it back (`holding`), its own `fix`, and `followedDirection` when the owner's direction changed how it
+  was judged; the weakest part and its fix, the three ways offers fail (vague, generic, hard to believe), and whether a
+  stranger sees the outcome in three seconds. A score kept before the tries has only the number and why, so the rest
+  is optional. `partSays` is what a part says in a line, for every screen that lists it.
 - **The draft** (`main_offer.save_draft`, `main_offer.discard_draft`): one a business, saved whole, with a revision that
   goes up with every save. A save names the revision it started from; a different one is refused
   (`main_offer_draft_moved`), so two editors never undo each other. The live version keeps running meanwhile.
@@ -50,9 +56,22 @@ docs/outreach.md, decisions 62 to 70.
   missing (a validation error naming each, from `missingParts`), unscored or scored before its last change
   (`main_offer_not_scored`), and under the bar without a reason (`main_offer_below_bar`, 422, naming the lowest part
   and the AI's fix). **Use it anyway** sends `anyway`, kept with the version.
-- **Reading** (`main_offer.get`, `main_offer.versions`): everyone in the business. `get` says whether an add-on that uses
-  it is on (`inUse`), which add-ons bring it (`comesWith`), the bar, the revision, the live version and the draft with
-  its score and what it still needs.
+- **The direction** (`main_offer.save_direction`): the owner's own words for the whole offer, up to 2,000 characters,
+  on `app.main_offers`. Empty clears it. Saving it moves the revision on, so a score from before is stale and the
+  draft is scored again against it. It stays with the offer after a version goes live.
+- **A try** (`main_offer.try_save`, the worker's alone): a whole new version of the offer the AI wrote from the draft,
+  the direction, the owner's notes on its parts and the parts to keep, with its own score, kept in
+  `app.main_offer_tries` for the revision it read (`saved: false` when the draft moved on). It keeps the draft it
+  read (`base`, what Restore puts back), why each part changed, and what it followed. Tries are numbered within a
+  round, the live version they're beside (0 before the first); a new version starts a new round.
+- **Taking parts in** (`main_offer.try_apply`, `main_offer.manage`): the picked parts go into the draft and the rest
+  stays. The try's one line and few words come too only when every part it changed is taken into the draft it was
+  written from (`lineFromTry`); otherwise the builder offers three new ones to pick from. A try from an earlier round
+  is refused (`main_offer_try_gone`), and so is one with no draft (`main_offer_no_draft`).
+- **Reading** (`main_offer.get`, `main_offer.versions`, `main_offer.tries`): everyone in the business. `get` says
+  whether an add-on that uses it is on (`inUse`), which add-ons bring it (`comesWith`), the bar, the revision, the
+  direction, the live version and the draft with its score and what it still needs. `tries` lists the round's, the
+  newest first, up to 20.
 - **Shown only with an add-on that uses it:** an add-on's manifest names the parts of core it uses (`uses:
 ['main_offer']`, Social Outreach's today). Core's capability `sales.main_offer` is in `workspace.get`'s capabilities
   only while one runs, so the screens ask `can('sales.main_offer')`; core never names an add-on.
@@ -70,7 +89,11 @@ docs/outreach.md, decisions 62 to 70.
 - **The AI's help** (`/v1/main-offer/*`, `main_offer` usage): the niche finder reads the best customer, or with none
   suggests niches the business can reach; Improve rewrites what's in a box and Write it for me fills an empty one,
   three to pick from (for the method, three sets of steps); the score reads the draft as it's kept, never what the
-  screen sends, and keeps it with the revision it read.
+  screen sends, and keeps it with the revision it read. Every route reads the owner's direction when there is one.
+  **A try** (`/v1/main-offer/try`) is two asks: one writes the whole offer from the draft as it's kept, the direction,
+  the notes and the parts to keep, and the other scores it. It's refused with every part kept
+  (`main_offer_all_kept`), and says so when the AI changed nothing it was free to change
+  (`main_offer_try_unchanged`).
 
 ## In Social Outreach
 
@@ -118,6 +141,15 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
 - **Examples are to model, never to copy,** and proof's examples are shown as words, not chips to tap: a result that
   isn't the business's own is no proof.
 - **Not the promotions.** Nothing here reads or writes `app.offers`, and the promotions' commands stay `offer.*`.
+- **The owner's direction follows them over the coaching rules** (Chris, 2026-10-16): a broad who on purpose isn't
+  marked down for being broad, and the part says it was scored that way. It never outranks the rule on inventing
+  nothing, the plain-writing rules, or the scale and the bar, and anything it says about scores is ignored. It's
+  quoted as data in every prompt, like the owner's notes.
+- **Nothing the AI writes is used until a person picks it.** A try sits beside the draft and never changes
+  (`private.forbid_change`); only `main_offer.try_apply`, a person's pick, moves its parts into the draft, and every
+  part starts on the draft's side. Kept parts, the niche and proof are the draft's exactly in every try.
+- **Only the worker keeps a try,** for the revision it read, as only it keeps a score. People read tries; nobody
+  writes or changes one.
 
 - **How a version is doing comes from the add-on, never from core.** Core keeps no counts of messages and never reads
   an add-on's tables. The page has a place for panels (`main_offer.panels`, an `<AddonSlot>` under the live version),
@@ -134,12 +166,10 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
 
 ## Not yet
 
-- **Notes, a direction and the AI's tries** on the last step: what's working and what's holding each part back, a
-  note on any part, the owner's direction for the whole offer, and a whole new version from the AI to pick parts
-  from. Planned in `HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md`. Its steps 1 to 3 are built (the direction
-  on `app.main_offers`, `app.main_offer_tries`, `main_offer.save_direction`, `main_offer.try_save`,
-  `main_offer.try_apply`, `main_offer.tries`, the prompts, the worker's `/v1/main-offer/try`, with the direction read
-  by every AI route, and the builder's screens); this page's own write-up of them is next.
+- **Social Outreach doesn't read the direction yet.** Its messages, profile check and video script are written from
+  the live version's parts, which carry what the direction asked for. Reading the direction there is a change of its
+  own.
+- **A try for one part only** isn't built: a note on that part with every other part kept does the same.
 - **The phone shows nothing of the main offer** itself: no Settings → Main offer, no builder. Its words are core's
   (`words.ts`), ready for it. Social Outreach's screens on the phone (Get ready, Your messages, the video's link, the
   numbers) work without it.

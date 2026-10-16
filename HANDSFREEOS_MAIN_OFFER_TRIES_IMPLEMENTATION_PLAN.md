@@ -19,10 +19,11 @@ It builds on the main offer as it is (docs/main-offer.md, HANDSFREEOS_MAIN_OFFER
 is on the canvas **Main offer: notes, direction and tries** (https://claude.ai/artifact/14rYNgQfLT3v8xBhAsFkiw):
 Review, Compare, and Picks applied.
 
-**Where it stands (2026-10-16):** steps 1 to 3 are built on branch `claude/compassionate-hypatia-62wvlc`: the
+**Where it stands (2026-10-16):** built, steps 1 to 4, on branch `claude/compassionate-hypatia-62wvlc`: the
 migration (`20261027007700_main_offer_tries.sql`, not yet on the hosted database), the fuller score, the direction,
-the tries' commands and query, the AI's prompts and checks, the worker's `POST /v1/main-offer/try`, and the builder's
-Review, Compare and applied views with Settings → Main offer's. The docs are next. Chris approved the boards (2026-10-16: "boards approved").
+the tries' commands and query, the AI's prompts and checks, the worker's `POST /v1/main-offer/try`, the builder's
+Review, Compare and applied views with Settings → Main offer's, and the docs (docs/main-offer.md). Chris approved the
+boards (2026-10-16: "boards approved").
 
 ## Decisions (Chris, 2026-10-16)
 
@@ -250,6 +251,7 @@ Each step ships on its own, with its tests, and leaves the builder working.
    its step. A try's comparison opens at `?step=score&try=<id>`. Saving the direction moves the revision on, so the
    draft's score clears until it's scored again. What a part says is core's `partSays`, for the web and the phone.
 4. **Docs.** docs/main-offer.md: what's built, the direction and the tries under its rules, and the refusals.
+   **Built**, with the README's main offer section and CLAUDE.md's Read first row.
 
 ## Answered (Chris, 2026-10-16)
 
