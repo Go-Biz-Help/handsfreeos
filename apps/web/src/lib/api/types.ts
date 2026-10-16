@@ -189,6 +189,8 @@ export type Offer = OfferList['offers'][number];
 // The business's main offer (docs/main-offer.md): its page in Settings and the builder.
 export type MainOfferGet = Ok<'/v1/queries/main_offer.get'>;
 export type MainOfferVersions = Ok<'/v1/queries/main_offer.versions'>['versions'];
+// The AI's tries beside the draft (HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md).
+export type MainOfferTry = Ok<'/v1/queries/main_offer.tries'>['tries'][number];
 export type KnowledgeProfileValue = KnowledgeProfileGet['profile'];
 export type KnowledgeItemList = Ok<'/v1/queries/knowledge_item.list'>;
 export type KnowledgeItem = KnowledgeItemList['items'][number];

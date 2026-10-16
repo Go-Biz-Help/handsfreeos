@@ -369,3 +369,30 @@ export function withPart(parts: MainOfferParts, path: string, words: string): Ma
   if (!box || !group || typeof group !== 'object' || Array.isArray(group)) return parts;
   return { ...parts, [part]: { ...group, [box]: words } };
 }
+
+/** What a scored part says, in a line, for the screens that list the offer part by part. */
+export function partSays(parts: MainOfferParts, part: ScoredPart): string {
+  const join = (...xs: (string | undefined)[]) =>
+    xs
+      .map((x) => x?.trim())
+      .filter(Boolean)
+      .join('. ');
+  switch (part) {
+    case 'who':
+      return join(
+        [parts.who.work, parts.who.slice].filter((x) => x?.trim()).join(' '),
+        parts.who.size,
+        parts.who.problem,
+      );
+    case 'outcome':
+      return join(parts.outcome.result, parts.outcome.measure);
+    case 'timeframe':
+      return join(parts.timeframe.typical, parts.timeframe.why);
+    case 'method':
+      return (parts.method.steps ?? []).filter((s) => s.trim()).join(' · ');
+    case 'guarantee':
+      return join(parts.guarantee.promise, parts.guarantee.when, parts.guarantee.qualifies);
+    case 'price':
+      return join(parts.price.amount, parts.price.value);
+  }
+}

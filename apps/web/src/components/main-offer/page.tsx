@@ -2,13 +2,14 @@
 import {
   clearsBar,
   formatDate,
+  MAIN_OFFER_TRY_WORDS as TW,
   MAIN_OFFER_WORDS as W,
+  partSays,
   SCORED_PART_LABELS,
   SCORED_PARTS,
   timeOfDay,
-  type ScoredPart,
 } from '@hfos/core';
-import { Check, Megaphone, Pencil } from 'lucide-react';
+import { Check, CircleAlert, Compass, Megaphone, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -21,36 +22,13 @@ import { errorMessage } from '@/lib/api/errors';
 import type { MainOfferGet, MainOfferVersions } from '@/lib/api/types';
 import { discardOfferDraft } from '@/lib/main-offer/actions';
 import { cn } from '@/lib/utils';
+import { WithDirection } from './review';
 
 type Live = NonNullable<MainOfferGet['live']>;
 
-/** What each part says, in a line, for the page's part-by-part list. */
-function partLine(live: Live, part: ScoredPart): string {
-  const p = live.parts;
-  const join = (...xs: (string | undefined)[]) =>
-    xs
-      .map((x) => x?.trim())
-      .filter(Boolean)
-      .join('. ');
-  switch (part) {
-    case 'who':
-      return join([p.who.work, p.who.slice].filter(Boolean).join(' '), p.who.size, p.who.problem);
-    case 'outcome':
-      return join(p.outcome.result, p.outcome.measure);
-    case 'timeframe':
-      return join(p.timeframe.typical, p.timeframe.why);
-    case 'method':
-      return (p.method.steps ?? []).join(' · ');
-    case 'guarantee':
-      return join(p.guarantee.promise, p.guarantee.qualifies);
-    case 'price':
-      return join(p.price.amount, p.price.value);
-  }
-}
-
 /**
- * Settings → Main offer (docs/main-offer.md): the live version with its score and parts, the draft someone is
- * working on, and every version published. Shown only while an add-on that uses the offer is on; owners and admins
+ * Settings → Main offer (docs/main-offer.md): the live version with its score and parts, what's working and what's
+ * holding each back, the owner's direction, the draft someone is working on, and every version published. Shown only while an add-on that uses the offer is on; owners and admins
  * build and change it, and everyone in the business can read it.
  */
 export function MainOfferPage({
@@ -163,7 +141,12 @@ export function MainOfferPage({
             <TabsTrigger value="versions">{W.tabVersions}</TabsTrigger>
           </TabsList>
           <TabsContent value="live" className="mt-5 flex flex-col gap-5">
-            <LiveVersion live={live} comesWith={offer.comesWith} />
+            <LiveVersion
+              live={live}
+              comesWith={offer.comesWith}
+              direction={offer.direction}
+              editDirection={canManage ? `${build}?step=score` : null}
+            />
             {/* How it's doing in the add-ons that use it (Social Outreach's first messages, yeses and calls). */}
             <AddonSlot name="main_offer.panels" workspaceId={workspaceId} />
           </TabsContent>
@@ -206,7 +189,17 @@ export function MainOfferPage({
   );
 }
 
-function LiveVersion({ live, comesWith }: { live: Live; comesWith: readonly string[] }) {
+function LiveVersion({
+  live,
+  comesWith,
+  direction,
+  editDirection,
+}: {
+  live: Live;
+  comesWith: readonly string[];
+  direction: string | null;
+  editDirection: string | null;
+}) {
   const clears = clearsBar(live.score);
   const checks = [
     [W.checks.threeSeconds, live.score.threeSeconds],
@@ -243,14 +236,43 @@ function LiveVersion({ live, comesWith }: { live: Live; comesWith: readonly stri
         <Card>
           <div className="px-4 py-3.5 font-semibold">{W.byPart}</div>
           {SCORED_PARTS.map((p) => {
-            const s = live.score.parts[p].score;
+            const part = live.score.parts[p];
+            const s = part.score;
             return (
               <div
                 key={p}
                 className="grid grid-cols-[100px_minmax(0,1fr)_auto] items-start gap-4 border-t border-border px-4 py-3.5"
+                data-testid={`main-offer-part-${p}`}
               >
                 <span className="text-[13px] font-medium">{SCORED_PART_LABELS[p]}</span>
-                <span className="text-[13px]">{partLine(live, p)}</span>
+                <span className="flex min-w-0 flex-col gap-1.5 text-[13px]">
+                  <span>{partSays(live.parts, p)}</span>
+                  {part.good?.map((g) => (
+                    <span key={g} className="flex items-start gap-1.5 text-[12.5px] text-text-2">
+                      <Check
+                        className="mt-px h-3.5 w-3.5 flex-none text-success"
+                        strokeWidth={2}
+                        aria-label={TW.working}
+                      />
+                      {g}
+                    </span>
+                  ))}
+                  {part.holding?.map((h) => (
+                    <span key={h} className="flex items-start gap-1.5 text-[12.5px] text-text-2">
+                      <CircleAlert
+                        className="mt-px h-3.5 w-3.5 flex-none text-warning"
+                        strokeWidth={1.75}
+                        aria-label={TW.holding}
+                      />
+                      {h}
+                    </span>
+                  ))}
+                  {part.followedDirection ? (
+                    <span>
+                      <WithDirection />
+                    </span>
+                  ) : null}
+                </span>
                 <Badge variant={s >= 7 ? 'ok' : 'pending'} className="tabular-nums">
                   {s}
                 </Badge>
@@ -277,6 +299,23 @@ function LiveVersion({ live, comesWith }: { live: Live; comesWith: readonly stri
               {W.weakest(SCORED_PART_LABELS[live.score.weakest], live.score.fix)}
             </p>
           </Card>
+          {direction || editDirection ? (
+            <Card className="flex flex-col gap-2 p-4" data-testid="main-offer-direction">
+              <span className="flex items-center gap-2 font-semibold">
+                <Compass className="h-4 w-4 text-accent-text" strokeWidth={1.75} />
+                {direction ? TW.directionKept : TW.directionTitle}
+              </span>
+              <p className="whitespace-pre-line text-[13px]">{direction ?? TW.directionHint}</p>
+              {direction ? <p className="text-xs text-text-3">{TW.directionKeptHint}</p> : null}
+              {editDirection ? (
+                <span>
+                  <ButtonLink href={editDirection} size="sm" variant="ghost" className="-ml-2.5">
+                    {TW.editDirection}
+                  </ButtonLink>
+                </span>
+              ) : null}
+            </Card>
+          ) : null}
           <Card className="flex flex-col gap-2.5 p-4">
             <span className="font-semibold">{W.usedBy}</span>
             {comesWith.map((name) => (

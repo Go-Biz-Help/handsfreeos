@@ -63,8 +63,10 @@ docs/outreach.md, decisions 62 to 70.
   (`/main-offer/build`, `?step=` for one) opens over the app in the onboarding frame for `main_offer.manage`: the ten
   steps listed beside it with what's been answered, examples to tap for the business's line of work (`industry`),
   Improve or Write it for me under every box, and every move saving the draft. A draft opens where it is; with none,
-  changing a live offer starts from it, on Who. The score step scores, then offers Go live, or, under the bar, Change
-  the weakest part and Use it anyway with a reason.
+  changing a live offer starts from it, on Who. The last step, **Review and go live**, scores; each part shows what's
+  working, what's holding it back and the AI's fix, with a note for the AI and Keep this part as is; the owner's
+  direction sits under them; and **Make a try** writes one beside the draft, compared part by part
+  (`&try=`) and taken in a part at a time. Then Go live, or, under the bar, Use it anyway with a reason.
 - **The AI's help** (`/v1/main-offer/*`, `main_offer` usage): the niche finder reads the best customer, or with none
   suggests niches the business can reach; Improve rewrites what's in a box and Write it for me fills an empty one,
   three to pick from (for the method, three sets of steps); the score reads the draft as it's kept, never what the
@@ -134,10 +136,10 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
 
 - **Notes, a direction and the AI's tries** on the last step: what's working and what's holding each part back, a
   note on any part, the owner's direction for the whole offer, and a whole new version from the AI to pick parts
-  from. Planned in `HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md`. Its steps 1 and 2 are built (the direction
+  from. Planned in `HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md`. Its steps 1 to 3 are built (the direction
   on `app.main_offers`, `app.main_offer_tries`, `main_offer.save_direction`, `main_offer.try_save`,
-  `main_offer.try_apply`, `main_offer.tries`, the prompts, and the worker's `/v1/main-offer/try`, with the direction
-  read by every AI route); the screens are next.
+  `main_offer.try_apply`, `main_offer.tries`, the prompts, the worker's `/v1/main-offer/try`, with the direction read
+  by every AI route, and the builder's screens); this page's own write-up of them is next.
 - **The phone shows nothing of the main offer** itself: no Settings → Main offer, no builder. Its words are core's
   (`words.ts`), ready for it. Social Outreach's screens on the phone (Get ready, Your messages, the video's link, the
   numbers) work without it.

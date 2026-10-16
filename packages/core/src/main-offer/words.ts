@@ -179,10 +179,10 @@ export const OFFER_STEP_WORDS: Record<OfferStep, OfferStepWords> = {
     ],
   },
   score: {
-    name: 'Score and go live',
-    about: 'Every part needs 7',
-    title: 'Score and go live',
-    hint: 'The AI scores each part the way a coach would on a call: honest and specific. Every part needs 7 out of 10, so your outreach starts from an offer people want.',
+    name: 'Review and go live',
+    about: 'Notes, tries, then go live',
+    title: 'Review and go live',
+    hint: 'The AI scores each part the way a coach would on a call: honest and specific. See what’s working and what’s holding each part back, tell it where you want the offer to go, and it writes a new try beside yours. Every part needs 7 out of 10 to go live.',
     boxes: [],
   },
 };
@@ -328,10 +328,6 @@ export const OFFER_DIRECTION_PICKS = [
 
 /** The last step's notes, direction and tries, and the comparison, from the boards on the canvas. */
 export const MAIN_OFFER_TRY_WORDS = {
-  stepName: 'Review and go live',
-  stepAbout: 'Notes, tries, then go live',
-  title: 'Review and go live',
-  hint: 'See what’s working and what’s holding each part back. Leave the AI a note on any part, then tell it where you want the whole offer to go. It writes a new try beside yours. Nothing changes until you pick.',
   versions: 'Versions',
   yourDraft: 'Your draft',
   tryName: (n: number) => `Try ${n}`,
@@ -398,6 +394,17 @@ export const MAIN_OFFER_TRY_WORDS = {
     `Your draft from before is kept as Before ${name}, and ${name} is kept too, so you can mix in more of it later.`,
   restore: 'Restore my draft from before',
   changePicks: 'Change my picks',
+  notScored: 'Not scored yet',
+  updated: 'updated',
+  tryMoved: 'Your draft changed while the AI was writing. Make the try again.',
+  lineGroups: {
+    line: 'Your offer in one line',
+    outcome: 'The outcome, in a few words',
+    guarantee: 'The guarantee, in a few words',
+  },
+  keepMine: 'Keep mine',
+  useAndScore: 'Use these and score',
+  scoringNow: 'Scoring your offer with your picks…',
   directionKept: 'Your direction is kept',
   directionKeptHint:
     'The AI reads it every time it scores or writes this offer, so the next change starts from what you meant.',
