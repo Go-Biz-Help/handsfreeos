@@ -196,7 +196,7 @@ export function AskLine({
         </p>
       ) : ask.state === 'waiting' ? (
         <p className="mt-1.5 text-text-2">
-          {askWaitingWords(asks.computer, asks.timezone, Date.parse(asks.now))}
+          {askWaitingWords(asks.computer, asks.timezone, Date.parse(asks.now), ask.platform)}
         </p>
       ) : null}
       {ask.state === 'stuck' && ask.reply ? (

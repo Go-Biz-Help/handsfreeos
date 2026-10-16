@@ -57,6 +57,9 @@ export type { TodayDraftInput };
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
 export type TidyCandidate = Tidy['cancel'][number];
 export type FriendEndInput = Body<'/v1/commands/outreach.friend.end'>;
+/** A note of what a job saw on a page (decision 74, src/jobs/report.ts). */
+export type ReportSaveInput = Body<'/v1/commands/outreach.report.save'>;
+export type ReportSaved = Ok<'/v1/commands/outreach.report.save'>;
 export type FriendEnded = Ok<'/v1/commands/outreach.friend.end'>;
 /** A warning Facebook showed the person, noted (decision 25). */
 export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;
@@ -259,6 +262,7 @@ export type HfosAsk =
   /** What to search a network's posts with: its runner's Find posts (LinkedIn's post search). */
   | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
+  | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
   | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
@@ -314,6 +318,7 @@ export interface HfosValues {
   readonly 'hfos-lists-saved': ListsSaved;
   readonly 'hfos-post-words': { readonly words: readonly string[] };
   readonly 'hfos-friend-end': FriendEnded;
+  readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
   readonly 'hfos-checks-next': ChecksNext;

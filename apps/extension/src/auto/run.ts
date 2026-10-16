@@ -54,6 +54,7 @@ import { facebook } from '../networks/facebook/kit';
 import { FRIENDSHIP_WORDS } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { reporter } from '../jobs/report';
 import { sameName } from '../networks/facebook/people';
 import { FACEBOOK, profileFromUrl } from '../networks/facebook/urls';
 import type {
@@ -1114,6 +1115,14 @@ async function go(): Promise<void> {
   } finally {
     await setState({ working: false });
   }
+  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
+  if ('done' in outcome && !outcome.done)
+    await reporter(tab, answer as Hfos, {
+      businessId: to.businessId,
+      platform: facebook.platform,
+      askId: null,
+      job: work.do === 'step' ? work.item.kind : work.do,
+    })({ note: 'The step didn’t go.', outline: true });
   state = await stateNow();
   const kind = doneAs(work);
   const done =

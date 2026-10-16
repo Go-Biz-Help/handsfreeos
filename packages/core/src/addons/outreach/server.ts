@@ -26,6 +26,7 @@ import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
 import { conversationCommands, conversationQueries } from './ops/conversation';
 import { readinessCommands, readinessQueries } from './ops/readiness';
+import { reportCommands } from './ops/reports';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
@@ -55,6 +56,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...listCommands,
     ...waitingCommands,
     ...askCommands,
+    ...reportCommands,
     ...setupCommands,
     ...readinessCommands,
     ...conversationCommands,

@@ -120,7 +120,8 @@ if (kit && !here.hfosSocialListening) {
                   window: { width: innerWidth, height: innerHeight },
                 })
               : undefined;
-          respond({ ok: true, result, outline });
+          // Chrome draws nothing in a window hidden behind another: what's below the first screen may be missing.
+          respond({ ok: true, result, outline, shown: document.visibilityState === 'visible' });
         } catch (error) {
           respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
         }

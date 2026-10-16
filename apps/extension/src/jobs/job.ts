@@ -9,6 +9,7 @@
  * warning. Only the file's steps and tidying press anything on Facebook; the rest open and scroll. LinkedIn's are in
  * ./linkedin/, with the same `Job`, and Read my chats (./chats.ts) works on both.
  */
+import type { Reporter } from './report';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import { platformOf, type PageRead } from '../networks/kit';
 import type { ReadResult } from '../networks/facebook/types';
@@ -58,6 +59,7 @@ export interface JobTab {
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */
+export type { Reporter };
 export type Hfos = <T extends HfosAsk>(ask: T) => Promise<HfosAnswer<HfosValues[T['type']]>>;
 
 export interface Job {
@@ -77,6 +79,8 @@ export interface Job {
   readonly handOver?: (says: string) => Promise<HandOverReply>;
   /** The network asks for the person's password (or Facebook's PIN): said while the job waits; null once it's gone on. */
   readonly typing?: (line: string | null) => void;
+  /** Notes the page its tab shows in HandsFreeOS (decision 74, ./report.ts): what it found, and what it didn't. */
+  readonly report?: Reporter;
 }
 
 /** The person's answer to a step handed to them. */

@@ -6127,7 +6127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.
+         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.
          * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made, outreach.ask.ended.
          */
         post: operations["command_outreach_ask_make"];
@@ -7031,6 +7031,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.reply.seen.
          */
         post: operations["command_outreach_replies_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.report.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension saves a note of a page a job read: its kind and address with people’s parts hidden, whether its window was in front, what it found there (counts, never words), and the page’s outline when something was missing. The person’s own; kept a week.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.report.saved.
+         */
+        post: operations["command_outreach_report_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34398,7 +34418,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -34587,6 +34607,9 @@ export interface operations {
                         bio: string;
                         /** @enum {string} */
                         kind: "profile_edit";
+                    } | {
+                        /** @enum {string} */
+                        kind: "checkup";
                     };
                     /**
                      * @default facebook
@@ -34615,7 +34638,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -34726,7 +34749,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -34801,7 +34824,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
                             /**
                              * @default facebook
                              * @enum {string}
@@ -34905,6 +34928,9 @@ export interface operations {
                                 bio: string;
                                 /** @enum {string} */
                                 kind: "profile_edit";
+                            } | {
+                                /** @enum {string} */
+                                kind: "checkup";
                             };
                         } | null;
                         waiting: number;
@@ -36456,6 +36482,8 @@ export interface operations {
                     /** @default false */
                     active?: boolean;
                     computer: {
+                        /** @default null */
+                        allowed?: ("facebook" | "linkedin")[] | null;
                         /** Format: uuid */
                         id: string;
                         name: string;
@@ -37507,6 +37535,57 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_report_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    report: {
+                        /** @default null */
+                        askId?: string | null;
+                        /** @default {} */
+                        found?: {
+                            [key: string]: number | boolean | string[];
+                        };
+                        job: string;
+                        /** @default null */
+                        note?: string | null;
+                        /** @default null */
+                        outline?: string | null;
+                        page: string;
+                        path: string;
+                        /** @enum {string} */
+                        platform: "facebook" | "linkedin";
+                        /** @default null */
+                        shown?: boolean | null;
+                        /** @default null */
+                        version?: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        reportId: string;
                     };
                 };
             };
@@ -65046,7 +65125,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65069,7 +65148,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -65104,6 +65183,7 @@ export interface operations {
                             via: "web" | "mobile" | "extension";
                         }[];
                         computer: {
+                            allowed?: ("facebook" | "linkedin")[] | null;
                             /** Format: uuid */
                             computerId: string;
                             /** Format: date-time */
@@ -66123,6 +66203,7 @@ export interface operations {
                         canSend: boolean;
                         computer: {
                             activeAt: string | null;
+                            allowed?: ("facebook" | "linkedin")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -66135,6 +66216,7 @@ export interface operations {
                         } | null;
                         computers: {
                             activeAt: string | null;
+                            allowed?: ("facebook" | "linkedin")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -67264,7 +67346,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
                                 line: string | null;
                                 /**
                                  * @default facebook

@@ -33,7 +33,9 @@ import {
   networksOn,
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
+import { askableOn } from '@hfos/core/addons/outreach/asks';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { allowedOn, REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
 import {
   isNetworkPart,
   limitsShownOn,
@@ -54,6 +56,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { countriesProblem, TeamSettingsFields, type TeamSettings } from './business-settings';
+import { AskButton } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
 import { ComputersCard, useServerNow } from './live-view';
@@ -72,7 +75,7 @@ import {
   wheelsOf,
 } from './settings-view';
 import { StartFresh } from './start-fresh';
-import type { Automation, AutomationPeople, Live } from './types';
+import type { Asks, Automation, AutomationPeople, Live } from './types';
 import { useAutosave, type Autosave, type SaveStatus } from './use-autosave';
 
 /** The business's settings the Settings pages change, as they read them: the extension's link has its own box. */
@@ -110,6 +113,8 @@ interface Props {
   live?: Live | null;
   /** The business's own link to the extension's zip, when it gave one: else HandsFreeOS's own. */
   extensionLink?: string | null;
+  /** On a network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74). */
+  asks?: Asks | null;
 }
 
 export function SettingsView(props: Props) {
@@ -129,6 +134,7 @@ function SettingsPages({
   canStartFresh = false,
   live = null,
   extensionLink = null,
+  asks = null,
 }: Props) {
   const router = useRouter();
   const person = useAutosave<AutomationSettings>(
@@ -204,6 +210,8 @@ function SettingsPages({
           person={person}
           team={business ? team : null}
           statuses={statuses}
+          workspaceId={workspaceId}
+          asks={mine ? asks : null}
         />
       ) : shown === 'computer' ? (
         <>
@@ -399,6 +407,8 @@ function NetworkPage({
   person,
   team,
   statuses,
+  workspaceId,
+  asks,
 }: {
   platform: Platform;
   me: Automation;
@@ -407,6 +417,9 @@ function NetworkPage({
   /** The business's, for owners and admins. */
   team: Autosave<TeamSettings> | null;
   statuses: readonly SaveStatus[];
+  workspaceId: string;
+  /** The person's own: Check LinkedIn's ask, and their computer; null on someone else's settings. */
+  asks: Asks | null;
 }) {
   const [switching, setSwitching] = useState(false);
   const [said, setSaid] = useState<{ readonly ok: boolean; readonly words: string } | null>(null);
@@ -475,7 +488,16 @@ function NetworkPage({
         </p>
       ) : (
         <>
-          {facebook ? null : (
+          {facebook ? null : asks?.computer && !allowedOn(asks.computer.allowed, platform) ? (
+            // Their computer said Chrome hasn't let it on the network: its asks there wait for this.
+            <p
+              role="alert"
+              className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
+              data-testid={`${testId}-chrome-blocked`}
+            >
+              {REPORT_WORDS.notAllowed(asks.computer.name, platform)}
+            </p>
+          ) : (
             <p
               className="rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13px] text-accent-text"
               data-testid={`${testId}-chrome`}
@@ -534,6 +556,23 @@ function NetworkPage({
               ))}
             </ul>
           </Part>
+          {asks && askableOn(platform, 'checkup') ? (
+            <Part
+              card
+              title={REPORT_WORDS.checkupTitle(name)}
+              about={REPORT_WORDS.checkupAbout(name)}
+              testId={`${testId}-checkup`}
+            >
+              <AskButton
+                workspaceId={workspaceId}
+                asks={asks}
+                ask={{ kind: 'checkup' }}
+                platform={platform}
+                label={REPORT_WORDS.checkupTitle(name)}
+                testId={`${testId}-checkup-ask`}
+              />
+            </Part>
+          ) : null}
         </>
       )}
       {team ? <TeamOnNetwork platform={platform} team={team} /> : null}

@@ -1,3 +1,4 @@
+import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import type {
   AutomationOutput,
   AutomationPeopleOutput,
@@ -50,6 +51,7 @@ import {
 import { SaveLine } from './settings-bits';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam } from './settings-network';
+import { useAskActions, useAsks, type AskActions } from './asks';
 
 /**
  * Social Outreach's Settings on the phone (decision 44), a page for each part as on the web (Chris, 2026-10-16: "a
@@ -118,6 +120,10 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
     `outreach-business:${ws}`,
     W.rows.settings,
   );
+  // A network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74).
+  const networkPart = part !== null && part !== 'general' && mine;
+  const asks = useAsks('settings', W.rows.settings, networkPart);
+  const askActions = useAskActions(asks.data, asks.reload);
   // Back on the menu from a part: asked again, so each network's On or Off is as just saved.
   const shown = React.useRef(false);
   const { reload: reloadAutomation } = automation;
@@ -154,6 +160,8 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
       part={part}
       automation={automation.data}
       error={automation.error}
+      asks={asks.data}
+      askActions={askActions}
       mine={mine}
       business={ctx.manages ? business.data : null}
       manages={ctx.manages}
@@ -348,6 +356,9 @@ interface PartProps {
   onSaveBusiness: (
     edit: (now: OutreachSettings) => Partial<OutreachSettings>,
   ) => Promise<string | null>;
+  /** On a network's page, the person's own asks of their computer and what to do with them (decision 74). */
+  asks?: AsksOutput | null;
+  askActions?: AskActions | null;
 }
 
 /** A part's page: General, or a network's. */
@@ -377,6 +388,8 @@ function PartPage({
   online,
   onSaveMine,
   onSaveBusiness,
+  asks = null,
+  askActions = null,
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID = part === 'general' ? 'settings-general' : `settings-networks-${part}`;
   // One line for the page, fixed under its title so it shows wherever the change was made: how the latest save went,
@@ -436,6 +449,8 @@ function PartPage({
               form={form}
               manages={manages}
               online={online}
+              asks={mine ? asks : null}
+              askActions={mine ? askActions : null}
             />
             {manages && business ? (
               <NetworkTeam

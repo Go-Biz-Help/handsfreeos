@@ -138,6 +138,8 @@ export const ComputerShown = z.object({
   working: z.boolean(),
   state: z.enum(REPORTED_STATE_KEYS),
   version: z.string().nullable(),
+  /** The networks Chrome lets it on, as it last said; null from a build that doesn't say (./reports.ts). */
+  allowed: z.array(z.enum(PLATFORM_KEYS)).nullable().optional(),
 });
 export type ComputerShown = z.output<typeof ComputerShown>;
 
@@ -182,6 +184,8 @@ export const LiveBeatInput = z.object({
       .min(1)
       .transform((s) => clipLine(s, COMPUTER_NAME_MOST)),
     version: z.string().trim().max(20).nullable().default(null),
+    /** The networks Chrome lets it on (decision 74); null from a build that doesn't say. */
+    allowed: z.array(z.enum(PLATFORM_KEYS)).max(PLATFORM_KEYS.length).nullable().default(null),
   }),
   /** The person used this computer just now: the panel opened, a step of their own, sign-in. */
   active: z.boolean().default(false),

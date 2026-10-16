@@ -44,6 +44,7 @@ import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { reporter } from '../jobs/report';
 import { checkConnections, isThem } from '../jobs/linkedin/checks';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
 import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
@@ -880,6 +881,14 @@ async function go(): Promise<void> {
   } finally {
     await setState({ working: false });
   }
+  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
+  if ('done' in outcome && !outcome.done)
+    await reporter(tab, answer as Hfos, {
+      businessId: to.businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: work.do === 'step' ? work.item.kind : work.do,
+    })({ note: 'The step didn’t go.', outline: true });
   state = await stateNow();
   const kind = doneAs(work);
   const done =

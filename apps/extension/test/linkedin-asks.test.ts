@@ -23,6 +23,7 @@ import {
   readOwnProfile,
   writeHeadline,
 } from '../src/networks/linkedin/own-profile';
+import { linkedin } from '../src/networks';
 import { readPage } from '../src/networks/linkedin/page';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { withdraw } from '../src/networks/linkedin/withdraw';
@@ -36,6 +37,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 
 const { runAsk } = await import('../src/asks/run');
 const { warnedLine } = await import('../src/jobs/job');
+const { reporter } = await import('../src/jobs/report');
 
 const store = new Map<string, unknown>();
 beforeAll(() =>
@@ -48,6 +50,7 @@ beforeAll(() =>
         },
       },
     },
+    runtime: { getManifest: () => ({ version: '0.48.0' }) },
   }),
 );
 afterAll(() => vi.unstubAllGlobals());
@@ -376,6 +379,13 @@ function fakeTab(
           return { ok: true };
         case 'hfos-own-profile':
           return { ok: true, read: readOwnProfile(doc, reading) };
+        case 'hfos-outline':
+          return {
+            ok: true,
+            result: readPage(doc, reading, NOW, { sideOf: () => null }),
+            outline: linkedin.outline(doc, reading, { version: '0.48.0' }),
+            shown: true,
+          };
         case 'hfos-write-bio':
           return { ok: true, result: more.headline ?? 'done' };
         case 'hfos-withdraw':
@@ -407,6 +417,8 @@ function fakeHfos(answers: Partial<Record<HfosAsk['type'], (ask: HfosAsk) => unk
       case 'hfos-check-look':
       case 'hfos-profile-check':
         return { ok: true, value: {} };
+      case 'hfos-report':
+        return { ok: true, value: { reportId: 'a4b5c6d7-e8f9-4a0b-8c1d-2e3f4a5b6c7d' } };
       case 'hfos-save-posts':
         return {
           ok: true,
@@ -703,6 +715,118 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
     ]);
     expect(sentOf(sent, 'hfos-profile-check')).toHaveLength(1);
     expect(end.line).toBe('Your headline now says “I help roofers”.');
+  });
+});
+
+describe('notes of what it saw, and Check LinkedIn', () => {
+  it('notes your profile as it read it: what was there, the address masked, and no outline with nothing missing', async () => {
+    const { tab } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }));
+    const { hfos, sent } = fakeHfos();
+    const askId = 'b5c6d7e8-f9a0-4b1c-8d2e-3f4a5b6c7d8e';
+    const { job } = jobWith(tab, hfos, {
+      report: reporter(tab, hfos, {
+        businessId: BUSINESS,
+        platform: 'linkedin',
+        askId,
+        job: 'profile_read',
+      }),
+    });
+    await onLinkedIn({ kind: 'profile_read' }, job);
+    const [noted] = sentOf(sent, 'hfos-report');
+    expect(noted!.input).toMatchObject({
+      workspaceId: BUSINESS,
+      report: {
+        platform: 'linkedin',
+        askId,
+        job: 'profile_read',
+        version: '0.48.0',
+        shown: true,
+        outline: null,
+      },
+    });
+    const { report } = noted!.input;
+    expect(report.found).toMatchObject({ bio: true, profile: true, profileName: true });
+    expect(report.found!.roles).toBeGreaterThan(0);
+    expect(report.found!.sections).toContain('Experience');
+    // The address as the outline masks it: whose profile it is never goes.
+    expect(report.path).toMatch(/^\/in\/\{1\}\/?/);
+    expect(JSON.stringify(report)).not.toMatch(/chris|gee/i);
+  });
+
+  it('keeps the outline when Experience wasn’t read, and saying so never stops the job', async () => {
+    const { tab } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }), {
+      // As a window hidden behind another had it: nothing drawn from Experience down.
+      onOpen: (doc) =>
+        [...doc.querySelectorAll('h2')]
+          .find((h) => h.textContent!.includes('Experience'))
+          ?.closest('section')
+          ?.remove(),
+    });
+    const sent: HfosAsk[] = [];
+    const failing = (async (ask: HfosAsk) => {
+      sent.push(ask);
+      if (ask.type === 'hfos-report') throw new Error('No connection');
+      return { ok: true, value: {} };
+    }) as unknown as Hfos;
+    const { job } = jobWith(tab, failing, {
+      report: reporter(tab, failing, {
+        businessId: BUSINESS,
+        platform: 'linkedin',
+        askId: null,
+        job: 'profile_read',
+      }),
+    });
+    const end = await onLinkedIn({ kind: 'profile_read' }, job);
+    expect(end).toEqual({ line: 'Read your profile. The AI’s checked it.', warned: false });
+    const [noted] = sentOf(sent, 'hfos-report');
+    expect(noted!.input.report).toMatchObject({
+      found: { roles: 0 },
+      note: expect.stringContaining('Experience'),
+      outline: expect.stringContaining('page outline'),
+    });
+  });
+
+  it('Check LinkedIn reads your main pages with its window in front, presses nothing, and notes each', async () => {
+    const pages: Record<string, string> = {
+      [`${LI}/in/me/`]: 'linkedin-own-profile-full.html',
+      [`${LI}/feed/`]: 'linkedin-feed-2026-10.html',
+      [CONNECTIONS]: 'linkedin-connections.html',
+      [MESSAGING]: 'linkedin-chat.html',
+    };
+    const { tab, opened, asked } = fakeTab((url) => {
+      if (url.includes('/search/results/people/')) return 'linkedin-search-people.html';
+      if (url.includes('/search/results/content/')) return 'linkedin-search-posts.html';
+      if (pages[url])
+        return url.endsWith('/in/me/') ? { fixture: pages[url]!, at: OWN } : pages[url]!;
+      return { fixture: 'linkedin-profile.html', at: DANA };
+    });
+    const order: string[] = [];
+    tab.inFront = async (work) => {
+      order.push('in front');
+      const out = await work();
+      order.push('back');
+      return out;
+    };
+    const notes: { outline?: boolean }[] = [];
+    const { hfos } = fakeHfos();
+    const { job } = jobWith(tab, hfos, { report: async (note = {}) => void notes.push(note) });
+    const end = await onLinkedIn({ kind: 'checkup' }, job);
+    expect(opened.slice(0, 6)).toEqual([
+      `${LI}/in/me/`,
+      `${LI}/feed/`,
+      CONNECTIONS,
+      `${LI}/search/results/people/?keywords=small%20business`,
+      expect.stringContaining(`${LI}/search/results/content/?keywords=small%20business`),
+      MESSAGING,
+    ]);
+    // Then one connection's profile, the first on the list.
+    expect(opened[6]).toMatch(/^https:\/\/www\.linkedin\.com\/in\//);
+    expect(notes).toHaveLength(7);
+    expect(notes.every((n) => n.outline === true)).toBe(true);
+    expect(order).toEqual(['in front', 'back']);
+    // Read only: nothing written, sent or pressed.
+    expect(asked.filter((a) => !['hfos-read', 'hfos-own-profile'].includes(a))).toEqual([]);
+    expect(end.line).toMatch(/^Checked 7 LinkedIn pages and sent HandsFreeOS a note of each\./);
   });
 });
 

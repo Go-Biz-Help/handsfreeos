@@ -12,6 +12,7 @@
  */
 import {
   ASK_KINDS,
+  askNameOn,
   askNeedsYou,
   askRepliesFor,
   type AskKind,
@@ -112,7 +113,8 @@ function askView(a: KeptAsk): Child {
       'p',
       {},
       h('strong', {}, `Asked from HandsFreeOS${on}: `),
-      ASK_KINDS[kind] ?? 'Something you asked',
+      // The kind's name on its network: "Check LinkedIn", "Read your LinkedIn profile".
+      ASK_KINDS[kind] ? askNameOn(kind, a.platform ?? 'facebook') : 'Something you asked',
       a.about ? ` · ${a.about}` : '',
     ),
     a.line ? h('p', { role: 'status' }, a.line) : null,

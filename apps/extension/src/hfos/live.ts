@@ -33,7 +33,9 @@ import {
 import type { AutomationSettings } from '@hfos/core/addons/outreach/automation';
 import type { ListMark } from '@hfos/core/addons/outreach/lists';
 import { APP_HEADERS } from '@hfos/core/mobile';
+import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { AUTO_STATE_KEY, isState, type AutoState } from '../auto/plan';
+import { statesNow } from '../networks/on';
 import { SETTINGS_KEY } from './follow';
 import type { Automation, Problem } from './messages';
 import { outcomeOf } from './noting';
@@ -266,6 +268,15 @@ export async function computer(): Promise<{ id: string; name: string; version: s
   return { id, name: computerName(os), version: chrome.runtime.getManifest().version.slice(0, 20) };
 }
 
+/**
+ * The networks Chrome lets the extension on, as ../networks/scripts.ts keeps them, for HandsFreeOS to say what to
+ * press when an ask waits on one (decision 74); null before they're looked at.
+ */
+async function allowedNow(): Promise<Platform[] | null> {
+  const states = await statesNow();
+  return states ? PLATFORM_KEYS.filter((platform) => states[platform]?.allowed === true) : null;
+}
+
 // ------------------------------------------------------------------------------------------------- the beat
 
 /**
@@ -407,7 +418,7 @@ async function beatOnce(
       api().POST('/v1/commands/outreach.live.beat', {
         body: {
           workspaceId: place.businessId,
-          computer: { id: me.id, name: me.name, version: me.version },
+          computer: { id: me.id, name: me.name, version: me.version, allowed: await allowedNow() },
           active: isActive,
           status: shown,
           steps: steps.map(({ id, at, kind, line }) => ({ id, at, kind, line })),

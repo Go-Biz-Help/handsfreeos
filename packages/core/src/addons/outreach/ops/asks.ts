@@ -319,7 +319,7 @@ async function taskOf(
 export const askMake = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.make',
   description:
-    'The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.',
+    'The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.',
   risk: 1,
   input: AskMakeInput,
   output: AskMakeOutput,
@@ -808,6 +808,7 @@ export const asksList = defineAddonQuery(outreachAddon, {
             signedOut: working.state === 'signed_out',
             lastSeenAt: working.lastSeenAt.toISOString(),
             version: working.version,
+            allowed: working.allowed ?? null,
           }
         : null,
       warnedToday: warned !== null,

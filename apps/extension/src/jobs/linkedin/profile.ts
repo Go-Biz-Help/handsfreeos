@@ -15,6 +15,7 @@
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import { valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { ownProfileNote } from '../report';
 import { OWN_PROFILE, readLinkedIn, SIGNED_IN } from './read';
 
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
@@ -38,8 +39,13 @@ async function openOwn(job: Job): Promise<JobEnd | null> {
 /** Reads the profile the window shows and has the AI check it. */
 async function readAndCheck(job: Job): Promise<JobEnd> {
   job.progress('Reading your profile…');
-  // In front while it's read: LinkedIn draws Experience and the rest only as they come into view on screen.
-  const read = () => job.tab.ask({ type: 'hfos-own-profile' });
+  // In front while it's read: LinkedIn draws Experience and the rest only as they come into view on screen. Noted
+  // there too, with what was and wasn't read (decision 74).
+  const read = async () => {
+    const answer = await job.tab.ask({ type: 'hfos-own-profile' });
+    if (answer.ok && 'read' in answer) await job.report?.(ownProfileNote(answer.read));
+    return answer;
+  };
   const answer = await (job.tab.inFront ? job.tab.inFront(read) : read());
   if (!answer.ok) return failed(answer.error);
   if (!('read' in answer)) return failed('LinkedIn didn’t show your profile.');

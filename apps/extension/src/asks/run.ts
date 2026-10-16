@@ -81,6 +81,7 @@ import { checkGroups } from '../jobs/groups-check';
 import { joinGroups } from '../jobs/join';
 import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
+import { reporter, type Reporter } from '../jobs/report';
 import { linkedInAsk } from '../jobs/linkedin';
 import { lookupAndDraft } from '../jobs/lookup';
 import { profileEdit, profileRead } from '../jobs/profile';
@@ -225,6 +226,12 @@ function hearWarnings(): void {
  */
 async function handOver(u: Under, says: string, how: 'stuck' | 'typing'): Promise<HandOverReply> {
   if (u.halted !== null) return 'stop';
+  // What it couldn't find, noted with the page's outline before the person changes the page (decision 74).
+  if (how === 'stuck')
+    await reporterFor(u)({
+      note: 'A step it couldn’t find was handed to the person.',
+      outline: true,
+    });
   const waited = new Promise<HandOverReply>((done) => (u.answered = done));
   await u.tab.focus().catch(() => undefined);
   const words = askStuckPushWords(how, how === 'typing' ? null : says);
@@ -254,6 +261,20 @@ async function handOver(u: Under, says: string, how: 'stuck' | 'typing'): Promis
   return got;
 }
 
+/**
+ * Notes the page the ask's tab shows (decision 74): never for a file kind, whose pages are Facebook's own download
+ * and password ones.
+ */
+function reporterFor(u: Under, hfos: Hfos = answer as Hfos): Reporter {
+  if (isFileKind(u.ask.kind)) return async () => undefined;
+  return reporter(u.tab, hfos, {
+    businessId: u.place.businessId,
+    platform: u.platform,
+    askId: u.ask.askId,
+    job: u.ask.kind,
+  });
+}
+
 /** The job's side of the ask: its tab, HandsFreeOS, and where it's got to. */
 function jobFor(u: Under): Job {
   // Each call to HandsFreeOS checks first that it's still the ask's person signed in here, to its business.
@@ -272,6 +293,7 @@ function jobFor(u: Under): Job {
     progress: (line) => void tell(u, 'working', line),
     warn: (words, url) => noteWarnings(u.place.businessId, words, url, u.platform),
     handOver: (says) => handOver(u, says, 'stuck'),
+    report: reporterFor(u, hfos),
     typing: (line) => {
       if (line === null) return void tell(u, 'working', 'Carrying on…', true);
       void u.tab.focus().catch(() => undefined);
@@ -441,6 +463,7 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
   unders.set(platform, u);
   hearWarnings();
   let end: Ended;
+  let ran = false;
   try {
     const notHere = notHereWords(ask, await statesNow());
     const warned =
@@ -456,6 +479,7 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
         async () => {
           if (u.halted !== null) return { line: u.halted, warned: false };
           await tell(u, 'working', 'Starting…', true);
+          ran = true;
           return runAsk(ask.task, jobFor(u), platform);
         },
         platform,
@@ -473,6 +497,9 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
       failed: true,
     };
   }
+  // A job that didn't finish: the page it ended on, outline and all, while its tab is still open (decision 74).
+  if (ran && end.failed && !end.warned)
+    await reporterFor(u)({ note: 'It didn’t finish on this page.', outline: true });
   await u.tab.close().catch(() => undefined);
   void chrome.notifications.clear(popUpId(ask.askId)).catch(() => undefined);
   // Whatever happens saying how it ended, the next ask can go.

@@ -110,6 +110,7 @@ const shown = (c: Computer, working: Computer | null): ComputerShown => ({
   working: c.id === working?.id,
   state: c.state,
   version: c.version,
+  allowed: c.allowed ?? null,
 });
 
 export const liveBeat = defineAddonCommand(outreachAddon, {
@@ -147,6 +148,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
             before.map((c) => c.name),
           ),
           version: input.computer.version,
+          allowed: input.computer.allowed,
           lastSeenAt: at,
           // The person's first computer works; a later one once they use it.
           activeAt: input.active || before.length === 0 ? at : null,
@@ -221,6 +223,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
         lastSeenAt: row.lastSeenAt,
         activeAt: row.activeAt,
         version: row.version,
+        allowed: input.computer.allowed,
         state,
         line,
         lineAt: serverTime(input.status.lineAt, ctx.meta, now),

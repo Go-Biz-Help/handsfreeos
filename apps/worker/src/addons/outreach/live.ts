@@ -97,7 +97,8 @@ export async function liveChanged(ctx: AddonEventContext): Promise<void> {
 }
 
 /**
- * `outreach.live_prune`: lines older than a week go, and so do asks of the extension asked a week ago (decision 43);
+ * `outreach.live_prune`: lines older than a week go, and so do asks of the extension asked a week ago (decision 43)
+ * and the notes of what it saw (decision 74);
  * needs done or let go more than `NEED_QUIET_DAYS` ago (Let it go keeps a step quiet that long, no more), and open ones
  * not seen for `NEED_SHOWN_DAYS` and `NEED_GONE_DAYS` more (off the list a while; noted again, one is new anyway);
  * and computers not seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
@@ -120,6 +121,12 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
       tx,
       sql`delete from addon_outreach.asks
           where workspace_id = ${ctx.scope.workspaceId} and asked_at < ${asked}::timestamptz`,
+    );
+    // What the extension saw (decision 74): an ask's notes went with it; a day's step's go after the same week.
+    await rows(
+      tx,
+      sql`delete from addon_outreach.reports
+          where workspace_id = ${ctx.scope.workspaceId} and created_at < ${asked}::timestamptz`,
     );
     await rows(
       tx,

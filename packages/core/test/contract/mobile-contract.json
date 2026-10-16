@@ -7202,6 +7202,16 @@
                   }
                 },
                 "required": ["kind", "bio"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "checkup"
+                  }
+                },
+                "required": ["kind"]
               }
             ]
           }
@@ -13713,7 +13723,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 21,
+            "maxItems": 22,
             "type": "array",
             "items": {
               "type": "string",
@@ -13738,7 +13748,8 @@
                 "lookup",
                 "research",
                 "profile_read",
-                "profile_edit"
+                "profile_edit",
+                "checkup"
               ]
             }
           }

@@ -22,6 +22,8 @@ import {
   PLATFORMS,
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
+import { askableOn, type AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { allowedOn, REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
@@ -30,6 +32,7 @@ import { View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 
+import { AskButton, type AskActions } from './asks';
 import { useAutosave, type Autosave, type SaveState } from './autosave';
 import { Note } from './kit';
 import {
@@ -64,12 +67,17 @@ export function NetworkMine({
   form,
   manages,
   online,
+  asks = null,
+  askActions = null,
 }: {
   platform: Platform;
   automation: AutomationOutput;
   form: Autosave<AutomationSettings>;
   manages: boolean;
   online: boolean;
+  /** The person's own asks of their computer (Check LinkedIn) and the computer: null on someone else's settings. */
+  asks?: AsksOutput | null;
+  askActions?: AskActions | null;
 }) {
   const p = platform;
   const name = PLATFORMS[p];
@@ -109,7 +117,7 @@ export function NetworkMine({
         <>
           {wheels.on ? <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note> : null}
           {p === 'facebook' ? null : (
-            <Note testID={`${testID}-chrome`}>{SETTINGS_WORDS.allowInChrome(name)}</Note>
+            <NetworkComputer platform={p} asks={asks} actions={askActions} testID={testID} />
           )}
           <NetworkModes
             platform={p}
@@ -165,6 +173,55 @@ export function NetworkMine({
           </Section>
         </>
       )}
+    </>
+  );
+}
+
+/**
+ * The person's computer on a network but Facebook (decision 74): what to press when Chrome hasn't let the extension on
+ * it, and Check LinkedIn, which reads its main pages and sends a note of each.
+ */
+function NetworkComputer({
+  platform,
+  asks,
+  actions,
+  testID,
+}: {
+  platform: Platform;
+  asks: AsksOutput | null;
+  actions: AskActions | null;
+  testID: string;
+}) {
+  const name = PLATFORMS[platform];
+  const computer = asks?.computer ?? null;
+  return (
+    <>
+      {computer && !allowedOn(computer.allowed, platform) ? (
+        <Card className="bg-warning-soft px-4 py-3" testID={`${testID}-chrome-blocked`}>
+          <Text className="text-[13px] leading-[18px] text-warning-text">
+            {REPORT_WORDS.notAllowed(computer.name, platform)}
+          </Text>
+        </Card>
+      ) : (
+        <Note testID={`${testID}-chrome`}>{SETTINGS_WORDS.allowInChrome(name)}</Note>
+      )}
+      {asks && actions && askableOn(platform, 'checkup') ? (
+        <Section
+          boxed
+          title={REPORT_WORDS.checkupTitle(name)}
+          about={REPORT_WORDS.checkupAbout(name)}
+          testID={`${testID}-checkup`}
+        >
+          <AskButton
+            asks={asks}
+            ask={{ kind: 'checkup' }}
+            platform={platform}
+            label={REPORT_WORDS.checkupTitle(name)}
+            actions={actions}
+            testID={`${testID}-checkup-ask`}
+          />
+        </Section>
+      ) : null}
     </>
   );
 }

@@ -153,7 +153,13 @@ export type FetchAnswer =
  * src/jobs/linkedin/read.ts), any network's for the panel's outline.
  */
 export type Answer<R extends PageRead = ReadResult> =
-  | { readonly ok: true; readonly result: R; readonly outline?: string }
+  | {
+      readonly ok: true;
+      readonly result: R;
+      readonly outline?: string;
+      /** With the outline: whether Chrome showed the page (it draws nothing in a window hidden behind another). */
+      readonly shown?: boolean;
+    }
   | { readonly ok: false; readonly error: string };
 
 /**
