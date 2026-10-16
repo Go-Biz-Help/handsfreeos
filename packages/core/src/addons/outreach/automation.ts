@@ -110,6 +110,15 @@ export const WorkingHours = z
 export type WorkingHours = z.output<typeof WorkingHours>;
 
 /**
+ * Why working hours can't be kept as they are, in the person's words; null when they can. Settings save each change as
+ * it's made, so hours caught halfway (a start moved past the end) wait for this to clear rather than being refused.
+ */
+export function hoursProblem(hours: z.input<typeof WorkingHours>): string | null {
+  const out = WorkingHours.safeParse(hours);
+  return out.success ? null : (out.error.issues[0]?.message ?? null);
+}
+
+/**
  * A network's own choices of what the extension does there on its own (Chris, 2026-10-15: the same choices as
  * Facebook, each network's own). Facebook's are the person's choices in `AutomationSettings`; each other network keeps
  * its own in `networks`, off to start.

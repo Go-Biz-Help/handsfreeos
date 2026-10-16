@@ -4,7 +4,7 @@
  * shows the person's limits there as they stand, from the business's own and the network's kit.
  */
 import { describe, expect, it } from 'vitest';
-import { NO_RULES } from '../../src/addons/outreach/automation';
+import { hoursProblem, NO_RULES } from '../../src/addons/outreach/automation';
 import { NETWORK_WORDS } from '../../src/addons/outreach/network-words';
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import {
@@ -73,6 +73,16 @@ describe('Settings, a page for each part', () => {
       ['Requests cancelled', 15, null],
       ['Friends unfriended', 10, null],
     ]);
+  });
+
+  it('says why working hours caught halfway can’t be kept yet, and nothing once they can', () => {
+    const days = [1, 2, 3, 4, 5];
+    expect(hoursProblem({ start: 9, end: 17, days })).toBeNull();
+    // The start moved past the end, before the end is moved too.
+    expect(hoursProblem({ start: 18, end: 17, days })).toBe(
+      'Make the working hours at least an hour long, ending after they start.',
+    );
+    expect(hoursProblem({ start: 9, end: 17, days: [] })).toBe('Pick at least one day.');
   });
 
   it('points someone a network isn’t allowed for to its own page', () => {

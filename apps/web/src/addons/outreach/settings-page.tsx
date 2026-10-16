@@ -19,6 +19,7 @@
  */
 import {
   choicesFor,
+  hoursProblem,
   OTHER_PLATFORMS,
   wheelsWords,
   type AutomationSettings,
@@ -138,6 +139,8 @@ function SettingsPages({
           body: { workspaceId, userId: me.userId, settings },
         }),
       ).settings,
+    // Hours caught halfway (a start moved past the end, no day ticked) wait, saying why under them.
+    (value) => hoursProblem(value.hours) !== null,
   );
   // The business's settings as the page was last drawn with them: a save keeps the extension's link as it is there.
   const businessNow = useRef(business);

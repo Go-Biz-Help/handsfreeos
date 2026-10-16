@@ -17,6 +17,7 @@
 import {
   BusinessRules,
   choicesFor,
+  hoursProblem,
   hourWords,
   OTHER_PLATFORMS,
   PUSH_MODE_KEYS,
@@ -404,6 +405,8 @@ export function HoursPart({
 }: Own & { timezone: string }) {
   const hours = (change: Partial<AutomationSettings['hours']>) =>
     onChange({ ...value, hours: { ...value.hours, ...change } });
+  // Caught halfway, say a start moved past the end: why they can't be kept yet. Settings wait for it to clear.
+  const problem = hoursProblem(value.hours);
   return (
     <Part title={W.sections.when} about={W.abouts.when(timezone)} card={card}>
       <p className="flex flex-wrap items-center gap-2 text-[13px]">
@@ -451,6 +454,15 @@ export function HoursPart({
           />
         ))}
       </div>
+      {problem ? (
+        <p
+          role="alert"
+          className="text-[13px] text-danger-text"
+          data-testid={`${testId}-hours-problem`}
+        >
+          {problem}
+        </p>
+      ) : null}
     </Part>
   );
 }
