@@ -1265,6 +1265,12 @@ code" (decision 45's install step). Settled too:
   Facebook's in their columns as before; `outreach.readiness.profile` and `outreach.profile.check_save` take the
   network, and `ProfileRead` says which network the extension read. The not-ready words name it: "Your LinkedIn
   profile isn’t ready yet."
+- **LinkedIn's data file** ("Get a copy of your data"; `linkedin-export.ts`, no zod, read in the browser as
+  Facebook's file is): `readLinkedInExport` reads Connections.csv (each connection's profile address and since when),
+  Invitations.csv (either way, with the other person's profile), messages.csv (one-to-one conversations only, no spam,
+  their latest few messages) and Profile.csv (the person's own name), each column found by its name in the header
+  row past LinkedIn's notes. LinkedIn can be asked for it, to download it and to bring it in (`file_request`,
+  `file_download`, `file_in` in `ASK_KINDS_ON.linkedin`); it has no chat backup.
 - **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
   they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
   a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook
