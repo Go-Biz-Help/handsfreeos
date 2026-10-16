@@ -46,7 +46,7 @@ import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
 import { readComments, readReactions, writeFeedPost } from './compose';
 import { dataPage } from './data';
-import { readOwnProfile, writeHeadline } from './own-profile';
+import { loadWholeProfile, readOwnProfile, writeHeadline } from './own-profile';
 import { classifyUrl } from './urls';
 import { sentPage, withdraw } from './withdraw';
 
@@ -90,8 +90,11 @@ const onProfile = (href: string) => {
 /** The person's own profile: read it for the AI's check, or put the headline in. */
 async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
   if (!onProfile(location.href)) return { ok: false, error: 'LinkedIn didn’t open your profile.' };
-  if (ask.type === 'hfos-own-profile')
+  if (ask.type === 'hfos-own-profile') {
+    // LinkedIn draws the parts below the top only as they come into view.
+    await loadWholeProfile(document);
     return { ok: true, read: readOwnProfile(document, location.href) };
+  }
   return { ok: true, result: await writeHeadline(document, location.href, ask.bio) };
 }
 

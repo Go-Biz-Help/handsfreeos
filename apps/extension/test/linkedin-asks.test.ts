@@ -17,7 +17,12 @@ import type { HfosAsk } from '../src/hfos/messages';
 import type { HandOverReply, Hfos, Job, JobTab } from '../src/jobs/job';
 import { readCompany } from '../src/networks/linkedin/company';
 import { mainOf } from '../src/networks/linkedin/dom';
-import { headlineOf, readOwnProfile, writeHeadline } from '../src/networks/linkedin/own-profile';
+import {
+  headlineOf,
+  loadWholeProfile,
+  readOwnProfile,
+  writeHeadline,
+} from '../src/networks/linkedin/own-profile';
 import { readPage } from '../src/networks/linkedin/page';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { withdraw } from '../src/networks/linkedin/withdraw';
@@ -84,6 +89,31 @@ const buttonSaying = (root: ParentNode, words: string) =>
   [...root.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.trim() === words)!;
 
 // ------------------------------------------------------------------------------------------------- in the tab
+
+describe('your own LinkedIn profile, loaded to its foot before it’s read', () => {
+  it('scrolls down a screen at a time until the page stops growing, then back to the top', async () => {
+    const doc = load('linkedin-own-profile-full.html', OWN);
+    const root = doc.scrollingElement ?? doc.documentElement;
+    let top = 0;
+    let height = 2000;
+    const tops: number[] = [];
+    Object.defineProperty(root, 'clientHeight', { get: () => 800 });
+    Object.defineProperty(root, 'scrollHeight', { get: () => height });
+    Object.defineProperty(root, 'scrollTop', {
+      get: () => top,
+      set: (to: number) => {
+        top = Math.max(0, Math.min(to, height - 800));
+        tops.push(top);
+        // LinkedIn draws Experience and the rest once the foot comes into view.
+        if (top + 800 >= height && height < 3000) height = 3000;
+      },
+    });
+    await loadWholeProfile(doc, 0);
+    // The foot of the page as it grew, then back at the top for the read.
+    expect(Math.max(...tops)).toBe(2200);
+    expect(top).toBe(0);
+  });
+});
 
 describe('your own LinkedIn profile, read for the AI’s check', () => {
   it.each(asWrittenAndBoxed)(
