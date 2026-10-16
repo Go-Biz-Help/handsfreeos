@@ -226,7 +226,11 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
       const changed = await keepFriendStates(
         ctx,
         me,
-        people.map((p) => ({ profileId: found(p.profile)!.id, state: LIST_STATE[input.list] })),
+        people.map((p) => ({
+          profileId: found(p.profile)!.id,
+          state: LIST_STATE[input.list],
+          since: p.since ? new Date(p.since) : null,
+        })),
         at,
       );
       const result = {

@@ -19,8 +19,27 @@ import {
   zipEntryBytes,
   type DownloadChat,
   type DownloadMessage,
+  type DownloadProblem,
 } from './download-read';
 import { MESSAGE_MOST, NAME_MOST, RECENT_MESSAGES } from './limits';
+
+/**
+ * What's said when LinkedIn's zip can't be read (a `DownloadError`'s rule): what's wrong, then what to do, in
+ * LinkedIn's words rather than Facebook's.
+ */
+export const LINKEDIN_FILE_PROBLEMS: Readonly<Record<DownloadProblem, string>> = {
+  not_zip:
+    'That isn’t LinkedIn’s zip file. Ask for Download my file on LinkedIn again, then ask for Bring it in.',
+  cut_short:
+    'Your LinkedIn file stops partway, so it didn’t finish downloading. Ask for Download my file on LinkedIn again, then ask for Bring it in.',
+  locked:
+    'Your LinkedIn zip has a password on it. Download it again just as LinkedIn gives it, from Get a copy of your data in LinkedIn’s Settings, then ask again.',
+  packing:
+    'Your LinkedIn zip is packed in a way the extension can’t open. Download it again just as LinkedIn gives it, from Get a copy of your data in LinkedIn’s Settings, then ask again.',
+  html: 'That file can’t be read. Download your LinkedIn file again from Get a copy of your data in LinkedIn’s Settings, then ask again.',
+  nothing:
+    'There are no connections, invitations or messages in your LinkedIn file. Ask for your LinkedIn file again (it ticks Connections, Invitations and Messages), download it once LinkedIn emails you, then ask again.',
+};
 
 /** Someone in the person's connections, as the file has them. */
 export interface LinkedInPerson {

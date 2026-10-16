@@ -75,6 +75,12 @@ export const FriendsSaveInput = z.object({
         profile: ProfileRef,
         name: PersonName,
         mutualFriends,
+        /**
+         * When it began, when the list says: LinkedIn's file has since when they're connected and when each
+         * invitation went. Where they stand starts then rather than now (so an invitation sent two months ago is
+         * old at once), and the same state seen again goes back to it when it's earlier. Never later than now.
+         */
+        since: z.iso.datetime().nullable().optional(),
       }),
     )
     .min(1, 'There’s nobody on the page to save.')

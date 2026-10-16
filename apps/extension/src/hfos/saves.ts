@@ -474,13 +474,18 @@ const LINKEDIN_ITEM: Readonly<Record<FriendList, string>> = {
 };
 export const linkedInItem = (list: FriendList) => LINKEDIN_ITEM[list];
 
+/** Someone on one of the person's LinkedIn lists: as a page shows them, or as their file has them, since when. */
+export type LinkedInListed = Pick<LinkedInPerson, 'name' | 'profile' | 'mutualConnections'> & {
+  readonly since?: string | null;
+};
+
 /**
  * One of the person's LinkedIn lists, to save as LinkedIn's: their connections as their friends list, the invitations
- * they've got as requests, and the ones they've sent as sent. Each member once, with their mutual connections, in parts
- * of FRIENDS_SAVE_MOST. Someone without a profile link the page showed is left out.
+ * they've got as requests, and the ones they've sent as sent. Each member once, with their mutual connections, and
+ * since when when their file says, in parts of FRIENDS_SAVE_MOST. Someone without a profile link is left out.
  */
 export function linkedInListSave(
-  people: readonly LinkedInPerson[],
+  people: readonly LinkedInListed[],
   list: FriendList,
   workspaceId: string,
 ): Built<FriendsSaveInput[]> {
@@ -492,7 +497,11 @@ export function linkedInListSave(
     const who = whom({ name: person.name, profile: person.profile }, LINKEDIN);
     if (!who) continue;
     seen.add(key);
-    kept.push({ ...who, mutualFriends: mutual(person.mutualConnections) });
+    kept.push({
+      ...who,
+      mutualFriends: mutual(person.mutualConnections),
+      ...(person.since ? { since: person.since } : {}),
+    });
   }
   if (!kept.length)
     return {
