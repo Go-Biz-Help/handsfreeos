@@ -40,6 +40,7 @@ import {
   NETWORK_WORDS as NW,
   networksOn,
   onItsOwnAbout,
+  postingAboutOn,
   sendingModesOn,
   ticksOn,
   withNetwork,
@@ -582,7 +583,7 @@ function NetworkModes({
           />
         ))}
       </Part>
-      <Part title={W.sections.posting} about={W.abouts.posting}>
+      <Part title={W.sections.posting} about={postingAboutOn(platform)}>
         {posting.map((m) => (
           <Choice
             key={m}

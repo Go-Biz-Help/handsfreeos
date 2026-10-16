@@ -204,7 +204,12 @@ export function TodayView({
           ) : null}
           {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
           {helpfulOn(platform) ? (
-            <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
+            <HelpfulCard
+              workspaceId={workspaceId}
+              platform={platform}
+              helpful={helpful}
+              asks={asks}
+            />
           ) : null}
           {items.length ? (
             <section aria-labelledby="today-list-title" className="space-y-3">
@@ -253,7 +258,7 @@ export function TodayView({
           )}
         </div>
         <aside className="space-y-4">
-          {live ? <DoneToday workspaceId={workspaceId} live={live} /> : null}
+          {live ? <DoneToday workspaceId={workspaceId} live={live} platform={platform} /> : null}
           {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
           {!today.hasPlaybook ? (
             <Card className="p-4">
@@ -372,7 +377,15 @@ function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: 
 }
 
 /** The newest of today's steps, beside the lists: the rest, and the computers, on the computer's own page. */
-function DoneToday({ workspaceId, live }: { workspaceId: string; live: Live }) {
+function DoneToday({
+  workspaceId,
+  live,
+  platform,
+}: {
+  workspaceId: string;
+  live: Live;
+  platform: Platform;
+}) {
   const shown = live.steps.slice(0, 6);
   return (
     <Card className="p-4" data-testid="today-done">
@@ -400,7 +413,7 @@ function DoneToday({ workspaceId, live }: { workspaceId: string; live: Live }) {
         <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
       )}
       <Link
-        href={outreachHref(workspaceId, { view: 'live' })}
+        href={outreachHref(workspaceId, { view: 'live', net: platform })}
         className="mt-3 inline-block text-[13px] font-medium text-accent-text hover:underline"
       >
         {W.seeAllToday}

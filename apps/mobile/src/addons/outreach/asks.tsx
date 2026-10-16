@@ -1,5 +1,5 @@
 import {
-  ASK_KINDS,
+  askNameOn,
   ASK_KINDS_FOR,
   ASK_REPLIES,
   ASK_SHOWN_STATES,
@@ -245,7 +245,7 @@ export function AskLine({
         </Badge>
         {named ? (
           <Text className="text-[13.5px] font-medium">
-            {ASK_KINDS[ask.kind]}
+            {askNameOn(ask.kind, ask.platform)}
             {ask.about ? ` · ${ask.about}` : ''}
           </Text>
         ) : ask.about ? (

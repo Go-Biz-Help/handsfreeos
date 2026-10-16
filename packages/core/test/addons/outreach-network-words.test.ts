@@ -27,8 +27,8 @@ import {
   TODAY_DRAFT_SYSTEM,
   todayDraftPrompt,
   todayDraftSystem,
-  todayKindWords,
 } from '../../src/addons/outreach/today';
+import { todayKindsOn } from '../../src/addons/outreach/network-words';
 
 const FACEBOOK_WORDS = /Facebook|Messenger|friend request|\bfriends?\b/i;
 
@@ -101,8 +101,8 @@ describe('each network’s words for the AI', () => {
     expect(draft('warm_lead', 'linkedin')).toContain('own helpful post on LinkedIn');
     expect(postCheckSystem('linkedin')).toContain('find posts on LinkedIn');
     expect(likePickSystem('linkedin')).toContain('before sending them an invitation to connect');
-    expect(todayKindWords('friend_request')).toBe('Send a friend request');
-    expect(todayKindWords('friend_request', 'linkedin')).toBe('Send an invitation to connect');
+    expect(todayKindsOn('facebook').friend_request).toBe('Send a friend request');
+    expect(todayKindsOn('linkedin').friend_request).toBe('Send an invitation to connect');
   });
 
   it('checks a LinkedIn profile by its own list, with headlines and an About to start from', () => {

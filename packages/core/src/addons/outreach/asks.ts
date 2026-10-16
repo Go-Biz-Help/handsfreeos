@@ -20,8 +20,8 @@ import { JOINS_PER_DAY } from './group-checks';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
-import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
-import { PROFILE_BIO_MOST } from './profile-check';
+import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { BIO_MOST_ON, PROFILE_BIO_MOST } from './profile-check';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
 export const ASK_KINDS = {
@@ -81,6 +81,35 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
   ASK_KINDS_ON[platform].includes(kind);
+
+/** What a kind is called on a network where the kit's words don't say it: LinkedIn withdraws, and has a headline. */
+const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, string>>>>> = {
+  linkedin: {
+    cancel: 'Withdraw old invitations',
+    posts: 'Find posts on LinkedIn',
+    post: 'Put up your helpful post on your feed',
+    profile_edit: 'Put your new headline in',
+  },
+};
+
+/** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
+export const askNameOn = (kind: AskKind, platform: Platform = 'facebook'): string =>
+  ASK_NAMES_ON[platform]?.[kind] ?? inNetworkWords(ASK_KINDS[kind], platform);
+
+/** What a profile's bio is called on a network: LinkedIn's is its headline. */
+const BIO_NAME_ON: Readonly<Record<Platform, string>> = { facebook: 'bio', linkedin: 'headline' };
+
+/**
+ * Why a bio can't go in on a network: longer than it takes (Facebook's short bio 101 characters, LinkedIn's headline
+ * 220). Null when it fits.
+ */
+export function bioTooLongWords(platform: Platform, bio: string): string | null {
+  const most = BIO_MOST_ON[platform];
+  const length = bio.trim().length;
+  if (length <= most) return null;
+  const name = BIO_NAME_ON[platform];
+  return `${PLATFORMS[platform]}’s ${name} takes up to ${most} characters, and this one has ${length}. Pick a shorter one, or cut it to fit.`;
+}
 
 /**
  * The first build of the extension that works on each network but Facebook: one before it never takes an ask there,

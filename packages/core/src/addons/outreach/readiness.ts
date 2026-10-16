@@ -29,6 +29,7 @@ import {
   checkCounts,
   PROFILE_ITEMS_ON,
   ProfileCheck,
+  profileCheckWordsOn,
   type AnyProfileItem,
   type ProfileItem,
 } from './profile-check';
@@ -433,6 +434,12 @@ export const READY_WORDS = {
   ready: 'You’re ready. Start your day when you like.',
   /** Beside Start my day while it's held. */
   stripNotReady: 'Get ready first: the extension reaches nobody until the things below are done.',
+  /**
+   * Another network's row in the strip while its own profile isn't ready, the one shown being ready: everything else
+   * is the same on every network.
+   */
+  stripNotReadyOn: (name: string) =>
+    `Your ${name} profile isn’t ready yet. Show ${name}’s list to finish it under Get ready.`,
   /** Over the replies owed while getting ready. */
   repliesStill: 'People who wrote to you are still answered while you get ready.',
   progress: (done: number, of: number) => `${done} of ${of} done`,
@@ -608,6 +615,7 @@ export const READY_WORDS = {
         } satisfies Record<AnyProfileItem, { label: string; tip: string }>,
         about: 'An About to start from',
         aboutHint: 'Paste it under About on your profile, and change anything that isn’t you.',
+        aboutCopied: 'Copied. Paste it under About on your LinkedIn profile.',
       },
     } satisfies Partial<Record<Platform, unknown>>,
     offer: 'Your main offer',
@@ -651,3 +659,42 @@ export const MessageSamplesSaveInput = z.object({
   samples: MessageSamples,
 });
 export type MessageSamplesSaveInput = z.input<typeof MessageSamplesSaveInput>;
+
+/** One item on a network's profile list, in its words. */
+export interface ProfileRowWords {
+  readonly item: AnyProfileItem;
+  readonly label: string;
+  readonly tip: string;
+}
+
+/**
+ * Get ready's profile part on a network, in its words, for the web and the phone: its title and hint, its items in its
+ * order (LinkedIn's About among them), the check's words (LinkedIn's headlines and banner), and the About to start
+ * from where the network has one. Facebook's are as they always were.
+ */
+export function profileWordsOn(platform: Platform = 'facebook') {
+  const P = READY_WORDS.profile;
+  const on = platform === 'facebook' ? null : P.on[platform];
+  const words: Readonly<Partial<Record<AnyProfileItem, { label: string; tip: string }>>> =
+    on?.items ?? P.items;
+  return {
+    ...profileCheckWordsOn(platform),
+    title: on?.title ?? P.title,
+    hint: on?.hint ?? P.hint,
+    items: PROFILE_ITEMS_ON[platform].map((item): ProfileRowWords => ({
+      item,
+      label: words[item]!.label,
+      tip: words[item]!.tip,
+    })),
+    tick: P.tick,
+    untick: P.untick,
+    ticked: P.ticked,
+    offer: P.offer,
+    done: P.done,
+    /** The About to start from: null on a network with none. */
+    about: on?.about ?? null,
+    aboutHint: on?.aboutHint ?? null,
+    aboutCopied: on?.aboutCopied ?? null,
+  };
+}
+export type ProfileWords = ReturnType<typeof profileWordsOn>;

@@ -1,3 +1,4 @@
+import { readNetwork } from '@hfos/core/addons/outreach/network-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 
@@ -47,6 +48,7 @@ export function OutreachPage(props: {
   show?: string;
   tag?: string;
   q?: string;
+  net?: string;
 }) {
   const ctx = useOutreachContext();
   return (
@@ -62,18 +64,20 @@ function OutreachView({
   show,
   tag,
   q,
+  net,
 }: {
   view?: string;
   for?: string;
   show?: string;
   tag?: string;
   q?: string;
+  net?: string;
 }) {
   const tab = PHONE_TABS.find((t) => t === view);
   const webTab = WEB_TABS.find((t) => t === view);
   switch (tab) {
     case 'live':
-      return <LiveScreen />;
+      return <LiveScreen net={readNetwork(net)} />;
     case 'pipeline':
       return <PipelineScreen show={show} q={q} />;
     case 'groups':

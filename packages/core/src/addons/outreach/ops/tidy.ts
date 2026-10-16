@@ -86,15 +86,21 @@ function stateOf(at: Date, words: readonly string[], todayFrom: Date): WarningSt
 export const slowsNow = (warning: WarningState | null, now = Date.now()): boolean =>
   warning !== null && new Date(warning.slowerUntil).getTime() > now;
 
-/** How many of each the extension did for the person today. */
-async function endsToday(ctx: Ctx, me: string, todayFrom: Date): Promise<Record<TidyKind, number>> {
+/** How many of each the extension did for the person today on one network: each network's limits are its own. */
+async function endsToday(
+  ctx: Ctx,
+  me: string,
+  todayFrom: Date,
+  platform: Platform,
+): Promise<Record<TidyKind, number>> {
   const [done] = await rows<{ cancel_request: number; unfriend: number }>(
     ctx.tx,
-    sql`select count(*) filter (where kind = 'cancel_request')::int as cancel_request,
-          count(*) filter (where kind = 'unfriend')::int as unfriend
-        from addon_outreach.friend_ends
-        where workspace_id = ${ctx.scope.workspaceId!} and user_id = ${me}
-          and at >= ${todayFrom.toISOString()}::timestamptz`,
+    sql`select count(*) filter (where e.kind = 'cancel_request')::int as cancel_request,
+          count(*) filter (where e.kind = 'unfriend')::int as unfriend
+        from addon_outreach.friend_ends e
+        join addon_outreach.profiles p on p.id = e.profile_id
+        where e.workspace_id = ${ctx.scope.workspaceId!} and e.user_id = ${me} and p.platform = ${platform}
+          and e.at >= ${todayFrom.toISOString()}::timestamptz`,
   );
   return done ?? { cancel_request: 0, unfriend: 0 };
 }
@@ -118,7 +124,7 @@ const iso = (at: Date | string) => new Date(at).toISOString();
 export const friendsTidy = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends.tidy',
   description:
-    'The person’s own sent friend requests nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with today’s counts against the limits, and any warning Facebook showed them lately.',
+    'The person’s own sent friend requests (LinkedIn’s invitations) on one network nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with that network’s counts today against its limits, and any warning it showed them lately.',
   input: TidyInput,
   output: TidyOutput,
   permission: 'outreach.use',
@@ -137,7 +143,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
     const slower = await slowerFor(ctx, me, slowsNow(warning, now), now, input.platform);
     const kit = NETWORKS[input.platform];
-    const done = await endsToday(ctx, me, todayFrom);
+    const done = await endsToday(ctx, me, todayFrom, input.platform);
 
     const cancel = await rows<Found>(
       ctx.tx,
@@ -155,7 +161,8 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const [file] = await rows<{ any: boolean }>(
       ctx.tx,
       sql`select exists (select 1 from addon_outreach.imports
-            where workspace_id = ${ws} and user_id = ${me} and finished_at is not null) as any`,
+            where workspace_id = ${ws} and user_id = ${me} and platform = ${input.platform}
+              and finished_at is not null) as any`,
     );
     const needsFile = !file?.any;
     const quietSince = new Date(now - UNFRIEND_QUIET_DAYS * DAY).toISOString();
@@ -212,8 +219,10 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     });
     const [counted] = await rows<{ friends: number }>(
       ctx.tx,
-      sql`select count(*)::int as friends from addon_outreach.friends
-          where workspace_id = ${ws} and user_id = ${me} and state = 'friends'`,
+      sql`select count(*)::int as friends from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
+            and p.platform = ${input.platform}`,
     );
     return {
       cancel: cancel.map((f) => candidate(f, true)),
@@ -262,7 +271,7 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
           kind: input.kind,
           at,
         });
-      const done = await endsToday(ctx, me, await startOfToday(ctx));
+      const done = await endsToday(ctx, me, await startOfToday(ctx), input.platform);
       await ctx.emit({
         type: 'outreach.friend.ended',
         entityType: 'outreach_profile',

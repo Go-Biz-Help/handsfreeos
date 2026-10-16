@@ -365,9 +365,39 @@ export const PROFILE_CHECK_WORDS = {
   coverLine: 'A line for your cover',
   coverHint:
     'Put it on an image, in big letters. Facebook doesn’t let the extension change your cover.',
+  coverCopied: 'Copied. Put it on your cover image.',
   feature: 'What to feature',
   tickDone: 'I’ve done it',
   /** On the ask, as it goes and as it ends. */
   readDone: 'Read your profile. The AI’s checked it.',
   editDone: (bio: string) => `Your bio now says “${bio}”.`,
 } as const;
+type ProfileCheckWords = {
+  readonly [K in keyof typeof PROFILE_CHECK_WORDS]: (typeof PROFILE_CHECK_WORDS)[K] extends (
+    ...a: infer A
+  ) => infer R
+    ? (...a: A) => R
+    : string;
+};
+
+/** Another network's own words for its check: LinkedIn's headline and banner. */
+const PROFILE_CHECK_WORDS_ON: Readonly<Partial<Record<Platform, Partial<ProfileCheckWords>>>> = {
+  linkedin: {
+    readHint:
+      'Your computer opens your LinkedIn profile in a window of its own, reads what people see first, and the AI checks it against your main offer.',
+    notRead: 'Have the extension read your LinkedIn profile, and the AI says what to change.',
+    bios: 'Headlines to pick from',
+    biosHint: 'LinkedIn’s headline, up to 220 characters. Pick one, and your computer puts it in.',
+    coverLine: 'A line for your banner',
+    coverHint:
+      'Put it on an image, in big letters, and make it your banner. The extension doesn’t change your banner.',
+    coverCopied: 'Copied. Put it on your banner image.',
+    editDone: (bio: string) => `Your headline now says “${bio}”.`,
+  },
+};
+
+/** The check's words on a network: Facebook's as they are, LinkedIn's with its headline and banner. */
+export const profileCheckWordsOn = (platform: Platform = 'facebook'): ProfileCheckWords => ({
+  ...PROFILE_CHECK_WORDS,
+  ...PROFILE_CHECK_WORDS_ON[platform],
+});
