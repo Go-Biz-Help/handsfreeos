@@ -14,14 +14,16 @@
  * 1. **Signaling** (a websocket to `server_urls`): a handshake signed with the coaching Zoom app's id and secret
  *    (HMAC-SHA256 of `<client id>,<meeting uuid>,<stream id>`, hex). Zoom answers with the media server.
  * 2. **Media** (a second websocket): the same signed handshake, asking for Zoom's own live transcript only
- *    (`media_type` 8, English). Once Zoom accepts, the signaling socket says ready and the words start.
+ *    (`media_type` 8), starting in English with Zoom's language identification on, so Spanish comes as Spanish and
+ *    each line names its language. Once Zoom accepts, the signaling socket says ready and the words start.
  * 3. **Keep-alive**: both sockets answer Zoom's ping (12) with a pong (13) carrying its timestamp, or Zoom hangs up.
  *
  * Each transcript message is one person's words with their name in the meeting: the claim's person (by the name they
  * show) is the team's side, anyone else the customer's. Each is handed to the add-ons as a finished line
  * (addons/live-fanout.ts), like a phone call's. When the stream ends (Zoom says so, either socket closes, or
  * `meeting.rtms_stopped`), the add-ons hear the end and the claim is ended. Nothing of the meeting is kept by core.
- * What it heard is billed as live listening, one stream.
+ * What it heard is billed by the minute on its own line (`speech.meeting.minute`): Zoom charges Go Biz Help's Developer
+ * Pack for the stream and its transcript, not Deepgram.
  *
  * Zoom's transcript is its own: no audio comes here and nothing goes to the speech service.
  */
@@ -56,9 +58,14 @@ export const RTMS = {
   KEEP_ALIVE_RESP: 13,
   MEDIA_DATA_TRANSCRIPT: 17,
 } as const;
-/** `media_type` for the transcript alone; its text content type, and English. */
+/** `media_type` for the transcript alone, and its text content type. */
 const MEDIA_TRANSCRIPT = 8;
 const CONTENT_TEXT = 5;
+/**
+ * Zoom's transcript languages (`RTMS_TRANSCRIPT_LANGUAGE`) the coach knows: it starts in English and Zoom's own
+ * language identification takes over (`enable_lid`), so a meeting in Spanish comes as Spanish, each line saying so.
+ */
+export const RTMS_LANGUAGES: Readonly<Record<number, string>> = { 9: 'en', 28: 'es' };
 const LANGUAGE_ENGLISH = 9;
 /** A stream state of TERMINATED, a session state of STOPPED. */
 const STREAM_TERMINATED = 4;
@@ -78,6 +85,8 @@ export const rtmsSignature = (
 export interface RtmsTranscript {
   readonly userName: string;
   readonly text: string;
+  /** Two letters ('en', 'es'), when Zoom named a language the coach knows. */
+  readonly language: string | null;
 }
 
 export type OpenSocket = (url: string) => WebSocket;
@@ -206,7 +215,13 @@ export class RtmsStream {
         signature: this.signature,
         media_type: MEDIA_TRANSCRIPT,
         payload_encryption: false,
-        media_params: { transcript: { content_type: CONTENT_TEXT, language: LANGUAGE_ENGLISH } },
+        media_params: {
+          transcript: {
+            content_type: CONTENT_TEXT,
+            src_language: LANGUAGE_ENGLISH,
+            enable_lid: true,
+          },
+        },
       }),
     );
     ws.on('message', (raw) => this.onMedia(RtmsStream.parse(raw)));
@@ -235,9 +250,11 @@ export class RtmsStream {
         const c = (m['content'] ?? {}) as Record<string, unknown>;
         const text = typeof c['data'] === 'string' ? c['data'].trim() : '';
         if (!text) return;
+        const code = c['language'] ?? m['language'];
         this.o.onTranscript({
           userName: typeof c['user_name'] === 'string' ? c['user_name'].slice(0, 200) : '',
           text: text.slice(0, 2000),
+          language: typeof code === 'number' ? (RTMS_LANGUAGES[code] ?? null) : null,
         });
         return;
       }
@@ -356,7 +373,12 @@ export class ZoomLiveSession {
     const last = this.lines[this.lines.length - 1];
     // Zoom can send a line again as it settles: the same words from the same side are one line.
     if (last && last.speaker === speaker && last.text === t.text) return;
-    const line: LiveLine = { speaker, text: t.text, atMs: Date.now() - this.started };
+    const line: LiveLine = {
+      speaker,
+      text: t.text,
+      atMs: Date.now() - this.started,
+      language: t.language,
+    };
     this.lines.push(line);
     void this.fanout.line(line, this.lines.slice());
   }
@@ -382,7 +404,8 @@ export class ZoomLiveSession {
       );
       await noteSpeech(this.deps, this.claim.scope, [
         {
-          key: 'speech.live.minute',
+          // Zoom's transcript, on Go Biz Help's Developer Pack: its own line, not Deepgram's.
+          key: 'speech.meeting.minute',
           quantity: speechMinutes((Date.now() - this.started) / 1000),
           source: 'call',
           ref: this.started_.streamId,
@@ -417,6 +440,45 @@ export interface StreamStartedInput {
  * here and an add-on listens for them, gets it claimed for them, in the business they linked most recently. Their
  * name in HandsFreeOS stands in for their name in the meeting until the app says it.
  */
+/**
+ * A person is in one meeting at a time. Zoom can start two streams for one meeting under two of its ids (the app's own
+ * start and its auto-start, a moment apart), and each would be coached as a meeting of its own. So a stream for
+ * someone already heard is left alone, and one that comes under another id while their claim of a few minutes ago
+ * still waits takes that claim.
+ */
+const HEARD_FOR_MS = 4 * 60 * 60_000;
+const CLAIM_FRESH_MS = 10 * 60_000;
+
+interface TheirMeeting extends Record<string, unknown> {
+  readonly id: string;
+  readonly state: string;
+  readonly person_id: string | null;
+  readonly screen_name: string | null;
+}
+
+/** The person's meeting heard now, or their claim of the last few minutes still waiting; the heard one first. */
+async function theirMeeting(
+  deps: Parameters<typeof onStreamStarted>[0],
+  scope: TenantScope,
+  userId: string,
+  exceptId: string | null = null,
+): Promise<TheirMeeting | null> {
+  const heardSince = new Date(Date.now() - HEARD_FOR_MS).toISOString();
+  const claimedSince = new Date(Date.now() - CLAIM_FRESH_MS).toISOString();
+  const [m] = await asWorker(deps.db, scope, (tx) =>
+    rows<TheirMeeting>(
+      tx,
+      sql`select id, state, person_id, screen_name from app.live_meetings
+          where workspace_id = ${scope.workspaceId} and user_id = ${userId} and provider = 'zoom'
+            and id is distinct from ${exceptId}::uuid
+            and ((state = 'live' and started_at > ${heardSince}::timestamptz)
+              or (state = 'waiting' and created_at > ${claimedSince}::timestamptz))
+          order by (state = 'live') desc, created_at desc limit 1`,
+    ),
+  );
+  return m ?? null;
+}
+
 async function claimForOperator(
   deps: Parameters<typeof onStreamStarted>[0],
   input: StreamStartedInput,
@@ -447,6 +509,28 @@ async function claimForOperator(
       liveListenersFor(tx, l.scope.workspaceId, l.userId, deps.modules, deps.catalog),
     );
     if (listens.length === 0) continue;
+    const [who] = await asWorker(deps.db, l.scope, (tx) =>
+      rows<{ name: string | null }>(
+        tx,
+        sql`select full_name as name from app.users where id = ${l.userId}`,
+      ),
+    );
+    const theirs = await theirMeeting(deps, l.scope, l.userId);
+    if (theirs?.state === 'live') {
+      deps.log.info('a second Zoom stream for someone already heard: left alone');
+      return null;
+    }
+    // Their claim from the app, a moment ago, under another of Zoom's ids for this meeting.
+    if (theirs)
+      return {
+        live_meeting_id: theirs.id,
+        workspace_id: l.scope.workspaceId,
+        organization_id: l.scope.organizationId,
+        user_id: l.userId,
+        external_user_id: operatorId,
+        person_id: theirs.person_id,
+        screen_name: theirs.screen_name ?? (who?.name?.trim() || null),
+      };
     const made = await executeCommand(
       deps.db,
       liveMeetingAutoClaim,
@@ -460,12 +544,6 @@ async function claimForOperator(
       workerMeta(),
     );
     if (made.output.state !== 'waiting') return null;
-    const [who] = await asWorker(deps.db, l.scope, (tx) =>
-      rows<{ name: string | null }>(
-        tx,
-        sql`select full_name as name from app.users where id = ${l.userId}`,
-      ),
-    );
     return {
       live_meeting_id: made.output.liveMeetingId,
       workspace_id: l.scope.workspaceId,
@@ -519,6 +597,11 @@ export async function onStreamStarted(
     return null;
   }
   const scope = { workspaceId: claim.workspace_id, organizationId: claim.organization_id };
+  // Already heard in this meeting under another of Zoom's ids: one meeting, one coached call.
+  if ((await theirMeeting(deps, scope, claim.user_id, claim.live_meeting_id))?.state === 'live') {
+    deps.log.info('a second Zoom stream for someone already heard: left alone');
+    return null;
+  }
   const addons = await asWorker(deps.db, scope, (tx) =>
     liveListenersFor(tx, scope.workspaceId, claim.user_id, deps.modules, deps.catalog),
   );

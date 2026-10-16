@@ -58,6 +58,8 @@ interface Thread extends Record<string, unknown> {
   readonly handled_by: string;
   readonly folder: string;
   readonly private_to: string | null;
+  /** The customer's language, as the AI teammate last said (M18). */
+  readonly language: string | null;
 }
 
 async function usualPlaybook(ctx: AddonScopeContext) {
@@ -83,7 +85,7 @@ export const suggestReplies: AddonJobHandler = async (ctx) => {
   const read = await asWorker(ctx.db, ctx.scope, async (tx) => {
     const [thread] = await rows<Thread>(
       tx,
-      sql`select handled_by::text as handled_by, folder::text as folder, private_to
+      sql`select handled_by::text as handled_by, folder::text as folder, private_to, language
           from app.conversations where id = ${conversationId} and workspace_id = ${ws}`,
     );
     const messages = await rows<{
@@ -121,7 +123,12 @@ export const suggestReplies: AddonJobHandler = async (ctx) => {
         context: [playbookText(playbook.name, playbook.details), await businessText(ctx)].join(
           '\n\n',
         ),
-        messages: [{ role: 'user', content: suggestPrompt({ channel, messages }) }],
+        messages: [
+          {
+            role: 'user',
+            content: suggestPrompt({ channel, messages, language: thread.language }),
+          },
+        ],
         schema: SUGGEST_SCHEMA,
         zod: SuggestAnswer,
         maxTokens: 900,

@@ -181518,6 +181518,12 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "language": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -181533,7 +181539,8 @@
                           "startedAt",
                           "endedAt",
                           "score",
-                          "wonHow"
+                          "wonHow",
+                          "language"
                         ],
                         "additionalProperties": false
                       }
@@ -181757,6 +181764,12 @@
                             }
                           ]
                         },
+                        "language": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "lines": {
                           "type": "array",
                           "items": {
@@ -181777,6 +181790,17 @@
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
+                              },
+                              "language": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 12
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -181938,6 +181962,13 @@
                                     "talkShare"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "language": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -181948,7 +181979,8 @@
                                 "objections",
                                 "stepsCovered",
                                 "tips",
-                                "score"
+                                "score",
+                                "language"
                               ],
                               "additionalProperties": false
                             },
@@ -182028,6 +182060,7 @@
                         "endedAt",
                         "score",
                         "wonHow",
+                        "language",
                         "lines",
                         "result",
                         "failure",

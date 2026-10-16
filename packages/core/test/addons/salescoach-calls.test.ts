@@ -295,6 +295,7 @@ describe('a coached call', () => {
         ],
         stepsCovered: ['s1', 's2', 'nope'],
         tips: ['Book the visit before hanging up.'],
+        language: 'en',
       },
       {
         steps: [
@@ -555,6 +556,7 @@ describe('a written conversation’s write-up', () => {
         objections: [],
         stepsCovered: [],
         tips: [],
+        language: null,
       },
       { steps: [], objections: [], points: [] },
       lines as Any,

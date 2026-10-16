@@ -17,7 +17,7 @@
  * The worker links the account (`live_meeting_account.link`) once both sign-ins agree; the person may disconnect it,
  * and removing the app in Zoom disconnects it everywhere (`.revoke`).
  */
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 import { liveMeetingAccounts, liveMeetings, people } from '@hfos/db/schema';
 import { rows, sql } from '@hfos/db/client';
 import { z } from 'zod';
@@ -30,6 +30,8 @@ import { isoDateTime, uuid } from '../schemas/common';
 
 export const LiveMeetingProvider = z.enum(['zoom']);
 export const LIVE_MEETING_STATES = ['waiting', 'live', 'ended'] as const;
+/** How long a meeting Zoom started hearing on its own stays the one the person's app, opened later, belongs to. */
+const AUTO_CLAIM_ADOPT_MS = 4 * 60 * 60_000;
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -156,7 +158,26 @@ export const liveMeetingClaim = defineCommand({
           inArray(liveMeetings.state, ['waiting', 'live']),
         ),
       );
-    let row = open[0];
+    // Zoom's auto-start may have begun hearing this meeting under another of its ids before the app opened: the
+    // person is in one meeting at a time, so their live claim the app hasn't named yet is this one.
+    const [auto] = open.length
+      ? []
+      : await ctx.tx
+          .select()
+          .from(liveMeetings)
+          .where(
+            and(
+              eq(liveMeetings.workspaceId, ws),
+              eq(liveMeetings.userId, me),
+              eq(liveMeetings.provider, input.provider),
+              eq(liveMeetings.state, 'live'),
+              isNull(liveMeetings.meetingNumber),
+              gt(liveMeetings.startedAt, new Date(Date.now() - AUTO_CLAIM_ADOPT_MS)),
+            ),
+          )
+          .orderBy(desc(liveMeetings.startedAt))
+          .limit(1);
+    let row = open[0] ?? auto;
     // Picked (or picked nobody) wins; otherwise the appointment's customer, or the one it had.
     const personId =
       input.personId !== undefined ? input.personId : (appt?.person_id ?? row?.personId ?? null);

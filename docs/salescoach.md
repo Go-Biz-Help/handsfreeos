@@ -6,10 +6,9 @@ the facts the customer just asked about. After the call it writes the notes, a f
 the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
-**Where it stands (2026-10-15):** rounds 0 to 3 and round 4's learning from wins and trends are built, in
-`development` (staff hand it to test businesses): core's live listening, phone calls, written conversations
-(suggested replies, and a write-up once one goes quiet), Zoom meetings, lessons from wins, and trends with the
-owner's view of every rep. Spanish is next. Zoom
+**Where it stands (2026-10-16):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses):
+core's live listening, phone calls, written conversations (suggested replies, and a write-up once one goes quiet),
+Zoom meetings, lessons from wins, trends with the owner's view of every rep, and Spanish. Zoom
 meetings use their own Zoom app, set up as in "The coaching Zoom app" in `docs/calendar-setup.md`, and need Zoom's
 review before anyone outside Go Biz Help's Zoom account can add it.
 
@@ -125,11 +124,16 @@ review before anyone outside Go Biz Help's Zoom account can add it.
    and offers **Pick the customer** (the appointment's, when the meeting was made for one, is taken at once); the
    write-up lands on whoever was named by the time the meeting ends. A stream nobody here can be heard for is left
    alone, and Zoom tells the meeting the app couldn't reach it.
+   **One meeting, one coached call.** Zoom can start two streams for one meeting under two of its ids (the app's own
+   start and the auto-start, a moment apart). A person is in one meeting at a time, so a stream for someone already
+   heard is left alone; one under another id while their claim of the last ten minutes waits takes that claim; and
+   the panel, opened in a meeting Zoom started hearing on its own, finds that live claim.
 4. **Hearing it.** `RtmsStream` connects to Zoom's signaling and media sockets, signs both handshakes with the
    coaching Zoom app's id and secret, asks only for Zoom's own English transcript, and answers Zoom's keep-alives. Each transcript
    message names its speaker: the rep (by the name they show in the meeting) is the team's side, anyone else the
    customer's. Lines go to the add-ons exactly as a phone call's do (`addons/live-fanout.ts`), so the cards come the
-   same way, on the panel and on the Live call tab. No audio reaches HandsFreeOS. It's billed as live listening.
+   same way, on the panel and on the Live call tab. No audio reaches HandsFreeOS. It's billed by the minute as `speech.meeting.minute` (3¢: Zoom's
+   Developer Pack credits at 1.5×; see "The AI's hearing and voice" in `docs/operations.md`).
 5. **After.** When Zoom ends the stream (the meeting ends, or the rep presses **Stop coaching**, which stops the
    stream in Zoom), the claim is ended and the meeting is written up like a call: notes on the customer's timeline
    ("Marco’s Zoom call was coached…"), a task for each promise, and a score.
@@ -156,6 +160,27 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 6. **Owners and admins decide** (`salescoach.manage`), under Playbooks → **What's working**: **Use it** changes the
    playbook (a better answer replaces the objection's, a new objection is added) and keeps the lesson as used; **Not
    now** dismisses it. Nothing in a playbook changes without a person.
+
+## Spanish
+
+The coach follows the customer's language, as the AI teammate does (M18, "match the customer"): what the rep says
+to the customer is in the customer's language; what's for the team stays in English, the language HandsFreeOS and
+the playbooks are in.
+
+1. **Hearing it.** On a phone call, the speech service hears English and Spanish, switching freely (Deepgram's
+   `multi`), and says which each line was in. On Zoom, the transcript starts in English with Zoom's language
+   identification on (`src_language` 9, `enable_lid`), and each line names its language (`RTMS_LANGUAGES`: 9 English,
+   28 Spanish). Each line keeps its language (`CallLine.language`). A written conversation's language is the one the
+   AI teammate noted on it (`conversations.language`); otherwise the model goes by the messages.
+2. **The call's language** (`callLanguage`): the one most of the customer's lines were in, the latest winning a tie;
+   else the team's; else unknown, and the model goes by the words. Each ask tells the model when it's known
+   (`languageTag`).
+3. **In Spanish:** a card's `say`, each suggested reply's text, and the write-up's `followUp`. The playbook may be in
+   English; the model carries its meaning over and adds nothing.
+4. **In English:** card titles, the summary, notes, promises (the rep's tasks), objections as noted, tips, and
+   reply labels. Lessons from wins are written in the playbook's language too.
+5. **Kept:** the write-up's `language` (what was heard first, then the conversation's, then the model's). The
+   Coached tab says "In Spanish" beside such a call.
 
 ## Trends and the owner's view
 
@@ -214,7 +239,8 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   approval; the appointment, or the rep's pick, says who it is for now.
 - **Picking up a Zoom stream again** after the worker restarts mid-meeting. The rep presses Start coaching again.
 - **Zoom webinars and Zoom Phone.** Meetings only.
-- **Spanish** (round 4).
+- **Other languages.** English and Spanish are what the coach is built and tested for; another language is heard
+  only where the speech service hears it, and the model follows it as best it can.
 - **Trends in the phone app.** The Trends tab opens on the web from the phone for now.
 - **The live transcript replacing the after-call one**, so a coached call isn't transcribed twice.
 - **Its own push switch.** Objection pushes go as add-on notices (the `addons` switch) for now.

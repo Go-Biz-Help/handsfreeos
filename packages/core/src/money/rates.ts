@@ -63,6 +63,8 @@ export const USAGE_KEYS = [
   'speech.recording.minute',
   /** The AI speaking, per thousand characters it says: on calls, and when talking out loud. */
   'speech.voice.kchar',
+  /** Sales Coach listening in a Zoom meeting, per minute: Zoom's own live transcript (its Developer Pack credits). */
+  'speech.meeting.minute',
   /**
    * A model with no line of its own. Deliberately dear: a new model has to be priced on purpose, and a card
    * that silently bills an unknown one at nothing is how a month of AI goes out free.
@@ -117,6 +119,7 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'speech.live.minute': 'minute',
   'speech.recording.minute': 'minute',
   'speech.voice.kchar': 'kchar',
+  'speech.meeting.minute': 'minute',
   'ai.unknown.mtok': 'mtok',
   'a2p.brand.registration': 'fee',
   'a2p.brand.vetting': 'fee',
@@ -396,6 +399,15 @@ export const SEED_RATES: readonly {
     minChargeCents: 1,
     roundUpTo: 'none',
     notes: 'Deepgram Aura 2, $0.030 per 1,000 characters. Charged 4.5¢, billed in running totals.',
+  },
+  {
+    key: 'speech.meeting.minute',
+    costMicros: 20_000,
+    markupBp: 15_000,
+    minChargeCents: 3,
+    roundUpTo: 'none',
+    notes:
+      'Zoom Realtime Media Streams with the transcript, about 0.02 Developer Pack credits ($0.02) a minute. Charged 3¢, billed in running totals.',
   },
   {
     key: 'ai.unknown.mtok',
