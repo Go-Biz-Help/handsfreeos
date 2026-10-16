@@ -757,7 +757,7 @@ describe('finding posts with LinkedIn’s post search', () => {
       `${LI}/search/results/content/?keywords=handyman&sortBy=%22date_posted%22`,
     ]);
     const saves = sentOf(sent, 'hfos-save-posts').map((a) => a.input);
-    expect(saves[0]).toMatchObject({ platform: 'linkedin', group: null, found: 'find' });
+    expect(saves[0]).toMatchObject({ platform: 'linkedin', group: null, found: 'search' });
     expect(saves[0]!.posts.map((p) => p.name)).toEqual(['Jordan Blake', 'Renée Park']);
     // The same posts again for the second words: not sent twice.
     expect(saves).toHaveLength(1);

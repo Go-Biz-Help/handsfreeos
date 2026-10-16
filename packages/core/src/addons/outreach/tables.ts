@@ -1155,7 +1155,9 @@ export const helpful = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    groupId: uuid('group_id').notNull(),
+    /** The network it goes up on: on Facebook in a group, on LinkedIn on the person's own feed. */
+    platform: text('platform').notNull().default('facebook').$type<Platform>(),
+    groupId: uuid('group_id'),
     playbookId: uuid('playbook_id'),
     state: text('state').notNull().$type<HelpfulState>(),
     /** The person's posting choice when it was drafted. */

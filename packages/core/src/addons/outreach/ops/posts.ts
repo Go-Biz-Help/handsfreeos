@@ -29,7 +29,7 @@ import { playbooksInUse } from './friends';
 export const postsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.posts.save',
   description:
-    'Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
+    'Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
   risk: 1,
   input: PostsSaveInput,
   output: PostsSaveOutput,
@@ -41,7 +41,6 @@ export const postsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     return once(async () => {
-      // On Facebook always a group; LinkedIn's post search finds posts in none.
       const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
       const playbooks = await playbooksInUse(ctx);
       const urls = [...new Set(input.posts.map((p) => p.url))];

@@ -7575,6 +7575,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "groupId": {
             "type": "string",
             "format": "uuid"
@@ -13840,6 +13845,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]

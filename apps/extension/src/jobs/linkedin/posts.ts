@@ -21,7 +21,7 @@ const SEARCH_PACE_MS = [15_000, 30_000] as const;
 function postSender(job: Job): (page: LinkedInRead) => Promise<number> {
   const sent = new Set<string>();
   return async (page) => {
-    const built = linkedInPostsSave(page, job.businessId, 'find');
+    const built = linkedInPostsSave(page, job.businessId, 'search');
     if (!built.ok) return 0;
     const posts = built.input.posts.filter((post) => !sent.has(post.url));
     if (!posts.length) return 0;

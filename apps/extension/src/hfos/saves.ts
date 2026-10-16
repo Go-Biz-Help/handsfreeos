@@ -521,7 +521,7 @@ export function linkedInListSave(
 export function linkedInPostsSave(
   result: LinkedInRead,
   workspaceId: string,
-  found: PostsSaveInput['found'] = 'find',
+  found: PostsSaveInput['found'] = 'search',
 ): Built<PostsSaveInput> {
   const seen = new Set<string>();
   const posts = (result.posts ?? []).flatMap((post) => {

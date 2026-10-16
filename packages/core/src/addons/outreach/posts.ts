@@ -36,7 +36,7 @@ export const COMMENT_DRAFTS = 2;
 export const POST_CHECKS = ['waiting', 'good', 'not', 'failed'] as const;
 export type PostCheck = (typeof POST_CHECKS)[number];
 /** How a post was found: as the person scrolled, by Find posts, or by the look at the newest every hour or two. */
-export const POST_FOUND = ['scroll', 'find', 'watch'] as const;
+export const POST_FOUND = ['scroll', 'find', 'watch', 'search'] as const;
 export type PostFound = (typeof POST_FOUND)[number];
 
 /** The look at the newest posts (decision 49): how many groups, how many screens of each, and how often. */
@@ -181,15 +181,15 @@ export const PostsSaveInput = z
     workspaceId: z.uuid(),
     platform: z.enum(PLATFORM_KEYS).default('facebook'),
     /**
-     * The group the feed is. On Facebook posts are kept only from a group; on LinkedIn they're found by its post
-     * search too, in no group (null).
+     * The group the feed is: on Facebook posts are kept only from a group. Off Facebook a post found by the network's
+     * own search (LinkedIn's post search, `found: 'search'`) is in none.
      */
-    group: GroupRef.nullable(),
+    group: GroupRef.nullable().default(null),
     posts: z.array(PostIn).min(1).max(POSTS_SAVE_MOST),
     found: z.enum(POST_FOUND).default('scroll'),
   })
-  .refine((p) => p.group !== null || p.platform !== 'facebook', {
-    error: 'Send the group the posts are in: on Facebook they’re kept only from a group.',
+  .refine((i) => i.group !== null || i.platform !== 'facebook', {
+    error: 'Say which group the posts are in.',
     path: ['group'],
   });
 export type PostsSaveInput = z.input<typeof PostsSaveInput>;
@@ -206,7 +206,7 @@ export const PostMark = z.object({
 export type PostMark = z.output<typeof PostMark>;
 
 export const PostsSaveOutput = z.object({
-  /** The group they're in: null for posts found in no group (LinkedIn's post search). */
+  /** The group they're in: null for posts found by a network's own search. */
   groupId: z.uuid().nullable(),
   /** Each post sent, in the order sent. */
   posts: z.array(PostMark),

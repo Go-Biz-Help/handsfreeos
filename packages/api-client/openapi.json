@@ -81724,7 +81724,7 @@
     "/v1/commands/outreach.posts.save": {
       "post": {
         "operationId": "command_outreach_posts_save",
-        "summary": "Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
+        "summary": "Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
         "tags": [
           "commands"
         ],
@@ -81750,6 +81750,7 @@
                     ]
                   },
                   "group": {
+                    "default": null,
                     "anyOf": [
                       {
                         "type": "object",
@@ -81906,13 +81907,13 @@
                     "enum": [
                       "scroll",
                       "find",
-                      "watch"
+                      "watch",
+                      "search"
                     ]
                   }
                 },
                 "required": [
                   "workspaceId",
-                  "group",
                   "posts"
                 ]
               }
@@ -90305,6 +90306,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   },
                   "groupId": {
                     "type": "string",
@@ -179362,6 +179371,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -179389,10 +179406,24 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "groupId": {
+                          "platform": {
                             "type": "string",
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
+                          "groupId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "groupName": {
                             "type": [
@@ -179401,7 +179432,10 @@
                             ]
                           },
                           "groupUrl": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "playbookName": {
                             "type": [
@@ -179557,6 +179591,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -179591,7 +179633,10 @@
                               ]
                             },
                             "groupUrl": {
-                              "type": "string"
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             },
                             "text": {
                               "type": "string"
@@ -179627,7 +179672,10 @@
                             ]
                           },
                           "groupUrl": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "postUrl": {
                             "type": [
