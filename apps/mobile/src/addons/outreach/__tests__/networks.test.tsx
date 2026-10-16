@@ -5,6 +5,7 @@ import {
   type AutomationSettings,
   type NetworkChoices,
 } from '@hfos/core/addons/outreach/automation';
+import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
@@ -479,6 +480,68 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     expect(screen.getByTestId('settings-networks-linkedin-limit-friend_request')).toHaveTextContent(
       '15Invitations to connect',
     );
+  });
+});
+
+describe('LinkedIn’s page and the person’s computer (decision 74)', () => {
+  const asks = (allowed: ('facebook' | 'linkedin')[] | null): AsksOutput => ({
+    now: new Date().toISOString(),
+    timezone: TZ,
+    computer: {
+      computerId: id(9),
+      name: 'Chrome on Mac 12',
+      online: true,
+      signedOut: false,
+      lastSeenAt: new Date().toISOString(),
+      version: '0.48.0',
+      allowed,
+    },
+    warnedToday: false,
+    asks: [],
+  });
+
+  it('says what to press when Chrome hasn’t let the extension on LinkedIn, and checks LinkedIn when asked', async () => {
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true) }}
+        {...partProps()}
+        asks={asks(['facebook'])}
+        askActions={actions}
+      />,
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-chrome-blocked')).toHaveTextContent(
+      'Chrome on Mac 12 isn’t allowed on LinkedIn yet. Open the extension’s panel on a LinkedIn page and press Allow on LinkedIn, then Allow in Chrome’s box.',
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-checkup')).toHaveTextContent(
+      /^Check LinkedInIf something on LinkedIn isn’t read right, press this once\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-checkup-ask'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'linkedin');
+  });
+
+  it('says only how to allow it once Chrome has, and asks nothing on someone else’s settings', async () => {
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true) }}
+        {...partProps()}
+        asks={asks(['facebook', 'linkedin'])}
+        askActions={{ busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() }}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-linkedin-chrome-blocked')).toBeNull();
+    expect(screen.getByTestId('settings-networks-linkedin-chrome')).toBeTruthy();
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true) }}
+        {...partProps()}
+        mine={false}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-linkedin-checkup')).toBeNull();
   });
 });
 

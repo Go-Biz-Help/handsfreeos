@@ -95,7 +95,10 @@ export default async function OutreachPage({
       const whose = canManage && shown.for ? shown.for : undefined;
       // Only Your computer shows the person's computers and the extension's download.
       const computer = shown.part === 'computer' && !whose;
-      const [me, people, business, live, setup] = await Promise.all([
+      // A network's page asks the person's own computer to check it (decision 74), and says what to press when
+      // Chrome hasn't let the extension on it.
+      const network = shown.part !== 'general' && !computer && shown.part !== 'fresh' && !whose;
+      const [me, people, business, live, setup, asks] = await Promise.all([
         api
           .POST('/v1/queries/outreach.automation', {
             body: { workspaceId, ...(whose ? { userId: whose } : {}) },
@@ -119,6 +122,12 @@ export default async function OutreachPage({
               .then((r) => r.data ?? null)
               .catch(() => null)
           : null,
+        network
+          ? api
+              .POST('/v1/queries/outreach.asks', { body: { workspaceId, kinds: ['checkup'] } })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
       ]);
       const canStartFresh = got.workspace.permissions.includes('addons.purge');
       return (
@@ -138,6 +147,7 @@ export default async function OutreachPage({
             canStartFresh,
             live,
             extensionLink: setup?.extensionLink ?? null,
+            asks,
           }}
         />
       );

@@ -235,7 +235,7 @@ export function AskLine({
       ? ASK_TYPING_WORDS
       : (ask.line ??
         (ask.state === 'waiting'
-          ? askWaitingWords(asks.computer, asks.timezone, Date.parse(asks.now))
+          ? askWaitingWords(asks.computer, asks.timezone, Date.parse(asks.now), ask.platform)
           : null));
   return (
     <Card className="gap-1.5 bg-card-2 px-3 py-2.5" testID="ask-line">

@@ -169,6 +169,8 @@ export type OutreachShown =
       readonly live: Live | null;
       /** The business's own link to the extension's zip, when it gave one. */
       readonly extensionLink: string | null;
+      /** On a network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74). */
+      readonly asks?: Asks | null;
     };
 
 /** A row of links that looks like a segmented control: People's three lists. */
@@ -533,6 +535,7 @@ export function OutreachHome({
                 canStartFresh={shown.canStartFresh}
                 live={shown.live}
                 extensionLink={shown.extensionLink}
+                asks={shown.asks ?? null}
               />
             ) : shown.view === 'playbooks' ? (
               <PlaybooksView
