@@ -18,6 +18,7 @@
  */
 import { z } from 'zod';
 import { CHECK_VERDICT_KEYS } from './checks';
+import { PLATFORM_KEYS } from './networks';
 
 export const STAGES = {
   found: 'Found',
@@ -100,6 +101,8 @@ export const StagesInput = z.object({
   /** Part of a name. */
   search: z.string().trim().max(100).optional(),
   page: z.number().int().min(1).max(100_000).default(1),
+  /** Only the people on one network, counts too; every network's when left out. */
+  platform: z.enum(PLATFORM_KEYS).optional(),
 });
 export type StagesInput = z.input<typeof StagesInput>;
 
@@ -124,6 +127,8 @@ export const StagesOutput = z.object({
       personId: z.uuid().nullable(),
       name: z.string(),
       url: z.string(),
+      /** The network their profile is on: each row shows it by name. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
       stage: z.enum(STAGE_KEYS),
       /** Why they're at it: "Asked how to book", "They wrote 2 days ago", "Found in Austin Small Business Owners". */
       why: z.array(z.string()),

@@ -13,6 +13,7 @@
 import {
   ASK_TIDY_MOST,
   ASK_WORDS,
+  askableOn,
   askOpen,
   TIDY_PACE_WORDS,
 } from '@hfos/core/addons/outreach/asks';
@@ -32,6 +33,7 @@ import {
   FRIENDS_PAGE,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
+import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
@@ -53,6 +55,7 @@ import { AskButton, AskLine, latestAsk } from './asks';
 import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
+import { NetworkFilterControl } from './network-ui';
 import { PersonMenu } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
@@ -206,6 +209,7 @@ export function FriendsView({
   tidy,
   show,
   search,
+  net = null,
   asks,
 }: {
   workspaceId: string;
@@ -214,6 +218,8 @@ export function FriendsView({
   tidy: Tidy;
   show: FriendView;
   search: string;
+  /** The network it's narrowed to: null for every network. */
+  net?: Platform | null;
   /** What the person asked their computer to do on this tab. */
   asks: Asks;
 }) {
@@ -223,14 +229,15 @@ export function FriendsView({
   const [pending, startTransition] = useTransition();
   // The list and name last asked for, ahead of the address while it loads: a name typed as another list opens is
   // looked for in that list. Another list or another name starts again at the first page.
-  const asked = useRef({ show, search });
+  const asked = useRef({ show, search, net });
   useEffect(() => {
-    asked.current = { show, search };
-  }, [show, search]);
-  const go = (to: { show?: FriendView; search?: string; page?: number }) => {
+    asked.current = { show, search, net };
+  }, [show, search, net]);
+  const go = (to: { show?: FriendView; search?: string; page?: number; net?: Platform | null }) => {
     asked.current = {
       show: to.show ?? asked.current.show,
       search: to.search ?? asked.current.search,
+      net: to.net === undefined ? asked.current.net : to.net,
     };
     const href = outreachHref(workspaceId, {
       view: 'friends',
@@ -299,6 +306,9 @@ export function FriendsView({
     show === 'requests' &&
     friends.people.length > 0 &&
     friends.people.every((f) => !f.fit?.playbookName);
+  // The asks are the network shown's: Facebook's when the list is every network's.
+  const asking = net ?? 'facebook';
+  const words = NETWORKS[asking].words;
   return (
     <div data-testid="outreach-friends">
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -321,24 +331,27 @@ export function FriendsView({
             }))}
           />
         </div>
+        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="friends-asks">
-        <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
+        <h3 className="text-[15px] font-semibold">{`From ${PLATFORMS[asking]}`}</h3>
         <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <AskButton
             workspaceId={workspaceId}
             asks={asks}
             ask={{ kind: 'requests' }}
-            label="Check my friend requests"
+            platform={asking}
+            label={`Check my ${words.friendRequests}`}
             testId="ask-requests"
           />
           <AskButton
             workspaceId={workspaceId}
             asks={asks}
             ask={{ kind: 'friends' }}
-            label="Save my friends list"
+            platform={asking}
+            label={`Save my ${words.friends} list`}
             testId="ask-friends"
           />
         </div>
@@ -400,14 +413,22 @@ export function FriendsView({
               )}
             </Card>
           )}
-          <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
+          {/* Tidying friends is Facebook's yet: LinkedIn's old invitations come with its own steps. */}
+          {askableOn(asking, 'unfriend') ? (
+            <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
+          ) : null}
           <SkippedCountryCard workspaceId={workspaceId} />
         </div>
         <aside className="space-y-4">
-          <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} />
-          <CapCard counts={friends.counts} cap={friends.cap} />
-          <FileAsksCard workspaceId={workspaceId} asks={asks} />
-          <DownloadCard workspaceId={workspaceId} download={friends.download} />
+          <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} platform={asking} />
+          <CapCard counts={friends.counts} cap={friends.cap} platform={asking} />
+          {/* The download file is Facebook's alone yet: shown where it can be asked for. */}
+          {askableOn(asking, 'file_in') ? (
+            <>
+              <FileAsksCard workspaceId={workspaceId} asks={asks} />
+              <DownloadCard workspaceId={workspaceId} download={friends.download} />
+            </>
+          ) : null}
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Yours, and the business’s</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
@@ -574,8 +595,9 @@ function FriendRow({
             target="_blank"
             rel="noreferrer"
             className="ml-2 text-[12.5px] text-text-3 hover:underline"
+            data-testid="network-name"
           >
-            Facebook
+            {PLATFORMS[f.platform]}
           </a>
           {mutual ? (
             <span className="ml-2 align-middle" data-testid="friend-mutual">
@@ -664,6 +686,7 @@ function FriendRow({
         workspaceId={workspaceId}
         asks={asks}
         profileId={f.profileId}
+        platform={f.platform}
         name={f.name}
         check={f.check}
         neverPitched={f.dontPitch !== null || f.neverContact !== null}
@@ -723,10 +746,13 @@ function ChecksCard({
   workspaceId,
   friends,
   asks,
+  platform,
 }: {
   workspaceId: string;
   friends: Friends;
   asks: Asks;
+  /** The network the checks are asked on. */
+  platform: Platform;
 }) {
   const words = checksWords(friends.checks);
   const room = friends.checks.today < friends.checks.perDay;
@@ -757,6 +783,7 @@ function ChecksCard({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'checks' }}
+          platform={platform}
           label={CHECKS_WORDS.button}
           disabled={!room || !friends.checks.people}
           testId="ask-checks"
@@ -781,18 +808,19 @@ function ChecksCard({
   );
 }
 
-/** How many friends the person has saved, against Facebook's cap. */
-function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
+/** How many friends or connections the person has saved, against their network's cap. */
+function CapCard({ counts, cap, platform }: { counts: Counts; cap: number; platform: Platform }) {
   const share = counts.friends / cap;
+  const { name, words } = NETWORKS[platform];
+  const many = `${words.friends.charAt(0).toUpperCase()}${words.friends.slice(1)}`;
   return (
     <Card className="p-4" data-testid="friends-cap">
-      <h3 className="text-[15px] font-semibold">Your friends</h3>
+      <h3 className="text-[15px] font-semibold">{`Your ${words.friends}`}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
-        Facebook allows {cap.toLocaleString()}. Saved by Save my friends list, or from Facebook’s
-        download file.
+        {`${name} allows ${cap.toLocaleString()}. Saved by Save my ${words.friends} list, or from ${name}’s download file.`}
       </p>
       <div className="mt-3 flex items-baseline justify-between gap-2 text-[13px]">
-        <span>Friends</span>
+        <span>{many}</span>
         <span
           className={cn(
             'tabular-nums',
@@ -810,8 +838,7 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
       </div>
       {share >= 0.9 ? (
         <p className="mt-3 rounded-menu bg-warning-soft p-2.5 text-[12.5px] text-warning-text">
-          You’re close to Facebook’s limit. Turn on Keep for the friends you’ll never unfriend, so
-          making room never suggests them.
+          {`You’re close to ${name}’s limit. Turn on Keep for the ${words.friends} you’ll never remove, so making room never suggests them.`}
         </p>
       ) : null}
     </Card>

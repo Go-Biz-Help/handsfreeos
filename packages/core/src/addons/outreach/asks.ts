@@ -779,14 +779,21 @@ export const tooOldFor = (
 export const tooOldWords = (computer: { readonly name: string; readonly version: string | null }) =>
   `HandsFreeOS Social on ${computer.name} is an older build${computer.version ? ` (${computer.version})` : ''} that can’t do this yet. Download the newest one (the link is in Social Outreach’s setup, under Install the extension), unzip it over the old folder, and press Reload on Chrome’s Extensions page. Then ask again.`;
 
-/** Why a button can't ask now, in words: null when it can. */
+/**
+ * Why a button can't ask now, on a network (Facebook when left out), in words: null when it can. A kind the network
+ * can't be asked never can; `warnedToday` is Facebook's warning, so it holds back only Facebook's asks, and the server
+ * refuses another network's after a warning there.
+ */
 export function cantAskWhy(
   asks: Pick<AsksOutput, 'computer' | 'warnedToday'>,
   kind: AskKind,
+  platform: Platform = 'facebook',
 ): string | null {
   if (!asks.computer) return NO_COMPUTER_ASK_WORDS;
-  if (tooOldFor(asks.computer.version, kind)) return tooOldWords(asks.computer);
-  if (asks.warnedToday && onFacebook(kind)) return WARNED_ASK_WORDS;
+  const notOn = notOnNetworkWords(platform, kind);
+  if (notOn) return notOn;
+  if (tooOldFor(asks.computer.version, kind, platform)) return tooOldWords(asks.computer);
+  if (platform === 'facebook' && asks.warnedToday && onFacebook(kind)) return WARNED_ASK_WORDS;
   return null;
 }
 
@@ -848,5 +855,28 @@ export function latestAsk<A extends { readonly kind: AskKind; readonly target: s
 ): A | null {
   return (
     asks?.asks.find((a) => a.kind === kind && (target === undefined || a.target === target)) ?? null
+  );
+}
+
+/**
+ * The newest ask of a kind on a network (and about the same thing, when given, as `targetOf` says it): another
+ * network's ask of the same kind never stands for it.
+ */
+export function latestAskOn<
+  A extends { readonly kind: AskKind; readonly target: string; readonly platform?: Platform },
+>(
+  asks: { readonly asks: readonly A[] } | null,
+  platform: Platform,
+  kind: AskKind,
+  target?: string,
+): A | null {
+  const named = target === undefined ? undefined : targetOn(platform, target);
+  return (
+    asks?.asks.find(
+      (a) =>
+        a.kind === kind &&
+        (a.platform ?? 'facebook') === platform &&
+        (named === undefined || a.target === named),
+    ) ?? null
   );
 }

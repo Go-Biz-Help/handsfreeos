@@ -13,6 +13,7 @@ import {
   ACTIVITY_PERIODS,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
+import { NETWORKS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -46,6 +47,12 @@ const ALONG: readonly { readonly key: keyof Numbers; readonly label: string }[] 
   { key: 'comments', label: 'Comments' },
   { key: 'followUps', label: 'Follow-ups' },
 ];
+
+/** A request to connect, in the person's network's words: "Friend request", "Invitation to connect". */
+const requestWord = (p: Person) => {
+  const word = NETWORKS[p.platform].words.friendRequest;
+  return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
+};
 
 /** How far someone has come, a step at a time. */
 const STEPS: readonly {
@@ -335,8 +342,9 @@ function PeopleCard({
                   target="_blank"
                   rel="noreferrer"
                   className="ml-2 text-[12.5px] text-text-3 hover:underline"
+                  data-testid="network-name"
                 >
-                  Facebook
+                  {PLATFORMS[p.platform]}
                 </a>
                 {p.group ? (
                   <div className="text-[12.5px] text-text-3">From {groupName(p.group)}</div>
@@ -353,7 +361,7 @@ function PeopleCard({
                     variant={s.key === 'repliedAt' ? 'ok' : 'gray'}
                     title={new Date(at).toLocaleString()}
                   >
-                    {s.label} · {relativeTime(at)}
+                    {s.key === 'requestedAt' ? requestWord(p) : s.label} · {relativeTime(at)}
                   </Badge>
                 ) : null;
               })}

@@ -87334,6 +87334,7 @@
                       "playbooks",
                       "ready",
                       "rules",
+                      "networks",
                       "settings",
                       "extension",
                       "groups"
@@ -87387,6 +87388,7 @@
                           "playbooks",
                           "ready",
                           "rules",
+                          "networks",
                           "settings",
                           "extension",
                           "groups"
@@ -87401,6 +87403,7 @@
                             "playbooks",
                             "ready",
                             "rules",
+                            "networks",
                             "settings",
                             "extension",
                             "groups"
@@ -171117,6 +171120,14 @@
                           "url": {
                             "type": "string"
                           },
+                          "platform": {
+                            "default": "facebook",
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
                           "group": {
                             "anyOf": [
                               {
@@ -171214,6 +171225,7 @@
                           "personId",
                           "name",
                           "url",
+                          "platform",
                           "group",
                           "requestedAt",
                           "likedAt",
@@ -171523,6 +171535,13 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 100000
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -171718,6 +171737,14 @@
                           },
                           "url": {
                             "type": "string"
+                          },
+                          "platform": {
+                            "default": "facebook",
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
                           },
                           "state": {
                             "anyOf": [
@@ -172026,6 +172053,7 @@
                           "personId",
                           "name",
                           "url",
+                          "platform",
                           "state",
                           "since",
                           "keep",
@@ -172141,7 +172169,7 @@
     "/v1/queries/outreach.chats": {
       "post": {
         "operationId": "query_outreach_chats",
-        "summary": "The person’s own chats brought in from their Facebook download, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.",
+        "summary": "The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.",
         "tags": [
           "queries"
         ],
@@ -172182,6 +172210,13 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 100000
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -172273,6 +172308,14 @@
                           "name": {
                             "type": "string"
                           },
+                          "platform": {
+                            "default": "facebook",
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
                           "personId": {
                             "anyOf": [
                               {
@@ -172363,6 +172406,7 @@
                         "required": [
                           "chatId",
                           "name",
+                          "platform",
                           "personId",
                           "lastAt",
                           "lastFromMe",
@@ -174979,7 +175023,7 @@
     "/v1/queries/outreach.live": {
       "post": {
         "operationId": "query_outreach_live",
-        "summary": "What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many things wait for them (Waiting for you), any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.",
+        "summary": "What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.",
         "tags": [
           "queries"
         ],
@@ -174995,6 +175039,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -177704,6 +177756,7 @@
                           "playbooks",
                           "ready",
                           "rules",
+                          "networks",
                           "settings",
                           "extension",
                           "groups"
@@ -177718,6 +177771,7 @@
                             "playbooks",
                             "ready",
                             "rules",
+                            "networks",
                             "settings",
                             "extension",
                             "groups"
@@ -178809,7 +178863,7 @@
     "/v1/queries/outreach.stages": {
       "post": {
         "operationId": "query_outreach_stages",
-        "summary": "The person’s pipeline: everyone they reached on Facebook by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.",
+        "summary": "The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.",
         "tags": [
           "queries"
         ],
@@ -178850,6 +178904,13 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 100000
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -178957,6 +179018,14 @@
                           "url": {
                             "type": "string"
                           },
+                          "platform": {
+                            "default": "facebook",
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
                           "stage": {
                             "type": "string",
                             "enum": [
@@ -179052,6 +179121,7 @@
                           "personId",
                           "name",
                           "url",
+                          "platform",
                           "stage",
                           "why",
                           "nextStep",
@@ -179860,7 +179930,7 @@
     "/v1/queries/outreach.tracking": {
       "post": {
         "operationId": "query_outreach_tracking",
-        "summary": "The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook and by the main offer’s version, and their latest week’s review. Owners and admins can see everyone’s counts.",
+        "summary": "The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook, by the main offer’s version and by network, and their latest week’s review. Owners and admins can see everyone’s counts.",
         "tags": [
           "queries"
         ],
@@ -180108,6 +180178,44 @@
                         "additionalProperties": false
                       }
                     },
+                    "byNetwork": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messages": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "positive": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "booked": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "messages",
+                          "positive",
+                          "booked",
+                          "platform"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "review": {
                       "anyOf": [
                         {
@@ -180227,6 +180335,7 @@
                     "target",
                     "byPlaybook",
                     "byVersion",
+                    "byNetwork",
                     "review"
                   ],
                   "additionalProperties": false

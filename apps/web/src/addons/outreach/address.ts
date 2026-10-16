@@ -14,13 +14,16 @@
  * - **Settings** (`?view=settings`, whose with `?for=` someone's id, for owners and admins) and the business's playbooks
  *   (`?view=playbooks`).
  *
- * Lists take a name searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server
- * and the tabs build their links from it.
+ * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today takes the network whose list it shows, and
+ * the pipeline, friends and chats the network they're narrowed to (`?net=linkedin`): Today's first network, and every
+ * network, when left out. A plain module, so the page reads it on the server and the tabs build their links from it.
  */
 import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import { CHAT_VIEW_KEYS, type ChatView } from '@hfos/core/addons/outreach/chat-read';
 import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/friends';
 import { GROUP_VIEWS, type GroupView } from '@hfos/core/addons/outreach/groups';
+import { readNetwork } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stages';
 
 export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
@@ -120,6 +123,8 @@ export interface OutreachAddress {
   readonly page: number;
   /** Whose settings, for an owner or admin: someone's id, or empty for their own. */
   readonly for: string;
+  /** Today's network, or the network a list is narrowed to: null for the first, or every one. */
+  readonly net: Platform | null;
 }
 
 export function readOutreachAddress(
@@ -142,6 +147,7 @@ export function readOutreachAddress(
     search: one(sp.q).trim().slice(0, 100),
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
     for: UUID.test(one(sp.for)) ? one(sp.for).toLowerCase() : '',
+    net: readNetwork(one(sp.net)),
   };
 }
 
@@ -153,6 +159,8 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   const params = new URLSearchParams();
   const view = to.view ?? 'today';
   params.set('view', view);
+  if (to.net && (view === 'today' || view === 'pipeline' || view === 'friends' || view === 'chats'))
+    params.set('net', to.net);
   if (view === 'settings') {
     if (to.for) params.set('for', to.for);
   } else if (view === 'groups') {

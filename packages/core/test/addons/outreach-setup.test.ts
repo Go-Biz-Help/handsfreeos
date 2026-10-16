@@ -40,9 +40,17 @@ describe('the setup’s steps', () => {
   const manager = setupSteps(true);
   const member = setupSteps(false);
 
-  it('has the team’s rules only for owners and admins, before their own settings', () => {
-    expect(manager).toEqual(['playbooks', 'ready', 'rules', 'settings', 'extension', 'groups']);
-    expect(member).toEqual(['playbooks', 'ready', 'settings', 'extension', 'groups']);
+  it('has the team’s rules only for owners and admins, before their own networks and settings', () => {
+    expect(manager).toEqual([
+      'playbooks',
+      'ready',
+      'rules',
+      'networks',
+      'settings',
+      'extension',
+      'groups',
+    ]);
+    expect(member).toEqual(['playbooks', 'ready', 'networks', 'settings', 'extension', 'groups']);
   });
 
   it('only moves forward, and counts a member’s steps right', () => {
@@ -50,23 +58,25 @@ describe('the setup’s steps', () => {
     expect(laterStep('extension', 'settings')).toBe('extension');
     expect(laterStep('settings', null)).toBe('settings');
     expect(stepsDone(null, member)).toBe(0);
-    expect(stepsDone('settings', member)).toBe(3);
-    expect(stepsDone('settings', manager)).toBe(4);
-    expect(stepsDone('groups', member)).toBe(5);
+    expect(stepsDone('settings', member)).toBe(4);
+    expect(stepsDone('settings', manager)).toBe(5);
+    expect(stepsDone('groups', member)).toBe(6);
   });
 
   it('goes on and back through the person’s own steps', () => {
     // Get ready comes after the playbooks, for everyone (decision 63).
     expect(nextScreen('playbooks', member)).toBe('ready');
-    expect(nextScreen('ready', member)).toBe('settings');
+    expect(nextScreen('ready', member)).toBe('networks');
     expect(nextScreen('ready', manager)).toBe('rules');
+    expect(nextScreen('rules', manager)).toBe('networks');
+    expect(nextScreen('networks', member)).toBe('settings');
     expect(nextScreen('groups', member)).toBe('done');
-    expect(previousStep('settings', member)).toBe('ready');
+    expect(previousStep('settings', member)).toBe('networks');
     expect(previousStep('playbooks', member)).toBeNull();
     expect(previousStep('done', member)).toBe('groups');
     // Back from the first step is the welcome, and there's none before it.
     expect(previousScreen('playbooks', member)).toBe('welcome');
-    expect(previousScreen('settings', member)).toBe('ready');
+    expect(previousScreen('settings', member)).toBe('networks');
     expect(previousScreen('welcome', member)).toBeNull();
     expect(readSetupStep('extension')).toBe('extension');
     expect(readSetupStep('welcome')).toBe('welcome');
@@ -86,7 +96,7 @@ describe('the setup’s steps', () => {
     expect(open('settings', 'welcome')).toBe('welcome');
     expect(open('playbooks', null, manager)).toBe('ready');
     expect(open('ready', null, manager)).toBe('rules');
-    expect(open('ready', null)).toBe('settings');
+    expect(open('ready', null)).toBe('networks');
     expect(open('settings', null)).toBe('extension');
     // The last step finished but not the setup: it opens on the last.
     expect(open('groups', null)).toBe('groups');
@@ -131,6 +141,7 @@ describe('the setup’s steps', () => {
     } satisfies Pick<SetupOutput, 'playbooks' | 'extensionAt' | 'groups'>;
     expect(setupSummary(got, null)).toEqual([
       'Playbooks: none yet',
+      'Networks: Facebook',
       'Your settings: your business’s defaults',
       'Extension: not signed in yet',
       'Groups: none yet',
@@ -149,6 +160,7 @@ describe('the setup’s steps', () => {
       ),
     ).toEqual([
       'Playbooks: CRM demos',
+      'Networks: Facebook',
       'On its own: Requests, likes and comments on their own; each message waits for you',
       'Extension: last checked in at 1:14 PM',
       'Groups: 12 of yours saved',
@@ -254,7 +266,7 @@ describe('each person’s setup', () => {
   it('starts a new person as a first-timer, with their own steps', async () => {
     const mine = await runAs(owner, ws, 'outreach.setup', {});
     expect(mine).toMatchObject({
-      steps: ['playbooks', 'ready', 'rules', 'settings', 'extension', 'groups'],
+      steps: ['playbooks', 'ready', 'rules', 'networks', 'settings', 'extension', 'groups'],
       reached: null,
       firstTime: true,
       banner: true,
@@ -266,7 +278,7 @@ describe('each person’s setup', () => {
     });
     const theirs = await runAs(member, ws, 'outreach.setup', {});
     expect(theirs).toMatchObject({
-      steps: ['playbooks', 'ready', 'settings', 'extension', 'groups'],
+      steps: ['playbooks', 'ready', 'networks', 'settings', 'extension', 'groups'],
       firstTime: true,
       canManage: false,
     });

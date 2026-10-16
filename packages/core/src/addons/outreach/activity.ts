@@ -176,6 +176,8 @@ export const ActivityOutput = z.object({
       personId: z.uuid().nullable(),
       name: z.string(),
       url: z.string(),
+      /** The network their profile is on: each row shows it by name. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
       group: z.object({ name: z.string().nullable(), url: z.string() }).nullable(),
       requestedAt: moment.nullable(),
       likedAt: moment.nullable(),

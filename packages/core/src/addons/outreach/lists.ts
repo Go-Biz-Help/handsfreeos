@@ -162,11 +162,28 @@ export const LIST_NAMES: Readonly<Record<ListSave, string>> = {
   groups: 'Your groups',
 };
 
-const WAIT_NAMES: Readonly<Record<ListSave, string>> = {
-  friends: 'your friends list',
-  requests: 'the friend requests you’ve got',
-  sent: 'the ones you’ve sent',
-  groups: 'your groups',
+/** Each network's lists as "It's saving … first" names them: one of them, or all of them at once. */
+const WAIT_NAMES_ON: Readonly<
+  Record<Platform, { readonly each: Readonly<Record<ListSave, string>>; readonly all: string }>
+> = {
+  facebook: {
+    each: {
+      friends: 'your friends list',
+      requests: 'the friend requests you’ve got',
+      sent: 'the ones you’ve sent',
+      groups: 'your groups',
+    },
+    all: 'your friends list, friend requests and groups',
+  },
+  linkedin: {
+    each: {
+      friends: 'your connections',
+      requests: 'the invitations you’ve got',
+      sent: 'the ones you’ve sent',
+      groups: 'your groups',
+    },
+    all: 'your connections and invitations',
+  },
 };
 
 /** "a, b and c". */
@@ -174,16 +191,20 @@ const listed = (words: readonly string[]): string =>
   words.length < 2 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
 
 /**
- * Why a day started isn't under way yet, under Start my day: the first time, until the lists and groups are saved.
- * Empty once they are, or when the day isn't started.
+ * Why a network's day started isn't under way yet (Facebook's when left out), under Start my day: the first time,
+ * until its lists are saved. Empty once they are, or when the day isn't started.
  */
-export function listsWaitWords(lists: ListsSaved | null | undefined, started: boolean): string {
-  if (!started || !lists || firstSaveDone(lists)) return '';
-  const left = LIST_SAVE_KEYS.filter((list) => lists[AT_KEY[list]] === null);
+export function listsWaitWords(
+  lists: ListsSaved | null | undefined,
+  started: boolean,
+  platform: Platform = 'facebook',
+): string {
+  if (!started || !lists || firstSaveDone(lists, platform)) return '';
+  const saves = LIST_SAVES_ON[platform];
+  const names = WAIT_NAMES_ON[platform];
+  const left = saves.filter((list) => lists[AT_KEY[list]] === null);
   const what =
-    left.length === LIST_SAVE_KEYS.length
-      ? 'your friends list, friend requests and groups'
-      : listed(left.map((list) => WAIT_NAMES[list]));
+    left.length === saves.length ? names.all : listed(left.map((list) => names.each[list]));
   return `It’s saving ${what} first, the first time only. Your day starts once they’re saved.`;
 }
 
