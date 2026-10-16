@@ -4,7 +4,7 @@
  * download, as the AI read them: a short summary, the playbooks' tags that fit, whether they look like a prospect
  * and a next step. The likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag
  * and a name narrow it. Which, the tag, the name and the page are in the address (./address.ts), so the page asks
- * HandsFreeOS for them. Who goes in Contacts is the business's setting, in Social Outreach → Settings → Business settings.
+ * HandsFreeOS for them. Who goes in Contacts is the business's setting, in Social Outreach → Settings → General.
  * Every network's chats, each row naming its network, or one network's (`?net=`); Read my chats asks the network
  * shown, Facebook's when the list is every network's.
  */

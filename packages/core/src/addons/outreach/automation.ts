@@ -331,12 +331,14 @@ const notAllowedOf = (c: NetworkChoices, rules: BusinessRules): string[] =>
 /** What the business doesn't allow of these choices, in words to refuse them with; null when it's all allowed. */
 export function notAllowedWords(settings: AutomationSettings, rules: BusinessRules): string | null {
   const fix =
-    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.';
+    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → General.';
   const offNetworks = OTHER_PLATFORMS.filter(
     (p) => settings.networks[p].on && !rules.networksAllowed.includes(p),
   );
-  if (offNetworks.length)
-    return `Your business doesn’t use ${offNetworks.map((p) => PLATFORMS[p]).join(' or ')} for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → Business settings.`;
+  if (offNetworks.length) {
+    const names = offNetworks.map((p) => PLATFORMS[p]).join(' or ');
+    return `Your business doesn’t use ${names} for outreach. Turn it off, or ask an owner of this business to allow it under Social Outreach → Settings → ${names}.`;
+  }
   const facebook = notAllowedOf(choicesFor(settings, 'facebook'), rules);
   if (facebook.length) return `Your business doesn’t allow ${facebook.join(' or ')}. ${fix}`;
   for (const p of OTHER_PLATFORMS) {

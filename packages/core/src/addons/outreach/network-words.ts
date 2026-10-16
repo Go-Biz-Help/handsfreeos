@@ -106,7 +106,7 @@ interface MoreWords {
    * person's own feed on LinkedIn.
    */
   readonly helpful: boolean;
-  /** Under the helpful post's choice in My settings: what the AI writes there, and where it goes. */
+  /** Under the helpful post's choice on the network's page in Settings: what the AI writes there, and where it goes. */
   readonly postingAbout: string;
   /** Tidying up's old requests: what they're called, its button, what's done, and why it matters there. */
   readonly oldRequests: {
@@ -222,7 +222,7 @@ export const onItsOwnAbout = (platform: Platform): string =>
 /** Whether Today has its helpful post on a network. */
 export const helpfulOn = (platform: Platform): boolean => MORE[platform].helpful;
 
-/** Under the helpful post's choice in My settings, on a network. */
+/** Under the helpful post's choice on a network's page in Settings. */
 export const postingAboutOn = (platform: Platform): string => MORE[platform].postingAbout;
 
 /** Each tidying ask's daily limit on the Friends tab: cancelling old requests, and unfriending. */
@@ -292,7 +292,7 @@ export function shareWords(part: number, whole: number): string {
 
 /** Social Outreach's words about networks, on the web and the phone. */
 export const NETWORK_WORDS = {
-  /** My settings' part. */
+  /** The setup's networks step, and the Settings menu's heading over each network's page. */
   title: 'Networks',
   about:
     'Where you reach people. Each network has its own day, limits and choices, and a warning on one never stops another.',
@@ -301,17 +301,20 @@ export const NETWORK_WORDS = {
   /** A network that's off for the person. */
   off: (name: string) => `${name} is off for you: nothing runs, reads or shows there.`,
   /**
-   * Beside a network's switch in My settings once its save is done: the switch saves at once, on its own (Chris,
-   * 2026-10-16), while its choices wait for Save.
+   * Beside a network's On for you switch once its save is done (Chris, 2026-10-16): at the top of its page in
+   * Settings, where every change saves as it's made.
    */
   switched: (name: string, on: boolean) =>
     on ? `${name} is on. The extension picks it up in a few seconds.` : `${name} is off.`,
-  /** A network the business doesn't use: why, and who can change it. */
+  /**
+   * A network the business doesn't use: why, and who can change it. Owners and admins turn on Your team may use it,
+   * under For your team on the network's own page in Settings.
+   */
   notAllowed: (name: string, manages: boolean) =>
     `Your business doesn’t use ${name} for outreach. ${
       manages
-        ? 'Allow it under Business settings, below.'
-        : 'Ask an owner or admin of this business to allow it under Social Outreach → Settings → Business settings.'
+        ? `Turn on “Your team may use ${name}” below to allow it.`
+        : `Ask an owner or admin of this business to allow it under Social Outreach → Settings → ${name}.`
     }`,
   /** The heading over a network's own choices. */
   choicesOn: (name: string) => `What it does on ${name}`,

@@ -1,9 +1,10 @@
 'use client';
 /**
  * Where the team downloads the browser extension (docs/outreach.md, decision 45): a link to its zip, which owners and
- * admins paste once, in Business settings or right in the setup's install step. The zip lives wherever the team keeps
- * it (a shared drive, a release page), never in HandsFreeOS's code. Kept with the business's Social Outreach settings
- * (`extensionLink`), so everyone's setup shows it.
+ * admins paste once, under For your team on Settings → General or right in the setup's install step. The zip lives
+ * wherever the team keeps it (a shared drive, a release page), never in HandsFreeOS's code. Kept with the business's
+ * Social Outreach settings (`extensionLink`), so everyone's setup shows it. A box to type in, so it keeps its own
+ * Save where the rest of Settings saves as it's changed (decision 73).
  */
 import { extensionLinkProblem, settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';

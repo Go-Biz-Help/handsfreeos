@@ -134,7 +134,9 @@ describe('the live view’s words', () => {
       'Chrome on Mac 3',
     );
     expect(sendingOffWords(false)).toContain('Ask an owner of this business');
-    expect(sendingOffWords(true)).toContain('Settings → My settings');
+    expect(sendingOffWords(true)).toContain('Settings → Facebook');
+    expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');
+    expect(sendingOffWords(false)).toContain('Settings → General');
   });
 
   it('cut long lines and names short rather than refuse them', () => {
