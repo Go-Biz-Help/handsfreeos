@@ -27,6 +27,7 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
+import type { ReportFound } from './reports';
 import type {
   MessageKind,
   OtherPlatform,
@@ -780,6 +781,8 @@ export const computers = addonOutreach.table(
     lineAt: ts('line_at'),
     /** The step before the first day under way, whose progress the line is; null for any other work. */
     doing: text('doing').$type<ListMark>(),
+    /** The networks Chrome lets it on, as it last said; null from a build that doesn't say (./reports.ts). */
+    allowed: text('allowed').array().$type<Platform[]>(),
     nextAt: ts('next_at'),
     toldAt: ts('told_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -936,6 +939,43 @@ export const asks = addonOutreach.table(
       columns: [t.workspaceId, t.computerId],
       foreignColumns: [computers.workspaceId, computers.id],
     }).onDelete('set null'),
+  ],
+);
+
+/**
+ * What the extension saw on a page a job read (./reports.ts, decision 74): its kind and masked address, whether its
+ * window was in front, what the readers found (counts, never words), and the page's outline when something was
+ * missing. Each person's own; it goes with its ask, and the day's steps' after a week.
+ */
+export const reports = addonOutreach.table(
+  'reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    askId: uuid('ask_id'),
+    platform: text('platform').notNull().$type<Platform>(),
+    job: text('job').notNull(),
+    version: text('version'),
+    page: text('page').notNull(),
+    path: text('path').notNull(),
+    shown: boolean('shown'),
+    found: jsonb('found')
+      .notNull()
+      .default(sql`'{}'::jsonb`)
+      .$type<ReportFound>(),
+    note: text('note'),
+    outline: text('outline'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.askId],
+      foreignColumns: [asks.workspaceId, asks.id],
+    }).onDelete('cascade'),
   ],
 );
 

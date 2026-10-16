@@ -83954,6 +83954,25 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "allowed": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "facebook",
+                                "linkedin"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -84997,7 +85016,7 @@
     "/v1/commands/outreach.ask.make": {
       "post": {
         "operationId": "command_outreach_ask_make",
-        "summary": "The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, or research one person for fit (counted in the day’s checks). The computer that works for them takes it. Asking again while one like it is open answers that one.",
+        "summary": "The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.",
         "tags": [
           "commands"
         ],
@@ -85460,6 +85479,20 @@
                           "kind",
                           "bio"
                         ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "checkup"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
                       }
                     ]
                   }
@@ -85519,7 +85552,8 @@
                             "lookup",
                             "research",
                             "profile_read",
-                            "profile_edit"
+                            "profile_edit",
+                            "checkup"
                           ]
                         },
                         "target": {
@@ -85845,7 +85879,8 @@
                                 "lookup",
                                 "research",
                                 "profile_read",
-                                "profile_edit"
+                                "profile_edit",
+                                "checkup"
                               ]
                             },
                             "task": {
@@ -86410,6 +86445,21 @@
                                     "bio"
                                   ],
                                   "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "checkup"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               ]
                             },
@@ -86803,7 +86853,8 @@
                             "lookup",
                             "research",
                             "profile_read",
-                            "profile_edit"
+                            "profile_edit",
+                            "checkup"
                           ]
                         },
                         "target": {
@@ -87103,7 +87154,8 @@
                             "lookup",
                             "research",
                             "profile_read",
-                            "profile_edit"
+                            "profile_edit",
+                            "checkup"
                           ]
                         },
                         "target": {
@@ -87399,6 +87451,176 @@
                     "personName",
                     "profileId",
                     "addedPerson"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.report.save": {
+      "post": {
+        "operationId": "command_outreach_report_save",
+        "summary": "The browser extension saves a note of a page a job read: its kind and address with people’s parts hidden, whether its window was in front, what it found there (counts, never words), and the page’s outline when something was missing. The person’s own; kept a week.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.report.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "platform": {
+                        "type": "string",
+                        "enum": [
+                          "facebook",
+                          "linkedin"
+                        ]
+                      },
+                      "askId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "job": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "version": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "page": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "path": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "shown": {
+                        "default": null,
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "found": {
+                        "default": {},
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-zA-Z]{0,39}$"
+                        },
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "maxItems": 40,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 60
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "note": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "outline": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "platform",
+                      "job",
+                      "page",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "report"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reportId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "reportId"
                   ],
                   "additionalProperties": false
                 }
@@ -175362,6 +175584,23 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "allowed": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "facebook",
+                                      "linkedin"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -175430,6 +175669,23 @@
                             "type": [
                               "string",
                               "null"
+                            ]
+                          },
+                          "allowed": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "facebook",
+                                    "linkedin"
+                                  ]
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
                           }
                         },
@@ -176581,7 +176837,8 @@
                                       "lookup",
                                       "research",
                                       "profile_read",
-                                      "profile_edit"
+                                      "profile_edit",
+                                      "checkup"
                                     ]
                                   },
                                   "target": {
@@ -177507,7 +177764,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "kinds": {
-                    "maxItems": 21,
+                    "maxItems": 22,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -177532,7 +177789,8 @@
                         "lookup",
                         "research",
                         "profile_read",
-                        "profile_edit"
+                        "profile_edit",
+                        "checkup"
                       ]
                     }
                   }
@@ -177588,6 +177846,23 @@
                               "type": [
                                 "string",
                                 "null"
+                              ]
+                            },
+                            "allowed": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "facebook",
+                                      "linkedin"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
                               ]
                             }
                           },
@@ -177650,7 +177925,8 @@
                               "lookup",
                               "research",
                               "profile_read",
-                              "profile_edit"
+                              "profile_edit",
+                              "checkup"
                             ]
                           },
                           "target": {

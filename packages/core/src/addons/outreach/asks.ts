@@ -22,6 +22,7 @@ import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
 import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import { BIO_MOST_ON, PROFILE_BIO_MOST } from './profile-check';
+import { allowedOn, REPORT_WORDS } from './reports';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
 export const ASK_KINDS = {
@@ -46,6 +47,7 @@ export const ASK_KINDS = {
   research: 'Research someone for fit',
   profile_read: 'Read your Facebook profile',
   profile_edit: 'Put your new bio in',
+  checkup: 'Check Facebook',
 } as const;
 export type AskKind = keyof typeof ASK_KINDS;
 export const ASK_KIND_KEYS = Object.keys(ASK_KINDS) as [AskKind, ...AskKind[]];
@@ -58,13 +60,13 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
 
 /**
  * The kinds each network's pages can be asked (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "LinkedIn, part by
- * part"): Facebook's every kind; LinkedIn's its invitations and connections, checking connections for fits, reading
- * chats, looking someone up, researching one person, reading the profile and putting the headline in, withdrawing old
- * invitations, searching posts and putting up a post. A kind a network can't be asked is refused
- * (`outreach_ask_not_on_network`).
+ * part"): Facebook's every kind but Check LinkedIn; LinkedIn's its invitations and connections, checking connections for
+ * fits, reading chats, looking someone up, researching one person, reading the profile and putting the headline in,
+ * withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn (decision 74). A kind a network
+ * can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
-  facebook: ASK_KIND_KEYS,
+  facebook: ASK_KIND_KEYS.filter((kind) => kind !== 'checkup'),
   linkedin: [
     // LinkedIn's own copy of the person's data ("Get a copy of your data"): asked for, downloaded, brought in
     // (./linkedin-export.ts). It has no chat backup.
@@ -82,6 +84,7 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'cancel',
     'posts',
     'post',
+    'checkup',
   ],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
@@ -126,12 +129,19 @@ export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
 
 /**
  * On a network but Facebook, the first build that does a kind there when it came after the network's first: LinkedIn's
- * data file (asked for, downloaded and brought in) came in 0.42.0, and its helpful post on the person's feed in 0.43.0.
+ * data file (asked for, downloaded and brought in) came in 0.42.0, its helpful post on the person's feed in 0.43.0,
+ * and Check LinkedIn in 0.48.0.
  */
 export const ASK_KIND_SINCE_ON: Readonly<
   Partial<Record<Platform, Readonly<Partial<Record<AskKind, string>>>>>
 > = {
-  linkedin: { file_request: '0.42.0', file_download: '0.42.0', file_in: '0.42.0', post: '0.43.0' },
+  linkedin: {
+    file_request: '0.42.0',
+    file_download: '0.42.0',
+    file_in: '0.42.0',
+    post: '0.43.0',
+    checkup: '0.48.0',
+  },
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
@@ -174,6 +184,7 @@ export const ASK_KINDS_FOR = {
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
   chats: ['chats'],
   today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit'],
+  settings: ['checkup'],
 } as const satisfies Record<string, readonly AskKind[]>;
 
 export const ASK_STATES = {
@@ -359,6 +370,11 @@ export const AskInput = z.discriminatedUnion('kind', [
     kind: z.literal('profile_edit'),
     bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST),
   }),
+  /**
+   * Open the network's main pages, read each without pressing anything, and send a note of what was found (decision
+   * 74, ./reports.ts): LinkedIn's.
+   */
+  plain('checkup'),
 ]);
 export type AskInput = z.input<typeof AskInput>;
 export type AskAsked = z.output<typeof AskInput>;
@@ -415,6 +431,7 @@ export const AskTask = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
   plain('profile_read'),
   z.object({ kind: z.literal('profile_edit'), bio: z.string() }),
+  plain('checkup'),
 ]);
 export type AskTask = z.output<typeof AskTask>;
 
@@ -490,6 +507,8 @@ export const AsksOutput = z.object({
       lastSeenAt: moment,
       /** Its build of the extension, as it last said: one too old for a kind of ask can't be asked it. */
       version: z.string().nullable(),
+      /** The networks Chrome lets it on, as it last said; null from a build that doesn't say (./reports.ts). */
+      allowed: z.array(z.enum(PLATFORM_KEYS)).nullable().optional(),
     })
     .nullable(),
   /** Whether Facebook warned them today: nothing but bringing in the file can be asked. */
@@ -695,16 +714,21 @@ export function askAbout(
   }
 }
 
-/** Under an ask the computer hasn't taken: when it will. */
+/**
+ * Under an ask the computer hasn't taken, on its network (Facebook when left out): when it will, or what to press
+ * first when Chrome hasn't let the extension on the network.
+ */
 export function askWaitingWords(
   computer: {
     readonly name: string;
     readonly online: boolean;
     readonly signedOut: boolean;
     readonly lastSeenAt: string;
+    readonly allowed?: readonly Platform[] | null;
   } | null,
   timeZone: string,
   now: number,
+  platform: Platform = 'facebook',
 ): string {
   if (!computer)
     return 'Install HandsFreeOS Social in Chrome on your computer and sign in, and it does this.';
@@ -712,6 +736,8 @@ export function askWaitingWords(
     return `${computer.name} is signed out of the extension. Sign in there, and it does this.`;
   if (!computer.online || isOffline(computer.lastSeenAt, now))
     return `${offlineWords(computer.lastSeenAt, timeZone, now)} It does this then.`;
+  if (!allowedOn(computer.allowed, platform))
+    return `${REPORT_WORDS.notAllowed(computer.name, platform)} It does this then.`;
   return `${computer.name} starts on it in a moment.`;
 }
 
@@ -817,6 +843,7 @@ export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
   research: '0.27.0',
   profile_read: '0.32.0',
   profile_edit: '0.32.0',
+  checkup: '0.48.0',
 };
 
 /**
@@ -877,6 +904,7 @@ export function askedWords(
     readonly fresh: boolean;
     readonly ask: {
       readonly kind: AskKind;
+      readonly platform?: Platform;
       readonly state?: string;
       readonly line?: string | null;
     };
@@ -887,7 +915,7 @@ export function askedWords(
   // Ended as it was asked (Research with the day's checks used up): its line says what comes of it.
   if (made.ask.state === 'done' && made.ask.line) return made.ask.line;
   return made.fresh
-    ? `Asked. ${askWaitingWords(asks.computer, asks.timezone, now)}`
+    ? `Asked. ${askWaitingWords(asks.computer, asks.timezone, now, made.ask.platform)}`
     : askAgainWords(made.ask.kind);
 }
 
