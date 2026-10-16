@@ -15,6 +15,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   ASK_KIND_KEYS,
   notOnNetworkWords,
+  bioTooLongWords,
   targetOn,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
@@ -55,7 +56,6 @@ import { isOffline, networkOffWords } from '../live';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
 import { postSearchWords } from '../posts';
-import { BIO_MOST_ON } from '../profile-check';
 import { ProfileSaveOutput } from '../saves';
 import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
@@ -335,13 +335,8 @@ export const askMake = defineAddonCommand(outreachAddon, {
     const { platform } = input;
     const notOn = notOnNetworkWords(platform, ask.kind);
     if (notOn) throw HfosError.rule('outreach_ask_not_on_network', 409, notOn);
-    // Each network's own length: Facebook's short bio, LinkedIn's headline.
-    if (ask.kind === 'profile_edit' && ask.bio.length > BIO_MOST_ON[platform])
-      throw HfosError.rule(
-        'outreach_bio_too_long',
-        400,
-        `Keep your ${platform === 'facebook' ? 'bio' : 'headline'} to ${BIO_MOST_ON[platform]} characters: it’s ${ask.bio.length.toLocaleString('en-US')} now. Shorten it, then press Put this one in again.`,
-      );
+    const tooLong = ask.kind === 'profile_edit' ? bioTooLongWords(platform, ask.bio) : null;
+    if (tooLong) throw HfosError.rule('outreach_bio_too_long', 400, tooLong);
     // A network the person doesn't work asks nothing there.
     if (!(await automationOf(ctx, me, now, platform)).choices.on)
       throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));

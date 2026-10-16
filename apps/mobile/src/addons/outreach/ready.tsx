@@ -1,16 +1,16 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import { seenWords } from '@hfos/core/addons/outreach/live';
-import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { checkCounts, type AnyProfileItem } from '@hfos/core/addons/outreach/profile-check';
 import {
   CALLS_GOAL,
   numbersLines,
   numbersMath,
   numbersVerdict,
-  PROFILE_ITEMS,
+  profileWordsOn,
   READY_WORDS as R,
   tickCounts,
-  type ProfileItem,
   type ReadinessOutput,
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
@@ -36,6 +36,9 @@ import { Note, useOutreachAnswer, useOutreachContext } from './kit';
  * their computer and checked by the AI (**Read my profile**, then **Put this one in** for a bio), with a tick for what
  * the AI can't see; their messages, the samples written on their computer, to read and OK; and their goal with the
  * math as it changes. The main offer and the playbooks are written on a computer. It needs signal.
+ *
+ * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines to put
+ * in, and an About to start from (selectable, to copy), each asked and ticked on LinkedIn.
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -54,17 +57,27 @@ const STATE_ICON = {
   waiting: { icon: Clock, className: 'text-warning' },
 } satisfies Record<ReadyState, unknown>;
 
-/** Get ready's answer and what its buttons do. `onReady` runs once the person is ready, for Today's list to come back. */
-export function useReadyProps(onReady: () => void): React.ComponentProps<typeof GetReadyCard> {
+/**
+ * Get ready's answer on a network and what its buttons do: its own profile counts. `onReady` runs once the person is
+ * ready there, for Today's list to come back.
+ */
+export function useReadyProps(
+  platform: Platform,
+  onReady: () => void,
+): React.ComponentProps<typeof GetReadyCard> {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const ready = useOutreachAnswer(
     async () =>
-      unwrap(await api.POST('/v1/queries/outreach.readiness', { body: { workspaceId: ws } })),
-    `readiness:${ws}`,
+      unwrap(
+        await api.POST('/v1/queries/outreach.readiness', { body: { workspaceId: ws, platform } }),
+      ),
+    `readiness:${ws}:${platform}`,
     R.card,
   );
   const [shown, setShown] = React.useState<ReadinessOutput | null>(null);
+  // Another network's answer, once shown, isn't this one's.
+  React.useEffect(() => setShown(null), [platform]);
   const readiness = shown ?? ready.data;
   const took = (next: ReadinessOutput) => setShown(next);
   // Ready now, from a tick, the goal, or a profile read on the computer: Today's list comes back.
@@ -89,7 +102,10 @@ export function useReadyProps(onReady: () => void): React.ComponentProps<typeof 
     actions,
     onTick: async (item, done) => {
       try {
-        took((await change('outreach.readiness.profile', { workspaceId: ws, item, done })).output);
+        took(
+          (await change('outreach.readiness.profile', { workspaceId: ws, platform, item, done }))
+            .output,
+        );
       } catch (e) {
         failed(e);
       }
@@ -129,7 +145,7 @@ export function GetReadyCard({
   /** What was asked of the person's computer, for Read my profile and Put this one in; null hides those buttons. */
   asks?: AsksOutput | null;
   actions?: AskActions | null;
-  onTick: (item: ProfileItem, done: boolean) => Promise<void>;
+  onTick: (item: AnyProfileItem, done: boolean) => Promise<void>;
   /** They read right: OKs the samples against the live version. Left out where they can't be OK'd. */
   onMessages?: () => Promise<boolean>;
   onNumbers: (goal: number, days: number[]) => Promise<boolean>;
@@ -309,9 +325,12 @@ function ProfileList({
   readiness: ReadinessOutput;
   asks: AsksOutput | null;
   actions: AskActions | null;
-  onTick: (item: ProfileItem, done: boolean) => Promise<void>;
+  onTick: (item: AnyProfileItem, done: boolean) => Promise<void>;
 }) {
-  const [busy, setBusy] = React.useState<ProfileItem | null>(null);
+  const [busy, setBusy] = React.useState<AnyProfileItem | null>(null);
+  // The network's own profile: its list, its words, and its asks.
+  const platform = readiness.platform ?? 'facebook';
+  const P = profileWordsOn(platform);
   const live = readiness.offer?.version ?? null;
   // The AI's check, when it's of the live version: what's right, and what to change.
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
@@ -326,6 +345,7 @@ function ProfileList({
           <AskButton
             asks={asks}
             ask={{ kind: 'profile_read' }}
+            platform={platform}
             label={check ? P.readAgain : P.read}
             variant={check ? 'secondary' : 'primary'}
             actions={actions}
@@ -334,9 +354,9 @@ function ProfileList({
         ) : null}
       </View>
       <View className="gap-1">
-        {PROFILE_ITEMS.map((item) => {
+        {P.items.map((words) => {
+          const { item } = words;
           const checked = tickCounts(readiness.profile[item], live);
-          const words = R.profile.items[item];
           const ai = check?.items[item] ?? null;
           const said = ai ? (
             <Text
@@ -416,6 +436,7 @@ function ProfileList({
                 <AskButton
                   asks={asks}
                   ask={{ kind: 'profile_edit', bio }}
+                  platform={platform}
                   label={P.useBio}
                   actions={actions}
                   testID={`ready-bio-use-${i}`}
@@ -432,6 +453,18 @@ function ProfileList({
             “{check.coverLine}”
           </Text>
           <Note>{P.coverHint}</Note>
+        </View>
+      ) : null}
+      {check?.aboutDraft && P.about ? (
+        <View className="gap-1" testID="ready-about">
+          <Text className="text-[14px] font-semibold">{P.about}</Text>
+          <Note>{P.aboutHint}</Note>
+          <Text
+            selectable
+            className="rounded-menu border border-border px-3 py-2.5 text-[14px] leading-[20px]"
+          >
+            {check.aboutDraft}
+          </Text>
         </View>
       ) : null}
       {check?.feature.length ? (

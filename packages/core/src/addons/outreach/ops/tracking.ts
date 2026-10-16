@@ -2,7 +2,7 @@
  * Tracking: the daily numbers (../tracking.ts, docs/outreach.md decision 70). Results reads the three numbers in a
  * stretch (`outreach.tracking`); the worker reads the person's day for their day's report (`outreach.day_report`) and
  * last week for their review (`outreach.review.week`), and keeps the review (`outreach.review.save`). Every count comes
- * through `private.outreach_numbers`: counts only, never who, and everyone's only for owners and admins, or the
+ * through `private.outreach_numbers_by_network`: counts only, never who, and everyone's only for owners and admins, or the
  * worker, since each person's answers and conversations are their own.
  */
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -17,6 +17,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { ACTIVITY_PERIODS } from '../activity';
 import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
+import { PLATFORM_KEYS, type Platform } from '../networks';
 import { playbooks, reviews, setup } from '../tables';
 import {
   DayReportInput,
@@ -47,6 +48,7 @@ const ON = 'infinity';
 const ACTIVE_DAYS = 7;
 
 type Counted = {
+  readonly platform: Platform;
   readonly playbook_id: string | null;
   readonly offer_version: number | null;
   readonly messages: number;
@@ -54,7 +56,7 @@ type Counted = {
   readonly booked: number;
 };
 
-/** The three numbers in [from, to), by playbook and version: one person's, or everyone's. */
+/** The three numbers in [from, to), by network, playbook and version: one person's, or everyone's. */
 export async function numbersIn(
   ctx: Ctx,
   who: { readonly me: string; readonly everyone: boolean },
@@ -63,8 +65,8 @@ export async function numbersIn(
 ): Promise<Counted[]> {
   return rows<Counted>(
     ctx.tx,
-    sql`select playbook_id, offer_version, messages, positive, booked
-        from private.outreach_numbers(${ctx.scope.workspaceId!}, ${who.me}, ${who.everyone},
+    sql`select platform, playbook_id, offer_version, messages, positive, booked
+        from private.outreach_numbers_by_network(${ctx.scope.workspaceId!}, ${who.me}, ${who.everyone},
           ${from}::timestamptz, ${to}::timestamptz)`,
   );
 }
@@ -75,7 +77,10 @@ const add = (a: TrackingNumbers, b: TrackingNumbers): TrackingNumbers => ({
   booked: a.booked + b.booked,
 });
 
-/** The counts added up, by playbook (with its name, the most messages first) and by version (the newest first). */
+/**
+ * The counts added up, by playbook (with its name, the most messages first), by version (the newest first) and by
+ * network (the most messages first, then in the kit's order).
+ */
 async function summed(ctx: Ctx, counted: readonly Counted[]) {
   const ws = ctx.scope.workspaceId!;
   const ids = [...new Set(counted.map((c) => c.playbook_id))].filter(
@@ -93,7 +98,9 @@ async function summed(ctx: Ctx, counted: readonly Counted[]) {
   const numbers = counted.reduce<TrackingNumbers>((s, c) => add(s, c), NO_NUMBERS);
   const byPlaybook = new Map<string | null, TrackingNumbers>();
   const byVersion = new Map<number, TrackingNumbers>();
+  const byNetwork = new Map<Platform, TrackingNumbers>();
   for (const c of counted) {
+    byNetwork.set(c.platform, add(byNetwork.get(c.platform) ?? NO_NUMBERS, c));
     // A playbook let go since keeps its counts, under no playbook.
     const id = c.playbook_id !== null && names.has(c.playbook_id) ? c.playbook_id : null;
     byPlaybook.set(id, add(byPlaybook.get(id) ?? NO_NUMBERS, c));
@@ -123,6 +130,9 @@ async function summed(ctx: Ctx, counted: readonly Counted[]) {
     byVersion: [...byVersion.entries()]
       .sort(([a], [b]) => b - a)
       .map(([version, n]) => ({ version, live: version === (offer?.live ?? null), ...n })),
+    byNetwork: PLATFORM_KEYS.filter((p) => byNetwork.has(p))
+      .map((platform) => ({ platform, ...byNetwork.get(platform)! }))
+      .sort((a, b) => b.messages - a.messages),
   };
 }
 
@@ -179,7 +189,7 @@ function meOf(ctx: Ctx): string {
 export const tracking = defineAddonQuery(outreachAddon, {
   name: 'outreach.tracking',
   description:
-    'The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook and by the main offer’s version, and their latest week’s review. Owners and admins can see everyone’s counts.',
+    'The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook, by the main offer’s version and by network, and their latest week’s review. Owners and admins can see everyone’s counts.',
   input: TrackingInput,
   output: TrackingOutput,
   permission: 'outreach.use',
@@ -212,6 +222,7 @@ export const tracking = defineAddonQuery(outreachAddon, {
         : null,
       byPlaybook: s.byPlaybook,
       byVersion: s.byVersion,
+      byNetwork: s.byNetwork,
       review: input.everyone ? null : await latestReview(ctx, me),
     };
   },

@@ -1,4 +1,5 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { PROFILE_ITEMS_ON } from '@hfos/core/addons/outreach/profile-check';
 import {
   PROFILE_ITEMS,
   READY_WORDS,
@@ -176,10 +177,80 @@ describe('Get ready on the phone', () => {
     expect(screen.getByText('“Roofers: 10 booked inspections a month.”')).toBeTruthy();
     expect(screen.getByTestId('ready-profile-read-ask')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ready-bio-use-1'));
-    expect(actions.ask).toHaveBeenCalledWith({
-      kind: 'profile_edit',
-      bio: 'Booked inspections for roofers.',
-    });
+    expect(actions.ask).toHaveBeenCalledWith(
+      { kind: 'profile_edit', bio: 'Booked inspections for roofers.' },
+      'facebook',
+    );
+  });
+
+  it('checks LinkedIn’s profile by its own list, in its words, and asks on LinkedIn', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const headline =
+      'I help roofers book 10 more inspections a month with plain follow-ups that sound like them, not a robot.';
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'linkedin',
+      profileCheck: {
+        items: {
+          picture: ok,
+          cover: fix('Nothing read.', 'Put your result on your banner.'),
+          bio: fix('Only a job title.', 'Say who you help.'),
+          about: fix('Nothing read.', 'Start with who you help.'),
+          work: ok,
+          featured: ok,
+          posts: ok,
+        },
+        bios: [headline],
+        aboutDraft: 'I help roofers book more inspections. Book a call with me below.',
+        coverLine: 'Roofers: 10 booked inspections a month.',
+        feature: [],
+        at: '2026-10-14T15:00:00.000Z',
+        version: 1,
+      },
+    };
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.40.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    const onTick = jest.fn(async () => undefined);
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={onTick}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-profile'));
+    const list = screen.getByTestId('ready-profile-list');
+    // LinkedIn's seven, About among them: four right by the AI, three to tick.
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(3);
+    expect(PROFILE_ITEMS_ON.linkedin).toHaveLength(7);
+    expect(within(list).getByText('A headline that says who you help and the result')).toBeTruthy();
+    expect(within(list).getByText('Headlines to pick from')).toBeTruthy();
+    expect(within(list).getByText('A line for your banner')).toBeTruthy();
+    expect(within(list).getByText('An About to start from')).toBeTruthy();
+    expect(
+      within(list).getByText('I help roofers book more inspections. Book a call with me below.'),
+    ).toBeTruthy();
+    expect(within(list).queryByText(/Facebook/)).toBeNull();
+    await fireEvent.press(screen.getByTestId('ready-profile-about'));
+    await waitFor(() => expect(onTick).toHaveBeenCalledWith('about', true));
+    await fireEvent.press(screen.getByTestId('ready-bio-use-0'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'profile_edit', bio: headline }, 'linkedin');
   });
 
   it('shows nothing once they’re ready', async () => {

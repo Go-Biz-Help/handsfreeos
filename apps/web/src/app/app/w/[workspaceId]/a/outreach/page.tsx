@@ -1,4 +1,6 @@
 import { ASK_KINDS_FOR } from '@hfos/core/addons/outreach/asks';
+import { networkShown, networksShown } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { outreachSetupPath } from '@hfos/core/addons/outreach/setup';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -30,6 +32,10 @@ function searchWordsOf(list: PlaybookList | null): string {
  * and admins (`outreach.manage`) write the playbooks and see everyone's results (`?who=everyone`); anyone else asking
  * for that sees their own. Someone who never saved their own settings and never started Social Outreach's setup is
  * sent there from the bare page (`./setup`).
+ *
+ * Each network the person works has its own day, list and lists first (Chris: each network on its own): Today asks
+ * for each one's live view, for the strip's row of it, and for the list of the one shown (`?net=`, else the first).
+ * People's lists are every network's, each row naming its own, or one network's (`?net=`).
  */
 export default async function OutreachPage({
   params,
@@ -64,12 +70,17 @@ export default async function OutreachPage({
           body: { workspaceId, ...(tab ? { kinds: [...ASK_KINDS_FOR[tab]] } : {}) },
         })
         .then(unwrapPage);
-    // What the person's computer is doing: Today's strip, and Settings' computers. Left out when it can't be had.
-    const liveOf = () =>
+    // What the person's computer is doing, and their day on a network: Today's strip, and Settings' computers. Left
+    // out when it can't be had.
+    const liveOf = (platform?: Platform) =>
       api
-        .POST('/v1/queries/outreach.live', { body: { workspaceId } })
+        .POST('/v1/queries/outreach.live', {
+          body: { workspaceId, ...(platform ? { platform } : {}) },
+        })
         .then((r) => r.data ?? null)
         .catch(() => null);
+    // A list narrowed to one network, when the address names one.
+    const onNetwork = shown.net ? { platform: shown.net } : {};
     const activityOf = (everyone: boolean) =>
       api
         .POST('/v1/queries/outreach.activity', {
@@ -126,11 +137,22 @@ export default async function OutreachPage({
       );
     }
     if (shown.view === 'live') {
-      const [got, live, asks] = await Promise.all([
+      // The day of the network asked for, when the person works it, else their first: each network's is its own.
+      const [got, mine, asks] = await Promise.all([
         workspace,
-        api.POST('/v1/queries/outreach.live', { body: { workspaceId } }).then(unwrapPage),
+        api
+          .POST('/v1/queries/outreach.automation', { body: { workspaceId } })
+          .then((r) => r.data ?? null)
+          .catch(() => null),
         asksOf(),
       ]);
+      const nets: readonly Platform[] = mine
+        ? networksShown(mine.settings, mine.rules.networksAllowed)
+        : ['facebook'];
+      const net = networkShown(nets, shown.net);
+      const live = await api
+        .POST('/v1/queries/outreach.live', { body: { workspaceId, platform: net } })
+        .then(unwrapPage);
       const canManage = got.workspace.permissions.includes('outreach.manage');
       // Owners and admins see how each person's extension is doing: never their lines or messages.
       const team = canManage
@@ -144,7 +166,7 @@ export default async function OutreachPage({
           waitingCount={await waitingCount}
           businessName={got.workspace.name}
           canManage={canManage}
-          shown={{ view: 'live', live, team, asks }}
+          shown={{ view: 'live', live, team, asks, platform: net, networks: nets }}
         />
       );
     }
@@ -157,6 +179,7 @@ export default async function OutreachPage({
               view,
               ...(shown.search ? { search: shown.search } : {}),
               page: view === shown.stages ? shown.page : 1,
+              ...onNetwork,
             },
           })
           .then(unwrapPage);
@@ -184,6 +207,7 @@ export default async function OutreachPage({
             board,
             show: shown.stages,
             search: shown.search,
+            net: shown.net,
             asks,
           }}
         />
@@ -236,10 +260,14 @@ export default async function OutreachPage({
               view: shown.show,
               ...(shown.search ? { search: shown.search } : {}),
               page: shown.page,
+              ...onNetwork,
             },
           })
           .then(unwrapPage),
-        api.POST('/v1/queries/outreach.friends.tidy', { body: { workspaceId } }).then(unwrapPage),
+        // Tidying up on the network narrowed to, Facebook's when none: each network's limits are its own.
+        api
+          .POST('/v1/queries/outreach.friends.tidy', { body: { workspaceId, ...onNetwork } })
+          .then(unwrapPage),
         asksOf('friends'),
       ]);
       return (
@@ -254,6 +282,7 @@ export default async function OutreachPage({
             tidy,
             show: shown.show,
             search: shown.search,
+            net: shown.net,
             asks,
           }}
         />
@@ -270,6 +299,7 @@ export default async function OutreachPage({
               ...(shown.tag ? { tag: shown.tag } : {}),
               ...(shown.search ? { search: shown.search } : {}),
               page: shown.page,
+              ...onNetwork,
             },
           })
           .then(unwrapPage),
@@ -288,6 +318,7 @@ export default async function OutreachPage({
             show: shown.chats,
             tag: shown.tag,
             search: shown.search,
+            net: shown.net,
           }}
         />
       );
@@ -342,38 +373,77 @@ export default async function OutreachPage({
       );
     }
     // Today, the bare page's: a first-timer is sent to the setup first.
-    const [got, setup, today, helpful, asks, live, waiting] = await Promise.all([
+    const [got, setup, mine, asks, waiting] = await Promise.all([
       workspace,
       bare
         ? api.POST('/v1/queries/outreach.setup', { body: { workspaceId } }).then(unwrapPage)
         : null,
-      api.POST('/v1/queries/outreach.today', { body: { workspaceId } }).then(unwrapPage),
-      api.POST('/v1/queries/outreach.helpful', { body: { workspaceId } }).then(unwrapPage),
+      // The networks the person works, for the strip and the list shown: Facebook's alone when they can't be had.
+      api
+        .POST('/v1/queries/outreach.automation', { body: { workspaceId } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
       asksOf('today'),
-      liveOf(),
       api
         .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
         .then((r) => r.data ?? null)
         .catch(() => null),
     ]);
     if (setup?.firstTime) redirect(outreachSetupPath(workspaceId));
+    const nets: readonly Platform[] = mine
+      ? networksShown(mine.settings, mine.rules.networksAllowed)
+      : ['facebook'];
+    const net = networkShown(nets, shown.net);
+    // Whether the person is ready on a network, its own profile counting: each row's Start my day waits on its own.
+    const readyOf = (platform: Platform) =>
+      api
+        .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform } })
+        .then((r) => r.data?.ready)
+        .catch(() => undefined);
+    const [today, lives, helpful, readyOn] = await Promise.all([
+      api
+        .POST('/v1/queries/outreach.today', { body: { workspaceId, platform: net } })
+        .then(unwrapPage),
+      Promise.all(nets.map((p) => liveOf(p))),
+      // The helpful post on the network shown: in a group on Facebook, on the person's own feed on LinkedIn.
+      api
+        .POST('/v1/queries/outreach.helpful', { body: { workspaceId, platform: net } })
+        .then(unwrapPage),
+      Promise.all(nets.map((p) => (p === net ? undefined : readyOf(p)))),
+    ]);
+    const networks = nets.flatMap((platform, i) => {
+      const live = lives[i];
+      return live ? [{ platform, live, ready: platform === net ? today.ready : readyOn[i] }] : [];
+    });
     const canManage = got.workspace.permissions.includes('outreach.manage');
-    // Owners and admins see who's on training wheels, to end them early; until the person is ready, Get ready shows
-    // in place of the day's list (decision 63).
+    // Owners and admins see who's on training wheels, to end them early; until the person is ready on the network
+    // shown, its Get ready shows in place of the day's list (decision 63).
     const [wheels, readiness] = await Promise.all([
       canManage
         ? api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
         : null,
       today.ready
         ? null
-        : api.POST('/v1/queries/outreach.readiness', { body: { workspaceId } }).then(unwrapPage),
+        : api
+            .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: net } })
+            .then(unwrapPage),
     ]);
     return (
       <OutreachHome
         workspaceId={workspaceId}
         businessName={got.workspace.name}
         canManage={canManage}
-        shown={{ view: 'today', today, helpful, wheels, asks, live, waiting, readiness }}
+        shown={{
+          view: 'today',
+          platform: net,
+          networks,
+          today,
+          helpful,
+          wheels,
+          asks,
+          waiting,
+          readiness,
+        }}
       />
     );
   });

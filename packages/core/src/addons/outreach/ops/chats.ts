@@ -33,7 +33,7 @@ import {
 import { ChatsCollectInput, ChatsCollectOutput, mergeRecent } from '../chat-collect';
 import { nameKey } from '../download';
 import { outreachAddon } from '../manifest';
-import { PLATFORMS } from '../playbooks';
+import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor } from './common';
 import { noteAnswer } from './conversation';
@@ -219,7 +219,7 @@ const VIEW_WHERE: Record<ChatView, ReturnType<typeof sql>> = {
 export const chatsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.chats',
   description:
-    'The person’s own chats brought in from their Facebook download, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.',
+    'The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.',
   input: ChatsInput,
   output: ChatsOutput,
   permission: 'outreach.use',
@@ -227,7 +227,9 @@ export const chatsList = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
-    const mine = sql`c.workspace_id = ${ws} and c.user_id = ${me}`;
+    // One network's chats, counts and tags too, when asked: every network's otherwise.
+    const mine = sql`c.workspace_id = ${ws} and c.user_id = ${me}
+      and ${input.platform ? sql`c.platform = ${input.platform}` : sql`true`}`;
     const [counts] = await rows<{
       prospects: number;
       tagged: number;
@@ -261,6 +263,7 @@ export const chatsList = defineAddonQuery(outreachAddon, {
     const listed = await rows<{
       id: string;
       name: string;
+      platform: Platform;
       person_id: string | null;
       last_at: Date | string;
       last_from_me: boolean;
@@ -278,7 +281,7 @@ export const chatsList = defineAddonQuery(outreachAddon, {
     }>(
       ctx.tx,
       sql`select c.id, coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), c.name) as name,
-            c.person_id, c.last_at, c.last_from_me, c.messages, c.read_state, c.summary, c.tags, c.prospect,
+            c.platform, c.person_id, c.last_at, c.last_from_me, c.messages, c.read_state, c.summary, c.tags, c.prospect,
             c.next_step, c.thread_key, c.profile_id,
             coalesce(pr.dont_pitch, false) as dont_pitch, coalesce(pr.never_contact, false) as never_contact,
             -- Saved to their card (outreach.chat.keep): by its number, or its own key while it had none.
@@ -298,6 +301,7 @@ export const chatsList = defineAddonQuery(outreachAddon, {
       chats: listed.map((c) => ({
         chatId: c.id,
         name: c.name,
+        platform: c.platform,
         personId: c.person_id,
         lastAt: new Date(c.last_at).toISOString(),
         lastFromMe: c.last_from_me,

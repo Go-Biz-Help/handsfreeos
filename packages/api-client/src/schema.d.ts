@@ -17227,7 +17227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own chats brought in from their Facebook download, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.
+         * The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_chats"];
@@ -17307,7 +17307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own sent friend requests nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with today’s counts against the limits, and any warning Facebook showed them lately.
+         * The person’s own sent friend requests (LinkedIn’s invitations) on one network nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with that network’s counts today against its limits, and any warning it showed them lately.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_friends_tidy"];
@@ -17447,7 +17447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many things wait for them (Waiting for you), any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.
+         * What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_live"];
@@ -17667,7 +17667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s pipeline: everyone they reached on Facebook by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.
+         * The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_stages"];
@@ -17707,7 +17707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook and by the main offer’s version, and their latest week’s review. Owners and admins can see everyone’s counts.
+         * The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook, by the main offer’s version and by network, and their latest week’s review. Owners and admins can see everyone’s counts.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_tracking"];
@@ -37730,7 +37730,7 @@ export interface operations {
                     /** @enum {boolean} */
                     hideBanner?: true;
                     /** @enum {string} */
-                    reached?: "playbooks" | "ready" | "rules" | "settings" | "extension" | "groups";
+                    reached?: "playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups";
                     /** @enum {boolean} */
                     started?: true;
                     /** Format: uuid */
@@ -37767,10 +37767,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -64912,6 +64912,11 @@ export interface operations {
                             messagedAt: string | null;
                             name: string;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             profileId: string;
                             repliedAt: string | null;
@@ -65352,6 +65357,8 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     tag?: string;
                     /**
@@ -65385,6 +65392,11 @@ export interface operations {
                             nextStep: string | null;
                             onCard: boolean;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             profileId: string | null;
                             prospect: boolean | null;
                             /** @enum {string} */
@@ -65523,6 +65535,8 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     /**
                      * @default friends
@@ -65624,6 +65638,11 @@ export interface operations {
                                 by: string | null;
                             } | null;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             profileId: string;
                             since: string | null;
@@ -66062,6 +66081,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66868,10 +66892,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -66889,6 +66913,8 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     /**
                      * @default all
@@ -66934,6 +66960,11 @@ export interface operations {
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
@@ -67104,6 +67135,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default [] */
+                        byNetwork: {
+                            booked: number;
+                            messages: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin";
+                            positive: number;
+                        }[];
                         byPlaybook: {
                             booked: number;
                             messages: number;

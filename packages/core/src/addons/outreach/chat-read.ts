@@ -14,6 +14,7 @@ import type { PlaybookDetails } from './playbooks';
 import { PITCH_READS, STAGE_WHY_MOST } from './stages';
 import { CANCEL_AFTER_WEEKS } from './tidy';
 import { ANYWHERE, CountryRule } from './countries';
+import { PLATFORM_KEYS } from './networks';
 
 /** Where a chat's reading is (`addon_outreach.file_chats.read_state`). */
 export const CHAT_READ_STATES = ['none', 'waiting', 'read', 'skipped', 'failed'] as const;
@@ -323,6 +324,8 @@ export const ChatsInput = z.object({
   search: z.string().trim().max(100).optional(),
   /** Which page, from 1. One past the end shows the last. */
   page: z.number().int().min(1).max(100_000).default(1),
+  /** Only the chats on one network, counts and tags too; every network's when left out. */
+  platform: z.enum(PLATFORM_KEYS).optional(),
 });
 export type ChatsInput = z.input<typeof ChatsInput>;
 
@@ -338,6 +341,8 @@ export const ChatsOutput = z.object({
     z.object({
       chatId: z.uuid(),
       name: z.string(),
+      /** The network the chat is on: each row shows it by name. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
       /** The customer it went to in Contacts, if any. */
       personId: z.uuid().nullable(),
       lastAt: z.iso.datetime(),

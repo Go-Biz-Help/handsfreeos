@@ -80,9 +80,6 @@ export const TODAY_KINDS = {
   confirm: 'Confirm their request',
 } as const;
 export type TodayKind = keyof typeof TODAY_KINDS;
-/** A kind's words on a network: "Send an invitation to connect" on LinkedIn. */
-export const todayKindWords = (kind: TodayKind, platform: Platform = 'facebook') =>
-  inNetworkWords(TODAY_KINDS[kind], platform);
 export const TODAY_KIND_KEYS = Object.keys(TODAY_KINDS) as [TodayKind, ...TodayKind[]];
 
 /** Which daily limit each kind counts against: a reply and a confirm count against none. */

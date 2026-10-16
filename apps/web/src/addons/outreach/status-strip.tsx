@@ -2,10 +2,15 @@
 /**
  * The top of Today (docs/outreach.md, decisions 41 and 59): what the person's computer is doing, what's next, today's
  * steps against the daily limits, and Start my day and Stop for today, in one strip, so nobody opens another tab to
- * see whether it's working. Offline, a Facebook warning, and Sending off each say so in a line. **Details** opens the
+ * see whether it's working. Offline, a warning, and Sending off each say so in a line. **Details** opens the
  * full day (./live-view.tsx): the feed, what was asked of the computer, the team, and renaming computers.
+ *
+ * Each network on its own (Chris): with more than one network on, the strip has a row for each, by name, with its own
+ * day, its own Start my day or Stop for today (`outreach.day.*` with its `platform`) and its own warning line, and
+ * **Start all** and **Stop all** press each one. Stopping one leaves the others going. The limits, the first lists
+ * and the list below are the network shown (`?net=`); its name opens it.
  */
-import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
   dayWords,
   isOffline,
@@ -15,6 +20,8 @@ import {
   shownState,
   stateTone,
 } from '@hfos/core/addons/outreach/live';
+import { dailyWordsOn, NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -38,19 +45,54 @@ const DOT: Record<ReturnType<typeof stateTone>, string> = {
   plain: 'bg-text-3 shadow-[0_0_0_4px_var(--card-2)]',
 };
 
+/** A network the person works, with the live view of it: its day, warning, limits and lists. */
+export interface NetworkLive {
+  readonly platform: Platform;
+  readonly live: Live;
+  /** Whether the person is ready there, its own profile counting: the strip's `ready` when not known. */
+  readonly ready?: boolean;
+}
+
+type Press = 'start' | 'stop';
+/** The server's clock when no network's answer came: nothing is shown then. */
+const NO_ANSWER = '1970-01-01T00:00:00.000Z';
+
+const pressDay = async (workspaceId: string, platform: Platform, kind: Press) =>
+  unwrap(
+    kind === 'start'
+      ? await apiBrowser().POST('/v1/commands/outreach.day.start', {
+          body: { workspaceId, platform },
+        })
+      : await apiBrowser().POST('/v1/commands/outreach.day.stop', {
+          body: { workspaceId, platform },
+        }),
+  );
+
+/** Whether a network's day can be started now: ready there, working on its own there, and no warning there today. */
+const canStart = (n: NetworkLive, ready: boolean) =>
+  (n.ready ?? ready) && n.live.sending !== 'off' && n.live.day.why !== 'warning';
+
 export function StatusStrip({
   workspaceId,
-  live,
+  networks,
+  platform,
   ready = true,
 }: {
   workspaceId: string;
-  live: Live;
+  /** Each network the person works, with its live view, in the kit's order. */
+  networks: readonly NetworkLive[];
+  /** The network shown: its limits, its first lists and its list below. */
+  platform: Platform;
   /** Whether the person is ready (decision 63): until they are, Start my day waits and says why. */
   ready?: boolean;
 }) {
   useRefetchWhileShown();
-  const now = useServerNow(live.now);
+  const shown = networks.find((n) => n.platform === platform) ?? networks[0];
+  const now = useServerNow(shown?.live.now ?? NO_ANSWER);
   const { busy, act } = useAct();
+  if (!shown) return null;
+  const live = shown.live;
+  const many = networks.length > 1;
   const tz = live.timezone;
   const computer = live.computer;
   const state = shownState({
@@ -65,28 +107,58 @@ export function StatusStrip({
         (c) => !c.working && c.state !== 'signed_out' && !isOffline(c.lastSeenAt, now),
       )
     : undefined;
-  const sendingOff = live.sending === 'off';
-  const started = live.day.state === 'started';
-  const stopped = live.day.state === 'stopped';
-  const said = dayWords(live.day, tz, live.lists);
+  const computerOpen = !offline && computer !== null;
   const line =
     computer && live.status?.line && !offline && state !== 'signed_out' ? live.status.line : null;
   const next =
     computer && live.status?.nextAt && state === 'waiting'
       ? seenWords(live.status.nextAt, tz, now)
       : null;
-  const press = (kind: 'start' | 'stop') =>
+  const press = (p: Platform, kind: Press) =>
+    void act(
+      `${p}:${kind}`,
+      () => pressDay(workspaceId, p, kind),
+      kind === 'start' ? W.started(computerOpen) : many ? NW.stoppedOn(PLATFORMS[p]) : W.stopped,
+    );
+  // Start all and Stop all just press each one that can be.
+  const toStart = networks.filter((n) => n.live.day.state !== 'started' && canStart(n, ready));
+  const toStop = networks.filter((n) => n.live.day.state === 'started');
+  const pressAll = (kind: Press) =>
     void act(
       kind,
-      async () =>
-        unwrap(
-          kind === 'start'
-            ? await apiBrowser().POST('/v1/commands/outreach.day.start', { body: { workspaceId } })
-            : await apiBrowser().POST('/v1/commands/outreach.day.stop', { body: { workspaceId } }),
-        ),
-      kind === 'stop' ? W.stopped : W.started(!offline && computer !== null),
+      async () => {
+        for (const n of kind === 'start' ? toStart : toStop)
+          await pressDay(workspaceId, n.platform, kind);
+      },
+      kind === 'start' ? W.started(computerOpen) : W.stopped,
     );
+  const dayButton = (n: NetworkLive, testId: string) =>
+    n.live.day.state === 'started' ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => press(n.platform, 'stop')}
+        loading={busy === `${n.platform}:stop`}
+        disabled={busy !== null}
+        data-testid={testId.replace('{}', 'stop')}
+      >
+        {W.stopDay}
+      </Button>
+    ) : (
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => press(n.platform, 'start')}
+        loading={busy === `${n.platform}:start`}
+        disabled={busy !== null || !canStart(n, ready)}
+        data-testid={testId.replace('{}', 'start')}
+      >
+        {W.startDay}
+      </Button>
+    );
+  const words = dailyWordsOn(shown.platform);
   const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
+  const said = many ? '' : dayWords(live.day, tz, live.lists, shown.platform);
   return (
     <Card className="mb-5 grid gap-4 p-5" data-testid="today-status">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -126,31 +198,34 @@ export function StatusStrip({
               {W.nextStep(next)}
             </span>
           ) : null}
-          {started ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => press('stop')}
-              loading={busy === 'stop'}
-              disabled={busy !== null || stopped}
-              data-testid="live-stop"
-            >
-              {W.stopDay}
-            </Button>
+          {many ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => pressAll('start')}
+                loading={busy === 'start'}
+                disabled={busy !== null || !toStart.length}
+                data-testid="live-start-all"
+              >
+                {NW.startAll}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => pressAll('stop')}
+                loading={busy === 'stop'}
+                disabled={busy !== null || !toStop.length}
+                data-testid="live-stop-all"
+              >
+                {NW.stopAll}
+              </Button>
+            </>
           ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => press('start')}
-              loading={busy === 'start'}
-              disabled={busy !== null || !ready || sendingOff || live.day.why === 'warning'}
-              data-testid="live-start"
-            >
-              {W.startDay}
-            </Button>
+            dayButton(shown, 'live-{}')
           )}
           <Link
-            href={outreachHref(workspaceId, { view: 'live' })}
+            href={outreachHref(workspaceId, { view: 'live', net: shown.platform })}
             className="px-1 text-[13px] font-medium text-accent-text hover:underline"
             data-testid="today-status-details"
           >
@@ -158,10 +233,68 @@ export function StatusStrip({
           </Link>
         </div>
       </div>
-      <PreDayList live={live} now={now} />
+      {many ? (
+        <ul className="grid gap-2" aria-label={NW.stripTitle} data-testid="today-networks">
+          {networks.map((n) => {
+            const name = PLATFORMS[n.platform];
+            const here = n.platform === shown.platform;
+            return (
+              <li
+                key={n.platform}
+                className={cn(
+                  'grid gap-1.5 rounded-menu border px-3.5 py-2.5',
+                  here ? 'border-accent bg-accent-soft' : 'border-border',
+                )}
+                data-testid={`today-network-${n.platform}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={outreachHref(workspaceId, { view: 'today', net: n.platform })}
+                      aria-current={here ? 'true' : undefined}
+                      title={NW.showList(name)}
+                      className="text-[14px] font-semibold hover:underline"
+                      data-testid={`today-network-${n.platform}-open`}
+                    >
+                      {name}
+                    </Link>
+                    <p className="text-[12.5px] text-text-2" data-testid="live-day">
+                      {dayWords(n.live.day, tz, n.live.lists, n.platform) || NW.notStarted}
+                    </p>
+                  </div>
+                  {dayButton(n, `live-{}-${n.platform}`)}
+                </div>
+                {n.live.warning ? (
+                  <p
+                    role="alert"
+                    className="text-[12.5px] text-danger-text"
+                    data-testid={`live-warning-${n.platform}`}
+                  >
+                    {warningNote(n.live.warning, now, n.platform)}
+                  </p>
+                ) : null}
+                {n.live.sending === 'off' ? (
+                  <p className="text-[12.5px] text-text-3">{W.sendingOffNote}</p>
+                ) : null}
+                {/* Its own profile to finish, when the one shown is ready: shown under its own list. */}
+                {ready && !here && n.ready === false ? (
+                  <p
+                    className="text-[12.5px] text-text-2"
+                    data-testid={`live-not-ready-${n.platform}`}
+                  >
+                    {READY_WORDS.stripNotReadyOn(name)}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <PreDayList live={live} now={now} platform={shown.platform} />
       {steps.length ? (
         <ul
           className="grid gap-x-4 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))]"
+          aria-label={many ? NW.listOn(PLATFORMS[shown.platform]) : undefined}
           data-testid="today-limits"
         >
           {steps.map((step) => {
@@ -170,7 +303,7 @@ export function StatusStrip({
             return (
               <li key={step} className="grid gap-1.5" data-testid={`today-limit-${step}`}>
                 <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                  <span className="text-text-2">{DAILY_WORDS[step].label}</span>
+                  <span className="text-text-2">{words[step].label}</span>
                   <span
                     className={cn(
                       'tabular-nums',
@@ -201,13 +334,13 @@ export function StatusStrip({
           {open ? ` ${W.otherOpen(open.name)}` : null}
         </p>
       ) : null}
-      {live.warning ? (
+      {!many && live.warning ? (
         <p
           role="alert"
           data-testid="live-warning"
           className="rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
         >
-          {warningNote(live.warning)}
+          {warningNote(live.warning, now, shown.platform)}
         </p>
       ) : null}
       {ready ? null : (
@@ -218,7 +351,7 @@ export function StatusStrip({
           {READY_WORDS.stripNotReady}
         </p>
       )}
-      {sendingOff ? (
+      {!many && live.sending === 'off' ? (
         <p
           className="rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
           data-testid="live-sending-off"

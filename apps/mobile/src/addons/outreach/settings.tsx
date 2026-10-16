@@ -1,6 +1,8 @@
 import {
   type BusinessRules,
+  choicesFor,
   hourWords,
+  OTHER_PLATFORMS,
   PUSH_MODE_KEYS,
   PUSH_MODES,
   POSTING_MODE_KEYS,
@@ -17,8 +19,11 @@ import {
   type AutomationOutput,
   type AutomationPeopleOutput,
   type AutomationSettings,
+  type NetworkChoices,
+  type OtherPlatform,
   type ReplyMode,
   type SendingMode,
+  type WheelsState,
 } from '@hfos/core/addons/outreach/automation';
 import {
   CONTACTS_FROM_CHATS,
@@ -29,6 +34,23 @@ import {
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import {
+  ALONG_TICKS,
+  dailyWordsOn,
+  NETWORK_WORDS as NW,
+  networksOn,
+  onItsOwnAbout,
+  postingAboutOn,
+  sendingModesOn,
+  ticksOn,
+  withNetwork,
+} from '@hfos/core/addons/outreach/network-words';
+import {
+  NETWORKS,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -67,11 +89,12 @@ const VOICE_KEYS = [
 ] as const satisfies readonly (keyof Voice)[];
 
 /**
- * Social Outreach's settings on the phone (decision 44), as the web's Settings tab: the person's own (what the
- * extension does on its own, its switches, how their phone hears what waits, their working hours), and for owners and
- * admins, anyone's, picked under Settings for, and the business's (what people may pick, daily limits, where a new
- * person starts, who goes in Contacts, the morning push and the weekly report). The extension follows a save within
- * seconds. It needs signal.
+ * Social Outreach's settings on the phone (decision 44), as the web's Settings tab: the person's own (the networks
+ * they work, each other network's own choices under it, what the extension does on Facebook on its own, its switches,
+ * how their phone hears what waits, their working hours), and for owners and admins, anyone's, picked under Settings
+ * for, and the business's (what people may pick, the networks the team may use and each one's daily limits, where a
+ * new person starts, who goes in Contacts, the morning push and the weekly report). The extension follows a save
+ * within seconds. It needs signal.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -277,6 +300,7 @@ export function SettingsBody({
           // Saved somewhere else: the form starts again from what's kept.
           key={`${automation.userId}:${JSON.stringify(automation.settings)}:${automation.changedBy ?? ''}`}
           automation={automation}
+          manages={manages}
           online={online}
           onSave={onSaveMine}
         />
@@ -346,10 +370,12 @@ function SaveButton({
 
 function MySettings({
   automation,
+  manages,
   online,
   onSave,
 }: {
   automation: AutomationOutput;
+  manages: boolean;
   online: boolean;
   onSave: (settings: AutomationSettings) => Promise<string | null>;
 }) {
@@ -359,6 +385,13 @@ function MySettings({
       {automation.changedBy ? (
         <Note testID="settings-changed-by">{W.changedBy(automation.changedBy)}</Note>
       ) : null}
+      <NetworksPart
+        value={value}
+        onChange={setValue}
+        automation={automation}
+        manages={manages}
+        testID="settings-networks"
+      />
       {automation.wheels.on ? <Note>{wheelsWords(automation.wheels)}</Note> : null}
       <ChoicesForm
         value={value}
@@ -419,12 +452,14 @@ function Tick({
   about,
   checked,
   onChange,
+  disabled = false,
   testID,
 }: {
   label: string;
   about?: string;
   checked: boolean;
   onChange: (on: boolean) => void;
+  disabled?: boolean;
   testID?: string;
 }) {
   return (
@@ -433,7 +468,13 @@ function Tick({
         <Text className="text-[14.5px] leading-[20px]">{label}</Text>
         {about ? <Note>{about}</Note> : null}
       </View>
-      <Switch label={label} checked={checked} onCheckedChange={onChange} testID={testID} />
+      <Switch
+        label={label}
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        testID={testID}
+      />
     </View>
   );
 }
@@ -478,11 +519,200 @@ function Stepper({
 }
 
 const TICKS = {
-  along: ['warmUp', 'confirmRequests', 'collect', 'joinGroups', 'watchPosts'],
   extension: ['noting', 'readChats', 'markPosts'],
 } as const;
 
-/** The choices themselves: someone's own, or where a new person starts. */
+/** What the business allows of a network's choices: the same on every network (decision 38). */
+interface Allowed {
+  readonly sendingAllowed: readonly SendingMode[];
+  readonly repliesAllowed: readonly ReplyMode[];
+  readonly postingAllowed?: readonly PostingMode[];
+}
+
+/**
+ * What the extension does on its own on one network, in its words: Sending, Replies and helpful posts, only the
+ * choices the business allows. Facebook's in the form below Networks; any other network's under its switch.
+ */
+function NetworkModes({
+  platform,
+  value,
+  onChange,
+  sendingAllowed,
+  repliesAllowed,
+  postingAllowed = POSTING_MODE_KEYS,
+  testID,
+}: Allowed & {
+  platform: Platform;
+  value: NetworkChoices;
+  onChange: (change: Partial<NetworkChoices>) => void;
+  testID: string;
+}) {
+  const modes = sendingModesOn(platform);
+  const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
+  const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
+  const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
+  const notAllowed = [
+    ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => modes[m]),
+    ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
+    ...POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m]),
+  ];
+  return (
+    <>
+      <Part title={W.sections.onItsOwn} about={onItsOwnAbout(platform)}>
+        {sending.map((m) => (
+          <Choice
+            key={m}
+            label={modes[m]}
+            selected={value.sending === m}
+            onPress={() => onChange({ sending: m })}
+            testID={`${testID}-sending-${m}`}
+          />
+        ))}
+      </Part>
+      <Part
+        title={W.sections.replies}
+        about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+      >
+        {replies.map((m) => (
+          <Choice
+            key={m}
+            label={REPLY_MODES[m]}
+            selected={value.replies === m}
+            onPress={() => onChange({ replies: m })}
+            testID={`${testID}-replies-${m}`}
+          />
+        ))}
+      </Part>
+      <Part title={W.sections.posting} about={postingAboutOn(platform)}>
+        {posting.map((m) => (
+          <Choice
+            key={m}
+            label={POSTING_MODES[m]}
+            about={m === 'after_ok' ? W.usual : undefined}
+            selected={value.posting === m}
+            onPress={() => onChange({ posting: m })}
+            testID={`${testID}-posting-${m}`}
+          />
+        ))}
+      </Part>
+      {notAllowed.length ? <Note>{W.notAllowed(notAllowed)}</Note> : null}
+    </>
+  );
+}
+
+/** Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. */
+function NetworkTicks({
+  platform,
+  value,
+  onChange,
+  testID,
+}: {
+  platform: Platform;
+  value: NetworkChoices;
+  onChange: (change: Partial<NetworkChoices>) => void;
+  testID: string;
+}) {
+  const ticks = ticksOn(platform);
+  return (
+    <Part title={W.sections.along}>
+      {ALONG_TICKS.map((k) => (
+        <Tick
+          key={k}
+          label={ticks[k][0]}
+          about={ticks[k][1]}
+          checked={value[k]}
+          onChange={(on) => onChange({ [k]: on })}
+          testID={`${testID}-${k}`}
+        />
+      ))}
+    </Part>
+  );
+}
+
+/** A network's training wheels, as the settings show them: Facebook's, or another network's own. */
+const wheelsOf = (automation: AutomationOutput, platform: Platform): WheelsState =>
+  OTHER_PLATFORMS.includes(platform as OtherPlatform)
+    ? automation.networkWheels[platform as OtherPlatform]
+    : automation.wheels;
+
+/**
+ * The networks the person works (Chris: each person turns networks on, inside what the business allows), each with
+ * its switch. Under any other network, its own choices, the same as Facebook's and off to start, and its own training
+ * wheels; Facebook's choices are the form below. A network the business doesn't use says why, and who can change it.
+ */
+function NetworksPart({
+  value,
+  onChange,
+  automation,
+  manages,
+  testID,
+}: {
+  value: AutomationSettings;
+  onChange: (next: AutomationSettings) => void;
+  automation: AutomationOutput;
+  /** An owner or admin, who can allow a network under Business settings. */
+  manages: boolean;
+  testID: string;
+}) {
+  const allowed = automation.rules.networksAllowed;
+  return (
+    <Part title={NW.title} about={NW.about} testID={testID}>
+      {PLATFORM_KEYS.map((p) => {
+        const name = PLATFORMS[p];
+        const may = allowed.includes(p);
+        const on = may && networksOn(value, allowed).includes(p);
+        const network = choicesFor(value, p);
+        const set = (change: Partial<NetworkChoices>) => onChange(withNetwork(value, p, change));
+        const wheels = wheelsOf(automation, p);
+        // Facebook's choices are the settings' own, in the form below.
+        const own = !OTHER_PLATFORMS.includes(p as OtherPlatform);
+        return (
+          <View key={p} className="gap-3 rounded-menu border border-border px-3 py-3">
+            <Tick
+              label={name}
+              checked={on}
+              onChange={(next) => set({ on: next })}
+              disabled={!may}
+              testID={`${testID}-${p}-on`}
+            />
+            {!may ? (
+              <Note testID={`${testID}-${p}-not-allowed`}>{NW.notAllowed(name, manages)}</Note>
+            ) : !on ? (
+              <Note>{NW.off(name)}</Note>
+            ) : own ? (
+              <Note>{NW.facebookChoices}</Note>
+            ) : (
+              <View className="gap-5">
+                <Part title={NW.choicesOn(name)} about={NW.choicesAbout(name)} />
+                {wheels.on ? (
+                  <Note testID={`${testID}-${p}-wheels`}>{wheelsWords(wheels)}</Note>
+                ) : null}
+                <NetworkModes
+                  platform={p}
+                  value={network}
+                  onChange={set}
+                  sendingAllowed={automation.rules.sendingAllowed}
+                  repliesAllowed={automation.rules.repliesAllowed}
+                  postingAllowed={automation.rules.postingAllowed}
+                  testID={`${testID}-${p}`}
+                />
+                <NetworkTicks
+                  platform={p}
+                  value={network}
+                  onChange={set}
+                  testID={`${testID}-${p}`}
+                />
+                {wheelsMatter(network) && !wheels.from ? <Note>{WHEELS_START_WORDS}</Note> : null}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </Part>
+  );
+}
+
+/** The choices themselves: someone's own, or where a new person starts. Facebook's, and what's theirs everywhere. */
 export function ChoicesForm({
   value,
   onChange,
@@ -501,55 +731,21 @@ export function ChoicesForm({
   testID: string;
 }) {
   const set = (part: Partial<AutomationSettings>) => onChange({ ...value, ...part });
-  const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
-  const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
-  const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
-  const notAllowed = [
-    ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => SENDING_MODES[m]),
-    ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
-    ...POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m]),
-  ];
+  const facebook = choicesFor(value, 'facebook');
+  const setFacebook = (change: Partial<NetworkChoices>) =>
+    onChange(withNetwork(value, 'facebook', change));
   const hours = value.hours;
   return (
     <View className="gap-5" testID={testID}>
-      <Part title={W.sections.onItsOwn} about={W.abouts.onItsOwn}>
-        {sending.map((m) => (
-          <Choice
-            key={m}
-            label={SENDING_MODES[m]}
-            selected={value.sending === m}
-            onPress={() => set({ sending: m })}
-            testID={`${testID}-sending-${m}`}
-          />
-        ))}
-      </Part>
-      <Part
-        title={W.sections.replies}
-        about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
-      >
-        {replies.map((m) => (
-          <Choice
-            key={m}
-            label={REPLY_MODES[m]}
-            selected={value.replies === m}
-            onPress={() => set({ replies: m })}
-            testID={`${testID}-replies-${m}`}
-          />
-        ))}
-      </Part>
-      <Part title={W.sections.posting} about={W.abouts.posting}>
-        {posting.map((m) => (
-          <Choice
-            key={m}
-            label={POSTING_MODES[m]}
-            about={m === 'after_ok' ? W.usual : undefined}
-            selected={value.posting === m}
-            onPress={() => set({ posting: m })}
-            testID={`${testID}-posting-${m}`}
-          />
-        ))}
-      </Part>
-      {notAllowed.length ? <Note>{W.notAllowed(notAllowed)}</Note> : null}
+      <NetworkModes
+        platform="facebook"
+        value={facebook}
+        onChange={setFacebook}
+        sendingAllowed={sendingAllowed}
+        repliesAllowed={repliesAllowed}
+        postingAllowed={postingAllowed}
+        testID={testID}
+      />
       <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note}>
         {VOICE_KEYS.map((k) => (
           <Tick
@@ -566,18 +762,7 @@ export function ChoicesForm({
           testID={`${testID}-voice-sample`}
         />
       </Part>
-      <Part title={W.sections.along}>
-        {TICKS.along.map((k) => (
-          <Tick
-            key={k}
-            label={W.ticks[k][0]}
-            about={W.ticks[k][1]}
-            checked={value[k]}
-            onChange={(on) => set({ [k]: on })}
-            testID={`${testID}-${k}`}
-          />
-        ))}
-      </Part>
+      <NetworkTicks platform="facebook" value={facebook} onChange={setFacebook} testID={testID} />
       <Part title={W.sections.extension} about={W.abouts.extension}>
         {TICKS.extension.map((k) => (
           <Tick
@@ -739,6 +924,51 @@ function BusinessSettings({
           </View>
         ))}
       </Part>
+      <Part title={NW.allowedTitle} about={NW.allowedAbout}>
+        {PLATFORM_KEYS.map((p) => {
+          // Facebook is always allowed (`BusinessRules.networksAllowed`).
+          const always = !OTHER_PLATFORMS.includes(p as OtherPlatform);
+          return (
+            <Tick
+              key={p}
+              label={PLATFORMS[p]}
+              about={always ? NW.alwaysAllowed : undefined}
+              checked={always || rules.networksAllowed.includes(p)}
+              onChange={(on) => setRules({ networksAllowed: toggle(rules.networksAllowed, p, on) })}
+              disabled={always}
+              testID={`settings-rules-network-${p}`}
+            />
+          );
+        })}
+      </Part>
+      {OTHER_PLATFORMS.filter((p) => rules.networksAllowed.includes(p)).map((p) => {
+        const words = dailyWordsOn(p);
+        const kept = rules.networkLimits[p] ?? {};
+        return (
+          <Part key={p} title={NW.limitsOn(PLATFORMS[p])} about={NW.limitsAbout(PLATFORMS[p])}>
+            {DAILY_STEPS.map((step) => {
+              const most = NETWORKS[p].dailyLimits[step];
+              return (
+                <View key={step} className="flex-row items-center justify-between gap-3">
+                  <Text className="flex-1 text-[14px]">{words[step].label}</Text>
+                  <Input
+                    className="w-20"
+                    keyboardType="number-pad"
+                    value={String(kept[step] ?? most)}
+                    onChangeText={(t) => {
+                      const n = Math.max(0, Math.min(most, Number(t) || 0));
+                      setRules({
+                        networkLimits: { ...rules.networkLimits, [p]: { ...kept, [step]: n } },
+                      });
+                    }}
+                    testID={`settings-rules-${p}-limit-${step}`}
+                  />
+                </View>
+              );
+            })}
+          </Part>
+        );
+      })}
       <Part title={W.sections.defaults} about={W.abouts.defaults}>
         <ChoicesForm
           value={rules.defaults}

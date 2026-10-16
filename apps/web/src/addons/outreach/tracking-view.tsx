@@ -3,10 +3,13 @@
  * The top of Social Outreach's Results tab (docs/outreach.md, decision 70; the boards in design/tracking): the three
  * numbers the video says to watch every day, first messages sent, said yes and calls booked, each against the
  * person's target from their goal; the two rates between them against the usual ones; the person's latest week's
- * review; and the numbers by playbook and by the main offer's version. Owners and admins see everyone's counts, with no
- * targets and no review. Every word and rule is core's (`@hfos/core/addons/outreach/tracking`).
+ * review; and the numbers by playbook, by the main offer's version and by network, each network's share of one goal.
+ * Owners and admins see everyone's counts, with no targets and no review. Every word and rule is core's
+ * (`@hfos/core/addons/outreach/tracking`).
  */
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
+import { shareWords } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import {
   bookStanding,
   percent,
@@ -75,6 +78,18 @@ export function TrackingSection({
             n: v,
           }))}
           testId="tracking-versions"
+        />
+        <BreakdownCard
+          title={T.byNetwork}
+          hint={T.byNetworkHint}
+          head="Network"
+          rows={tracking.byNetwork.map((n) => ({
+            key: n.platform,
+            name: PLATFORMS[n.platform],
+            detail: shareWords(n.messages, tracking.numbers.messages),
+            n,
+          }))}
+          testId="tracking-networks"
         />
       </div>
     </div>
@@ -294,7 +309,7 @@ function BreakdownCard({
   title: string;
   hint: string;
   head: string;
-  rows: readonly { key: string; name: string; n: TrackingNumbers }[];
+  rows: readonly { key: string; name: string; detail?: string; n: TrackingNumbers }[];
   testId: string;
 }) {
   return (
@@ -320,7 +335,12 @@ function BreakdownCard({
                 className="border-b border-border last:border-b-0"
                 data-testid={`${testId}-row`}
               >
-                <td className="px-5 py-2.5 font-medium">{r.name}</td>
+                <td className="px-5 py-2.5 font-medium">
+                  {r.name}
+                  {r.detail ? (
+                    <span className="block text-[12px] font-normal text-text-3">{r.detail}</span>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{r.n.messages}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">
                   {r.n.positive}

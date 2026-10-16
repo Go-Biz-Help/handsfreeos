@@ -24,6 +24,7 @@ import { quoteData as quote } from '../../knowledge/prompt';
 import { noDashes, PLAIN_WRITING } from '../../writing';
 import { ACTIVITY_PERIOD_KEYS, ACTIVITY_PERIODS, type ActivityPeriod } from './activity';
 import type { WorkingHours } from './automation';
+import { PLATFORM_KEYS } from './networks';
 import { numbersMath, STARTING_RATES, type NumbersRates } from './readiness';
 
 const count = z.number().int().min(0);
@@ -206,6 +207,11 @@ export const TrackingOutput = z.object({
   ),
   /** By the main offer's version each person was first pitched with, newest first. */
   byVersion: z.array(breakdown.extend({ version: z.int().min(1), live: z.boolean() })),
+  /**
+   * By the network the person was reached on, the most messages first: one goal for every network, and each one's
+   * share of it (Chris). Missing from an API from before it.
+   */
+  byNetwork: z.array(breakdown.extend({ platform: z.enum(PLATFORM_KEYS) })).default([]),
   /** The person's latest week's review: null for everyone's, or before the first. */
   review: WeekReview.nullable(),
 });
@@ -322,6 +328,8 @@ export const TRACKING_WORDS = {
   byVersion: 'By offer version',
   byVersionHint: 'The main offer’s version each person was first sent.',
   version: (v: number, live: boolean) => `Version ${v}${live ? ', live' : ''}`,
+  byNetwork: 'By network',
+  byNetworkHint: 'Where each person was reached. One goal for all your networks.',
   columns: { messages: 'Sent', positive: 'Yes', booked: 'Booked' },
   noneCounted: 'Nothing counted yet.',
   /** "Targets from your goal: 8 calls a month". */

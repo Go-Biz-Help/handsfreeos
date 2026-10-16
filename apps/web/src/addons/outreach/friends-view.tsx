@@ -13,8 +13,9 @@
 import {
   ASK_TIDY_MOST,
   ASK_WORDS,
+  askableOn,
   askOpen,
-  TIDY_PACE_WORDS,
+  type TIDY_ASK_KINDS,
 } from '@hfos/core/addons/outreach/asks';
 import {
   CHECK_VERDICTS,
@@ -32,6 +33,8 @@ import {
   FRIENDS_PAGE,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
+import { tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
+import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
@@ -49,10 +52,11 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton, AskLine, latestAsk } from './asks';
+import { AskButton, AskLine, latestAskOn } from './asks';
 import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
+import { NetworkFilterControl } from './network-ui';
 import { PersonMenu } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
@@ -206,6 +210,7 @@ export function FriendsView({
   tidy,
   show,
   search,
+  net = null,
   asks,
 }: {
   workspaceId: string;
@@ -214,6 +219,8 @@ export function FriendsView({
   tidy: Tidy;
   show: FriendView;
   search: string;
+  /** The network it's narrowed to: null for every network. */
+  net?: Platform | null;
   /** What the person asked their computer to do on this tab. */
   asks: Asks;
 }) {
@@ -223,14 +230,15 @@ export function FriendsView({
   const [pending, startTransition] = useTransition();
   // The list and name last asked for, ahead of the address while it loads: a name typed as another list opens is
   // looked for in that list. Another list or another name starts again at the first page.
-  const asked = useRef({ show, search });
+  const asked = useRef({ show, search, net });
   useEffect(() => {
-    asked.current = { show, search };
-  }, [show, search]);
-  const go = (to: { show?: FriendView; search?: string; page?: number }) => {
+    asked.current = { show, search, net };
+  }, [show, search, net]);
+  const go = (to: { show?: FriendView; search?: string; page?: number; net?: Platform | null }) => {
     asked.current = {
       show: to.show ?? asked.current.show,
       search: to.search ?? asked.current.search,
+      net: to.net === undefined ? asked.current.net : to.net,
     };
     const href = outreachHref(workspaceId, {
       view: 'friends',
@@ -299,6 +307,9 @@ export function FriendsView({
     show === 'requests' &&
     friends.people.length > 0 &&
     friends.people.every((f) => !f.fit?.playbookName);
+  // The asks are the network shown's: Facebook's when the list is every network's.
+  const asking = net ?? 'facebook';
+  const words = NETWORKS[asking].words;
   return (
     <div data-testid="outreach-friends">
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -321,24 +332,27 @@ export function FriendsView({
             }))}
           />
         </div>
+        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="friends-asks">
-        <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
+        <h3 className="text-[15px] font-semibold">{`From ${PLATFORMS[asking]}`}</h3>
         <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <AskButton
             workspaceId={workspaceId}
             asks={asks}
             ask={{ kind: 'requests' }}
-            label="Check my friend requests"
+            platform={asking}
+            label={`Check my ${words.friendRequests}`}
             testId="ask-requests"
           />
           <AskButton
             workspaceId={workspaceId}
             asks={asks}
             ask={{ kind: 'friends' }}
-            label="Save my friends list"
+            platform={asking}
+            label={`Save my ${words.friends} list`}
             testId="ask-friends"
           />
         </div>
@@ -400,14 +414,22 @@ export function FriendsView({
               )}
             </Card>
           )}
-          <TidyCard workspaceId={workspaceId} tidy={tidy} asks={asks} />
+          {/* Each network's own tidying: LinkedIn withdraws old invitations, and never removes a connection. */}
+          {tidyWordsOn(asking).kinds.length ? (
+            <TidyCard workspaceId={workspaceId} platform={asking} tidy={tidy} asks={asks} />
+          ) : null}
           <SkippedCountryCard workspaceId={workspaceId} />
         </div>
         <aside className="space-y-4">
-          <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} />
-          <CapCard counts={friends.counts} cap={friends.cap} />
-          <FileAsksCard workspaceId={workspaceId} asks={asks} />
-          <DownloadCard workspaceId={workspaceId} download={friends.download} />
+          <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} platform={asking} />
+          <CapCard counts={friends.counts} cap={friends.cap} platform={asking} />
+          {/* The download file is Facebook's alone yet: shown where it can be asked for. */}
+          {askableOn(asking, 'file_in') ? (
+            <>
+              <FileAsksCard workspaceId={workspaceId} asks={asks} />
+              <DownloadCard workspaceId={workspaceId} download={friends.download} />
+            </>
+          ) : null}
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Yours, and the business’s</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
@@ -574,8 +596,9 @@ function FriendRow({
             target="_blank"
             rel="noreferrer"
             className="ml-2 text-[12.5px] text-text-3 hover:underline"
+            data-testid="network-name"
           >
-            Facebook
+            {PLATFORMS[f.platform]}
           </a>
           {mutual ? (
             <span className="ml-2 align-middle" data-testid="friend-mutual">
@@ -664,6 +687,7 @@ function FriendRow({
         workspaceId={workspaceId}
         asks={asks}
         profileId={f.profileId}
+        platform={f.platform}
         name={f.name}
         check={f.check}
         neverPitched={f.dontPitch !== null || f.neverContact !== null}
@@ -723,10 +747,13 @@ function ChecksCard({
   workspaceId,
   friends,
   asks,
+  platform,
 }: {
   workspaceId: string;
   friends: Friends;
   asks: Asks;
+  /** The network the checks are asked on. */
+  platform: Platform;
 }) {
   const words = checksWords(friends.checks);
   const room = friends.checks.today < friends.checks.perDay;
@@ -757,6 +784,7 @@ function ChecksCard({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'checks' }}
+          platform={platform}
           label={CHECKS_WORDS.button}
           disabled={!room || !friends.checks.people}
           testId="ask-checks"
@@ -781,18 +809,19 @@ function ChecksCard({
   );
 }
 
-/** How many friends the person has saved, against Facebook's cap. */
-function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
+/** How many friends or connections the person has saved, against their network's cap. */
+function CapCard({ counts, cap, platform }: { counts: Counts; cap: number; platform: Platform }) {
   const share = counts.friends / cap;
+  const { name, words } = NETWORKS[platform];
+  const many = `${words.friends.charAt(0).toUpperCase()}${words.friends.slice(1)}`;
   return (
     <Card className="p-4" data-testid="friends-cap">
-      <h3 className="text-[15px] font-semibold">Your friends</h3>
+      <h3 className="text-[15px] font-semibold">{`Your ${words.friends}`}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
-        Facebook allows {cap.toLocaleString()}. Saved by Save my friends list, or from Facebook’s
-        download file.
+        {`${name} allows ${cap.toLocaleString()}. Saved by Save my ${words.friends} list, or from ${name}’s download file.`}
       </p>
       <div className="mt-3 flex items-baseline justify-between gap-2 text-[13px]">
-        <span>Friends</span>
+        <span>{many}</span>
         <span
           className={cn(
             'tabular-nums',
@@ -810,8 +839,7 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
       </div>
       {share >= 0.9 ? (
         <p className="mt-3 rounded-menu bg-warning-soft p-2.5 text-[12.5px] text-warning-text">
-          You’re close to Facebook’s limit. Turn on Keep for the friends you’ll never unfriend, so
-          making room never suggests them.
+          {`You’re close to ${name}’s limit. Turn on Keep for the ${words.friends} you’ll never remove, so making room never suggests them.`}
         </p>
       ) : null}
     </Card>
@@ -822,58 +850,53 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
 const dateWords = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-const TIDY = {
-  cancel: {
-    step: 'cancel_request',
-    list: 'cancel',
-    title: 'Old friend requests',
-    button: 'Cancel the ticked requests',
-    done: 'requests cancelled',
-  },
-  unfriend: {
-    step: 'unfriend',
-    list: 'unfriend',
-    title: 'Friends to unfriend',
-    button: 'Unfriend the ticked',
-    done: 'unfriended',
-  },
-} as const;
+type TidyAsk = (typeof TIDY_ASK_KINDS)[number];
 
 /**
- * Tidying up the person's friends (decisions 10, 12 and 17): old requests nobody answered, and friends suggested for
- * unfriending. They tick the ones to go, and their computer presses Cancel request or Unfriend on each profile,
- * slowly, in a tab they can see, stopping at today's limit and on any warning from Facebook.
+ * Tidying up the person's friends on a network (decisions 10, 12 and 17), in its words: old requests nobody answered,
+ * and friends suggested for unfriending, where the network has each (LinkedIn withdraws old invitations, and never
+ * removes a connection). They tick the ones to go, and their computer presses Cancel request, Withdraw or Unfriend on
+ * each profile, slowly, in a tab they can see, stopping at today's limit there and on any warning from that network.
  */
-function TidyCard({ workspaceId, tidy, asks }: { workspaceId: string; tidy: Tidy; asks: Asks }) {
-  const warnedToday = tidy.warning?.today === true || asks.warnedToday;
+function TidyCard({
+  workspaceId,
+  platform,
+  tidy,
+  asks,
+}: {
+  workspaceId: string;
+  platform: Platform;
+  tidy: Tidy;
+  asks: Asks;
+}) {
+  const T = tidyWordsOn(platform);
+  // Facebook's warning today is on the asks; any network's is on its own tidy answer.
+  const warnedToday = tidy.warning?.today === true || (platform === 'facebook' && asks.warnedToday);
   return (
     <Card className="mt-4 p-4" data-testid="friends-tidy">
-      <h3 className="text-[15px] font-semibold">Tidy up</h3>
-      <p className="mt-0.5 text-[12.5px] text-text-3">Tick the ones to go. {TIDY_PACE_WORDS}</p>
+      <h3 className="text-[15px] font-semibold">{T.title}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{T.about}</p>
       {tidy.warning ? (
         <p
           role="alert"
           className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
           data-testid="tidy-warning"
         >
-          {warningNote(tidy.warning)}
+          {warningNote(tidy.warning, Date.now(), platform)}
         </p>
       ) : null}
       <div className="mt-3 grid gap-5">
-        <TidyList
-          workspaceId={workspaceId}
-          tidy={tidy}
-          asks={asks}
-          kind="cancel"
-          warned={warnedToday}
-        />
-        <TidyList
-          workspaceId={workspaceId}
-          tidy={tidy}
-          asks={asks}
-          kind="unfriend"
-          warned={warnedToday}
-        />
+        {T.kinds.map((kind) => (
+          <TidyList
+            key={kind}
+            workspaceId={workspaceId}
+            platform={platform}
+            tidy={tidy}
+            asks={asks}
+            kind={kind}
+            warned={warnedToday}
+          />
+        ))}
       </div>
     </Card>
   );
@@ -881,23 +904,27 @@ function TidyCard({ workspaceId, tidy, asks }: { workspaceId: string; tidy: Tidy
 
 function TidyList({
   workspaceId,
+  platform,
   tidy,
   asks,
   kind,
   warned,
 }: {
   workspaceId: string;
+  platform: Platform;
   tidy: Tidy;
   asks: Asks;
-  kind: keyof typeof TIDY;
+  kind: TidyAsk;
   warned: boolean;
 }) {
-  const words = TIDY[kind];
-  const people = tidy[words.list].slice(0, ASK_TIDY_MOST);
+  const T = tidyWordsOn(platform);
+  const words = T[kind];
+  const step = T.step[kind];
+  const people = tidy[kind].slice(0, ASK_TIDY_MOST);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
-  const { done, most } = tidy.limits[words.step];
+  const { done, most } = tidy.limits[step];
   const room = Math.max(0, most - done);
-  const latest = latestAsk(asks, kind);
+  const latest = latestAskOn(asks, platform, kind);
   const open = latest !== null && askOpen(latest.state);
   // Only the ones still listed count: someone done since drops off the list, and out of the ticks.
   const picked = people.filter((p) => ticked.has(p.profileId)).map((p) => p.profileId);
@@ -914,17 +941,16 @@ function TidyList({
   return (
     <section data-testid={`tidy-${kind}`}>
       <h4 className="text-[13.5px] font-semibold">
-        {words.title} · {tidy.totals[words.step].toLocaleString()}
+        {words.title} · {tidy.totals[step].toLocaleString()}
       </h4>
       <p className="mt-0.5 text-[12.5px] text-text-3">
         {kind === 'cancel'
-          ? `Sent more than ${tidy.cancelAfterWeeks === 1 ? 'a week' : `${tidy.cancelAfterWeeks} weeks`} ago and not answered. Facebook pauses your requests when too many wait.`
-          : `No contact either way in six months, friends for longer, and not in Contacts, a prospect, kept or on Don’t pitch. You have ${tidy.friends.toLocaleString()} of ${tidy.cap.toLocaleString()} friends.`}
+          ? T.cancel.about(tidy.cancelAfterWeeks)
+          : T.unfriend.about(tidy.friends, tidy.cap)}
       </p>
       {kind === 'unfriend' && tidy.needsFile ? (
         <p className="mt-2 text-[12.5px] text-text-2" data-testid="tidy-needs-file">
-          Bring in your Facebook file first (Let the extension get your file, beside this): it says
-          when you last talked to each friend.
+          {T.unfriend.needsFile}
         </p>
       ) : !people.length ? (
         <p className="mt-2 text-[12.5px] text-text-2">Nobody right now.</p>
@@ -964,7 +990,7 @@ function TidyList({
               </li>
             ))}
           </ul>
-          {tidy.totals[words.step] > people.length ? (
+          {tidy.totals[step] > people.length ? (
             <p className="mt-1 text-[12.5px] text-text-3">
               The first {people.length} shown. Do these, and the next ones show.
             </p>
@@ -984,6 +1010,7 @@ function TidyList({
                 workspaceId={workspaceId}
                 asks={asks}
                 ask={{ kind, profileIds: sending }}
+                platform={platform}
                 label={`${words.button} (${sending.length})`}
                 variant="primary"
                 disabled={room <= 0 || warned}
