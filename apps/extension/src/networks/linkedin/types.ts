@@ -41,6 +41,7 @@ export const PAGE_KINDS = [
   'chat',
   'notifications',
   'group',
+  'company',
   'other',
 ] as const;
 export type PageKind = (typeof PAGE_KINDS)[number];
@@ -146,6 +147,18 @@ export interface Notice extends Omit<FacebookNotice, 'kind'> {
   readonly kind: 'accepted' | 'reaction' | 'comment' | 'mention' | 'viewed' | 'other';
 }
 
+/**
+ * A company's page (/company/<name>/, and its About tab): what it says about itself, for a look-up before a draft.
+ * Its name is its heading; its tagline the line under it; `lines` what its About or Overview says, a label and its
+ * value on one line ("Industry: Plumbing").
+ */
+export interface CompanyPage {
+  readonly name: string | null;
+  readonly company: CompanyRef | null;
+  readonly tagline: string | null;
+  readonly lines: readonly string[];
+}
+
 /** A group's own page: its name, by its heading, and the group its address is. */
 export interface GroupPage {
   readonly name: string | null;
@@ -166,6 +179,7 @@ export interface ReadResult {
   readonly chat?: ChatPage;
   readonly notices?: readonly Notice[];
   readonly group?: GroupPage;
+  readonly company?: CompanyPage;
   /** LinkedIn's own warnings on the page: the weekly invitation limit, a restriction, a security check. */
   readonly warnings: readonly string[];
   /** What the person should know about this read: "LinkedIn loads more as you scroll." */

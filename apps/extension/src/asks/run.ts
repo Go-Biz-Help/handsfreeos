@@ -2,26 +2,34 @@
  * Doing what the person asks of this computer from HandsFreeOS (docs/outreach.md, decision 43), in the background
  * worker. They press a button on the Friends, Groups, Chats or Today tab; HandsFreeOS keeps the ask; the live channel
  * says so (../hfos/follow.ts), or the next beat's answer does (../hfos/live.ts); and the computer that works for them
- * takes it, the oldest first, and does it with the jobs it has (../jobs/):
+ * takes it, the oldest first, and does it with the jobs it has for its network (../jobs/, ../jobs/linkedin/):
  *
- * - **One at a time, never beside the runner:** an ask takes its turn on Facebook (../auto/turns.ts); the runner that
- *   works on its own waits for it, and carries on after.
- * - **Where:** the file's steps, and cancelling or unfriending, in a tab the person can see (they type their password
- *   there, and decision 17 has those pressed where they see it); the rest in a window of its own beside theirs.
- * - **How it's going** goes to HandsFreeOS as it goes, for the web to show live, and to the panel (`hfos.ask`).
+ * - **A line per network** (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "One runner, one turn"): each network
+ *   takes its own asks (`take` with its `platform`), one at a time, and does them in its own window, in its own turn
+ *   (../auto/turns.ts), so a LinkedIn ask never waits on Facebook's runner or on a Facebook step handed to the person,
+ *   and the reverse. A network's line takes asks only while the network is on for the person and Chrome allows the
+ *   extension there (../networks/on.ts). The computer that works stays one per person (decision 41).
+ * - **Never beside the runner:** on Facebook an ask takes Facebook's turn; the runner that works on its own waits for
+ *   it, and carries on after.
+ * - **Where:** the file's steps, and cancelling or unfriending (withdrawing, on LinkedIn), in a tab the person can see
+ *   (they type their password there, and decision 17 has those pressed where they see it); the rest in a window of its
+ *   own beside theirs.
+ * - **How it's going** goes to HandsFreeOS as it goes, for the web to show live, and to the panel (`hfos.ask`, and
+ *   `hfos.ask.<network>` beside it for another network's).
  * - **A step it can't find** it hands to the person: the tab comes to the front, Chrome pops up, their phone hears it,
  *   and it waits for **Carry on** (or **Skip**, for one person ticked) from the panel, Waiting for you or the web,
  *   for half an hour at most.
- * - **Stops:** Stop pressed anywhere, Stop for today (pressed here, on the web or on the phone), another computer of
- *   theirs working now, or a sign-in, sign-out or business picked here ends it at its next page, with how far it got;
- *   nothing of it goes to HandsFreeOS while anyone else is signed in here. A Facebook warning that day, seen here (in
- *   any tab) or on another of their computers, ends it before it starts, or at its next page while it goes; all but
- *   bringing in the file, which doesn't open Facebook.
+ * - **Stops:** Stop pressed anywhere, another computer of theirs working now, or a sign-in, sign-out or business picked
+ *   here ends it at its next page, with how far it got; nothing of it goes to HandsFreeOS while anyone else is signed
+ *   in here. Stop for today (pressed here, on the web or on the phone) ends Facebook's, whose day the beat carries. A
+ *   network's warning that day, seen here (in any tab) or, for Facebook, on another of their computers, ends that
+ *   network's ask before it starts, or at its next page while it goes; all but bringing in the file, which doesn't open
+ *   Facebook. Another network's goes on (Chris's rule, "Each network on its own").
  * - **An end** is done only when the job did what was asked; stopped, warned or unable to (nothing to save, HandsFreeOS
  *   refusing a save, an error), it's failed, with the job's words.
  * - **Chrome closing mid-ask** leaves it under way; when the extension starts again it's ended as lost.
- * - **Facebook's, for now:** the jobs work on Facebook. An ask on another network (HandsFreeOS hands those only to a
- *   newer build) ends at once saying so, and nothing is opened for it.
+ * - **A network off here** (turned off, or not allowed by Chrome, since it was taken) ends its ask at once, saying how
+ *   to turn it on, and nothing is opened for it.
  */
 import {
   ASK_CHATS,
@@ -43,6 +51,7 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_ASKED } from '@hfos/core/addons/outreach/group-checks';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { postSender } from '../auto/daily';
 import { tick } from '../auto/run';
 import { inTurn, turnHeldBy } from '../auto/turns';
@@ -74,22 +83,29 @@ import { checkGroups } from '../jobs/groups-check';
 import { joinGroups } from '../jobs/join';
 import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
+import { linkedInAsk } from '../jobs/linkedin';
 import { lookupAndDraft } from '../jobs/lookup';
 import { profileEdit, profileRead } from '../jobs/profile';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
 import { tidy } from '../jobs/tidy';
-import { facebook, kitFor } from '../networks';
+import { facebook, KIT_LIST, kitFor } from '../networks';
+import { isWorking, statesNow, type NetworkStates } from '../networks/on';
 import { WorkTab } from '../tab';
 
 /** While a step waits for the person, HandsFreeOS is asked for their answer this often. */
 const LOOK_MS = 20_000;
 const STUCK_MS = ASK_STUCK_MINUTES * 60_000;
 
-/** The ask under way here. */
+/** The network whose day the beat carries (a build of HandsFreeOS before networks had one day): Facebook's. */
+const BEAT_DAY: Platform = facebook.platform;
+
+/** An ask under way here, on its network's line. */
 interface Under {
   readonly place: Place;
   readonly ask: AskTaken;
+  /** Its network: the line it's on, its window, its turn and its warnings. */
+  readonly platform: Platform;
   readonly tab: WorkTab;
   state: KeptAsk['state'];
   line: string | null;
@@ -97,16 +113,18 @@ interface Under {
   sentState: KeptAsk['state'] | null;
   /** Ended from outside: the words it ends with. */
   halted: string | null;
-  /** Ended by a Facebook warning seen while it went. */
+  /** Ended by its network's warning seen while it went. */
   warned: boolean;
   /** A step handed to the person waits on this. */
   answered: ((reply: HandOverReply) => void) | null;
 }
 
-let under: Under | null = null;
+/** Each network's ask under way here: one a network at most. */
+const unders = new Map<Platform, Under>();
 
-/** The tab the ask under way works in: what the person sees there isn't theirs to note. */
-export const askTabId = (): number | null => under?.tab.tabId ?? null;
+/** The tabs the asks under way work in: what the person sees there isn't theirs to note. */
+export const askTabIds = (): number[] =>
+  [...unders.values()].flatMap((u) => (u.tab.tabId === null ? [] : [u.tab.tabId]));
 
 const popUpId = (askId: string) => `${POPUP_ID}-ask-${askId}`;
 
@@ -121,25 +139,28 @@ async function stillTheirs(u: Under): Promise<boolean> {
   return false;
 }
 
-/** A sign-in, a sign-out or a business picked here (`SIGN_INS` in ../background.ts): an ask under way may stop. */
+/** A sign-in, a sign-out or a business picked here (`SIGN_INS` in ../background.ts): the asks under way may stop. */
 export async function signInChanged(): Promise<void> {
-  const u = under;
-  if (u) await stillTheirs(u);
+  await Promise.all([...unders.values()].map((u) => stillTheirs(u)));
 }
 
 /** Says where it's got to: here at once, to HandsFreeOS as `lineDue` says (or now, with `now`). */
 async function tell(u: Under, state: KeptAsk['state'], line: string, now = false): Promise<void> {
   u.state = state;
   u.line = line;
-  await keepAsk({
-    ...u.place,
-    askId: u.ask.askId,
-    kind: u.ask.kind,
-    about: u.ask.about,
-    state,
-    line,
-    at: Date.now(),
-  });
+  await keepAsk(
+    {
+      ...u.place,
+      askId: u.ask.askId,
+      platform: u.platform,
+      kind: u.ask.kind,
+      about: u.ask.about,
+      state,
+      line,
+      at: Date.now(),
+    },
+    u.platform,
+  );
   const changed = u.sentState !== state;
   if (!now && !lineDue(u.sentAt, Date.now(), changed)) return;
   if (!(await stillTheirs(u))) return;
@@ -170,24 +191,27 @@ function halt(u: Under, line: string, warned = false): void {
   answerWith_(u, 'stop');
 }
 
-/** A Facebook warning seen while an ask goes ends it, unless it's one that doesn't open Facebook. */
-function haltWarned(u: Under, words: string | null): void {
-  if (under !== u || !onFacebook(u.ask.kind)) return;
-  halt(u, askWarnedLine(words), true);
+/**
+ * Its network's warning seen while an ask goes ends it, unless it's one that doesn't open the network (bringing in
+ * Facebook's file).
+ */
+function haltWarned(u: Under | undefined, words: string | null): void {
+  if (!u || unders.get(u.platform) !== u || !onFacebook(u.ask.kind)) return;
+  halt(u, askWarnedLine(words, u.platform), true);
 }
 
 let hearingWarnings = false;
 /**
- * A warning kept here as the ask goes, from any tab (the one in front of the person too): it ends the ask. Listened
- * for once, the first time an ask runs.
+ * A warning kept here as the asks go, from any tab (the one in front of the person too): it ends the ask on its own
+ * network, and no other. Listened for once, the first time an ask runs.
  */
 function hearWarnings(): void {
   if (hearingWarnings) return;
   hearingWarnings = true;
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !(WARNED_KEY in changes) || !under) return;
-    const u = under;
-    void warnedNow().then((w) => w && haltWarned(u, w.words[0] ?? null));
+    if (area !== 'local' || !(WARNED_KEY in changes)) return;
+    for (const u of unders.values())
+      void warnedNow(u.platform).then((w) => w && haltWarned(u, w.words[0] ?? null));
   });
 }
 
@@ -242,7 +266,7 @@ function jobFor(u: Under): Job {
     businessId: u.place.businessId,
     stopped: () => u.halted !== null,
     progress: (line) => void tell(u, 'working', line),
-    warn: (words, url) => noteWarnings(u.place.businessId, words, url),
+    warn: (words, url) => noteWarnings(u.place.businessId, words, url, u.platform),
     handOver: (says) => handOver(u, says, 'stuck'),
     typing: (line) => {
       if (line === null) return void tell(u, 'working', 'Carrying on…', true);
@@ -264,8 +288,8 @@ async function groupsFor(
   return named ?? groupsToWork(job, RUN_GROUPS);
 }
 
-/** Does the ask with the job that does it. */
-export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
+/** Does an ask on Facebook with the job that does it. */
+async function facebookAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
   switch (task.kind) {
     case 'file_request':
       return getFile(job, 'request');
@@ -323,14 +347,34 @@ export async function runAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
   }
 }
 
+/** Each network's jobs: what an ask on it does. */
+const JOBS_ON: Readonly<Record<Platform, (task: AskTaken['task'], job: Job) => Promise<Ended>>> = {
+  facebook: facebookAsk,
+  linkedin: linkedInAsk,
+};
+
+/** Does the ask with the job that does it on its network (Facebook's unless said). */
+export const runAsk = (
+  task: AskTaken['task'],
+  job: Job,
+  platform: Platform = facebook.platform,
+): Promise<Ended> => JOBS_ON[platform](task, job);
+
 /** Where an ask works: in view for the file's steps and tidying; else a window of its own. */
 export const placeFor = (kind: AskKind) =>
   isFileKind(kind) || (TIDY_ASK_KINDS as readonly string[]).includes(kind) ? 'view' : 'window';
 
-/** Facebook's warning today, seen here or on another of the person's computers: its words, or null. */
-async function warnedToday(place: Place): Promise<{ words: string | null } | null> {
-  const here = await warnedNow();
+/**
+ * A network's warning today, seen here, or for the network whose day the beat carries, on another of the person's
+ * computers: its words, or null. (HandsFreeOS ends another network's asks itself on a day it warned them there.)
+ */
+async function warnedToday(
+  place: Place,
+  platform: Platform,
+): Promise<{ words: string | null } | null> {
+  const here = await warnedNow(platform);
   if (here) return { words: here.words[0] ?? null };
+  if (platform !== BEAT_DAY) return null;
   const kept = await keptFor(place);
   return kept?.day.why === 'warning' ? { words: null } : null;
 }
@@ -352,21 +396,36 @@ export function endOf(
   return { state: 'failed', line: sofar ? `${u.halted} ${sofar}` : u.halted };
 }
 
-/** Why this build can't do an ask on its network, in words: null on a network it does asks on (Facebook's). */
-export function notHereWords(ask: Pick<AskTaken, 'platform'>): string | null {
+/**
+ * Why an ask can't go on its network here, in words: the network is off for the person or Chrome hasn't let the
+ * extension on it (since it was taken), or this build has no steps there. Null when it can.
+ */
+export function notHereWords(
+  ask: Pick<AskTaken, 'platform'>,
+  states: NetworkStates | null = null,
+): string | null {
   // A build of HandsFreeOS before networks didn't say: Facebook, the only one it knew.
   const kit = kitFor(ask.platform ?? facebook.platform);
-  return kit.work
-    ? null
-    : `This build of the extension can’t do that on ${kit.network.name} yet. Download the newest one (the link is in Social Outreach’s setup, under Install the extension), unzip it over the old folder, and press Reload on Chrome’s Extensions page. Then ask again.`;
+  const name = kit.network.name;
+  if (!kit.work)
+    return `This build of the extension can’t do that on ${name} yet. Download the newest one (the link is in Social Outreach’s setup, under Install the extension), unzip it over the old folder, and press Reload on Chrome’s Extensions page. Then ask again.`;
+  const state = states?.[kit.platform];
+  if (state && !state.on)
+    return `${name} is off for you, so the extension does nothing on it. Turn it on under Social Outreach → Settings in HandsFreeOS, then ask again.`;
+  if (state && !state.allowed)
+    return `Chrome hasn’t let the extension on ${name} yet. Press Allow on ${name} in the extension’s panel, then ask again.`;
+  return null;
 }
 
-/** One ask, from taking it to its end. */
+/** One ask, from taking it to its end, on its own network's line. */
 async function runOne(place: Place, ask: AskTaken): Promise<void> {
+  const platform = ask.platform ?? facebook.platform;
+  const kit = kitFor(platform);
   const u: Under = {
     place,
     ask,
-    tab: new WorkTab(placeFor(ask.kind)),
+    platform,
+    tab: new WorkTab(placeFor(ask.kind), kit),
     state: 'working',
     line: null,
     sentAt: null,
@@ -375,22 +434,28 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
     warned: false,
     answered: null,
   };
-  under = u;
+  unders.set(platform, u);
   hearWarnings();
   let end: Ended;
   try {
-    const notHere = notHereWords(ask);
-    const warned = notHere === null && onFacebook(ask.kind) ? await warnedToday(place) : null;
+    const notHere = notHereWords(ask, await statesNow());
+    const warned =
+      notHere === null && onFacebook(ask.kind) ? await warnedToday(place, platform) : null;
     if (notHere !== null) end = { line: notHere, warned: false, failed: true };
-    else if (warned) end = { line: askWarnedLine(warned.words), warned: true, failed: true };
+    else if (warned)
+      end = { line: askWarnedLine(warned.words, platform), warned: true, failed: true };
     else {
-      if (turnHeldBy() === 'runner')
+      if (turnHeldBy(platform) === 'runner')
         await tell(u, 'working', 'Waiting for the extension to finish a step first…', true);
-      end = await inTurn('ask', async () => {
-        if (u.halted !== null) return { line: u.halted, warned: false };
-        await tell(u, 'working', 'Starting…', true);
-        return runAsk(ask.task, jobFor(u));
-      });
+      end = await inTurn(
+        'ask',
+        async () => {
+          if (u.halted !== null) return { line: u.halted, warned: false };
+          await tell(u, 'working', 'Starting…', true);
+          return runAsk(ask.task, jobFor(u), platform);
+        },
+        platform,
+      );
     }
   } catch (error) {
     end = {
@@ -411,27 +476,30 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
     const ended = endOf(u, end);
     await endAsk(place, ask.askId, ended.state, ended.line, end.result ?? null);
   } finally {
-    under = null;
-    await keepAsk(null);
+    if (unders.get(platform) === u) unders.delete(platform);
+    await keepAsk(null, platform);
     waitingSoon();
   }
 }
 
-let running: Promise<void> | null = null;
-let again = false;
+/** Whether a network's line takes asks here now: on for the person, and allowed by Chrome. */
+const lineOpen = async (platform: Platform) => isWorking(kitFor(platform), await statesNow());
 
-/** Takes and does the asks waiting for this computer, one at a time, until there are none. */
-async function runAsksOnce(): Promise<void> {
+/** Takes and does the asks waiting for this computer on a network's line, one at a time, until there are none. */
+async function runLineOnce(platform: Platform): Promise<void> {
   const place = await savingTo().catch(() => null);
   if (!place) return;
   const kept = await keptFor(place);
   if (kept && !kept.working) return;
+  if (!(await lineOpen(platform))) return;
   const me = await computer();
   await sendWaitingEnds(place);
   for (;;) {
     // Signed in as someone else, or to another business, meanwhile: the look for them goes after this one.
     if (!samePlace(await savingTo().catch(() => null), place)) break;
-    const got = await take(place, me.id, null).catch(() => null);
+    // Turned off, or Chrome's leave taken back, meanwhile: what waits there waits.
+    if (!(await lineOpen(platform))) break;
+    const got = await take(place, me.id, null, platform).catch(() => null);
     if (!got?.ask) break;
     await runOne(place, got.ask);
   }
@@ -439,24 +507,31 @@ async function runAsksOnce(): Promise<void> {
   void tick();
 }
 
-/** One look at a time: one asked for while another goes follows it. */
-export function runAsks(): Promise<void> {
-  if (running) {
-    again = true;
-    return running;
+const running = new Map<Platform, Promise<void>>();
+const again = new Set<Platform>();
+
+/** One look at a time on a network's line: one asked for while another goes follows it. */
+function runLine(platform: Platform): Promise<void> {
+  const going = running.get(platform);
+  if (going) {
+    again.add(platform);
+    return going;
   }
-  running = runAsksOnce()
+  const run = runLineOnce(platform)
     .catch((error: unknown) =>
-      console.error('HandsFreeOS Social couldn’t do what you asked', error),
+      console.error('HandsFreeOS Social couldn’t do what you asked', platform, error),
     )
     .finally(() => {
-      running = null;
-      if (again) {
-        again = false;
-        void runAsks();
-      }
+      running.delete(platform);
+      if (again.delete(platform)) void runLine(platform);
     });
-  return running;
+  running.set(platform, run);
+  return run;
+}
+
+/** Each network's line looks for asks waiting for this computer, side by side. */
+export async function runAsks(): Promise<void> {
+  await Promise.all(KIT_LIST.map((kit) => runLine(kit.platform)));
 }
 
 let soon: ReturnType<typeof setTimeout> | null = null;
@@ -466,56 +541,72 @@ export function askSoon(): void {
   soon = setTimeout(() => ((soon = null), void runAsks()), 1_000);
 }
 
-/** A change heard on the live channel (../hfos/follow.ts): a new ask, or a stop or an answer to the one under way. */
+/** A change heard on the live channel (../hfos/follow.ts): a new ask, or a stop or an answer to one under way. */
 export async function heardAsk(payload: Record<string, unknown>): Promise<void> {
   const place = await savingTo().catch(() => null);
-  const what = askEventFor(payload, place?.userId ?? null, under?.ask.askId ?? null);
-  if (what === 'take') return askSoon();
+  const userId = place?.userId ?? null;
+  if (askEventFor(payload, userId, null) === 'take') return askSoon();
   // Its look has what was pressed: Stop ends it, Carry on or Skip answers the step handed over.
-  if (what === 'under_way' && under) await tell(under, under.state, under.line ?? '…', true);
+  for (const u of unders.values())
+    if (askEventFor(payload, userId, u.ask.askId) === 'under_way')
+      await tell(u, u.state, u.line ?? '…', true);
 }
 
-/** When the extension starts: an ask left under way means Chrome or the extension stopped mid-way. */
+/** When the extension starts: an ask left under way on any network means Chrome or the extension stopped mid-way. */
 export async function recoverAsk(): Promise<void> {
-  const left = await keptAsk();
-  if (!left) return;
-  await keepAsk(null);
-  const place = { userId: left.userId, businessId: left.businessId };
-  await endAsk(place, left.askId, 'failed', ASK_LOST_LINE).catch(() => undefined);
+  for (const kit of KIT_LIST) {
+    const left = await keptAsk(kit.platform);
+    if (!left) continue;
+    await keepAsk(null, kit.platform);
+    const place = { userId: left.userId, businessId: left.businessId };
+    await endAsk(place, left.askId, 'failed', ASK_LOST_LINE).catch(() => undefined);
+  }
 }
 
-// A beat's answer that ends what's under way: the day stopped, or another computer works now.
+// A beat's answer that ends what's under way: another computer works now (every network's), or the day the beat
+// carries stopped (that network's alone).
 onWake((halt_) => {
-  const u = under;
-  if (!halt_ || !u) return;
-  void keptFor(u.place).then((kept) => {
-    if (under !== u) return;
-    const why =
-      kept && !kept.working
-        ? `Stopped: ${kept.workingName ?? 'another computer'} works for you now. Ask again, and it does it there.`
-        : 'Stopped: you pressed Stop for today.';
-    halt(u, why);
-  });
+  if (!halt_) return;
+  for (const u of unders.values())
+    void keptFor(u.place).then((kept) => {
+      if (unders.get(u.platform) !== u) return;
+      if (kept && !kept.working)
+        halt(
+          u,
+          `Stopped: ${kept.workingName ?? 'another computer'} works for you now. Ask again, and it does it there.`,
+        );
+      else if (u.platform === BEAT_DAY) halt(u, 'Stopped: you pressed Stop for today.');
+    });
 });
 
-// Each beat: ends not yet taken go with it, a warning on another of their computers ends what's under way, and asks
-// waiting for this computer start.
+// Each beat: ends not yet taken go with it, a warning on another of their computers ends what's under way on the
+// network whose day it carries, and asks waiting for this computer start.
 onBeat((kept: Kept) => {
   void sendWaitingEnds(kept).catch(() => undefined);
-  if (under && kept.day.why === 'warning') haltWarned(under, null);
-  if (kept.working && kept.asks > 0 && !under) askSoon();
+  if (kept.day.why === 'warning') haltWarned(unders.get(BEAT_DAY), null);
+  if (kept.working && kept.asks > 0 && unders.size < KIT_LIST.length) askSoon();
 });
 
 type AskAsk = Extract<HfosAsk, { readonly type: 'hfos-ask-reply' | 'hfos-ask-stop' }>;
 
 /**
- * The panel's Carry on, Skip and Stop: for the ask under way here, at once; for one on another computer of the
+ * The ask under way here an answer is for: the one it names; with none named (a panel before networks), the one
+ * waiting on the person, else Facebook's.
+ */
+function underFor(askId: string | undefined): Under | null {
+  const all = [...unders.values()];
+  if (askId) return all.find((u) => u.ask.askId === askId) ?? null;
+  return all.find((u) => u.answered !== null) ?? unders.get(facebook.platform) ?? all[0] ?? null;
+}
+
+/**
+ * The panel's Carry on, Skip and Stop: for an ask under way here, at once; for one on another computer of the
  * person's (Waiting for you lists it everywhere), through HandsFreeOS. Never throws.
  */
 export function answerAsk(ask: AskAsk): Promise<HfosAnswer<unknown>> {
   return answerWith(ask.type, async () => {
-    const u = under;
-    if (!u || (ask.askId && ask.askId !== u.ask.askId)) {
+    const u = underFor(ask.askId);
+    if (!u) {
       const place = await savingTo();
       if (!place || !ask.askId)
         throw new Refused({

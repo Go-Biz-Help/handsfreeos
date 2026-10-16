@@ -539,6 +539,164 @@ describe('each network’s own lists, asks and Today', () => {
   });
 });
 
+describe('each network’s own line of asks', () => {
+  const linkedInOn = {
+    ...AUTOMATION_DEFAULTS,
+    networks: { ...NETWORKS_DEFAULTS, linkedin: { ...NETWORK_CHOICES_DEFAULTS, on: true } },
+  };
+  const beat = (u: TestUser, installId: string) =>
+    runWith(
+      u,
+      ws,
+      'outreach.live.beat',
+      {
+        computer: { id: installId, name: 'Chrome on Mac', version: '0.40.0' },
+        active: true,
+        status: { state: 'idle', line: null, lineAt: null, nextAt: null },
+      },
+      { channel: 'extension', commandId: randomUUID(), occurredAt: new Date(), sentAt: new Date() },
+    );
+  const ask = (u: TestUser, platform: string, a: Record<string, unknown>) =>
+    runWith(u, ws, 'outreach.ask.make', { platform, ask: a }, { channel: 'web' });
+  const stateOf = async (askId: string) =>
+    (
+      await rows<{ state: string }>(
+        admin(),
+        sql`select state from addon_outreach.asks where id = ${askId}`,
+      )
+    )[0]!.state;
+
+  /** Someone with LinkedIn on and a computer on 0.40.0. */
+  async function onLinkedIn(name: string): Promise<{ u: TestUser; pc: string }> {
+    const u = await teammate(name);
+    await runAs(u, ws, 'outreach.automation.save', { settings: linkedInOn });
+    const pc = randomUUID();
+    await beat(u, pc);
+    return { u, pc };
+  }
+
+  it('take each network’s asks on its own line, leaving the other’s under way', async () => {
+    const { u, pc } = await onLinkedIn('Harper Quinn');
+    const onFacebook = await ask(u, 'facebook', { kind: 'friends' });
+    const onLinkedIn_ = await ask(u, 'linkedin', { kind: 'friends' });
+    const take = (platform: string, underway: string | null) =>
+      runAs(u, ws, 'outreach.ask.take', { installId: pc, underway, platform });
+    // LinkedIn's line takes only LinkedIn's, though Facebook's is older.
+    expect((await take('linkedin', null)).ask).toMatchObject({
+      askId: onLinkedIn_.ask.askId,
+      platform: 'linkedin',
+    });
+    // Facebook's line takes Facebook's, and LinkedIn's under way isn't lost for it.
+    expect((await take('facebook', null)).ask).toMatchObject({ askId: onFacebook.ask.askId });
+    expect(await stateOf(onLinkedIn_.ask.askId)).toBe('working');
+    // A restart on LinkedIn's line (nothing under way there) loses only LinkedIn's.
+    expect((await take('linkedin', null)).ask).toBeNull();
+    expect(await stateOf(onLinkedIn_.ask.askId)).toBe('failed');
+    expect(await stateOf(onFacebook.ask.askId)).toBe('working');
+  });
+
+  it('end LinkedIn’s waiting asks on a LinkedIn warning, in LinkedIn’s words, and leave Facebook’s', async () => {
+    const { u, pc } = await onLinkedIn('Morgan Hale');
+    const onFacebook = await ask(u, 'facebook', { kind: 'friends' });
+    const onLinkedIn_ = await ask(u, 'linkedin', { kind: 'requests' });
+    await warn(u, 'linkedin', 'You’ve reached the weekly invitation limit');
+    const take = (platform: string) =>
+      runAs(u, ws, 'outreach.ask.take', { installId: pc, underway: null, platform });
+    expect((await take('linkedin')).ask).toBeNull();
+    const [ended] = await rows<{ state: string; line: string }>(
+      admin(),
+      sql`select state, line from addon_outreach.asks where id = ${onLinkedIn_.ask.askId}`,
+    );
+    expect(ended).toEqual({
+      state: 'failed',
+      line: 'LinkedIn warned you today (“You’ve reached the weekly invitation limit”), so the extension does nothing more on LinkedIn until tomorrow.',
+    });
+    expect((await take('facebook')).ask).toMatchObject({ askId: onFacebook.ask.askId });
+  });
+
+  it('find LinkedIn’s posts with the playbooks’ words, and keep them in no group', async () => {
+    const { u } = await onLinkedIn('Sage Morrow');
+    const made = await ask(u, 'linkedin', { kind: 'posts' });
+    expect(made.ask.platform).toBe('linkedin');
+    const [row] = await rows<{ task: { words: string[]; groups: null } }>(
+      admin(),
+      sql`select task from addon_outreach.asks where id = ${made.ask.askId}`,
+    );
+    // The quoted words in its signs, then its words for groups.
+    expect(row!.task).toEqual({
+      kind: 'posts',
+      groups: null,
+      words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
+    });
+    // Facebook's goes by groups, as before.
+    const fb = await ask(u, 'facebook', { kind: 'posts' });
+    const [fbRow] = await rows<{ task: Record<string, unknown> }>(
+      admin(),
+      sql`select task from addon_outreach.asks where id = ${fb.ask.askId}`,
+    );
+    expect(fbRow!.task).toEqual({ kind: 'posts', groups: null, words: [] });
+
+    const post = {
+      url: 'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000555/',
+      author: {
+        id: null,
+        username: 'casey-owner-1',
+        url: 'https://www.linkedin.com/in/casey-owner-1/',
+      },
+      name: 'Casey Owner',
+      text: 'Can anyone recommend a simple CRM? I’m the owner of a small plumbing business.',
+    };
+    const saved = await runAs(u, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      group: null,
+      posts: [post],
+      found: 'scroll',
+    });
+    expect(saved.groupId).toBeNull();
+    expect(saved.posts).toEqual([expect.objectContaining({ url: post.url, check: 'waiting' })]);
+    // On Facebook a post is kept only from a group.
+    expect(
+      await refused(
+        runAs(u, ws, 'outreach.posts.save', {
+          group: null,
+          posts: [{ ...post, url: 'https://www.facebook.com/permalink.php?story_fbid=1&id=2' }],
+        }),
+      ),
+    ).not.toBe('went through');
+  });
+
+  it('research someone on the network asked, and put a headline in at LinkedIn’s length', async () => {
+    const { u } = await onLinkedIn('Ellis Park');
+    const avery = await linkedInProfile('Avery Lane');
+    expect((await ask(u, 'linkedin', { kind: 'research', profileId: avery })).ask).toMatchObject({
+      platform: 'linkedin',
+      kind: 'research',
+    });
+    // A Facebook profile has nothing to read on LinkedIn.
+    const [fb] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          values (${ws}, 'facebook', ${`kim.lowe.${randomUUID().slice(0, 4)}`}, 'https://www.facebook.com/kim.lowe.9', 'Kim Lowe')
+          returning id`,
+    );
+    expect(await refused(ask(u, 'linkedin', { kind: 'research', profileId: fb!.id }))).toBe(
+      'outreach_research_no_profile',
+    );
+    // A headline is up to 220 characters on LinkedIn; Facebook's bio stays at 101.
+    const headline =
+      `Owner at Acme Plumbing | ${'Helping Austin homeowners keep their water running. '.repeat(3)}`.slice(
+        0,
+        200,
+      );
+    expect((await ask(u, 'linkedin', { kind: 'profile_edit', bio: headline })).ask.kind).toBe(
+      'profile_edit',
+    );
+    expect(await refused(ask(u, 'facebook', { kind: 'profile_edit', bio: headline }))).toBe(
+      'outreach_bio_too_long',
+    );
+  });
+});
+
 describe('one person on two networks', () => {
   const at = () => new Date().toISOString();
   const reach = async (

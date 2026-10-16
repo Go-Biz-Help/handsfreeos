@@ -22,6 +22,10 @@ const PAGES = [
   ['linkedin-chat-window.html', `${LI}/feed/`],
   ['linkedin-notifications.html', `${LI}/notifications/`],
   ['linkedin-invite-box.html', `${LI}/in/dana-reyes-4b2a1c/`],
+  ['linkedin-own-profile-full.html', `${LI}/in/chris-gee-12/`],
+  ['linkedin-edit-intro.html', `${LI}/in/chris-gee-12/edit/intro/`],
+  ['linkedin-withdraw-invitation.html', `${LI}/mynetwork/invitation-manager/sent/`],
+  ['linkedin-company.html', `${LI}/company/acme-plumbing-atx/about/`],
 ] as const;
 
 const outlines = Object.fromEntries(
@@ -88,6 +92,12 @@ describe('the outline of a LinkedIn page', () => {
         'Quinn',
         'Morgan',
         'Chris Gee',
+        'Gee Consulting',
+        'roofer',
+        'Hill Country',
+        'geeconsulting',
+        'acmeplumbing',
+        'Family-run',
         'Acme',
         'Plumbing',
         'Austin',

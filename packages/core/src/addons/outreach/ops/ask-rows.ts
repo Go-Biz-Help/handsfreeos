@@ -17,6 +17,7 @@ import {
   type AskShown,
 } from '../asks';
 import { asks, computers } from '../tables';
+import type { Platform } from '../networks';
 import type { Ctx } from './common';
 
 export type AskRow = typeof asks.$inferSelect;
@@ -150,7 +151,12 @@ export async function endStale(
   ctx: Ctx,
   me: string,
   at: Date,
-  here: { readonly computerId: string; readonly underway: string | null } | null = null,
+  here: {
+    readonly computerId: string;
+    readonly underway: string | null;
+    /** The network whose line is taking: only its own asks taken before are lost; another network's go on. */
+    readonly platform?: Platform;
+  } | null = null,
 ): Promise<void> {
   const ws = ctx.scope.workspaceId!;
   const now = at.getTime();
@@ -173,6 +179,7 @@ export async function endStale(
     here
       ? and(
           eq(asks.computerId, here.computerId),
+          here.platform ? eq(asks.platform, here.platform) : undefined,
           here.underway ? sql`${asks.id} <> ${here.underway}` : undefined,
         )
       : undefined,

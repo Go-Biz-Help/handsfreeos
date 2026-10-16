@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.34.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.40.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -22,8 +22,11 @@ OK'd, and never clicks, scrolls or changes a page but for what you asked or let 
 
 On LinkedIn, once you turn it on in HandsFreeOS and let Chrome open LinkedIn to it, it notes the invitations to
 connect, likes, comments and messages you send yourself, and your answers to invitations; it tells HandsFreeOS who
-wrote back, and stops on LinkedIn for the day on any LinkedIn warning. That's all it does there for now (0.34.0):
-nothing on its own, and no asks.
+wrote back, and stops on LinkedIn for the day on any LinkedIn warning. Since 0.40.0 it also does what you ask of it
+there from HandsFreeOS, at a person's pace in a window of its own: saving your connections and invitations, checking
+your connections for good fits, reading your chats, looking someone up before drafting, reading your profile and
+putting your headline in, withdrawing the old invitations you tick, and finding posts with LinkedIn's post search. It
+does nothing there on its own yet.
 
 ## The networks
 
@@ -36,10 +39,10 @@ A tab's kit is found by its address (`kitOf`), so the tab reads and notes by its
 background takes a tab's notes only from a network it knows, as that network's. What differs from one network to the
 next is in its kit, never in an `if`.
 
-| Network  | Folder                   | From install? | What it does there                                                                                   |
-| -------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------------- |
-| Facebook | `src/networks/facebook/` | Yes           | Everything below                                                                                     |
-| LinkedIn | `src/networks/linkedin/` | No: asked for | Reads its pages, notes your steps and who wrote back, and looks for its warnings; nothing on its own |
+| Network  | Folder                   | From install? | What it does there                                                                                                      |
+| -------- | ------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Facebook | `src/networks/facebook/` | Yes           | Everything below                                                                                                        |
+| LinkedIn | `src/networks/linkedin/` | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, and does what you ask; nothing on its own |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -73,9 +76,10 @@ tab whose network was turned off since it loaded notes nothing, reads nothing, a
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
 
-On LinkedIn (`src/networks/linkedin/`, read only while LinkedIn is on): a profile (yours too), your connections,
-people search, your invitations both ways, the feed, post search, a post's own page, a group, messaging's list and an
-open conversation, notifications, and LinkedIn's warnings. LinkedIn writes much of its text twice, once shown and once
+On LinkedIn (`src/networks/linkedin/`, read only while LinkedIn is on): a profile (yours too, with its Featured and
+latest posts for Get ready's check, `own-profile.ts`), your connections, people search, your invitations both ways,
+the feed, post search, a post's own page, a group, messaging's list and an open conversation, notifications, a
+company's page and its About (`company.ts`, for a look-up), and LinkedIn's warnings. LinkedIn writes much of its text twice, once shown and once
 for screen readers: the readers read what's shown. As you go, only its warnings are looked at for now.
 
 Facebook loads lists as you scroll, so a reader only sees what's on the page; the jobs scroll for more. A group's
@@ -226,12 +230,12 @@ answers a message of yours it noted, and tells your phone unless you had that ta
 The buttons on Social Outreach's Friends, Groups, Chats and Today tabs ask your computer to do something on Facebook
 (an ask, `outreach.ask.make`; decision 43 in docs/outreach.md). The computer that works for you hears of it within
 seconds on the live channel (`src/hfos/follow.ts`), or with its next beat's answer, takes it (`outreach.ask.take`,
-the oldest first), does it with the jobs in `src/jobs/`, and says how it's going and how it ended, which the web
+the oldest first), does it with the jobs in `src/jobs/` (LinkedIn's in `src/jobs/linkedin/`), and says how it's going and how it ended, which the web
 shows under the button and on the Live tab, and the panel under **Right now** (`src/asks/run.ts`,
 `src/hfos/asks.ts`). A kind of ask newer than the build on the computer (`ASK_KIND_SINCE`: checking friends 0.21.0,
 checking and joining groups 0.22.0, putting a helpful post up 0.24.0, reading your profile and putting your bio in
-0.32.0) isn't asked of it: the button says to update
-the build, and how. A build that's handed a kind it doesn't know ends it saying so, and goes on to the next ask.
+0.32.0; anything on LinkedIn 0.40.0, `ASK_NETWORK_SINCE`) isn't asked of it: the button says to update the build,
+and how. A build that's handed a kind it doesn't know ends it saying so, and goes on to the next ask.
 
 | Button, and where                                                                          | What it does                                                                                                                                                                                                                                                                                                                       | Where it works, and its pace                                                       |
 | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -254,37 +258,63 @@ the build, and how. A build that's handed a kind it doesn't know ends it saying 
 | **Read my profile** (Today, Get ready)                                                     | Opens facebook.com/me, checks it's your own (**Edit profile**), reads the picture's and the cover's descriptions, the bio, the intro, what's featured and the latest posts, and sends them for the AI's check; HandsFreeOS keeps only the AI's answer (`src/jobs/profile.ts`, `src/networks/facebook/own-profile.ts`, decision 64) | A window of its own, one read                                                      |
 | **Put this one in** (Today, Get ready, a bio the AI wrote)                                 | Presses **Edit bio** (or **Add bio**), writes the bio you picked in place of the old one, presses **Save** and waits for it to show, then reads the profile again; with no Edit bio it hands the step to you                                                                                                                       | A window of its own                                                                |
 
-- **One at a time, never beside the runner.** Asks take turns with the runner on Facebook (`src/auto/turns.ts`): the
-  runner waits ("Doing what you asked from HandsFreeOS first") and carries on after. Asks go outside your working
-  hours and after Stop for today too, since you're asking now.
+- **A line per network** (the plan's "One runner, one turn"). Each network takes its own asks (`outreach.ask.take`
+  with its `platform`), one at a time, in its own window and its own turn (`src/auto/turns.ts`): a LinkedIn ask never
+  waits on Facebook's runner or on a Facebook step handed to you, and the reverse. A network's line takes asks only
+  while it's on for you in HandsFreeOS and Chrome allows it (`isWorking`); one turned off or taken back since its ask
+  was taken ends it at once, saying how to turn it on. The computer that works for you stays one (decision 41).
+- **Never beside the runner.** On Facebook an ask takes Facebook's turn: the runner waits ("Doing what you asked from
+  HandsFreeOS first") and carries on after. Asks go outside your working hours and after Stop for today too, since
+  you're asking now.
 - **How it's going:** a new state goes to HandsFreeOS at once, and a new line alone at most every 20 seconds
   (`lineDue`), with no receipt kept. How it ended goes with its own id and moment; with no connection it waits
-  (`hfos.ask.ends`, at most 20) and goes with the next beat. The ask under way is kept in `hfos.ask` for the panel;
-  one left there when the extension starts again (Chrome closed mid-way) is ended as lost.
+  (`hfos.ask.ends`, at most 20) and goes with the next beat. Each network's ask under way is kept for the panel,
+  Facebook's in `hfos.ask` and LinkedIn's in `hfos.ask.linkedin` (`askKeyOf`), and the panel shows each with its own
+  **Carry on**, **Skip** and **Stop**; one left there when the extension starts again (Chrome closed mid-way) is ended
+  as lost.
 - **Steps it hands to you:** a step it can't find on Facebook's download pages or a profile it hands to you: the tab
   comes to the front, Chrome pops up, your phone hears "Your computer needs you", and it waits for **Carry on** (or
   **Skip**, for someone ticked) from the panel, Needs you, or the web, asking HandsFreeOS for your answer every
   20 seconds. Half an hour with no answer stops it. While Facebook asks for your password or PIN, it waits for you to
   type it there; it never types one.
-- **Stops:** **Stop**, in the panel or the app; Stop for today, pressed in the panel, the app or the phone; another of
-  your computers working now; or Facebook's warning that day, seen here in any tab or on another of your computers,
-  which ends any ask on Facebook before it starts, or at its next page while it goes (all but **Bring them in**,
-  which doesn't open Facebook); or signing in, signing out or picking another business here (`signInChanged`), and it
+- **Stops:** **Stop**, in the panel or the app; Stop for today, pressed in the panel, the app or the phone, which ends
+  Facebook's (the day the beat carries); another of your computers working now, which ends every network's; or a
+  network's warning that day, which ends that network's ask before it starts, or at its next page while it goes,
+  and never another network's: seen here in any tab, or, for Facebook, on another of your computers (all but
+  **Bring them in**, which doesn't open Facebook; HandsFreeOS ends LinkedIn's waiting asks itself on a day LinkedIn
+  warned you); or signing in, signing out or picking another business here (`signInChanged`), and it
   checks before each call to HandsFreeOS that you're still the one signed in, to the same business, so nothing of
   yours goes as anyone else's: its end waits until you're back. A stopped ask ends with why and how far it got
   ("Stopped: you pressed Stop for today. Requests cancelled: 2 people.").
-- **Only Facebook's pages:** the extension's own tab opens only https addresses on www.facebook.com,
-  web.facebook.com and accountscenter.facebook.com (Facebook's kit's `workUrl`, in `src/networks/facebook/urls.ts`,
-  checked in `src/tab.ts`, whose tab goes by its kit), so a bad link kept in HandsFreeOS or read off a page is refused
-  with plain words and never opened.
-- **Facebook's, for now:** the asks and the runner work on Facebook only. An ask made on LinkedIn (HandsFreeOS hands
-  those only to a newer build, `ASK_NETWORK_SINCE`) ends at once saying how to update, and nothing is opened for it;
-  a LinkedIn tab answers none of their steps (only Facebook's kit has `work`, `src/networks/facebook/work.ts`).
+- **Only its network's pages:** an ask's tab opens only https addresses of its own network: on Facebook
+  www.facebook.com, web.facebook.com and accountscenter.facebook.com, on LinkedIn www.linkedin.com (each kit's
+  `workUrl`, checked in `src/tab.ts`, whose tab goes by its kit), so a bad link kept in HandsFreeOS or read off a page
+  is refused with plain words and never opened. A tab does only its own network's steps (its kit's `work`); asked
+  another's, it says so.
 - **Done or not:** an ask is **Done** only when its job did what was asked. Stopped, warned, or unable to (nothing to
   save, HandsFreeOS refusing a save, a page that didn't load) it ends as failed, with the job's words.
-- **What it keeps:** `hfos.ask` and `hfos.ask.ends` above, and `hfos.facebookFile`: when you asked Facebook for your
+- **What it keeps:** `hfos.ask`, `hfos.ask.linkedin` and `hfos.ask.ends` above, and `hfos.facebookFile`: when you asked Facebook for your
   file, and which zips were brought in. The offscreen page (the `offscreen` permission) is opened only to read the
   zips and closed once they're in.
+
+### On LinkedIn (0.40.0)
+
+LinkedIn's rules hold for every one (the plan's "The risk, said plainly"): a person's pace, a window of its own,
+reading only unless the ask says to press, a stop on any LinkedIn warning (in LinkedIn's words, and LinkedIn's alone),
+and nothing to get around LinkedIn's limits or checks (`src/jobs/linkedin/`, `src/networks/linkedin/work.ts`).
+
+| Ask (`kind`)                               | What it does                                                                                                                                                                                                                                                  | Where it works, and its pace                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Save my connections (`friends`)            | Scrolls My Network's connections slowly to the end (LinkedIn's own **Show more results** where the list stops loading) and saves them as your friends list, as LinkedIn's (`people.ts`)                                                                       | A window of its own, 6 to 12 seconds a screen, up to 150 screens                            |
+| Check my invitations (`requests`)          | Manage invitations: the ones you've got, then the ones you've sent, each saved as Facebook's friend requests are                                                                                                                                              | The same, up to 30 screens each                                                             |
+| Check my connections (`checks`), Research  | Asks HandsFreeOS who's next on LinkedIn (`outreach.checks.next`, `platform: 'linkedin'`), opens each profile, checks it's them by the name in its address or LinkedIn's id, reads it and sends the lines (`outreach.check.look`); one page each (`checks.ts`) | A window of its own, one every 15 to 30 seconds, on LinkedIn's own 40 a day: a look is seen |
+| Read my chats (`chats`)                    | Opens your conversations in LinkedIn messaging one at a time from its list, and sends each as LinkedIn's, with its thread id (`../chats.ts`, `LINKEDIN_MESSAGING`)                                                                                            | A window of its own, 7 to 14 seconds a chat, up to 150                                      |
+| Draft a message (`lookup`)                 | Their profile, then the About of the company their role links to: two pages, then the window closes before the AI drafts (`lookup.ts`)                                                                                                                        | A window of its own, closed after                                                           |
+| Read my profile (`profile_read`)           | linkedin.com/in/me/, checked it's yours, read as `outreach.profile.check` takes it: the headline as the bio, the About, Experience as the intro, Featured and the latest posts (`profile.ts`, `src/networks/linkedin/own-profile.ts`)                         | A window of its own, one read                                                               |
+| Put this one in (`profile_edit`)           | Presses the pencil by your name (**Edit intro**), types only into **Headline** in the box it opens, presses that box's **Save**, and checks the headline under your name; anything it doesn't expect it hands to you, never guessing                          | A window of its own, brought to the front if it hands the step over                         |
+| Withdraw the ticked invitations (`cancel`) | On Sent invitations, finds each one you ticked by the link to their profile, scrolling for it, presses **Withdraw** and the box's **Withdraw**, checks the row is gone, and notes it; one not on the list, read to its end, answered already (`withdraw.ts`)  | A tab you can see (decision 17), one every 20 to 40 seconds, up to LinkedIn's 20 a day      |
+| Find posts (`posts`)                       | LinkedIn's post search, latest first, with your playbooks' words (HandsFreeOS picks them: the quoted words in their signs, then their words for groups), a few screens each; posts by people go to the AI, in no group (`posts.ts`)                           | A window of its own, 6 to 12 seconds a screen, 3 screens a search                           |
+| Put up your helpful post (`post`)          | Not yet (the plan's part 6): it ends at once saying to post it yourself, and opens nothing                                                                                                                                                                    |                                                                                             |
 
 ## Reading as you go
 
@@ -535,11 +565,19 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   Nothing of the extension's is ever listed in `web_accessible_resources`: LinkedIn's pages look for extensions by the
   files they show. `test/manifest.test.ts` holds this.
 - **LinkedIn, said plainly.** Its terms forbid software that automates it, and it restricts accounts it thinks are
-  automated. So on LinkedIn the extension notes only what the person presses, reads only as they go, and builds
-  nothing to get around its limits or its checks. What it does on its own there comes later, as the plan says, and
-  stays the person's choice.
+  automated. So on LinkedIn the extension notes only what the person presses, reads only as they go or when they ask
+  from HandsFreeOS (at a person's pace, in a window of its own, stopping on any warning), and builds nothing to get
+  around its limits or its checks. What it does on its own there comes later, as the plan says, and stays the
+  person's choice.
+- **Pressing on LinkedIn only for what's asked.** LinkedIn's tab presses three things, each only on its own page:
+  **Show more results** at the foot of a list that stopped loading (`scrollList`); on your own profile, **Edit intro**,
+  then only the **Headline** field and that box's **Save** (`writeHeadline`); and on Sent invitations, **Withdraw** on
+  the row of someone you ticked, found by their profile link (`withdrawFor`, `sameMember`), then the box's own
+  **Withdraw**. Anything not as expected it stops at and hands to you. `test/linkedin-asks.test.ts` walks each on
+  made-up pages, as written and with bare boxes.
 - **Each network on its own.** A warning or a stop on one network never affects another: each network's warnings are
-  kept apart (`hfos.warned`), and the runner and the asks look only at Facebook's.
+  kept apart (`hfos.warned`), each network's asks have their own line, window and turn, and the runner looks only at
+  Facebook's.
 - **Addresses first.** Each kit's `urls.ts` (`src/networks/facebook/urls.ts`, `src/networks/linkedin/urls.ts`)
   decides what kind of page it is and what each link points to. The networks change their page code every week and
   their addresses hardly ever, so anything a link can tell, a link tells.
@@ -600,8 +638,9 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   `test/auto.test.ts` walks a made-up profile, post, chat and chat window.
 - **A warning stops the day.** The extension keeps the day's warnings itself (`hfos.warned`), so the runner and the
   asks on Facebook refuse to start, or stop, even when HandsFreeOS can't be reached.
-- **Asks one at a time, from HandsFreeOS only.** Only the computer that works takes one, and only the person's own;
-  an ask and a step of the runner's never go at once (`inTurn`). Its line goes at most every 20 seconds, its end
+- **Asks one at a time on each network, from HandsFreeOS only.** Only the computer that works takes one, and only the
+  person's own; each network's line takes its own (`platform`), and an ask and a step of the runner's never go at once
+  on one network (`inTurn`, by network). Its line goes at most every 20 seconds, its end
   keeps its moment and command id, and a step handed over waits half an hour at most. The panel's buttons only answer
   the ask under way; they never start one.
 - **Saving only when asked in HandsFreeOS; steps noted as they happen.** Nothing is saved until the person asks for it
@@ -639,33 +678,33 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                                        | What it is                                                                                                                                             |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/networks/`                             | A kit per network (`kit.ts`, `index.ts`), which are on (`on.ts`), LinkedIn's script kept in step (`scripts.ts`), the outline (`outline.ts`)            |
-| `src/networks/facebook/`                    | Facebook's kit: one reader per kind of page, the steps, the addresses, its words, the outline, the download steps, the runner's and asks' (`work.ts`)  |
-| `src/networks/linkedin/`                    | LinkedIn's kit: its readers, the steps you take there (`actions.ts`), who wrote back, its words, its warnings and its outline                          |
-| `src/content.ts`                            | The script in each tab of a network that's on, by its kit: reads the page when asked, looks at the tab in front of you, and notices your steps         |
-| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `waiting.ts` Needs you   |
-| `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                    |
-| `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                        |
-| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks       |
-| `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                             |
-| `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                    |
-| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), the runner (`run.ts`), the once-a-day jobs (`daily.ts`), and taking turns with asks (`turns.ts`)   |
-| `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                   |
-| `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                        |
-| `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                   |
-| `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                       |
-| `src/hfos/waiting.ts`                       | Needs you: the number on the icon and Chrome's pop-ups                                                                                                 |
-| `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                              |
-| `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks |
-| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                  |
-| `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                 |
+| Path                                        | What it is                                                                                                                                                                  |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/networks/`                             | A kit per network (`kit.ts`, `index.ts`), which are on (`on.ts`), LinkedIn's script kept in step (`scripts.ts`), the outline (`outline.ts`)                                 |
+| `src/networks/facebook/`                    | Facebook's kit: one reader per kind of page, the steps, the addresses, its words, the outline, the download steps, the runner's and asks' (`work.ts`)                       |
+| `src/networks/linkedin/`                    | LinkedIn's kit: its readers, the steps you take there (`actions.ts`), who wrote back, its words, its warnings, its outline, and the asks' steps (`work.ts`)                 |
+| `src/content.ts`                            | The script in each tab of a network that's on, by its kit: reads the page when asked, looks at the tab in front of you, and notices your steps                              |
+| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `waiting.ts` Needs you                        |
+| `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                                         |
+| `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                                             |
+| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks; LinkedIn's in `linkedin/` |
+| `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                                                  |
+| `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                                         |
+| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), the runner (`run.ts`), the once-a-day jobs (`daily.ts`), and taking turns with asks (`turns.ts`)                        |
+| `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                                        |
+| `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                                             |
+| `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                        |
+| `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                            |
+| `src/hfos/waiting.ts`                       | Needs you: the number on the icon and Chrome's pop-ups                                                                                                                      |
+| `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                                                   |
+| `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                      |
+| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                       |
+| `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                      |
 
 ## Next
 
-LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): turning it on in the app, then its asks
-(its lists, its file, checks, chats, look-ups, the profile), what it does on its own there with a line of its own
-beside Facebook's, and growing. Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
+LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): its asks are in (0.40.0) but for
+getting and bringing in its file; next, what it does on its own there (part 5), on the line of its own its asks
+already have, and growing, with the helpful post on your own feed (part 6). Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
 of decisions 26 to 35); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.

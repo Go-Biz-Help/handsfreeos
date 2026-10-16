@@ -1,7 +1,8 @@
 /**
- * The tab the extension works in, on one network's pages (its kit's `workUrl`): Facebook's, the only network the
- * runner and the asks work on for now. What the person asks of it from HandsFreeOS (asks/run.ts) that they may need to
- * finish themselves (getting their file, where they type their password; cancelling old requests and unfriending)
+ * The tab the extension works in, on one network's pages (its kit's `workUrl`): each network's asks have their own
+ * (asks/run.ts), and the runner Facebook's. What the person asks of it from HandsFreeOS that they may need to finish
+ * themselves (getting their file, where they type their password; cancelling old requests, withdrawing invitations and
+ * unfriending)
  * goes in a tab in view, reused from step to step while it's open, and brought to the front when a step is handed to
  * them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts), and the rest of
  * what's asked, have a window of their own, which opens without taking the person's attention.
@@ -24,6 +25,8 @@ import type {
   JoinAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  WithdrawAnswer,
+  WithdrawAsk,
 } from './messages';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -133,16 +136,19 @@ export class WorkTab {
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
-    message: FetchAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | BrowseAsk | Ask,
+    message:
+      FetchAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | WithdrawAsk | BrowseAsk | Ask,
   ): Promise<
     | FetchAnswer
     | AutoAnswer
     | JoinAnswer
     | GroupPostAnswer
     | OwnProfileAnswer
+    | WithdrawAnswer
     | BrowseAnswer
     | Answer
   > {
@@ -156,6 +162,7 @@ export class WorkTab {
         | JoinAnswer
         | GroupPostAnswer
         | OwnProfileAnswer
+        | WithdrawAnswer
         | BrowseAnswer
         | Answer;
     } catch {
@@ -167,6 +174,7 @@ export class WorkTab {
           | JoinAnswer
           | GroupPostAnswer
           | OwnProfileAnswer
+          | WithdrawAnswer
           | BrowseAnswer
           | Answer;
       } catch {

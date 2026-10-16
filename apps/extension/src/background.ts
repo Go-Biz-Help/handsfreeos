@@ -13,10 +13,10 @@
  * the person's day (src/hfos/live.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
  * pop-ups about them (src/hfos/waiting.ts).
  */
-import { answerAsk, askSoon, askTabId, heardAsk, recoverAsk, signInChanged } from './asks/run';
+import { answerAsk, askSoon, askTabIds, heardAsk, recoverAsk, signInChanged } from './asks/run';
 import { AUTO_ALARM, answerAuto, runnerTabId, tick, wake } from './auto/run';
 import { kitOf } from './networks';
-import { isWorking, statesNow } from './networks/on';
+import { isWorking, NETWORKS_KEY, statesNow } from './networks/on';
 import { syncNetworks } from './networks/scripts';
 import { follow, loadSettings, SETTINGS_KEY } from './hfos/follow';
 import { BEAT_ALARM, beat, heard, keepBeating, markActive, signOff } from './hfos/live';
@@ -93,7 +93,7 @@ chrome.runtime.onMessage.addListener(
         if (!isWorking(kit, states)) return;
         // What the person's front tab showed; never the extension's own work, in the runner's or an ask's tab.
         if (type === 'hfos-looked') {
-          const ours = tabId !== null && (tabId === askTabId() || tabId === runnerTabId());
+          const ours = tabId !== null && (askTabIds().includes(tabId) || tabId === runnerTabId());
           if (!ours && isLooked(message)) void looked(message, kit.platform);
           return;
         }
@@ -169,7 +169,10 @@ void recoverAsk().then(() => askSoon());
 // or takes back a network's site in Chrome. A network's script runs on its site only while both say so.
 void syncNetworks();
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (SETTINGS_KEY in changes || PLACE_KEY in changes)) void syncNetworks();
+  if (area !== 'local') return;
+  if (SETTINGS_KEY in changes || PLACE_KEY in changes) void syncNetworks();
+  // A network just turned on and allowed: the asks waiting on its line start.
+  if (NETWORKS_KEY in changes) askSoon();
 });
 chrome.permissions.onAdded.addListener(() => void syncNetworks());
 chrome.permissions.onRemoved.addListener(() => void syncNetworks());

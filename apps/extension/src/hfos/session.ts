@@ -413,7 +413,7 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-tidy':
       return call(
         api().POST('/v1/queries/outreach.friends.tidy', {
-          body: { workspaceId: ask.workspaceId },
+          body: { workspaceId: ask.workspaceId, platform: ask.platform ?? 'facebook' },
         }),
         ask.workspaceId,
       );

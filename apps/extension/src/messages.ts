@@ -2,7 +2,8 @@
  * What the background asks a tab, and what the tab answers; what a tab tells the background as the person works
  * there; and what the background asks the offscreen page that reads Facebook's file (src/offscreen.ts). Every end is
  * the extension's own: the networks' scripts never see these messages. A tab's own network (src/networks/) says how
- * it reads and notes; the runner's and the asks' steps are Facebook's for now.
+ * it reads, notes and does each step: one ask means the same on every network that answers it (scroll a list, open a
+ * chat, read the person's own profile, put the bio or headline in), and a tab answers only its own network's.
  */
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
@@ -12,6 +13,7 @@ import type { FetchStep, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
+import type { WithdrawResult } from './networks/linkedin/withdraw';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
@@ -97,8 +99,8 @@ export type GroupPostAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
- * The person's own profile (src/networks/facebook/own-profile.ts, decision 64): read what a stranger sees first, or put the bio
- * they picked in.
+ * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
+ * LinkedIn is their headline (src/networks/facebook/own-profile.ts, src/networks/linkedin/own-profile.ts).
  */
 export type OwnProfileAsk =
   { readonly type: 'hfos-own-profile' } | { readonly type: 'hfos-write-bio'; readonly bio: string };
@@ -106,6 +108,16 @@ export type OwnProfileAsk =
 export type OwnProfileAnswer =
   | { readonly ok: true; readonly read: ProfileRead }
   | { readonly ok: true; readonly result: BioResult }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On LinkedIn's Sent invitations, withdraw the one to this member (src/networks/linkedin/withdraw.ts): its row is found
+ * by their profile link, and nothing else is pressed.
+ */
+export type WithdrawAsk = { readonly type: 'hfos-withdraw'; readonly profile: ProfileRef };
+
+export type WithdrawAnswer =
+  | { readonly ok: true; readonly result: WithdrawResult }
   | { readonly ok: false; readonly error: string };
 
 export type AutoAnswer =
@@ -124,8 +136,8 @@ export type FetchAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
- * A tab's read of its page, and its outline when asked: Facebook's read for the jobs (which work on Facebook), any
- * network's for the panel's outline.
+ * A tab's read of its page, and its outline when asked: Facebook's read unless said (a LinkedIn job reads LinkedIn's,
+ * src/jobs/linkedin/read.ts), any network's for the panel's outline.
  */
 export type Answer<R extends PageRead = ReadResult> =
   | { readonly ok: true; readonly result: R; readonly outline?: string }
