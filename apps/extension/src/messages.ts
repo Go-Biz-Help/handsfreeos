@@ -222,6 +222,7 @@ export type OffscreenAnswer =
     }
   | {
       readonly ok: true;
-      readonly linkedin: LinkedInFilePart;
+      /** LinkedIn's (the field isn't called "linkedin": the secret scan reads that before a type name as a key). */
+      readonly filePart: LinkedInFilePart;
     }
   | { readonly ok: false; readonly error: string };

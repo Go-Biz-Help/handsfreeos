@@ -197,7 +197,7 @@ beforeEach(() => {
             noLink: got.noLink,
           };
         }
-        return { ok: true, linkedin: readerParts[ask.i]! };
+        return { ok: true, filePart: readerParts[ask.i]! };
       },
     },
   });

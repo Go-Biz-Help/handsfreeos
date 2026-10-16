@@ -23,3 +23,6 @@ d65446e2c04528027c877d7d5469865a9f520ad6:packages/core/test/number-import.test.t
 # Not a secret: an import of two LinkedIn helpers (linkedInItem, linkedInListSave) that LinkedIn's client-secret rule
 # reads as a key. The next commit lists them the other way round, so the line no longer matches.
 e28cf0843de4748766eaef6c38a037220ac8ffb7:apps/extension/src/jobs/linkedin/people.ts:linkedin-client-secret:14
+# Not a secret: a field of the offscreen page's answer named for LinkedIn, typed with a part of LinkedIn's file, whose
+# type name LinkedIn's client-secret rule reads as a key. The next commit names the field filePart, so no line matches.
+eb3e8ee72b2f7da7c1bdb60ea142b385a58b5adf:apps/extension/src/messages.ts:linkedin-client-secret:225

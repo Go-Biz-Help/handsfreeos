@@ -65,7 +65,7 @@ async function answer(ask: OffscreenAsk): Promise<OffscreenAnswer> {
     const lost = { ok: false, error: 'The extension lost what it read. Ask again.' } as const;
     if (kept.platform === 'linkedin') {
       const part = kept.parts[ask.i];
-      return part ? { ok: true, linkedin: part } : lost;
+      return part ? { ok: true, filePart: part } : lost;
     }
     const part = kept.parts[ask.i];
     return part ? { ok: true, part } : lost;

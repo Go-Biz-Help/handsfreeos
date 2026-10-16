@@ -142,8 +142,8 @@ export async function bringInLinkedIn(job: Job): Promise<JobEnd> {
           : 'Bringing it in…',
       );
       const got = await offscreen({ target: 'offscreen', type: 'hfos-file-part', i });
-      if (!('linkedin' in got)) throw new Error(UNREAD);
-      const part = got.linkedin;
+      if (!('filePart' in got)) throw new Error(UNREAD);
+      const part = got.filePart;
       if ('list' in part) {
         const built = linkedInListSave(part.people, part.list, job.businessId);
         if (!built.ok) continue;
