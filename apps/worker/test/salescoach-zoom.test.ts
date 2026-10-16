@@ -148,11 +148,18 @@ async function zoomStream(meetingUuid: string, streamId: string) {
     ready: () => ready,
     ping: (timestamp: number) =>
       signaling?.send(JSON.stringify({ msg_type: RTMS.KEEP_ALIVE_REQ, timestamp })),
-    say: (userName: string, data: string) =>
+    /** Zoom's language codes: 9 English, 28 Spanish. */
+    say: (userName: string, data: string, language = 9) =>
       media?.send(
         JSON.stringify({
           msg_type: RTMS.MEDIA_DATA_TRANSCRIPT,
-          content: { user_id: 16778240, user_name: userName, data, timestamp: Date.now() },
+          content: {
+            user_id: 16778240,
+            user_name: userName,
+            data,
+            timestamp: Date.now(),
+            language,
+          },
         }),
       ),
     end: () =>
@@ -273,7 +280,7 @@ describe('a Zoom meeting heard live', () => {
       // Only Zoom's transcript is asked for, in English.
       expect(zoom.sent.find((m) => m['msg_type'] === RTMS.DATA_HAND_SHAKE_REQ)).toMatchObject({
         media_type: 8,
-        media_params: { transcript: { content_type: 5, language: 9 } },
+        media_params: { transcript: { content_type: 5, src_language: 9, enable_lid: true } },
       });
       zoom.ping(1712);
       await waitFor('the keep-alive answered', async () => zoom.pongs.includes(1712));
@@ -401,6 +408,55 @@ describe('a Zoom meeting heard live', () => {
       );
       expect(kept!.person_id).toBe(rosaId);
       await drain();
+    } finally {
+      await zoom.close();
+    }
+  });
+
+  it('coaches a meeting in Spanish: the words to say in Spanish, the notes in English', async () => {
+    const meetingUuid = `mtg-${randomUUID()}==`;
+    const streamId = `stream-${randomUUID()}`;
+    const { liveMeetingId } = await claim(meetingUuid);
+    const zoom = await zoomStream(meetingUuid, streamId);
+    try {
+      await onStreamStarted(deps(), {
+        meetingUuid,
+        streamId,
+        serverUrl: zoom.url,
+        operatorId: 'zoom-marco',
+      });
+      await waitFor('the stream to be ready', async () => zoom.ready());
+      zoom.say('Marco Member', 'Hola Rosa, gracias por su tiempo para revisar el presupuesto.', 28);
+      zoom.say('Rosa Diaz', 'La verdad, el precio es muy caro para nosotros ahora.', 28);
+      const card = await waitFor('the objection card', async () => {
+        const [c] = await rows<{ title: string; say: string }>(
+          admin(),
+          sql`select k.title, k.say from addon_salescoach.cards k
+                join addon_salescoach.calls c on c.id = k.coached_call_id
+               where c.live_meeting_id = ${liveMeetingId}`,
+        );
+        return c;
+      });
+      // The coach was told the customer speaks Spanish: what the rep says is in Spanish.
+      expect(card.say).toBe('En español: I hear you. We can spread it over three payments.');
+      zoom.end();
+      await waitFor('the write-up queued', async () => {
+        const c = await coached(liveMeetingId);
+        return c && c.state !== 'live' ? c : null;
+      });
+      await drain();
+      const [done] = await rows<{
+        lines: { language?: string }[];
+        language: string;
+        follow_up: string;
+      }>(
+        admin(),
+        sql`select lines, result ->> 'language' as language, result ->> 'followUp' as follow_up
+            from addon_salescoach.calls where live_meeting_id = ${liveMeetingId}`,
+      );
+      expect(done!.lines.map((l) => l.language)).toEqual(['es', 'es']);
+      expect(done!.language).toBe('es');
+      expect(done!.follow_up).toMatch(/^Gracias/);
     } finally {
       await zoom.close();
     }

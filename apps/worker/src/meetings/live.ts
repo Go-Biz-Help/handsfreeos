@@ -14,7 +14,8 @@
  * 1. **Signaling** (a websocket to `server_urls`): a handshake signed with the coaching Zoom app's id and secret
  *    (HMAC-SHA256 of `<client id>,<meeting uuid>,<stream id>`, hex). Zoom answers with the media server.
  * 2. **Media** (a second websocket): the same signed handshake, asking for Zoom's own live transcript only
- *    (`media_type` 8, English). Once Zoom accepts, the signaling socket says ready and the words start.
+ *    (`media_type` 8), starting in English with Zoom's language identification on, so Spanish comes as Spanish and
+ *    each line names its language. Once Zoom accepts, the signaling socket says ready and the words start.
  * 3. **Keep-alive**: both sockets answer Zoom's ping (12) with a pong (13) carrying its timestamp, or Zoom hangs up.
  *
  * Each transcript message is one person's words with their name in the meeting: the claim's person (by the name they
@@ -56,9 +57,14 @@ export const RTMS = {
   KEEP_ALIVE_RESP: 13,
   MEDIA_DATA_TRANSCRIPT: 17,
 } as const;
-/** `media_type` for the transcript alone; its text content type, and English. */
+/** `media_type` for the transcript alone, and its text content type. */
 const MEDIA_TRANSCRIPT = 8;
 const CONTENT_TEXT = 5;
+/**
+ * Zoom's transcript languages (`RTMS_TRANSCRIPT_LANGUAGE`) the coach knows: it starts in English and Zoom's own
+ * language identification takes over (`enable_lid`), so a meeting in Spanish comes as Spanish, each line saying so.
+ */
+export const RTMS_LANGUAGES: Readonly<Record<number, string>> = { 9: 'en', 28: 'es' };
 const LANGUAGE_ENGLISH = 9;
 /** A stream state of TERMINATED, a session state of STOPPED. */
 const STREAM_TERMINATED = 4;
@@ -78,6 +84,8 @@ export const rtmsSignature = (
 export interface RtmsTranscript {
   readonly userName: string;
   readonly text: string;
+  /** Two letters ('en', 'es'), when Zoom named a language the coach knows. */
+  readonly language: string | null;
 }
 
 export type OpenSocket = (url: string) => WebSocket;
@@ -206,7 +214,13 @@ export class RtmsStream {
         signature: this.signature,
         media_type: MEDIA_TRANSCRIPT,
         payload_encryption: false,
-        media_params: { transcript: { content_type: CONTENT_TEXT, language: LANGUAGE_ENGLISH } },
+        media_params: {
+          transcript: {
+            content_type: CONTENT_TEXT,
+            src_language: LANGUAGE_ENGLISH,
+            enable_lid: true,
+          },
+        },
       }),
     );
     ws.on('message', (raw) => this.onMedia(RtmsStream.parse(raw)));
@@ -235,9 +249,11 @@ export class RtmsStream {
         const c = (m['content'] ?? {}) as Record<string, unknown>;
         const text = typeof c['data'] === 'string' ? c['data'].trim() : '';
         if (!text) return;
+        const code = c['language'] ?? m['language'];
         this.o.onTranscript({
           userName: typeof c['user_name'] === 'string' ? c['user_name'].slice(0, 200) : '',
           text: text.slice(0, 2000),
+          language: typeof code === 'number' ? (RTMS_LANGUAGES[code] ?? null) : null,
         });
         return;
       }
@@ -356,7 +372,12 @@ export class ZoomLiveSession {
     const last = this.lines[this.lines.length - 1];
     // Zoom can send a line again as it settles: the same words from the same side are one line.
     if (last && last.speaker === speaker && last.text === t.text) return;
-    const line: LiveLine = { speaker, text: t.text, atMs: Date.now() - this.started };
+    const line: LiveLine = {
+      speaker,
+      text: t.text,
+      atMs: Date.now() - this.started,
+      language: t.language,
+    };
     this.lines.push(line);
     void this.fanout.line(line, this.lines.slice());
   }

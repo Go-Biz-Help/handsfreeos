@@ -29,6 +29,12 @@ export interface HeardWords {
   readonly language: string | null;
 }
 
+/** A language as two lowercase letters ('es-419' → 'es'), or null when there's none to tell. */
+export function spokenLanguage(raw: string | null | undefined): string | null {
+  const m = /^([a-z]{2})(?:[-_][a-z0-9]+)*$/i.exec(raw?.trim() ?? '');
+  return m ? m[1]!.toLowerCase() : null;
+}
+
 export interface ListenHandlers {
   readonly onWords: (w: HeardWords) => void;
   /** They started talking: the teammate stops speaking. */

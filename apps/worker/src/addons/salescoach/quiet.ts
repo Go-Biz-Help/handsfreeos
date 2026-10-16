@@ -68,9 +68,15 @@ export const conversationQuiet: AddonJobHandler = async (ctx) => {
   if (typeof conversationId !== 'string') return;
   const ws = ctx.scope.workspaceId;
   const read = await asWorker(ctx.db, ctx.scope, async (tx) => {
-    const [thread] = await rows<{ folder: string; private_to: string | null; timezone: string }>(
+    const [thread] = await rows<{
+      folder: string;
+      private_to: string | null;
+      timezone: string;
+      language: string | null;
+    }>(
       tx,
-      sql`select c.folder::text as folder, c.private_to, w.timezone
+      // The language is the customer's, as the AI teammate last said (M18).
+      sql`select c.folder::text as folder, c.private_to, w.timezone, c.language
           from app.conversations c join app.workspaces w on w.id = c.workspace_id
           where c.id = ${conversationId} and c.workspace_id = ${ws}`,
     );
@@ -135,6 +141,7 @@ export const conversationQuiet: AddonJobHandler = async (ctx) => {
             playbook: playbookText(pb?.name ?? 'No playbook', details),
             lines,
             today: localDateOf(ctx.now, thread.timezone),
+            language: thread.language,
           }),
         },
       ],
@@ -164,7 +171,7 @@ export const conversationQuiet: AddonJobHandler = async (ctx) => {
       channel,
       userId: rep,
       lines,
-      result: checkedAfterCall(answer, details, lines),
+      result: checkedAfterCall(answer, details, lines, thread.language),
       startedAt: new Date(said[0]!.at).toISOString(),
       endedAt: new Date(newest.at).toISOString(),
     },

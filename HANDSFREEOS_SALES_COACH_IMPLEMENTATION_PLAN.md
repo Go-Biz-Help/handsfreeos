@@ -14,9 +14,9 @@ timeline, turns what the rep promised into tasks, and scores the call against th
 It was two planned add-ons, AI Sales Coach and Live Sales Assist (`salesassist`). They're one add-on now, built
 under the planned id `salescoach`.
 
-**Where it stands (2026-10-15):** rounds 0 to 3 are built, and round 4's learning from wins and trends, in
-`development` (staff hand it to test businesses), with the differences from this plan noted under "What changed
-while building". `docs/salescoach.md` is the guide for working on it. Round 4's Spanish is next.
+**Where it stands (2026-10-16):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses), with
+the differences from this plan noted under "What changed while building". `docs/salescoach.md` is the guide for
+working on it.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -160,6 +160,17 @@ while building". `docs/salescoach.md` is the guide for working on it. Round 4's 
 - **The owner's view is row security's,** not a separate screen: whoever reviews gets every rep's trend and the
   team's from the same query, and a rep gets their own.
 - **On the phone** the Trends tab opens on the web, like Coached and Playbooks.
+
+### What changed while building round 4's Spanish
+
+- **Words to the customer follow them; words for the team stay English.** The AI teammate's rule (M18, "match the
+  customer") decides what's said to the customer: a card's words, suggested replies, the follow-up. Titles, notes,
+  tips, tasks and lessons stay in English, as the playbooks and HandsFreeOS are.
+- **No Spanish playbooks.** The model carries an English playbook's answers over into Spanish, adding nothing.
+- **The language is heard, not guessed,** where the listener says it (phone and Zoom); a written conversation uses
+  the language the AI teammate noted.
+- **Zoom's transcript asks for language identification**, and the handshake's language field is `src_language`
+  (it was sent as `language`, which Zoom ignores).
 
 ## What HandsFreeOS needs from outside
 

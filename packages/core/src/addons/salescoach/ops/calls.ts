@@ -69,6 +69,8 @@ const CallSummary = z.object({
   score: z.number().int().nullable(),
   /** How it was won, within a week of it (round four): a job booked, an estimate accepted, paid, a deal won. */
   wonHow: z.enum(WIN_KINDS).nullable(),
+  /** The customer's language, two letters, once written up (round four's Spanish). */
+  language: z.string().nullable(),
 });
 export type CoachedCallSummary = z.infer<typeof CallSummary>;
 
@@ -117,6 +119,7 @@ async function summaries(tx: Tx, found: readonly Row[]): Promise<CoachedCallSumm
       endedAt: r.endedAt?.toISOString() ?? null,
       score: r.result?.score.total ?? null,
       wonHow: r.wonHow ?? null,
+      language: r.result?.language ?? null,
     };
   });
 }
