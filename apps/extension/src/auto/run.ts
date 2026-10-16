@@ -1297,30 +1297,10 @@ async function status(): Promise<AutoStatus> {
 
 /** The panel's asks about working on its own. Never throws: what went wrong comes back as a problem. */
 export function answerAuto(
-  ask: Extract<
-    HfosAsk,
-    {
-      readonly type:
-        'hfos-auto' | 'hfos-auto-start' | 'hfos-auto-stop' | 'hfos-send-ok' | 'hfos-send-skip';
-    }
-  >,
+  ask: Extract<HfosAsk, { readonly type: 'hfos-auto' | 'hfos-auto-start' | 'hfos-auto-stop' }>,
 ): Promise<HfosAnswer<unknown>> {
   return answerWith(ask.type, async () => {
     switch (ask.type) {
-      // A message OK'd goes next: the runner looks now.
-      case 'hfos-send-ok': {
-        const ok = await call(
-          api().POST('/v1/commands/outreach.send.approve', { body: ask.input }),
-          ask.input.workspaceId,
-        );
-        void tick();
-        return ok;
-      }
-      case 'hfos-send-skip':
-        return call(
-          api().POST('/v1/commands/outreach.send.skip', { body: ask.input }),
-          ask.input.workspaceId,
-        );
       // Kept in HandsFreeOS, with this computer's id, which makes it the one that works. A start refused there (a
       // warning today, or nothing to do on its own) changes nothing here and the panel says why; a stop stops here
       // whatever HandsFreeOS says. With no connection, it waits to be sent and the day goes as pressed here meanwhile.

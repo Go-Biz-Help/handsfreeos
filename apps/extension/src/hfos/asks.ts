@@ -15,7 +15,6 @@ import {
   ASK_LINE_SECONDS,
   type AskEndInput,
   type AskProgressOutput,
-  type AskReply,
   type AskResult,
   type AskTakeOutput,
   type TAKEN_ASK_STATES,
@@ -208,16 +207,6 @@ export async function sendWaitingEnds(place: Place): Promise<void> {
   if (!gone.size) return;
   // Others may have been added meanwhile: only the ones sent go.
   await write({ [ASK_ENDS_KEY]: (await endsNow()).filter((e) => !gone.has(e.commandId)) });
-}
-
-/** The person's answer to a step handed to them, pressed in the panel: kept in HandsFreeOS so the web shows it. */
-export function reply(place: Place, askId: string, answer: AskReply): Promise<unknown> {
-  return call(
-    api().POST('/v1/commands/outreach.ask.reply', {
-      body: { workspaceId: place.businessId, askId, reply: answer },
-    }),
-    place.businessId,
-  );
 }
 
 /** Stop, pressed in the panel. */

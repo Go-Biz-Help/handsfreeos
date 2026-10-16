@@ -324,16 +324,20 @@ Each step's migration goes on the hosted database before `main` (CLAUDE.md, "Dat
 
 ## The owner's LinkedIn test
 
-Build order step 5. LinkedIn's parts 1 to 6 are in (extension 0.43.0). Try it on your own LinkedIn account. Where a
-page reads wrong, or a step is handed to you, send the outline from the panel. It never holds a name or a message,
-and the readers are tuned from it.
+Build order step 5. LinkedIn's parts 1 to 6 are in (extension 0.43.0; since 0.44.0 the extension's panel shows
+progress and activity only, decision 72 in docs/outreach.md). Try it on your own LinkedIn account. What needs you,
+the messages to OK with their chats and a step handed to you among them, is under Needs you on Today in HandsFreeOS,
+on the web or the phone: press **Carry on** there once you've done a step. Where a page reads wrong, or a step is
+handed to you, also send the page's outline (**Copy page outline**, at the foot of the panel). It never holds a name
+or a message, and the readers are tuned from it.
 
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The panel shows 0.43.0.
-2. **Let the business use LinkedIn.** Social Outreach → Settings → Business settings: tick LinkedIn under the
-   networks. Its daily limits start at the ones below.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.44.0.
+2. **Check the business allows LinkedIn.** Social Outreach → Settings → Business settings → Networks your team may
+   use: LinkedIn is ticked, as it is to start. A business allows every network unless an owner or admin turns one
+   off there. Its daily limits start at the ones below.
 3. **Turn LinkedIn on for you.** Social Outreach → Settings → My settings → Networks: switch LinkedIn on. Its choices
    start off. Leave them off, or turn on only the first ones, for the first day.
 4. **Let the extension on LinkedIn.** Open the panel, press **Allow on LinkedIn**, then **Allow** in Chrome's box.
@@ -345,23 +349,23 @@ and the readers are tuned from it.
 
 ### What to try, and what to check
 
-| Try                                                      | Check                                                                                                                                 |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Read my profile                                          | `/in/me/` reads as your own profile, with its headline, About, Experience, Featured and Activity                                      |
-| Put this one in                                          | Edit intro opens, only the Headline field changes, and it's saved                                                                     |
-| Connect with someone yourself, with a note and without   | It's noted once it goes (the box's Send, or the button turning to Pending), and never when you cancel                                 |
-| Like, comment and send a message yourself                | Each is noted once. Enter in a comment box counts only once the box empties                                                           |
-| Someone writes back                                      | They show under Needs you, and on LinkedIn's Today as a reply                                                                         |
-| Save my connections, Check my invitations                | The scrolling and LinkedIn's "Show more results" work, and the counts match LinkedIn's                                                |
-| Check my connections for good fits                       | One profile page at a time, at most 40 a day                                                                                          |
-| Read my chats                                            | Conversations open from messaging's list                                                                                              |
-| Find posts                                               | Post search shows recent posts, and the ones asking for what you offer come to Today to comment on                                    |
-| Withdraw old invitations (Friends, narrowed to LinkedIn) | The words on Sent invitations and in the withdraw box are read right                                                                  |
-| Ask LinkedIn for your data                               | On "Get a copy of your data", the choice and its four boxes are picked, it hands over for your password, and "being prepared" is seen |
-| Download it, then bring it in                            | Chrome names the zip `…LinkedInDataExport…`; your connections, invitations and chats arrive; old sent invitations show to withdraw    |
-| Start my day on LinkedIn                                 | With your choices on, it looks and likes, connects without a note, comments, and sends only what you OK'd, slowly, in its own window  |
-| The helpful post                                         | Start a post opens a box it can type into, "View post" gives its link, and whoever reacts or comments shows on LinkedIn's Today       |
-| Both networks at once                                    | A Facebook ask and a LinkedIn ask go side by side, and a LinkedIn warning stops only LinkedIn                                         |
+| Try                                                      | Check                                                                                                                                               |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read my profile                                          | `/in/me/` reads as your own profile, with its headline, About, Experience, Featured and Activity                                                    |
+| Put this one in                                          | Edit intro opens, only the Headline field changes, and it's saved                                                                                   |
+| Connect with someone yourself, with a note and without   | It's noted once it goes (the box's Send, or the button turning to Pending), and never when you cancel                                               |
+| Like, comment and send a message yourself                | Each is noted once. Enter in a comment box counts only once the box empties                                                                         |
+| Someone writes back                                      | They show under Needs you in HandsFreeOS, and on LinkedIn's Today as a reply                                                                        |
+| Save my connections, Check my invitations                | The scrolling and LinkedIn's "Show more results" work, and the counts match LinkedIn's                                                              |
+| Check my connections for good fits                       | One profile page at a time, at most 40 a day                                                                                                        |
+| Read my chats                                            | Conversations open from messaging's list                                                                                                            |
+| Find posts                                               | Post search shows recent posts, and the ones asking for what you offer come to Today to comment on                                                  |
+| Withdraw old invitations (Friends, narrowed to LinkedIn) | The words on Sent invitations and in the withdraw box are read right                                                                                |
+| Ask LinkedIn for your data                               | On "Get a copy of your data", the choice and its four boxes are picked, it hands over for your password, and "being prepared" is seen               |
+| Download it, then bring it in                            | Chrome names the zip `…LinkedInDataExport…`; your connections, invitations and chats arrive; old sent invitations show to withdraw                  |
+| Start my day on LinkedIn                                 | With your choices on, it looks and likes, connects without a note, comments, and sends only what you OK'd in HandsFreeOS, slowly, in its own window |
+| The helpful post                                         | Start a post opens a box it can type into, "View post" gives its link, and whoever reacts or comments shows on LinkedIn's Today                     |
+| Both networks at once                                    | A Facebook ask and a LinkedIn ask go side by side, and a LinkedIn warning stops only LinkedIn                                                       |
 
 LinkedIn's limits to start: 15 invitations a day and never more than 80 in 7 days, 15 first messages, 20 follow-ups,
 10 comments, 30 likes, 40 profiles read, 1 post and 20 invitations withdrawn. A LinkedIn warning halves them for 7

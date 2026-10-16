@@ -3,9 +3,9 @@
  * message, a follow-up or a reply on the person's list for today, which the extension drafts with the AI, and which
  * then waits for their OK or goes as it is.
  *
- * - **Waits** while the person's Sending is (a) or (c), and while their training wheels are on. They OK it from the
- *   extension's panel or Today on the web, as it is or changed, one at a time or all at once (**Approve all**), or
- *   skip it, which takes the person off today's list.
+ * - **Waits** while the person's Sending is (a) or (c), and while their training wheels are on. They OK it on Today,
+ *   on the web or the phone (never in the extension's panel, decision 72), as it is or changed, one at a time or all
+ *   at once (**Approve all**), or skip it, which takes the person off today's list.
  * - **Goes as it is** with Sending (b) once the training wheels are off.
  * - **A reply** follows the person's Replies instead (decision 27): with (b) it goes as it is when the AI found it
  *   simple; with (c) it always does; with (a) it waits. Whatever they chose, a reply to someone who needs the person

@@ -1,16 +1,16 @@
 /**
- * Waiting for you on this computer (docs/outreach.md, decisions 40 and 42; the rules in
- * packages/core/src/addons/outreach/waiting-words.ts), in the background worker:
+ * What waits for the person, on this computer (docs/outreach.md, decisions 40, 42 and 72; the rules in
+ * packages/core/src/addons/outreach/waiting-words.ts), in the background worker. Needs you itself is in HandsFreeOS:
+ * the extension only counts it and tells of it.
  *
  * - **The number on the icon** is everything waiting for the person (`outreach.waiting`): messages for their OK,
  *   replies handed over, steps the extension needs them for, and friend requests to decide. It's asked again within
- *   seconds of a change heard on the live channel (./follow.ts), after the person acts on one in the panel, and every
- *   10 minutes with nothing heard (the beat's alarm).
+ *   seconds of a change heard on the live channel (./follow.ts), when the panel opens, and every 10 minutes with
+ *   nothing heard (the beat's alarm). The panel's line under Next up says the same number (../panel/needs.ts).
  * - **Chrome's pop-ups** follow the person's pushes setting, as their phone does: one bundled pop-up at most every 2
  *   hours in their working hours, or one for each (more than 3 at once go as one); a reply handed over pops up at once
  *   either way; friend requests never do. They show only on the computer that works (./live.ts), and the first look
- *   after a sign-in tells of what was there in one pop-up at most. A click opens the side panel, or Waiting for you in
- *   HandsFreeOS when Chrome won't or the button was pressed.
+ *   after a sign-in tells of what was there in one pop-up at most. A click opens Needs you in HandsFreeOS in a tab.
  *
  * What's kept says whose it is (the person and the business), so one person's never shows for another.
  */
@@ -28,7 +28,6 @@ import {
   type WaitingKinds,
 } from '@hfos/core/addons/outreach/waiting-words';
 import type { WorkingHours } from '@hfos/core/addons/outreach/automation';
-import { outreachPath } from '@hfos/core/addons/outreach/setup';
 import { config } from './config';
 import { keptFor, samePlace } from './live';
 import {
@@ -40,6 +39,7 @@ import {
   type Waiting,
   type WaitingItem,
 } from './messages';
+import { needsYouUrl } from './needs-you';
 import { answerWith, api, call, Refused, savingTo, type Place } from './session';
 
 /** What a pop-up told of already, and when the last bundled one went. */
@@ -347,93 +347,33 @@ export async function heardWaiting(payload: Record<string, unknown>): Promise<vo
 
 // ------------------------------------------------------------------------------------------------- a click
 
-/**
- * The window the person last used: the side panel opens there, at once, while Chrome still counts the click. Kept in
- * the session's storage too, since a click often wakes a sleeping background, which forgets what it had in memory.
- */
-const LAST_WINDOW_KEY = 'hfos.lastWindow';
-let lastWindow: number | null = null;
-export function trackWindows(): void {
-  try {
-    chrome.windows.onFocusChanged.addListener((id) => {
-      if (id === chrome.windows.WINDOW_ID_NONE) return;
-      lastWindow = id;
-      void chrome.storage.session.set({ [LAST_WINDOW_KEY]: id }).catch(() => undefined);
-    });
-    void chrome.storage.session
-      .get(LAST_WINDOW_KEY)
-      .then((kept) => {
-        const id: unknown = kept[LAST_WINDOW_KEY];
-        if (lastWindow === null && typeof id === 'number') lastWindow = id;
-      })
-      .catch(() => undefined);
-    void chrome.windows
-      .getLastFocused()
-      .then((w) => {
-        if (lastWindow === null && w.id !== undefined) lastWindow = w.id;
-      })
-      .catch(() => undefined);
-  } catch {
-    // No windows to follow: a click opens HandsFreeOS instead.
-  }
-}
-
-async function openPage(): Promise<void> {
-  const place = await savingTo().catch(() => null);
+/** Needs you in HandsFreeOS, for the business the person works for, in a new tab; HandsFreeOS itself, signed out. */
+async function openNeedsYou(): Promise<void> {
   if (!config.webUrl) return;
-  const url = place ? `${config.webUrl}${outreachPath(place.businessId, 'today')}` : config.webUrl;
+  const place = await savingTo().catch(() => null);
+  const url = place ? needsYouUrl(config.webUrl, place.businessId) : config.webUrl;
   await chrome.tabs.create({ url }).catch(() => undefined);
 }
 
 /**
- * One of its pop-ups was clicked: the side panel opens in the window last used, or Waiting for you in HandsFreeOS
- * when Chrome won't open it or the button was pressed. Called straight from Chrome's listener, so the panel opens
- * while the click still counts.
+ * One of its pop-ups was clicked, or its Open in HandsFreeOS: Needs you opens in HandsFreeOS, where the person acts on
+ * what waits (decision 72). Never the side panel, which shows progress only. A step an ask handed over pops up the
+ * same way (../asks/run.ts), and its Carry on is there too.
  */
-export function openWaiting(notificationId: string, button?: number): void {
+export function openWaiting(notificationId: string): void {
   if (!notificationId.startsWith(POPUP_ID)) return;
   void chrome.notifications.clear(notificationId).catch(() => undefined);
-  if (button !== undefined) return void openPage();
-  if (lastWindow !== null) {
-    chrome.sidePanel.open({ windowId: lastWindow }).catch(() => void openPage());
-    return;
-  }
-  // Just woken, with no window known yet: the one last used, if Chrome still counts the click; else HandsFreeOS.
-  void chrome.windows
-    .getLastFocused()
-    .then((w) => (w.id === undefined ? openPage() : chrome.sidePanel.open({ windowId: w.id })))
-    .catch(() => openPage());
+  void openNeedsYou();
 }
 
-// ------------------------------------------------------------------------------------------------- the panel's asks
+// ------------------------------------------------------------------------------------------------- the panel's ask
 
-type WaitingAsk = Extract<
-  HfosAsk,
-  { readonly type: 'hfos-waiting' | 'hfos-need-clear' | 'hfos-request-aside' }
->;
-
-/** The panel's asks about Waiting for you. Never throws: what went wrong comes back as a problem. */
-export function answerWaiting(ask: WaitingAsk): Promise<HfosAnswer<unknown>> {
-  return answerWith(ask.type, async () => {
-    switch (ask.type) {
-      case 'hfos-waiting':
-        return (await refreshWaiting())?.list ?? null;
-      case 'hfos-need-clear': {
-        const cleared = await call(
-          api().POST('/v1/commands/outreach.need.clear', { body: ask.input }),
-          ask.input.workspaceId,
-        );
-        waitingSoon();
-        return cleared;
-      }
-      case 'hfos-request-aside': {
-        const aside = await call(
-          api().POST('/v1/commands/outreach.request.set_aside', { body: ask.input }),
-          ask.input.workspaceId,
-        );
-        waitingSoon();
-        return aside;
-      }
-    }
-  });
+/**
+ * The panel asks for a look when it opens and when the person signs in or picks a business, for its line under Next
+ * up. Never throws: what went wrong comes back as a problem.
+ */
+export function answerWaiting(
+  ask: Extract<HfosAsk, { readonly type: 'hfos-waiting' }>,
+): Promise<HfosAnswer<unknown>> {
+  return answerWith(ask.type, async () => (await refreshWaiting())?.list ?? null);
 }

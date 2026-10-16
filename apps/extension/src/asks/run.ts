@@ -17,8 +17,8 @@
  * - **How it's going** goes to HandsFreeOS as it goes, for the web to show live, and to the panel (`hfos.ask`, and
  *   `hfos.ask.<network>` beside it for another network's).
  * - **A step it can't find** it hands to the person: the tab comes to the front, Chrome pops up, their phone hears it,
- *   and it waits for **Carry on** (or **Skip**, for one person ticked) from the panel, Waiting for you or the web,
- *   for half an hour at most.
+ *   and it waits for **Carry on** (or **Skip**, for one person ticked), pressed in HandsFreeOS's Needs you on the web
+ *   or the phone (decision 72; the panel says so, with a link), for half an hour at most.
  * - **Stops:** Stop pressed anywhere, another computer of theirs working now, or a sign-in, sign-out or business picked
  *   here ends it at its next page, with how far it got; nothing of it goes to HandsFreeOS while anyone else is signed
  *   in here. Stop for today (pressed here, on the web or on the phone) ends Facebook's, whose day the beat carries. A
@@ -45,7 +45,6 @@ import {
   onFacebook,
   TIDY_ASK_KINDS,
   type AskKind,
-  type AskReply,
   type AskResult,
   type AskTaken,
 } from '@hfos/core/addons/outreach/asks';
@@ -63,7 +62,6 @@ import {
   keptAsk,
   lineDue,
   progress,
-  reply,
   sendWaitingEnds,
   take,
   type KeptAsk,
@@ -593,11 +591,11 @@ onBeat((kept: Kept) => {
   if (kept.working && kept.asks > 0 && unders.size < KIT_LIST.length) askSoon();
 });
 
-type AskAsk = Extract<HfosAsk, { readonly type: 'hfos-ask-reply' | 'hfos-ask-stop' }>;
+type AskAsk = Extract<HfosAsk, { readonly type: 'hfos-ask-stop' }>;
 
 /**
- * The ask under way here an answer is for: the one it names; with none named (a panel before networks), the one
- * waiting on the person, else Facebook's.
+ * The ask under way here a Stop is for: the one it names; with none named (a panel before networks), the one waiting
+ * on the person, else Facebook's.
  */
 function underFor(askId: string | undefined): Under | null {
   const all = [...unders.values()];
@@ -606,8 +604,9 @@ function underFor(askId: string | undefined): Under | null {
 }
 
 /**
- * The panel's Carry on, Skip and Stop: for an ask under way here, at once; for one on another computer of the
- * person's (Waiting for you lists it everywhere), through HandsFreeOS. Never throws.
+ * The panel's Stop: for an ask under way here, at once; for one that left here meanwhile, through HandsFreeOS. Carry
+ * on and Skip are pressed in HandsFreeOS's Needs you, and reach the ask with its next look (decision 72). Never
+ * throws.
  */
 export function answerAsk(ask: AskAsk): Promise<HfosAnswer<unknown>> {
   return answerWith(ask.type, async () => {
@@ -621,19 +620,12 @@ export function answerAsk(ask: AskAsk): Promise<HfosAnswer<unknown>> {
           status: null,
           recheck: false,
         });
-      if (ask.type === 'hfos-ask-stop') await cancel(place, ask.askId);
-      else await reply(place, ask.askId, ask.reply);
+      await cancel(place, ask.askId);
       waitingSoon();
       return null;
     }
-    if (ask.type === 'hfos-ask-stop') {
-      halt(u, ASK_STOPPED_LINE);
-      await cancel(u.place, u.ask.askId).catch(() => undefined);
-      return null;
-    }
-    const got: AskReply = ask.reply;
-    answerWith_(u, got);
-    await reply(u.place, u.ask.askId, got).catch(() => undefined);
+    halt(u, ASK_STOPPED_LINE);
+    await cancel(u.place, u.ask.askId).catch(() => undefined);
     return null;
   });
 }

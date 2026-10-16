@@ -12,7 +12,7 @@
  * moment they sign in (src/hfos/follow.ts), and sends a first-timer to HandsFreeOS's setup (src/hfos/setup.ts). Every
  * minute while someone is signed in it tells HandsFreeOS how things stand on this computer, and hears from it about
  * the person's day (src/hfos/live.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
- * pop-ups about them (src/hfos/waiting.ts).
+ * pop-ups about them, which open Needs you in HandsFreeOS (src/hfos/waiting.ts).
  */
 import { answerAsk, askSoon, askTabIds, heardAsk, recoverAsk, signInChanged } from './asks/run';
 import { AUTO_ALARM, answerAuto, runnerTabId, tick, wake } from './auto/run';
@@ -39,7 +39,6 @@ import {
   heardWaiting,
   openWaiting,
   refreshWaitingIfOld,
-  trackWindows,
   waitingSoon,
 } from './hfos/waiting';
 import { firstRun } from './hfos/setup';
@@ -53,9 +52,6 @@ chrome.sidePanel
 
 /** After these, whose settings it follows may have changed. */
 const SIGN_INS = new Set(['hfos-check-code', 'hfos-password', 'hfos-pick', 'hfos-sign-out']);
-
-/** After these, what waits for the person has changed. */
-const WAITING_MOVED = new Set(['hfos-send-ok', 'hfos-send-skip']);
 
 /** The person's own steps on a network: this computer is the one they use. */
 const OWN_STEPS = new Set(['hfos-noted', 'hfos-answered']);
@@ -128,7 +124,6 @@ chrome.runtime.onMessage.addListener(
                 : answer(ask as Parameters<typeof answer>[0])
     ).then((answered) => {
       respond(answered);
-      if (WAITING_MOVED.has(ask.type)) waitingSoon();
       // A prompt answered on the phone or the web signs in like a code does; every other look at it changes nothing.
       const promptSignedIn =
         ask.type === 'hfos-prompt-check' &&
@@ -162,10 +157,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
   void followNow();
 });
-// A pop-up about what waits, clicked: registered here at the top, so a click wakes the background to answer it.
+// A pop-up about what waits, clicked, or its button: Needs you opens in HandsFreeOS. Registered here at the top, so a
+// click wakes the background to answer it.
 chrome.notifications.onClicked.addListener((id) => openWaiting(id));
-chrome.notifications.onButtonClicked.addListener((id, button) => openWaiting(id, button));
-trackWindows();
+chrome.notifications.onButtonClicked.addListener((id) => openWaiting(id));
 // The icon's number, from the last look or a new one.
 void refreshWaitingIfOld();
 // The background woke: it listens again, and the channel keeps it awake while Chrome is open.
