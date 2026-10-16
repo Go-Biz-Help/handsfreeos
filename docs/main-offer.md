@@ -132,6 +132,9 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
 
 ## Not yet
 
+- **Notes, a direction and the AI's tries** on the last step: what's working and what's holding each part back, a
+  note on any part, the owner's direction for the whole offer, and a whole new version from the AI to pick parts
+  from. Planned in `HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md`.
 - **The phone shows nothing of the main offer** itself: no Settings → Main offer, no builder. Its words are core's
   (`words.ts`), ready for it. Social Outreach's screens on the phone (Get ready, Your messages, the video's link, the
   numbers) work without it.
