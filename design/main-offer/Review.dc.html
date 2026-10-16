@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Main offer: review, direction and tries</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+:root {
+  --bg: #f9fafd;
+  --card: #ffffff;
+  --card-2: #f2f4f8;
+  --card-3: #e4e8ee;
+  --border: #e4e8ee;
+  --border-strong: #d2d6dd;
+  --text: #191d25;
+  --text-2: #5b616a;
+  --text-3: #676c75;
+  --placeholder: #a0a5ae;
+  --accent: #2d69d8;
+  --accent-hover: #2355b0;
+  --accent-text: var(--accent);
+  --accent-soft: #e9f0fd;
+  --accent-soft-2: #d8e5fb;
+  --ring: #2d69d847;
+  --success: #008743;
+  --success-soft: #e0f7e5;
+  --success-text: #005d2d;
+  --warning: #996300;
+  --warning-soft: #ffedd8;
+  --warning-text: #6b4300;
+  --danger: #c43335;
+  --danger-soft: #ffebe9;
+  --danger-text: #862726;
+  --scrim: rgba(25, 29, 37, 0.45);
+  --toast-bg: #191d25;
+  --toast-text: #f2f4f8;
+  --on-solid: #ffffff;
+  --ai-hue: #7c3aed;
+  --branch-hue: #0e7490;
+  --ai-soft: color-mix(in oklab, var(--ai-hue) 13%, var(--card));
+  --ai-text: color-mix(in oklab, var(--ai-hue) 72%, var(--text));
+  --branch-soft: color-mix(in oklab, var(--branch-hue) 13%, var(--card));
+  --branch-text: color-mix(in oklab, var(--branch-hue) 70%, var(--text));
+  --avatar-1: #2d69d8;
+  --avatar-2: #008743;
+  --avatar-3: #996300;
+  --avatar-4: #5b616a;
+  --avatar-5: #1950b5;
+  --avatar-6: #862726;
+  --offh: rgba(91, 97, 106, 0.075);
+  --surface-page: var(--bg);
+  --surface-card: var(--card);
+  --surface-sunken: var(--card-2);
+  --surface-pressed: var(--card-3);
+  --text-body: var(--text);
+  --text-muted: var(--text-2);
+  --text-subtle: var(--text-3);
+  --border-default: var(--border);
+  --border-control: var(--border-strong);
+  color-scheme: light;
+}
+[data-theme='dark'] {
+  --bg: #0f131a;
+  --card: #191d25;
+  --card-2: #20252e;
+  --card-3: #2c3139;
+  --border: #2c3139;
+  --border-strong: #3a4049;
+  --text: #f2f4f8;
+  --text-2: #a0a5ae;
+  --text-3: #8a909a;
+  --placeholder: #5b616a;
+  --accent-hover: #4f83e0;
+  --accent-text: #7ca4eb;
+  --accent-soft: #1f2d48;
+  --accent-soft-2: #22365d;
+  --ring: #2d69d873;
+  --success: #3ccf7a;
+  --success-soft: #10291b;
+  --success-text: #7fe0a5;
+  --warning: #f0a93b;
+  --warning-soft: #2d2210;
+  --warning-text: #f5c97a;
+  --danger: #ff7b73;
+  --danger-soft: #301816;
+  --danger-text: #ffaaa3;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --toast-bg: #f2f4f8;
+  --toast-text: #191d25;
+  --on-solid: #191d25;
+  --offh: rgba(0, 0, 0, 0.34);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}
+:root {
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fs-micro: 11px;      
+  --fs-label: 11.5px;    
+  --fs-caption: 12px;    
+  --fs-hint: 12.5px;     
+  --fs-small: 13px;      
+  --fs-ui: 13.5px;       
+  --fs-body: 14px;       
+  --fs-card-title: 14.5px; 
+  --fs-input: 15px;      
+  --fs-h3: 16px;
+  --fs-dialog-title: 18px;
+  --fs-page-title: 24px; 
+  --fs-hero-figure: 26px; 
+  --fs-site-body: 17px;
+  --fs-site-lead: 20px;
+  --fs-site-h3: 18px;
+  --fs-site-h2: 44px;
+  --fs-site-h1: 60px;
+  --lh-tight: 1.2; 
+  --lh-snug: 1.3; 
+  --lh-body: 1.45; 
+  --lh-site: 1.55; 
+  --tracking-tight: -0.01em;
+  --tracking-display: -0.02em;
+  --tracking-caps: 0.04em;      
+  --tracking-eyebrow: 0.14em;   
+  --fw-regular: 400; 
+  --fw-medium: 500; 
+  --fw-semibold: 600; 
+  --fw-bold: 700; 
+  --type-body: var(--fw-regular) var(--fs-body) / var(--lh-body) var(--font-sans);
+  --type-title: var(--fw-semibold) var(--fs-page-title) / var(--lh-tight) var(--font-sans);
+}
+:root {
+  --radius-chip: 6px;     
+  --radius-tile-sm: 7px;  
+  --radius-control: 8px;  
+  --radius-segmented: 9px;
+  --radius-menu: 10px;    
+  --radius-card: 12px;
+  --radius-dialog: 14px;
+  --radius-bubble: 14px;
+  --radius-mock: 16px;    
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(25, 29, 37, 0.06), 0 1px 3px rgba(25, 29, 37, 0.04);
+  --shadow-2: 0 8px 24px rgba(25, 29, 37, 0.1), 0 2px 6px rgba(25, 29, 37, 0.06);
+  --shadow-3: 0 24px 60px rgba(25, 29, 37, 0.22), 0 4px 12px rgba(25, 29, 37, 0.08);
+  --focus-ring: 0 0 0 3px var(--ring);
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-28: 112px;
+  --h-sm: 32px;
+  --h-md: 36px;
+  --h-input: 40px;
+  --h-lg: 44px;
+  --h-badge: 22px;
+  --sidebar-width: 240px;
+  --rail-width: 340px;
+  --page-pad-x: 40px;
+  --page-pad-y: 32px;
+  --site-max: 72rem;
+  --dialog-width: 480px;
+  --sheet-width: 480px;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1); 
+  --dur-fast: 150ms; 
+}
+.hf-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-family:inherit;font-weight:500;border:1px solid transparent;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s,filter .15s;text-decoration:none;box-sizing:border-box}
+.hf-btn:disabled,.hf-btn[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
+.hf-btn--sm{height:32px;padding:0 10px;font-size:13px;border-radius:var(--radius-control)}
+.hf-btn--md{height:36px;padding:0 14px;font-size:14px;border-radius:var(--radius-control)}
+.hf-btn--lg{height:44px;padding:0 18px;font-size:15px;border-radius:var(--radius-menu)}
+.hf-btn--icon{height:32px;width:32px;padding:0;border-radius:var(--radius-control)}
+.hf-btn--primary{background:var(--accent);color:#fff}
+.hf-btn--primary:hover:not(:disabled){background:var(--accent-hover)}
+.hf-btn--secondary{background:var(--card);color:var(--text);border-color:var(--border-strong);box-shadow:var(--shadow-1)}
+.hf-btn--secondary:hover:not(:disabled){background:var(--card-2)}
+.hf-btn--ghost{background:transparent;color:var(--text-2)}
+.hf-btn--ghost:hover:not(:disabled){background:var(--card-2);color:var(--text)}
+.hf-btn--danger{background:var(--danger);color:#fff}
+.hf-btn--success{background:var(--success);color:#fff}
+.hf-btn--danger:hover:not(:disabled),.hf-btn--success:hover:not(:disabled){filter:brightness(.95)}
+[data-theme="dark"] .hf-btn--danger{color:var(--text)}
+[data-theme="dark"] .hf-btn--success{color:#0f131a}
+.hf-spinner{width:16px;height:16px;border-radius:999px;border:2px solid currentColor;border-top-color:transparent;animation:hf-spin .8s linear infinite;box-sizing:border-box}
+.hf-badge{display:inline-flex;height:22px;align-items:center;gap:6px;white-space:nowrap;border-radius:999px;border:1px solid transparent;padding:0 8px;font-size:12px;font-weight:500;box-sizing:border-box}
+.hf-badge--accent,.hf-badge--owner{background:var(--accent-soft);color:var(--accent-text)}
+.hf-badge--admin{background:var(--card-2);color:var(--text);border-color:var(--border)}
+.hf-badge--member{border-color:var(--border-strong);color:var(--text-2)}
+.hf-badge--pending{background:var(--warning-soft);color:var(--warning-text)}
+.hf-badge--danger,.hf-badge--revoked{background:var(--danger-soft);color:var(--danger-text)}
+.hf-badge--ok{background:var(--success-soft);color:var(--success-text)}
+.hf-badge--gray{background:var(--card-2);color:var(--text-2)}
+.hf-input{width:100%;box-sizing:border-box;border-radius:var(--radius-control);border:1px solid var(--border-strong);background:var(--card);padding:0 12px;font-family:inherit;font-size:15px;color:var(--text);transition:border-color .15s,box-shadow .15s;height:40px}
+.hf-input::placeholder{color:var(--placeholder)}
+.hf-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--ring)}
+.hf-input:disabled,.hf-input[readonly]{background:var(--card-2);color:var(--text-2)}
+.hf-input--sm{height:34px;font-size:14px}
+.hf-input--lg{height:44px;border-radius:var(--radius-menu);padding:0 14px}
+.hf-input--invalid{border-color:var(--danger)}
+.hf-textarea{min-height:88px;height:auto;resize:vertical;padding:10px 12px;line-height:1.45}
+.hf-label{display:block;margin-bottom:6px;font-size:13px;font-weight:500;color:var(--text)}
+.hf-checkbox{display:flex;cursor:pointer;align-items:center;gap:10px;font-size:14px;color:var(--text)}
+.hf-checkbox input{width:18px;height:18px;flex:none;margin:0;cursor:pointer;border-radius:5px;accent-color:var(--accent)}
+.hf-tile{display:inline-flex;flex:none;align-items:center;justify-content:center}
+.hf-tile--sm{width:24px;height:24px;border-radius:7px}
+.hf-tile--md{width:30px;height:30px;border-radius:var(--radius-control)}
+.hf-tile--lg{width:38px;height:38px;border-radius:var(--radius-menu)}
+.hf-tone--accent{background:var(--accent-soft);color:var(--accent-text)}
+.hf-tone--danger{background:var(--danger-soft);color:var(--danger-text)}
+.hf-tone--warning{background:var(--warning-soft);color:var(--warning-text)}
+.hf-tone--success{background:var(--success-soft);color:var(--success-text)}
+.hf-tone--gray{background:var(--card-2);color:var(--text-2)}
+.hf-tone--ai{background:var(--ai-soft);color:var(--ai-text)}
+.hf-tone--branch{background:var(--branch-soft);color:var(--branch-text)}
+.hf-chip{display:inline-flex;height:22px;align-items:center;gap:4px;white-space:nowrap;border-radius:6px;padding:0 7px;font-size:12px;font-weight:500;box-sizing:border-box}
+.hf-chip--plain{background:var(--card-2);color:var(--text-2)}
+.hf-chip--money{background:var(--card-2);color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.hf-chip--est{background:var(--card-2);color:var(--text-3)}
+.hf-chip--time{background:var(--warning-soft);color:var(--warning-text)}
+.hf-chip--late{background:var(--danger-soft);color:var(--danger-text)}
+.hf-chip--good{background:var(--success-soft);color:var(--success-text)}
+.hf-chip--ai{background:var(--ai-soft);color:var(--ai-text)}
+.hf-chip--auto{background:var(--accent-soft);color:var(--accent-text)}
+@keyframes hf-caret { 50% { opacity: 0; } }
+.hf-caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; border-radius: 1px; background: var(--accent); animation: hf-caret 1s steps(1) infinite; }
+@keyframes hf-spin { to { transform: rotate(360deg); } }
+.mo{font-family:var(--font-sans);font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.mo *{box-sizing:border-box}
+.mo h1,.mo h2,.mo h3,.mo p,.mo ul{margin:0}
+.mo ul{padding:0;list-style:none}
+.mo-ico{width:16px;height:16px;flex:none}
+.mo-ico-sm{width:14px;height:14px;flex:none}
+.mo-tnum{font-variant-numeric:tabular-nums}
+.mo-overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.mo-muted{color:var(--text-2)}
+.mo-faint{color:var(--text-3)}
+.mo-small{font-size:13px}
+.mo-xs{font-size:12.5px}
+.mo-row{display:flex;align-items:center;gap:12px}
+.mo-stack{display:flex;flex-direction:column}
+.mo-grow{flex:1}
+.mo-top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.mo-brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mo-brand img{width:28px;height:28px;display:block;object-fit:contain}
+.mo-brand b{font-weight:inherit;color:var(--accent-text)}
+.mo-shell{flex:1;display:flex;flex-wrap:wrap;min-height:0}
+.mo-rail{flex:0 1 300px;min-width:240px;background:var(--card);border-right:1px solid var(--border);padding:24px 14px 20px;display:flex;flex-direction:column;gap:2px}
+.mo-rs{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:10px;color:var(--text);text-decoration:none}
+.mo-rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.mo-rs[aria-current="step"]{background:var(--accent-soft)}
+.mo-rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.mo-rn--done{border-color:var(--success);background:var(--success);color:var(--on-solid)}
+.mo-rs[aria-current="step"] .mo-rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.mo-rt{font-weight:500}
+.mo-rs[aria-current="step"] .mo-rt{color:var(--accent-text)}
+.mo-rd{font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px}
+.mo-pane{flex:999 1 560px;min-width:0;display:flex;flex-direction:column}
+.mo-body{flex:1;width:100%;max-width:1080px;padding:32px 48px 40px}
+.mo-head h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.mo-head p{max-width:680px;color:var(--text-2)}
+.mo-foot{position:sticky;bottom:0;z-index:2;flex:none;min-height:72px;display:flex;align-items:center;padding:12px 48px;background:var(--card);border-top:1px solid var(--border)}
+.mo-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-1)}
+.mo-tries{display:flex;flex-wrap:wrap;gap:8px}
+.mo-try{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:180px;min-height:56px;padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);text-align:left;cursor:pointer;transition:background-color .15s}
+.mo-try:hover{background:var(--card-2)}
+.mo-try[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.mo-try-name{display:flex;align-items:center;gap:6px;font-weight:600}
+.mo-try-sub{font-size:12.5px;color:var(--text-2)}
+.mo-try-empty{display:flex;align-items:center;gap:8px;flex:1;min-width:240px;min-height:56px;padding:9px 14px;border-radius:10px;border:1px dashed var(--border-strong);color:var(--text-2);font-size:13px}
+.mo-offer{font-size:16px;line-height:1.6;color:var(--text)}
+.mo-new{background:color-mix(in oklab,var(--accent) 22%,transparent);border-radius:4px;padding:1px 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.mo-sum{display:flex;flex-wrap:wrap;gap:6px}
+.mo-pill{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 5px 0 12px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500}
+.mo-pill b{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.mo-pill--ok b{background:var(--success-soft);color:var(--success-text)}
+.mo-pill--low{border-color:color-mix(in oklab,var(--warning) 50%,var(--border))}
+.mo-pill--low b{background:var(--warning-soft);color:var(--warning-text)}
+.mo-chk{display:inline-flex;gap:8px;align-items:center;font-size:13.5px}
+.mo-parts{display:flex;flex-direction:column;gap:10px}
+.mo-part{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-1)}
+.mo-part--low{border-color:color-mix(in oklab,var(--warning) 45%,var(--border))}
+.mo-part-head{width:100%;display:grid;grid-template-columns:100px minmax(0,1fr) auto 32px 18px;gap:14px;align-items:center;padding:14px 16px;border:0;background:transparent;border-radius:var(--radius-card);font:inherit;color:inherit;text-align:left;cursor:pointer;transition:background-color .15s}
+.mo-part-head:hover{background:var(--card-2)}
+.mo-part-name{font-weight:600;font-size:15px}
+.mo-part-mid{display:flex;flex-direction:column;gap:6px;min-width:0}
+.mo-bar{display:block;height:6px;border-radius:999px;background:var(--card-3);overflow:hidden;max-width:320px;width:100%}
+.mo-bar span{display:block;height:100%;border-radius:999px}
+.mo-part-line{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mo-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.mo-score{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.mo-score--ok{background:var(--success-soft);color:var(--success-text)}
+.mo-score--low{background:var(--warning-soft);color:var(--warning-text)}
+.mo-chev{width:18px;height:18px;color:var(--text-3);transition:transform .15s}
+.mo-chev--open{transform:rotate(180deg)}
+.mo-part-body{display:flex;flex-direction:column;gap:16px;padding:16px;border-top:1px solid var(--border)}
+.mo-says{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--card-2)}
+.mo-says p{font-size:15px;line-height:1.55}
+.mo-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.mo-col{display:flex;flex-direction:column;gap:8px}
+.mo-ok-t{color:var(--success-text)}
+.mo-warn-t{color:var(--warning-text)}
+.mo-list{display:flex;flex-direction:column;gap:8px}
+.mo-li{display:flex;gap:8px;align-items:flex-start;font-size:13.5px}
+.mo-li svg{margin-top:2px}
+.mo-li--ok svg{color:var(--success)}
+.mo-li--warn svg{color:var(--warning)}
+.mo-fix{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text);font-size:13.5px}
+.mo-fix svg{margin-top:2px}
+.mo-good{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:14px 16px;border-radius:10px;background:var(--success-soft);color:var(--success-text)}
+.mo-note{display:flex;flex-direction:column;gap:8px}
+.mo-note .hf-label,.mo-dir .hf-label{margin:0}
+.mo-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mo-qchip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);font:inherit;font-size:13px;color:var(--text-2);cursor:pointer;transition:background-color .15s,color .15s}
+.mo-qchip:hover{background:var(--card-2);color:var(--text)}
+.mo-part-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mo-dir{display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:var(--radius-card);border:1px solid color-mix(in oklab,var(--accent) 45%,var(--border));background:var(--card);box-shadow:0 0 0 3px color-mix(in oklab,var(--accent) 12%,transparent),var(--shadow-1)}
+.mo-dir-head{display:flex;gap:14px;align-items:flex-start}
+.mo-dir-head h2{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.mo-dir-head p{color:var(--text-2);max-width:640px}
+.mo-goes{display:flex;flex-wrap:wrap;gap:6px}
+.mo-dir-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-top:4px}
+.mo-working{display:inline-flex;align-items:center;gap:4px;font-size:13.5px;color:var(--text-2)}
+.mo-followed{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:16px}
+.mo-quote{font-size:14px;line-height:1.55;color:var(--text);max-width:720px}
+.mo-cmp-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px}
+.mo-cmp-heads{display:grid;grid-template-columns:120px minmax(0,1fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-top:1px solid var(--border);background:var(--card-2)}
+.mo-cmp{display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:14px 16px;border-top:1px solid var(--border);align-items:start}
+.mo-cmp-label{display:flex;flex-direction:column;gap:4px;padding-top:12px}
+.mo-cmp-label b{font-size:15px;font-weight:600}
+.mo-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+.mo-pick{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);font:inherit;color:var(--text);text-align:left;cursor:pointer;transition:background-color .15s}
+.mo-pick:hover{background:var(--card-2)}
+.mo-pick[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.mo-pick-top{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.mo-dot{width:18px;height:18px;border-radius:999px;border:1.5px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mo-pick[aria-pressed="true"] .mo-dot{border-color:var(--accent)}
+.mo-pick[aria-pressed="true"] .mo-dot::after{content:"";width:10px;height:10px;border-radius:999px;background:var(--accent)}
+.mo-pick-text{font-size:14px;line-height:1.5}
+.mo-why{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ai-text)}
+.mo-why svg{margin-top:2px}
+.mo-kept{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;border:1px dashed var(--border-strong);color:var(--text-2)}
+.mo-kept p{color:var(--text);font-size:14px;line-height:1.5}
+.mo-split{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+.mo-sc{display:grid;grid-template-columns:96px minmax(0,1fr) auto 32px;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--border)}
+.mo-checks{display:flex;flex-direction:column;gap:10px;padding:16px}
+@media (max-width: 760px){
+  .mo-top{padding:0 16px}
+  .mo-rail{flex-basis:100%;border-right:0;border-bottom:1px solid var(--border)}
+  .mo-body{padding:20px 16px 32px}
+  .mo-foot{padding:12px 16px}
+  .mo-two,.mo-pair,.mo-split{grid-template-columns:minmax(0,1fr)}
+  .mo-cmp{grid-template-columns:minmax(0,1fr)}
+  .mo-cmp-heads{display:none}
+  .mo-cmp-label{padding-top:0;flex-direction:row;gap:8px;align-items:center}
+  .mo-part-head{grid-template-columns:minmax(0,1fr) 32px 18px}
+  .mo-part-head .mo-part-mid,.mo-part-head .mo-tags{display:none}
+}
+</style>
+</helmet>
+<div class="mo" data-theme="{{ theme }}" style="font-family: var(--font-sans); color: var(--text);">
+<header class="mo-top">
+<div class="mo-brand"><img src="handsfreeos-icon.png" alt=""><span>HandsFree<b>OS</b></span></div>
+<span class="mo-small mo-muted">Building your main offer</span>
+<a class="hf-btn hf-btn--ghost hf-btn--md" href="#">Finish later</a>
+</header>
+
+<div class="mo-shell">
+<nav class="mo-rail" aria-label="Main offer steps">
+<div class="mo-overline" style="padding: 0 10px 4px;">Your main offer</div>
+<p class="mo-small mo-faint" style="padding: 0 10px 12px;">Every answer is kept as you go.</p>
+<sc-for list="{{ rail }}" as="r" hint-placeholder-count="10">
+<a class="mo-rs" href="#" aria-current="{{ r.cur }}">
+<sc-if value="{{ r.done }}" hint-placeholder-val="{{ true }}">
+<span class="mo-rn mo-rn--done"><svg class="mo-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>
+</sc-if>
+<sc-if value="{{ r.notDone }}" hint-placeholder-val="{{ false }}">
+<span class="mo-rn">{{ r.n }}</span>
+</sc-if>
+<span class="mo-stack" style="min-width: 0;"><span class="mo-rt">{{ r.t }}</span><span class="mo-rd">{{ r.d }}</span></span>
+</a>
+</sc-for>
+</nav>
+
+<main class="mo-pane">
+<div class="mo-body">
+
+<sc-if value="{{ isReview }}" hint-placeholder-val="{{ true }}">
+<div class="mo-stack" style="gap: 20px;">
+<div class="mo-head mo-stack" style="gap: 6px;">
+<div class="mo-overline">10 of 10</div>
+<h1>Review and go live</h1>
+<p>See what’s working and what’s holding each part back. Leave the AI a note on any part, then tell it where you want the whole offer to go. It writes a new try beside yours. Nothing changes until you pick.</p>
+</div>
+
+<div class="mo-stack" style="gap: 8px;">
+<span class="mo-overline">Versions</span>
+<div class="mo-tries">
+<sc-for list="{{ tries }}" as="t" hint-placeholder-count="1">
+<button type="button" class="mo-try" aria-current="{{ t.curStr }}" onClick="{{ t.open }}">
+<span class="mo-try-name">
+<sc-if value="{{ t.ai }}" hint-placeholder-val="{{ false }}"><svg class="mo-ico-sm" style="color: var(--ai-text);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg></sc-if>
+{{ t.name }}</span>
+<span class="mo-try-sub mo-tnum">{{ t.sub }}</span>
+</button>
+</sc-for>
+<sc-if value="{{ noTries }}" hint-placeholder-val="{{ true }}">
+<div class="mo-try-empty">
+<svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+<span>The AI’s tries show up here. Yours stays as it is until you pick parts from one.</span>
+</div>
+</sc-if>
+</div>
+</div>
+
+<section class="mo-panel" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;" aria-label="Your draft">
+<div class="mo-row" style="justify-content: space-between; flex-wrap: wrap;">
+<span class="mo-overline">Your draft</span>
+<span class="mo-xs mo-faint mo-tnum">Scored 9:05 AM</span>
+</div>
+<p class="mo-offer">{{ mineOffer }}</p>
+</section>
+
+<section class="mo-panel" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;" aria-label="Scores at a glance">
+<div class="mo-row" style="justify-content: space-between; flex-wrap: wrap; align-items: flex-start;">
+<div class="mo-stack" style="gap: 4px;">
+<span style="font-weight: 600; font-size: 15px;">{{ belowTitle }}</span>
+<span class="mo-small mo-muted">Every part needs 7 to go live. Open a part below to see why it scored what it did.</span>
+</div>
+<div class="mo-sum">
+<sc-for list="{{ pills }}" as="pl" hint-placeholder-count="6">
+<span class="{{ pl.cls }}">{{ pl.label }}<b>{{ pl.score }}</b></span>
+</sc-for>
+</div>
+</div>
+<div class="mo-row" style="flex-wrap: wrap; gap: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+<sc-for list="{{ checksReview }}" as="c" hint-placeholder-count="4">
+<span class="mo-chk"><span class="hf-badge hf-badge--{{ c.variant }}">{{ c.mark }}</span><span>{{ c.text }}</span></span>
+</sc-for>
+</div>
+</section>
+
+<div class="mo-stack" style="gap: 4px; padding-top: 8px;">
+<h2 style="font-size: 18px; font-weight: 600; letter-spacing: -0.01em;">Each part</h2>
+<p class="mo-small mo-muted">Tell the AI what it got wrong, or what you really mean. Tick “Keep this part as is” for anything you’re happy with, so the next try leaves it alone.</p>
+</div>
+
+<div class="mo-parts">
+<sc-for list="{{ parts }}" as="p" hint-placeholder-count="6">
+<section class="{{ p.cardClass }}" aria-labelledby="{{ p.headId }}">
+<button type="button" class="mo-part-head" id="{{ p.headId }}" aria-expanded="{{ p.openStr }}" onClick="{{ p.toggle }}">
+<span class="mo-part-name">{{ p.label }}</span>
+<span class="mo-part-mid">
+<span class="mo-bar" role="img" aria-label="{{ p.aria }}"><span style="{{ p.fill }}"></span></span>
+<span class="mo-part-line">{{ p.headline }}</span>
+</span>
+<span class="mo-tags">
+<sc-if value="{{ p.kept }}" hint-placeholder-val="{{ false }}"><span class="hf-chip hf-chip--plain"><svg class="mo-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Kept as is</span></sc-if>
+<sc-if value="{{ p.hasNote }}" hint-placeholder-val="{{ false }}"><span class="hf-chip hf-chip--auto"><svg class="mo-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Your note</span></sc-if>
+</span>
+<span class="{{ p.scoreClass }}" aria-hidden="true">{{ p.score }}</span>
+<svg class="{{ p.chevClass }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+<div class="mo-part-body">
+<div class="mo-says">
+<span class="mo-overline">What it says now</span>
+<p>{{ p.text }}</p>
+</div>
+<div class="mo-two">
+<div class="mo-col">
+<span class="mo-overline mo-ok-t">Working</span>
+<ul class="mo-list">
+<sc-for list="{{ p.working }}" as="w" hint-placeholder-count="2">
+<li class="mo-li mo-li--ok"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span>{{ w.t }}</span></li>
+</sc-for>
+</ul>
+</div>
+<div class="mo-col">
+<span class="mo-overline mo-warn-t">Holding it back</span>
+<ul class="mo-list">
+<sc-for list="{{ p.holding }}" as="h" hint-placeholder-count="1">
+<li class="mo-li mo-li--warn"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg><span>{{ h.t }}</span></li>
+</sc-for>
+</ul>
+</div>
+</div>
+<div class="mo-fix">
+<svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>
+<span><b>The AI’s fix:</b> {{ p.fix }}</span>
+</div>
+<div class="mo-note">
+<label class="hf-label" for="{{ p.noteId }}">Your note for the AI</label>
+<textarea class="hf-input hf-textarea" id="{{ p.noteId }}" value="{{ p.note }}" onChange="{{ p.onNote }}" rows="{{ rows3 }}" placeholder="What did it get wrong? What do you really mean?"></textarea>
+<div class="mo-chips">
+<sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="5">
+<button type="button" class="mo-qchip" onClick="{{ c.add }}"><svg class="mo-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>{{ c.label }}</button>
+</sc-for>
+</div>
+</div>
+<div class="mo-part-foot">
+<label class="hf-checkbox"><input type="checkbox" checked="{{ p.kept }}" onChange="{{ p.toggleKeep }}">Keep this part as is in the next try</label>
+<a class="hf-btn hf-btn--ghost hf-btn--sm" href="#"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>Edit it myself</a>
+</div>
+</div>
+</sc-if>
+</section>
+</sc-for>
+</div>
+
+<section class="mo-dir" aria-labelledby="dir-title">
+<div class="mo-dir-head">
+<span class="hf-tile hf-tile--lg hf-tone--accent"><svg class="mo-ico" style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path><circle cx="12" cy="12" r="10"></circle></svg></span>
+<div class="mo-stack" style="gap: 4px;">
+<h2 id="dir-title">Where do you want this offer to go?</h2>
+<p>Say it in your own words, like you’d tell a coach. The AI follows this over its own rules, and scores the next try against it.</p>
+</div>
+</div>
+<label class="hf-label" for="dir-text">Your direction for the whole offer</label>
+<textarea class="hf-input hf-textarea" id="dir-text" value="{{ direction }}" onChange="{{ onDirection }}" rows="{{ rows5 }}" placeholder="What is this really? Who is it for? What should it lead with?"></textarea>
+<div class="mo-chips">
+<sc-for list="{{ dirChips }}" as="c" hint-placeholder-count="4">
+<button type="button" class="mo-qchip" onClick="{{ c.add }}"><svg class="mo-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>{{ c.label }}</button>
+</sc-for>
+</div>
+<div class="mo-stack" style="gap: 8px; padding: 12px 14px; border-radius: 10px; background: var(--card-2);">
+<span class="mo-overline">Going into {{ nextTry }}</span>
+<div class="mo-goes">
+<sc-for list="{{ goes }}" as="g" hint-placeholder-count="3">
+<span class="{{ g.cls }}">{{ g.t }}</span>
+</sc-for>
+</div>
+</div>
+<label class="hf-checkbox"><input type="checkbox" checked="{{ keepDirection }}" onChange="{{ toggleKeepDirection }}">Keep this direction for every score and try from now on</label>
+<div class="mo-dir-foot">
+<button type="button" class="hf-btn hf-btn--primary hf-btn--lg" onClick="{{ makeTry }}">Make {{ nextTry }}</button>
+<sc-if value="{{ isWorking }}" hint-placeholder-val="{{ false }}">
+<span class="mo-working">{{ workingText }}<span class="hf-caret"></span></span>
+</sc-if>
+<sc-if value="{{ notWorking }}" hint-placeholder-val="{{ true }}">
+<span class="mo-small mo-faint">Your draft stays as it is. You pick what to use after.</span>
+</sc-if>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+<div class="mo-stack" style="gap: 20px;">
+<div class="mo-head mo-stack" style="gap: 6px;">
+<div class="mo-overline">10 of 10 · Compare</div>
+<h1>{{ tryName }} is ready. Pick what to keep.</h1>
+<p>Your draft is on the left, the AI’s try on the right. Tap the side you want for each part. Nothing changes until you apply your picks.</p>
+</div>
+
+<div class="mo-stack" style="gap: 8px;">
+<span class="mo-overline">Versions</span>
+<div class="mo-tries">
+<sc-for list="{{ tries }}" as="t" hint-placeholder-count="2">
+<button type="button" class="mo-try" aria-current="{{ t.curStr }}" onClick="{{ t.open }}">
+<span class="mo-try-name">
+<sc-if value="{{ t.ai }}" hint-placeholder-val="{{ false }}"><svg class="mo-ico-sm" style="color: var(--ai-text);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg></sc-if>
+{{ t.name }}</span>
+<span class="mo-try-sub mo-tnum">{{ t.sub }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<section class="mo-panel mo-followed" aria-label="What the try followed">
+<span class="hf-tile hf-tile--md hf-tone--ai"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path><circle cx="12" cy="12" r="10"></circle></svg></span>
+<div class="mo-stack mo-grow" style="gap: 8px; min-width: 0;">
+<span class="mo-overline">What {{ tryName }} followed</span>
+<p class="mo-quote">“{{ direction }}”</p>
+<div class="mo-goes">
+<sc-for list="{{ goesAfter }}" as="g" hint-placeholder-count="2">
+<span class="{{ g.cls }}">{{ g.t }}</span>
+</sc-for>
+</div>
+</div>
+<button type="button" class="hf-btn hf-btn--secondary hf-btn--sm" onClick="{{ backToReview }}">Change it for {{ nextTry }}</button>
+</section>
+
+<section class="mo-panel" aria-label="Compare each part">
+<div class="mo-cmp-top">
+<div class="mo-stack" style="gap: 2px;">
+<span style="font-weight: 600; font-size: 15px;">Part by part</span>
+<span class="mo-small mo-muted">Scores are out of 10. The try is scored against your direction.</span>
+</div>
+<div class="mo-row" style="gap: 8px;">
+<button type="button" class="hf-btn hf-btn--ghost hf-btn--sm" onClick="{{ keepAllMine }}">Keep all mine</button>
+<button type="button" class="hf-btn hf-btn--secondary hf-btn--sm" onClick="{{ useAllTry }}">Use all of {{ tryName }}</button>
+</div>
+</div>
+<div class="mo-cmp-heads" aria-hidden="true">
+<span class="mo-overline">Part</span>
+<span class="mo-overline">Your draft</span>
+<span class="mo-overline" style="color: var(--ai-text);">{{ tryName }}</span>
+</div>
+<sc-for list="{{ cmpRows }}" as="r" hint-placeholder-count="6">
+<div class="mo-cmp">
+<div class="mo-cmp-label">
+<b>{{ r.label }}</b>
+<span class="mo-xs mo-muted mo-tnum">{{ r.delta }}</span>
+</div>
+<div style="min-width: 0;">
+<sc-if value="{{ r.kept }}" hint-placeholder-val="{{ false }}">
+<div class="mo-kept">
+<span class="mo-row" style="gap: 6px; font-size: 13px;"><svg class="mo-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>You kept this as is, so {{ tryName }} left it alone.</span>
+<p>{{ r.mineText }}</p>
+</div>
+</sc-if>
+<sc-if value="{{ r.notKept }}" hint-placeholder-val="{{ true }}">
+<div class="mo-pair">
+<button type="button" class="mo-pick" aria-pressed="{{ r.mineOn }}" onClick="{{ r.pickMine }}">
+<span class="mo-pick-top"><span class="mo-dot" aria-hidden="true"></span><span class="mo-grow">Yours</span><span class="hf-badge hf-badge--{{ r.mineVariant }}">{{ r.mineScore }}</span></span>
+<span class="mo-pick-text">{{ r.mineText }}</span>
+</button>
+<button type="button" class="mo-pick" aria-pressed="{{ r.tryOn }}" onClick="{{ r.pickTry }}">
+<span class="mo-pick-top"><span class="mo-dot" aria-hidden="true"></span><span class="mo-grow">{{ tryName }}</span>
+<sc-if value="{{ r.higher }}" hint-placeholder-val="{{ true }}"><span class="hf-chip hf-chip--good">Higher score</span></sc-if>
+<span class="hf-badge hf-badge--{{ r.tryVariant }}">{{ r.tryScore }}</span></span>
+<span class="mo-pick-text">{{ r.tryText }}</span>
+<span class="mo-why"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg><span>{{ r.why }}</span></span>
+<sc-if value="{{ r.dir }}" hint-placeholder-val="{{ false }}"><span class="hf-chip hf-chip--ai" style="align-self: flex-start;">Scored with your direction</span></sc-if>
+</button>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</section>
+
+<section class="mo-panel" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;" aria-label="How it reads with your picks">
+<div class="mo-row" style="justify-content: space-between; flex-wrap: wrap;">
+<span class="mo-overline">How it reads with your picks</span>
+<span class="mo-small mo-muted mo-tnum">{{ pickSummary }}</span>
+</div>
+<p class="mo-offer"><sc-for list="{{ segs }}" as="sg" hint-placeholder-count="6"><span class="{{ sg.cls }}">{{ sg.text }}</span><span>{{ sg.gap }}</span></sc-for></p>
+<span class="mo-xs mo-faint"><span class="mo-new">Highlighted</span> parts come from {{ tryName }}. Lowest part with your picks: {{ pickedLowest }}.</span>
+<sc-if value="{{ hasBlank }}" hint-placeholder-val="{{ false }}">
+<div class="mo-fix"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg><span>The try’s timeframe has a blank, [days]. The AI never guesses a number for you, so fill it in before this goes live.</span></div>
+</sc-if>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ isApplied }}" hint-placeholder-val="{{ false }}">
+<div class="mo-stack" style="gap: 20px;">
+<div class="mo-head mo-stack" style="gap: 6px;">
+<div class="mo-overline">10 of 10</div>
+<h1>{{ appliedTitle }}</h1>
+<p>{{ appliedLead }}</p>
+</div>
+
+<div class="mo-stack" style="gap: 8px;">
+<span class="mo-overline">Versions</span>
+<div class="mo-tries">
+<sc-for list="{{ tries }}" as="t" hint-placeholder-count="3">
+<button type="button" class="mo-try" aria-current="{{ t.curStr }}" onClick="{{ t.open }}">
+<span class="mo-try-name">
+<sc-if value="{{ t.ai }}" hint-placeholder-val="{{ false }}"><svg class="mo-ico-sm" style="color: var(--ai-text);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg></sc-if>
+{{ t.name }}</span>
+<span class="mo-try-sub mo-tnum">{{ t.sub }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+<div class="mo-good">
+<svg class="mo-ico" style="margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+<div class="mo-stack" style="gap: 4px;">
+<span style="font-weight: 600;">Version 1 is live</span>
+<span class="mo-small">Every new message is written from it. Your direction stays with the offer for the next change.</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ notLive }}" hint-placeholder-val="{{ true }}">
+<div class="mo-good">
+<svg class="mo-ico" style="margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+<div class="mo-stack mo-grow" style="gap: 4px;">
+<span style="font-weight: 600;">{{ usedTitle }}</span>
+<span class="mo-small">Your draft from before is kept as Before {{ tryName }}, and {{ tryName }} is kept too, so you can mix in more of it later.</span>
+</div>
+<button type="button" class="hf-btn hf-btn--ghost hf-btn--sm" onClick="{{ restore }}">Restore my draft from before</button>
+</div>
+</sc-if>
+
+<section class="mo-panel" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;" aria-label="Your draft now">
+<div class="mo-row" style="justify-content: space-between; flex-wrap: wrap;">
+<span class="mo-overline">Your draft now</span>
+<span class="mo-xs mo-faint"><span class="mo-new">Highlighted</span> parts came from {{ tryName }}</span>
+</div>
+<p class="mo-offer"><sc-for list="{{ segs }}" as="sg" hint-placeholder-count="6"><span class="{{ sg.cls }}">{{ sg.text }}</span><span>{{ sg.gap }}</span></sc-for></p>
+</section>
+
+<div class="mo-split">
+<section class="mo-panel" aria-label="How each part scores now">
+<div class="mo-row" style="justify-content: space-between; padding: 14px 16px;"><span style="font-weight: 600;">How each part scores now</span><span class="mo-xs mo-faint mo-tnum">Scored 9:12 AM</span></div>
+<sc-for list="{{ appliedRows }}" as="a" hint-placeholder-count="6">
+<div class="mo-sc">
+<span class="mo-small" style="font-weight: 500;">{{ a.label }}</span>
+<span class="mo-stack" style="gap: 5px; min-width: 0;">
+<span class="mo-bar" role="img" aria-label="{{ a.aria }}"><span style="{{ a.fill }}"></span></span>
+<span class="mo-xs mo-muted">{{ a.source }}</span>
+</span>
+<span class="mo-xs mo-faint mo-tnum">{{ a.was }}</span>
+<span class="{{ a.scoreClass }}">{{ a.score }}</span>
+</div>
+</sc-for>
+</section>
+<div class="mo-stack" style="gap: 16px;">
+<section class="mo-panel mo-checks" aria-label="The quick checks">
+<span style="font-weight: 600;">The quick checks</span>
+<sc-for list="{{ checksApplied }}" as="c" hint-placeholder-count="4">
+<span class="mo-chk"><span class="hf-badge hf-badge--{{ c.variant }}">{{ c.mark }}</span><span>{{ c.text }}</span></span>
+</sc-for>
+</section>
+<section class="mo-panel" style="padding: 16px; display: flex; flex-direction: column; gap: 8px;" aria-label="Your direction">
+<span class="mo-row" style="gap: 8px; font-weight: 600;"><svg class="mo-ico" style="color: var(--accent-text);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path><circle cx="12" cy="12" r="10"></circle></svg>Your direction is kept</span>
+<span class="mo-small mo-muted">The AI reads it every time it scores or writes this offer, so the next change starts from what you meant.</span>
+<span><a class="hf-btn hf-btn--ghost hf-btn--sm" href="#" style="margin-left: -10px;">Edit your direction</a></span>
+</section>
+</div>
+</div>
+</div>
+</sc-if>
+
+</div>
+
+<footer class="mo-foot">
+<sc-if value="{{ isReview }}" hint-placeholder-val="{{ true }}">
+<div class="mo-row mo-grow" style="gap: 8px; flex-wrap: wrap;">
+<a class="hf-btn hf-btn--ghost hf-btn--md" href="#"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a>
+<button type="button" class="hf-btn hf-btn--ghost hf-btn--md">Score again</button>
+<span class="mo-grow"></span>
+<span class="mo-xs mo-faint mo-tnum">Draft saved 9:04 AM</span>
+<button type="button" class="hf-btn hf-btn--secondary hf-btn--lg">Use it anyway…</button>
+<button type="button" class="hf-btn hf-btn--primary hf-btn--lg" onClick="{{ makeTry }}">Make {{ nextTry }}</button>
+</div>
+</sc-if>
+<sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+<div class="mo-row mo-grow" style="gap: 8px; flex-wrap: wrap;">
+<button type="button" class="hf-btn hf-btn--ghost hf-btn--md" onClick="{{ backToReview }}"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back to review</button>
+<span class="mo-grow"></span>
+<span class="mo-small mo-muted mo-tnum">{{ pickSummary }}</span>
+<button type="button" class="hf-btn hf-btn--primary hf-btn--lg" onClick="{{ apply }}">{{ applyLabel }}</button>
+</div>
+</sc-if>
+<sc-if value="{{ isApplied }}" hint-placeholder-val="{{ false }}">
+<div class="mo-row mo-grow" style="gap: 8px; flex-wrap: wrap;">
+<button type="button" class="hf-btn hf-btn--ghost hf-btn--md" onClick="{{ changePicks }}"><svg class="mo-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Change my picks</button>
+<span class="mo-grow"></span>
+<sc-if value="{{ blocked }}" hint-placeholder-val="{{ false }}">
+<span class="mo-small" style="color: var(--warning-text); max-width: 420px;">{{ blockText }}</span>
+<button type="button" class="hf-btn hf-btn--primary hf-btn--lg" onClick="{{ changePicks }}">{{ blockAction }}</button>
+</sc-if>
+<sc-if value="{{ canGoLive }}" hint-placeholder-val="{{ true }}">
+<span class="mo-xs mo-faint mo-tnum">Draft saved 9:12 AM</span>
+<button type="button" class="hf-btn hf-btn--primary hf-btn--lg" onClick="{{ goLive }}">Go live</button>
+</sc-if>
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+<a class="hf-btn hf-btn--primary hf-btn--lg" href="#">Open Settings → Main offer</a>
+</sc-if>
+</div>
+</sc-if>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","default":"review","options":["review","compare","applied"],"section":"State"},"theme":{"editor":"enum","default":"dark","options":["dark","light"],"section":"Theme"},"$preview":{"width":1440,"height":3000}}'>
+class Component extends DCLogic {
+  componentWillUnmount() {
+    if (this._t) clearTimeout(this._t);
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.start !== this.props.start) this.setState(this.initial(this.props.start));
+  }
+
+  allMine() {
+    return { who: 'mine', outcome: 'mine', timeframe: 'mine', method: 'mine', guarantee: 'mine', price: 'mine' };
+  }
+
+  initial(start) {
+    const st = start || 'review';
+    const applied = { who: 'try', outcome: 'try', timeframe: 'mine', method: 'mine', guarantee: 'try', price: 'mine' };
+    return {
+      ready: true,
+      screen: st,
+      live: false,
+      open: { who: true, guarantee: true },
+      notes: {
+        who: 'Broad on purpose. HandsFreeOS is for any business that lives on leads. Tie them together by the problem they share, not by the industry.'
+      },
+      keep: { method: true },
+      direction: 'HandsFreeOS isn’t just a CRM. It uses AI and automation to make every part of running the business easier: it answers and follows up with every lead, books the work, makes changes when you ask, and tells you what’s going on and what needs you. It’s built for any business that lives on leads, so home services, realtors and insurance agents all belong. Lead with that, not with CRM features.',
+      keepDirection: true,
+      tryCount: st === 'review' ? 0 : 1,
+      tryShown: 1,
+      picks: st === 'applied' ? applied : this.allMine()
+    };
+  }
+
+  cur() {
+    return this.state && this.state.ready ? this.state : this.initial(this.props.start);
+  }
+
+  set(patch) {
+    this.setState(Object.assign({}, this.cur(), patch));
+  }
+
+  partData() {
+    return [
+      {
+        id: 'who', label: 'Who', score: 4,
+        text: 'We help busy owners of home service businesses, realtors and insurance agents past $100k a year, with 1 to 3 locations, who can’t keep up with leads.',
+        working: ['Names a size people can check: past $100k a year, 1 to 3 locations.', 'Names a real problem: they can’t keep up with leads.'],
+        holding: ['Three lines of work with nothing tying them together, so it reads like a broad net.'],
+        fix: 'Pick one line of work, like plumbers or HVAC with 1 to 3 crews.',
+        tryText: 'We help owners of businesses that live on leads, like home services, real estate and insurance, past $100k a year with 1 to 3 locations, who lose work because nobody answers fast enough.',
+        tryScore: 8, dir: true,
+        why: 'Kept all three, as your note asked, and tied them together by the one problem they share: leads that go cold while you’re busy.'
+      },
+      {
+        id: 'outcome', label: 'Outcome', score: 7,
+        text: 'You get a CRM that replies to every lead in 30 seconds, keeps following up until they answer, and books the interested ones on its own, so you never touch your phone.',
+        working: ['30 seconds, follow-up and booking are specific and easy to check.', 'Things the system controls, not a sales promise.'],
+        holding: ['Calls it a CRM, so it sounds like one more app to manage.', '“Never touch your phone” is a big claim with nothing behind it.'],
+        fix: 'Say what it does for the owner, not just for the lead.',
+        tryText: 'You get an AI teammate, not just a CRM: it answers every lead in 30 seconds, follows up until they reply, books the ones who are ready, and tells you what’s going on and what needs you.',
+        tryScore: 9, dir: true,
+        why: 'Leads with the AI teammate, as your direction says, and adds what you said was missing: it keeps you posted on what’s going on.'
+      },
+      {
+        id: 'timeframe', label: 'Timeframe', score: 7,
+        text: 'It’s live within 2 weeks of saying yes.',
+        working: ['Two weeks is realistic, and the reason is real: the software already exists.'],
+        holding: ['Two weeks feels slow next to 30 seconds, and nothing says what they get on day one.'],
+        fix: 'Split it in two: a quick first win, then fully tuned.',
+        tryText: 'It’s answering your leads within [days] and tuned to your team within 2 weeks.',
+        tryScore: 8, dir: false,
+        why: 'Gives them a quick win first. Fill in [days] yourself: the AI never guesses a number.'
+      },
+      {
+        id: 'method', label: 'Method', score: 8,
+        text: 'You sign up, set your number, plug in your leads, attach your calendar, and we fine-tune the AI to sound like your team.',
+        working: ['Five clear steps anyone can follow.', 'A real difference: built-in AI that acts on its own.'],
+        holding: ['The steps are about setup, not about what changes for them.'],
+        fix: 'Name what each step takes off their plate.',
+        tryText: 'You sign up, set your number, plug in your leads, attach your calendar, and we fine-tune the AI to sound like your team.',
+        tryScore: 8, dir: false,
+        why: 'Left as is.'
+      },
+      {
+        id: 'guarantee', label: 'Guarantee', score: 6,
+        text: 'Once it’s live, if one lead ever slips past 30 seconds without a reply, you skip that month’s payment while we fix it, and you keep every lead and automation already running.',
+        working: ['Strong and clear, and easy for them to check.', 'They keep every lead and automation either way.'],
+        holding: ['“One lead ever” with no proof behind it yet is a big claim to swallow.', 'It doesn’t say which leads count.'],
+        fix: 'Name what counts: leads that call, text or fill a form on their HandsFreeOS number.',
+        tryText: 'If a lead that calls, texts or fills a form on your HandsFreeOS number waits more than 30 seconds for a reply, that month is free, and you keep every lead and automation either way.',
+        tryScore: 8, dir: false,
+        why: 'Says which leads count, so it’s a promise you can keep and they can check.'
+      },
+      {
+        id: 'price', label: 'Price', score: 7,
+        text: 'It’s $97 a month, plus usage fees for phone and AI, typically $20 to $30.',
+        working: ['Stated plainly, with usage explained up front.'],
+        holding: ['Nothing to compare $97 to, so it gets judged on its own.'],
+        fix: 'Put it next to what one missed lead costs them.',
+        tryText: 'It’s $97 a month plus phone and AI use, usually $20 to $30, less than one missed job.',
+        tryScore: 8, dir: false,
+        why: 'Puts the price next to what one lost lead costs.'
+      }
+    ];
+  }
+
+  renderVals() {
+    const s = this.cur();
+    const theme = this.props.theme ?? 'dark';
+    const P = this.partData();
+    const screen = s.screen;
+    const isWorking = screen === 'working';
+    const isReview = screen === 'review' || isWorking;
+    const isCompare = screen === 'compare';
+    const isApplied = screen === 'applied';
+    const tryName = 'Try ' + s.tryShown;
+    const nextTry = 'Try ' + (s.tryCount + 1);
+    const kept = (id) => !!s.keep[id];
+    const tone = (n) => (n >= 7 ? 'ok' : 'low');
+    const fill = (n) => 'width: ' + n * 10 + '%; background: ' + (n >= 7 ? 'var(--success)' : 'var(--warning)') + ';';
+    const chosen = (p) => (!kept(p.id) && s.picks[p.id] === 'try' ? 'try' : 'mine');
+    const lower = (p) => p.label.toLowerCase();
+    const andList = (xs) => (xs.length <= 1 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
+
+    const mineLowest = Math.min.apply(null, P.map((p) => p.score));
+    const tryLowest = Math.min.apply(null, P.map((p) => (kept(p.id) ? p.score : p.tryScore)));
+    const pickedScore = (p) => (chosen(p) === 'try' ? p.tryScore : p.score);
+    const pickedLowest = Math.min.apply(null, P.map(pickedScore));
+    const lowPart = P.find((p) => pickedScore(p) === pickedLowest);
+    const nTry = P.filter((p) => chosen(p) === 'try').length;
+    const nMine = P.length - nTry;
+    const hasBlank = P.some((p) => chosen(p) === 'try' && p.tryText.indexOf('[') !== -1);
+
+    const rail = [
+      ['Your niche', 'Home service businesses, realtors and insurance agents', true],
+      ['Who', 'They’re so busy doing the work, leads slip', true],
+      ['Outcome', 'Every lead you get, new or old, hears back', true],
+      ['Timeframe', 'Within 2 weeks of saying yes', true],
+      ['Method', '5 steps', true],
+      ['Guarantee', 'We promise 100% of your new and old leads', true],
+      ['Price', 'Just $97 a month, plus phone and AI', true],
+      ['Proof', 'Real results', false],
+      ['Put it together', 'Your offer in one line', true],
+      ['Review and go live', 'Notes, tries, then go live', false, true]
+    ].map((r, i) => ({ t: r[0], d: r[1], n: String(i + 1), done: !!r[2], notDone: !r[2], cur: r[3] ? 'step' : 'false' }));
+
+    const goReview = () => this.set({ screen: 'review' });
+    const openTry = (i) => () => this.set({ screen: 'compare', tryShown: i });
+    const restore = () => this.set({ screen: 'review', picks: this.allMine(), live: false });
+    const tryNums = [];
+    for (let i = 1; i <= s.tryCount; i++) tryNums.push(i);
+    let tries;
+    if (isApplied) {
+      tries = [{ name: 'Your draft', sub: 'Lowest ' + pickedLowest + ' · updated', cur: true, ai: false, open: () => {} },
+        { name: 'Before ' + tryName, sub: 'Lowest ' + mineLowest + ' · kept', cur: false, ai: false, open: () => {} }]
+        .concat(tryNums.map((i) => ({ name: 'Try ' + i, sub: 'Lowest ' + tryLowest + ' · kept', cur: false, ai: true, open: openTry(i) })));
+    } else {
+      tries = [{ name: 'Your draft', sub: 'Lowest ' + mineLowest + (isCompare ? ' · unchanged' : ' · being reviewed'), cur: isReview, ai: false, open: goReview }]
+        .concat(tryNums.map((i) => ({
+          name: 'Try ' + i,
+          sub: 'Lowest ' + tryLowest + (isCompare && s.tryShown === i ? ' · comparing' : ' · open to compare'),
+          cur: isCompare && s.tryShown === i, ai: true, open: openTry(i)
+        })));
+    }
+    tries = tries.map((t) => Object.assign({}, t, { curStr: t.cur ? 'true' : 'false' }));
+
+    const quick = [
+      ['Broad on purpose', 'This is broad on purpose.'],
+      ['Undersells it', 'This undersells what it really does.'],
+      ['Not how I’d say it', 'This isn’t how I’d say it.'],
+      ['Say what’s different', 'Say what makes it different from a regular CRM.'],
+      ['Make it shorter', 'Make it shorter.']
+    ];
+    const addNote = (id, line) => () => {
+      const c = this.cur();
+      const was = (c.notes[id] || '').trim();
+      this.set({ notes: Object.assign({}, c.notes, { [id]: was ? was + ' ' + line : line }) });
+    };
+    const parts = P.map((p) => {
+      const open = !!s.open[p.id];
+      const note = s.notes[p.id] || '';
+      return {
+        label: p.label, text: p.text, score: String(p.score), fix: p.fix,
+        working: p.working.map((t) => ({ t })),
+        holding: p.holding.map((t) => ({ t })),
+        headline: p.score >= 7 ? p.working[0] : p.holding[0],
+        cardClass: 'mo-part' + (p.score < 7 ? ' mo-part--low' : ''),
+        scoreClass: 'mo-score mo-score--' + tone(p.score),
+        aria: p.label + ': ' + p.score + ' out of 10',
+        fill: fill(p.score),
+        open, openStr: open ? 'true' : 'false',
+        chevClass: 'mo-chev' + (open ? ' mo-chev--open' : ''),
+        headId: 'part-' + p.id, noteId: 'note-' + p.id,
+        note, hasNote: note.trim().length > 0, kept: kept(p.id),
+        toggle: () => { const c = this.cur(); this.set({ open: Object.assign({}, c.open, { [p.id]: !c.open[p.id] }) }); },
+        onNote: (e) => { const c = this.cur(); this.set({ notes: Object.assign({}, c.notes, { [p.id]: e.target.value }) }); },
+        toggleKeep: () => { const c = this.cur(); this.set({ keep: Object.assign({}, c.keep, { [p.id]: !c.keep[p.id] }) }); },
+        chips: quick.map((q) => ({ label: q[0], add: addNote(p.id, q[1]) }))
+      };
+    });
+
+    const below = P.filter((p) => p.score < 7);
+    const belowTitle = below.length
+      ? below.length + (below.length === 1 ? ' part is' : ' parts are') + ' under 7: ' + andList(below.map(lower))
+      : 'Every part scores 7 or more';
+    const pills = P.map((p) => ({ label: p.label, score: String(p.score), cls: 'mo-pill mo-pill--' + tone(p.score) }));
+
+    const check = (text, ok) => ({ text, mark: ok ? 'Yes' : 'Not yet', variant: ok ? 'ok' : 'pending' });
+    const checksReview = [
+      check('A stranger sees the result in 3 seconds', true),
+      check('Specific, not vague', true),
+      check('Stands out from others like you', false),
+      check('Easy to believe', false)
+    ];
+    const byId = (id) => P.find((p) => p.id === id);
+    const checksApplied = [
+      check('A stranger sees the result in 3 seconds', true),
+      check('Specific, not vague', true),
+      check('Stands out from others like you', chosen(byId('who')) === 'try' || chosen(byId('outcome')) === 'try'),
+      check('Easy to believe', chosen(byId('guarantee')) === 'try')
+    ];
+
+    const noted = P.filter((p) => (s.notes[p.id] || '').trim());
+    const keptList = P.filter((p) => kept(p.id));
+    const goesBase = noted.map((p) => ({ t: 'Your note on ' + lower(p), cls: 'hf-chip hf-chip--auto' }))
+      .concat(keptList.map((p) => ({ t: p.label + ' kept as is', cls: 'hf-chip hf-chip--plain' })));
+    const goes = [{ t: 'Your direction', cls: 'hf-chip hf-chip--auto' }].concat(goesBase);
+    const goesAfter = goesBase.length ? goesBase : [{ t: 'No notes on parts', cls: 'hf-chip hf-chip--plain' }];
+
+    const dq = [
+      ['It’s more than a CRM', 'It’s not just a CRM.'],
+      ['Lead with the AI', 'Lead with the AI teammate and the automation.'],
+      ['Who it’s really for', 'It’s for any business that lives on leads.'],
+      ['How it should sound', 'Sound like a calm office manager, not a salesperson.']
+    ];
+    const dirChips = dq.map((q) => ({
+      label: q[0],
+      add: () => { const c = this.cur(); const w = c.direction.trim(); this.set({ direction: w ? w + ' ' + q[1] : q[1] }); }
+    }));
+
+    const workingBits = [];
+    if (noted.length) workingBits.push(noted.length === 1 ? 'your note on ' + lower(noted[0]) : 'your ' + noted.length + ' notes');
+    const workingText = 'Writing ' + nextTry + ' from your direction' + (workingBits.length ? ' and ' + workingBits.join('') : '') +
+      (keptList.length ? ', leaving ' + andList(keptList.map(lower)) + ' as is' : '') + ' ';
+
+    const makeTry = () => {
+      const c = this.cur();
+      if (c.screen === 'working') return;
+      const n = c.tryCount + 1;
+      this.set({ screen: 'working' });
+      if (this._t) clearTimeout(this._t);
+      this._t = setTimeout(() => {
+        this.set({ screen: 'compare', tryCount: n, tryShown: n, picks: this.allMine() });
+      }, 1600);
+    };
+
+    const pick = (id, side) => () => { const c = this.cur(); this.set({ picks: Object.assign({}, c.picks, { [id]: side }) }); };
+    const cmpRows = P.map((p) => {
+      const k = kept(p.id);
+      const c = chosen(p);
+      return {
+        label: p.label, kept: k, notKept: !k,
+        delta: k ? 'Kept as is' : p.score + ' → ' + p.tryScore,
+        mineText: p.text, tryText: p.tryText, why: p.why,
+        mineScore: String(p.score), tryScore: String(p.tryScore),
+        mineVariant: p.score >= 7 ? 'ok' : 'pending',
+        tryVariant: p.tryScore >= 7 ? 'ok' : 'pending',
+        mineOn: c === 'mine' ? 'true' : 'false',
+        tryOn: c === 'try' ? 'true' : 'false',
+        higher: p.tryScore > p.score, dir: !!p.dir,
+        pickMine: pick(p.id, 'mine'), pickTry: pick(p.id, 'try')
+      };
+    });
+    const setAll = (side) => () => {
+      const next = {};
+      P.forEach((p) => { next[p.id] = side; });
+      this.set({ picks: next });
+    };
+
+    const segs = P.map((p, i) => {
+      const t = chosen(p) === 'try';
+      return { text: t ? p.tryText : p.text, cls: t ? 'mo-new' : '', gap: i < P.length - 1 ? ' ' : '' };
+    });
+    const mineOffer = P.map((p) => p.text).join(' ');
+
+    const pickSummary = nTry
+      ? 'Using ' + tryName + ' for ' + nTry + (nTry === 1 ? ' part' : ' parts') + ', yours for ' + nMine
+      : 'All yours so far. Tap a part on the right to use it.';
+    const applyLabel = nTry ? 'Apply ' + nTry + (nTry === 1 ? ' part' : ' parts') + ' to my draft' : 'Keep my draft as is';
+    const apply = () => {
+      const c = this.cur();
+      const any = P.some((p) => !c.keep[p.id] && c.picks[p.id] === 'try');
+      this.set({ screen: any ? 'applied' : 'review', live: false });
+    };
+
+    const usedNames = P.filter((p) => chosen(p) === 'try').map(lower);
+    const usedTitle = 'Your draft now uses ' + tryName + '’s ' + andList(usedNames) + '.';
+    const appliedRows = P.map((p) => {
+      const c = chosen(p);
+      const sc = pickedScore(p);
+      return {
+        label: p.label, score: String(sc),
+        scoreClass: 'mo-score mo-score--' + tone(sc),
+        fill: fill(sc), aria: p.label + ': ' + sc + ' out of 10',
+        source: c === 'try' ? 'From ' + tryName : kept(p.id) ? 'Kept as is' : 'Yours',
+        was: c === 'try' && p.tryScore !== p.score ? 'was ' + p.score : ''
+      };
+    });
+    const canGoLive = !s.live && pickedLowest >= 7 && !hasBlank;
+    const blocked = !s.live && !canGoLive;
+    const blockText = hasBlank
+      ? 'Fill in [days] in the timeframe first. The AI never guesses a number for you.'
+      : lowPart.label + ' is still under 7. Change your picks, or use it anyway with a reason.';
+    const blockAction = hasBlank ? 'Fill in the timeframe' : 'Change ' + lower(lowPart);
+    const appliedTitle = s.live ? 'Your main offer is live' : canGoLive ? 'Ready to go live' : 'Almost ready';
+    const appliedLead = s.live
+      ? 'Your outreach starts from this version. Change it any time: the next change becomes version 2.'
+      : canGoLive
+        ? 'Every part scores 7 or more. Read it once more, then go live.'
+        : 'One thing left before this can go live.';
+
+    return {
+      theme, rail, tries, noTries: s.tryCount === 0 && !isApplied,
+      isReview, isWorking, notWorking: !isWorking, isCompare, isApplied,
+      isLive: isApplied && s.live, notLive: isApplied && !s.live,
+      tryName, nextTry, rows3: 3, rows5: 5,
+      mineOffer, belowTitle, pills, checksReview, checksApplied, parts,
+      direction: s.direction,
+      onDirection: (e) => this.set({ direction: e.target.value }),
+      dirChips, goes, goesAfter,
+      keepDirection: s.keepDirection,
+      toggleKeepDirection: () => this.set({ keepDirection: !this.cur().keepDirection }),
+      makeTry, workingText,
+      backToReview: goReview,
+      cmpRows, keepAllMine: setAll('mine'), useAllTry: setAll('try'),
+      segs, pickSummary, pickedLowest: String(pickedLowest), hasBlank,
+      applyLabel, apply,
+      usedTitle, appliedRows, appliedTitle, appliedLead,
+      canGoLive, blocked, blockText, blockAction,
+      restore, changePicks: () => this.set({ screen: 'compare', live: false }),
+      goLive: () => this.set({ live: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -7,8 +7,11 @@ import {
   MainOfferParts,
   mainOfferGet,
   mainOfferPublish,
+  mainOfferSaveDirection,
   mainOfferSaveDraft,
+  OFFER_ASSIST_SYSTEM,
   OFFER_SCORE_SYSTEM,
+  OFFER_TRY_SYSTEM,
   catalogAddon,
   organizationCreate,
   type HumanActor,
@@ -218,5 +221,133 @@ describe('the main offer’s AI help', () => {
       meta(),
     );
     expect(live.output).toEqual({ version: 1 });
+  });
+});
+
+describe('a try of the whole offer', () => {
+  const direction = 'It’s for any business that lives on leads, not just roofers.';
+  let revision = 0;
+  const usage = async () =>
+    (
+      await rows<{ n: number }>(
+        admin(),
+        sql`select count(*)::int as n from app.ai_usage where workspace_id = ${ws} and source = 'main_offer'`,
+      )
+    )[0]!.n;
+
+  it('needs a draft, and someone who builds the offer', async () => {
+    const asked = model.requests.length;
+    expect((await post('/v1/main-offer/try', memberToken, { revision: 0 })).statusCode).toBe(403);
+    const none = await post('/v1/main-offer/try', ownerToken, { revision: 0 });
+    expect(none.json().error).toMatchObject({ rule: 'main_offer_no_draft' });
+    expect(model.requests.length).toBe(asked);
+
+    const got = await executeQuery(api(), mainOfferGet, { workspaceId: ws }, actor(owner), meta());
+    const saved = await executeCommand(
+      api(),
+      mainOfferSaveDraft,
+      { workspaceId: ws, revision: got.revision, parts: complete },
+      actor(owner),
+      meta(),
+    );
+    const directed = await executeCommand(
+      api(),
+      mainOfferSaveDirection,
+      { workspaceId: ws, revision: saved.output.revision, direction },
+      actor(owner),
+      meta(),
+    );
+    revision = directed.output.revision;
+  });
+
+  it('has nothing to do with every part kept, or a draft that moved on', async () => {
+    const asked = model.requests.length;
+    const all = await post('/v1/main-offer/try', ownerToken, {
+      revision,
+      keep: ['who', 'outcome', 'timeframe', 'method', 'guarantee', 'price'],
+    });
+    expect(all.statusCode).toBe(422);
+    expect(all.json().error).toMatchObject({ rule: 'main_offer_all_kept' });
+    const moved = await post('/v1/main-offer/try', ownerToken, { revision: revision - 1 });
+    expect(moved.json().error).toMatchObject({ rule: 'main_offer_draft_moved' });
+    expect(model.requests.length).toBe(asked);
+  });
+
+  it('says so when the AI changed nothing it was free to change', async () => {
+    // The stand-in writes the method and price back as they were, so with the rest kept nothing changes.
+    const res = await post('/v1/main-offer/try', ownerToken, {
+      revision,
+      keep: ['who', 'outcome', 'timeframe', 'guarantee'],
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toMatchObject({ rule: 'main_offer_try_unchanged' });
+  });
+
+  it('writes a try from the direction and the notes, scores it with them, and keeps it', async () => {
+    const before = await usage();
+    const res = await post('/v1/main-offer/try', ownerToken, {
+      revision,
+      notes: { who: 'Broad on purpose.' },
+      keep: ['guarantee'],
+    });
+    expect(res.statusCode).toBe(200);
+    const { saved, try: made } = res.json();
+    expect(saved).toBe(true);
+    expect(made).toMatchObject({
+      number: 1,
+      fromRevision: revision,
+      direction,
+      notes: { who: 'Broad on purpose.' },
+      keep: ['guarantee'],
+      madeBy: { id: owner.id },
+    });
+    expect(made.parts.who.work).toBe('Businesses that live on leads');
+    expect(made.parts.guarantee).toEqual(complete.guarantee);
+    expect(made.parts.price).toEqual(complete.price);
+    expect(made.parts.proof).toEqual(complete.proof);
+    expect(made.parts.line).toBe('We help businesses that live on leads answer every one fast.');
+    expect(made.why).toMatchObject({
+      who: 'Followed your note on the who.',
+      outcome: 'Followed your direction.',
+      method: null,
+      guarantee: null,
+      price: null,
+    });
+    // The [days] blank holds the timeframe under the bar; the who is scored with the direction.
+    expect(made.score.parts.timeframe.score).toBe(6);
+    expect(made.score.parts.who).toMatchObject({ score: 8, followedDirection: true });
+    expect(made.lowest).toBe(6);
+
+    const [write, score] = model.requests.slice(-2);
+    expect(write!.system).toBe(OFFER_TRY_SYSTEM);
+    expect(write!.messages[0]!.content).toContain(`<direction>\n${direction}\n</direction>`);
+    expect(write!.messages[0]!.content).toContain('<notes>\nWho: Broad on purpose.\n</notes>');
+    expect(write!.messages[0]!.content).toContain('<keep>Guarantee</keep>');
+    expect(score!.system).toBe(OFFER_SCORE_SYSTEM);
+    expect(score!.messages[0]!.content).toContain('Who: Businesses that live on leads');
+    expect(await usage()).toBe(before + 2);
+
+    // The draft itself is as it was.
+    const got = await executeQuery(api(), mainOfferGet, { workspaceId: ws }, actor(owner), meta());
+    expect(got.draft?.parts.who).toEqual(complete.who);
+    expect(got.revision).toBe(revision);
+  });
+
+  it('scores the draft, and helps with a part, with the direction too', async () => {
+    const scoredRes = await post('/v1/main-offer/score', ownerToken, { revision });
+    expect(scoredRes.statusCode).toBe(200);
+    expect(scoredRes.json().score.parts.who).toMatchObject({
+      followedDirection: true,
+      good: ['The who is clear and specific.'],
+    });
+    expect(model.requests.at(-1)!.messages[0]!.content).toContain('<direction>');
+    await post('/v1/main-offer/assist', ownerToken, {
+      path: 'who.work',
+      mode: 'improve',
+      parts: complete,
+    });
+    const assist = model.requests.at(-1)!;
+    expect(assist.system).toBe(OFFER_ASSIST_SYSTEM);
+    expect(assist.messages[0]!.content).toContain(`<direction>\n${direction}\n</direction>`);
   });
 });

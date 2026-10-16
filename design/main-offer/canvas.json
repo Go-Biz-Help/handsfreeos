@@ -55,6 +55,30 @@
       "y": 2040,
       "w": 1280,
       "h": 900
+    },
+    {
+      "file": "Review.dc.html",
+      "title": "8 · Review and go live: notes, keep as is, your direction",
+      "x": 0,
+      "y": 3060,
+      "w": 1440,
+      "h": 3000
+    },
+    {
+      "file": "Compare.dc.html",
+      "title": "9 · Compare a try, part by part",
+      "x": 1520,
+      "y": 3060,
+      "w": 1440,
+      "h": 2300
+    },
+    {
+      "file": "Applied.dc.html",
+      "title": "10 · Picks applied, ready to go live",
+      "x": 3040,
+      "y": 3060,
+      "w": 1440,
+      "h": 1300
     }
   ]
 }

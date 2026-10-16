@@ -110,12 +110,13 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   );
   await next.click();
 
-  // The score: the price is under the bar, so it goes live only with a reason.
+  // The score: the price is under the bar, so it goes live only with a reason, or after a try.
   await expect(step).toHaveAttribute('data-step', 'score');
   await builder.getByTestId('offer-score-it').click();
-  await expect(builder.getByTestId('offer-score')).toBeVisible();
-  await expect(builder.getByTestId('offer-score-fix')).toContainText('Fix the price first');
-  await expect(builder.getByTestId('offer-change-weakest')).toHaveText('Change the price');
+  await expect(builder.getByTestId('offer-score')).toHaveAttribute('data-clears', 'false');
+  await expect(builder.getByTestId('offer-score-title')).toHaveText('Under 7: price');
+  await expect(builder.getByTestId('offer-part-price-note')).toBeVisible();
+  await expect(builder.getByTestId('offer-make-try-foot')).toHaveText('Make Try 1');
   await builder.getByTestId('offer-use-anyway').click();
   await page.getByLabel('Why is it going live now?').fill('Pricing after the first call');
   await page.getByTestId('offer-anyway-go').click();
@@ -135,7 +136,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await builder.getByLabel('What’s your price?').fill('$2,000 a month');
   await builder.getByTestId('offer-step-score').click();
   await builder.getByTestId('offer-score-it').click();
-  await expect(builder.getByTestId('offer-score-clear')).toBeVisible();
+  await expect(builder.getByTestId('offer-score')).toHaveAttribute('data-clears', 'true');
   await builder.getByTestId('offer-go-live').click();
   await expect(page.getByTestId('main-offer-live')).toContainText('Live · version 2');
   await expect(page.getByTestId('main-offer-live')).toContainText('Every part 7 or more');
@@ -281,5 +282,108 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(doing).toContainText('How version 2 is doing');
   await expect(doing.getByTestId('outreach-offer-too-new')).toContainText(
     'Give it 100 more first messages',
+  );
+});
+
+test('an owner steers the AI with notes and a direction, compares its try and takes parts from it', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const { email } = await signUpAndConfirm(page, 'main-offer-tries');
+  const workspaceId = await createBusiness(page, { name: 'Lead Answer Co' });
+  await turnOnOutreach(page, email, workspaceId);
+
+  // A whole draft, a box at a time.
+  await page.goto(`/app/w/${workspaceId}/main-offer/build?step=who`);
+  const builder = page.getByTestId('offer-builder');
+  const step = builder.getByTestId('offer-builder-step');
+  await expect(step).toHaveAttribute('data-step', 'who');
+  await builder.getByLabel('What line of work are they in?').fill('Roofing');
+  await builder.getByLabel('Their single most painful problem').fill('Leads go cold on the job');
+  await builder.getByTestId('offer-step-outcome').click();
+  await builder.getByLabel('The result, measurable').fill('Every lead answered in 30 seconds');
+  await builder.getByTestId('offer-step-timeframe').click();
+  await builder.getByLabel('How long does it usually take?').fill('2 weeks');
+  await builder.getByTestId('offer-step-method').click();
+  for (const [i, s] of ['Sign up', 'Plug in your leads', 'Attach your calendar'].entries())
+    await builder.getByTestId(`offer-method-step-${i}`).fill(s);
+  await builder.getByTestId('offer-step-guarantee').click();
+  await builder
+    .getByLabel('What do you promise if it doesn’t work?')
+    .fill('A month free if one waits');
+  await builder.getByTestId('offer-step-price').click();
+  await builder.getByLabel('What’s your price?').fill('$97 a month');
+  await builder.getByTestId('offer-step-line').click();
+  await builder.getByLabel('The outcome, in a few words').fill('every lead answered fast');
+  await builder.getByLabel('The guarantee, in a few words').fill('a month free if not');
+
+  // Reviewed: each part says what's working; a note on the who, the price kept, and a direction.
+  await builder.getByTestId('offer-step-score').click();
+  await expect(step).toHaveAttribute('data-step', 'score');
+  await expect(builder.getByTestId('offer-versions')).toContainText('The AI’s tries show up here');
+  await builder.getByTestId('offer-score-it').click();
+  await expect(builder.getByTestId('offer-score')).toHaveAttribute('data-clears', 'true');
+  await builder.getByTestId('offer-part-who-toggle').click();
+  await expect(builder.getByTestId('offer-part-who')).toContainText(
+    'The who is clear and specific.',
+  );
+  await builder.getByTestId('offer-part-who-pick-0').click();
+  await expect(builder.getByTestId('offer-part-who-note')).toHaveValue('This is broad on purpose.');
+  await builder.getByTestId('offer-part-price-toggle').click();
+  await builder.getByTestId('offer-part-price-keep').check();
+  await builder.getByTestId('offer-direction').fill('It’s for any business that lives on leads.');
+  await expect(builder.getByTestId('offer-going-into')).toContainText('Your direction');
+  await expect(builder.getByTestId('offer-going-into')).toContainText('Your note on who');
+  await expect(builder.getByTestId('offer-going-into')).toContainText('Price kept as is');
+
+  // The try, beside the draft: every part starts on yours, and kept parts show once.
+  await builder.getByTestId('offer-make-try').click();
+  await expect(builder.getByRole('heading', { level: 1 })).toHaveText(
+    'Try 1 is ready. Pick what to keep.',
+  );
+  await expect(page).toHaveURL(/[?&]try=/);
+  await expect(builder.getByTestId('offer-followed')).toContainText(
+    '“It’s for any business that lives on leads.”',
+  );
+  await expect(builder.getByTestId('offer-compare-price')).toContainText(
+    'You kept this as is, so Try 1 left it alone.',
+  );
+  await expect(builder.getByTestId('offer-compare-who-try')).toContainText(
+    'Businesses that live on leads',
+  );
+  await expect(builder.getByTestId('offer-compare-who-try')).toContainText(
+    'Scored with your direction',
+  );
+  await expect(builder.getByTestId('offer-apply')).toHaveText('Keep my draft as is');
+  await builder.getByTestId('offer-compare-who-try').click();
+  await builder.getByTestId('offer-compare-outcome-try').click();
+  await expect(builder.getByTestId('offer-compare-who-try')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(builder.getByTestId('offer-apply')).toHaveText('Apply 2 parts to my draft');
+
+  // Two of its parts taken in: the mix gets a line of its own, then it's scored.
+  await builder.getByTestId('offer-apply').click();
+  await expect(builder.getByTestId('offer-applied')).toContainText(
+    'Your draft now uses Try 1’s who and outcome.',
+  );
+  await expect(builder.getByTestId('offer-version-before')).toContainText('Before Try 1');
+  await builder.getByTestId('offer-line-line-0').check();
+  await builder.getByTestId('offer-line-score').click();
+  await expect(builder.getByTestId('offer-score')).toHaveAttribute('data-clears', 'true');
+  await expect(builder.getByTestId('offer-part-who')).toContainText('Scored with your direction');
+  await builder.getByTestId('offer-go-live').click();
+
+  // Live, with the try's who and the direction kept for next time.
+  await expect(page.getByTestId('main-offer-live')).toContainText('Live · version 1');
+  await expect(page.getByTestId('main-offer-live')).toContainText(
+    'Option 1 for the whole offer in one line',
+  );
+  await expect(page.getByTestId('main-offer-part-who')).toContainText(
+    'Businesses that live on leads',
+  );
+  await expect(page.getByTestId('main-offer-direction')).toContainText(
+    'It’s for any business that lives on leads.',
   );
 });

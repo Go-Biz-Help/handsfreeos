@@ -105,7 +105,7 @@ import { permissionSettings } from './permission';
 import { migrationQueries } from './migration';
 import { walletQueries } from './wallet';
 import { offerList } from './offer';
-import { mainOfferGet, mainOfferVersionList } from './main-offer';
+import { mainOfferGet, mainOfferTryList, mainOfferVersionList } from './main-offer';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -336,6 +336,7 @@ export const queries: readonly QueryDef[] = [
   offerList,
   mainOfferGet,
   mainOfferVersionList,
+  mainOfferTryList,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,

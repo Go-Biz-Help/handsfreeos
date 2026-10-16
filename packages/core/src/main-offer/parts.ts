@@ -30,6 +30,10 @@ export const MAIN_OFFER_LIMITS = {
   line: 1200,
   /** The outcome and the guarantee in a few words each, for messages. */
   inAFewWords: 120,
+  /** The owner's direction for the whole offer. */
+  direction: 2000,
+  /** A note to the AI on one part, for the next try. */
+  note: 500,
 } as const;
 
 const L = MAIN_OFFER_LIMITS;
@@ -149,9 +153,21 @@ export const SCORED_PART_LABELS: Record<ScoredPart, string> = {
 /** The score every part needs before the offer is ready to use (the owner's answer, 2026-10-14). */
 export const MAIN_OFFER_BAR = 7;
 
+/** A line on what's working or what's holding a part back. */
+const scoreLine = words(200).min(1);
+
+/**
+ * One part's score: the number, a line on why, and, since tries came in, what's working, what's holding it back and
+ * the fix for it. Scores kept before then have none of those, so each is optional.
+ */
 const partScore = z.object({
   score: z.int().min(1).max(10),
   why: words(300),
+  good: z.array(scoreLine).max(3).optional(),
+  holding: z.array(scoreLine).max(3).optional(),
+  fix: words(300).min(1).optional(),
+  /** True when the owner's direction changed how the part was judged ("Scored with your direction"). */
+  followedDirection: z.boolean().optional(),
 });
 
 /** The AI's score of an offer: each part, the weakest and its fix, and the video's checks. */
@@ -177,6 +193,84 @@ export type MainOfferScore = z.infer<typeof MainOfferScore>;
 /** Whether every part clears the bar. */
 export function clearsBar(score: MainOfferScore): boolean {
   return SCORED_PARTS.every((p) => score.parts[p].score >= MAIN_OFFER_BAR);
+}
+
+/** The lowest part's score, for lists of versions and tries. */
+export function lowestScore(score: MainOfferScore): number {
+  return Math.min(...SCORED_PARTS.map((p) => score.parts[p].score));
+}
+
+/** The owner's direction for the whole offer: what it really is, who it's for, what to lead with. */
+export const MainOfferDirection = words(MAIN_OFFER_LIMITS.direction);
+
+/** A note to the AI on a part, for the next try. */
+const note = words(MAIN_OFFER_LIMITS.note);
+
+/** The owner's notes to the AI, by part. A part with no note isn't there. */
+export const MainOfferNotes = z
+  .object({
+    who: note,
+    outcome: note,
+    timeframe: note,
+    method: note,
+    guarantee: note,
+    price: note,
+  })
+  .partial()
+  .default({});
+export type MainOfferNotes = z.infer<typeof MainOfferNotes>;
+
+/** The parts a try leaves exactly as the draft has them (Keep this part as is). */
+export const MainOfferKeep = z.array(z.enum(SCORED_PARTS)).max(SCORED_PARTS.length).default([]);
+
+/** For each scored part, why a try changed it, in a sentence; null for a part it left as it was. */
+export const MainOfferTryWhy = z.object({
+  who: words(300).nullable(),
+  outcome: words(300).nullable(),
+  timeframe: words(300).nullable(),
+  method: words(300).nullable(),
+  guarantee: words(300).nullable(),
+  price: words(300).nullable(),
+});
+export type MainOfferTryWhy = z.infer<typeof MainOfferTryWhy>;
+
+const tidy = (v: unknown): unknown =>
+  typeof v === 'string'
+    ? v.trim()
+    : Array.isArray(v)
+      ? v.map(tidy).filter((x) => x !== '')
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.entries(v)
+              .map(([k, x]) => [k, tidy(x)] as const)
+              .filter(([, x]) => x !== '' && x !== undefined),
+          )
+        : v;
+
+/** Whether a scored part says the same in two offers, empty boxes and spaces aside. */
+export function samePart(a: MainOfferParts, b: MainOfferParts, part: ScoredPart): boolean {
+  return JSON.stringify(tidy(a[part])) === JSON.stringify(tidy(b[part]));
+}
+
+/** Whether two offers say the same: the six scored parts, the one line and the few words for messages. */
+export function sameOffer(a: MainOfferParts, b: MainOfferParts): boolean {
+  return (
+    SCORED_PARTS.every((p) => samePart(a, b, p)) &&
+    (a.line ?? '').trim() === (b.line ?? '').trim() &&
+    JSON.stringify(tidy(a.inAFewWords)) === JSON.stringify(tidy(b.inAFewWords))
+  );
+}
+
+/** The draft with the picked parts taken from a try; everything else as the draft has it. */
+export function withPartsFrom(
+  draft: MainOfferParts,
+  from: MainOfferParts,
+  take: readonly ScoredPart[],
+): MainOfferParts {
+  const next: MainOfferParts = { ...draft };
+  for (const part of SCORED_PARTS)
+    if (take.includes(part)) Object.assign(next, { [part]: from[part] });
+  return next;
 }
 
 /** The parts under the bar, lowest first, in the workbook's order when they tie. */
@@ -274,4 +368,31 @@ export function withPart(parts: MainOfferParts, path: string, words: string): Ma
   const group = parts[part];
   if (!box || !group || typeof group !== 'object' || Array.isArray(group)) return parts;
   return { ...parts, [part]: { ...group, [box]: words } };
+}
+
+/** What a scored part says, in a line, for the screens that list the offer part by part. */
+export function partSays(parts: MainOfferParts, part: ScoredPart): string {
+  const join = (...xs: (string | undefined)[]) =>
+    xs
+      .map((x) => x?.trim())
+      .filter(Boolean)
+      .join('. ');
+  switch (part) {
+    case 'who':
+      return join(
+        [parts.who.work, parts.who.slice].filter((x) => x?.trim()).join(' '),
+        parts.who.size,
+        parts.who.problem,
+      );
+    case 'outcome':
+      return join(parts.outcome.result, parts.outcome.measure);
+    case 'timeframe':
+      return join(parts.timeframe.typical, parts.timeframe.why);
+    case 'method':
+      return (parts.method.steps ?? []).filter((s) => s.trim()).join(' · ');
+    case 'guarantee':
+      return join(parts.guarantee.promise, parts.guarantee.when, parts.guarantee.qualifies);
+    case 'price':
+      return join(parts.price.amount, parts.price.value);
+  }
 }

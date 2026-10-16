@@ -2,7 +2,10 @@
 import {
   clearsBar,
   firstMessagePreview,
+  lowestScore,
+  MAIN_OFFER_BAR,
   MAIN_OFFER_LIMITS,
+  MAIN_OFFER_TRY_WORDS as TW,
   MAIN_OFFER_WORDS as W,
   MainOfferParts,
   missingParts,
@@ -11,14 +14,18 @@ import {
   OFFER_STEP_WORDS,
   OFFER_STEPS,
   partWords,
+  sameOffer,
   SCORED_PART_LABELS,
+  SCORED_PARTS,
   timeOfDay,
   underBar,
   withPart,
+  withPartsFrom,
   type ExamplePath,
   type MainOfferScore,
   type OfferNicheOption,
   type OfferStep,
+  type ScoredPart,
 } from '@hfos/core';
 import { ArrowLeft, ArrowUp, Check, Plus, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -29,20 +36,37 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ApiError, errorMessage } from '@/lib/api/errors';
-import type { MainOfferGet } from '@/lib/api/types';
+import type { MainOfferGet, MainOfferTry } from '@/lib/api/types';
 import {
+  applyOfferTry,
   assistOffer,
   findNiche,
+  makeOfferTry,
   offerAiError,
   publishOffer,
+  saveOfferDirection,
   saveOfferDraft,
   scoreOffer,
 } from '@/lib/main-offer/actions';
 import { cn } from '@/lib/utils';
 import { AiButton, AiChoice, AiChoices, OfferBoxField } from './box';
-import { OfferScoreView, UseAnywayDialog } from './score';
+import { DirectionBox, PartCard, ScoreGlance, Versions, type VersionItem } from './review';
+import { UseAnywayDialog } from './score';
+import {
+  allPicks,
+  AppliedPanel,
+  CompareTry,
+  takenFrom,
+  type LineChoice,
+  type LineKey,
+  type NewLines,
+  type Picks,
+} from './tries';
 
 type Parts = MainOfferParts;
+/** The last step's three views: the review, a try beside the draft, and the draft once picks are taken in. */
+type View = 'review' | 'compare' | 'applied';
+const NO_LINE_CHOICE: LineChoice = { line: null, outcome: null, guarantee: null };
 
 const filled = (v: string | undefined | null) => !!v?.trim();
 
@@ -111,6 +135,9 @@ function stepOf(path: string): OfferStep {
  * The main offer's builder (docs/main-offer.md), over the app in the onboarding frame: a step at a time, the steps
  * listed beside it with what's been answered, examples to model for the business's line of work, and the AI's help
  * on every box. Every move saves the draft; the live version keeps running until the last step publishes it.
+ *
+ * The last step reviews each part with the owner's notes and direction, and the AI's tries sit beside the draft to
+ * compare and take parts from (HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md); `&try=` opens one.
  */
 export function OfferBuilder({
   workspaceId,
@@ -118,14 +145,18 @@ export function OfferBuilder({
   email,
   industry,
   offer,
+  tries,
   startAt,
+  openTry,
 }: {
   workspaceId: string;
   businessName: string;
   email: string;
   industry: string | null;
   offer: MainOfferGet;
+  tries: MainOfferTry[];
   startAt: OfferStep;
+  openTry: string | null;
 }) {
   const router = useRouter();
   const settingsHref = `/app/w/${workspaceId}/settings/main-offer`;
@@ -144,6 +175,26 @@ export function OfferBuilder({
   const revisionRef = useRef(offer.revision);
   const dirtyRef = useRef(false);
   const top = useRef<HTMLDivElement>(null);
+  // The owner's direction as typed, and as kept; the notes and kept parts start from the latest try's.
+  const [direction, setDirection] = useState(offer.direction ?? '');
+  const keptDirectionRef = useRef(offer.direction ?? '');
+  const [notes, setNotes] = useState<Partial<Record<ScoredPart, string>>>(tries[0]?.notes ?? {});
+  const [keep, setKeep] = useState<ScoredPart[]>(tries[0]?.keep ?? []);
+  const [allTries, setTries] = useState(tries);
+  const opened = startAt === 'score' && tries.some((t) => t.id === openTry) ? openTry : null;
+  const [view, setView] = useState<View>(opened ? 'compare' : 'review');
+  const [tryId, setTryId] = useState<string | null>(opened);
+  const [picks, setPicks] = useState<Picks>(allPicks('mine'));
+  const [applied, setApplied] = useState<{
+    tryId: string;
+    number: number;
+    take: ScoredPart[];
+    before: Parts;
+  } | null>(null);
+  const [lines, setLines] = useState<NewLines | null>(null);
+  const [lineChoice, setLineChoice] = useState<LineChoice>(NO_LINE_CHOICE);
+  const current = allTries.find((t) => t.id === tryId) ?? null;
+  const nextTry = TW.tryName((allTries[0]?.number ?? 0) + 1);
 
   function update(change: (p: Parts) => Parts) {
     const next = change(partsRef.current);
@@ -173,8 +224,55 @@ export function OfferBuilder({
     }
   }
 
+  /** Saves the draft, then the direction when it changed; the revision it's at now, or null when it couldn't. */
+  async function persist(): Promise<number | null> {
+    const revision = await save();
+    if (revision === null) return null;
+    const want = direction.trim();
+    if (want === keptDirectionRef.current.trim()) return revision;
+    try {
+      const out = await saveOfferDirection(workspaceId, revision, want);
+      revisionRef.current = out.revision;
+      keptDirectionRef.current = want;
+      // A score is for the direction it read too.
+      if (out.revision !== revision) setScore(null);
+      return out.revision;
+    } catch (e) {
+      if (e instanceof ApiError && e.rule === 'main_offer_draft_moved') setMoved(true);
+      toast.error(errorMessage(e));
+      return null;
+    }
+  }
+
+  /** Keeps the address in step with the try being compared, so a reload opens the same one. */
+  function remember(id: string | null) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('step', 'score');
+    if (id) url.searchParams.set('try', id);
+    else url.searchParams.delete('try');
+    window.history.replaceState(null, '', url.toString());
+  }
+
+  function openCompare(id: string) {
+    setTryId(id);
+    setPicks(allPicks('mine'));
+    setView('compare');
+    remember(id);
+    top.current?.scrollIntoView({ block: 'start' });
+  }
+
+  function backToReview() {
+    setView('review');
+    remember(null);
+    top.current?.scrollIntoView({ block: 'start' });
+  }
+
   async function goTo(next: OfferStep) {
-    if ((await save()) === null) return;
+    if ((await persist()) === null) return;
+    if (next !== 'score' && view !== 'review') {
+      setView('review');
+      remember(null);
+    }
     // Put it together starts from the answers when there's no line yet.
     if (next === 'line' && !filled(partsRef.current.line))
       update((p) => withPart(p, 'line', offerLineFrom(p)));
@@ -184,12 +282,12 @@ export function OfferBuilder({
 
   async function finishLater() {
     setBusy('later');
-    if ((await save()) !== null) router.push(settingsHref);
+    if ((await persist()) !== null) router.push(settingsHref);
     setBusy(null);
   }
 
   async function scoreNow() {
-    const revision = await save();
+    const revision = await persist();
     if (revision === null) return;
     setBusy('score');
     try {
@@ -201,6 +299,120 @@ export function OfferBuilder({
     } finally {
       setBusy(null);
     }
+  }
+
+  /** A try of the whole offer, from the draft, the direction, the notes and the parts to keep. */
+  async function makeTry() {
+    const revision = await persist();
+    if (revision === null) return;
+    setBusy('try');
+    try {
+      const said = Object.fromEntries(
+        SCORED_PARTS.filter((p) => notes[p]?.trim()).map((p) => [p, notes[p]!.trim()]),
+      );
+      const out = await makeOfferTry(workspaceId, revision, said, keep);
+      if (!out.saved || !out.try) {
+        toast.error(TW.tryMoved);
+        return;
+      }
+      const made = out.try;
+      setTries((ts) => [made, ...ts]);
+      openCompare(made.id);
+    } catch (e) {
+      if (e instanceof ApiError && e.rule === 'main_offer_draft_moved') setMoved(true);
+      toast.error(offerAiError(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Takes the picked parts into the draft, then scores it, or first offers a line for a mix. */
+  async function applyPicks() {
+    if (!current) return;
+    const take = takenFrom(current, picks);
+    if (!take.length) return backToReview();
+    const revision = await persist();
+    if (revision === null) return;
+    setBusy('apply');
+    try {
+      const before = cleaned(partsRef.current);
+      const out = await applyOfferTry(workspaceId, revision, current.id, take);
+      let next = withPartsFrom(before, current.parts, take);
+      if (out.lineFromTry)
+        next = { ...next, line: current.parts.line, inAFewWords: current.parts.inAFewWords };
+      partsRef.current = next;
+      dirtyRef.current = false;
+      revisionRef.current = out.revision;
+      setParts(next);
+      setSavedAt(new Date().toISOString());
+      if (out.revision !== revision) setScore(null);
+      setApplied({ tryId: current.id, number: current.number, take, before });
+      setLines(null);
+      setLineChoice(NO_LINE_CHOICE);
+      setView('applied');
+      remember(null);
+      top.current?.scrollIntoView({ block: 'start' });
+      setBusy(null);
+      if (out.lineFromTry) await scoreNow();
+      else await offerLines(next);
+    } catch (e) {
+      if (e instanceof ApiError && e.rule === 'main_offer_draft_moved') setMoved(true);
+      toast.error(errorMessage(e));
+      setBusy(null);
+    }
+  }
+
+  /** Three new lines, and few words for each, written for a mix of parts. */
+  async function offerLines(p: Parts) {
+    setBusy('lines');
+    try {
+      const [line, outcome, guarantee] = await Promise.all([
+        assistOffer(workspaceId, 'line', 'write', p),
+        assistOffer(workspaceId, 'inAFewWords.outcome', 'write', p),
+        assistOffer(workspaceId, 'inAFewWords.guarantee', 'write', p),
+      ]);
+      setLines({ line: line.options, outcome: outcome.options, guarantee: guarantee.options });
+    } catch (e) {
+      toast.error(offerAiError(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Puts in the lines picked for the mix, then scores the draft as it now is. */
+  async function scoreWithLines() {
+    if (lines) {
+      const pick = (k: LineKey, mine: string | undefined) => {
+        const i = lineChoice[k];
+        return i === null ? mine : lines[k][i];
+      };
+      if (Object.values(lineChoice).some((i) => i !== null))
+        update((p) => ({
+          ...p,
+          line: pick('line', p.line),
+          inAFewWords: {
+            ...p.inAFewWords,
+            outcome: pick('outcome', p.inAFewWords.outcome),
+            guarantee: pick('guarantee', p.inAFewWords.guarantee),
+          },
+        }));
+    }
+    setLines(null);
+    await scoreNow();
+  }
+
+  /** Puts the draft back as it was before the picks; the try stays listed. */
+  async function restore() {
+    if (!applied) return;
+    const before = applied.before;
+    update(() => before);
+    setBusy('restore');
+    const revision = await save();
+    setBusy(null);
+    if (revision === null) return;
+    setApplied(null);
+    setLines(null);
+    backToReview();
   }
 
   async function goLive(why?: string) {
@@ -220,6 +432,43 @@ export function OfferBuilder({
   const prev = index > 0 ? OFFER_STEPS[index - 1]! : null;
   const next = index < OFFER_STEPS.length - 1 ? OFFER_STEPS[index + 1]! : null;
   const words = OFFER_STEP_WORDS[step];
+  const comparing = step === 'score' && view === 'compare' && current;
+  const title = comparing ? TW.compareTitle(TW.tryName(current.number)) : words.title;
+  const hint = comparing ? TW.compareHint : words.hint;
+  const draftSub = score ? TW.lowest(lowestScore(score)) : TW.notScored;
+  const tryItems: VersionItem[] = allTries.map((t) => ({
+    key: `try-${t.number}`,
+    name: TW.tryName(t.number),
+    sub: TW.lowest(t.lowest),
+    current: view === 'compare' && t.id === tryId,
+    ai: true,
+    onOpen: () => openCompare(t.id),
+  }));
+  const versions: VersionItem[] =
+    view === 'applied' && applied
+      ? [
+          {
+            key: 'draft',
+            name: TW.yourDraft,
+            sub: `${draftSub} · ${TW.updated}`,
+            current: true,
+            ai: false,
+          },
+          { key: 'before', name: TW.beforeTry(applied.number), sub: '', current: false, ai: false },
+          ...tryItems,
+        ]
+      : [
+          {
+            key: 'draft',
+            name: TW.yourDraft,
+            sub: draftSub,
+            current: view === 'review',
+            ai: false,
+            onOpen: view === 'review' ? undefined : backToReview,
+          },
+          ...tryItems,
+        ];
+  const taking = current ? takenFrom(current, picks).length : 0;
   const box = (path: string) => words.boxes.find((b) => b.path === path)!;
   const field = (path: string) => (
     <OfferBoxField
@@ -314,9 +563,9 @@ export function OfferBuilder({
                   {W.counter(index + 1)}
                 </div>
                 <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.015em]">
-                  {words.title}
+                  {title}
                 </h1>
-                <p className="max-w-[660px] text-text-2">{words.hint}</p>
+                <p className="max-w-[660px] text-text-2">{hint}</p>
               </div>
 
               {step === 'niche' ? (
@@ -350,12 +599,91 @@ export function OfferBuilder({
               ) : step === 'line' ? (
                 <LineStep parts={parts} update={update} field={field} />
               ) : step === 'score' ? (
-                <ScoreStep
-                  parts={parts}
-                  score={score}
-                  scoredAt={scoredAt}
-                  onGo={(s) => void goTo(s)}
-                />
+                <>
+                  <Versions items={versions} empty={!allTries.length} />
+                  {comparing ? (
+                    <CompareTry
+                      t={current}
+                      draft={parts}
+                      score={score}
+                      picks={picks}
+                      moved={!sameOffer(cleaned(parts), current.base)}
+                      onPick={setPicks}
+                    />
+                  ) : (
+                    <>
+                      {view === 'applied' && applied ? (
+                        <AppliedPanel
+                          tryNumber={applied.number}
+                          take={applied.take}
+                          draft={parts}
+                          lines={lines}
+                          choice={lineChoice}
+                          onChoose={setLineChoice}
+                          scoring={busy === 'score' || busy === 'lines'}
+                          restoring={busy === 'restore'}
+                          onRestore={() => void restore()}
+                          onScore={() => void scoreWithLines()}
+                        />
+                      ) : null}
+                      <ScoreStep parts={parts} onGo={(s) => void goTo(s)} />
+                      {score ? (
+                        <>
+                          <ScoreGlance score={score} scoredAt={scoredAt} />
+                          <div className="flex flex-col gap-1 pt-1">
+                            <h2 className="text-[18px] font-semibold tracking-[-0.01em]">
+                              {TW.eachPart}
+                            </h2>
+                            {view === 'review' ? (
+                              <p className="text-[13px] text-text-2">{TW.eachPartHint}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-col gap-2.5" data-testid="offer-parts">
+                            {SCORED_PARTS.map((p) => (
+                              <PartCard
+                                key={`${view}-${p}`}
+                                part={p}
+                                parts={parts}
+                                score={score}
+                                defaultOpen={
+                                  view === 'review' && score.parts[p].score < MAIN_OFFER_BAR
+                                }
+                                edits={
+                                  view === 'review'
+                                    ? {
+                                        note: notes[p] ?? '',
+                                        onNote: (n) => setNotes((ns) => ({ ...ns, [p]: n })),
+                                        kept: keep.includes(p),
+                                        onKeep: (k) =>
+                                          setKeep((ks) =>
+                                            k
+                                              ? [...ks.filter((x) => x !== p), p]
+                                              : ks.filter((x) => x !== p),
+                                          ),
+                                        onEdit: () => void goTo(p),
+                                      }
+                                    : undefined
+                                }
+                              />
+                            ))}
+                          </div>
+                        </>
+                      ) : null}
+                      {view === 'review' ? (
+                        <DirectionBox
+                          direction={direction}
+                          onDirection={setDirection}
+                          notes={notes}
+                          keep={keep}
+                          nextTry={nextTry}
+                          busy={busy === 'try'}
+                          disabled={!!busy && busy !== 'try'}
+                          onMake={() => void makeTry()}
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="grid grid-cols-1 gap-5">
                   {words.boxes.map((b) => field(b.path))}
@@ -364,13 +692,24 @@ export function OfferBuilder({
             </div>
 
             <footer className="mt-auto flex flex-wrap items-center gap-2 border-t border-border bg-card px-5 py-3 sm:px-8">
-              {prev ? (
+              {step === 'score' && view !== 'review' ? (
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    view === 'applied' && applied ? openCompare(applied.tryId) : backToReview()
+                  }
+                  data-testid="offer-back-to-review"
+                >
+                  <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                  {view === 'applied' ? TW.changePicks : TW.backToReview}
+                </Button>
+              ) : prev ? (
                 <Button variant="ghost" onClick={() => void goTo(prev)}>
                   <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
                   {W.back}
                 </Button>
               ) : null}
-              {step === 'score' && score ? (
+              {step === 'score' && view === 'review' && score ? (
                 <Button
                   variant="ghost"
                   loading={busy === 'score'}
@@ -386,7 +725,21 @@ export function OfferBuilder({
                   {W.saved(timeOfDay(savedAt))}
                 </span>
               ) : null}
-              {step !== 'score' ? (
+              {comparing ? (
+                <>
+                  <span className="text-[13px] tabular-nums text-text-2">
+                    {TW.picked(TW.tryName(current.number), taking, SCORED_PARTS.length - taking)}
+                  </span>
+                  <Button
+                    size="lg"
+                    loading={busy === 'apply' || busy === 'save'}
+                    onClick={() => void applyPicks()}
+                    data-testid="offer-apply"
+                  >
+                    {TW.apply(taking)}
+                  </Button>
+                </>
+              ) : step !== 'score' ? (
                 <Button
                   size="lg"
                   loading={busy === 'save'}
@@ -398,15 +751,17 @@ export function OfferBuilder({
                   {next === 'score' ? W.scoreIt : W.continue}
                 </Button>
               ) : !score ? (
-                <Button
-                  size="lg"
-                  loading={busy === 'score'}
-                  onClick={() => void scoreNow()}
-                  data-testid="offer-score-it"
-                >
-                  <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                  {W.scoreIt}
-                </Button>
+                view === 'applied' && (lines || busy === 'lines') ? null : (
+                  <Button
+                    size="lg"
+                    loading={busy === 'score'}
+                    onClick={() => void scoreNow()}
+                    data-testid="offer-score-it"
+                  >
+                    <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                    {W.scoreIt}
+                  </Button>
+                )
               ) : clearsBar(score) && !missingParts(parts).length ? (
                 <Button
                   size="lg"
@@ -418,17 +773,35 @@ export function OfferBuilder({
                 </Button>
               ) : (
                 <>
-                  {missingParts(parts).length ? null : (
-                    <Button
-                      size="lg"
-                      variant="secondary"
-                      onClick={() => setAnyway(true)}
-                      data-testid="offer-use-anyway"
-                    >
-                      {W.useAnyway}
-                    </Button>
+                  {missingParts(parts).length ? (
+                    <WeakestButton score={score} parts={parts} onGo={(s) => void goTo(s)} />
+                  ) : (
+                    <>
+                      <Button
+                        size="lg"
+                        variant="secondary"
+                        onClick={() => setAnyway(true)}
+                        data-testid="offer-use-anyway"
+                      >
+                        {W.useAnyway}
+                      </Button>
+                      {view === 'review' ? (
+                        <Button
+                          size="lg"
+                          loading={busy === 'try'}
+                          disabled={!!busy && busy !== 'try'}
+                          onClick={() => void makeTry()}
+                          data-testid="offer-make-try-foot"
+                        >
+                          {TW.makeTry(nextTry)}
+                        </Button>
+                      ) : (
+                        <Button size="lg" onClick={backToReview} data-testid="offer-to-review">
+                          {TW.backToReview}
+                        </Button>
+                      )}
+                    </>
                   )}
-                  <WeakestButton score={score} parts={parts} onGo={(s) => void goTo(s)} />
                 </>
               )}
             </footer>
@@ -858,17 +1231,7 @@ function LineStep({
   );
 }
 
-function ScoreStep({
-  parts,
-  score,
-  scoredAt,
-  onGo,
-}: {
-  parts: Parts;
-  score: MainOfferScore | null;
-  scoredAt: string | null;
-  onGo: (step: OfferStep) => void;
-}) {
+function ScoreStep({ parts, onGo }: { parts: Parts; onGo: (step: OfferStep) => void }) {
   const missing = missingParts(parts);
   return (
     <>
@@ -901,7 +1264,6 @@ function ScoreStep({
           </ul>
         </div>
       ) : null}
-      {score ? <OfferScoreView score={score} scoredAt={scoredAt} /> : null}
     </>
   );
 }
