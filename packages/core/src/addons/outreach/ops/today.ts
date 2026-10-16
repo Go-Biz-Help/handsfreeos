@@ -305,7 +305,7 @@ export const today = defineAddonQuery(outreachAddon, {
           from addon_outreach.engagements e
           join addon_outreach.profiles p on p.id = e.profile_id
           join addon_outreach.helpful h on h.id = e.helpful_id
-          join addon_outreach.groups g on g.id = h.group_id
+          left join addon_outreach.groups g on g.id = h.group_id
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
           where e.workspace_id = ${ws} and e.user_id = ${me}
             and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz

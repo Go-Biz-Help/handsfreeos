@@ -11,6 +11,7 @@ import {
 } from '../../src/addons/outreach/chat-read';
 import { CHECK_SYSTEM, checkPrompt, checkSystem } from '../../src/addons/outreach/checks';
 import { LIKE_PICK_SYSTEM, likePickSystem } from '../../src/addons/outreach/like-pick';
+import { HELPFUL_SYSTEM, helpfulPrompt, helpfulSystem } from '../../src/addons/outreach/helpful';
 import { inNetworkWords } from '../../src/addons/outreach/networks';
 import { POST_CHECK_SYSTEM, postCheckSystem } from '../../src/addons/outreach/posts';
 import {
@@ -138,5 +139,21 @@ describe('each network’s words for the AI', () => {
     // Headlines up to LinkedIn's 220 characters, and an About with no long dashes.
     expect(check.bios).toEqual(['h'.repeat(200)]);
     expect(check.aboutDraft).not.toContain('—');
+  });
+
+  it('writes LinkedIn’s helpful post for the person’s own feed, with no group or rules', () => {
+    expect(helpfulSystem()).toBe(HELPFUL_SYSTEM);
+    expect(helpfulSystem('linkedin')).toContain('their own LinkedIn feed');
+    expect(helpfulSystem('linkedin')).not.toMatch(FACEBOOK_WORDS);
+    const prompt = helpfulPrompt({
+      business: 'Bright Books',
+      playbook: null,
+      group: null,
+      platform: 'linkedin',
+      asked: ['Can anyone recommend a bookkeeper?'],
+    });
+    expect(prompt).not.toContain('<group>');
+    expect(prompt).not.toContain('<rules>');
+    expect(prompt).toContain('Write one helpful post for their own LinkedIn feed.');
   });
 });
