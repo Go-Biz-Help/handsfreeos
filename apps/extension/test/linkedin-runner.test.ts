@@ -15,6 +15,10 @@ const DANA = `${LI}/in/dana-reyes-4b2a1c/`;
 const POST = `${LI}/feed/update/urn:li:activity:7380000000000000101/`;
 const THREAD_KEY = '2-MadeUpThreadDana0001==';
 const ME = { userId: 'u-chris', businessId: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d' };
+
+// A step waits as the runner does for LinkedIn to draw each page it opens: about 4 seconds for a like here, past
+// vitest's 5 on a busy CI runner, and a step cut off goes on noting into the next test (16 Oct 2026).
+vi.setConfig({ testTimeout: 30_000 });
 const PROFILE_ID = '1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9';
 
 const world = vi.hoisted(() => ({
