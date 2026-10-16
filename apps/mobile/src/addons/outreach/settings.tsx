@@ -94,7 +94,8 @@ const VOICE_KEYS = [
  * how their phone hears what waits, their working hours), and for owners and admins, anyone's, picked under Settings
  * for, and the business's (what people may pick, the networks the team may use and each one's daily limits, where a
  * new person starts, who goes in Contacts, the morning push and the weekly report). The extension follows a save
- * within seconds. It needs signal.
+ * within seconds. A network's switch saves at once, on its own (Chris, 2026-10-16); everything else waits for Save. It
+ * needs signal.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -173,14 +174,14 @@ export function SettingsScreen({ whose }: { whose?: string }) {
       onRetry={automation.reload}
       onWhose={(id) => setUserId(id === ctx.userId ? null : id)}
       onOpen={(view) => openOutreach(ws, view)}
-      onSaveMine={async (settings) => {
+      onSaveMine={async (settings, options) => {
         try {
           await change('outreach.automation.save', {
             workspaceId: ws,
             ...(mine ? {} : { userId: userId! }),
             settings,
           });
-          toast.show(W.savedFollows);
+          if (!options?.quiet) toast.show(W.savedFollows);
           automation.reload();
           people.reload();
           return null;
@@ -239,7 +240,14 @@ export function SettingsBody({
   online: boolean;
   onRetry: () => void;
   onWhose: (userId: string) => void;
-  onSaveMine: (settings: AutomationSettings) => Promise<string | null>;
+  /**
+   * Saves the person's settings: the problem's words, or null once saved. `quiet` for a network's switch, which says
+   * it's saved beside itself.
+   */
+  onSaveMine: (
+    settings: AutomationSettings,
+    options?: { readonly quiet?: boolean },
+  ) => Promise<string | null>;
   /** Saves some of the business's settings, the others kept as they are. */
   onSaveBusiness: (changes: Partial<OutreachSettings>, said?: string) => Promise<string | null>;
   /** Playbooks and the person's computer, beside the settings since the tabs went to four (decision 59). */
@@ -297,8 +305,9 @@ export function SettingsBody({
       ) : null}
       <Part title={mine ? W.mySettings : W.settingsOf(automation.name)} testID="settings-mine">
         <MySettings
-          // Saved somewhere else: the form starts again from what's kept.
-          key={`${automation.userId}:${JSON.stringify(automation.settings)}:${automation.changedBy ?? ''}`}
+          // A form for each person. Saved somewhere else, it starts again from what's kept by itself, so a network
+          // switch's own save doesn't lose the form's other edits.
+          key={automation.userId}
           automation={automation}
           manages={manages}
           online={online}
@@ -377,9 +386,48 @@ function MySettings({
   automation: AutomationOutput;
   manages: boolean;
   online: boolean;
-  onSave: (settings: AutomationSettings) => Promise<string | null>;
+  onSave: (
+    settings: AutomationSettings,
+    options?: { readonly quiet?: boolean },
+  ) => Promise<string | null>;
 }) {
   const [value, setValue] = React.useState<AutomationSettings>(automation.settings);
+  // The screen's copy of what's kept. A network's switch saves on it, so the form's other edits never go with the
+  // switch; after it, the next switch and Save start from what the switch kept.
+  const [saved, setSaved] = React.useState<AutomationSettings>(automation.settings);
+  const [kept, setKept] = React.useState<AutomationSettings>(automation.settings);
+  const [switching, setSwitching] = React.useState<{
+    platform: Platform;
+    next: AutomationSettings;
+  } | null>(null);
+  const [said, setSaid] = React.useState<SwitchSaid | null>(null);
+  // Save is saving the whole form: the switches wait for it, so one never undoes what it saves.
+  const [savingAll, setSavingAll] = React.useState(false);
+  // Asked again with what's kept. Saved somewhere else (Save, the web, an owner): the form starts again from it. A
+  // switch's own save coming back leaves the form's other edits as they are.
+  if (!same(kept, automation.settings)) {
+    setKept(automation.settings);
+    setSaved(automation.settings);
+    if (!same(automation.settings, saved) && !same(automation.settings, switching?.next))
+      setValue(automation.settings);
+  }
+  /** A network's switch saves at once: only that change, on what's kept (Chris, 2026-10-16). */
+  const flip = async (platform: Platform, on: boolean) => {
+    const next = withNetwork(saved, platform, { on });
+    setValue((v) => withNetwork(v, platform, { on }));
+    setSwitching({ platform, next });
+    setSaid(null);
+    const problem = await onSave(next, { quiet: true });
+    setSwitching(null);
+    if (problem) {
+      // Put back as it was, saying why in the server's words.
+      setValue((v) => withNetwork(v, platform, { on: !on }));
+      setSaid({ platform, ok: false, words: problem });
+    } else {
+      setSaved(next);
+      setSaid({ platform, ok: true, words: NW.switched(PLATFORMS[platform], on) });
+    }
+  };
   return (
     <Card className="gap-4 px-4 py-4">
       {automation.changedBy ? (
@@ -390,6 +438,11 @@ function MySettings({
         onChange={setValue}
         automation={automation}
         manages={manages}
+        online={online}
+        onSwitch={(platform, on) => void flip(platform, on)}
+        switching={switching?.platform ?? null}
+        saving={switching !== null || savingAll}
+        said={said}
         testID="settings-networks"
       />
       {automation.wheels.on ? <Note>{wheelsWords(automation.wheels)}</Note> : null}
@@ -404,8 +457,16 @@ function MySettings({
       />
       {wheelsMatter(value) && !automation.wheels.from ? <Note>{WHEELS_START_WORDS}</Note> : null}
       <SaveButton
-        disabled={!online || (same(value, automation.settings) && automation.saved)}
-        onSave={() => onSave(value)}
+        disabled={!online || switching !== null || (same(value, saved) && automation.saved)}
+        onSave={async () => {
+          const sent = value;
+          setSavingAll(true);
+          const problem = await onSave(sent);
+          setSavingAll(false);
+          // What's kept now, at once: the next switch starts from it.
+          if (!problem) setSaved(sent);
+          return problem;
+        }}
         testID="settings-my-save"
       />
     </Card>
@@ -446,13 +507,14 @@ function Choice({
   );
 }
 
-/** A switch with its words, and a line under them. */
+/** A switch with its words, and a line under them. `busy` while a switch that saves at once is saving. */
 function Tick({
   label,
   about,
   checked,
   onChange,
   disabled = false,
+  busy = false,
   testID,
 }: {
   label: string;
@@ -460,6 +522,7 @@ function Tick({
   checked: boolean;
   onChange: (on: boolean) => void;
   disabled?: boolean;
+  busy?: boolean;
   testID?: string;
 }) {
   return (
@@ -472,7 +535,8 @@ function Tick({
         label={label}
         checked={checked}
         onCheckedChange={onChange}
-        disabled={disabled}
+        disabled={disabled || busy}
+        aria-busy={busy || undefined}
         testID={testID}
       />
     </View>
@@ -635,16 +699,30 @@ const wheelsOf = (automation: AutomationOutput, platform: Platform): WheelsState
     ? automation.networkWheels[platform as OtherPlatform]
     : automation.wheels;
 
+/** Beside a network's switch once its save is done: that it's saved, or the server's words. */
+interface SwitchSaid {
+  readonly platform: Platform;
+  readonly ok: boolean;
+  readonly words: string;
+}
+
 /**
  * The networks the person works (Chris: each person turns networks on, inside what the business allows), each with
  * its switch. Under any other network, its own choices, the same as Facebook's and off to start, and its own training
  * wheels; Facebook's choices are the form below. A network the business doesn't use says why, and who can change it.
+ * A network's switch saves at once, on its own (Chris, 2026-10-16), so it needs signal, as Save does; its choices wait
+ * for Save.
  */
 function NetworksPart({
   value,
   onChange,
   automation,
   manages,
+  online,
+  onSwitch,
+  switching,
+  saving,
+  said,
   testID,
 }: {
   value: AutomationSettings;
@@ -652,6 +730,14 @@ function NetworksPart({
   automation: AutomationOutput;
   /** An owner or admin, who can allow a network under Business settings. */
   manages: boolean;
+  online: boolean;
+  onSwitch: (platform: Platform, on: boolean) => void;
+  /** The network whose switch is saving. */
+  switching: Platform | null;
+  /** A save is running: every switch waits for it, so one never undoes another. */
+  saving: boolean;
+  /** Beside a switch, once its save is done. */
+  said: SwitchSaid | null;
   testID: string;
 }) {
   const allowed = automation.rules.networksAllowed;
@@ -671,10 +757,22 @@ function NetworksPart({
             <Tick
               label={name}
               checked={on}
-              onChange={(next) => set({ on: next })}
-              disabled={!may}
+              onChange={(next) => onSwitch(p, next)}
+              disabled={!may || !online || saving}
+              busy={switching === p}
               testID={`${testID}-${p}-on`}
             />
+            {said?.platform === p ? (
+              <Text
+                className={cn(
+                  'text-[13px] leading-[18px]',
+                  said.ok ? 'text-success-text' : 'text-danger',
+                )}
+                testID={`${testID}-${p}-${said.ok ? 'saved' : 'problem'}`}
+              >
+                {said.words}
+              </Text>
+            ) : null}
             {!may ? (
               <Note testID={`${testID}-${p}-not-allowed`}>{NW.notAllowed(name, manages)}</Note>
             ) : !on ? (

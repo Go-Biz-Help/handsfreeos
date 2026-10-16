@@ -338,8 +338,9 @@ or a message, and the readers are tuned from it.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → Business settings → Networks your team may
    use: LinkedIn is ticked, as it is to start. A business allows every network unless an owner or admin turns one
    off there. Its daily limits start at the ones below.
-3. **Turn LinkedIn on for you.** Social Outreach → Settings → My settings → Networks: switch LinkedIn on. Its choices
-   start off. Leave them off, or turn on only the first ones, for the first day.
+3. **Turn LinkedIn on for you.** Social Outreach → Settings → My settings → Networks: switch LinkedIn on. The switch
+   saves at once, and the line beside it says so (Chris, 2026-10-16). Its choices start off, and save with **Save**.
+   Leave them off, or turn on only the first ones, for the first day.
 4. **Let the extension on LinkedIn.** Open the panel, press **Allow on LinkedIn**, then **Allow** in Chrome's box.
    Reload any LinkedIn tab that was open before.
 5. **Get ready on LinkedIn.** On Today, pick LinkedIn's row. Under Get ready, press **Read my profile**, then:
