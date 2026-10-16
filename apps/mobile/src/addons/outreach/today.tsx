@@ -18,7 +18,8 @@ import {
 import {
   HELPFUL_STATES,
   HELPFUL_WORDS as H,
-  howWords,
+  helpfulOpenUrl,
+  helpfulWordsOn,
   OPEN_HELPFUL_STATES,
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
@@ -68,10 +69,13 @@ export function useTodayProps(
     `today:${ws}:${platform}`,
     W.rows.today,
   );
+  // The network's own helpful post: in a group on Facebook, on the person's own feed on LinkedIn.
   const helpful = useOutreachAnswer(
     async () =>
-      unwrap(await api.POST('/v1/queries/outreach.helpful', { body: { workspaceId: ws } })),
-    `helpful:${ws}`,
+      unwrap(
+        await api.POST('/v1/queries/outreach.helpful', { body: { workspaceId: ws, platform } }),
+      ),
+    `helpful:${ws}:${platform}`,
     H.title,
   );
   const helpfulChange = async (run: () => Promise<unknown>, said: string) => {
@@ -101,14 +105,17 @@ export function useTodayProps(
     helpful: helpful.data,
     onHelpful: {
       write: () =>
-        helpfulChange(() => change('outreach.helpful.ask', { workspaceId: ws }), H.writing),
+        helpfulChange(
+          () => change('outreach.helpful.ask', { workspaceId: ws, platform }),
+          H.writing,
+        ),
       ok: (helpfulId) =>
         helpfulChange(async () => {
           await change('outreach.helpful.ok', { workspaceId: ws, helpfulId });
-          // The helpful post is for one of the person's Facebook groups.
+          // Put up on the network it's for: in its group on Facebook, on their own feed on LinkedIn.
           await change('outreach.ask.make', {
             workspaceId: ws,
-            platform: 'facebook',
+            platform,
             ask: { kind: 'post', helpfulId },
           });
         }, H.waitingComputer),
@@ -247,7 +254,7 @@ export function TodayBody({
       ) : null}
       {list.wheels.on ? <Note testID="today-wheels">{wheelsWords(list.wheels)}</Note> : null}
       {helpful && onHelpful && helpfulOn(platform) ? (
-        <HelpfulPart helpful={helpful} on={onHelpful} />
+        <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
       ) : null}
       {asking.length ? (
         <Part
@@ -470,9 +477,19 @@ function ItemCard({
 /**
  * Today's helpful post (decision 50): what the AI wrote and for which group, to OK for the computer, say it's up
  * after copying it (the words can be selected), or put aside; why one was put aside; and those up lately, with who
- * engaged. With none today, Write a helpful post. It needs signal.
+ * engaged. With none today, Write a helpful post. It needs signal. On LinkedIn it's for the person's own feed: "Your
+ * LinkedIn feed" where a group's name would be, and Open LinkedIn in place of Open the group.
  */
-function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulActions }) {
+function HelpfulPart({
+  platform,
+  helpful,
+  on,
+}: {
+  platform: Platform;
+  helpful: HelpfulListOutput;
+  on: HelpfulActions;
+}) {
+  const H = helpfulWordsOn(platform);
   const open = helpful.posts.find((p) =>
     (OPEN_HELPFUL_STATES as readonly string[]).includes(p.state),
   );
@@ -482,7 +499,7 @@ function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulA
     <Part title={H.title} about={H.limit} testID="today-helpful">
       {shown ? (
         <Card className="gap-2 px-4 py-3.5" testID="today-helpful-post">
-          <Note>{[shown.groupName, shown.topic].filter(Boolean).join(' · ')}</Note>
+          <Note>{[shown.groupName ?? H.feed?.name, shown.topic].filter(Boolean).join(' · ')}</Note>
           {shown.state === 'drafting' ? <Note>{H.writing}</Note> : null}
           {shown.state === 'skipped' || shown.state === 'failed' ? (
             <Note>{`${HELPFUL_STATES[shown.state]}${shown.whyNot ? `: ${shown.whyNot}` : '.'}`}</Note>
@@ -495,7 +512,7 @@ function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulA
               >
                 {shown.text}
               </Text>
-              <Note>{shown.state === 'approved' ? H.waitingComputer : howWords(shown.how)}</Note>
+              <Note>{shown.state === 'approved' ? H.waitingComputer : H.how(shown.how)}</Note>
               <View className="flex-row flex-wrap gap-2">
                 {shown.how === 'after_ok' || shown.state === 'approved' ? (
                   <Button
@@ -513,9 +530,10 @@ function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulA
                       size="md"
                       variant="ghost"
                       icon={ExternalLink}
-                      onPress={() => openOutside(shown.groupUrl)}
+                      onPress={() => openOutside(helpfulOpenUrl({ ...shown, platform }))}
+                      testID="today-helpful-open"
                     >
-                      {H.openGroup}
+                      {H.open}
                     </Button>
                     <Button
                       size="md"

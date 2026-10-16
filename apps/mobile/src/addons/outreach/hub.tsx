@@ -56,7 +56,8 @@ import { useWaitingProps, WaitingBody } from './waiting';
  *
  * Each network on its own (Chris): with more than one network on, the strip is a row for each, by name, with its own
  * day, its own Start my day or Stop for today and its own warning line; the one shown opens in full, and the list
- * below is its own (`outreach.today` with its `platform`). Pressing a network's name shows its list.
+ * below is its own (`outreach.today` with its `platform`). Pressing a network's name shows its list. Get ready is the
+ * network shown's (its own profile counts), and each other row's Start my day waits on its own readiness.
  */
 export function TodayHub() {
   const ctx = useOutreachContext();
@@ -66,8 +67,9 @@ export function TodayHub() {
   const many = nets.length > 1;
   const waiting = useWaitingProps();
   const today = useTodayProps(net);
-  // Until the person is ready, Get ready shows above the list; once they are, Today's list and the strip come back.
-  const ready = useReadyProps(() => today.onRetry());
+  // Until the person is ready on the network shown, its Get ready shows above the list; once they are, Today's list
+  // and the strip come back.
+  const ready = useReadyProps(net, () => today.onRetry());
   const notReady = ready.readiness !== null && !ready.readiness.ready;
   const setup = useOutreachAnswer(
     async () =>
@@ -104,8 +106,9 @@ export function TodayHub() {
           many={many}
           shown={p === net}
           ready={!notReady}
+          shownReady={!notReady}
           onShow={() => setAsked(p)}
-          onDetails={() => openOutreach(ctx.workspaceId, 'live')}
+          onDetails={() => openOutreach(ctx.workspaceId, 'live', `net=${p}`)}
         />
       ))}
       <GetReadyCard {...ready} />
@@ -122,16 +125,45 @@ export function TodayHub() {
   );
 }
 
-/** One network's row of the strip: its own live answer, and its own Start and Stop. */
+/**
+ * One network's row of the strip: its own live answer, and its own Start and Stop. A row not shown asks whether the
+ * person is ready there, its own profile counting; the one shown has Get ready's answer.
+ */
 function NetworkDay({
   platform,
+  ready,
+  shownReady,
   ...rest
-}: { platform: Platform } & Pick<
+}: { platform: Platform; shownReady: boolean } & Pick<
   React.ComponentProps<typeof LiveStrip>,
   'many' | 'shown' | 'ready' | 'onShow' | 'onDetails'
 >) {
+  const ctx = useOutreachContext();
+  const ws = ctx.workspaceId;
   const live = useLiveProps(false, platform);
-  return <LiveStrip {...live} platform={platform} {...rest} />;
+  const own = useOutreachAnswer(
+    rest.shown
+      ? null
+      : async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.readiness', {
+              body: { workspaceId: ws, platform },
+            }),
+          ).ready,
+    `ready:${ws}:${platform}`,
+    W.title,
+  );
+  const readyHere = rest.shown ? ready : (own.data ?? ready);
+  return (
+    <LiveStrip
+      {...live}
+      platform={platform}
+      {...rest}
+      ready={readyHere}
+      // Its own profile to finish, when the one shown is ready: under its own list.
+      notReadyHere={!rest.shown && shownReady && own.data === false}
+    />
+  );
 }
 
 const DOT = {
@@ -163,6 +195,7 @@ export function LiveStrip({
   many = false,
   shown = true,
   onShow,
+  notReadyHere = false,
 }: Pick<
   React.ComponentProps<typeof LiveBody>,
   'live' | 'error' | 'online' | 'now' | 'pressed' | 'onRetry' | 'onStart' | 'onStop' | 'onSettings'
@@ -178,6 +211,8 @@ export function LiveStrip({
   shown?: boolean;
   /** Shows this network's list. */
   onShow?: () => void;
+  /** Not ready on this network alone, another being shown: its own profile is left to finish. */
+  notReadyHere?: boolean;
 }) {
   const name = PLATFORMS[platform];
   if (!live)
@@ -319,6 +354,9 @@ export function LiveStrip({
         </View>
       )}
       {ready || !full ? null : <Note testID="live-not-ready">{READY_WORDS.stripNotReady}</Note>}
+      {notReadyHere ? (
+        <Note testID={`live-not-ready-${platform}`}>{READY_WORDS.stripNotReadyOn(name)}</Note>
+      ) : null}
       {said && !many ? <Note testID="live-day-words">{said}</Note> : null}
       {pressed ? <QueuedNote online={online} /> : null}
     </Card>

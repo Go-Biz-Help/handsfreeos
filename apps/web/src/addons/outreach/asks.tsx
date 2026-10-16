@@ -16,7 +16,7 @@ import {
   askOpen,
   askRepliesFor,
   askWaitingWords,
-  ASK_KINDS,
+  askNameOn,
   ASK_REPLIES,
   ASK_SHOWN_STATES,
   ASK_TONES,
@@ -174,7 +174,7 @@ export function AskLine({
         </Badge>
         {named ? (
           <span className="font-medium">
-            {ASK_KINDS[ask.kind]}
+            {askNameOn(ask.kind, ask.platform)}
             {ask.about ? ` · ${ask.about}` : ''}
           </span>
         ) : ask.about ? (

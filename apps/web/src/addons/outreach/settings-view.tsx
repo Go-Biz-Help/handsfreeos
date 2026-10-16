@@ -51,6 +51,7 @@ import {
   NETWORK_WORDS as NW,
   networksOn,
   onItsOwnAbout,
+  postingAboutOn,
   sendingModesOn,
   ticksOn,
   withNetwork,
@@ -198,7 +199,7 @@ export function NetworkModes({
           ))}
         </div>
       </Part>
-      <Part title={W.sections.posting} about={W.abouts.posting}>
+      <Part title={W.sections.posting} about={postingAboutOn(platform)}>
         <div role="radiogroup" aria-label="Helpful posts" className="flex flex-col gap-2">
           {posting.map((m) => (
             <RadioCard

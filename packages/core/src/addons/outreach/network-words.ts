@@ -10,14 +10,22 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
+import { TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import {
   SENDING_MODES,
   type AutomationSettings,
   type NetworkChoices,
   type SendingMode,
 } from './automation';
-import { DAILY_WORDS, type DailyStep } from './limits';
-import { networkOfLink, NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { DAILY_WORDS, type DailyStep, type TidyKind } from './limits';
+import {
+  inNetworkWords,
+  networkOfLink,
+  NETWORKS,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  type Platform,
+} from './networks';
 import { TODAY_KINDS, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
@@ -94,10 +102,19 @@ interface MoreWords {
   /** The playbook's networks step: where it looks for people there. */
   readonly where: string;
   /**
-   * Whether Today has its helpful post (decision 50): written for one of the person's groups on Facebook. LinkedIn's
-   * goes on their own feed, with its sixth part.
+   * Whether Today has its helpful post (decision 50): written for one of the person's groups on Facebook, and for the
+   * person's own feed on LinkedIn.
    */
   readonly helpful: boolean;
+  /** Under the helpful post's choice in My settings: what the AI writes there, and where it goes. */
+  readonly postingAbout: string;
+  /** Tidying up's old requests: what they're called, its button, what's done, and why it matters there. */
+  readonly oldRequests: {
+    readonly title: string;
+    readonly button: string;
+    readonly done: string;
+    readonly why: string;
+  };
 }
 
 /** The switches along the way, each network's own (`NetworkChoices`). */
@@ -123,6 +140,13 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
     },
     where: 'In the groups they’re in, found with the words below.',
     helpful: true,
+    postingAbout: W.abouts.posting,
+    oldRequests: {
+      title: 'Old friend requests',
+      button: 'Cancel the ticked requests',
+      done: 'requests cancelled',
+      why: 'Facebook pauses your requests when too many wait.',
+    },
   },
   linkedin: {
     confirm: 'Accept their invitation',
@@ -151,7 +175,15 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
     },
     where:
       'In posts asking for what you offer, found with LinkedIn’s search, and among your connections.',
-    helpful: false,
+    helpful: true,
+    postingAbout:
+      'Once a day the AI writes a post that helps the people you want to reach, for your own LinkedIn feed: never selling. Who puts it up?',
+    oldRequests: {
+      title: 'Old invitations',
+      button: 'Withdraw the ticked invitations',
+      done: 'invitations withdrawn',
+      why: 'LinkedIn limits how many invitations can wait, so withdrawing old ones makes room for new ones.',
+    },
   },
 };
 
@@ -189,6 +221,46 @@ export const onItsOwnAbout = (platform: Platform): string =>
 
 /** Whether Today has its helpful post on a network. */
 export const helpfulOn = (platform: Platform): boolean => MORE[platform].helpful;
+
+/** Under the helpful post's choice in My settings, on a network. */
+export const postingAboutOn = (platform: Platform): string => MORE[platform].postingAbout;
+
+/** Each tidying ask's daily limit on the Friends tab: cancelling old requests, and unfriending. */
+const TIDY_STEP = { cancel: 'cancel_request', unfriend: 'unfriend' } as const satisfies Record<
+  (typeof TIDY_ASK_KINDS)[number],
+  TidyKind
+>;
+
+/**
+ * Tidying up on a network, in its words (the Friends tab): the asks it has, those with a daily limit there (LinkedIn
+ * withdraws old invitations, and never removes a connection), and what each is called. Facebook's are as they were.
+ */
+export function tidyWordsOn(platform: Platform) {
+  const kit = NETWORKS[platform];
+  const old = MORE[platform].oldRequests;
+  const w = kit.words;
+  const weeks = (n: number) => (n === 1 ? 'a week' : `${n} weeks`);
+  return {
+    title: 'Tidy up',
+    about: `Tick the ones to go. ${inNetworkWords(TIDY_PACE_WORDS, platform)}`,
+    kinds: TIDY_ASK_KINDS.filter((k) => kit.tidyLimits[TIDY_STEP[k]] > 0),
+    step: TIDY_STEP,
+    cancel: {
+      title: old.title,
+      button: old.button,
+      done: old.done,
+      about: (after: number) => `Sent more than ${weeks(after)} ago and not answered. ${old.why}`,
+    },
+    unfriend: {
+      title: `${cap(w.friends)} to unfriend`,
+      button: 'Unfriend the ticked',
+      done: 'unfriended',
+      about: (friends: number, most: number) =>
+        `No contact either way in six months, ${w.friends} for longer, and not in Contacts, a prospect, kept or on Don’t pitch. You have ${friends.toLocaleString('en-US')} of ${most.toLocaleString('en-US')} ${w.friends}.`,
+      needsFile: `Bring in your ${kit.name} file first (Let the extension get your file, beside this): it says when you last talked to each ${w.friend}.`,
+    },
+  };
+}
 
 /**
  * The network something on a list is on, from its link: a message's, a step's or a request's profile. Facebook's when

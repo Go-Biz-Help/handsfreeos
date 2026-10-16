@@ -1274,7 +1274,26 @@ code" (decision 45's install step). Settled too:
     settings, 20261027007400).
   - **Screens say a network's own words** from its kit, or a word for all of them: an invitation to connect or a
     friend request (`dailyWordsOn`, `todayKindsOn`, `sendingModesOn`, `ticksOn`), LinkedIn messaging or Messenger
-    (`chatUrlOn`, `openChatWords`), and a warning's note names its network (`warningNote`'s `platform`).
+    (`chatUrlOn`, `openChatWords`), an ask by its name there (`askNameOn`: Withdraw old invitations, Put your new
+    headline in), and a warning's note names its network (`warningNote`'s `platform`).
+  - **LinkedIn works end to end from the app:**
+    - **Get ready is the network shown's** (`outreach.readiness`'s `platform`): its profile part is the network's own
+      list in its words (`profileWordsOn`), each item ticked and checked on that network, its headlines to pick from
+      with **Put this one in** (a `profile_edit` ask there, up to the network's own length: Facebook's bio 101,
+      LinkedIn's headline 220, else `outreach_bio_too_long`), LinkedIn's About to start from with Copy, and **Read my
+      profile** on that network. Each other row of the strip waits on its own readiness, and says when its own
+      profile is what's left (`READY_WORDS.stripNotReadyOn`).
+    - **The helpful post is each network's** (`outreach.helpful`, `.ask` and the `post` ask with its `platform`):
+      LinkedIn's goes on the person's own feed, so the card says "Your LinkedIn feed" where a group's name would be,
+      and **Open LinkedIn** in place of Open the group (`helpfulWordsOn`, `helpfulWhere`, `helpfulOpenUrl`), by
+      LinkedIn's own posting choice (`postingAboutOn` under it in My settings).
+    - **Today's comments on a post with no group** (LinkedIn's post search) say "On LinkedIn", and open the post; a
+      warm lead from the person's own feed says "on LinkedIn" too.
+    - **Friends narrowed to LinkedIn tidies LinkedIn alone:** its card offers withdrawing old invitations, never
+      removing a connection (`tidyWordsOn`'s `kinds`, from the kit's `tidyLimits`). `outreach.friends.tidy` counts
+      each network's withdrawals, friends and download file on its own.
+    - **The Live tab is each network's** (`?net=` on the web, its names on the phone), with that network's Start my day
+      and Stop for today, counts, first lists and warning.
 - **Each network has its kit** (`networks.ts`, `NETWORKS`): its name, the start of its links, the shape of a
   profile's id and name and a chat's id, how many friends it allows, its starting daily limits (LinkedIn's: 15
   invitations, at most 80 in any 7 days, 15 first messages, 20 follow-ups, 10 comments, 30 likes, 40 profiles read,
