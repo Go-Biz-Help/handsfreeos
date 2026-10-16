@@ -1,9 +1,18 @@
 /**
  * What the main offer's screens say (docs/main-offer.md): its page in Settings and the builder, a step at a time.
- * One copy for the web now and the phone later. Browser-safe.
+ * One copy for the web and the phone. Browser-safe.
  */
+import { joinAnd } from '../attention/home-words';
 import type { OfferAssistPath } from './assist';
-import type { ScoredPart } from './parts';
+import {
+  clearsBar,
+  SCORED_PART_LABELS,
+  SCORED_PARTS,
+  underBar,
+  type MainOfferNotes,
+  type MainOfferScore,
+  type ScoredPart,
+} from './parts';
 
 /** The builder's steps, in order. */
 export const OFFER_STEPS = [
@@ -410,6 +419,112 @@ export const MAIN_OFFER_TRY_WORDS = {
     'The AI reads it every time it scores or writes this offer, so the next change starts from what you meant.',
   editDirection: 'Edit your direction',
 } as const;
+
+/** "Under 7: who and guarantee", lowest first, or "Every part scores 7 or more": the score at a glance. */
+export function underBarTitle(score: MainOfferScore): string {
+  const under = underBar(score);
+  return under.length
+    ? MAIN_OFFER_TRY_WORDS.underBar(
+        joinAnd(
+          under.map((p) => SCORED_PART_LABELS[p].toLowerCase()),
+          SCORED_PARTS.length,
+        ),
+      )
+    : MAIN_OFFER_TRY_WORDS.everyPartClears;
+}
+
+/** The video's quick checks, in its order, and whether the offer passes each. */
+export function offerChecks(
+  score: MainOfferScore,
+): readonly { readonly text: string; readonly ok: boolean }[] {
+  const c = MAIN_OFFER_WORDS.checks;
+  return [
+    { text: c.threeSeconds, ok: score.threeSeconds },
+    { text: c.vague, ok: !score.flags.vague },
+    { text: c.generic, ok: !score.flags.generic },
+    { text: c.hardToBelieve, ok: !score.flags.hardToBelieve },
+  ];
+}
+
+/** One thing the next try is made from: the direction or a note (the owner's words), or a part kept as is. */
+export interface GoingIntoTry {
+  readonly key: string;
+  readonly text: string;
+  readonly kept: boolean;
+}
+
+/**
+ * What goes into the next try, as the direction box lists it: the direction, the notes on parts not kept (a kept part
+ * stays exactly as it is, note or not), then the parts kept as is, each in the workbook's order.
+ */
+export function goingInto(
+  direction: string,
+  notes: MainOfferNotes,
+  keep: readonly ScoredPart[],
+): GoingIntoTry[] {
+  const W = MAIN_OFFER_TRY_WORDS;
+  const out: GoingIntoTry[] = [];
+  if (direction.trim()) out.push({ key: 'direction', text: W.goesDirection, kept: false });
+  for (const p of SCORED_PARTS)
+    if (notes[p]?.trim() && !keep.includes(p))
+      out.push({ key: `note-${p}`, text: W.goesNote(SCORED_PART_LABELS[p]), kept: false });
+  for (const p of SCORED_PARTS)
+    if (keep.includes(p))
+      out.push({ key: `kept-${p}`, text: W.goesKept(SCORED_PART_LABELS[p]), kept: true });
+  return out;
+}
+
+/**
+ * What the phone says of the main offer: Settings → Main offer, a try made there, and the steps that stay on the web
+ * (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md). Everything else it shows is the web's words above.
+ */
+export const MAIN_OFFER_PHONE_WORDS = {
+  rowOffline: 'Your offer, scored part by part',
+  needsSignal: 'The main offer needs signal. Try again when you’re back online.',
+  buildTitle: 'Build your main offer on a computer',
+  buildHint:
+    'Finding your niche and the first steps are long forms, so they’re on the web. Once it’s built, you can review it, improve it and put it live here.',
+  openOnWeb: 'Open on the web',
+  onTheWeb: 'Fill it in on the web',
+  webDidntOpen:
+    'Your phone didn’t open the browser. Open HandsFreeOS on a computer, then Settings → Main offer.',
+  stepsOnWeb: 'Add, take out or move a step on the web.',
+  liveOnly: (version: number) =>
+    `Version ${version} is live. A change here starts a draft, and version ${version} keeps running until it’s published.`,
+  tryReady: (name: string) => `${name} is ready`,
+  tryReadyHint:
+    'Compare it with your draft on the web and pick what to keep. Your draft stays as it is until you do.',
+  compareOnWeb: 'Compare on the web',
+  compareNote: (name: string) =>
+    `Opens ${name} beside your draft. ${name} is kept, so you can also open it later from a computer.`,
+  blankForYou: (blank: string) => `Has a blank for you: ${blank}`,
+  scoreFromTo: (part: string, from: number, to: number) => `${part}: ${from} to ${to}`,
+} as const;
+
+/** What Settings' Main offer row says under its name, from `main_offer.get`. */
+export function offerRowLine(offer: {
+  readonly inUse: boolean;
+  readonly comesWith: readonly string[];
+  readonly live: { readonly version: number; readonly score: MainOfferScore } | null;
+  readonly draft: { readonly score: MainOfferScore | null } | null;
+}): string {
+  if (!offer.inUse) return `Comes with ${joinAnd(offer.comesWith)}`;
+  const live = offer.live
+    ? `Version ${offer.live.version} is live${clearsBar(offer.live.score) ? '' : ', under the bar'}`
+    : null;
+  if (!offer.draft) return live ?? 'Not built yet';
+  const score = offer.draft.score;
+  const under = score ? underBar(score) : [];
+  const draft = !score
+    ? 'your draft isn’t scored yet'
+    : under.length
+      ? `your draft is under 7 on ${joinAnd(
+          under.map((p) => `the ${SCORED_PART_LABELS[p].toLowerCase()}`),
+          SCORED_PARTS.length,
+        )}`
+      : 'your draft is ready to go live';
+  return live ? `${live} · ${draft}` : draft.charAt(0).toUpperCase() + draft.slice(1);
+}
 
 /**
  * How a first message carries the offer, for the builder's preview: the workbook's script, in a few words each.

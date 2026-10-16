@@ -1,15 +1,18 @@
 'use client';
 import {
+  clearsBar,
+  goingInto,
   MAIN_OFFER_BAR,
   MAIN_OFFER_LIMITS,
   MAIN_OFFER_TRY_WORDS as TW,
   MAIN_OFFER_WORDS as W,
   OFFER_DIRECTION_PICKS,
   OFFER_NOTE_PICKS,
+  offerChecks,
   partSays,
   SCORED_PART_LABELS,
   SCORED_PARTS,
-  underBar,
+  underBarTitle,
   type MainOfferParts,
   type MainOfferScore,
   type ScoredPart,
@@ -311,30 +314,16 @@ export function ScoreGlance({
   score: MainOfferScore;
   scoredAt?: string | null;
 }) {
-  const under = underBar(score);
-  const checks = [
-    [W.checks.threeSeconds, score.threeSeconds],
-    [W.checks.vague, !score.flags.vague],
-    [W.checks.generic, !score.flags.generic],
-    [W.checks.hardToBelieve, !score.flags.hardToBelieve],
-  ] as const;
   return (
     <Card
       className="flex flex-col gap-3.5 px-5 py-4"
       data-testid="offer-score"
-      data-clears={under.length ? 'false' : 'true'}
+      data-clears={clearsBar(score) ? 'true' : 'false'}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[15px] font-semibold" data-testid="offer-score-title">
-            {under.length
-              ? TW.underBar(
-                  under
-                    .map((p) => SCORED_PART_LABELS[p].toLowerCase())
-                    .join(', ')
-                    .replace(/, ([^,]*)$/, ' and $1'),
-                )
-              : TW.everyPartClears}
+            {underBarTitle(score)}
           </span>
           <span className="max-w-[560px] text-[13px] text-text-2">{score.fix}</span>
           {scoredAt ? (
@@ -370,7 +359,7 @@ export function ScoreGlance({
         </div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border pt-3">
-        {checks.map(([text, ok]) => (
+        {offerChecks(score).map(({ text, ok }) => (
           <span key={text} className="inline-flex items-center gap-2 text-[13px]">
             <Badge variant={ok ? 'ok' : 'pending'}>{ok ? W.yes : W.notYet}</Badge>
             {text}
@@ -401,8 +390,7 @@ export function DirectionBox({
   disabled: boolean;
   onMake: () => void;
 }) {
-  const noted = SCORED_PARTS.filter((p) => notes[p]?.trim() && !keep.includes(p));
-  const kept = SCORED_PARTS.filter((p) => keep.includes(p));
+  const going = goingInto(direction, notes, keep);
   return (
     <section
       aria-labelledby="offer-direction-title"
@@ -442,15 +430,9 @@ export function DirectionBox({
           {TW.goingInto(nextTry)}
         </span>
         <div className="flex flex-wrap gap-1.5" data-testid="offer-going-into">
-          {direction.trim() ? <Tag tone="accent">{TW.goesDirection}</Tag> : null}
-          {noted.map((p) => (
-            <Tag key={p} tone="accent">
-              {TW.goesNote(SCORED_PART_LABELS[p])}
-            </Tag>
-          ))}
-          {kept.map((p) => (
-            <Tag key={p} tone="plain">
-              {TW.goesKept(SCORED_PART_LABELS[p])}
+          {going.map((g) => (
+            <Tag key={g.key} tone={g.kept ? 'plain' : 'accent'}>
+              {g.text}
             </Tag>
           ))}
         </div>

@@ -4990,6 +4990,241 @@
         "required": ["workspaceId", "objectPath"]
       }
     },
+    "main_offer.publish": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "anyway": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["workspaceId", "revision"]
+      }
+    },
+    "main_offer.save_direction": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": ["workspaceId", "revision", "direction"]
+      }
+    },
+    "main_offer.save_draft": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "parts": {
+            "type": "object",
+            "properties": {
+              "niche": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "bestCustomer": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "theirWork": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "theirSize": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "result": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "howLong": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "lookalikes": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "who": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "work": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "slice": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "size": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "problem": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "outcome": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "measure": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "why": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "timeframe": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "typical": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "why": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "method": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "steps": {
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    }
+                  },
+                  "different": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "guarantee": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "promise": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "when": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "qualifies": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "price": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "structure": {
+                    "type": "string",
+                    "maxLength": 800
+                  },
+                  "value": {
+                    "type": "string",
+                    "maxLength": 800
+                  }
+                }
+              },
+              "proof": {
+                "default": [],
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "line": {
+                "type": "string",
+                "maxLength": 1200
+              },
+              "inAFewWords": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "guarantee": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": ["workspaceId", "revision", "parts"]
+      }
+    },
     "message.cancel_scheduled": {
       "offline": "anytime",
       "input": {
@@ -13697,6 +13932,30 @@
           "cursor": {
             "type": "string",
             "maxLength": 400
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "main_offer.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "main_offer.tries": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": ["workspaceId"]

@@ -16,7 +16,10 @@ HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md). The design is on the canva
 (https://claude.ai/artifact/QnVAhcpw5jG2YE9txiXUC4): Settings, Review your draft, Try 1 is ready, Edit it myself, Use
 it anyway, and a member's view.
 
-**Where it stands (2026-10-16):** planned. Chris approved the boards (2026-10-16: "boards approved").
+**Where it stands (2026-10-16):** step 1 built, on branch `claude/compassionate-hypatia-62wvlc`: `coreFeatureHeld`,
+`underBarTitle`, `offerChecks`, `goingInto`, `offerRowLine` and `MAIN_OFFER_PHONE_WORDS` in core with the web on them,
+the phone's contract with the main offer's queries and commands, and the boards in `design/main-offer` (11 to 16).
+Chris approved the boards (2026-10-16: "boards approved") and answered the questions (2026-10-16: "yes to all five").
 
 ## Decisions (Chris, 2026-10-16)
 
@@ -95,7 +98,7 @@ What it shows depends on the offer and on `main_offer.manage`:
 **Edit it myself** (`settings/main-offer-part.tsx?part=`): that part's boxes from `OFFER_STEP_WORDS`, read and written
 with `partWords` and `withPart`, with the AI's fix above them. Save keeps the draft (`main_offer.save_draft`), so the
 score clears until it's scored again. The method's steps are each a box; adding, taking out and moving a step stay on
-the web (question 1).
+the web (answered 1).
 
 **Make a try** asks the worker (`/v1/main-offer/try`) with the notes and kept parts, then shows **Try 1 is ready**
 (board 3): each part's score in the draft and in the try, Kept as is for a kept part, a blank in [brackets] called
@@ -117,8 +120,12 @@ Moved into core (`packages/core/src/main-offer`), and the web switched to them:
 - `underBarTitle(score)`: "Under 7: who and guarantee", or "Every part scores 7 or more".
 - `offerChecks(score)`: the four quick checks and whether each passed.
 - `goingInto(direction, notes, keep)`: what the next try is made from.
-- `MAIN_OFFER_PHONE_WORDS` in `words.ts`: the Settings row, needing signal, Open on the web, Try N is ready, Compare
-  on the web, and what each part did in the try.
+
+New in core for the phone, in `words.ts`:
+
+- `offerRowLine(offer)`: the Settings row's second line, from `main_offer.get`.
+- `MAIN_OFFER_PHONE_WORDS`: needing signal, building on a computer, Open on the web, Try N is ready, Compare on the
+  web, and what each part did in the try.
 
 ## Commands, queries and routes
 
@@ -157,9 +164,9 @@ Moved into core (`packages/core/src/main-offer`), and the web switched to them:
 
 ## Build order
 
-1. **Core and the contract.** `coreFeatureHeld`, the helpers moved from the web (and the web on them), the phone's
-   words, and the contract entries. The approved boards copied into `design/main-offer`, self-contained, as the web's
-   are.
+1. **Core and the contract.** **Built.** `coreFeatureHeld`, the helpers moved from the web (and the web on them),
+   the phone's words, and the contract entries. The approved boards copied into `design/main-offer`, self-contained,
+   as the web's are.
 2. **The screen, read and review.** `@/lib/worker`, the calls, the Settings row, and the screen by state: not in use,
    not built yet, needs signal, the member's view, and Review your draft (the glance, the parts' cards, notes, Keep,
    the direction and the bottom bar).
@@ -171,18 +178,15 @@ Moved into core (`packages/core/src/main-offer`), and the web switched to them:
 
 It's all JavaScript, so it ships as an over-the-air update once CI passes. No migration, and no change to sync.
 
-## Questions
+## Answered (Chris, 2026-10-16)
 
-1. **The method's steps on the phone:** change each step's words there, and add, take out or move steps on the web?
-   Recommended: yes. A list you reorder by dragging is fiddly on a phone, and the steps are rarely all redone at once.
-2. **A first offer:** with nothing built, the phone says to build it on a computer and offers Open on the web?
-   Recommended: yes. The niche finder and the first steps are long forms that suit a computer.
-3. **Missing parts that aren't scored** (the niche, proof, the one line): open them on the web? Recommended: yes, for
-   the same reason.
-4. **The Settings row with no signal:** say what the screen is for instead of how the offer is doing? Recommended: yes.
-   The phone keeps nothing of the offer, so it can't say more.
-5. **Members:** show them the row, read-only, when they use an add-on that uses the offer? Recommended: yes. They say
-   the offer in their messages, and the web lets them read it too.
+1. **The method's steps:** each step's words are changed on the phone; adding, taking out and moving a step stay on
+   the web. A list reordered by dragging is fiddly on a phone, and the steps are rarely all redone at once.
+2. **A first offer** is built on a computer: with nothing built, the phone says so and offers Open on the web.
+3. **Missing parts that aren't scored** (the niche, proof, the one line) open on the web, for the same reason.
+4. **The Settings row with no signal** says what the screen is for: the phone keeps nothing of the offer.
+5. **Members** see the row, read-only, when they use an add-on that uses the offer. They say the offer in their
+   messages, and the web lets them read it too.
 
 ## Not in this plan
 

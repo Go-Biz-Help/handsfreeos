@@ -294,6 +294,21 @@ export function coreFeatureRunning(
   return catalog.some((m) => m.uses?.includes(feature) && running.includes(m.id));
 }
 
+/**
+ * The same from a person's own permissions, for the phone with no signal: an add-on that uses the part of core runs
+ * here, and they hold one of its permissions. An add-on's permissions are only in the list while it runs
+ * (`private.permissions_for`), so the list answers both.
+ */
+export function coreFeatureHeld(
+  catalog: Catalog,
+  permissions: readonly string[],
+  feature: CoreFeature,
+): boolean {
+  return catalog.some(
+    (m) => m.uses?.includes(feature) && m.permissions.some((p) => permissions.includes(p.key)),
+  );
+}
+
 /** The add-ons that bring a part of core, by name, for the words when it isn't here ("Social Outreach"). */
 export function addonsUsing(catalog: Catalog, feature: CoreFeature): string[] {
   return catalog

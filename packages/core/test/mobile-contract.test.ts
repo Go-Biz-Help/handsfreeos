@@ -151,6 +151,11 @@ const ONLINE_COMMANDS = [
   'ai_teammate.give_feedback',
   'ai_teammate.answer_feedback',
   'teammate_lesson.dismiss',
+  // Settings → Main offer (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md): a part edited, the direction, and
+  // going live.
+  'main_offer.save_draft',
+  'main_offer.save_direction',
+  'main_offer.publish',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -251,6 +256,9 @@ const QUERIES = [
   'extension_sign_in.pending',
   // The feedback on the AI teammate's replies on a screen, and what came of it, asked again while it's being read.
   'ai_teammate.feedback',
+  // Settings → Main offer, with signal: the offer with its draft and score, and this round's tries.
+  'main_offer.get',
+  'main_offer.tries',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

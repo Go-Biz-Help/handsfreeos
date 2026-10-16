@@ -79,6 +79,54 @@
       "y": 3060,
       "w": 1440,
       "h": 1300
+    },
+    {
+      "file": "PhoneSettings.dc.html",
+      "title": "11 · Phone: Settings, the Main offer row",
+      "x": 0,
+      "y": 6180,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PhoneReview.dc.html",
+      "title": "12 · Phone: review your draft",
+      "x": 470,
+      "y": 6180,
+      "w": 390,
+      "h": 3700
+    },
+    {
+      "file": "PhoneTryReady.dc.html",
+      "title": "13 · Phone: Try 1 is ready, compare it on the web",
+      "x": 940,
+      "y": 6180,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PhoneEditPart.dc.html",
+      "title": "14 · Phone: edit it myself (the guarantee)",
+      "x": 1410,
+      "y": 6180,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PhoneAnyway.dc.html",
+      "title": "15 · Phone: use it anyway",
+      "x": 1880,
+      "y": 6180,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PhoneMember.dc.html",
+      "title": "16 · Phone: a member reads the live version",
+      "x": 2350,
+      "y": 6180,
+      "w": 390,
+      "h": 1500
     }
   ]
 }

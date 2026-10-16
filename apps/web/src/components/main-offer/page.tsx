@@ -4,6 +4,7 @@ import {
   formatDate,
   MAIN_OFFER_TRY_WORDS as TW,
   MAIN_OFFER_WORDS as W,
+  offerChecks,
   partSays,
   SCORED_PART_LABELS,
   SCORED_PARTS,
@@ -201,12 +202,6 @@ function LiveVersion({
   editDirection: string | null;
 }) {
   const clears = clearsBar(live.score);
-  const checks = [
-    [W.checks.threeSeconds, live.score.threeSeconds],
-    [W.checks.vague, !live.score.flags.vague],
-    [W.checks.generic, !live.score.flags.generic],
-    [W.checks.hardToBelieve, !live.score.flags.hardToBelieve],
-  ] as const;
   return (
     <>
       <Card className="flex flex-col gap-3.5 px-5 py-5" data-testid="main-offer-live">
@@ -289,7 +284,7 @@ function LiveVersion({
         <div className="flex flex-col gap-5">
           <Card className="flex flex-col gap-3 p-4">
             <span className="font-semibold">{W.howScored}</span>
-            {checks.map(([text, ok]) => (
+            {offerChecks(live.score).map(({ text, ok }) => (
               <div key={text} className="flex items-center gap-2 text-[13px]">
                 <Badge variant={ok ? 'ok' : 'pending'}>{ok ? W.yes : W.notYet}</Badge>
                 {text}
