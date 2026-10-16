@@ -556,7 +556,9 @@ words (decision 71). HandsFreeOS hands out the build itself, made with every dep
 `dev`) first runs `scripts/download.mjs`, which builds the extension for the HandsFreeOS the web app talks to (its
 `NEXT_PUBLIC_` settings, so Vercel's for a deploy and the local stack's on your computer) and zips it with
 `manifest.json` at the top to `apps/web/public/downloads/hfos-social.zip`. Nothing to release or commit: bump the
-version in `package.json` and the next deploy hands it out (`test/download.test.ts` covers it). The zip keeps its name
+version in `package.json` and the next deploy hands it out (`test/download.test.ts` covers it). The web app lists the
+extension among its dev dependencies for that alone: Vercel skips a deploy that touches nothing the web app depends
+on, so without it a change to the extension only would never be handed out. The zip keeps its name
 from version to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
 and press the reload arrow, and stay signed in. A business that keeps its own copy pastes its https link under Social
 Outreach → Settings → Business settings → **Where your team gets the extension** (on the web or the phone), and
