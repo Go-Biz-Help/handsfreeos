@@ -16,7 +16,7 @@
  *   Featured or posts;
  * - the outline: LinkedIn's words for the controls the readers now rely on, and never a name.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { linkedin } from '../src/networks';
 import type { Noticed } from '../src/networks/kit';
 import { ENTER_LOOK_MS, LIKE_LOOK_MS, linkedInNoticer } from '../src/networks/linkedin/actions';
@@ -33,6 +33,10 @@ const OWN = `${LI}/in/chris-gee-12/?isSelfProfile=true`;
 const FEED_PAGE = 'linkedin-feed-2026-10.html';
 const OWN_PAGE = 'linkedin-own-profile-2026-10.html';
 const NOW = new Date('2026-10-16T12:00:00Z');
+
+// Each test builds LinkedIn's whole newer feed or profile in jsdom, and half of them with a box around every element:
+// seconds of work on a busy CI runner, past vitest's 5 to start with.
+vi.setConfig({ testTimeout: 30_000 });
 
 const byName = (username: string): ProfileRef => ({
   id: null,
