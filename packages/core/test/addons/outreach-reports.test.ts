@@ -1,11 +1,10 @@
 /**
- * What the extension saw (docs/outreach.md, decision 74; ./src/addons/outreach/reports.ts): a note of each page a job
- * read, the person's own, with what was found as counts and the network's own words only; **Check LinkedIn**, asked
- * only on LinkedIn and of a build that does it; and what an ask on a network Chrome hasn't allowed says to press.
+ * Check LinkedIn (docs/outreach.md, decision 74; ./src/addons/outreach/reports.ts), asked only on LinkedIn and of a
+ * build that does it; and what an ask on a network Chrome hasn't allowed says to press. What the extension saw is
+ * core's problem reports now (../problem-reports.test.ts).
  */
 import { randomUUID } from 'node:crypto';
-import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { closeTestDbs, createTestUser, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ASK_KINDS_FOR,
@@ -15,48 +14,8 @@ import {
   askWaitingWords,
   tooOldFor,
 } from '../../src/addons/outreach/asks';
-import {
-  allowedOn,
-  PageReport,
-  REPORT_OUTLINE_MOST,
-  REPORT_WORDS,
-} from '../../src/addons/outreach/reports';
-import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
-
-const admin = () => testDbs().admin.db;
-
-describe('a note of what the extension saw', () => {
-  const report = {
-    platform: 'linkedin',
-    job: 'profile_read',
-    page: 'own-profile',
-    path: '/in/{1}/',
-  } as const;
-
-  it('takes counts, yes or no and section names as found, and an empty note as none', () => {
-    const got = PageReport.parse({
-      ...report,
-      found: { roles: 4, about: true, sections: ['About', 'Activity', 'Experience'] },
-      note: ' ',
-    });
-    expect(got).toMatchObject({ askId: null, shown: null, note: null, outline: null });
-    expect(got.found).toEqual({
-      roles: 4,
-      about: true,
-      sections: ['About', 'Activity', 'Experience'],
-    });
-  });
-
-  it('refuses what found can’t hold: words as a value, a key that isn’t a plain name, an outline too long', () => {
-    expect(PageReport.safeParse({ ...report, found: { about: 'I help roofers' } }).success).toBe(
-      false,
-    );
-    expect(PageReport.safeParse({ ...report, found: { 'Dana Reyes': 1 } }).success).toBe(false);
-    expect(
-      PageReport.safeParse({ ...report, outline: 'x'.repeat(REPORT_OUTLINE_MOST + 1) }).success,
-    ).toBe(false);
-  });
-});
+import { allowedOn, REPORT_WORDS } from '../../src/addons/outreach/reports';
+import { outreachBusiness, runAs, runWith } from './outreach-fixture';
 
 describe('Check LinkedIn', () => {
   it('is LinkedIn’s alone, named for it, asked from Settings, of 0.48.0 or later', () => {
@@ -113,7 +72,7 @@ describe('an ask on a network Chrome hasn’t allowed', () => {
   });
 });
 
-describe('saving a note', () => {
+describe('which networks a computer may work', () => {
   let owner: TestUser;
   let other: TestUser;
   let ws: string;
@@ -151,77 +110,5 @@ describe('saving a note', () => {
       computer: { allowed: string[] | null };
     };
     expect(theirs.computer.allowed).toBeNull();
-  });
-
-  it('keeps a note of the person’s own ask, outline and all, and never one of someone else’s', async () => {
-    const made = (await runWith(
-      owner,
-      ws,
-      'outreach.ask.make',
-      { ask: { kind: 'profile_read' } },
-      { channel: 'web' },
-    )) as { ask: { askId: string } };
-    const askId = made.ask.askId;
-    const outline = 'HandsFreeOS Social 0.48.0 · page outline\nbody\n  h2 "Experience"';
-    const saved = (await runAs(owner, ws, 'outreach.report.save', {
-      report: {
-        platform: 'facebook',
-        askId,
-        job: 'profile_read',
-        version: '0.48.0',
-        page: 'own-profile',
-        path: '/me/',
-        shown: false,
-        found: { intro: 0, posts: 2 },
-        note: 'No intro was read.',
-        outline,
-      },
-    })) as { reportId: string };
-    const [row] = await rows<{
-      user_id: string;
-      ask_id: string;
-      shown: boolean;
-      found: unknown;
-      outline: string;
-    }>(
-      admin(),
-      sql`select user_id, ask_id, shown, found, outline from addon_outreach.reports where id = ${saved.reportId}`,
-    );
-    expect(row).toMatchObject({
-      user_id: owner.id,
-      ask_id: askId,
-      shown: false,
-      found: { intro: 0, posts: 2 },
-      outline,
-    });
-    // Someone else's ask: not kept.
-    expect(
-      await refused(
-        runAs(other, otherWs, 'outreach.report.save', {
-          report: {
-            platform: 'facebook',
-            askId,
-            job: 'profile_read',
-            page: 'own-profile',
-            path: '/me/',
-          },
-        }),
-      ),
-    ).toBe('not_found');
-    // A day's step has no ask.
-    const step = (await runAs(owner, ws, 'outreach.report.save', {
-      report: {
-        platform: 'linkedin',
-        job: 'like',
-        page: 'activity',
-        path: '/in/{1}/recent-activity/all/',
-      },
-    })) as { reportId: string };
-    expect(step.reportId).toBeTruthy();
-    // It goes with its ask.
-    await rows(admin(), sql`delete from addon_outreach.asks where id = ${askId}`);
-    expect(
-      await rows(admin(), sql`select id from addon_outreach.reports where id = ${saved.reportId}`),
-    ).toEqual([]);
   });
 });

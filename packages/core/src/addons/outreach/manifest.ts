@@ -117,7 +117,6 @@ export const outreachAddon = defineAddon({
       'outreach.ask.replied',
       'outreach.ask.cancelled',
       'outreach.ask.ended',
-      'outreach.report.saved',
       'outreach.setup.saved',
       'outreach.readiness.saved',
       'outreach.check.looked',

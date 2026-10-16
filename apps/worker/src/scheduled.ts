@@ -56,6 +56,12 @@ import {
   receiptJobs,
 } from './housekeeping/receipts';
 import {
+  nextProblemReportCleanUp,
+  PROBLEM_REPORT_JOBS,
+  PROBLEM_REPORTS_CLEAN_UP_KEY,
+  problemReportJobs,
+} from './housekeeping/problem-reports';
+import {
   nextSweepNight,
   SYNC_WINDOW_JOBS,
   SYNC_WINDOW_PLAN_KEY,
@@ -608,6 +614,8 @@ export const jobs: JobMap = {
   // Phones: the nightly time-window sweep, one business at a time, and the daily receipts clean-up (housekeeping/).
   ...syncWindowJobs,
   ...receiptJobs,
+  // Problem reports older than 30 days, nightly (housekeeping/problem-reports.ts).
+  ...problemReportJobs,
   // Deleting an account: off each business, the profile anonymized, sessions ended and sign-in blocked (account/).
   ...accountJobs,
   ...workspaceJobs,
@@ -806,6 +814,14 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: RECEIPT_JOBS.cleanUp,
       dedupeKey: RECEIPTS_CLEAN_UP_KEY,
       runAt: nextReceiptCleanUp(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    await scheduleJob(tx, {
+      kind: PROBLEM_REPORT_JOBS.cleanUp,
+      dedupeKey: PROBLEM_REPORTS_CLEAN_UP_KEY,
+      runAt: nextProblemReportCleanUp(now),
       payload: {},
       workspaceId: null,
       organizationId: null,

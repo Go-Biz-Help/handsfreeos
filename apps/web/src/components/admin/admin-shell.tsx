@@ -2,6 +2,7 @@
 import { deskSectionsFor, STAFF_ROLE_WORDS, type DeskSectionKey } from '@hfos/core';
 import {
   Blocks,
+  Bug,
   Building2,
   HeartPulse,
   Inbox,
@@ -37,6 +38,7 @@ const ICONS: Readonly<Record<DeskSectionKey, LucideIcon>> = {
   businesses: Building2,
   'getting-started': ListChecks,
   health: HeartPulse,
+  problems: Bug,
   rates: Tag,
   founding: Ticket,
   replies: MessageSquareQuote,

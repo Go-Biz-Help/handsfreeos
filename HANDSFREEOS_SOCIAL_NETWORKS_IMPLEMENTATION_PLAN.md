@@ -335,7 +335,7 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.48.0.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.49.0.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
    **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
    turns one off there. Its daily limits for each person are below it, and start at the ones below.
@@ -385,6 +385,7 @@ took the About for a post: Chrome draws nothing in a window hidden behind anothe
 front while it reads, then his own back, and never reads past the section above Activity. Its read on 0.47.0 still
 had no Experience, and the headline's pencil wasn't found. So 0.48.0 reports for itself (decision 74): each read of
 the profile, each step handed over and each one that didn't go is noted with its page's outline, and **Check
-LinkedIn** on LinkedIn's page in Settings reads the main pages in one press. The outlines are no longer pasted. Outlines that would settle the rest: a post with words typed in
+LinkedIn** on LinkedIn's page in Settings reads the main pages in one press. From 0.49.0 those notes are problem
+reports on HandsFreeOS's support desk (`/admin/problems`, decision 75), for every network. The outlines are no longer pasted. Outlines that would settle the rest: a post with words typed in
 its comment box, post search results and a post's own page, someone else's profile, a conversation with words typed,
 and a post with the reactions menu open.

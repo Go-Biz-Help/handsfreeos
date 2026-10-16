@@ -7152,6 +7152,33 @@ export const teammateFeedback = app.table('teammate_feedback', {
   ...timestamps(),
 });
 
+/**
+ * What one of HandsFreeOS's own tools saw when something didn't go (20261027008100): sent by the person's tool,
+ * read by staff on the desk's Problem reports page, marked handled there, gone after 30 days. `addonId` is a
+ * label, never a key into the add-on.
+ */
+export const problemReports = app.table('problem_reports', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  addonId: text('addon_id'),
+  /** extension, web or phone. */
+  source: text('source').notNull(),
+  area: text('area').notNull(),
+  job: text('job').notNull(),
+  ref: text('ref'),
+  version: text('version'),
+  page: text('page').notNull(),
+  path: text('path').notNull().default(''),
+  shown: boolean('shown'),
+  found: jsonb('found').$type<Record<string, unknown>>().notNull().default({}),
+  note: text('note'),
+  outline: text('outline'),
+  handledAt: ts('handled_at'),
+  handledBy: userRef('handled_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 /** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
 export const serviceSchedules = app.table('service_schedules', {
   id: id(),
@@ -7588,4 +7615,5 @@ export const tables = {
   addonPickDeliveries,
   addonNewsSeen,
   aiProvider,
+  problemReports,
 } as const;

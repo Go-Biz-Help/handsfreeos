@@ -257,6 +257,11 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   the add-on's page at that path and query, where the person claims the meeting (`live_meeting.claim`; their Zoom linked through
   core's coaching Zoom app, `app.live_meeting_accounts`) and Zoom's stream starts; the worker hears Zoom's transcript (apps/worker/src/meetings/live.ts) and the same hooks get the
   lines, with `call.kind` `'meeting'` and `call.liveMeetingId` instead of `callId`.
+- **Problem reports** (20261027008100; docs/outreach.md decision 75): when an add-on's own tool (a browser
+  extension, say) can't do something, it sends core's `problem_report.send` on the person's behalf, with the
+  add-on's id as `addonId` (a label, never a key), its source and an area of its own ("linkedin"). HandsFreeOS's
+  staff read them on the support desk's Problem reports page, with Copy for Claude, and mark them handled. Never
+  anything a person wrote: counts, yes or no, and a page's outline with their words masked.
 - **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
   worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.
 - **Its lines for the scripted model** (round seven): a worker module's `scriptedTeammate` lists how a customer's

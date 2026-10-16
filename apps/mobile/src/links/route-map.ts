@@ -268,6 +268,7 @@ const DESK_PAGES = [
   'businesses/:id',
   'getting-started',
   'health',
+  'problems',
   'rates',
   'founding',
   'replies',

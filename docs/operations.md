@@ -9891,6 +9891,7 @@ only for the address it was sent to, and only after they have a HandsFreeOS sign
 | How Getting started is going (counts)     | Yes   | Yes  | Yes   |
 | Assign tickets, keep the saved replies    |       | Yes  | Yes   |
 | The health page                           |       | Yes  | Yes   |
+| Problem reports                           |       | Yes  | Yes   |
 | Answer ideas, merge them, take them down  | Yes   | Yes  | Yes   |
 | Move ideas along the roadmap, What's new  |       | Yes  | Yes   |
 | Invite, suspend and remove support people |       |      | Yes   |
@@ -9922,6 +9923,14 @@ the same way it refuses removing a business's last owner.
   from the next call and the next test call, with no redeploy, so try it on your own business first.
 - **Health** is what has failed lately across every business: jobs, webhooks, bounced email, failed texts,
   failed payments, and work still queued. Look here before a customer has to tell you.
+- **Problem reports** is what our own tools saw when something didn't go, from every business: today the
+  browser extension, on any network, when a page wasn't read right, a step was handed to the person, an ask
+  didn't finish or a step of the day didn't go, and every page of **Check LinkedIn**. Each says what the tool was
+  doing and where, its version, what it found (counts, never words) and, when kept, the page's outline with
+  everything a person wrote masked. **Copy for Claude** puts a report and its outline on the clipboard, ready to
+  paste into a Claude session on the code (the phone shares it instead); **Mark handled** files it. Open ones show
+  first, by area. They go after 30 days, handled or not. Leads and admins, like Health. Needs
+  `20261027008100_problem_reports.sql`. See "Apply new migrations".
 - **Getting started** counts how new businesses get on with setting up, over the last 7, 30 or 90 days: how
   many answered the quick questions, which steps they skip (the most skipped first) and bring back, how many
   finished, how many chose "Add them as you go", and how many hid the guide or turned it off. Counts only, from

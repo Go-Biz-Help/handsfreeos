@@ -76,3 +76,5 @@ export * from './onboarding-setup';
 export * from './look';
 // Viewing the app as a teammate (20261018000100).
 export * from './teammate-view';
+// What our own tools saw when something didn't go (20261027008100).
+export * from './problem-report';

@@ -122,7 +122,7 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
       sql`delete from addon_outreach.asks
           where workspace_id = ${ctx.scope.workspaceId} and asked_at < ${asked}::timestamptz`,
     );
-    // What the extension saw (decision 74): an ask's notes went with it; a day's step's go after the same week.
+    // What 0.48.0 saw (decision 74), before its notes became core's problem reports: they go after the same week.
     await rows(
       tx,
       sql`delete from addon_outreach.reports

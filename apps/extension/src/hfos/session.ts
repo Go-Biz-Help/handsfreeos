@@ -444,7 +444,7 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
       );
     case 'hfos-report':
       return call(
-        api().POST('/v1/commands/outreach.report.save', { body: ask.input }),
+        api().POST('/v1/commands/problem_report.send', { body: ask.input }),
         ask.input.workspaceId,
       );
     case 'hfos-warning':

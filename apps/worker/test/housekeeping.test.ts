@@ -5,12 +5,14 @@
  *   when a night's rounds weren't enough.
  * - **The receipts clean-up:** receipts older than 90 days go a batch at a time, recent ones stay, and it comes back
  *   the next night.
+ * - **The problem reports clean-up:** reports older than 30 days go, handled or not; recent ones stay.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { executeCommand, organizationCreate, type HumanActor } from '@hfos/core/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { nextProblemReportCleanUp, PROBLEM_REPORT_JOBS } from '../src/housekeeping/problem-reports';
 import { nextReceiptCleanUp, RECEIPT_JOBS } from '../src/housekeeping/receipts';
 import {
   nextSweepNight,
@@ -211,6 +213,33 @@ describe('the daily receipts clean-up', () => {
     const next = new Date((await jobRow(clean)).run_at);
     expect(next.getTime()).toBe(nextReceiptCleanUp(next.getTime() - 60 * 60_000).getTime());
     expect(next.getUTCMinutes()).toBe(30);
+    await rows(admin(), sql`update app.scheduled_jobs set status = 'done' where id = ${clean}`);
+  });
+});
+
+describe('the daily problem reports clean-up', () => {
+  it('removes reports older than 30 days, handled or not, keeps recent ones, and comes back the next night', async () => {
+    const insert = async (ago: string, handled: boolean) =>
+      (
+        await rows<{ id: string }>(
+          admin(),
+          sql`insert into app.problem_reports (workspace_id, user_id, addon_id, source, area, job, page, created_at, handled_at)
+              values (${workspaceId}, ${owner.id}, 'outreach', 'extension', 'linkedin', 'like', 'activity',
+                now() - ${ago}::interval, ${handled ? sql`now()` : sql`null`}) returning id`,
+        )
+      )[0]!.id;
+    await insert('31 days', false);
+    await insert('45 days', true);
+    const recent = await insert('29 days', false);
+    const clean = await job(PROBLEM_REPORT_JOBS.cleanUp, { batch: 1 }, false);
+    expect(await runJob(clean)).toMatchObject({ claimed: 1, rescheduled: 1, failed: 0 });
+    const left = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.problem_reports where user_id = ${owner.id}`,
+    );
+    expect(left.map((r) => r.id)).toEqual([recent]);
+    const next = new Date((await jobRow(clean)).run_at);
+    expect(next.getTime()).toBe(nextProblemReportCleanUp(next.getTime() - 60 * 60_000).getTime());
     await rows(admin(), sql`update app.scheduled_jobs set status = 'done' where id = ${clean}`);
   });
 });

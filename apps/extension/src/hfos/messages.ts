@@ -58,8 +58,8 @@ export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
 export type TidyCandidate = Tidy['cancel'][number];
 export type FriendEndInput = Body<'/v1/commands/outreach.friend.end'>;
 /** A note of what a job saw on a page (decision 74, src/jobs/report.ts). */
-export type ReportSaveInput = Body<'/v1/commands/outreach.report.save'>;
-export type ReportSaved = Ok<'/v1/commands/outreach.report.save'>;
+export type ReportSaveInput = Body<'/v1/commands/problem_report.send'>;
+export type ReportSaved = Ok<'/v1/commands/problem_report.send'>;
 export type FriendEnded = Ok<'/v1/commands/outreach.friend.end'>;
 /** A warning Facebook showed the person, noted (decision 25). */
 export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;

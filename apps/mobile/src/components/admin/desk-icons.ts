@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react-native';
 
 import {
   Blocks,
+  Bug,
   Building,
   HeartPulse,
   Inbox,
@@ -22,6 +23,7 @@ export const DESK_ICONS: Readonly<Record<DeskSectionKey, LucideIcon>> = {
   businesses: Building,
   'getting-started': ListChecks,
   health: HeartPulse,
+  problems: Bug,
   rates: Tag,
   founding: Ticket,
   replies: MessageSquareQuote,
