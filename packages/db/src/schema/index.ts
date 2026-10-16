@@ -3153,7 +3153,28 @@ export const mainOffers = app.table('main_offers', {
   draftBy: userRef('draft_by'),
   draftAt: ts('draft_at'),
   liveVersion: integer('live_version'),
+  /** The owner's own words for the whole offer, read by every score and try; null when they gave none. */
+  direction: text('direction'),
   ...timestamps(),
+});
+
+/** A whole new version of the main offer the AI wrote beside the draft, never changed after. */
+export const mainOfferTries = app.table('main_offer_tries', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** The live version when it was made, 0 before the first. */
+  round: integer('round').notNull(),
+  number: integer('number').notNull(),
+  fromRevision: integer('from_revision').notNull(),
+  base: jsonb('base').$type<Json>().notNull(),
+  parts: jsonb('parts').$type<Json>().notNull(),
+  why: jsonb('why').$type<Json>().notNull(),
+  score: jsonb('score').$type<Json>().notNull(),
+  direction: text('direction'),
+  notes: jsonb('notes').$type<Json>().notNull().default({}),
+  keep: jsonb('keep').$type<string[]>().notNull().default([]),
+  madeBy: userRef('made_by'),
+  madeAt: ts('made_at').notNull().defaultNow(),
 });
 
 /** Each version of the main offer published, never changed after; one number a business. */
@@ -7493,6 +7514,7 @@ export const tables = {
   knowledgeProfiles,
   mainOffers,
   mainOfferVersions,
+  mainOfferTries,
   knowledgeItems,
   knowledgeSources,
   knowledgeScans,

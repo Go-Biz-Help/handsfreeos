@@ -19,7 +19,9 @@ It builds on the main offer as it is (docs/main-offer.md, HANDSFREEOS_MAIN_OFFER
 is on the canvas **Main offer: notes, direction and tries** (https://claude.ai/artifact/14rYNgQfLT3v8xBhAsFkiw):
 Review, Compare, and Picks applied.
 
-**Where it stands (2026-10-16):** planned. The boards aren't approved yet, and nothing is built.
+**Where it stands (2026-10-16):** step 1 is built on branch `claude/compassionate-hypatia-62wvlc`: the migration
+(`20261027007700_main_offer_tries.sql`, not yet on the hosted database), the fuller score, the direction, the tries'
+commands and query, and the AI's prompts and checks. Chris approved the boards (2026-10-16: "boards approved").
 
 ## Decisions (Chris, 2026-10-16)
 
@@ -233,27 +235,24 @@ Each step ships on its own, with its tests, and leaves the builder working.
    fields, `main_offer.save_direction`, `main_offer.try_save`, `main_offer.try_apply`, `main_offer.tries`,
    `main_offer.get`'s direction, the try's prompt and check, the direction in every prompt, the words, and
    `pnpm openapi`. Today's screens keep working: the new fields are optional and nothing calls the new commands yet.
+   **Built.** The words for the screens are `MAIN_OFFER_TRY_WORDS`, `OFFER_NOTE_PICKS` and `OFFER_DIRECTION_PICKS`
+   in `words.ts`.
 2. **The worker: the try.** `POST /v1/main-offer/try`, the direction read by the score, Improve, Write it for me and
    the niche finder, and the scripted stand-in's rule.
 3. **The web: Review, Compare and the applied step**, from the approved boards, and Settings → Main offer's Working,
    Holding it back and direction.
 4. **Docs.** docs/main-offer.md: what's built, the direction and the tries under its rules, and the refusals.
 
-## Open questions
+## Answered (Chris, 2026-10-16)
 
-Each has the answer this plan assumes; say if it should go the other way.
-
-1. **The direction is always kept.** The board has a tick for "Keep this direction for every score and try". The plan
-   drops it: the direction is kept until someone changes or clears it, which is simpler and does the same.
+1. **The direction is always kept.** The board's tick for "Keep this direction for every score and try" goes: the
+   direction is kept until someone changes or clears it.
 2. **A mix gets a new line to pick.** When only some of a try's parts are taken, the AI offers three new one-line
-   offers and the few words for messages, and the owner picks one or keeps theirs, rather than the screen keeping a
-   line that no longer fits.
-3. **Applying scores right away.** Pressing Apply counts as asking for a score once the line is picked, rather than a
-   separate Score my offer press.
+   offers and the few words for messages, and the owner picks one or keeps theirs.
+3. **Applying scores right away.** Pressing Apply counts as asking for a score once the line is picked.
 4. **Versions shows this round's tries only.** Tries made before the last version went live are kept but not listed.
 5. **Social Outreach doesn't read the direction yet.** Its messages and video script are written from the live
-   version's parts, which already carry what the direction asked for. Reading the direction there is a later change
-   of its own.
+   version's parts. Reading the direction there is a later change of its own.
 
 ## Not in this plan
 

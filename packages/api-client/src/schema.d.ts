@@ -4957,6 +4957,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/main_offer.save_direction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the owner’s direction for the whole main offer: what it really is, who it’s for and what to lead with. Every score and try after reads it, so the draft is scored again against it.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.direction_saved.
+         */
+        post: operations["command_main_offer_save_direction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/main_offer.save_draft": {
         parameters: {
             query?: never;
@@ -4971,6 +4991,26 @@ export interface paths {
          * @description Risk level 1. Requires main_offer.manage. Emits main_offer.draft_saved.
          */
         post: operations["command_main_offer_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/main_offer.try_apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the picked parts of one of the AI’s tries into the main offer’s draft; the rest of the draft stays as it is. The live version keeps running until the draft is published.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.try_applied.
+         */
+        post: operations["command_main_offer_try_apply"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16731,6 +16771,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_main_offer_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/main_offer.tries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The AI’s tries of the main offer beside the draft since the last version went live, the newest first: each whole, with its score and what it followed.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_main_offer_tries"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31404,6 +31464,37 @@ export interface operations {
             };
         };
     };
+    command_main_offer_save_direction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    direction: string;
+                    revision: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
     command_main_offer_save_draft: {
         parameters: {
             query?: never;
@@ -31482,6 +31573,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_main_offer_try_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                    take: ("who" | "outcome" | "timeframe" | "method" | "guarantee" | "price")[];
+                    /** Format: uuid */
+                    tryId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lineFromTry: boolean;
                         revision: number;
                     };
                 };
@@ -62354,6 +62479,7 @@ export interface operations {
                     "application/json": {
                         bar: number;
                         comesWith: string[];
+                        direction: string | null;
                         draft: {
                             at: string | null;
                             by: {
@@ -62428,26 +62554,50 @@ export interface operations {
                                 };
                                 parts: {
                                     guarantee: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     method: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     outcome: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     price: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     timeframe: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     who: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
@@ -62531,26 +62681,50 @@ export interface operations {
                                 };
                                 parts: {
                                     guarantee: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     method: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     outcome: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     price: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     timeframe: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
                                     who: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
                                         score: number;
                                         why: string;
                                     };
@@ -62562,6 +62736,238 @@ export interface operations {
                             version: number;
                         } | null;
                         revision: number;
+                    };
+                };
+            };
+        };
+    };
+    query_main_offer_tries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        round: number;
+                        tries: {
+                            base: {
+                                /** @default {} */
+                                guarantee: {
+                                    promise?: string;
+                                    qualifies?: string;
+                                    when?: string;
+                                };
+                                /** @default {} */
+                                inAFewWords: {
+                                    guarantee?: string;
+                                    outcome?: string;
+                                };
+                                line?: string;
+                                /** @default {} */
+                                method: {
+                                    different?: string;
+                                    steps?: string[];
+                                };
+                                /** @default {} */
+                                niche: {
+                                    bestCustomer?: string;
+                                    howLong?: string;
+                                    lookalikes?: string;
+                                    result?: string;
+                                    theirSize?: string;
+                                    theirWork?: string;
+                                };
+                                /** @default {} */
+                                outcome: {
+                                    measure?: string;
+                                    result?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                price: {
+                                    amount?: string;
+                                    structure?: string;
+                                    value?: string;
+                                };
+                                /** @default [] */
+                                proof: string[];
+                                /** @default {} */
+                                timeframe: {
+                                    typical?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                who: {
+                                    problem?: string;
+                                    size?: string;
+                                    slice?: string;
+                                    work?: string;
+                                };
+                            };
+                            direction: string | null;
+                            fromRevision: number;
+                            /** Format: uuid */
+                            id: string;
+                            /** @default [] */
+                            keep: ("who" | "outcome" | "timeframe" | "method" | "guarantee" | "price")[];
+                            lowest: number;
+                            /** Format: date-time */
+                            madeAt: string;
+                            madeBy: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** @default {} */
+                            notes: {
+                                guarantee?: string;
+                                method?: string;
+                                outcome?: string;
+                                price?: string;
+                                timeframe?: string;
+                                who?: string;
+                            };
+                            number: number;
+                            parts: {
+                                /** @default {} */
+                                guarantee: {
+                                    promise?: string;
+                                    qualifies?: string;
+                                    when?: string;
+                                };
+                                /** @default {} */
+                                inAFewWords: {
+                                    guarantee?: string;
+                                    outcome?: string;
+                                };
+                                line?: string;
+                                /** @default {} */
+                                method: {
+                                    different?: string;
+                                    steps?: string[];
+                                };
+                                /** @default {} */
+                                niche: {
+                                    bestCustomer?: string;
+                                    howLong?: string;
+                                    lookalikes?: string;
+                                    result?: string;
+                                    theirSize?: string;
+                                    theirWork?: string;
+                                };
+                                /** @default {} */
+                                outcome: {
+                                    measure?: string;
+                                    result?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                price: {
+                                    amount?: string;
+                                    structure?: string;
+                                    value?: string;
+                                };
+                                /** @default [] */
+                                proof: string[];
+                                /** @default {} */
+                                timeframe: {
+                                    typical?: string;
+                                    why?: string;
+                                };
+                                /** @default {} */
+                                who: {
+                                    problem?: string;
+                                    size?: string;
+                                    slice?: string;
+                                    work?: string;
+                                };
+                            };
+                            score: {
+                                fix: string;
+                                flags: {
+                                    generic: boolean;
+                                    hardToBelieve: boolean;
+                                    vague: boolean;
+                                };
+                                parts: {
+                                    guarantee: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
+                                        score: number;
+                                        why: string;
+                                    };
+                                    method: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
+                                        score: number;
+                                        why: string;
+                                    };
+                                    outcome: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
+                                        score: number;
+                                        why: string;
+                                    };
+                                    price: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
+                                        score: number;
+                                        why: string;
+                                    };
+                                    timeframe: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
+                                        score: number;
+                                        why: string;
+                                    };
+                                    who: {
+                                        fix?: string;
+                                        followedDirection?: boolean;
+                                        good?: string[];
+                                        holding?: string[];
+                                        score: number;
+                                        why: string;
+                                    };
+                                };
+                                threeSeconds: boolean;
+                                /** @enum {string} */
+                                weakest: "who" | "outcome" | "timeframe" | "method" | "guarantee" | "price";
+                            };
+                            why: {
+                                guarantee: string | null;
+                                method: string | null;
+                                outcome: string | null;
+                                price: string | null;
+                                timeframe: string | null;
+                                who: string | null;
+                            };
+                        }[];
                     };
                 };
             };

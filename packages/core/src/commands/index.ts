@@ -294,8 +294,11 @@ import { offerArchive, offerCreate, offerUpdate } from './offer';
 import {
   mainOfferDiscardDraft,
   mainOfferPublish,
+  mainOfferSaveDirection,
   mainOfferSaveDraft,
   mainOfferScoreSave,
+  mainOfferTryApply,
+  mainOfferTrySave,
 } from './main-offer';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
 import {
@@ -926,6 +929,9 @@ export const commands: readonly CommandDef[] = [
   mainOfferDiscardDraft,
   mainOfferScoreSave,
   mainOfferPublish,
+  mainOfferSaveDirection,
+  mainOfferTrySave,
+  mainOfferTryApply,
   knowledgeItemImportFaqs,
   knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,

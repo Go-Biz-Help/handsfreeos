@@ -25031,6 +25031,156 @@
         }
       }
     },
+    "/v1/commands/main_offer.save_direction": {
+      "post": {
+        "operationId": "command_main_offer_save_direction",
+        "summary": "Save the owner’s direction for the whole main offer: what it really is, who it’s for and what to lead with. Every score and try after reads it, so the draft is scored again against it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires main_offer.manage. Emits main_offer.direction_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "direction": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "revision",
+                  "direction"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/main_offer.try_apply": {
+      "post": {
+        "operationId": "command_main_offer_try_apply",
+        "summary": "Take the picked parts of one of the AI’s tries into the main offer’s draft; the rest of the draft stays as it is. The live version keeps running until the draft is published.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires main_offer.manage. Emits main_offer.try_applied.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "tryId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "take": {
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "who",
+                        "outcome",
+                        "timeframe",
+                        "method",
+                        "guarantee",
+                        "price"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "revision",
+                  "tryId",
+                  "take"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "lineFromTry": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revision",
+                    "lineFromTry"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/knowledge_item.import_faqs": {
       "post": {
         "operationId": "command_knowledge_item_import_faqs",
@@ -123043,6 +123193,12 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "direction": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "live": {
                       "anyOf": [
                         {
@@ -123265,6 +123421,32 @@
                                         "why": {
                                           "type": "string",
                                           "maxLength": 300
+                                        },
+                                        "good": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "holding": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "fix": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "followedDirection": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -123284,6 +123466,32 @@
                                         "why": {
                                           "type": "string",
                                           "maxLength": 300
+                                        },
+                                        "good": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "holding": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "fix": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "followedDirection": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -123303,6 +123511,32 @@
                                         "why": {
                                           "type": "string",
                                           "maxLength": 300
+                                        },
+                                        "good": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "holding": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "fix": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "followedDirection": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -123322,6 +123556,32 @@
                                         "why": {
                                           "type": "string",
                                           "maxLength": 300
+                                        },
+                                        "good": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "holding": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "fix": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "followedDirection": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -123341,6 +123601,32 @@
                                         "why": {
                                           "type": "string",
                                           "maxLength": 300
+                                        },
+                                        "good": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "holding": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "fix": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "followedDirection": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -123360,6 +123646,32 @@
                                         "why": {
                                           "type": "string",
                                           "maxLength": 300
+                                        },
+                                        "good": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "holding": {
+                                          "maxItems": 3,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          }
+                                        },
+                                        "fix": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "followedDirection": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -123733,6 +124045,32 @@
                                             "why": {
                                               "type": "string",
                                               "maxLength": 300
+                                            },
+                                            "good": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "holding": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "fix": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "followedDirection": {
+                                              "type": "boolean"
                                             }
                                           },
                                           "required": [
@@ -123752,6 +124090,32 @@
                                             "why": {
                                               "type": "string",
                                               "maxLength": 300
+                                            },
+                                            "good": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "holding": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "fix": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "followedDirection": {
+                                              "type": "boolean"
                                             }
                                           },
                                           "required": [
@@ -123771,6 +124135,32 @@
                                             "why": {
                                               "type": "string",
                                               "maxLength": 300
+                                            },
+                                            "good": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "holding": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "fix": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "followedDirection": {
+                                              "type": "boolean"
                                             }
                                           },
                                           "required": [
@@ -123790,6 +124180,32 @@
                                             "why": {
                                               "type": "string",
                                               "maxLength": 300
+                                            },
+                                            "good": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "holding": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "fix": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "followedDirection": {
+                                              "type": "boolean"
                                             }
                                           },
                                           "required": [
@@ -123809,6 +124225,32 @@
                                             "why": {
                                               "type": "string",
                                               "maxLength": 300
+                                            },
+                                            "good": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "holding": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "fix": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "followedDirection": {
+                                              "type": "boolean"
                                             }
                                           },
                                           "required": [
@@ -123828,6 +124270,32 @@
                                             "why": {
                                               "type": "string",
                                               "maxLength": 300
+                                            },
+                                            "good": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "holding": {
+                                              "maxItems": 3,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              }
+                                            },
+                                            "fix": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "followedDirection": {
+                                              "type": "boolean"
                                             }
                                           },
                                           "required": [
@@ -123940,6 +124408,7 @@
                     "comesWith",
                     "bar",
                     "revision",
+                    "direction",
                     "live",
                     "draft"
                   ],
@@ -124056,6 +124525,986 @@
                   },
                   "required": [
                     "versions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/main_offer.tries": {
+      "post": {
+        "operationId": "query_main_offer_tries",
+        "summary": "The AI’s tries of the main offer beside the draft since the last version went live, the newest first: each whole, with its score and what it followed.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "round": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "tries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fromRevision": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "base": {
+                            "type": "object",
+                            "properties": {
+                              "niche": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "bestCustomer": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "theirWork": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "theirSize": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "result": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "howLong": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "lookalikes": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "who": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "work": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "slice": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "size": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "problem": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "outcome": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "result": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "measure": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "why": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "timeframe": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "typical": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "why": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "method": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "steps": {
+                                    "maxItems": 5,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 160
+                                    }
+                                  },
+                                  "different": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "guarantee": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "promise": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "when": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "qualifies": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "price": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "structure": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "proof": {
+                                "default": [],
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              },
+                              "line": {
+                                "type": "string",
+                                "maxLength": 1200
+                              },
+                              "inAFewWords": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "outcome": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  },
+                                  "guarantee": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "niche",
+                              "who",
+                              "outcome",
+                              "timeframe",
+                              "method",
+                              "guarantee",
+                              "price",
+                              "proof",
+                              "inAFewWords"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "parts": {
+                            "type": "object",
+                            "properties": {
+                              "niche": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "bestCustomer": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "theirWork": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "theirSize": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "result": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "howLong": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "lookalikes": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "who": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "work": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "slice": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "size": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "problem": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "outcome": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "result": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "measure": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "why": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "timeframe": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "typical": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "why": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "method": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "steps": {
+                                    "maxItems": 5,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 160
+                                    }
+                                  },
+                                  "different": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "guarantee": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "promise": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "when": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "qualifies": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "price": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "structure": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "proof": {
+                                "default": [],
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              },
+                              "line": {
+                                "type": "string",
+                                "maxLength": 1200
+                              },
+                              "inAFewWords": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "outcome": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  },
+                                  "guarantee": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "niche",
+                              "who",
+                              "outcome",
+                              "timeframe",
+                              "method",
+                              "guarantee",
+                              "price",
+                              "proof",
+                              "inAFewWords"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "why": {
+                            "type": "object",
+                            "properties": {
+                              "who": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "outcome": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "timeframe": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "method": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "guarantee": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "price": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "who",
+                              "outcome",
+                              "timeframe",
+                              "method",
+                              "guarantee",
+                              "price"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "score": {
+                            "type": "object",
+                            "properties": {
+                              "parts": {
+                                "type": "object",
+                                "properties": {
+                                  "who": {
+                                    "type": "object",
+                                    "properties": {
+                                      "score": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "good": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "holding": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "fix": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "followedDirection": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "score",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "outcome": {
+                                    "type": "object",
+                                    "properties": {
+                                      "score": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "good": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "holding": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "fix": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "followedDirection": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "score",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "timeframe": {
+                                    "type": "object",
+                                    "properties": {
+                                      "score": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "good": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "holding": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "fix": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "followedDirection": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "score",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "method": {
+                                    "type": "object",
+                                    "properties": {
+                                      "score": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "good": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "holding": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "fix": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "followedDirection": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "score",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "guarantee": {
+                                    "type": "object",
+                                    "properties": {
+                                      "score": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "good": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "holding": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "fix": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "followedDirection": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "score",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "price": {
+                                    "type": "object",
+                                    "properties": {
+                                      "score": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "good": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "holding": {
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "fix": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "followedDirection": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "score",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "who",
+                                  "outcome",
+                                  "timeframe",
+                                  "method",
+                                  "guarantee",
+                                  "price"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "weakest": {
+                                "type": "string",
+                                "enum": [
+                                  "who",
+                                  "outcome",
+                                  "timeframe",
+                                  "method",
+                                  "guarantee",
+                                  "price"
+                                ]
+                              },
+                              "fix": {
+                                "type": "string",
+                                "maxLength": 600
+                              },
+                              "flags": {
+                                "type": "object",
+                                "properties": {
+                                  "vague": {
+                                    "type": "boolean"
+                                  },
+                                  "generic": {
+                                    "type": "boolean"
+                                  },
+                                  "hardToBelieve": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "vague",
+                                  "generic",
+                                  "hardToBelieve"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "threeSeconds": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "parts",
+                              "weakest",
+                              "fix",
+                              "flags",
+                              "threeSeconds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "lowest": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "direction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "notes": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "who": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "outcome": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "timeframe": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "method": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "guarantee": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "price": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "keep": {
+                            "default": [],
+                            "maxItems": 6,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "who",
+                                "outcome",
+                                "timeframe",
+                                "method",
+                                "guarantee",
+                                "price"
+                              ]
+                            }
+                          },
+                          "madeBy": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "madeAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "fromRevision",
+                          "base",
+                          "parts",
+                          "why",
+                          "score",
+                          "lowest",
+                          "direction",
+                          "notes",
+                          "keep",
+                          "madeBy",
+                          "madeAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "round",
+                    "tries"
                   ],
                   "additionalProperties": false
                 }

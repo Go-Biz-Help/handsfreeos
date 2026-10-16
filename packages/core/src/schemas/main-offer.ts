@@ -4,7 +4,15 @@
  * Knowledge (./offer.ts).
  */
 import { z } from 'zod';
-import { MainOfferParts, MainOfferScore } from '../main-offer/parts';
+import {
+  MAIN_OFFER_LIMITS,
+  MainOfferKeep,
+  MainOfferNotes,
+  MainOfferParts,
+  MainOfferScore,
+  MainOfferTryWhy,
+  SCORED_PARTS,
+} from '../main-offer/parts';
 import { isoDateTime, uuid } from './common';
 
 /** The draft's revision the person started from: two editors can't undo each other. */
@@ -44,7 +52,86 @@ export const MainOfferPublishInput = z.object({
 });
 export const MainOfferPublishOutput = z.object({ version: z.int() });
 
+/** The owner's direction for the whole offer. Empty clears it. */
+export const MainOfferSaveDirectionInput = z.object({
+  workspaceId: uuid,
+  revision,
+  direction: z
+    .string()
+    .trim()
+    .max(
+      MAIN_OFFER_LIMITS.direction,
+      `Keep it under ${MAIN_OFFER_LIMITS.direction.toLocaleString('en-US')} characters.`,
+    ),
+});
+export const MainOfferSaveDirectionOutput = z.object({ revision: z.int() });
+
+/** The worker's alone: a try the AI wrote from the draft at this revision, with its score. */
+export const MainOfferTrySaveInput = z.object({
+  workspaceId: uuid,
+  revision,
+  parts: MainOfferParts,
+  why: MainOfferTryWhy,
+  score: MainOfferScore,
+  notes: MainOfferNotes,
+  keep: MainOfferKeep,
+});
+export const MainOfferTrySaveOutput = z.object({
+  /** False when the draft moved on (or went) while the AI wrote it: that try is for nothing now. */
+  saved: z.boolean(),
+  id: uuid.nullable(),
+  /** Try 1, 2, 3 within the round. */
+  number: z.int().nullable(),
+});
+
+/** The parts to take from a try into the draft. */
+export const MainOfferTryApplyInput = z.object({
+  workspaceId: uuid,
+  revision,
+  tryId: uuid,
+  take: z
+    .array(z.enum(SCORED_PARTS))
+    .min(1, 'Pick at least one part to take from the try.')
+    .max(SCORED_PARTS.length),
+});
+export const MainOfferTryApplyOutput = z.object({
+  revision: z.int(),
+  /**
+   * Whether the try's one line and few words came too: only when every part it changed was taken into a draft that
+   * hadn't moved since. Otherwise the line needs writing again for the mix.
+   */
+  lineFromTry: z.boolean(),
+});
+
 const Person = z.object({ id: uuid, name: z.string() }).nullable();
+
+export const MainOfferTryOut = z.object({
+  id: uuid,
+  number: z.int(),
+  /** The draft's revision it was written from, and the draft's parts as it read them. */
+  fromRevision: z.int(),
+  base: MainOfferParts,
+  parts: MainOfferParts,
+  why: MainOfferTryWhy,
+  score: MainOfferScore,
+  /** Its lowest part's score, for the list. */
+  lowest: z.int(),
+  /** What it followed. */
+  direction: z.string().nullable(),
+  notes: MainOfferNotes,
+  keep: MainOfferKeep,
+  madeBy: Person,
+  madeAt: isoDateTime,
+});
+export type MainOfferTryOut = z.infer<typeof MainOfferTryOut>;
+
+export const MainOfferTriesInput = z.object({ workspaceId: uuid });
+export const MainOfferTriesOutput = z.object({
+  /** The live version they're tries beside, 0 before the first. */
+  round: z.int(),
+  /** This round's, the newest first. */
+  tries: z.array(MainOfferTryOut),
+});
 
 export const MainOfferVersionOut = z.object({
   version: z.int(),
@@ -70,6 +157,8 @@ export const MainOfferGetOutput = z.object({
   bar: z.int(),
   /** The draft's revision now: what the next save, discard or publish names. */
   revision: z.int(),
+  /** The owner's direction for the whole offer, read by every score and try; null when they gave none. */
+  direction: z.string().nullable(),
   live: MainOfferVersionOut.nullable(),
   draft: z
     .object({

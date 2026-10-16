@@ -305,6 +305,106 @@ export const MAIN_OFFER_WORDS = {
 } as const;
 
 /**
+ * Quick picks under a part's note box: each adds its line to the note (HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md).
+ */
+export const OFFER_NOTE_PICKS = [
+  ['Broad on purpose', 'This is broad on purpose.'],
+  ['Undersells it', 'This undersells what it really does.'],
+  ['Not how I’d say it', 'This isn’t how I’d say it.'],
+  ['Say what’s different', 'Say what makes it different from the rest.'],
+  ['Make it shorter', 'Make it shorter.'],
+] as const;
+
+/** Quick picks under the direction box: each adds its line to the direction. */
+export const OFFER_DIRECTION_PICKS = [
+  [
+    'It’s more than it sounds',
+    'It’s more than it sounds like at first. Say what makes it different.',
+  ],
+  ['Who it’s really for', 'It’s really for: '],
+  ['What to lead with', 'Lead with: '],
+  ['How it should sound', 'Sound like a calm, plain-spoken person, not a salesperson.'],
+] as const;
+
+/** The last step's notes, direction and tries, and the comparison, from the boards on the canvas. */
+export const MAIN_OFFER_TRY_WORDS = {
+  stepName: 'Review and go live',
+  stepAbout: 'Notes, tries, then go live',
+  title: 'Review and go live',
+  hint: 'See what’s working and what’s holding each part back. Leave the AI a note on any part, then tell it where you want the whole offer to go. It writes a new try beside yours. Nothing changes until you pick.',
+  versions: 'Versions',
+  yourDraft: 'Your draft',
+  tryName: (n: number) => `Try ${n}`,
+  beforeTry: (n: number) => `Before Try ${n}`,
+  lowest: (n: number) => `Lowest ${n}`,
+  noTries: 'The AI’s tries show up here. Yours stays as it is until you pick parts from one.',
+  underBar: (parts: string) => `Under 7: ${parts}`,
+  everyPartClears: 'Every part scores 7 or more',
+  eachPart: 'Each part',
+  eachPartHint:
+    'Tell the AI what it got wrong, or what you really mean. Tick Keep this part as is for anything you’re happy with, so the next try leaves it alone.',
+  saysNow: 'What it says now',
+  working: 'Working',
+  holding: 'Holding it back',
+  aiFix: 'The AI’s fix:',
+  yourNote: 'Your note for the AI',
+  notePlaceholder: 'What did it get wrong? What do you really mean?',
+  keepAsIs: 'Keep this part as is in the next try',
+  keptAsIs: 'Kept as is',
+  hasNote: 'Your note',
+  editMyself: 'Edit it myself',
+  withDirection: 'Scored with your direction',
+  directionTitle: 'Where do you want this offer to go?',
+  directionHint:
+    'Say it in your own words, like you’d tell a coach. The AI follows this over its own rules, and scores against it from now on.',
+  directionLabel: 'Your direction for the whole offer',
+  directionPlaceholder: 'What is this really? Who is it for? What should it lead with?',
+  goingInto: (name: string) => `Going into ${name}`,
+  goesDirection: 'Your direction',
+  goesNote: (part: string) => `Your note on ${part.toLowerCase()}`,
+  goesKept: (part: string) => `${part} kept as is`,
+  makeTry: (name: string) => `Make ${name}`,
+  making: (name: string) => `Writing ${name}…`,
+  draftStays: 'Your draft stays as it is. You pick what to use after.',
+  compareTitle: (name: string) => `${name} is ready. Pick what to keep.`,
+  compareHint:
+    'Your draft is on the left, the AI’s try on the right. Tap the side you want for each part. Nothing changes until you apply your picks.',
+  followed: (name: string) => `What ${name} followed`,
+  changeFor: (name: string) => `Change it for ${name}`,
+  partByPart: 'Part by part',
+  partByPartHint: 'Scores are out of 10. The try is scored against your direction.',
+  keepAllMine: 'Keep all mine',
+  useAll: (name: string) => `Use all of ${name}`,
+  yours: 'Yours',
+  higher: 'Higher score',
+  keptHere: (name: string) => `You kept this as is, so ${name} left it alone.`,
+  movedSince: 'Your draft changed after this try was made, so your side shows it as it is now.',
+  readsWithPicks: 'How it reads with your picks',
+  picked: (name: string, fromTry: number, yours: number) =>
+    fromTry
+      ? `Using ${name} for ${fromTry} ${fromTry === 1 ? 'part' : 'parts'}, yours for ${yours}`
+      : 'All yours so far. Tap a part on the right to use it.',
+  apply: (n: number) =>
+    n ? `Apply ${n} ${n === 1 ? 'part' : 'parts'} to my draft` : 'Keep my draft as is',
+  backToReview: 'Back to review',
+  bracketFirst:
+    'This try has a blank in [brackets]. The AI never guesses a number for you, so fill it in before this goes live.',
+  newLineTitle: 'Your picks need their own line',
+  newLineHint:
+    'The one-line offer was written for one version or the other. Pick a new one for the mix, or keep yours.',
+  keepMyLine: 'Keep my line',
+  usedFromTry: (name: string, parts: string) => `Your draft now uses ${name}’s ${parts}.`,
+  keptBefore: (name: string) =>
+    `Your draft from before is kept as Before ${name}, and ${name} is kept too, so you can mix in more of it later.`,
+  restore: 'Restore my draft from before',
+  changePicks: 'Change my picks',
+  directionKept: 'Your direction is kept',
+  directionKeptHint:
+    'The AI reads it every time it scores or writes this offer, so the next change starts from what you meant.',
+  editDirection: 'Edit your direction',
+} as const;
+
+/**
  * How a first message carries the offer, for the builder's preview: the workbook's script, in a few words each.
  * Social Outreach writes the real ones, with something about the person first.
  */
