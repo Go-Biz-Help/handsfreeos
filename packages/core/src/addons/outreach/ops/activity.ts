@@ -360,6 +360,7 @@ type Counts = {
 export type Listed = {
   readonly profile_id: string;
   readonly person_id: string | null;
+  readonly platform: Platform;
   readonly name: string;
   readonly url: string;
   readonly group_id: string | null;
@@ -461,7 +462,7 @@ export async function reachedPeople(
           where d.workspace_id = ${ws} and d.undone_at is null and ${whose('d.user_id')}
           group by d.profile_id
         )
-        select e.profile_id, p.person_id,
+        select e.profile_id, p.person_id, p.platform,
           coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
           g.id as group_id, g.name as group_name, g.url as group_url,
           e.requested_at, e.liked_at, e.commented_at, e.messaged_at, r.replied_at,
@@ -530,9 +531,10 @@ const iso = (at: Date | string) => new Date(at).toISOString();
 const isoOrNull = (at: Date | string | null) => (at === null ? null : iso(at));
 
 /** The person's own steps of one kind since the day began, for the daily limits, whoever's the panel shows. */
+/** The person's own steps today on Facebook, whose daily limits the panel shows them against. */
 const todayCount = (column: 'kind' | 'step', value: string, me: string, since: string) =>
   sql`(count(*) filter (where ${sql.raw(`t.${column}`)} = ${value} and t.user_id = ${me}
-    and t.at >= ${since}::timestamptz))::int`;
+    and tp.platform = 'facebook' and t.at >= ${since}::timestamptz))::int`;
 
 export const activity = defineAddonQuery(outreachAddon, {
   name: 'outreach.activity',
@@ -558,7 +560,8 @@ export const activity = defineAddonQuery(outreachAddon, {
     const from = await periodStart(ctx, ACTIVITY_PERIODS[input.period].days, timezone);
     const todayFrom = new Date(startOfLocalDay(today, timezone)).toISOString();
     const whose = input.everyone ? sql`true` : sql`t.user_id = ${me}`;
-    const warning = await warningOf(ctx, me, new Date(todayFrom));
+    // The day against the limits is Facebook's, where the extension works yet: only its warning halves them.
+    const warning = await warningOf(ctx, me, 'facebook', new Date(todayFrom));
 
     const [counts] = await rows<Counts>(
       ctx.tx,
@@ -575,6 +578,7 @@ export const activity = defineAddonQuery(outreachAddon, {
             ${todayCount('kind', 'comment', me, todayFrom)} as today_comment,
             ${todayCount('kind', 'like', me, todayFrom)} as today_like
           from addon_outreach.touches t
+          join addon_outreach.profiles tp on tp.id = t.profile_id
           where t.workspace_id = ${ws} and t.at >= ${from}::timestamptz and ${whose}`,
     );
 
@@ -614,6 +618,7 @@ export const activity = defineAddonQuery(outreachAddon, {
         personId: l.person_id,
         name: l.name,
         url: l.url,
+        platform: l.platform,
         group: l.group_id ? { name: l.group_name, url: l.group_url ?? '' } : null,
         requestedAt: isoOrNull(l.requested_at),
         likedAt: isoOrNull(l.liked_at),

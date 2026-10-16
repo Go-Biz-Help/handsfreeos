@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My settings: the day’s report</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04)}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12.5px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.part{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;padding:20px 24px;border-top:1px solid var(--border)}
+.part:first-child{border-top:0}
+.radio{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+.radio.on{border-color:var(--accent);background:var(--accent-soft)}
+.dot{width:16px;height:16px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px}
+.radio.on .dot{border:5px solid var(--accent)}
+.tick{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border-strong);flex:none;margin-top:1px;display:inline-flex;align-items:center;justify-content:center;background:var(--card)}
+.box.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.push{display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;max-width:420px;padding:12px 14px;border-radius:14px;background:var(--card-2);border:1px solid var(--border)}
+.app{width:36px;height:36px;border-radius:9px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.ghost{opacity:.5}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 760px; padding: 28px 40px; display: flex; flex-direction: column; gap: 18px;">
+<div class="stack" style="gap: 4px;"><span class="overline">Social Outreach · Settings</span><h1 style="font-size: 22px; font-weight: 600;">My settings</h1></div>
+<section class="card" aria-label="My settings">
+<div class="part ghost" aria-hidden="true">
+<div class="stack" style="gap: 2px;"><h3 style="font-size: 15px; font-weight: 600;">The extension</h3><p class="xs faint">What it does while you use Facebook yourself.</p></div>
+<div class="small muted">Note my own steps on Facebook · Read a chat I open in Messenger · Look for posts worth a comment</div>
+</div>
+<div class="part">
+<div class="stack" style="gap: 2px;"><h3 style="font-size: 15px; font-weight: 600;">Your phone and the extension</h3><p class="xs faint">How you hear about messages and steps waiting for you, and your numbers.</p></div>
+<div class="stack" style="gap: 10px;">
+<div role="radiogroup" aria-label="Pushes" class="stack" style="gap: 8px;">
+<div class="radio on" role="radio" aria-checked="true"><span class="dot"></span><div class="stack"><span style="font-weight: 500;">One push for what’s waiting, at most every 2 hours in your working hours</span><span class="xs muted">What most people pick</span></div></div>
+<div class="radio" role="radio" aria-checked="false"><span class="dot"></span><span style="font-weight: 500;">A push for each message or step that waits</span></div>
+</div>
+<p class="small muted">A reply handed over to you always comes at once.</p>
+<div style="height: 1px; background: var(--border); margin: 4px 0;"></div>
+<label class="tick">
+<span class="box {{ boxOn }}" role="checkbox" aria-checked="{{ on }}"><sc-if value="{{ on }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>
+<span class="stack" style="gap: 2px;">
+<span style="font-weight: 500;">The day’s report</span>
+<span class="small muted">A push at the end of your working hours with the day’s numbers: messages sent, yeses and calls booked, and how far you are from your target. Only on a day you sent something.</span>
+</span>
+</label>
+<sc-if value="{{ on }}" hint-placeholder-val="{{ true }}">
+<div class="push" aria-label="How it reads">
+<span class="app" aria-hidden="true">HF</span>
+<div class="stack" style="gap: 1px;">
+<div class="row" style="justify-content: space-between;"><span class="xs" style="font-weight: 600;">Social Outreach</span><span class="xs faint">5:00 PM</span></div>
+<span class="small" style="font-weight: 600;">Your day</span>
+<span class="small">Today: 14 messages, 2 said yes, 1 booked. 1 more message hits your target.</span>
+</div>
+</div>
+</sc-if>
+<p class="xs faint">Your week’s review comes on Monday morning, on Results and in a push.</p>
+</div>
+</div>
+<div class="part ghost" aria-hidden="true">
+<div class="stack" style="gap: 2px;"><h3 style="font-size: 15px; font-weight: 600;">When</h3><p class="xs faint">On your business’s clock.</p></div>
+<div class="small muted">From 9 AM to 5 PM · Mon to Fri</div>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"dayReport":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const on = this.props.dayReport ?? true;
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      on,
+      boxOn: on ? 'on' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

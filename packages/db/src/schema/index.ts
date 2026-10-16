@@ -2786,6 +2786,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'meetings',
   // Building and scoring the business's main offer (20261027006100).
   'main_offer',
+  // Adding the texting section to the business's own privacy policy or terms (20261027006500).
+  'texting_policy',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -7085,12 +7087,68 @@ export const teammateLessons = app.table('teammate_lessons', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** The feedback on replies it was read from (20261027006700). */
+  feedbackIds: uuid('feedback_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   /** open, applied or dismissed. */
   status: text('status').notNull().default('open'),
   /** Where it goes against what the AI knows: the words there now and what they'd become (core's LessonConflict). */
   conflict: jsonb('conflict').$type<Json>(),
   decidedBy: userRef('decided_by'),
   decidedAt: ts('decided_at'),
+  ...timestamps(),
+});
+
+/** The rules the AI teammate reads whole on every reply (20261027006700). At most 50 per teammate. */
+export const teammateInstructions = app.table('teammate_instructions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  /** person or lesson. */
+  source: text('source').notNull().default('person'),
+  lessonId: uuid('lesson_id').references(() => teammateLessons.id, { onDelete: 'set null' }),
+  createdBy: userRef('created_by'),
+  updatedBy: userRef('updated_by'),
+  ...timestamps(),
+});
+
+/**
+ * A person's thumbs up or down on a reply the AI teammate wrote, in a test or for real (20261027006700), and what
+ * the worker made of it: a lesson, a question for them, or nothing to learn. One per person per reply.
+ */
+export const teammateFeedback = app.table('teammate_feedback', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  runId: uuid('run_id')
+    .notNull()
+    .references(() => aiTeammateRuns.id, { onDelete: 'cascade' }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  isTest: boolean('is_test').notNull().default(false),
+  /** good or bad. */
+  rating: text('rating').notNull(),
+  betterReply: text('better_reply'),
+  note: text('note'),
+  asked: text('asked'),
+  reply: text('reply'),
+  /** none, reading, asking, suggested, nothing or failed. */
+  learn: text('learn').notNull().default('none'),
+  learnWhy: text('learn_why'),
+  question: text('question'),
+  choices: text('choices')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  answer: text('answer'),
+  lessonId: uuid('lesson_id').references(() => teammateLessons.id, { onDelete: 'set null' }),
+  createdBy: userRef('created_by'),
   ...timestamps(),
 });
 

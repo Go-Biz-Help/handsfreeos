@@ -1,19 +1,51 @@
 /**
  * **Read my chats** (docs/outreach.md, decision 2's "Collect from Facebook"): without Facebook's file, it goes through
  * the person's one-to-one chats in Messenger, one at a time from the list beside it, at a steady pace, scrolling the
- * list for more (src/facebook/browse.ts), and sends each one's latest few messages to HandsFreeOS, where the AI reads
+ * list for more (src/networks/facebook/browse.ts), and sends each one's latest few messages to HandsFreeOS, where the AI reads
  * them for the Chats tab. It skips chats read in the last day with nothing new, and stops after a run's worth. Group
- * chats are left out, and nothing is sent on Facebook.
+ * chats are left out, and nothing is sent on Facebook. On LinkedIn it goes the same way through LinkedIn messaging
+ * (`LINKEDIN_MESSAGING`; src/networks/linkedin/browse.ts), and the chats go as LinkedIn's, with LinkedIn's thread ids.
  */
-import type { ChatPage, ChatSummary } from '../facebook/types';
+import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { facebook } from '../networks';
+import type { ChatPage, ChatSummary } from '../networks/facebook/types';
 import type { ChatsCollected } from '../hfos/messages';
 import { CHATS_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { chatCollect } from '../hfos/saves';
 import { counted } from '../words';
-import { pause, paced, readIn, valueOf, warnedOn, type Hfos, type Job, type JobEnd } from './job';
+import {
+  pause,
+  paced,
+  readPageIn,
+  valueOf,
+  warnedOn,
+  type Hfos,
+  type Job,
+  type JobEnd,
+} from './job';
 
 /** Messenger's list of chats. */
 export const MESSENGER = 'https://www.facebook.com/messages/';
+
+/** Where a network keeps the person's chats: its list's address, what it's called, and its pages that show the list. */
+export interface ChatsHome {
+  readonly platform: Platform;
+  readonly url: string;
+  readonly name: string;
+  readonly kinds: readonly string[];
+}
+export const MESSENGER_HOME: ChatsHome = {
+  platform: facebook.platform,
+  url: MESSENGER,
+  name: 'Messenger',
+  kinds: ['chats', 'chat'],
+};
+export const LINKEDIN_MESSAGING: ChatsHome = {
+  platform: 'linkedin',
+  url: 'https://www.linkedin.com/messaging/',
+  name: NETWORKS.linkedin.words.messaging,
+  kinds: ['messaging', 'chat'],
+};
 /** Between chats, a steady pace like a person's: a few seconds, never the same twice. */
 const PACE_MS = [CHATS_PACE_SECONDS[0] * 1000, CHATS_PACE_SECONDS[1] * 1000] as const;
 /** While Facebook draws a chat just opened, and more of the list just scrolled to. */
@@ -79,22 +111,26 @@ function words(name: string, got: ChatsCollected): string {
     : `Kept the chat with ${name}.`;
 }
 
-/** Sends a chat for the AI. What came of it, in words; null when there was nothing new to send. */
+/**
+ * Sends a chat for the AI, as its network's (Facebook's, where Read my chats works). What came of it, in words; null
+ * when there was nothing new to send.
+ */
 export async function sendChat(
   hfos: Hfos,
   businessId: string,
   memory: ChatMemory,
   chat: ChatPage,
   listed: ChatSummary | null,
+  platform: Platform = facebook.platform,
 ): Promise<string | null> {
-  const built = chatCollect(chat, new Date(), listed?.when);
+  const built = chatCollect(chat, new Date(), listed?.when, platform);
   if (!built) return null;
   const key = JSON.stringify(built.messages);
   if (sent.get(built.thread.id) === key) return null;
   const got = valueOf(
     await hfos({
       type: 'hfos-collect-chats',
-      input: { workspaceId: businessId, platform: 'facebook', chats: [built] },
+      input: { workspaceId: businessId, platform, chats: [built] },
     }),
   );
   sent.set(built.thread.id, key);
@@ -103,8 +139,8 @@ export async function sendChat(
 }
 
 /**
- * Goes through the chats in Messenger, up to `most` sent for the AI. `said` hears each chat sent, in words. `again`
- * names the button to press to go on, in the line it ends with.
+ * Goes through the chats in Messenger (or another network's, `home`), up to `most` sent for the AI. `said` hears each
+ * chat sent, in words. `again` names the button to press to go on, in the line it ends with.
  */
 export async function readChats(
   job: Job,
@@ -113,18 +149,20 @@ export async function readChats(
     readonly memory: ChatMemory;
     readonly said?: (line: string) => void;
     readonly again: string;
+    readonly home?: ChatsHome;
   },
 ): Promise<JobEnd> {
   const { tab } = job;
+  const home = options.home ?? MESSENGER_HOME;
   let read = 0;
-  job.progress('Opening Messenger…');
-  // A tab not opened yet has nothing to read: Messenger first.
-  const first = await readIn(tab).catch(() => null);
-  if (!first || (first.kind !== 'chats' && first.kind !== 'chat')) await tab.open(MESSENGER);
+  job.progress(`Opening ${home.name}…`);
+  // A tab not opened yet has nothing to read: the list of chats first.
+  const first = await readPageIn(tab).catch(() => null);
+  if (!first || !home.kinds.includes(first.kind)) await tab.open(home.url);
   const tried = new Set<string>();
   let emptyScrolls = 0;
   while (!job.stopped() && read < options.most) {
-    const page = await readIn(tab);
+    const page = await readPageIn(tab);
     const warned = await warnedOn(job, page);
     if (warned) return warned;
     let next: ChatSummary | undefined;
@@ -148,13 +186,20 @@ export async function readChats(
     if (!(await tab.ask({ type: 'hfos-open-chat', threadId: next.thread.id })).ok)
       await tab.open(next.thread.url);
     await pause(OPEN_MS);
-    let opened = await readIn(tab);
+    let opened = await readPageIn(tab);
     if (opened.chat?.thread?.id !== next.thread.id) {
       await pause(OPEN_MS);
-      opened = await readIn(tab);
+      opened = await readPageIn(tab);
     }
     if (opened.chat?.thread?.id === next.thread.id) {
-      const said = await sendChat(job.hfos, job.businessId, options.memory, opened.chat, next);
+      const said = await sendChat(
+        job.hfos,
+        job.businessId,
+        options.memory,
+        opened.chat,
+        next,
+        home.platform,
+      );
       if (said) {
         read++;
         options.said?.(said);

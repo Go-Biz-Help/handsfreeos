@@ -17,7 +17,7 @@ import { company, urls } from '@/content/site';
 
  */
 
-const LAST_UPDATED = 'October 6, 2026';
+const LAST_UPDATED = 'October 15, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy: what we collect and why',
@@ -163,13 +163,33 @@ export default function PrivacyPage() {
           the right consent from every person you text, and for honoring STOP.
         </p>
         <p>
+          <strong>What we keep for texting.</strong> When someone agrees to get texts from a
+          business that uses HandsFreeOS, we keep their mobile number, which business they agreed to
+          hear from and what about, and the date and time they agreed. Offers are only ever sent to
+          someone who separately agreed to them. We also keep the texts sent and received, and any
+          STOP, START or HELP reply.
+        </p>
+        <p>
+          <strong>How it is used.</strong> To send the texts the person agreed to, to stop them the
+          moment they reply STOP, and to show the business its record of consent. Message frequency
+          varies. Message and data rates may apply. Reply STOP to any message to stop, or HELP for
+          help. The full texting terms are in{' '}
+          <Link href="/terms#messaging">section 5A of our terms</Link>.
+        </p>
+        {/*
+          Word for word the industry sentence a 10DLC reviewer scans for, the same as MOBILE_DATA_CLAUSE in
+          packages/core/src/messaging/policies.ts. Do not paraphrase it.
+        */}
+        <p>
           <strong>
             No mobile information will be shared with third parties or affiliates for marketing or
-            promotional purposes. Text messaging originator opt-in data and consent are never shared
-            with anyone.
+            promotional purposes. Information sharing to subcontractors in support services, such as
+            customer service, is permitted. All other use case categories exclude text messaging
+            originator opt-in data and consent; this information will not be shared with any third
+            parties.
           </strong>{' '}
-          Phone numbers and consent records are used to deliver the messages you send and nothing
-          else.
+          Phone numbers and consent records are used for the texts a business sends and nothing
+          else. They are never sold.
         </p>
         <p>
           Calls can be recorded and transcribed if your business turns that on. Whether you may
@@ -368,7 +388,10 @@ export default function PrivacyPage() {
         </table>
         <p>
           We also share information if the law makes us, to protect someone from harm, or if the
-          business is ever sold — in which case the buyer is bound by this policy.
+          business is ever sold — in which case the buyer is bound by this policy. None of this
+          sharing ever includes mobile numbers, or text messaging opt-in data and consent, for
+          anyone&rsquo;s marketing: see{' '}
+          <Link href="/privacy#messaging">Texting, calling and consent</Link>.
         </p>
         <p>
           <strong>

@@ -25,8 +25,8 @@ beforeAll(async () => {
 
 afterAll(closeTestDbs);
 
-describe('Social Outreach’s data versions 2 and 3', () => {
-  it('gives an older playbook’s questions answers, a pace and empty v3 parts, and leaves today’s alone', async () => {
+describe('Social Outreach’s data versions 2 to 5', () => {
+  it('gives an older playbook’s questions answers, a pace, follow-ups and empty newer parts, and leaves today’s alone', async () => {
     const before = {
       goal: 'demo',
       offer: null,
@@ -48,12 +48,14 @@ describe('Social Outreach’s data versions 2 and 3', () => {
     const today = PlaybookDetails.parse({
       ...before,
       questions: [{ id: 'q1', text: 'Is it doing what you need?', answers: [] }],
-      pace: { messageAfterDays: 2, followUpAfterDays: 5 },
+      pace: { messageAfterDays: 2, followUps: 5, followUpGaps: [1, 1, 2, 3, 5] },
       niche: 'Roofers with 2 to 3 crews',
       problem: null,
       proof: [],
       usefulWhat: null,
       usefulLink: null,
+      videoLink: null,
+      videoScript: null,
     });
     const [old, current] = await rows<{ id: string }>(
       admin(),
@@ -63,7 +65,7 @@ describe('Social Outreach’s data versions 2 and 3', () => {
           returning id`,
     );
 
-    for (const v of [2, 3]) {
+    for (const v of [2, 3, 4, 5]) {
       const step = outreachAddonWorker.dataMigrations![v]!;
       await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
         step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
@@ -81,10 +83,12 @@ describe('Social Outreach’s data versions 2 and 3', () => {
         { id: 'q1', text: 'Do you use a CRM?', answers: [] },
         { id: 'q2', text: 'Which one?', answers: [] },
       ],
-      pace: { messageAfterDays: 1, followUpAfterDays: 3 },
+      pace: { messageAfterDays: 1, followUps: 6, followUpGaps: [1, 1, 1, 2, 2, 2] },
       niche: null,
       proof: [],
       usefulLink: null,
+      videoLink: null,
+      videoScript: null,
     });
     expect(got(current!.id)).toMatchObject({ details: today, updated: false });
   });

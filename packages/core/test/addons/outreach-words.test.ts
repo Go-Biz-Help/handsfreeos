@@ -7,11 +7,11 @@ import { sameNamePeople, OUTREACH_WORDS as W } from '../../src/addons/outreach/w
 
 describe('Social Outreach’s shared words', () => {
   it('says how fast only for the steps a playbook takes', () => {
-    expect(W.pace(2, 3)).toBe(
-      'First message 2 days after they accept. Follow up after 3 quiet days.',
+    expect(W.pace(2, 6)).toBe(
+      'First message 2 days after they accept. 6 follow-ups until they answer, then a check-in each month.',
     );
     expect(W.pace(0, null)).toBe('First message the day they accept.');
-    expect(W.pace(null, 1)).toBe('Follow up after 1 quiet day.');
+    expect(W.pace(null, 5)).toBe('5 follow-ups until they answer, then a check-in each month.');
     expect(W.pace(null, null)).toBe('');
   });
 

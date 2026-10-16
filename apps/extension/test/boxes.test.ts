@@ -5,7 +5,7 @@
  * around each element, and expect the same.
  */
 import { describe, expect, it } from 'vitest';
-import { readPage } from '../src/facebook/page';
+import { readPage } from '../src/networks/facebook/page';
 import { boxEverything, load } from './load';
 
 const NOW = new Date('2026-10-05T12:00:00Z');

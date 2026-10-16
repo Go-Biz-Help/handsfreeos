@@ -19,8 +19,11 @@ asked of it from the app, the whole add-on on the phone, the setup, Social Outre
 good fits among friends and chats (growth part 1), stages with the moment to pitch (growth part 2), groups,
 theirs first, then new ones (growth part 3), posts asking for what the business offers, fast (growth part 4),
 helpful posts with the people who engage (growth part 5), the owner's notes after trying it (decisions 51 to 58:
-how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), and the redesign
-(decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look).
+how the AI writes, the chat so far beside a message, Start fresh and the setup's welcome), the redesign
+(decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look), and the main
+offer's plan (decisions 62 to 70: the playbook's niche, Get ready, the profile's check, the conversation: warm up,
+ask straight out, the video, the link, follow-ups until they answer; the short video's script; and the daily numbers,
+with the day's report and the week's review).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -117,7 +120,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 - **Chats** (`/a/outreach?view=chats`, decision 3): each one-to-one chat in the file, read by the AI from its latest
   20 messages: a short summary, the playbooks' tags that fit, whether they look like a prospect, and a next step. The
   likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag and a name narrow it,
-  50 to a page. Who goes in Contacts is the business's setting (Social Outreach → Settings → Business settings):
+  50 to a page. Who goes in Contacts is the business's setting (Social Outreach → Settings → General, For your team):
   anyone tagged or looking like a prospect (the default), everyone, or only likely prospects. They're added with their tags and a timeline
   line with the summary; someone already in Contacts gets the tags whatever it says.
 - **Chats read live** (decision 3, without waiting for the file): the extension sends each one-to-one chat the person
@@ -183,7 +186,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
   requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
-  Business settings), and friends to unfriend: only once the download file is in, and only those never kept, not in
+  General, For your team), and friends to unfriend: only once the download file is in, and only those never kept, not in
   Contacts, not on Don't pitch, with no likely-prospect chat, friends for over six months and with no message or step
   in six months either way. Under the Friends tab's **Tidy up** the person ticks who and presses **Cancel the ticked
   requests** or **Unfriend the ticked**, which asks their computer (`cancel`, `unfriend`): it opens each profile in a
@@ -245,7 +248,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   the playbooks say.
 - **Only certain countries, or not them** (decision 61, `countries.ts`, `ops/countries.ts`, the worker's
   `countries.ts`, the web's `business-settings.tsx`, `country-picker.tsx` and `country-skipped.tsx`): Social
-  Outreach → Settings → Business settings has **Which countries to reach**: **Anywhere** (to start), **Only these
+  Outreach → Settings → General has, under For your team, **Which countries to reach**: **Anywhere** (to start), **Only these
   countries** or **Not these countries**, with the countries picked by name (ISO two-letter codes underneath, kept in
   the add-on's settings as `countries`). Each person kept as a profile has a country: the one a line on their profile
   shows ("Lives in Austin, Texas", then "From Lagos, Nigeria"; `countryFromLines`), **seen**; or, when none does,
@@ -292,7 +295,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   window) and tells HandsFreeOS who wrote last in each, never what (`outreach.replies.note`). One that answers a
   message of the person's the extension noted is a reply: their phone hears "Dana Reyes wrote back", unless they had
   that tab in front of them, and they're on Today as a reply owed until the person answers. At the business's hour
-  (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → Business settings, in the business's time
+  (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → General, For your team, in the business's time
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
 - **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
@@ -359,17 +362,21 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   who to unfriend is one call to HandsFreeOS, so it has no count. The web and the phone take the first step not done
   as the one under way. It shows only while the day is started, and goes once every step is done.
 
-- **Settings in HandsFreeOS** (decisions 37 to 40, `/a/outreach?view=settings`, `automation.ts`,
-  `ops/automation.ts`, the web's `settings-view.tsx`, the extension's `src/hfos/follow.ts`): every setting the
-  extension follows is set here, never in the extension. **My settings** holds what it does on its own, Replies, the
-  working hours, the three switches it used to keep (**Note my steps on Facebook**, **Read chats as I open them**,
-  **Look for posts as I scroll a group**) and how the phone hears about messages waiting (`pushes`). **Business settings**, for owners
-  and admins, holds the choices people may pick, daily limits under the starting ones, where a new person starts
-  (`rules` in the business's Social Outreach settings), and the business's other Social Outreach settings
-  (`business-settings.tsx`), which used to be on the Add-ons page: that page now only links here (`settings-link.tsx`,
-  or a line saying where they are for people who can't change them). An owner or admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by". The extension
-  loads them when the person signs in and hears each change within seconds on the same live channel the web listens
-  on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
+- **Settings in HandsFreeOS** (decisions 37 to 40 and 73, `/a/outreach?view=settings&part=`, `automation.ts`,
+  `ops/automation.ts`, `settings-parts.ts`, the web's `settings-page.tsx`, `settings-view.tsx` and
+  `use-autosave.ts`, the extension's `src/hfos/follow.ts`): every setting the extension follows is set here, never in
+  the extension, a page for each part, each change saved as it's made. **General** holds the person's own on every
+  network: how the AI writes for them, the working hours and how the phone hears about messages waiting (`pushes`).
+  **Each network's page** holds On for you, what it does there on its own, Replies, helpful posts and along the way,
+  and on Facebook the three switches the extension used to keep (**Note my steps on Facebook**, **Read chats as I open
+  them**, **Look for posts as I scroll a group**). For owners and admins, **For your team** on General holds the
+  choices people may pick, where a new person starts (`rules` in the business's Social Outreach settings), and the
+  business's other Social Outreach settings (`business-settings.tsx`), which used to be on the Add-ons page: that page
+  now only links here (`settings-link.tsx`, or a line saying where they are for people who can't change them); and
+  **For your team on** each network's page holds whether the team may use it and its daily limits under the starting
+  ones. An owner or admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by".
+  The extension loads them when the person signs in and hears each change within seconds on the same live channel
+  the web listens on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
 - **Live status and control** (decision 41, `/a/outreach?view=live`, `live.ts`, `ops/live.ts`, `ops/day.ts`, the
   web's `live-view.tsx`, the extension's `src/hfos/live.ts`): the **Live** tab shows what the person's extension is
   doing right now, on which computer, the next step, today's counts against the limits, how many things wait for
@@ -381,11 +388,12 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   open. Last seen 2:14 PM." While it's shown, the tab asks again every minute, so a computer still beating never
   looks offline. A warning stops the day there too and pushes to the person's phone once that day. Owners
   and admins see each person's status, computer, counts and how many wait, never their lines or messages.
-- **Waiting for you** (decisions 40 and 42, `/a/outreach?view=waiting`, `waiting.ts`, `waiting-words.ts`,
+- **Waiting for you** (decisions 40, 42 and 72, `/a/outreach?view=waiting`, `waiting.ts`, `waiting-words.ts`,
   `ops/waiting.ts`, `ops/needs.ts`, the web's `waiting-view.tsx`, the worker's `waiting.ts`, the extension's
-  `src/hfos/waiting.ts` and `src/panel/waiting.ts`): one list of everything waiting for the person, worked out each
-  time (`outreach.waiting`), the same on the web's third tab, in the extension's panel after **Right now**, and as the
-  number on its icon. **Your computer needs you** (an ask with a step handed to the person, below, with **Carry on**, **Skip** and
+  `src/hfos/waiting.ts` and `src/panel/needs.ts`): one list of everything waiting for the person, worked out each
+  time (`outreach.waiting`), the same as **Needs you** on Today, on the web and the phone. The extension's panel no
+  longer lists it (decision 72, replacing the list in the panel that decisions 42 and 59 gave it): it says how many
+  things need the person in one line under Next up, with a link to Needs you, and the number is on its icon. **Your computer needs you** (an ask with a step handed to the person, below, with **Carry on**, **Skip** and
   **Stop**); **Replies handed over to you** (each waits for an OK of its own); **Messages to OK**, with **Approve all**,
   which leaves a reply handed over or one to someone who needs the person; **Steps it needs you for**, a step the
   extension couldn't do there and then (a button or box it couldn't find, a different page, Facebook not taking it, a
@@ -394,8 +402,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
   in their working hours ("5 messages wait for your OK", the default), or one for each; a reply handed over pushes at
-  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens the
-  side panel, or Waiting for you in HandsFreeOS.
+  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens
+  Needs you in HandsFreeOS in a tab (`outreachPath(…, 'waiting')`, at `#needs-you`), never the side panel (decision
+  72).
 - **Asking the extension** (decision 43, `asks.ts`, `ops/asks.ts`, `addon_outreach.asks`, the web's `asks.tsx`, the
   worker's `asks.ts`, the extension's `src/asks/run.ts` and `src/hfos/asks.ts`): what needs the browser is asked of
   the person's working computer from the app. The buttons on the Friends, Groups, Chats and Today tabs (and the
@@ -409,7 +418,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   connection). Each shows live under its button and in the Live tab's **Asked of your computer**, with **Stop**
   (`outreach.ask.cancel`). A step it can't find is handed to the person: the tab comes to the front, Chrome pops up,
   their phone hears "Your computer needs you", and Waiting for you lists it, with **Carry on** and, for someone
-  ticked, **Skip** (`outreach.ask.reply`), from the web, the panel or Waiting for you. A day with no computer on lets
+  ticked, **Skip** (`outreach.ask.reply`), pressed on the web or the phone; the extension hears the answer on the
+  live channel, or with its next look every 20 seconds. Its panel says what to do and to press Carry on in
+  HandsFreeOS → Needs you, with a link there, and keeps only **Stop** (decision 72). A day with no computer on lets
   an ask go; Chrome closing mid-way ends it as lost; half an hour with no answer stops it. Asks are kept a week.
 - **On the phone** (decision 44, `apps/mobile/src/addons/outreach/`, `words.ts`, `views/waiting.ts`): one item
   under More, **Social Outreach**, saying how many messages wait for the person's OK, opens the add-on's own screen:
@@ -433,8 +444,10 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   for you what needs the person there first (**Your computer needs you**), with **Carry on**, **Skip** and **Stop**
   (`outreach.ask.make`, `.reply`, `.cancel`, online); Playbooks are
   read by everyone and changed a part at a time by owners and admins, each save put on the playbook as it is now so a
-  change made meanwhile on the web stays; Settings has My settings, Settings for (owners and admins) and Business
-  settings, with **Where your team gets the extension** checked as the web's box checks it (`extensionLinkProblem`). Activity and Friends have a lot to look through, so they stay on the web (the manifest's `ui.phone`
+  change made meanwhile on the web stays; Settings has the web's menu and parts (decision 73), each part a screen
+  pushed over the menu (`?part=` in its address, the manifest's `ui.phone` reading `part` and `net`), with Settings
+  for (owners and admins), every change saved as it's made, and no Start fresh; **Where your team gets the
+  extension** is checked as the web's box checks it (`extensionLinkProblem`). Activity and Friends have a lot to look through, so they stay on the web (the manifest's `ui.phone`
   `web`), and so do their asks (the file, friend requests, friends, tidying), drafting a message with its look-up,
   copying an opener and the AI's playbook help. What the phone shows, but for Waiting for you's messages, needs
   signal, and says so plainly without it. What waits on the phone with no signal and goes when it's back
@@ -448,7 +461,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   `.cancel`), and the person menu's Add to Contacts, Demo booked and Don't pitch (`outreach.profile.contact`,
   `outreach.demo.mark`, `outreach.friend.set`). The words the web and the phone
   both say are core's `words.ts` (`OUTREACH_WORDS`), which the web reads too: its Settings, Waiting for you, Today
-  and Live tabs, its Business settings and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
+  and Live tabs, its Settings pages and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
   `sameNamePeople`), and its tabs' names and the labels its Playbooks, Groups and Chats tabs share with the phone. The web's step-by-step playbook builder keeps its own questions, which the phone doesn't ask. The helpers that write phone rows (`addon_phone_upsert` and the seals) run only as their owner: nobody
   signed in may call them.
 - **The setup** (decisions 36 and 45, `/a/outreach/setup`, `setup.ts`, `ops/setup.ts`, the web's `setup-view.tsx`):
@@ -464,9 +477,10 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   the bare Social Outreach page, and the extension opens it in a tab when they sign in (decision 21a); the
   phone's Social Outreach screen says to set it up on a computer until it's finished (`SETUP_WORDS.onPhone`, while
   `finishedAt` is empty, whether or not the web's line was hidden). The extension downloads from HandsFreeOS itself
-  (decision 60): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
+  (decision 71): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
   version and size, and the steps to load it into Chrome with Developer mode. A business that keeps its own copy
-  pastes its link under **Where your team gets the extension** (Business settings, on the web and the phone), and
+  pastes its link under **Where your team gets the extension** (Settings → General, For your team, on the web; and
+  on the phone), and
   everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
@@ -542,7 +556,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | Messages on their own, and training wheels               | `sends.ts`, `ops/sends.ts`, `supabase/migrations/20261027001300_outreach_sends.sql`                                                                                                                                                                                                 |
 | Waiting for you, and steps it needs you for              | `waiting.ts`, `waiting-words.ts` (no zod of its own), `ops/waiting.ts`, `ops/needs.ts`, `supabase/migrations/20261027001600_outreach_waiting.sql`                                                                                                                                   |
 | Waiting for you's tab, and its pushes                    | `apps/web/src/addons/outreach/waiting-view.tsx`, `apps/worker/src/addons/outreach/waiting.ts`                                                                                                                                                                                       |
-| The icon's number and the pop-ups                        | `apps/extension/src/hfos/waiting.ts`, `src/panel/waiting.ts`, `src/background.ts`                                                                                                                                                                                                   |
+| The icon's number, the panel's line, and the pop-ups     | `apps/extension/src/hfos/waiting.ts`, `src/hfos/needs-you.ts`, `src/panel/needs.ts`, `src/background.ts`                                                                                                                                                                            |
 | Lists first, before the day (decision 60)                | `lists.ts`, `ops/lists.ts`, `apps/extension/src/auto/lists.ts`, `src/jobs/people.ts`, `src/jobs/groups.ts`, `src/jobs/groups-check.ts`, the web's `pre-day-list.tsx`, `supabase/migrations/20261027002800_outreach_list_saves.sql`, `20261027002830_outreach_list_saves_groups.sql` |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                                              |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
@@ -557,7 +571,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | The setup, in HandsFreeOS                                | `setup.ts`, `ops/setup.ts`, `apps/web/src/addons/outreach/setup-view.tsx`, `extension-link.tsx`, `/a/outreach/setup`                                                                                                                                                                |
 | The extension's first run, and the setup's table         | `apps/extension/src/hfos/setup.ts`, `supabase/migrations/20261027001900_outreach_setup.sql`                                                                                                                                                                                         |
 | How the AI writes, and a message as a few texts          | `voice.ts`, `today.ts` (`checkedDrafts`), `apps/worker/src/addons/outreach/today.ts`, `apps/extension/src/auto/run.ts`, `supabase/migrations/20261027002600_outreach_voice.sql`                                                                                                     |
-| The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`, `apps/extension/src/panel/waiting.ts`                                                                              |
+| The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`                                                                                                                     |
 | Don’t pitch covering a person kept twice                 | `ops/common.ts` (`neverTwins`, `pitchable`), `supabase/migrations/20261027002500_outreach_dont_pitch_twins.sql`                                                                                                                                                                     |
 | Start fresh                                              | `apps/web/src/addons/outreach/start-fresh.tsx`, core’s `addon.start_fresh`, `apps/extension/src/hfos/follow.ts` (`forgetOnFreshStart`)                                                                                                                                              |
 | The extension                                            | `apps/extension`                                                                                                                                                                                                                                                                    |
@@ -728,19 +742,7 @@ openers on group posts") and answered its questions the same day. These are sett
     take turns with them, and a results card shows the replies and demos for each. Built.
 24. **The demo link is built now,** so a booking through it counts by itself. The "Demo booked" mark stays too.
     Built.
-
-The owner asked on 12 Oct 2026 for the extension's zip to be in HandsFreeOS for people to download, with the steps to
-install it in Chrome with Developer mode. That replaces "kept wherever the team keeps files, never in HandsFreeOS's
-code" (decision 45's install step). Settled too:
-
-60. **HandsFreeOS hands out the extension.** The web app serves the build its own code makes
-    (`/downloads/hfos-social.zip`): every deploy zips the extension as it builds, so nobody releases or uploads
-    anything by hand, and a deploy always hands out the extension its code has. The setup's install step
-    and Settings → Your computer have **Download HandsFreeOS Social** with its version and size, and the steps:
-    unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
-    Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
-    signed in. A business's own link (**Where your team gets the extension**) still wins when it gives one. Built.
-61. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
+25. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
     tab, friend requests stay off Today for 2 days, and the extension stops for the day. Built.
 
 They come in three parts: cancelling and unfriending with the warnings (17 and 25); then openers on group posts, help
@@ -754,7 +756,8 @@ than a store extension, and for more features, and answered the questions the sa
     (c) **Approve all** each morning. Choosing (b) starts training wheels. Built: off and the steps of (a) in automation part 1;
     messages in automation part 3 (`packages/core/src/addons/outreach/sends.ts`). With any choice but off, the extension looks
     each person up and drafts their first message, follow-up or reply with the AI, which waits as "I'd send this" in
-    the panel and on Today: **Send** (changed or not), **Skip** (off the list for today), or **Approve all**. With
+    the panel (replaced by decision 72: in HandsFreeOS only) and on Today: **Send** (changed or not), **Skip** (off
+    the list for today), or **Approve all**. With
     (c) it drafts the day's messages first thing, before the other steps; with (a) after them. With (b), once the
     training wheels are off, a first message or follow-up goes as it is. What's OK'd, the extension sends in
     Messenger, in the chat when HandsFreeOS knows it, else from their profile's **Message**, at a person's pace, and
@@ -787,7 +790,7 @@ than a store extension, and for more features, and answered the questions the sa
     tries others with the rest, and Today puts people from them ahead of others who fit as well. The **weekly
     report**: on Monday at the morning push's hour (8 when that's off), each person who used the extension that week
     gets an email of their friend requests, chats started, replies and demos, their best group and their best
-    opener; an owner or admin with a team gets the team's too. It's on to start: Social Outreach → Settings → Business settings turns it
+    opener; an owner or admin with a team gets the team's too. It's on to start: Social Outreach → Settings → General (For your team) turns it
     off, and Settings → Account turns off all add-on emails (`packages/core/src/addons/outreach/results.ts`,
     `apps/worker/src/addons/outreach/weekly.ts`).
 35. **Automation and features are built side by side,** one PR at a time.
@@ -817,8 +820,9 @@ showing what's going on and prompting, the app and the phone live too, and answe
 (`questions-10-oct-settings.md` in the project's files). These are settled too:
 
 37. **Every setting lives in HandsFreeOS,** on Social Outreach's **Settings** tab: **My settings** and **Business
-    settings**. The extension keeps none of its own: it loads them when the person signs in and follows a change
-    within seconds while Chrome is open. Built (settings part 1).
+    settings** (updated by decision 73: a page for General, one for each network, Your computer and Start fresh). The
+    extension keeps none of its own: it loads them when the person signs in and follows a change within seconds while
+    Chrome is open. Built (settings part 1).
 38. **Each person picks their own, inside the business's rules:** the choices owners and admins allow, their daily
     limits (at most the starting ones), and the defaults a new person starts with. A choice the business stops
     allowing steps back to the nearest one it allows. Built.
@@ -844,7 +848,9 @@ showing what's going on and prompting, the app and the phone live too, and answe
     **Right now** since settings part 4, the number on its icon, and pop-ups bundled as the phone's pushes are); "what it needs the person for" is a step the
     extension couldn't do there and then. Built on the phone too (settings part 5), on the same operations, its messages kept
     on the phone. The owner confirmed (10 October) that **Approve all** leaves out replies handed over and messages to
-    someone who needs the person: each waits for an OK of its own.
+    someone who needs the person: each waits for an OK of its own. The list in the extension's panel is replaced by
+    decision 72: the list is on the web and the phone only, and the extension keeps the number on its icon, the
+    pop-ups (which open it in HandsFreeOS) and a line in its panel saying how many things wait there.
 43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
     in the app; what needs the browser is started there and done by the extension. More can be added later. Built
     (settings part 4): the panel keeps signing in with the business picker, **Right now** (what it's doing, the next step, why
@@ -852,7 +858,9 @@ showing what's going on and prompting, the app and the phone live too, and answe
     and **Stop for today**, and an ask under way with **Carry on**, **Skip** and **Stop**), **Waiting for you**, and
     **Open HandsFreeOS**; the page outline stays, folded away in its footer. The rest is asked from the app's Friends,
     Groups, Chats and Today tabs (`asks`, **Asking the extension** above), and the phone's Groups and Chats screens
-    (settings part 5), and reading as the person goes moved into the Facebook tab itself.
+    (settings part 5), and reading as the person goes moved into the Facebook tab itself. Waiting for you in the panel,
+    and Carry on and Skip on the ask under way, are replaced by decision 72: the ask keeps only **Stop**, and a step
+    handed over says to press Carry on in HandsFreeOS → Needs you.
 44. **The whole add-on on the phone,** as one item under More: settings, Waiting for you (which works offline and
     sends when back online), the live view, Today, Groups, Chats, and Playbooks with editing. Built (settings part 5):
     Waiting for you's messages reach phones through records_v1's sealed arm, as rows of `addon_phone_rows` kept to
@@ -916,7 +924,8 @@ defaults, a few texts on to start), the choice made is said, for the owner to ch
     place and by username in another, so the same friend was kept twice, and only one was on the list. Don't pitch now
     covers a profile kept under the same name on the same network. Built.
 52. **See the chat so far when a message waits for an OK,** to know where it's going: its latest messages as chat
-    bubbles above it, on Today and Waiting for you on the web, the phone and the extension's panel. Built.
+    bubbles above it, on Today and Waiting for you on the web, the phone and the extension's panel. Built. The
+    extension's panel is replaced by decision 72: no message waits there, so it shows no chat bubbles.
 53. **The AI writes plainly:** everyday words a 10-year-old knows, short sentences, relaxed, and never a long dash.
     Each person picks their voice on the Settings tab (and in the setup's settings step), with a sample of how a
     message reads: short forms like "u" and "thx", text acronyms like "lol" and "btw", an emoji now and then, all off
@@ -954,19 +963,25 @@ design system ("Social Outreach redesign", a Design canvas), and said to build a
       (found and warming up counted above it), one stage or a search a list; moving someone to another stage is in
       their menu; and Friends and Chats beside it.
     - **Groups**, as it was; why its buttons wait is said once under the tabs, as on People.
-    - **Results** (`?view=results`, the old `?view=activity`): demos booked first, then reached, chats started, wrote
-      back and booked, each with how many of the step before made it, what was done along the way, by group and by
-      person. The day against the limits moved to Today's strip.
+    - **Results** (`?view=results`, the old `?view=activity`): the three numbers to watch every day against the
+      person's targets, the two rates, the week's review, and the numbers by playbook and offer version (decision
+      70); then demos booked, reached, chats started, wrote back and booked, each with how many of the step before
+      made it, what was done along the way, by group and by person. The day against the limits moved to Today's strip.
     - **Settings**, the gear: a menu of My settings, Business settings, Playbooks, Your computer and Start fresh;
-      where a new person starts is folded to a line until changed.
+      where a new person starts is folded to a line until changed. The menu is updated by decision 73: General, each
+      network, then Playbooks, Your computer and Start fresh, a page for each; where a new person starts stays
+      folded, on General.
     - **On the phone** the same four tabs at the top of one screen, with the gear for Settings (Playbooks and the
       computer in it): Today with the strip, Needs you (offline as before) and the list; People with the Pipeline
-      and Chats, Friends on the web; Groups; and Results, a summary with the posts liked and commented on (the
+      and Chats, Friends on the web; Groups; and Results, the three numbers and the week's review (decision 70), a
+      summary with the posts liked and commented on (the
       person's own; a tap opens the post on Facebook), person by person and the team's posts on the web.
     - **The panel** (0.26.0): the business and a state chip in the top bar; the first run's three steps over signing
       in; **Next up** with today's steps as bars and Start or Stop; **Needs you**; **Done today**, the newest steps
       (both from `outreach.live`); and at the foot the settings line, who's signed in, Open HandsFreeOS and
       **Something look wrong on this page? Tell us**. Pushes and pop-ups say Today where they said Waiting for you.
+      The panel's **Needs you** is replaced by decision 72: a line under Next up says how many things need the
+      person in HandsFreeOS, with a link to Needs you there.
 
     Built.
 
@@ -996,8 +1011,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     playbook picks one niche inside its who, with that niche's biggest problem and its own proof, picked from the
     offer's or its own and never invented. The AI says when a niche looks like a second offer. A playbook's offer
     starts as the main offer's outcome in a few words, and it keeps something useful to send someone who never
-    answered. Built (data version 3). The short video's link and script, and the new pace, come with the plan's steps
-    7 and 6.
+    answered. Built (data version 3). The new pace came with the plan's step 6 (decision 67), and the short video's
+    link and script with step 7 (decision 69).
 63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
     results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
     live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), every item
@@ -1010,8 +1025,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     joining groups. A member waits on the business's two and does their own meanwhile. A new main offer version asks
     everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
     `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
-    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** (the sample
-    messages and the video's link) joins with the plan's steps 6 and 7.
+    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** joined with
+    the plan's step 6 (decision 68), so it's five items, and waits on the playbook's short video (decision 69).
 64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
     person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
     it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
@@ -1023,6 +1038,151 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     check; where it can't, it hands the step to them (**Carry on**). The picture, the cover and what's featured stay
     tips: the extension never changes them. A check of an older main offer version counts for nothing, as old ticks
     don't. Built on the web, the phone and the extension; tuned from page outlines, not yet tried on a real account.
+65. **Warm up, then ask straight out** (the owner's decisions: direct after they accept; warm up with likes and
+    comments first). Before a friend request the extension likes one of their posts, and when the post is about their
+    work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
+    the **First message** asks straight out whether they'd be open to the main offer's outcome on its guarantee, and
+    says more info follows if so. A personal line goes first only when the look-up found something real that fits.
+    The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
+    This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
+    another way (Reconnect, the download file, people who wrote first). Built.
+66. **The video, then the link.** The AI reads each answer to a step while drafting the reply to it: yes, a
+    question, not now or no (`answerOf`; the worker keeps it with `outreach.answer.note`). A reply's sighting carries
+    no words, so the extension reads the chat before drafting (`bringInChat`). A yes moves them on: to **Send the
+    video** (the playbook's short video with a line selling the call), or with no video yet straight to **Send the
+    link** (the demo link, decision 24), and after the video to the link. The draft comes back as that step, and the
+    extension queues it so. A question gets a short answer and why a call helps; not now, a check-in a month on; a no
+    ends it and marks them not a fit, unless the person marked them themselves. On Today, the web copies the link or
+    the video's link alone too. The playbook's video link is written in the plan's step 7; until then a yes gets the
+    link. Built.
+67. **Follow-ups until they answer, then once a month.** Whoever goes quiet after a step gets 5 to 7 follow-ups (6 to
+    start), each so many quiet days after the last message (1, 1, 1, 2, 2, 2 to start: the playbook's pace, data
+    version 4), then a **check-in** each month with the playbook's something useful to send. It goes on until they
+    answer, say no or are marked not a fit, or the person presses **Stop checking in** (`outreach.conversation.stop`);
+    sending them the next step, or answering them, goes on again. No longer only for chats read as a prospect. Each
+    person's conversation with each profile is a `follow_ups` row: the step, the follow-ups sent, what's next and
+    when, and their answer. A draft copied on Today to send by hand is noted as sent (`outreach.conversation.note`;
+    the link marks them pitched); a message the person types themselves puts the next follow-up off about a day. Today
+    lists replies, Send the link, Send the video, first messages, follow-ups and check-ins in that order, each
+    follow-up saying which of how many it is; the link, the video, follow-ups and check-ins share the follow-ups'
+    daily limit. Built on the web, the phone and the extension.
+68. **A yes counts, by the offer's version.** A yes is kept as a positive reply, once (`stages.positive_at`).
+    Everyone pitched keeps the main offer's version of their first step, and what follows uses its words
+    (`follow_ups.offer_version`, `sends.offer_version`). The main offer's page shows how the live version is doing
+    (`outreach.offer.versions`, in core's `main_offer.panels` slot): first messages, yeses and calls booked, too new to
+    judge before 100 first messages; owners and admins see everyone's, anyone else their own. Get ready's **Your
+    messages** shows sample messages the AI writes for the person's playbook in their voice, to someone made up (the
+    worker's `outreach.messages.samples`): the first messages, the video, the link, the follow-ups with their days, and
+    a check-in. They OK how they read against the live version (`outreach.readiness.messages`), and a new version
+    asks again. The phone shows the samples written on the computer and OKs them. Built.
+69. **The short video, scripted by the AI** (the owner's decisions: the AI writes the script; one video per
+    playbook, each person's own later). On the playbook, under **Short video**, the AI writes the script from the
+    live main offer and the playbook's niche (the worker's `outreach.video.script`, `video.ts`): six parts, each with
+    what to say and what to show (who it's for and the problem, what it costs them, how it works, proof, why a call
+    helps, what to do next), 2 to 4 minutes spoken. **Improve** writes one part again, **Write it again** the whole
+    script, and the business changes the words as it likes. Proof comes only from the real results given; with none,
+    the script leaves "[your result]" to fill in. Recording tips sit beside it, and the person records it themselves
+    and pastes its link (Loom, YouTube or Google Drive: https, with a real host). The playbook keeps both (data
+    version 5); a script written for an older main offer version says so. **Your messages** is done only once a
+    playbook in use has its video linked: an owner or admin links it, and anyone else waits on them. The phone shows
+    the script and changes the link; the script is written on the web. Built.
+70. **The daily numbers** (the main offer plan's step 8; `tracking.ts`, the boards in `design/tracking`; the owner's
+    decision: the day's report is on to start). Results leads with the three numbers the video says to watch every
+    day: first messages sent, said yes (`stages.positive_at`) and calls booked (`demos`, not taken back), for today,
+    the last 7 days or the last 30 (`outreach.tracking`). Each has the person's target from their goal on Get ready's
+    Your numbers (`targetFor`: the first messages the goal takes at the worst rate, never past Facebook's safe pace,
+    and the yeses and calls it takes), and the two rates between them stand against the usual ones (4 to 8% say yes,
+    1 in 3 of them book), "too few to tell yet" under 25 first messages or 3 yeses. Below them, by playbook (the one a
+    first message's opener came from, `opener_uses`) and by the main offer's version each person was first pitched
+    with (`follow_ups`). Someone counts as messaged from their first chat started or first pitch, whichever came
+    first. Owners and admins see everyone's counts, with no targets and no review: each person's answers and
+    conversations are their own, so every count comes through `private.outreach_numbers_by_network`, counts only, and the main
+    offer page's numbers by version now count the team's yeses too. **The day's report**: at the end of the person's
+    working hours on a day they sent something, a push with the day's numbers and how far from the target ("Today:
+    14 messages, 2 said yes, 1 booked. 1 more message hits your target."), on their add-ons switch, off in My
+    settings (`dayReport`; a screen from before it keeps the one kept). One job a person (`outreach.day_report`),
+    armed when they start their day or save their settings and by the morning push, back each working day while they
+    note steps. **The week's review**: on Monday at the morning push's hour, for each person who noted a step in the
+    last two weeks, the AI reads last week's numbers (Monday to Sunday) and says what to fix first, in the video's
+    order (`fixFirst`): too few messages (volume), then fewer than 4% saying yes (the message or the offer), then
+    fewer than 1 in 3 booking (the video and the follow-ups), else keep going. Counted against the AI limit; when the
+    AI can't write it (the day's limit, the wallet, an answer it can't use), the numbers' own words (`rulesReview`).
+    Kept for Results (`addon_outreach.reviews`, each person's own) and pushed, once. **A new main offer**
+    (`main_offer.published`) pushes to whoever OK'd their messages against an older version, as Get ready asks them to
+    look again. The phone shows the numbers, the review and the breakdowns on Results, and the switch in its settings.
+    Built.
+
+The owner asked on 12 Oct 2026 for the extension's zip to be in HandsFreeOS for people to download, with the steps to
+install it in Chrome with Developer mode. That replaces "kept wherever the team keeps files, never in HandsFreeOS's
+code" (decision 45's install step). Settled too:
+
+71. **HandsFreeOS hands out the extension.** The web app serves the build its own code makes
+    (`/downloads/hfos-social.zip`): every deploy zips the extension as it builds, so nobody releases or uploads
+    anything by hand, and a deploy always hands out the extension its code has. The setup's install step
+    and Settings → Your computer have **Download HandsFreeOS Social** with its version and size, and the steps:
+    unzip it to a folder you keep, turn on Developer mode at chrome://extensions, Load unpacked, pin it, sign in on
+    Facebook; Chrome's note about developer mode, and how to update. Today's strip links there while no computer has
+    signed in. A business's own link (**Where your team gets the extension**) still wins when it gives one. Built.
+
+The owner decided on 16 Oct 2026: "Get rid of the Needs you and chats on the extension. We should only see progress,
+activity, stuff like that on the extension. Everything else is shown in the HFOS web app." That replaces the parts of
+decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the extension's panel. Settled too:
+
+72. **The extension shows progress and activity only** (Chris, 16 Oct 2026). The panel keeps signing in, Next up
+    (what it's doing or does next, today's steps against the limits, **Start my day** and **Stop for today**), each
+    network's line (**Allow on LinkedIn**, its warnings, its runner's line), **Done today**, the settings line, the
+    link to HandsFreeOS, and **Copy page outline** and **Save page outline**. Needs you is on the web and the phone
+    alone: no message to OK, chat so far, reply, step to do or friend request is listed or answered in the panel.
+    - **A line under Next up** while anything waits: "3 things need you in HandsFreeOS" ("1 thing needs you…" for
+      one), a link to Needs you on Today (`outreachPath(…, 'waiting')`, at `#needs-you`); nothing when none wait. Its
+      count is the icon's, from `outreach.waiting`.
+    - **An ask under way** keeps its line and **Stop**. A step it hands the person says what to do, then to press
+      Carry on (and Skip, for someone ticked) in HandsFreeOS → Needs you, with a link there; Carry on and Skip are
+      pressed on the web or the phone (`outreach.ask.reply`), and the extension hears the answer on the live channel
+      or with its next look.
+    - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
+      HandsFreeOS in a tab, never the side panel.
+
+    Built in 0.44.0; the extension is 0.46.0 now.
+
+The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
+all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
+system ("Social Outreach settings by platform", a Design canvas), and said to build it like the design. That updates
+where decisions 37 and 59 put the settings; what they decided stands. Settled too:
+
+73. **Settings, a page for each part** (Chris, 16 Oct 2026). The Settings tab is a menu beside one page at a time
+    (`?view=settings&part=`, core's `settings-parts.ts`, the web's `settings-page.tsx`):
+    - **The menu:** Settings with **General**; Networks with each network the add-on works, saying **On** or **Off**
+      for the person shown, then the networks still to come (Instagram, Alignable, Threads, X and TikTok) as
+      **Soon**, which don't open; and More with **Playbooks**, **Your computer** (the person's own) and **Start
+      fresh** (an owner's). In a phone's browser it's a list to pick from, above the page. Owners and admins keep
+      **Settings for** above every page, and a part keeps whose settings they're looking at. An address naming no
+      part, or the old `#mine` and `#business`, opens General.
+    - **General** is the person's own on every network: how the AI writes for them, their working hours, and how their
+      phone and the extension tell them what waits, with the day's report; **Set up again**; and **Changed by**. For
+      owners and admins, **For your team**: the choices people may pick, where a new person starts (folded), where
+      the team gets the extension, who from chats goes in Contacts, when friend requests are suggested for
+      cancelling, the morning push, the weekly report and the countries it reaches. Who goes in Contacts and when to
+      cancel are one setting each for the whole business, on every network, so they're on General, not on Facebook's
+      page as the design drew them. Anyone else sees who sets the choices they may pick.
+    - **Each network's page**, in that network's words: **On for you** beside its name, which saves at once with its
+      line beside it (Chris, 2026-10-16). A network the business doesn't use says so and who can allow it; one that's
+      off says so. While it's on: the first time's **Allow** in Chrome (every network but Facebook), its training
+      wheels, what it does on its own, replies and helpful posts, along the way, on Facebook the extension's three
+      switches, and **Your daily limits on** it, read only: the business's own there, halved while its training
+      wheels are on, with its cap in any 7 days and the kit's other limits (`limitsShownOn`). For owners and admins,
+      **For your team on** it: **Your team may use** it (Facebook is always allowed), and its daily limits for each
+      person, at most its starting ones.
+    - **Every change saves as it's made** (the web's `use-autosave.ts`): no Save button, but the extension's link
+      box's own. A click saves at once, and typing after a short pause or on leaving the field; one save at a time
+      for each form, with a change made meanwhile in the next. The line under the page's title says changes save as
+      they're made, Saving…, Saved, or the server's words when one is refused, and the form goes back to what's kept.
+      A change saved elsewhere starts the form again only while nothing of its own waits or saves. The person's
+      settings go through `outreach.automation.save` and the business's through `addon.save_settings`, as before.
+    - A choice that starts training wheels starts them as soon as it's picked, so it says so before it's picked.
+
+    Built on the web and the phone. The phone has the same menu and parts, each part a screen pushed over the menu
+    (`?part=` in its address), and no Start fresh. The setup keeps its own Save and Next buttons.
 
 ## Rules worth knowing before changing anything
 
@@ -1084,7 +1244,7 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   or hidden (`showsSetupBanner`). The groups step lists the groups the person is in that the extension saved last
   (`groups.latest`), which **Save my groups** (an ask, there and on the Groups tab) fills from their own groups page
   (facebook.com/groups/joins/), where each group listed is saved as one they're in.
-- **HandsFreeOS hands out the extension** (decision 60): the web app's `build` and `dev` first run the extension's
+- **HandsFreeOS hands out the extension** (decision 71): the web app's `build` and `dev` first run the extension's
   `scripts/download.mjs`, which builds it for the HandsFreeOS the web app's own settings name (`NEXT_PUBLIC_API_URL`,
   `NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, read as Next.js
   reads them) and zips it to `apps/web/public/downloads/hfos-social.zip`, which git ignores. `next.config.ts` gives
@@ -1136,6 +1296,136 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   phone overnight) changes nothing and is passed over quietly, never refused, and a warning stops the day whatever was
   pressed, for the rest of that day. The extension follows the answer to each beat, except while a press of its own waits to
   be sent, and never undoes a warning it saw itself.
+- **Each network is on its own** (Chris, 15 Oct 2026; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): a warning
+  or a pause on one network never affects another. A day is a network's (`days.platform`, `outreach.day.*`'s
+  `platform`, Facebook when left out), a warning is the network's that showed it (`warnings.platform`; `warningOf`,
+  `warnDay`), and a day's steps count against that network's limits alone (`dayCounts`, through the touch's profile).
+  A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
+  kept apart. On LinkedIn the extension notes the person's own steps, who wrote back and LinkedIn's warnings, as
+  LinkedIn's (0.34.0, apps/extension/README.md, "The networks"), and takes no ask there before 0.40.0
+  (`ASK_NETWORK_SINCE`); the team's live view, the activity panel and joining groups are Facebook's. A new place that
+  reads a warning, a day or the day's counts names its network.
+- **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
+  on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
+  (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, joining
+  groups, watching for posts, helpful posts), kept in `automation.networks` and off to start (20261027007100). Read
+  one network's with `choicesFor`, or `automationOf(ctx, me, now, platform)`, never the top-level fields for a network
+  that isn't Facebook. The business allows networks (`rules.networksAllowed`, every one to start, Facebook always)
+  and sets each other network's limits under its starting ones (`rules.networkLimits`); a network it stops allowing
+  reads as off (`withinRules`), and turning one on that it doesn't allow is refused (`not_allowed`). Each network's
+  training wheels are its own (`automation.network_wheels`, Facebook's in the wheels columns): choosing (b) on
+  LinkedIn starts LinkedIn's, its messages count toward them (`countWheels` by the message's network), LinkedIn's
+  warning puts back only LinkedIn's (`wheelsBackOn`), and `outreach.wheels.end` and `outreach.wheels` take and give
+  the network. A network that's off has no day to start (`outreach_network_off`) and nothing done on its own.
+- **Each network's Today, asks and lists are its own.** `outreach.today` lists only its network's people (the
+  `platform` folded into the country filter every pick uses, and the replies and chats read by their own). An ask is
+  made on a network (`outreach.ask.make`'s `platform`, kept in `asks.platform`, 20261027007200): only the kinds that
+  network can be asked (`ASK_KINDS_ON`; LinkedIn's: its invitations and connections, checks, chats, a look-up,
+  research, the profile, withdrawing old invitations, post search and a post), only while the person works it, named
+  by its network in its target (`askTargetOn`) so it never answers another's, ended at the take by that network's
+  warning alone, and never handed to a build older than the network's first (`ASK_NETWORK_SINCE`, LinkedIn 0.40.0)
+  or than the kind's first there (`ASK_KIND_SINCE_ON`: LinkedIn's file 0.42.0, its helpful post 0.43.0);
+  the take says the ask's network. The lists saved before the first day are each network's (`outreach.lists` and
+  `outreach.lists.saved` take `platform`; other networks' in `list_saves.network_saves`): LinkedIn's first day saves
+  connections and invitations either way, then works out old invitations to withdraw and checks connections, with no
+  groups (`LIST_SAVES_ON`, `LIST_MARKS_ON`, `PRE_DAY_WORDS_ON`).
+- **Each network is in the app** (the plan's build order, step 3), on the web and the phone alike, from one copy of
+  its logic and words in core (`network-words.ts`):
+  - **Each network has its page in Settings** (decision 73, on the web and the phone): **On for you**
+    beside its name, inside what the business allows, and while it's on, its own choices (the same as Facebook's, off
+    to start on any other network) and its own training wheels, saved through `outreach.automation.save`'s
+    `networks`. Facebook's choices stay the settings' own (`choicesFor`, `withNetwork`). A network the business
+    doesn't use is shown off, saying why and who can change that (`NETWORK_WORDS.notAllowed`: owners and admins turn
+    on **Your team may use** it below, anyone else asks them). **The switch saves at once** (Chris, 2026-10-16), for
+    the person's own settings and for an owner or admin changing someone else's, as every change there does now:
+    while it saves, the switch is busy; once saved, a line beside it says so (`NETWORK_WORDS.switched`: "LinkedIn is
+    on. The extension picks it up in a few seconds."); refused, it goes back with the server's words. The setup's
+    networks step keeps its own Next.
+  - **For your team on a network's page** allows it (`networksAllowed`, Facebook always) and sets its daily limits
+    for each person, each at most the kit's starting one (`dailyLimits` for Facebook, `networkLimits` for the rest).
+  - **Today is each network's:** `outreach.live` takes a `platform` and gives that network's day, warning, limits,
+    choice and first lists (the computers, what the working one says and the feed stay the person's); with more than
+    one network on, the strip is a row for each, by name, with its own Start my day and Stop for today and its own
+    warning line (**Start all** and **Stop all** press each), and the list below is the one shown (`?net=` on the
+    web, picked on the strip on the phone). Asks made from a network's screens carry its `platform`, and a button for
+    a kind it can't be asked doesn't show (`askableOn`, `cantAskWhy`, `latestAskOn`).
+  - **The network is on every row, by its name, never a logo** (Chris): the pipeline, friends, chats and Results'
+    people (`platform` on each row of `outreach.stages`, `outreach.friends`, `outreach.chats` and
+    `outreach.activity`), and Needs you's items, from their link (`networkOfWaiting`), so the phone's copy of the
+    messages needs nothing more. The pipeline, friends and chats narrow to one network (their input's `platform`,
+    counts too; every network's when left out).
+  - **Results add "By network"** beside "By playbook" and "By offer version" (`outreach.tracking`'s `byNetwork`):
+    one goal for every network, each network's share of the first messages. `private.outreach_numbers_by_network` gives each
+    count's network, from the profile reached (20261027007400).
+  - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
+    on each; **the setup has a step to pick networks** (`networks`, between the team's rules and the person's own
+    settings, 20261027007400).
+  - **Screens say a network's own words** from its kit, or a word for all of them: an invitation to connect or a
+    friend request (`dailyWordsOn`, `todayKindsOn`, `sendingModesOn`, `ticksOn`), LinkedIn messaging or Messenger
+    (`chatUrlOn`, `openChatWords`), an ask by its name there (`askNameOn`: Withdraw old invitations, Put your new
+    headline in), and a warning's note names its network (`warningNote`'s `platform`).
+  - **LinkedIn works end to end from the app:**
+    - **Get ready is the network shown's** (`outreach.readiness`'s `platform`): its profile part is the network's own
+      list in its words (`profileWordsOn`), each item ticked and checked on that network, its headlines to pick from
+      with **Put this one in** (a `profile_edit` ask there, up to the network's own length: Facebook's bio 101,
+      LinkedIn's headline 220, else `outreach_bio_too_long`), LinkedIn's About to start from with Copy, and **Read my
+      profile** on that network. Each other row of the strip waits on its own readiness, and says when its own
+      profile is what's left (`READY_WORDS.stripNotReadyOn`).
+    - **The helpful post is each network's** (`outreach.helpful`, `.ask` and the `post` ask with its `platform`):
+      LinkedIn's goes on the person's own feed, so the card says "Your LinkedIn feed" where a group's name would be,
+      and **Open LinkedIn** in place of Open the group (`helpfulWordsOn`, `helpfulWhere`, `helpfulOpenUrl`), by
+      LinkedIn's own posting choice (`postingAboutOn` under it on LinkedIn's page in Settings).
+    - **Today's comments on a post with no group** (LinkedIn's post search) say "On LinkedIn", and open the post; a
+      warm lead from the person's own feed says "on LinkedIn" too.
+    - **Friends narrowed to LinkedIn tidies LinkedIn alone:** its card offers withdrawing old invitations, never
+      removing a connection (`tidyWordsOn`'s `kinds`, from the kit's `tidyLimits`). `outreach.friends.tidy` counts
+      each network's withdrawals, friends and download file on its own.
+    - **The Live tab is each network's** (`?net=` on the web, its names on the phone), with that network's Start my day
+      and Stop for today, counts, first lists and warning.
+- **Each network has its kit** (`networks.ts`, `NETWORKS`): its name, the start of its links, the shape of a
+  profile's id and name and a chat's id, how many friends it allows, its starting daily limits (LinkedIn's: 15
+  invitations, at most 80 in any 7 days, 15 first messages, 20 follow-ups, 10 comments, 30 likes, 40 profiles read,
+  20 old invitations withdrawn), and its words for a friend, a friend request and its messaging. What differs from one
+  network to the next goes there, never into an `if`. Saves take a link and ids of any network it knows
+  (`NetworkUrl`, `ThreadKey`), and every save that keeps a profile refuses one that isn't on the network named
+  (`requireFits`, `profileMisfit`, `outreach_wrong_network`). The database keeps ids to short, plain characters
+  (20261027006900). A network's cap on requests in any 7 days (`weeklyRequests`, LinkedIn's 80 invitations) holds
+  Today's `friend_request` limit to what's left, and Today says it (`week`). Checks go by network too:
+  `outreach.checks.next` takes a `platform`, lists that network's people, and keeps to its own profiles read a day
+  (`checksPerDay`), halved by a warning there alone.
+- **Each network's profile in Get ready is its own.** A LinkedIn day waits on LinkedIn's profile, never on
+  Facebook's (`readinessFor` and `outreach.readiness` take a `platform`; Start my day and Today ask with theirs).
+  LinkedIn's checklist (`PROFILE_ITEMS_ON`) has its photo, banner, headline (the `bio`, up to 220 characters), About,
+  Experience, Featured and activity; its AI (`LINKEDIN_PROFILE_CHECK_SYSTEM`) writes three headlines, the opening of
+  an About (`aboutDraft`) and a banner line. Its ticks and check are kept in `setup.network_profiles` (20261027007300),
+  Facebook's in their columns as before; `outreach.readiness.profile` and `outreach.profile.check_save` take the
+  network, and `ProfileRead` says which network the extension read. The not-ready words name it: "Your LinkedIn
+  profile isn’t ready yet."
+- **Growing on LinkedIn** (the plan's part 6). A post LinkedIn's post search finds is kept in no group
+  (`outreach.posts.save` with `found: 'search'` and no `group`, refused on Facebook), checked by the AI and offered to
+  comment on like a group's. The helpful post goes on the person's own feed: `outreach.helpful.ask` with
+  `platform: 'linkedin'` takes no group (`helpful.platform`, a null `group_id` there only, 20261027007500), one a day
+  on each network, each network's posting choice; its AI (`LINKEDIN_HELPFUL_SYSTEM`) writes for their connections and
+  followers from what the posts their search found asked. `outreach.helpful` and `outreach.helpful.next` take the
+  network, and whoever engages with it is a warm lead on that network's Today. The extension (0.43.0) puts it up on
+  the person's feed (Start a post, the box's own Post), notes its link, and reads who commented and reacted once a
+  day; on its own when LinkedIn's posting choice is `own`.
+- **LinkedIn's data file** ("Get a copy of your data"; `linkedin-export.ts`, no zod, read in the browser as
+  Facebook's file is): `readLinkedInExport` reads Connections.csv (each connection's profile address and since when),
+  Invitations.csv (either way, with the other person's profile), messages.csv (one-to-one conversations only, no spam,
+  their latest few messages) and Profile.csv (the person's own name), each column found by its name in the header
+  row past LinkedIn's notes. LinkedIn can be asked for it, to download it and to bring it in (`file_request`,
+  `file_download`, `file_in` in `ASK_KINDS_ON.linkedin`); it has no chat backup. The extension (0.42.0) asks for it
+  on that page in a tab the person can see (they type their password), and brings it in: connections through
+  `outreach.friends.save` as the friends list, the invitations still waiting as requests and sent ones, each with
+  `since` (when the file says it began, so an old invitation is old at once), then the chats through
+  `outreach.download.save` as LinkedIn's, matched by name.
+- **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
+  they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
+  a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook
+  words in the network's ("an invitation to connect", "LinkedIn messaging"), never what a person wrote, and leaves
+  Facebook's prompts word for word. Today's lines and kinds say them too (`todayKindWords`). A post off a group, as
+  LinkedIn's post search finds, is "on LinkedIn".
 - **A heartbeat tells nobody:** a beat that changes nothing writes only `last_seen_at`: no event, no broadcast and no
   command receipt (`receipt: false`). A feed line, a new state, a different working computer or coming back online
   tells the app once; a new line alone at most every 45 seconds (the extension sends one at most every 20), and a
@@ -1167,11 +1457,13 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end
   gets the first answer, and one sent after a Stop leaves it stopped.
-- **The panel shows; HandsFreeOS decides.** Nothing is saved from the panel: the people reached are kept as profiles
-  by noting, and Add to Contacts, Demo booked, Keep and Don't pitch are in the app (Keep on the web's Friends tab). The panel's only presses are
-  signing in and the business picker, Start my day and Stop for today, Waiting for you's, Carry on, Skip and Stop on
-  an ask under way, **Open HandsFreeOS**, and **Copy page outline** and **Save page outline** (folded under **Page
-  read wrong?**).
+- **The panel shows; HandsFreeOS decides** (decision 72: progress and activity only). Nothing is saved from the
+  panel: the people reached are kept as profiles by noting, and Add to Contacts, Demo booked, Keep and Don't pitch are
+  in the app (Keep on the web's Friends tab). The panel's only presses are signing in and the business picker, Start
+  my day and Stop for today, **Allow on LinkedIn**, **Stop** on an ask under way, its links into HandsFreeOS (Needs
+  you's among them), and **Copy page outline** and **Save page outline** (folded under **Something look wrong on this
+  page? Tell us**). Nothing waiting is answered there: Send, Edit, Skip, Approve all, I did it, Let it go, Leave it
+  and an ask's Carry on are pressed on the web or the phone.
 - **Offline is worked out by whoever shows it:** no beat for 3 minutes (`OFFLINE_MINUTES`), on the server's clock
   (`live.now`), so the note shows with no event. A heartbeat tells nobody, so the Live tab asks again every minute
   while it's shown (`LIVE_REFETCH_SECONDS`) to keep the last-seen time moving.
@@ -1215,9 +1507,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   (`outreach_send_okd_since`); an OK that waited finds nothing to OK once the message was skipped meanwhile, and the
   phone's Approve all (`partial`) passes over those.
 - **Approve all leaves what needs the person** (`oneByOne`): a reply handed over (`handedOver`) and a message to
-  someone who needs them (`needsYou`) each wait for an OK of their own, on Today, in the panel and in Waiting for you.
-  Today's button counts only what it OKs; the web's and the panel's Waiting for you say the same number
-  (`approveAllCount`). The server holds to it, whatever the client: `outreach.send.approve` with none named, or with
+  someone who needs them (`needsYou`) each wait for an OK of their own, on Today and in Waiting for you.
+  Today's button counts only what it OKs; the web's Waiting for you says the same number (`approveAllCount`). The
+  server holds to it, whatever the client: `outreach.send.approve` with none named, or with
   `partial` (the phone's Approve all, any build), passes over them, and one named among others is refused
   (`outreach_send_one_by_one`); only one named alone, without `partial`, is OK'd.
 - **A need is a step the extension couldn't do there and then** (`needs`, `openNeed`): a button or box it couldn't
@@ -1254,8 +1546,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when
   its writer runs a group, is on Don't pitch or is in Contacts, and never twice: a comment noted on its link, or
   **Not for me**, ends it. The look-up's lines go to the AI for that draft only and are never kept.
-- **A warning is a warning for a week** (`warningOf`, `dailyLimitsNow`): limits halve (never below 1) for 7 days from
-  the latest one, friend requests leave the list for 2, and the same words twice in a day come back `repeated`. The
+- **A warning is a warning for a week** (`warningOf`, `dailyLimitsNow`): on its network, limits halve (never below 1)
+  for 7 days from the latest one, friend requests leave the list for 2, and the same words twice in a day on the same
+  network come back `repeated`. The
   extension keeps the day's warnings itself too, so it stops even when HandsFreeOS can't be reached.
 - **A reply answers a message the extension noted** (`outreach.replies.note`). A chat whose last message is theirs
   counts once for each message of the person's it answers (`replies`, by the moment of that message), so seeing the
@@ -1306,8 +1599,13 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   `ops/common.ts`, the name compared with one space between words and no capitals). A stranger who shares the name is
   left alone too: the safe side. Every list that pitches goes through `pitchable`; the Don't pitch list itself shows
   only who was put on it.
-- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, or kept under its name on its
-  network, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
+- **Don't pitch and Never contact cover every profile on a customer** (Chris, 2026-10-15). A customer's Facebook and
+  LinkedIn profiles are one person once both are on them in Contacts, so either on a list covers the other, on any
+  network (`customerNever` and `offPeople` in `ops/common.ts`). Across networks only the customer counts, never the
+  name. And someone pitched or booked through one of their profiles, by anyone here, isn't started again through
+  another: `inPlay` leaves them out of every pick on Today but a reply they're owed (`reachedElsewhere`).
+- **Never contact goes further than Don't pitch** (`contactable`): a profile on it, kept under its name on its
+  network, or on its customer, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
   requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
@@ -1429,6 +1727,32 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
   before (the same `upgradePlaybookDetails`, and the worker's step 3). The five are optional in `PlaybookDetails`, and
   a save that leaves one out keeps what's saved (`keptV3` in `ops/playbooks.ts`), so a phone built before them never
   wipes them; null or an empty list clears one.
+- **A conversation is each person's own** (decisions 65 to 68): one `follow_ups` row per person and profile, changed
+  only by `noteSent` (a step, a follow-up, a check-in or a reply going, from the extension's sends or a copied draft)
+  and `noteAnswer` (the AI's read of their answer), and stopped by Stop checking in. A step starts it over at that
+  step, keeping the offer's version from the first. A step sent, or answering them, goes on with one the person
+  stopped; one a no stopped goes on only once they're back in play (`outreach.stage.mark` open).
+- **Anyone pitched keeps their version.** A draft for someone already pitched uses the main offer version they were
+  first sent (`offerVersionFor`), never the live one, so nobody hears a new price or guarantee mid-conversation.
+- **The offer's counts are the add-on's.** Core never reads `addon_outreach`; the main offer's page shows Social
+  Outreach's counts through its `main_offer.panels` slot (`offer-panel.tsx`), from `outreach.offer.versions`.
+- **Data version 4:** the pace became how many follow-ups (5 to 7) and the quiet days before each, and a playbook got
+  a video link (optional, kept on a save that leaves it out, `PLAYBOOK_KEPT_KEYS`). A pace saved before keeps its
+  spacing when the business changed it (`paceOf`); an old phone's `followUpAfterDays` is taken and ignored.
+- **Data version 5:** a playbook got its video's script (`videoScript`, every part once, in order), kept on a save that
+  leaves it out like the parts before it. The AI's script is only ever offered: the builder puts it on the playbook,
+  and the playbook's save checks it.
+- **The team's numbers come through one function** (decision 70): `private.outreach_numbers` counts first messages,
+  yeses and calls booked for one person or, for owners, admins and the worker, everyone, and gives back counts only.
+  `stages` and `follow_ups` are each person's own, so a query joining them for anyone else sees only the asker's rows;
+  count through the function instead, as `outreach.tracking` and `outreach.offer.versions` do. Someone counts as
+  messaged once, from their first chat started or first pitch, whichever came first.
+- **The rule picks what to fix; the AI only words it** (decision 70). `fixFirst` decides from the week's numbers, in the
+  video's order, and the AI is told which one and writes about that alone. Without the AI, `rulesReview` says it. One
+  review a person a week (`reviews`, unique by week): the Monday job skips anyone whose week is kept, so a run tried
+  again for one the AI was busy on does only that one, and nobody hears it twice.
+- **The day's report goes only on a day with something to tell**, at the end of the person's working hours on the
+  business's clock, while `dayReport` is on; a save from a screen that sends none keeps the one kept.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
@@ -1470,7 +1794,15 @@ computer has that build or newer, raise the API's `MIN_EXTENSION_VERSION` to it 
 in Chrome"), and the two commands can be retired; Add to Contacts is `outreach.profile.contact` and Save to their card
 `outreach.chat.keep`.
 
+From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
+the profile's read and the bio's edit (decision 64) follow page outlines, not yet tried on the owner's account; the
+phone OKs messages and changes the video's link, but the samples and the script are written on the web; and yeses
+were first kept with step 6 (`stages.positive_at`), so weeks before it count none, and people pitched before it have
+no offer version.
+
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
 came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, and joining groups, decision 48, are built), in the order above: tidying on its own, then team sharing, the after-demo workflow, birthday notes and
-templates, then LinkedIn and Instagram.
+templates, then LinkedIn and Instagram. LinkedIn and the networks after it are planned in
+HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md: one add-on, a kit per network, and each network on its own, so a
+warning or a pause on one never affects the others (Chris, 15 Oct 2026).

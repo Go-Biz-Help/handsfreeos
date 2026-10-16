@@ -14,6 +14,9 @@ import type { RequestMeta } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   ASK_KIND_KEYS,
+  notOnNetworkWords,
+  bioTooLongWords,
+  targetOn,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
   ASK_STOPPED_EARLY_LINE,
@@ -49,14 +52,18 @@ import {
   type AskTask,
   type AskVia,
 } from '../asks';
-import { isOffline } from '../live';
+import { isOffline, networkOffWords } from '../live';
 import { outreachAddon } from '../manifest';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
+import { postSearchWords } from '../posts';
 import { ProfileSaveOutput } from '../saves';
 import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
 import { approvedHelpful } from './helpful';
 import { CHECK_AGAIN_DAYS, RESEARCH_WORDS } from '../checks';
 import { contactable, inWorkspace, once, pitchable, saveProfile, type Ctx } from './common';
+import { automationOf } from './automation';
+import { playbooksInUse } from './friends';
 import { perDayFor } from './checks';
 import { businessToday, dayOf } from './day';
 import { myComputers, workingOf } from './live';
@@ -64,17 +71,21 @@ import { startOfToday, warningOf } from './tidy';
 
 const viaOf = (meta: RequestMeta): AskVia => (meta.channel === 'mobile' ? 'mobile' : 'web');
 
-/** Whether Facebook warned the person today, and its words: nothing more is done on Facebook till tomorrow. */
+/**
+ * Whether a network warned the person today, and its words: nothing more is done on that network till tomorrow. Each
+ * network's warning holds only its own asks; another network's never does. Facebook's when left out.
+ */
 async function warnedToday(
   ctx: Ctx,
   me: string,
   now: number,
+  platform: Platform = 'facebook',
 ): Promise<{ words: string | null } | null> {
   // One transaction's queries go one after another anyway.
-  const warning = await warningOf(ctx, me, await startOfToday(ctx, now), now);
+  const warning = await warningOf(ctx, me, platform, await startOfToday(ctx, now), now);
   if (warning?.today) return { words: warning.words };
   const { today } = await businessToday(ctx, now);
-  const day = await dayOf(ctx, me, today);
+  const day = await dayOf(ctx, me, platform, today);
   return day.why === 'warning' ? { words: warning?.words ?? null } : null;
 }
 
@@ -122,11 +133,24 @@ async function taskOf(
   ctx: Ctx,
   me: string,
   ask: AskAsked,
+  platform: Platform = 'facebook',
 ): Promise<{ task: AskTask; target: string; about: string | null }> {
   const target = askTarget(ask);
   switch (ask.kind) {
     case 'members':
     case 'posts': {
+      // Off Facebook, posts are found by the network's own post search, with the playbooks' words: its groups are
+      // quiet (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Where the people are").
+      if (ask.kind === 'posts' && platform !== 'facebook')
+        return {
+          task: {
+            kind: 'posts',
+            groups: null,
+            words: postSearchWords(await playbooksInUse(ctx), platform),
+          },
+          target,
+          about: askAbout(ask),
+        };
       if (ask.kind === 'members' && ask.url) {
         const link = groupLink(ask.url);
         if (!link)
@@ -147,7 +171,14 @@ async function taskOf(
         };
       }
       if (!ask.groupIds)
-        return { task: { kind: ask.kind, groups: null }, target, about: askAbout(ask) };
+        return {
+          task:
+            ask.kind === 'posts'
+              ? { kind: 'posts', groups: null, words: [] }
+              : { kind: 'members', groups: null },
+          target,
+          about: askAbout(ask),
+        };
       const ids = [...new Set(ask.groupIds)];
       const found = await groupsForAsk(ctx, sql`g.id = any (${`{${ids.join(',')}}`}::uuid[])`);
       if (found.length < ids.length)
@@ -156,7 +187,8 @@ async function taskOf(
         );
       const groups = ids.map((id) => groupOf(found.find((g) => g.id === id)!));
       return {
-        task: { kind: ask.kind, groups },
+        task:
+          ask.kind === 'posts' ? { kind: 'posts', groups, words: [] } : { kind: 'members', groups },
         target,
         about: askAbout(ask, { groups: groups.map((g) => g.name) }),
       };
@@ -257,11 +289,12 @@ async function taskOf(
           409,
           `${who.name} is checked already: the AI’s answer is on their row. They’re checked again after ${CHECK_AGAIN_DAYS} days.`,
         );
-      if (!who.url.startsWith('https://www.facebook.com/'))
+      // A profile on the network asked, which its computer opens there.
+      if (!NETWORKS[platform].link.test(who.url))
         throw HfosError.rule(
           'outreach_research_no_profile',
           409,
-          `There’s no Facebook profile kept for ${who.name}, so there’s nothing to read. Save your friends list again to find it.`,
+          `There’s no ${PLATFORMS[platform]} profile kept for ${who.name}, so there’s nothing to read. Save your ${NETWORKS[platform].words.friends} list again to find it.`,
         );
       return {
         task: { kind: 'research', profileId: ask.profileId, name: who.name },
@@ -299,6 +332,14 @@ export const askMake = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const now = at.getTime();
     const ask = input.ask as AskAsked;
+    const { platform } = input;
+    const notOn = notOnNetworkWords(platform, ask.kind);
+    if (notOn) throw HfosError.rule('outreach_ask_not_on_network', 409, notOn);
+    const tooLong = ask.kind === 'profile_edit' ? bioTooLongWords(platform, ask.bio) : null;
+    if (tooLong) throw HfosError.rule('outreach_bio_too_long', 400, tooLong);
+    // A network the person doesn't work asks nothing there.
+    if (!(await automationOf(ctx, me, now, platform)).choices.on)
+      throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
     const working = workingOf(await myComputers(ctx, me));
     if (!working)
       throw HfosError.rule(
@@ -306,13 +347,13 @@ export const askMake = defineAddonCommand(outreachAddon, {
         409,
         'No computer has the extension signed in yet, so there’s nothing to do this. Install HandsFreeOS Social in Chrome on your computer and sign in, then ask again.',
       );
-    if (tooOldFor(working.version, ask.kind))
+    if (tooOldFor(working.version, ask.kind, platform))
       throw HfosError.rule('outreach_extension_too_old', 409, tooOldWords(working));
-    if (onFacebook(ask.kind) && (await warnedToday(ctx, me, now)))
+    if (onFacebook(ask.kind) && (await warnedToday(ctx, me, now, platform)))
       throw HfosError.rule(
         'outreach_warned_today',
         409,
-        'Facebook showed you a warning today, so the extension does nothing more on Facebook until tomorrow. Your daily limits are halved for a week.',
+        `${PLATFORMS[platform]} showed you a warning today, so the extension does nothing more on ${PLATFORMS[platform]} until tomorrow. Your ${PLATFORMS[platform]} limits are halved for a week.`,
       );
     // Two presses at once (a double-click, or the web and the phone together) make one ask: the second waits for
     // the first and finds it open.
@@ -320,7 +361,10 @@ export const askMake = defineAddonCommand(outreachAddon, {
       sql`select pg_advisory_xact_lock(hashtextextended(${`outreach.asks:${ws}:${me}`}, 0))`,
     );
     await endStale(ctx, me, at);
-    const { task, target, about } = await taskOf(ctx, me, ask);
+    const worked = await taskOf(ctx, me, ask, platform);
+    const { task, about } = worked;
+    // Named by its network: a LinkedIn ask never answers a Facebook one.
+    const target = targetOn(platform, worked.target);
 
     // One like it open: that's the one. Cancelling and unfriending are one at a time whoever was ticked.
     const anyTarget = (TIDY_ASK_KINDS as readonly string[]).includes(ask.kind);
@@ -328,6 +372,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
       ctx,
       me,
       and(
+        eq(asks.platform, platform),
         eq(asks.kind, ask.kind),
         inArray(asks.state, [...OPEN_ASK_STATES]),
         anyTarget ? undefined : eq(asks.target, target),
@@ -359,13 +404,14 @@ export const askMake = defineAddonCommand(outreachAddon, {
     // Research counts toward the day's checks (decision 46a): with none left, it ends at once, and they go first in
     // tomorrow's checks (`outreach.checks.next` finds this ask).
     if (task.kind === 'research') {
-      const { today, perDay } = await perDayFor(ctx, me, now);
+      const { today, perDay } = await perDayFor(ctx, me, now, platform);
       if (today >= perDay) {
         const [row] = await ctx.tx
           .insert(asks)
           .values({
             workspaceId: ws,
             userId: me,
+            platform,
             kind: ask.kind,
             target,
             task,
@@ -375,7 +421,14 @@ export const askMake = defineAddonCommand(outreachAddon, {
             startedAt: at,
             state: 'done',
             line: RESEARCH_WORDS.tomorrow(task.name, perDay),
-            result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },
+            result: {
+              drafts: [],
+              kind: null,
+              opener: null,
+              simple: false,
+              lookedUp: false,
+              queued: true,
+            },
             endedAt: at,
           })
           .returning();
@@ -394,6 +447,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
       .values({
         workspaceId: ws,
         userId: me,
+        platform,
         kind: ask.kind,
         target,
         task,
@@ -406,7 +460,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
       type: 'outreach.ask.made',
       entityType: 'outreach_ask',
       entityId: row!.id,
-      payload: { userId: me, kind: ask.kind },
+      payload: { userId: me, kind: ask.kind, platform },
     });
     return { ask: await shownOne(ctx, row!, now), fresh: true };
   },
@@ -438,16 +492,22 @@ export const askTake = defineAddonCommand(outreachAddon, {
       return row?.n ?? 0;
     };
     if (!here || workingOf(all)?.id !== here.id) return { ask: null, waiting: await count() };
-    await endStale(ctx, me, at, { computerId: here.id, underway: input.underway });
+    await endStale(ctx, me, at, {
+      computerId: here.id,
+      underway: input.underway,
+      platform: input.platform,
+    });
 
-    // A warning today: what would open Facebook ends now, as the day did.
-    const warned = await warnedToday(ctx, me, now);
-    if (warned) {
+    // A warning today on a network: what would open that network's pages ends now, as its day did. Each network's
+    // warning ends only its own asks.
+    for (const platform of PLATFORM_KEYS) {
+      const warned = await warnedToday(ctx, me, now, platform);
+      if (!warned) continue;
       const ended = await ctx.tx
         .update(asks)
         .set({
           state: 'failed',
-          line: askWarnedLine(warned.words),
+          line: askWarnedLine(warned.words, platform),
           endedAt: at,
           updatedAt: new Date(),
         })
@@ -455,6 +515,7 @@ export const askTake = defineAddonCommand(outreachAddon, {
           and(
             mine,
             takeable(now),
+            eq(asks.platform, platform),
             sql`${asks.kind} not in (${sql.join(
               OFF_FACEBOOK_KINDS.map((k) => sql`${k}`),
               sql`, `,
@@ -467,31 +528,36 @@ export const askTake = defineAddonCommand(outreachAddon, {
           type: 'outreach.ask.ended',
           entityType: 'outreach_ask',
           entityId: e.id,
-          payload: { userId: me, kind: e.kind, state: 'failed' },
+          payload: { userId: me, kind: e.kind, state: 'failed', platform },
         });
     }
 
-    // What this build can't do yet ends now, saying how to update it, rather than hanging at its start.
-    const beyond = ASK_KIND_KEYS.filter((k) => tooOldFor(here.version, k));
-    if (beyond.length) {
+    // What this build can't do yet ends now, saying how to update it, rather than hanging at its start: a kind newer
+    // than it, or any ask on a network newer than it.
+    for (const platform of PLATFORM_KEYS) {
+      const beyond = ASK_KIND_KEYS.filter((k) => tooOldFor(here.version, k, platform));
+      if (!beyond.length) continue;
       const ended = await ctx.tx
         .update(asks)
         .set({ state: 'failed', line: tooOldWords(here), endedAt: at, updatedAt: new Date() })
-        .where(and(mine, takeable(now), inArray(asks.kind, beyond)))
+        .where(and(mine, takeable(now), eq(asks.platform, platform), inArray(asks.kind, beyond)))
         .returning({ id: asks.id, kind: asks.kind });
       for (const e of ended)
         await ctx.emit({
           type: 'outreach.ask.ended',
           entityType: 'outreach_ask',
           entityId: e.id,
-          payload: { userId: me, kind: e.kind, state: 'failed' },
+          payload: { userId: me, kind: e.kind, state: 'failed', platform },
         });
     }
 
+    // Each network's line takes its own: one waiting on the person never holds another's.
     const [next] = await ctx.tx
       .select({ id: asks.id })
       .from(asks)
-      .where(and(mine, takeable(now)))
+      .where(
+        and(mine, takeable(now), input.platform ? eq(asks.platform, input.platform) : undefined),
+      )
       .orderBy(asc(asks.askedAt), asc(asks.id))
       .limit(1)
       .for('update', { skipLocked: true });
@@ -518,6 +584,7 @@ export const askTake = defineAddonCommand(outreachAddon, {
     return {
       ask: {
         askId: row!.id,
+        platform: row!.platform,
         kind: row!.kind,
         task: row!.task,
         about: row!.about,

@@ -22,6 +22,7 @@ import { addDays, localDateOf } from '../../calendar/engine/zoned';
 import { fmtDateShort, fmtTime } from '../../calendar/when';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { LIST_MARK_KEYS, listsWaitWords, ListsSaved, type ListMark } from './lists';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from './playbooks';
 import { WarningState } from './tidy';
 
 /** How often the extension says it's there, and how long without that before the app calls the computer offline. */
@@ -220,7 +221,14 @@ export const LiveBeatOutput = z.object({
   working: z.boolean(),
   /** The one that works, when it isn't this one. */
   workingName: z.string().nullable(),
+  /** Facebook's day, which every build of the extension follows. */
   day: LiveDay,
+  /**
+   * Each other network's day (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Each network on its own"): LinkedIn's
+   * runner works only while LinkedIn's is started, and a stop there ends only LinkedIn's work. Empty from a HandsFreeOS
+   * before networks.
+   */
+  days: z.object({ linkedin: LiveDay }).partial().default({}),
   /** The ids of the lines sent that are kept now: the extension lets them go. */
   stepsKept: z.array(z.uuid()),
   /** Asks from HandsFreeOS waiting for this computer (./asks.ts): 0 when it isn't the one that works. */
@@ -230,6 +238,8 @@ export type LiveBeatOutput = z.output<typeof LiveBeatOutput>;
 
 export const DayInput = z.object({
   workspaceId: z.uuid(),
+  /** The network whose day it is: each network's day is its own, so stopping one leaves the others going. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   /** The extension's install id, when pressed there: that computer becomes the one that works. */
   installId: z.uuid().optional(),
 });
@@ -249,7 +259,14 @@ export const ComputerRenameInput = z.object({
 export type ComputerRenameInput = z.input<typeof ComputerRenameInput>;
 export const ComputerRenameOutput = z.object({ computerId: z.uuid(), name: z.string() });
 
-export const LiveInput = z.object({ workspaceId: z.uuid() });
+export const LiveInput = z.object({
+  workspaceId: z.uuid(),
+  /**
+   * The network whose day, warning, limits, choice and lists it gives: each network's are its own. The computers, what
+   * the working one says and the feed are the person's, the same for every network. Facebook's when left out.
+   */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type LiveInput = z.input<typeof LiveInput>;
 
 export const LiveOutput = z.object({
@@ -379,17 +396,22 @@ export const standDownWords = (workingName: string | null): string =>
   `${workingName ?? 'Another computer'} is working for you now, so this one stands by. Open the panel here to work from this computer instead.`;
 
 /**
- * Where the day stands, under Start my day and Stop for today: empty when nothing was pressed today. With the person's
- * lists, a day started the first time says it waits for them to be saved.
+ * Where a network's day stands (Facebook's when left out), under Start my day and Stop for today: empty when nothing
+ * was pressed today. With the person's lists there, a day started the first time says it waits for them to be saved.
  */
-export function dayWords(day: LiveDay, timeZone: string, lists?: ListsSaved | null): string {
+export function dayWords(
+  day: LiveDay,
+  timeZone: string,
+  lists?: ListsSaved | null,
+  platform: Platform = 'facebook',
+): string {
   if (day.state === 'none') return '';
-  if (day.why === 'warning') return 'Stopped for today: Facebook showed a warning.';
+  if (day.why === 'warning') return `Stopped for today: ${PLATFORMS[platform]} showed a warning.`;
   const at = day.at ? ` at ${clockWords(day.at, timeZone)}` : '';
   const via = day.via ? ` ${VIA_WORDS[day.via]}` : '';
   if (day.state !== 'started') return `Stopped for today${at}${via}.`;
   // The first time, the day waits for the person's lists to be saved (./lists.ts): it says why.
-  const waiting = listsWaitWords(lists, true);
+  const waiting = listsWaitWords(lists, true, platform);
   return waiting ? `Started${at}${via}. ${waiting}` : `Started${at}${via}.`;
 }
 
@@ -397,24 +419,46 @@ export function dayWords(day: LiveDay, timeZone: string, lists?: ListsSaved | nu
 export const dayLine = (state: DayState, via: DayVia): string =>
   `You pressed ${state === 'started' ? 'Start my day' : 'Stop for today'} ${VIA_WORDS[via]}.`;
 
-/** The feed's line for a warning, which HandsFreeOS writes: Facebook's words cut short so the whole stays a line. */
-export function warningLine(words: string): string {
-  const before = 'Facebook showed a warning (“';
-  const after = '”). The extension stopped for today, and your daily limits are halved for a week.';
+/**
+ * The feed's line for a warning, which HandsFreeOS writes: the network's words cut short so the whole stays a line.
+ * It names the network, since the others go on.
+ */
+export function warningLine(words: string, platform: Platform = 'facebook'): string {
+  const network = PLATFORMS[platform];
+  const before = `${network} showed a warning (“`;
+  const after = `”). The extension stopped on ${network} for today, and your ${network} limits are halved for a week.`;
   return `${before}${clipLine(words.trim(), LINE_MOST - before.length - after.length)}${after}`;
 }
 
-/** The push a warning sends to the person's phone (decision 41). */
-export const warningPushWords = (): { title: string; body: string } => ({
-  title: 'Facebook showed a warning.',
-  body: 'The extension stopped for today.',
+/** The push a warning sends to the person's phone (decision 41), naming the network that stopped. */
+export const warningPushWords = (
+  platform: Platform = 'facebook',
+): { title: string; body: string } => ({
+  title: `${PLATFORMS[platform]} showed a warning.`,
+  body: `The extension stopped on ${PLATFORMS[platform]} for today.`,
 });
 
-/** Why Start my day can't start while the extension does nothing on its own: who can change that, and where. */
-export function sendingOffWords(businessAllowsMore: boolean): string {
+/** Why Start my day can't start on a network the person doesn't work: where to turn it on, its page in Settings. */
+export const networkOffWords = (platform: Platform): string =>
+  `${PLATFORMS[platform]} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → ${PLATFORMS[platform]}.`;
+
+/** Why Start my day stays refused after a warning: on the network that showed it, until tomorrow. */
+export const warnedTodayWords = (platform: Platform = 'facebook'): string => {
+  const network = PLATFORMS[platform];
+  return `${network} showed you a warning today, so the extension stays stopped on ${network} until tomorrow. Your ${network} limits are halved for a week.`;
+};
+
+/**
+ * Why Start my day can't start while the extension does nothing on its own on a network: who can change that, and
+ * where (the network's page in Settings, or General's For your team).
+ */
+export function sendingOffWords(
+  businessAllowsMore: boolean,
+  platform: Platform = 'facebook',
+): string {
   return businessAllowsMore
-    ? 'The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → My settings.'
-    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → Business settings.';
+    ? `The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → ${PLATFORMS[platform]}.`
+    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → General.';
 }
 
 /** A computer's plain name, from Chrome's word for its system. */

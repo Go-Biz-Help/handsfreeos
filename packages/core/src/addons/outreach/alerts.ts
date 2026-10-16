@@ -7,8 +7,8 @@
  *   counts as a reply when the person's last message to them, as the extension noted it, came before: so once for
  *   each message of theirs, never for an old chat. Unless the person was looking at that tab just then, their phone
  *   hears "Dana Reyes wrote back".
- * - **The morning.** At the business's hour (`morningPushHour`, 8 to start; Social Outreach → Settings → Business
- *   settings), each person who used the extension lately and has something on their list for today hears how much.
+ * - **The morning.** At the business's hour (`morningPushHour`, 8 to start; Social Outreach → Settings → General,
+ *   For your team), each person who used the extension lately and has something on their list for today hears how much.
  *
  * Both are pushes on the person's add-ons switch (Settings → Notifications), opening Today. Nothing is pushed to
  * anyone else. Browser-safe: the extension builds what it tells, and the worker the words.
@@ -16,7 +16,8 @@
 import { z } from 'zod';
 import { addDays, localDateOf, localInstant } from '../../calendar/engine/zoned';
 import { MORNING_PUSH_HOUR } from './chat-read';
-import { PersonName, ProfileRef } from './saves';
+import { PLATFORM_KEYS } from './networks';
+import { PersonName, ProfileRef, ThreadKey } from './saves';
 import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 
 export { MORNING_PUSH_HOUR };
@@ -42,12 +43,8 @@ export const MORNING_ACTIVE_DAYS = 14;
 export const ReplySeen = z
   .object({
     name: PersonName,
-    /** The chat's number, from its link, when the page showed one. */
-    threadKey: z
-      .string()
-      .regex(/^[0-9]{1,30}$/)
-      .nullable()
-      .default(null),
+    /** The chat's id, from its link, when the page showed one. */
+    threadKey: ThreadKey.nullable().default(null),
     profile: ProfileRef.nullable().default(null),
   })
   .refine((s) => s.threadKey !== null || s.profile !== null, {
@@ -60,6 +57,8 @@ export const REPLIES_MOST = 20;
 
 export const RepliesNoteInput = z.object({
   workspaceId: z.uuid(),
+  /** The network the chats are on. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   seen: z.array(ReplySeen).min(1).max(REPLIES_MOST),
   /** The person had that tab in front of them: it's noted, but their phone isn't buzzed. */
   looking: z.boolean().default(false),
@@ -85,10 +84,12 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   confirm: ['request to confirm', 'requests to confirm'],
   warm_up: ['post to like', 'posts to like'],
   friend_request: ['friend request', 'friend requests'],
-  opener: ['new friend to say hi to', 'new friends to say hi to'],
+  opener: ['first message to a new friend', 'first messages to new friends'],
   reconnect: ['friend to reconnect with', 'friends to reconnect with'],
-  pitch: ['person ready for your offer', 'people ready for your offer'],
+  pitch: ['person to send your link to', 'people to send your link to'],
+  video: ['person to send your video to', 'people to send your video to'],
   follow_up: ['follow-up', 'follow-ups'],
+  check_in: ['check-in', 'check-ins'],
   reply: ['reply', 'replies'],
   comment: ['post to comment on', 'posts to comment on'],
   warm_lead: ['comment to answer', 'comments to answer'],

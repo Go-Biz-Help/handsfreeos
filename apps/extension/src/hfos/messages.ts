@@ -11,6 +11,7 @@ import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outrea
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
 import type { ReadyItem, ReadyState } from '@hfos/core/addons/outreach/readiness';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { AutoState } from '../auto/plan';
 
 type Body<P extends keyof paths> = paths[P] extends {
@@ -67,22 +68,14 @@ export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 /** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
-/** Messages the extension drafted, OK'd or skipped (packages/core/src/addons/outreach/sends.ts). */
-export type SendApproveInput = Body<'/v1/commands/outreach.send.approve'>;
-export type SendApproved = Ok<'/v1/commands/outreach.send.approve'>;
-export type SendSkipInput = Body<'/v1/commands/outreach.send.skip'>;
-export type SendSkipped = Ok<'/v1/commands/outreach.send.skip'>;
 /**
- * Waiting for you (packages/core/src/addons/outreach/waiting.ts, decisions 40 and 42): everything waiting for the
- * person, a step the extension couldn't do handed to them, one done or let go, and a friend request left.
+ * Waiting for you (packages/core/src/addons/outreach/waiting.ts, decisions 40, 42 and 72): everything waiting for the
+ * person, counted on the icon and in the panel, and acted on in HandsFreeOS; a step the extension couldn't do handed
+ * to them.
  */
 export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
 export type WaitingItem = Waiting['items'][number];
 export type NeedNoteInput = Body<'/v1/commands/outreach.need.note'>;
-export type NeedClearInput = Body<'/v1/commands/outreach.need.clear'>;
-export type NeedCleared = Ok<'/v1/commands/outreach.need.clear'>;
-export type RequestSetAsideInput = Body<'/v1/commands/outreach.request.set_aside'>;
-export type RequestSetAside = Ok<'/v1/commands/outreach.request.set_aside'>;
 /** Who to check for a good fit next, and what their pages said (packages/core/src/addons/outreach/checks.ts). */
 export type ChecksNextInput = Body<'/v1/queries/outreach.checks.next'>;
 export type ChecksNext = Ok<'/v1/queries/outreach.checks.next'>;
@@ -252,10 +245,19 @@ export type HfosAsk =
       readonly workspaceId: string;
       readonly input: ProfileRead;
     }
-  | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
+  /** The people to tidy on a network (Facebook's unless said): requests to cancel, LinkedIn's invitations to withdraw. */
+  | { readonly type: 'hfos-tidy'; readonly workspaceId: string; readonly platform?: Platform }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
-  | { readonly type: 'hfos-lists'; readonly workspaceId: string }
-  | { readonly type: 'hfos-lists-saved'; readonly workspaceId: string; readonly list: ListMark }
+  /** A network's lists before its first day (Facebook's unless said), and one noted as saved. */
+  | { readonly type: 'hfos-lists'; readonly workspaceId: string; readonly platform?: Platform }
+  | {
+      readonly type: 'hfos-lists-saved';
+      readonly workspaceId: string;
+      readonly list: ListMark;
+      readonly platform?: Platform;
+    }
+  /** What to search a network's posts with: its runner's Find posts (LinkedIn's post search). */
+  | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
@@ -279,20 +281,14 @@ export type HfosAsk =
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
-  | { readonly type: 'hfos-send-ok'; readonly input: SendApproveInput }
-  | { readonly type: 'hfos-send-skip'; readonly input: SendSkipInput }
-  /** Waiting for you, asked again now (src/hfos/waiting.ts); a need done or let go; a friend request left. */
+  /**
+   * What waits, asked again now (src/hfos/waiting.ts), for the panel's count. What waits is answered in HandsFreeOS,
+   * never from the panel (decision 72).
+   */
   | { readonly type: 'hfos-waiting' }
-  | { readonly type: 'hfos-need-clear'; readonly input: NeedClearInput }
-  | { readonly type: 'hfos-request-aside'; readonly input: RequestSetAsideInput }
   /** The person has the panel open on this computer: it becomes the one that works (./live.ts). */
   | { readonly type: 'hfos-here' }
-  /** Carry on or Skip, for a step the ask under way handed to the person; Stop for it (../asks/run.ts). */
-  | {
-      readonly type: 'hfos-ask-reply';
-      readonly reply: 'carry_on' | 'skip';
-      readonly askId?: string;
-    }
+  /** Stop, for an ask under way (../asks/run.ts). Carry on and Skip are pressed in HandsFreeOS. */
   | { readonly type: 'hfos-ask-stop'; readonly askId?: string };
 
 /** What each ask answers with. */
@@ -316,6 +312,7 @@ export interface HfosValues {
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;
+  readonly 'hfos-post-words': { readonly words: readonly string[] };
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
@@ -334,13 +331,8 @@ export interface HfosValues {
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;
-  readonly 'hfos-send-ok': SendApproved;
-  readonly 'hfos-send-skip': SendSkipped;
   readonly 'hfos-waiting': Waiting | null;
-  readonly 'hfos-need-clear': NeedCleared;
-  readonly 'hfos-request-aside': RequestSetAside;
   readonly 'hfos-here': null;
-  readonly 'hfos-ask-reply': null;
   readonly 'hfos-ask-stop': null;
 }
 
@@ -356,36 +348,22 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto',
   'hfos-auto-start',
   'hfos-auto-stop',
-  'hfos-send-ok',
-  'hfos-send-skip',
   'hfos-waiting',
-  'hfos-need-clear',
-  'hfos-request-aside',
   'hfos-here',
-  'hfos-ask-reply',
   'hfos-ask-stop',
 ]);
 
-/** The panel's asks about the ask under way (src/asks/run.ts). */
-export const ASK_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
-  'hfos-ask-reply',
-  'hfos-ask-stop',
-]);
+/** The panel's ask about the ask under way (src/asks/run.ts): Stop. */
+export const ASK_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>(['hfos-ask-stop']);
 
-/** The asks about Waiting for you (src/hfos/waiting.ts). */
-export const WAITING_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
-  'hfos-waiting',
-  'hfos-need-clear',
-  'hfos-request-aside',
-]);
+/** The panel's ask about what waits (src/hfos/waiting.ts): a look, for its count. */
+export const WAITING_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>(['hfos-waiting']);
 
 /** The asks the runner that works on its own answers (src/auto/run.ts). */
 export const AUTO_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-auto',
   'hfos-auto-start',
   'hfos-auto-stop',
-  'hfos-send-ok',
-  'hfos-send-skip',
 ]);
 
 /** The business the person picked to save to (./session.ts). */

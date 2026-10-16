@@ -5,14 +5,19 @@
  * the words to change and **OK, post it**, which OKs it and asks their computer to put it up (a `post` ask). Copying it
  * themselves: **Copy**, **Open the group** and **I posted it**. On its own: it says so, with **Not this one**. Then
  * its link once up, and who engaged; or why it was put aside. With none today, **Write a helpful post**.
+ *
+ * Each network's own (`platform`): on LinkedIn it goes on the person's own feed, so the card says "Your LinkedIn feed"
+ * where a group's name would be, and **Open LinkedIn** in place of Open the group, by LinkedIn's posting choice.
  */
 import {
   HELPFUL_STATES,
-  HELPFUL_WORDS as H,
-  howWords,
+  helpfulOpenUrl,
+  helpfulWhere,
+  helpfulWordsOn,
   OPEN_HELPFUL_STATES,
   type HelpfulShown,
 } from '@hfos/core/addons/outreach/helpful';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { Check, Copy, ExternalLink, Send, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -21,20 +26,24 @@ import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { AskLine, latestAsk } from './asks';
+import { AskLine, latestAskOn } from './asks';
 import type { Asks, HelpfulList } from './types';
 import { useAct } from './use-act';
 
 export function HelpfulCard({
   workspaceId,
+  platform = 'facebook',
   helpful,
   asks,
 }: {
   workspaceId: string;
+  /** The network whose helpful post it is. */
+  platform?: Platform;
   helpful: HelpfulList;
   asks: Asks;
 }) {
   const { busy, act } = useAct();
+  const H = helpfulWordsOn(platform);
   // The list has today's, then those up in the last fortnight: one still to do, else the last put aside today.
   const open = helpful.posts.find((p) =>
     (OPEN_HELPFUL_STATES as readonly string[]).includes(p.state),
@@ -44,7 +53,9 @@ export function HelpfulCard({
   const write = () =>
     void act('write', async () => {
       unwrap(
-        await apiBrowser().POST('/v1/commands/outreach.helpful.ask', { body: { workspaceId } }),
+        await apiBrowser().POST('/v1/commands/outreach.helpful.ask', {
+          body: { workspaceId, platform },
+        }),
       );
     });
   return (
@@ -54,9 +65,9 @@ export function HelpfulCard({
         <span className="text-[12.5px] text-text-3">{H.limit}</span>
       </div>
       {open ? (
-        <Today workspaceId={workspaceId} post={open} asks={asks} />
+        <Today workspaceId={workspaceId} platform={platform} post={open} asks={asks} />
       ) : ended ? (
-        <Today workspaceId={workspaceId} post={ended} asks={asks} />
+        <Today workspaceId={workspaceId} platform={platform} post={ended} asks={asks} />
       ) : null}
       {!open && helpful.today < helpful.perDay ? (
         <Button
@@ -101,16 +112,21 @@ export function HelpfulCard({
 
 function Today({
   workspaceId,
+  platform,
   post,
   asks,
 }: {
   workspaceId: string;
+  platform: Platform;
   post: HelpfulShown;
   asks: Asks;
 }) {
   const { busy, act } = useAct();
+  const H = helpfulWordsOn(platform);
   const [text, setText] = useState(post.text ?? '');
-  const asked = latestAsk(asks, 'post', `helpful:${post.helpfulId}`);
+  const asked = latestAskOn(asks, platform, 'post', `helpful:${post.helpfulId}`);
+  const openUrl = helpfulOpenUrl({ ...post, platform });
+  const place = helpfulWhere({ ...post, platform });
   const ok = () =>
     void act('ok', async () => {
       unwrap(
@@ -124,7 +140,7 @@ function Today({
       );
       unwrap(
         await apiBrowser().POST('/v1/commands/outreach.ask.make', {
-          body: { workspaceId, ask: { kind: 'post', helpfulId: post.helpfulId } },
+          body: { workspaceId, platform, ask: { kind: 'post', helpfulId: post.helpfulId } },
         }),
       );
     });
@@ -149,9 +165,8 @@ function Today({
       H.postedDone,
     );
   const where = (
-    <p className="mt-1 text-[13px] text-text-2">
-      {post.groupName ? `For ${post.groupName}` : null}
-      {post.topic ? ` · ${post.topic}` : null}
+    <p className="mt-1 text-[13px] text-text-2" data-testid="today-helpful-where">
+      {[place, post.topic].filter(Boolean).join(' · ')}
     </p>
   );
   if (post.state === 'drafting')
@@ -189,7 +204,7 @@ function Today({
         </p>
       )}
       <p className="mt-1.5 text-[12.5px] text-text-3">
-        {post.state === 'approved' ? H.waitingComputer : howWords(post.how)}
+        {post.state === 'approved' ? H.waitingComputer : H.how(post.how)}
       </p>
       {asked ? (
         <AskLine workspaceId={workspaceId} asks={asks} ask={asked} className="mt-1" />
@@ -217,15 +232,18 @@ function Today({
               <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               {H.copy}
             </Button>
-            <a
-              href={post.groupUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonClassName({ variant: 'ghost', size: 'sm' })}
-            >
-              <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {H.openGroup}
-            </a>
+            {openUrl ? (
+              <a
+                href={openUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonClassName({ variant: 'ghost', size: 'sm' })}
+                data-testid="today-helpful-open"
+              >
+                <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {H.open}
+              </a>
+            ) : null}
             <Button
               size="sm"
               variant="secondary"

@@ -22,6 +22,7 @@ import { countryRuleOn, type CountryRule } from '../countries';
 import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
+import { profileMisfit } from '../networks';
 import { PLATFORMS, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
@@ -58,13 +59,17 @@ export const markedNever = (p: string) => sql`(${sql.raw(p)}.dont_pitch or exist
     and lower(tg.name::text) = lower(${DONT_PITCH_TAG})))`;
 
 /**
- * The other profiles kept under the same name on the same network that are marked never pitched, as `twin`. Facebook
- * shows one person by number in one place and by username in another, so the same person can be kept twice, and Don't
- * pitch on one covers the other. A stranger who shares the name is left alone too: the safe side. `p` is its alias.
+ * The other profiles marked never pitched that stand for the same person, as `twin`: those kept under the same name on
+ * the same network, and those on the same customer on any network. Facebook shows one person by number in one place
+ * and by username in another, so the same person can be kept twice, and Don't pitch on one covers the other. A stranger
+ * who shares the name is left alone too: the safe side. Across networks only the customer counts, never the name
+ * (Chris, 2026-10-15). `p` is its alias.
  */
 export const neverTwins = (p: string) => sql`select twin.* from addon_outreach.profiles twin
-  where twin.workspace_id = ${sql.raw(p)}.workspace_id and twin.platform = ${sql.raw(p)}.platform
-    and twin.id <> ${sql.raw(p)}.id and ${nameKeyOf('twin')} = ${nameKeyOf(p)} and ${markedNever('twin')}`;
+  where twin.workspace_id = ${sql.raw(p)}.workspace_id and twin.id <> ${sql.raw(p)}.id
+    and ((twin.platform = ${sql.raw(p)}.platform and ${nameKeyOf('twin')} = ${nameKeyOf(p)})
+      or twin.person_id = ${sql.raw(p)}.person_id)
+    and ${markedNever('twin')}`;
 
 /**
  * Every profile marked never pitched, as its workspace, network and name, read once for the whole query. A twin looked
@@ -81,37 +86,70 @@ const namedNever = (p: string) =>
   sql`(${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${neverNames})`;
 
 /**
- * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched, nor on Never contact.
- * Once it isn't marked itself, any profile marked never pitched under its name is a twin. `p` is its alias.
+ * Every customer with a profile on Don't pitch or Never contact, on any network, read once for the whole query. Their
+ * other profiles are covered too (Chris, 2026-10-15): a customer's Facebook and LinkedIn are one person.
  */
-export const pitchable = (p: string) => sql`(not ${markedNever(p)} and not ${namedNever(p)})`;
+const neverPeople = sql`select m.person_id from addon_outreach.profiles m
+  where m.person_id is not null and (m.dont_pitch or m.never_contact)`;
+
+/** Whether a profile's customer has a profile on Don't pitch or Never contact, itself included. `p` is its alias. */
+const customerNever = (p: string) =>
+  sql`(${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${neverPeople}))`;
+
+/**
+ * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched, nor on Never contact.
+ * Once it isn't marked itself, any profile marked never pitched under its name, or on its customer, is a twin. `p` is
+ * its alias.
+ */
+export const pitchable = (p: string) =>
+  sql`(not ${markedNever(p)} and not ${namedNever(p)} and not ${customerNever(p)})`;
 
 /** Every profile on Never contact, as its workspace, network and name, read once for the whole query (`neverNames`). */
 const offNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
   where m.never_contact`;
 
+/** Every customer with a profile on Never contact, on any network, read once for the whole query. */
+const offPeople = sql`select m.person_id from addon_outreach.profiles m
+  where m.person_id is not null and m.never_contact`;
+
 /**
- * A profile anyone here may contact at all: neither it nor a profile kept under its name on its network is on Never
- * contact. Stronger than `pitchable`, which leaves them out too: this is for what Don't pitch still allows, like a
- * friend request to decide, a reply's push or a message drafted. `p` is its alias.
+ * A profile anyone here may contact at all: neither it, nor a profile kept under its name on its network, nor another
+ * profile on its customer, is on Never contact. Stronger than `pitchable`, which leaves them out too: this is for what
+ * Don't pitch still allows, like a friend request to decide, a reply's push or a message drafted. `p` is its alias.
  */
 export const contactable = (p: string) =>
-  sql`(not ${sql.raw(p)}.never_contact and (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) not in (${offNames}))`;
+  sql`(not ${sql.raw(p)}.never_contact and (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) not in (${offNames})
+    and (${sql.raw(p)}.person_id is null or ${sql.raw(p)}.person_id not in (${offPeople})))`;
 
 /**
  * Whether a profile has a twin marked never pitched (`neverTwins`): for one not marked itself, any profile marked
- * under its name; for the few marked, looked up. `p` is its alias.
+ * under its name or on its customer; for the few marked, looked up. `p` is its alias.
  */
 export const hasNeverTwin = (p: string) =>
-  sql`(case when ${markedNever(p)} then exists (${neverTwins(p)}) else ${namedNever(p)} end)`;
+  sql`(case when ${markedNever(p)} then exists (${neverTwins(p)}) else (${namedNever(p)} or ${customerNever(p)}) end)`;
+
+/**
+ * Whether a profile's customer was pitched or booked through another of their profiles, on any network and by anyone
+ * here (Chris, 2026-10-15): Today doesn't start them again on this one. Only profiles on the same customer count, never
+ * a name. `p` is its alias.
+ */
+export const reachedElsewhere = (p: string) => sql`(${sql.raw(p)}.person_id is not null and (
+  exists (select 1 from addon_outreach.profiles o join addon_outreach.stages s on s.profile_id = o.id
+    where o.person_id = ${sql.raw(p)}.person_id and o.id <> ${sql.raw(p)}.id and s.pitched_at is not null)
+  or exists (select 1 from addon_outreach.profiles o join addon_outreach.demos d on d.profile_id = o.id
+    where o.person_id = ${sql.raw(p)}.person_id and o.id <> ${sql.raw(p)}.id and d.undone_at is null)
+  or exists (select 1 from addon_outreach.demos d
+    where d.person_id = ${sql.raw(p)}.person_id and d.profile_id <> ${sql.raw(p)}.id and d.undone_at is null)))`;
 
 /**
  * A profile still in play for the person `me` (decision 47): not marked not a fit, by them or by the AI's read of their
- * chat. "Not interested" ends outreach for good, until they put them back in play. `p` is its alias.
+ * chat. "Not interested" ends outreach for good, until they put them back in play. Nor is one whose customer was
+ * pitched or booked on another of their profiles (`reachedElsewhere`). `p` is its alias.
  */
-export const inPlay = (me: string, p: string) => sql`not exists (
+export const inPlay = (me: string, p: string) => sql`(not exists (
   select 1 from addon_outreach.stages st
-  where st.profile_id = ${sql.raw(p)}.id and st.user_id = ${me} and st.mark = 'lost')`;
+  where st.profile_id = ${sql.raw(p)}.id and st.user_id = ${me} and st.mark = 'lost')
+  and not ${reachedElsewhere(p)})`;
 
 /** The business's Social Outreach settings, as they're read: the defaults where they aren't set. */
 export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
@@ -175,6 +213,18 @@ export interface ProfileKey {
 }
 
 /**
+ * Refuses a profile that isn't on the network it was sent for (`profileMisfit`): its link on another network's pages,
+ * or an id or name of another network's shape. Every save that keeps a profile asks first.
+ */
+export function requireFits(
+  platform: Platform,
+  profile: ProfileKey & { readonly url: string },
+): void {
+  const misfit = profileMisfit(platform, profile);
+  if (misfit) throw HfosError.rule('outreach_wrong_network', 400, misfit);
+}
+
+/**
  * The profiles saved here that a page's profile is: by its number, or by its username. Two can come back when a
  * profile was saved once by each; the one by number comes first, since a username can change hands and a number can't.
  */
@@ -233,6 +283,7 @@ export async function saveProfile(
   const ws = ctx.scope.workspaceId!;
   const at = changeMoment(ctx.meta);
   const me = userIdOf(ctx.actor);
+  requireFits(input.platform, input.profile);
   const found = await profilesFor(ctx, input.platform, input.profile);
   const had = found[0] ?? null;
 
@@ -339,6 +390,7 @@ export async function keptProfile(
   fresh: Partial<ProfileRow> = {},
   then?: (had: Profile) => Partial<ProfileRow>,
 ): Promise<Profile> {
+  requireFits(input.platform, input.profile);
   const found = await profilesFor(ctx, input.platform, input.profile);
   const had = found[0];
   if (!had) {
@@ -381,11 +433,14 @@ export async function keptProfile(
 export interface FriendSeen {
   readonly profileId: string;
   readonly state: FriendState;
+  /** When it began, when the list said (LinkedIn's file): else it begins now. */
+  readonly since?: Date | null;
 }
 
 /**
  * Where the person's own Facebook stands with some profiles, as seen or noted at `at`. A new state starts its
- * `since`, and the same one seen again only moves `seen_at`. A later look stays when what's sent is older (a step
+ * `since` (then, or when the list said it began), and the same one seen again only moves `seen_at`, and `since` back
+ * to an earlier beginning the list said. A later look stays when what's sent is older (a step
  * that waited to send), and "not friends" never replaces a request they turned down, which says more. Keep stays as
  * it was. The profiles whose state changed, or that had none.
  */
@@ -413,12 +468,16 @@ export async function keepFriendStates(
     ).map((f) => [f.profileId, f]),
   );
   const write = new Map<string, { state: FriendState; since: Date; seenAt: Date }>();
-  for (const { profileId, state: seenState } of seen) {
+  for (const { profileId, state: seenState, since: said } of seen) {
     const was = had.get(profileId);
     if (was && was.seenAt > at) continue;
     const state = was?.state === 'declined' && seenState === 'not_friends' ? 'declined' : seenState;
     if (was?.state !== state) changed.add(profileId);
-    write.set(profileId, { state, since: was?.state === state ? was.since : at, seenAt: at });
+    // A beginning the list said, never later than now; for a state that stays, only one earlier than kept.
+    const began = said && said < at ? said : null;
+    const since =
+      was?.state === state ? (began && began < was.since ? began : was.since) : (began ?? at);
+    write.set(profileId, { state, since, seenAt: at });
   }
   if (write.size)
     await ctx.tx
@@ -461,7 +520,7 @@ export async function taggedFriendOrFamily(
 
 /**
  * Whether someone's never pitched, and why: put on the list here, or tagged Friend or family; or the same goes for
- * their twin, kept under the same name (`neverTwins`). Null when they may be.
+ * their twin, kept under the same name or on the same customer (`neverTwins`). Null when they may be.
  */
 export async function dontPitchOf(ctx: Ctx, profile: Profile): Promise<DontPitch | null> {
   const tagged =
@@ -499,15 +558,16 @@ export async function dontPitchOf(ctx: Ctx, profile: Profile): Promise<DontPitch
 
 /**
  * Whether someone's on the business's Never contact list, or their twin is (kept under the same name on the same
- * network): who put them on it and when. Null when they aren't.
+ * network, or on the same customer on any network): who put them on it and when. Null when they aren't.
  */
 export async function neverContactOf(ctx: Ctx, profile: Profile): Promise<NeverContact | null> {
   const [on] = await rows<{ by: string | null; at: Date | string | null }>(
     ctx.tx,
     sql`select coalesce(nullif(u.full_name, ''), u.email::text) as by, m.never_contact_at as at
         from addon_outreach.profiles p
-        join addon_outreach.profiles m on m.workspace_id = p.workspace_id and m.platform = p.platform
-          and m.never_contact and (m.id = p.id or ${nameKeyOf('m')} = ${nameKeyOf('p')})
+        join addon_outreach.profiles m on m.workspace_id = p.workspace_id and m.never_contact
+          and (m.id = p.id or m.person_id = p.person_id
+            or (m.platform = p.platform and ${nameKeyOf('m')} = ${nameKeyOf('p')}))
         left join app.users u on u.id = m.never_contact_by
         where p.id = ${profile.id}
         order by (m.id = p.id) desc limit 1`,

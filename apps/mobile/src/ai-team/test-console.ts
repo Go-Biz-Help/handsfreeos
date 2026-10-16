@@ -34,7 +34,8 @@ export type LogIcon =
   | 'draft'
   | 'send'
   | 'wait'
-  | 'error';
+  | 'error'
+  | 'retry';
 
 /** One line of "What Ava did". */
 export interface LogLine {
@@ -53,6 +54,8 @@ export interface LogLine {
 
 export interface Turn {
   readonly id: string;
+  /** The test run that wrote the reply (the worker's `started` event), for feedback on it. */
+  readonly runId: string | null;
   readonly kind: TurnKind;
   /** What they wrote or said; empty for a call's greeting. */
   readonly customer: string;
@@ -91,7 +94,10 @@ function line(
   return { id: nextId(), at, tone, icon, title, detail: null, ...extra };
 }
 
-/** A new turn, before the worker answers: its first line says who did what. */
+/**
+ * A new turn, before the worker answers: its first line says who did what, or, for "Retry with the fix", that it tried
+ * again with the person's feedback.
+ */
 export function newTurn(o: {
   readonly id: string;
   readonly kind: TurnKind;
@@ -102,10 +108,15 @@ export function newTurn(o: {
   readonly name: string;
   readonly outbound: boolean;
   readonly now?: string;
+  /** "Retry with the fix": what it should have said and why. */
+  readonly again?: { readonly better: string | null; readonly why: string | null };
 }): Turn {
   const at = o.now ?? new Date().toISOString();
-  const first =
-    o.kind === 'greeting'
+  const first = o.again
+    ? line(at, 'ai', 'retry', 'Tried again with your feedback', {
+        detail: [o.again.better, o.again.why].filter(Boolean).join(' · ') || null,
+      })
+    : o.kind === 'greeting'
       ? o.outbound
         ? line(at, 'ok', 'call-out', `${o.name} called ${o.who ?? 'them'}`)
         : line(at, 'ok', 'call-in', `${o.who ?? 'Someone'} called`)
@@ -118,6 +129,7 @@ export function newTurn(o: {
         );
   return {
     id: o.id,
+    runId: null,
     kind: o.kind,
     customer: o.message,
     reply: '',
@@ -172,7 +184,7 @@ function endLine(t: Turn, e: Extract<TestEvent, { type: 'done' }>, at: string): 
 export function stepTurn(t: Turn, e: TestEvent, now = new Date().toISOString()): Turn {
   switch (e.type) {
     case 'started':
-      return t;
+      return { ...t, runId: e.runId };
     case 'delta':
       return { ...t, reply: t.reply + e.text };
     // The words it's saying show as they're said; the reply replaces them once it's done.

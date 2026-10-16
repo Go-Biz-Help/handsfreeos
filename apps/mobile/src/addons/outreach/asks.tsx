@@ -1,5 +1,5 @@
 import {
-  ASK_KINDS,
+  askNameOn,
   ASK_KINDS_FOR,
   ASK_REPLIES,
   ASK_SHOWN_STATES,
@@ -7,6 +7,7 @@ import {
   ASK_TYPING_WORDS,
   ASK_WORDS,
   askedWords,
+  askableOn,
   askNeedsYou,
   askOpen,
   askRepliesFor,
@@ -14,7 +15,7 @@ import {
   cantAskWhy,
   tooOldFor,
   computerNoteWords,
-  latestAsk,
+  latestAskOn,
   targetOf,
   type AskInput,
   type AskReply,
@@ -22,6 +23,7 @@ import {
   type AsksOutput,
 } from '@hfos/core/addons/outreach/asks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -41,7 +43,8 @@ import { Note, Part, useOutreachAnswer, useOutreachContext } from './kit';
  * person's working computer to do something on Facebook (`outreach.ask.make`), the line under each says how it's
  * going, and a step handed to the person has **Carry on** and **Skip** (`outreach.ask.reply`), with **Stop**
  * (`outreach.ask.cancel`). The Live screen lists what was asked; Waiting for you, what needs the person. All of it
- * needs signal. The words and rules are core's (`@hfos/core/addons/outreach/asks`), the web's too.
+ * needs signal. The words and rules are core's (`@hfos/core/addons/outreach/asks`), the web's too. A button on a
+ * network's screen asks that network (`platform`, Facebook's when it names none), only the kinds it can be asked.
  */
 
 /** Asked again this often while a screen with asks is open: an ask moves on within seconds. */
@@ -91,7 +94,8 @@ export function useDoneReload(asks: AsksOutput | null, reload: () => void): void
 /** What the buttons and lines do: ask, answer a step handed over, and stop; `busy` names the one under way. */
 export interface AskActions {
   readonly busy: string | null;
-  ask(ask: AskInput): void;
+  /** Asks the computer, on a network: Facebook when left out. */
+  ask(ask: AskInput, platform?: Platform): void;
   reply(ask: AskShown, reply: AskReply): void;
   stop(ask: AskShown): void;
 }
@@ -122,9 +126,13 @@ export function useAskActions(asks: AsksOutput | null, reload: () => void): AskA
   return React.useMemo(
     () => ({
       busy,
-      ask: (ask) =>
+      ask: (ask, platform) =>
         void run(`ask:${ask.kind}:${targetOf(ask)}`, async () => {
-          const made = await change('outreach.ask.make', { workspaceId: ws, ask });
+          const made = await change('outreach.ask.make', {
+            workspaceId: ws,
+            ...(platform ? { platform } : {}),
+            ask,
+          });
           return asks ? askedWords(made.output, asks, Date.now()) : null;
         }),
       reply: (ask, reply) =>
@@ -149,6 +157,7 @@ export function useAskActions(asks: AsksOutput | null, reload: () => void): AskA
 export function AskButton({
   asks,
   ask,
+  platform,
   label,
   actions,
   variant = 'secondary',
@@ -158,6 +167,8 @@ export function AskButton({
 }: {
   asks: AsksOutput;
   ask: AskInput;
+  /** The network it's asked on: Facebook's when left out. None shows for a kind it can't be asked. */
+  platform?: Platform;
   label: string;
   actions: AskActions;
   variant?: 'primary' | 'secondary' | 'ghost';
@@ -166,17 +177,19 @@ export function AskButton({
   testID?: string;
 }) {
   const target = targetOf(ask);
-  const latest = latestAsk(asks, ask.kind, target);
+  const on = platform ?? 'facebook';
+  const latest = latestAskOn(asks, on, ask.kind, target);
   const open = latest !== null && askOpen(latest.state);
-  const why = cantAskWhy(asks, ask.kind);
+  const why = cantAskWhy(asks, ask.kind, on);
   const key = `ask:${ask.kind}:${target}`;
+  if (!askableOn(on, ask.kind)) return null;
   return (
     <View className="gap-1.5">
       <Button
         size="md"
         variant={variant}
         className="self-start"
-        onPress={() => actions.ask(ask)}
+        onPress={() => (platform ? actions.ask(ask, platform) : actions.ask(ask))}
         loading={actions.busy === key}
         disabled={disabled || actions.busy !== null || open || why !== null}
         testID={testID}
@@ -184,7 +197,7 @@ export function AskButton({
         {label}
       </Button>
       {/* An older extension can't do this kind: said here, since the screen's note is about the computer. */}
-      {asks.computer && tooOldFor(asks.computer.version, ask.kind) ? (
+      {asks.computer && tooOldFor(asks.computer.version, ask.kind, on) ? (
         <Text
           className="text-[13px] leading-[18px] text-warning-text"
           testID="outreach-ask-too-old"
@@ -232,7 +245,7 @@ export function AskLine({
         </Badge>
         {named ? (
           <Text className="text-[13.5px] font-medium">
-            {ASK_KINDS[ask.kind]}
+            {askNameOn(ask.kind, ask.platform)}
             {ask.about ? ` · ${ask.about}` : ''}
           </Text>
         ) : ask.about ? (

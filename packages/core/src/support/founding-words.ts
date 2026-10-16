@@ -5,6 +5,9 @@
  * **The cap is enforced by the database, not here.** Nothing in this file decides whether an approval will work:
  * "seats left" is shown rather than used to disable anything, and the refusal comes back from Postgres as a sentence.
  * The offers open one after another by themselves (0092); these words only report it.
+ *
+ * **A free seat is on the moment staff say so,** by approving an application or by giving one to any business, and
+ * it stays on until somebody revokes it. Only a paid seat is held behind a link, because it waits on a payment.
  */
 
 export type FoundingOfferStatus = 'draft' | 'open' | 'closed';
@@ -84,6 +87,18 @@ export const FOUNDING_WORDS = {
   revoke: 'Revoke',
   givenBack: 'Seats given back',
   undo: 'Undo',
+  /** On a seat that's held but not on, or that lapsed: put it on their workspace now, for good. */
+  turnOn: 'Turn it on',
+
+  // Giving a seat to any business, applied or not.
+  give: 'Give a seat',
+  giveTitle: 'Give a founding seat',
+  giveDescription:
+    'Pick any business. Its workspace goes on the founding plan straight away, with the starting credit, and keeps it until you revoke it. No application or link needed.',
+  offer: 'Offer',
+  noOfferOpen: 'No founding offer is open. Open one above first.',
+  giving: 'Turning it on…',
+  giveSeat: 'Give the seat',
 
   // The claim link, shown once.
   issuedTitle: (business: string) => `Send ${business} their link`,
@@ -97,6 +112,10 @@ export const FOUNDING_WORDS = {
 
   // Approving.
   approveTitle: (business: string) => `Approve ${business}`,
+  /** A free seat: on at once. */
+  approveFreeDescription:
+    'Their workspace goes on the founding plan straight away, with the starting credit. It stays theirs until you revoke it.',
+  /** A paid seat: held until they pay. */
   approveDescription:
     'This takes a seat straight away and holds it for them. You get a claim link back — it is shown once and never again, so send it before you close this.',
   theirBusiness: 'Their business',
@@ -116,6 +135,7 @@ export const FOUNDING_WORDS = {
   cancel: 'Cancel',
   approving: 'Taking a seat…',
   approveAndHold: 'Approve and hold a seat',
+  approveAndTurnOn: 'Approve and turn it on',
 
   // Revoking.
   revokeTitle: (business: string | null) =>
@@ -127,6 +147,25 @@ export const FOUNDING_WORDS = {
   revoking: 'Revoking…',
   revokeSeat: 'Revoke the seat',
 } as const;
+
+/** The offers a seat can be given from: founding seats that have opened, never the monthly plan. */
+export const foundingGivableOffers = <O extends Pick<FoundingOfferFacts, 'billing' | 'status'>>(
+  offers: readonly O[],
+): O[] => offers.filter((o) => o.billing === 'once' && o.status !== 'draft');
+
+/** Which offer Give starts on: the first one taking people, else the first there is. */
+export const foundingFirstOffer = (
+  offers: readonly Pick<FoundingOfferFacts, 'offerId' | 'status'>[],
+): string => (offers.find((o) => o.status === 'open') ?? offers[0])?.offerId ?? '';
+
+/**
+ * Whether a seat in this offer is paid for: approving holds it behind a payment rather than turning it on, and its
+ * row has no one-press Turn it on, since that would give a $497 seat away. Give a seat still can, on purpose.
+ */
+export const foundingOfferIsPaid = (
+  offerId: string,
+  offers: readonly Pick<FoundingOfferFacts, 'offerId' | 'priceCents'>[],
+): boolean => (offers.find((o) => o.offerId === offerId)?.priceCents ?? 0) > 0;
 
 /** "Free · open", "$97/month · draft": an offer's price and where it stands. */
 export const foundingOfferPriceLine = (offer: FoundingOfferFacts): string =>

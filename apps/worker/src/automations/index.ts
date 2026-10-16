@@ -70,6 +70,7 @@ export { INTAKE_DELAY_MS, INTAKE_JOB, intakeJobKey, onBookedIntake } from './int
 export {
   CONNECTION_BROKE_EVENTS,
   ensureWebsiteRescan,
+  feedbackLessonKey,
   LESSON_ASK,
   LESSON_JOB,
   LESSON_MIN_CORRECTIONS,
@@ -77,6 +78,7 @@ export {
   nextRescanAt,
   onConnectionBroke,
   onCorrection,
+  onFeedback,
   WEBSITE_RESCAN_JOB,
   websiteRescanKey,
 } from './health';

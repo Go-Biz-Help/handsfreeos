@@ -6,8 +6,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NO_LISTS, type ListsSaved } from '@hfos/core/addons/outreach/lists';
 import { freshState } from '../src/auto/plan';
-import { readPage } from '../src/facebook/page';
-import { requestsPage } from '../src/facebook/friends';
+import { readPage } from '../src/networks/facebook/page';
+import { requestsPage } from '../src/networks/facebook/friends';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import { load } from './load';
@@ -235,7 +235,12 @@ describe('doing what comes before the day', () => {
     const { tab } = requestsTab();
     const { hfos, sent } = fakeHfos();
     await doBeforeDay({ do: 'save', list: 'sent', first: true }, jobOf(tab, hfos));
-    expect(sent.at(-1)).toEqual({ type: 'hfos-lists-saved', workspaceId: BUSINESS, list: 'sent' });
+    expect(sent.at(-1)).toEqual({
+      type: 'hfos-lists-saved',
+      workspaceId: BUSINESS,
+      list: 'sent',
+      platform: 'facebook',
+    });
   });
 
   it('doesn’t note one that went wrong, or the person stopped part way', async () => {
@@ -270,6 +275,7 @@ describe('doing what comes before the day', () => {
       type: 'hfos-lists-saved',
       workspaceId: BUSINESS,
       list: 'group_checks',
+      platform: 'facebook',
     });
     expect(beforeDayLine({ do: 'group_checks' }, end)).toMatch(/^Check my groups: /);
     expect(beforeDayDoing({ do: 'group_checks' })).toBe('Checking your groups first…');

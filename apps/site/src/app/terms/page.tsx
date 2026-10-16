@@ -9,7 +9,7 @@ import { company, urls } from '@/content/site';
  * ever emptied, on purpose.
  */
 
-const LAST_UPDATED = 'September 20, 2026';
+const LAST_UPDATED = 'October 15, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of service',
@@ -137,8 +137,10 @@ export default function TermsPage() {
         {/*
           Written to the person receiving the texts, not to the business sending them — which is why it sits
           apart from section 5 and is lettered rather than numbered. A carrier's A2P review reads this
-          section, and it reads it looking for five things: what the programme is, STOP, HELP, that frequency
-          varies and rates may apply, and that carriers are not liable for a message that does not arrive.
+          section, and it reads it looking for these: what the programme is and what it texts about, that
+          agreeing is not a condition of buying, STOP, HELP, "Message frequency varies", "Message and data
+          rates may apply", that carriers are not liable for delayed or undelivered messages, and a link to
+          the privacy policy. The quoted sentences are the industry's own words, kept so a reviewer can tick them.
           Every claim here is something HandsFreeOS actually does — the keywords are in
           packages/core/src/messaging/sms.ts and the opt-out is recorded by message.receive. Do not soften or
           trim it without checking the requirement first.
@@ -155,11 +157,18 @@ export default function TermsPage() {
             The business decided to text you, and it is the business you agreed to hear from.
           </li>
           <li>
+            <strong>What the texts are about.</strong> What you asked the business for: answers to
+            your questions, appointment confirmations and reminders, estimates, invoices and
+            receipts, and updates on the work. Offers and promotions come only if you separately
+            agreed to them. Agreeing to get texts is never a condition of buying anything.
+          </li>
+          <li>
             <strong>Stopping.</strong> Reply <strong>STOP</strong> to any message and that business
             stops texting you. STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, OPTOUT and REVOKE all work
-            the same way. You will get one message confirming it, and then nothing more. If you
-            change your mind, reply <strong>START</strong> (or UNSTOP, SUBSCRIBE or OPTIN) and the
-            texts start again.
+            the same way. You will get one message confirming it, and then nothing more. You can
+            also tell the business in any other reasonable way, and it has to stop. If you change
+            your mind, reply <strong>START</strong> (or UNSTOP, SUBSCRIBE or OPTIN) and the texts
+            start again.
           </li>
           <li>
             <strong>Help.</strong> Reply <strong>HELP</strong> or INFO and you will get a message
@@ -169,15 +178,15 @@ export default function TermsPage() {
             who you want.
           </li>
           <li>
-            <strong>How often, and what it costs.</strong> How many messages you get depends on the
-            business and on what you are talking to them about; there is no set number. Your own
-            message and data rates may apply, both to their messages and to your replies. If you are
-            not sure what your plan costs, your mobile provider is who knows.
+            <strong>How often, and what it costs.</strong> Message frequency varies. Message and
+            data rates may apply. How many messages you get depends on the business and on what you
+            are talking to them about; there is no set number. Those rates can apply both to their
+            messages and to your replies. If you are not sure what your plan costs, your mobile
+            provider is who knows.
           </li>
           <li>
-            <strong>Delivery.</strong> Mobile carriers are not liable for messages that arrive late
-            or do not arrive at all, and neither are we. A text is not a reliable way to send
-            something urgent.
+            <strong>Delivery.</strong> Carriers are not liable for delayed or undelivered messages,
+            and neither are we. A text is not a reliable way to send something urgent.
           </li>
           <li>
             <strong>Your number.</strong> Your phone number and the record of your agreeing to be

@@ -1,10 +1,10 @@
 /**
- * What the content script reads as the person goes, in the Facebook tab in front of them (src/facebook/looking.ts,
+ * What the content script reads as the person goes, in the Facebook tab in front of them (src/networks/facebook/looking.ts,
  * src/hfos/looked.ts; docs/outreach.md decision 43), now the side panel doesn't read beside them: warnings always,
  * and a chat or a group's posts only while noting and the person's switch for them are on.
  */
 import { describe, expect, it } from 'vitest';
-import { lookFor, type LookingSwitches } from '../src/facebook/looking';
+import { lookFor, type LookingSwitches } from '../src/networks/facebook/looking';
 import { isLooked } from '../src/hfos/looked';
 
 const on: LookingSwitches = { noting: true, readChats: true, markPosts: true };

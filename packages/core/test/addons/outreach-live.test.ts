@@ -112,12 +112,17 @@ describe('the live view’s words', () => {
     expect(dayWords({ ...started, state: 'none', via: null, at: null }, tz)).toBe('');
     expect(dayLine('stopped', 'extension')).toBe('You pressed Stop for today in the extension.');
     expect(warningLine('You can’t use this feature right now')).toContain(
-      '(“You can’t use this feature right now”). The extension stopped for today',
+      '(“You can’t use this feature right now”). The extension stopped on Facebook for today',
     );
     expect(warningPushWords()).toEqual({
       title: 'Facebook showed a warning.',
-      body: 'The extension stopped for today.',
+      body: 'The extension stopped on Facebook for today.',
     });
+    // A warning names its network: the others go on.
+    expect(warningLine('Slow down', 'linkedin')).toBe(
+      'LinkedIn showed a warning (“Slow down”). The extension stopped on LinkedIn for today, and your LinkedIn limits are halved for a week.',
+    );
+    expect(warningPushWords('linkedin').title).toBe('LinkedIn showed a warning.');
     expect(standDownWords('Chrome on Mac')).toBe(
       'Chrome on Mac is working for you now, so this one stands by. Open the panel here to work from this computer instead.',
     );
@@ -129,7 +134,9 @@ describe('the live view’s words', () => {
       'Chrome on Mac 3',
     );
     expect(sendingOffWords(false)).toContain('Ask an owner of this business');
-    expect(sendingOffWords(true)).toContain('Settings → My settings');
+    expect(sendingOffWords(true)).toContain('Settings → Facebook');
+    expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');
+    expect(sendingOffWords(false)).toContain('Settings → General');
   });
 
   it('cut long lines and names short rather than refuse them', () => {
@@ -141,7 +148,7 @@ describe('the live view’s words', () => {
     const warned = warningLine('w'.repeat(300));
     expect(warned.length).toBeLessThanOrEqual(LINE_MOST);
     expect(warned).toContain(
-      'The extension stopped for today, and your daily limits are halved for a week.',
+      'The extension stopped on Facebook for today, and your Facebook limits are halved for a week.',
     );
     // A numbered name stays within the most a name may be.
     const name = 'n'.repeat(COMPUTER_NAME_MOST);
@@ -470,7 +477,7 @@ describe('live status and control', () => {
           where workspace_id = ${ws} and user_id = ${warned.id} and kind = 'stopped'`,
     );
     expect(line!.line.length).toBeLessThanOrEqual(300);
-    expect(line!.line).toContain('your daily limits are halved for a week');
+    expect(line!.line).toContain('your Facebook limits are halved for a week');
     // Out of the business again, so the team below is as it was.
     await rows(
       admin(),

@@ -1,16 +1,16 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import { seenWords } from '@hfos/core/addons/outreach/live';
-import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { checkCounts, type AnyProfileItem } from '@hfos/core/addons/outreach/profile-check';
 import {
   CALLS_GOAL,
   numbersLines,
   numbersMath,
   numbersVerdict,
-  PROFILE_ITEMS,
+  profileWordsOn,
   READY_WORDS as R,
   tickCounts,
-  type ProfileItem,
   type ReadinessOutput,
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
@@ -32,13 +32,20 @@ import { Note, useOutreachAnswer, useOutreachContext } from './kit';
 
 /**
  * Get ready on the phone (docs/outreach.md, decisions 63 and 64; packages/core/src/addons/outreach/readiness.ts):
- * Today's card while the person isn't ready, as the web's. Their own two are done right here: the profile, read by
+ * Today's card while the person isn't ready, as the web's. Their own three are done right here: the profile, read by
  * their computer and checked by the AI (**Read my profile**, then **Put this one in** for a bio), with a tick for what
- * the AI can't see; and their goal with the math as it changes. The main offer and the playbooks are written on a
- * computer. It needs signal.
+ * the AI can't see; their messages, the samples written on their computer, to read and OK; and their goal with the
+ * math as it changes. The main offer and the playbooks are written on a computer. It needs signal.
+ *
+ * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines to put
+ * in, and an About to start from (selectable, to copy), each asked and ticked on LinkedIn.
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
+
+/** The items done right here: the rest are on a computer. */
+const MINE = ['profile', 'messages', 'numbers'] as const;
+type Mine = (typeof MINE)[number];
 
 /** Monday first, as the working week reads. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0] as const;
@@ -50,17 +57,27 @@ const STATE_ICON = {
   waiting: { icon: Clock, className: 'text-warning' },
 } satisfies Record<ReadyState, unknown>;
 
-/** Get ready's answer and what its buttons do. `onReady` runs once the person is ready, for Today's list to come back. */
-export function useReadyProps(onReady: () => void): React.ComponentProps<typeof GetReadyCard> {
+/**
+ * Get ready's answer on a network and what its buttons do: its own profile counts. `onReady` runs once the person is
+ * ready there, for Today's list to come back.
+ */
+export function useReadyProps(
+  platform: Platform,
+  onReady: () => void,
+): React.ComponentProps<typeof GetReadyCard> {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const ready = useOutreachAnswer(
     async () =>
-      unwrap(await api.POST('/v1/queries/outreach.readiness', { body: { workspaceId: ws } })),
-    `readiness:${ws}`,
+      unwrap(
+        await api.POST('/v1/queries/outreach.readiness', { body: { workspaceId: ws, platform } }),
+      ),
+    `readiness:${ws}:${platform}`,
     R.card,
   );
   const [shown, setShown] = React.useState<ReadinessOutput | null>(null);
+  // Another network's answer, once shown, isn't this one's.
+  React.useEffect(() => setShown(null), [platform]);
   const readiness = shown ?? ready.data;
   const took = (next: ReadinessOutput) => setShown(next);
   // Ready now, from a tick, the goal, or a profile read on the computer: Today's list comes back.
@@ -85,9 +102,22 @@ export function useReadyProps(onReady: () => void): React.ComponentProps<typeof 
     actions,
     onTick: async (item, done) => {
       try {
-        took((await change('outreach.readiness.profile', { workspaceId: ws, item, done })).output);
+        took(
+          (await change('outreach.readiness.profile', { workspaceId: ws, platform, item, done }))
+            .output,
+        );
       } catch (e) {
         failed(e);
+      }
+    },
+    onMessages: async () => {
+      try {
+        took((await change('outreach.readiness.messages', { workspaceId: ws })).output);
+        toast.show(R.messages.okd);
+        return true;
+      } catch (e) {
+        failed(e);
+        return false;
       }
     },
     onNumbers: async (goal, days) => {
@@ -108,16 +138,19 @@ export function GetReadyCard({
   asks = null,
   actions = null,
   onTick,
+  onMessages,
   onNumbers,
 }: {
   readiness: ReadinessOutput | null;
   /** What was asked of the person's computer, for Read my profile and Put this one in; null hides those buttons. */
   asks?: AsksOutput | null;
   actions?: AskActions | null;
-  onTick: (item: ProfileItem, done: boolean) => Promise<void>;
+  onTick: (item: AnyProfileItem, done: boolean) => Promise<void>;
+  /** They read right: OKs the samples against the live version. Left out where they can't be OK'd. */
+  onMessages?: () => Promise<boolean>;
   onNumbers: (goal: number, days: number[]) => Promise<boolean>;
 }) {
-  const [open, setOpen] = React.useState<'profile' | 'numbers' | null>(null);
+  const [open, setOpen] = React.useState<Mine | null>(null);
   if (!readiness || readiness.ready) return null;
   const done = readiness.items.filter((i) => i.state === 'done').length;
   const of = readiness.items.length;
@@ -138,7 +171,7 @@ export function GetReadyCard({
       </View>
       {readiness.items.map((i) => {
         const shown = STATE_ICON[i.state];
-        const mine = i.item === 'profile' || i.item === 'numbers';
+        const mine = MINE.includes(i.item as Mine);
         return (
           <View
             key={i.item}
@@ -153,7 +186,9 @@ export function GetReadyCard({
             <View className="min-w-0 flex-1 gap-0.5">
               <Text className="text-[15px] font-semibold">{R.items[i.item].label}</Text>
               {i.left ? <Note>{i.left}</Note> : null}
-              {i.item === 'profile' && i.state === 'look_again' && readiness.changed.length ? (
+              {(i.item === 'profile' || i.item === 'messages') &&
+              i.state === 'look_again' &&
+              readiness.changed.length ? (
                 <Note>{R.changed(readiness.changed)}</Note>
               ) : null}
               {mine && i.state !== 'done' ? (
@@ -161,9 +196,7 @@ export function GetReadyCard({
                   variant="ghost"
                   size="sm"
                   className="-ml-3 self-start"
-                  onPress={() =>
-                    setOpen((o) => (o === i.item ? null : (i.item as 'profile' | 'numbers')))
-                  }
+                  onPress={() => setOpen((o) => (o === i.item ? null : (i.item as Mine)))}
                   testID={`ready-open-${i.item}`}
                 >
                   {R.items[i.item].go}
@@ -171,6 +204,18 @@ export function GetReadyCard({
               ) : null}
               {open === 'profile' && i.item === 'profile' ? (
                 <ProfileList readiness={readiness} asks={asks} actions={actions} onTick={onTick} />
+              ) : null}
+              {open === 'messages' && i.item === 'messages' ? (
+                <MessagesList
+                  readiness={readiness}
+                  onOk={
+                    onMessages
+                      ? async () => {
+                          if (await onMessages()) setOpen(null);
+                        }
+                      : null
+                  }
+                />
               ) : null}
               {open === 'numbers' && i.item === 'numbers' ? (
                 <Numbers
@@ -188,6 +233,89 @@ export function GetReadyCard({
   );
 }
 
+/**
+ * Your messages: the samples the AI wrote on the person's computer, as they'd read in Messenger, to OK. Writing them
+ * asks the AI, which the phone doesn't: with none for the live version, it says where.
+ */
+function MessagesList({
+  readiness,
+  onOk,
+}: {
+  readiness: ReadinessOutput;
+  onOk: (() => Promise<void>) | null;
+}) {
+  const M = R.messages;
+  const [busy, setBusy] = React.useState(false);
+  const samples = readiness.messages.samples;
+  const live = readiness.offer?.version ?? null;
+  const fresh = samples !== null && live !== null && samples.version === live;
+  const bubble = (text: string, key?: string) => (
+    <Text
+      key={key}
+      selectable
+      className="max-w-[92%] self-start rounded-[14px] bg-accent-soft px-3 py-2 text-[14px] leading-[20px]"
+      testID="ready-message-sample"
+    >
+      {text}
+    </Text>
+  );
+  const part = (title: string, children: React.ReactNode) => (
+    <View className="gap-1.5">
+      <Text className="text-[14px] font-semibold">{title}</Text>
+      {children}
+    </View>
+  );
+  return (
+    <View className="mt-1 gap-3" testID="ready-messages-list">
+      {!samples ? <Note>{M.onComputer}</Note> : null}
+      {samples && !fresh ? <Note>{`${M.older} ${M.onComputer}`}</Note> : null}
+      {samples ? (
+        <>
+          <Note>{M.about(samples.playbookName, samples.version)}</Note>
+          {part(
+            M.first,
+            samples.first.map((t) => bubble(t, t)),
+          )}
+          {part(M.video, samples.video ? bubble(samples.video) : <Note>{M.noVideo}</Note>)}
+          {samples.link ? part(M.link, bubble(samples.link)) : null}
+          {samples.followUps.length
+            ? part(
+                M.followUps(samples.followUps.length),
+                samples.followUps.map((t, i) => (
+                  <View key={t} className="gap-0.5">
+                    <Text className="text-[12px] text-text-3">
+                      {M.later(samples.followUpGaps[i] ?? 1)}
+                    </Text>
+                    {bubble(t)}
+                  </View>
+                )),
+              )
+            : null}
+          {samples.checkIn ? part(M.checkIn, bubble(samples.checkIn)) : null}
+        </>
+      ) : null}
+      {fresh && onOk ? (
+        <Button
+          size="md"
+          className="self-start"
+          loading={busy}
+          onPress={async () => {
+            setBusy(true);
+            try {
+              await onOk();
+            } finally {
+              setBusy(false);
+            }
+          }}
+          testID="ready-messages-ok"
+        >
+          {M.ok}
+        </Button>
+      ) : null}
+    </View>
+  );
+}
+
 function ProfileList({
   readiness,
   asks,
@@ -197,9 +325,12 @@ function ProfileList({
   readiness: ReadinessOutput;
   asks: AsksOutput | null;
   actions: AskActions | null;
-  onTick: (item: ProfileItem, done: boolean) => Promise<void>;
+  onTick: (item: AnyProfileItem, done: boolean) => Promise<void>;
 }) {
-  const [busy, setBusy] = React.useState<ProfileItem | null>(null);
+  const [busy, setBusy] = React.useState<AnyProfileItem | null>(null);
+  // The network's own profile: its list, its words, and its asks.
+  const platform = readiness.platform ?? 'facebook';
+  const P = profileWordsOn(platform);
   const live = readiness.offer?.version ?? null;
   // The AI's check, when it's of the live version: what's right, and what to change.
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
@@ -214,6 +345,7 @@ function ProfileList({
           <AskButton
             asks={asks}
             ask={{ kind: 'profile_read' }}
+            platform={platform}
             label={check ? P.readAgain : P.read}
             variant={check ? 'secondary' : 'primary'}
             actions={actions}
@@ -222,9 +354,9 @@ function ProfileList({
         ) : null}
       </View>
       <View className="gap-1">
-        {PROFILE_ITEMS.map((item) => {
+        {P.items.map((words) => {
+          const { item } = words;
           const checked = tickCounts(readiness.profile[item], live);
-          const words = R.profile.items[item];
           const ai = check?.items[item] ?? null;
           const said = ai ? (
             <Text
@@ -304,6 +436,7 @@ function ProfileList({
                 <AskButton
                   asks={asks}
                   ask={{ kind: 'profile_edit', bio }}
+                  platform={platform}
                   label={P.useBio}
                   actions={actions}
                   testID={`ready-bio-use-${i}`}
@@ -320,6 +453,18 @@ function ProfileList({
             “{check.coverLine}”
           </Text>
           <Note>{P.coverHint}</Note>
+        </View>
+      ) : null}
+      {check?.aboutDraft && P.about ? (
+        <View className="gap-1" testID="ready-about">
+          <Text className="text-[14px] font-semibold">{P.about}</Text>
+          <Note>{P.aboutHint}</Note>
+          <Text
+            selectable
+            className="rounded-menu border border-border px-3 py-2.5 text-[14px] leading-[20px]"
+          >
+            {check.aboutDraft}
+          </Text>
         </View>
       ) : null}
       {check?.feature.length ? (

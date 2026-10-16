@@ -4,6 +4,7 @@ import {
   type ActivityOutput,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
+import type { TrackingOutput } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -15,6 +16,7 @@ import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { OutreachFrame } from './frame';
+import { NumbersPart } from './numbers';
 import { TouchedPostsPart } from './posted';
 import {
   NeedsSignal,
@@ -26,7 +28,8 @@ import {
 } from './kit';
 
 /**
- * Results on the phone (decision 59): what came of it over a stretch, as the web's tab leads with it: demos booked,
+ * Results on the phone (decisions 59 and 70): the three numbers to watch every day and the week's review
+ * (./numbers.tsx), then what came of it over a stretch, as the web's tab has it: demos booked,
  * then each step from reached to booked with how many of the step before made it, what was done along the way, and the
  * groups that brought the most, and the posts liked and commented on (./posted.tsx). Person by person stays on the
  * web, which has room for it. It needs signal.
@@ -60,9 +63,18 @@ export function ResultsScreen() {
     `results:${ws}:${period}`,
     W.tabs.results,
   );
+  const tracking = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.tracking', { body: { workspaceId: ws, period } }),
+      ),
+    `results-numbers:${ws}:${period}`,
+    W.tabs.results,
+  );
   return (
     <ResultsBody
       activity={activity.data}
+      tracking={tracking.data}
       error={activity.error}
       period={period}
       onPeriod={setPeriod}
@@ -75,6 +87,7 @@ export function ResultsScreen() {
 
 export function ResultsBody({
   activity,
+  tracking = null,
   error,
   period,
   onPeriod,
@@ -83,6 +96,8 @@ export function ResultsBody({
   posts,
 }: {
   activity: ActivityOutput | null;
+  /** The three numbers on top (./numbers.tsx): left out while they load, or when they don't. */
+  tracking?: TrackingOutput | null;
   error: string | null;
   period: ActivityPeriod;
   onPeriod: (period: ActivityPeriod) => void;
@@ -112,6 +127,7 @@ export function ResultsBody({
         ) : null
       ) : (
         <>
+          {tracking ? <NumbersPart tracking={tracking} /> : null}
           <Text className="text-[22px] font-semibold leading-[28px]" testID="results-headline">
             {R.headline(n.demos)}{' '}
             <Text className="font-medium text-text-2">{R.from(n.people)}</Text>

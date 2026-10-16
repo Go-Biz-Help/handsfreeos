@@ -1,5 +1,5 @@
 /**
- * The download the web app hands out (docs/outreach.md, decision 60; scripts/download.mjs): run from a web app's
+ * The download the web app hands out (docs/outreach.md, decision 71; scripts/download.mjs): run from a web app's
  * folder, it builds the extension for the HandsFreeOS that web app's settings name and zips it into its
  * public/downloads, with manifest.json at the top as Load unpacked needs; without the sign-in settings it stops.
  */

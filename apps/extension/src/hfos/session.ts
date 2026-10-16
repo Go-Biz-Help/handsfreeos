@@ -40,13 +40,8 @@ export type SessionAsk = Exclude<
       | 'hfos-auto'
       | 'hfos-auto-start'
       | 'hfos-auto-stop'
-      | 'hfos-send-ok'
-      | 'hfos-send-skip'
       | 'hfos-waiting'
-      | 'hfos-need-clear'
-      | 'hfos-request-aside'
       | 'hfos-here'
-      | 'hfos-ask-reply'
       | 'hfos-ask-stop';
   }
 >;
@@ -413,19 +408,32 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-tidy':
       return call(
         api().POST('/v1/queries/outreach.friends.tidy', {
-          body: { workspaceId: ask.workspaceId },
+          body: { workspaceId: ask.workspaceId, platform: ask.platform ?? 'facebook' },
         }),
         ask.workspaceId,
       );
     case 'hfos-lists':
       return call(
-        api().POST('/v1/queries/outreach.lists', { body: { workspaceId: ask.workspaceId } }),
+        api().POST('/v1/queries/outreach.lists', {
+          body: { workspaceId: ask.workspaceId, platform: ask.platform ?? 'facebook' },
+        }),
         ask.workspaceId,
       );
     case 'hfos-lists-saved':
       return call(
         api().POST('/v1/commands/outreach.lists.saved', {
-          body: { workspaceId: ask.workspaceId, list: ask.list },
+          body: {
+            workspaceId: ask.workspaceId,
+            list: ask.list,
+            platform: ask.platform ?? 'facebook',
+          },
+        }),
+        ask.workspaceId,
+      );
+    case 'hfos-post-words':
+      return call(
+        api().POST('/v1/queries/outreach.posts.words', {
+          body: { workspaceId: ask.workspaceId, platform: ask.platform },
         }),
         ask.workspaceId,
       );

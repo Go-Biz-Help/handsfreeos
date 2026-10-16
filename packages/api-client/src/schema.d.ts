@@ -597,6 +597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/ai_teammate.answer_feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the question the AI asked about your feedback on one of its replies. It reads the feedback again with your answer and suggests one rule, or says there’s nothing to learn.
+         * @description Risk level 1. Requires inbox.use. Emits ai_teammate.feedback_answered.
+         */
+        post: operations["command_ai_teammate_answer_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_teammate.create": {
         parameters: {
             query?: never;
@@ -631,6 +651,26 @@ export interface paths {
          * @description Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_ai_teammate_decide_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_teammate.give_feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a thumbs up or down on a reply the AI teammate wrote, in a test or for real, with what it should have said and why. A thumbs down with words is read into one rule for a person to OK, or one question back. One per person per reply; giving it again replaces it.
+         * @description Risk level 1. Requires inbox.use. Emits ai_teammate.feedback_given.
+         */
+        post: operations["command_ai_teammate_give_feedback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3427,8 +3467,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Approve an application and hold a seat for that business. Returns the claim link, once. The seat is theirs until the link expires.
-         * @description Risk level 4. Requires platform.founding.manage. Emits founding.approved.
+         * Approve an application. A free seat goes on their workspace at once and stays until somebody revokes it. A paid seat is held, and the claim link to pay for it is returned once.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.approved, founding.claimed.
          */
         post: operations["command_founding_approve"];
         delete?: never;
@@ -3471,6 +3511,26 @@ export interface paths {
          * @description Risk level 2. Requires platform.founding.manage. Emits founding.declined.
          */
         post: operations["command_founding_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a business a founding seat, whether or not it applied. Its workspace is on the founding plan at once, with the starting credit, and keeps it until somebody revokes it.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.claimed.
+         */
+        post: operations["command_founding_give"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6277,6 +6337,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.conversation.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_conversation_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.conversation.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the follow-ups and monthly check-ins to someone. None come until the person sends them the next step or answers them.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_conversation_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.country.unskip": {
         parameters: {
             query?: never;
@@ -6807,7 +6907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
@@ -6851,6 +6951,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.readiness.messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person OKs how their messages read, having seen the samples the AI wrote for their playbook (the first message, the video, the link, the follow-ups and a check-in), against the main offer live now.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_readiness_messages"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7107,7 +7227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.
+         * Note a warning a network showed the person, in its own words, as the extension read it: on that network alone, it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone. Their other networks go on.
          * @description Risk level 1. Requires outreach.use. Emits outreach.warning.seen. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_warning_note"];
@@ -7127,7 +7247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * An owner or admin ends someone’s training wheels early: their messages go without waiting for them, and their daily limits are full again.
+         * An owner or admin ends someone’s training wheels early on one network: their messages there go without waiting for them, and their daily limits there are full again.
          * @description Risk level 1. Requires outreach.manage. Emits outreach.wheels.ended.
          */
         post: operations["command_outreach_wheels_end"];
@@ -13237,6 +13357,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/teammate_instruction.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an instruction to the AI teammate’s list, which it reads in full on every reply, call and test (after its fixed rules, which always win). At most 50.
+         * @description Risk level 2. Requires ai_team.manage. Emits teammate_instruction.created.
+         */
+        post: operations["command_teammate_instruction_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_instruction.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one of the AI teammate’s instructions off its list. It stops following it from its next reply.
+         * @description Risk level 2. Requires ai_team.manage. Emits teammate_instruction.deleted.
+         */
+        post: operations["command_teammate_instruction_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_instruction.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the words of one of the AI teammate’s instructions.
+         * @description Risk level 2. Requires ai_team.manage. Emits teammate_instruction.updated.
+         */
+        post: operations["command_teammate_instruction_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/teammate_lesson.apply": {
         parameters: {
             query?: never;
@@ -13247,10 +13427,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add the line of guidance made of corrections to the AI teammate to the business’s policies, which the AI reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.
-         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated, knowledge_item.updated.
+         * Save the line of guidance made of a correction or feedback to the AI teammate’s Instructions list, which it reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.
+         * @description Risk level 1. Requires ai_team.manage. Emits teammate_lesson.applied, teammate_instruction.created, teammate_instruction.updated, teammate_instruction.deleted, knowledge.profile_updated, knowledge_item.updated.
          */
         post: operations["command_teammate_lesson_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_lesson.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn down a line of guidance the AI suggested from a correction or feedback. Nothing changes in what the AI knows.
+         * @description Risk level 1. Requires ai_team.manage. Emits teammate_lesson.dismissed.
+         */
+        post: operations["command_teammate_lesson_dismiss"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14677,6 +14877,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/ai_teammate.feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The feedback people gave on these replies of the AI teammate, with what the AI made of it: a rule waiting for an OK, a question, or nothing to learn.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_ai_teammate_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_teammate.get": {
         parameters: {
             query?: never;
@@ -14691,6 +14911,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_ai_teammate_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/ai_teammate.review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the AI teammate sent on its own (no person approved it), newest first, with what the customer said and any feedback on it; by default only replies nobody has rated yet.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_ai_teammate_review"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16987,7 +17227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own chats brought in from their Facebook download, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.
+         * The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_chats"];
@@ -17067,7 +17307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own sent friend requests nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with today’s counts against the limits, and any warning Facebook showed them lately.
+         * The person’s own sent friend requests (LinkedIn’s invitations) on one network nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with that network’s counts today against its limits, and any warning it showed them lately.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_friends_tidy"];
@@ -17207,7 +17447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many things wait for them (Waiting for you), any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.
+         * What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_live"];
@@ -17251,6 +17491,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.offer.versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How each version of the business’s main offer is doing in Social Outreach: first messages sent with it, the yeses and the calls booked from them. Everyone’s counts for owners and admins; the person’s own otherwise.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_offer_versions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17311,6 +17571,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_playbook_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.posts.words": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_posts_words"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17387,7 +17667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s pipeline: everyone they reached on Facebook by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.
+         * The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_stages"];
@@ -17411,6 +17691,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The three numbers to watch every day, in a stretch of days: first messages sent, positive replies and calls booked, the two rates between them against the usual ones and the person’s targets from their goal, by playbook, by the main offer’s version and by network, and their latest week’s review. Owners and admins can see everyone’s counts.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_tracking"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19437,6 +19737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/teammate_instruction.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The AI teammate’s Instructions list, oldest first: the rules it reads in full on every reply, call and test, and where each came from.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_teammate_instruction_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/teammate_view.current": {
         parameters: {
             query?: never;
@@ -21314,6 +21634,80 @@ export interface operations {
             };
         };
     };
+    command_ai_teammate_answer_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answer: string;
+                    /** Format: uuid */
+                    feedbackId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        feedback: {
+                            answer: string | null;
+                            betterReply: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            choices: string[];
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            /** @enum {string} */
+                            learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                            learnWhy: string | null;
+                            lesson: {
+                                conflict: {
+                                    existing: string;
+                                    explain: string;
+                                    itemId: string | null;
+                                    /** @enum {string} */
+                                    place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                    replacement: string;
+                                    where: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                line: string;
+                                /** @enum {string} */
+                                status: "open" | "applied" | "dismissed";
+                                why: string | null;
+                            } | null;
+                            messageId: string | null;
+                            mine: boolean;
+                            note: string | null;
+                            question: string | null;
+                            /** @enum {string} */
+                            rating: "good" | "bad";
+                            /** Format: uuid */
+                            runId: string;
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_ai_teammate_create: {
         parameters: {
             query?: never;
@@ -21400,6 +21794,86 @@ export interface operations {
                         };
                         /** @enum {string} */
                         status: "approved" | "rejected";
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_give_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    asked?: string | null;
+                    betterReply?: string | null;
+                    /** Format: uuid */
+                    messageId?: string;
+                    note?: string | null;
+                    /** @enum {string} */
+                    rating: "good" | "bad";
+                    /** Format: uuid */
+                    runId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        feedback: {
+                            answer: string | null;
+                            betterReply: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            choices: string[];
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            /** @enum {string} */
+                            learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                            learnWhy: string | null;
+                            lesson: {
+                                conflict: {
+                                    existing: string;
+                                    explain: string;
+                                    itemId: string | null;
+                                    /** @enum {string} */
+                                    place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                    replacement: string;
+                                    where: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                line: string;
+                                /** @enum {string} */
+                                status: "open" | "applied" | "dismissed";
+                                why: string | null;
+                            } | null;
+                            messageId: string | null;
+                            mine: boolean;
+                            note: string | null;
+                            question: string | null;
+                            /** @enum {string} */
+                            rating: "good" | "bad";
+                            /** Format: uuid */
+                            runId: string;
+                            updatedAt: string;
+                        };
                     };
                 };
             };
@@ -27842,6 +28316,8 @@ export interface operations {
                     note?: string;
                     /** Format: uuid */
                     organizationId: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
                 };
             };
         };
@@ -27853,13 +28329,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        claimToken: string;
-                        /** Format: date-time */
-                        expiresAt: string;
+                        claimToken: string | null;
+                        expiresAt: string | null;
                         /** Format: uuid */
                         grantId: string;
                         offerId: string;
                         remaining: number;
+                        /** @enum {string} */
+                        status: "active" | "reserved";
+                        workspaceId: string | null;
                     };
                 };
             };
@@ -27931,6 +28409,50 @@ export interface operations {
                         applicationId: string;
                         /** @enum {string} */
                         status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_give: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default  */
+                    note?: string;
+                    offerId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        creditedCents: number;
+                        /** Format: uuid */
+                        grantId: string;
+                        offerId: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        /** @enum {string} */
+                        plan: "founding_free" | "founding_lifetime" | "monthly";
+                        remaining: number;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -33878,9 +34400,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -33924,6 +34453,8 @@ export interface operations {
                     /** @default null */
                     result?: {
                         drafts: string[];
+                        /** @default null */
+                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                         /** @default false */
                         lookedUp?: boolean;
                         /** @default null */
@@ -34036,7 +34567,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -34057,6 +34588,11 @@ export interface operations {
                         /** @enum {string} */
                         kind: "profile_edit";
                     };
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34081,9 +34617,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -34185,9 +34728,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -34227,6 +34777,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId: string;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     underway?: string | null;
                     /** Format: uuid */
@@ -34250,6 +34802,11 @@ export interface operations {
                             askId: string;
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -34313,6 +34870,8 @@ export interface operations {
                                 }[] | null;
                                 /** @enum {string} */
                                 kind: "posts";
+                                /** @default [] */
+                                words: string[];
                             } | {
                                 /** @enum {string} */
                                 kind: "cancel";
@@ -34325,7 +34884,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
+                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -34368,6 +34927,7 @@ export interface operations {
                         /** @default true */
                         collect?: boolean;
                         confirmRequests: boolean;
+                        dayReport?: boolean;
                         hours: {
                             days: number[];
                             end: number;
@@ -34377,6 +34937,59 @@ export interface operations {
                         joinGroups?: boolean;
                         /** @default true */
                         markPosts?: boolean;
+                        networks?: {
+                            /**
+                             * @default {
+                             *       "on": true
+                             *     }
+                             */
+                            facebook?: {
+                                /** @default true */
+                                on?: boolean;
+                            };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok"
+                             *     }
+                             */
+                            linkedin?: {
+                                /** @default true */
+                                collect?: boolean;
+                                /** @default true */
+                                confirmRequests?: boolean;
+                                /** @default true */
+                                joinGroups?: boolean;
+                                /** @default false */
+                                on?: boolean;
+                                /**
+                                 * @default after_ok
+                                 * @enum {string}
+                                 */
+                                posting?: "copy" | "after_ok" | "own";
+                                /**
+                                 * @default draft
+                                 * @enum {string}
+                                 */
+                                replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @default true */
+                                warmUp?: boolean;
+                                /** @default true */
+                                watchPosts?: boolean;
+                            };
+                        };
                         /** @default true */
                         noting?: boolean;
                         /**
@@ -34429,6 +35042,15 @@ export interface operations {
                     "application/json": {
                         changedBy: string | null;
                         name: string;
+                        networkWheels: {
+                            linkedin: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                        };
                         rules: {
                             dailyLimits: {
                                 comment?: number;
@@ -34437,6 +35059,16 @@ export interface operations {
                                 friend_request?: number;
                                 like?: number;
                             };
+                            networkLimits: {
+                                linkedin?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                            };
+                            networksAllowed: ("facebook" | "linkedin")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -34446,6 +35078,8 @@ export interface operations {
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
+                            /** @default true */
+                            dayReport: boolean;
                             hours: {
                                 days: number[];
                                 end: number;
@@ -34455,6 +35089,77 @@ export interface operations {
                             joinGroups: boolean;
                             /** @default true */
                             markPosts: boolean;
+                            /**
+                             * @default {
+                             *       "facebook": {
+                             *         "on": true
+                             *       },
+                             *       "linkedin": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
+                             *       }
+                             *     }
+                             */
+                            networks: {
+                                /**
+                                 * @default {
+                                 *       "on": true
+                                 *     }
+                                 */
+                                facebook: {
+                                    /** @default true */
+                                    on: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                linkedin: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                };
+                            };
                             /** @default true */
                             noting: boolean;
                             /**
@@ -34583,7 +35288,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -34655,7 +35360,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34777,6 +35482,70 @@ export interface operations {
             };
         };
     };
+    command_outreach_conversation_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "opener" | "video" | "follow_up" | "check_in" | "reply";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        noted: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_conversation_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stopped: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_country_unskip: {
         parameters: {
             query?: never;
@@ -34824,6 +35593,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34860,6 +35634,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34900,7 +35679,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -34973,7 +35752,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35026,7 +35805,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -35073,7 +35852,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -35120,7 +35899,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -35179,12 +35958,13 @@ export interface operations {
                             url: string;
                             username: string | null;
                         };
+                        since?: string | null;
                     }[];
                     /**
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35292,7 +36072,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     privacy?: ("public" | "private") | null;
                     /** Format: uuid */
@@ -35348,7 +36128,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35380,6 +36160,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     groupId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35626,6 +36411,11 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     list: "friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks";
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35715,6 +36505,17 @@ export interface operations {
                             state: "none" | "started" | "stopped";
                             via: ("web" | "mobile" | "extension") | null;
                             why: ("person" | "warning") | null;
+                        };
+                        /** @default {} */
+                        days: {
+                            linkedin?: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
                         };
                         name: string;
                         stepsKept: string[];
@@ -35884,10 +36685,12 @@ export interface operations {
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
-                                followUpAfterDays: number;
+                                followUpAfterDays?: number;
+                                followUpGaps?: number[];
+                                followUps?: number;
                                 messageAfterDays: number;
                             };
-                            platforms: "facebook"[];
+                            platforms: ("facebook" | "linkedin")[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -35907,6 +36710,18 @@ export interface operations {
                             tone: string | null;
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
+                            videoLink?: string | null;
+                            videoScript?: {
+                                /** Format: date-time */
+                                at: string;
+                                parts: {
+                                    /** @enum {string} */
+                                    part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                    say: string;
+                                    show: string;
+                                }[];
+                                version: number | null;
+                            } | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -35945,10 +36760,12 @@ export interface operations {
                         /** @default [] */
                         ownOpeners?: string[];
                         pace: {
-                            followUpAfterDays: number;
+                            followUpAfterDays?: number;
+                            followUpGaps?: number[];
+                            followUps?: number;
                             messageAfterDays: number;
                         };
-                        platforms: "facebook"[];
+                        platforms: ("facebook" | "linkedin")[];
                         problem?: string | null;
                         proof?: string[];
                         questions: {
@@ -35968,6 +36785,18 @@ export interface operations {
                         tone: string | null;
                         usefulLink?: string | null;
                         usefulWhat?: string | null;
+                        videoLink?: string | null;
+                        videoScript?: {
+                            /** Format: date-time */
+                            at: string;
+                            parts: {
+                                /** @enum {string} */
+                                part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                say: string;
+                                show: string;
+                            }[];
+                            version: number | null;
+                        } | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -36005,10 +36834,12 @@ export interface operations {
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
-                                followUpAfterDays: number;
+                                followUpAfterDays?: number;
+                                followUpGaps?: number[];
+                                followUps?: number;
                                 messageAfterDays: number;
                             };
-                            platforms: "facebook"[];
+                            platforms: ("facebook" | "linkedin")[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -36028,6 +36859,18 @@ export interface operations {
                             tone: string | null;
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
+                            videoLink?: string | null;
+                            videoScript?: {
+                                /** Format: date-time */
+                                at: string;
+                                parts: {
+                                    /** @enum {string} */
+                                    part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                    say: string;
+                                    show: string;
+                                }[];
+                                version: number | null;
+                            } | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -36086,19 +36929,20 @@ export interface operations {
                      * @default scroll
                      * @enum {string}
                      */
-                    found?: "scroll" | "find" | "watch";
-                    group: {
+                    found?: "scroll" | "find" | "watch" | "search";
+                    /** @default null */
+                    group?: {
                         id: string | null;
                         /** @default null */
                         name?: string | null;
                         slug: string | null;
                         url: string;
-                    };
+                    } | null;
                     /**
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     posts: {
                         author: {
                             id: string | null;
@@ -36129,8 +36973,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         checking: number;
-                        /** Format: uuid */
-                        groupId: string;
+                        groupId: string | null;
                         posts: {
                             check: ("waiting" | "good" | "not" | "failed") | null;
                             done: boolean;
@@ -36206,7 +37049,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     profile: {
                         id: string | null;
                         url: string;
@@ -36231,6 +37074,130 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_readiness_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            aboutDraft?: string | null;
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            feature: string[];
+                            items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                bio: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
                     };
                 };
             };
@@ -36264,14 +37231,33 @@ export interface operations {
                         changed: string[];
                         items: {
                             /** @enum {string} */
-                            item: "offer" | "playbook" | "profile" | "numbers";
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
                             left: string | null;
                             /** @enum {string} */
                             state: "done" | "todo" | "look_again" | "waiting";
                             /** @enum {string} */
                             whose: "business" | "person";
                         }[];
-                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
                         numbers: {
                             at: string | null;
                             canSend: number;
@@ -36282,6 +37268,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -36290,12 +37278,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -36347,7 +37341,12 @@ export interface operations {
                 "application/json": {
                     done: boolean;
                     /** @enum {string} */
-                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts";
+                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts" | "about";
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36364,14 +37363,33 @@ export interface operations {
                         changed: string[];
                         items: {
                             /** @enum {string} */
-                            item: "offer" | "playbook" | "profile" | "numbers";
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
                             left: string | null;
                             /** @enum {string} */
                             state: "done" | "todo" | "look_again" | "waiting";
                             /** @enum {string} */
                             whose: "business" | "person";
                         }[];
-                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
                         numbers: {
                             at: string | null;
                             canSend: number;
@@ -36382,6 +37400,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -36390,12 +37410,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -36447,6 +37473,11 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     looking?: boolean;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     seen: {
                         name: string;
                         /** @default null */
@@ -36606,7 +37637,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -36640,7 +37671,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -36720,7 +37751,7 @@ export interface operations {
                     /** @enum {boolean} */
                     hideBanner?: true;
                     /** @enum {string} */
-                    reached?: "playbooks" | "ready" | "rules" | "settings" | "extension" | "groups";
+                    reached?: "playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups";
                     /** @enum {boolean} */
                     started?: true;
                     /** Format: uuid */
@@ -36757,10 +37788,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -36833,7 +37864,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     postText?: string | null;
                     /** @default null */
@@ -36920,7 +37951,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     url?: string | null;
                     words: string[];
@@ -36963,6 +37994,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -49502,6 +50538,126 @@ export interface operations {
             };
         };
     };
+    command_teammate_instruction_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        instruction: {
+                            body: string;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "person" | "lesson";
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_instruction_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    instructionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        instructionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_instruction_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    instructionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        instruction: {
+                            body: string;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "person" | "lesson";
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_teammate_lesson_apply: {
         parameters: {
             query?: never;
@@ -49530,6 +50686,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** Format: uuid */
+                        instructionId: string;
+                        /** Format: uuid */
                         lessonId: string;
                         line: string;
                         replaced: {
@@ -49537,6 +50695,38 @@ export interface operations {
                             before: string;
                             where: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_lesson_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    lessonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        lessonId: string;
                     };
                 };
             };
@@ -53770,6 +54960,88 @@ export interface operations {
             };
         };
     };
+    query_ai_teammate_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    messageIds?: string[];
+                    /** @default [] */
+                    runIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canSaveRules: boolean;
+                        feedback: {
+                            answer: string | null;
+                            betterReply: string | null;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            choices: string[];
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            /** @enum {string} */
+                            learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                            learnWhy: string | null;
+                            lesson: {
+                                conflict: {
+                                    existing: string;
+                                    explain: string;
+                                    itemId: string | null;
+                                    /** @enum {string} */
+                                    place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                    replacement: string;
+                                    where: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                line: string;
+                                /** @enum {string} */
+                                status: "open" | "applied" | "dismissed";
+                                why: string | null;
+                            } | null;
+                            messageId: string | null;
+                            mine: boolean;
+                            note: string | null;
+                            question: string | null;
+                            /** @enum {string} */
+                            rating: "good" | "bad";
+                            /** Format: uuid */
+                            runId: string;
+                            updatedAt: string;
+                        }[];
+                        messageRuns: {
+                            /** Format: uuid */
+                            messageId: string;
+                            /** Format: uuid */
+                            runId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_ai_teammate_get: {
         parameters: {
             query?: never;
@@ -53927,6 +55199,105 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_ai_teammate_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /**
+                     * @default unrated
+                     * @enum {string}
+                     */
+                    show?: "unrated" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canSaveRules: boolean;
+                        items: {
+                            asked: string | null;
+                            channel: string | null;
+                            conversationId: string | null;
+                            feedback: {
+                                answer: string | null;
+                                betterReply: string | null;
+                                by: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                choices: string[];
+                                createdAt: string;
+                                /** Format: uuid */
+                                id: string;
+                                isTest: boolean;
+                                /** @enum {string} */
+                                learn: "none" | "reading" | "asking" | "suggested" | "nothing" | "failed";
+                                learnWhy: string | null;
+                                lesson: {
+                                    conflict: {
+                                        existing: string;
+                                        explain: string;
+                                        itemId: string | null;
+                                        /** @enum {string} */
+                                        place: "description" | "serviceArea" | "hours" | "policies" | "tone" | "signature" | "item" | "instruction";
+                                        replacement: string;
+                                        where: string;
+                                    } | null;
+                                    /** Format: uuid */
+                                    id: string;
+                                    line: string;
+                                    /** @enum {string} */
+                                    status: "open" | "applied" | "dismissed";
+                                    why: string | null;
+                                } | null;
+                                messageId: string | null;
+                                mine: boolean;
+                                note: string | null;
+                                question: string | null;
+                                /** @enum {string} */
+                                rating: "good" | "bad";
+                                /** Format: uuid */
+                                runId: string;
+                                updatedAt: string;
+                            }[];
+                            messageId: string | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reply: string;
+                            /** Format: uuid */
+                            runId: string;
+                            sentAt: string;
+                            /** @enum {string} */
+                            why: "answer" | "first_message" | "follow_up" | "other";
+                        }[];
+                        nextCursor: string | null;
+                        unrated: number;
                     };
                 };
             };
@@ -63562,6 +64933,11 @@ export interface operations {
                             messagedAt: string | null;
                             name: string;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             profileId: string;
                             repliedAt: string | null;
@@ -63695,9 +65071,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                             line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -63766,6 +65149,15 @@ export interface operations {
                     "application/json": {
                         changedBy: string | null;
                         name: string;
+                        networkWheels: {
+                            linkedin: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                        };
                         rules: {
                             dailyLimits: {
                                 comment?: number;
@@ -63774,6 +65166,16 @@ export interface operations {
                                 friend_request?: number;
                                 like?: number;
                             };
+                            networkLimits: {
+                                linkedin?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                            };
+                            networksAllowed: ("facebook" | "linkedin")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -63783,6 +65185,8 @@ export interface operations {
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
+                            /** @default true */
+                            dayReport: boolean;
                             hours: {
                                 days: number[];
                                 end: number;
@@ -63792,6 +65196,77 @@ export interface operations {
                             joinGroups: boolean;
                             /** @default true */
                             markPosts: boolean;
+                            /**
+                             * @default {
+                             *       "facebook": {
+                             *         "on": true
+                             *       },
+                             *       "linkedin": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
+                             *       }
+                             *     }
+                             */
+                            networks: {
+                                /**
+                                 * @default {
+                                 *       "on": true
+                                 *     }
+                                 */
+                                facebook: {
+                                    /** @default true */
+                                    on: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                linkedin: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                };
+                            };
                             /** @default true */
                             noting: boolean;
                             /**
@@ -63903,6 +65378,8 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     tag?: string;
                     /**
@@ -63936,6 +65413,11 @@ export interface operations {
                             nextStep: string | null;
                             onCard: boolean;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             profileId: string | null;
                             prospect: boolean | null;
                             /** @enum {string} */
@@ -63976,6 +65458,11 @@ export interface operations {
                 "application/json": {
                     /** @default 40 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     profileId?: string;
                     /** Format: uuid */
@@ -64069,6 +65556,8 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     /**
                      * @default friends
@@ -64170,6 +65659,11 @@ export interface operations {
                                 by: string | null;
                             } | null;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             profileId: string;
                             since: string | null;
@@ -64196,7 +65690,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64283,7 +65777,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     /**
                      * @default work
@@ -64409,6 +65903,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64429,14 +65928,15 @@ export interface operations {
                             /** Format: date-time */
                             askedAt: string;
                             comments: number;
-                            /** Format: uuid */
-                            groupId: string;
+                            groupId: string | null;
                             groupName: string | null;
-                            groupUrl: string;
+                            groupUrl: string | null;
                             /** Format: uuid */
                             helpfulId: string;
                             /** @enum {string} */
                             how: "copy" | "after_ok" | "own";
+                            /** @enum {string} */
+                            platform?: "facebook" | "linkedin";
                             playbookName: string | null;
                             postedAt: string | null;
                             postUrl: string | null;
@@ -64465,6 +65965,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     helpfulId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64480,14 +65985,14 @@ export interface operations {
                     "application/json": {
                         post: {
                             groupName: string | null;
-                            groupUrl: string;
+                            groupUrl: string | null;
                             /** Format: uuid */
                             helpfulId: string;
                             text: string;
                         } | null;
                         read: {
                             groupName: string | null;
-                            groupUrl: string;
+                            groupUrl: string | null;
                             /** Format: uuid */
                             helpfulId: string;
                             postUrl: string | null;
@@ -64555,6 +66060,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64592,6 +66102,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64803,7 +66318,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** @default [] */
                     profiles?: {
                         id: string | null;
@@ -64874,6 +66389,43 @@ export interface operations {
                             personId: string;
                             /** Format: uuid */
                             threadId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_offer_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: boolean;
+                        judgeAfter: number;
+                        live: number | null;
+                        versions: {
+                            booked: number;
+                            messages: number;
+                            positive: number;
+                            version: number;
                         }[];
                     };
                 };
@@ -64971,7 +66523,7 @@ export interface operations {
                             }[];
                             ownerName: string | null;
                             /** @enum {string} */
-                            platform: "facebook";
+                            platform: "facebook" | "linkedin";
                             savedMessages: number;
                             url: string;
                         }[];
@@ -64985,7 +66537,7 @@ export interface operations {
                             mutualFriends: number | null;
                             name: string;
                             /** @enum {string} */
-                            platform: "facebook";
+                            platform: "facebook" | "linkedin";
                             url: string;
                         }[];
                     };
@@ -65036,10 +66588,12 @@ export interface operations {
                                 /** @default [] */
                                 ownOpeners: string[];
                                 pace: {
-                                    followUpAfterDays: number;
+                                    followUpAfterDays?: number;
+                                    followUpGaps?: number[];
+                                    followUps?: number;
                                     messageAfterDays: number;
                                 };
-                                platforms: "facebook"[];
+                                platforms: ("facebook" | "linkedin")[];
                                 problem?: string | null;
                                 proof?: string[];
                                 questions: {
@@ -65059,6 +66613,18 @@ export interface operations {
                                 tone: string | null;
                                 usefulLink?: string | null;
                                 usefulWhat?: string | null;
+                                videoLink?: string | null;
+                                videoScript?: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    parts: {
+                                        /** @enum {string} */
+                                        part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                        say: string;
+                                        show: string;
+                                    }[];
+                                    version: number | null;
+                                } | null;
                             };
                             /** Format: uuid */
                             id: string;
@@ -65067,6 +66633,40 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_posts_words: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        words: string[];
                     };
                 };
             };
@@ -65082,6 +66682,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65098,14 +66703,33 @@ export interface operations {
                         changed: string[];
                         items: {
                             /** @enum {string} */
-                            item: "offer" | "playbook" | "profile" | "numbers";
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
                             left: string | null;
                             /** @enum {string} */
                             state: "done" | "todo" | "look_again" | "waiting";
                             /** @enum {string} */
                             whose: "business" | "person";
                         }[];
-                        next: ("offer" | "playbook" | "profile" | "numbers") | null;
+                        messages: {
+                            at: string | null;
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
+                                followUps: string[];
+                                link: string | null;
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
                         numbers: {
                             at: string | null;
                             canSend: number;
@@ -65116,6 +66740,8 @@ export interface operations {
                             line: string;
                             version: number;
                         } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -65124,12 +66750,18 @@ export interface operations {
                             };
                         };
                         profileCheck: {
+                            aboutDraft?: string | null;
                             /** Format: date-time */
                             at: string;
                             bios: string[];
                             coverLine: string | null;
                             feature: string[];
                             items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
                                 bio: {
                                     fix: string | null;
                                     ok: boolean;
@@ -65198,7 +66830,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -65281,10 +66913,10 @@ export interface operations {
                             name: string;
                             template: string | null;
                         }[];
-                        reached: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups") | null;
+                        reached: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups") | null;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "ready" | "rules" | "settings" | "extension" | "groups")[];
+                        steps: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups")[];
                     };
                 };
             };
@@ -65302,6 +66934,8 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     search?: string;
                     /**
                      * @default all
@@ -65347,6 +66981,11 @@ export interface operations {
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
@@ -65375,7 +67014,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook";
+                    platform?: "facebook" | "linkedin";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65389,7 +67028,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead")[];
+                        auto: ("reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm")[];
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -65397,7 +67036,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "confirm" | "warm_up" | "friend_request" | "opener" | "reconnect" | "pitch" | "follow_up" | "reply" | "comment" | "warm_lead";
+                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm";
                             name: string;
                             nextStep: string | null;
                             personId: string | null;
@@ -65425,6 +67064,7 @@ export interface operations {
                             } | null;
                             summary: string | null;
                             threadKey: string | null;
+                            videoLink: string | null;
                             why: string[];
                         }[];
                         limits: {
@@ -65449,7 +67089,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "follow_up" | "reply")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply")[];
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;
@@ -65469,6 +67109,11 @@ export interface operations {
                             today: boolean;
                             words: string;
                         } | null;
+                        /** @default null */
+                        week: {
+                            done: number;
+                            most: number;
+                        } | null;
                         wheels: {
                             daysLeft: number;
                             edits: number;
@@ -65476,6 +67121,103 @@ export interface operations {
                             ok: number;
                             on: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_tracking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default week
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default [] */
+                        byNetwork: {
+                            booked: number;
+                            messages: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin";
+                            positive: number;
+                        }[];
+                        byPlaybook: {
+                            booked: number;
+                            messages: number;
+                            name: string | null;
+                            playbookId: string | null;
+                            positive: number;
+                        }[];
+                        byVersion: {
+                            booked: number;
+                            live: boolean;
+                            messages: number;
+                            positive: number;
+                            version: number;
+                        }[];
+                        everyone: boolean;
+                        /** Format: date-time */
+                        from: string;
+                        numbers: {
+                            booked: number;
+                            messages: number;
+                            positive: number;
+                        };
+                        /** @enum {string} */
+                        period: "today" | "week" | "month";
+                        rates: {
+                            books: number | null;
+                            yes: number | null;
+                        };
+                        review: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            by: "ai" | "rules";
+                            /** @enum {string} */
+                            fix: "volume" | "message" | "video" | "on_track";
+                            headline: string;
+                            numbers: {
+                                booked: number;
+                                messages: number;
+                                positive: number;
+                            };
+                            steps: string[];
+                            target: number | null;
+                            /** Format: date */
+                            week: string;
+                            why: string;
+                        } | null;
+                        target: {
+                            booked: number;
+                            goal: number;
+                            messages: number;
+                            positive: number;
+                        } | null;
+                        timezone: string;
                     };
                 };
             };
@@ -65524,9 +67266,16 @@ export interface operations {
                                 /** @enum {string} */
                                 kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit";
                                 line: string | null;
+                                /**
+                                 * @default facebook
+                                 * @enum {string}
+                                 */
+                                platform: "facebook" | "linkedin";
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
                                     drafts: string[];
+                                    /** @default null */
+                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead") | null;
                                     /** @default false */
                                     lookedUp: boolean;
                                     /** @default null */
@@ -65564,7 +67313,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -65602,7 +67351,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "follow_up" | "reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -65732,6 +67481,11 @@ export interface operations {
                     "application/json": {
                         people: {
                             name: string;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin";
                             /** Format: uuid */
                             userId: string;
                             wheels: {
@@ -72873,6 +74627,52 @@ export interface operations {
                         }[];
                         nextCursor: string | null;
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_teammate_instruction_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canManage: boolean;
+                        instructions: {
+                            body: string;
+                            by: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "person" | "lesson";
+                            updatedAt: string;
+                        }[];
+                        max: number;
+                        name: string | null;
+                        teammateId: string | null;
                     };
                 };
             };

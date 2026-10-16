@@ -464,7 +464,7 @@ describe('Home’s commands', () => {
       workspaceId: WS,
       lessonId: 'lesson-1',
     });
-    expect(toast.show).toHaveBeenLastCalledWith('Added to what the AI knows.');
+    expect(toast.show).toHaveBeenLastCalledWith('Added to its instructions.');
 
     jest.mocked(change).mockResolvedValueOnce(
       sent({
@@ -482,7 +482,9 @@ describe('Home’s commands', () => {
       lessonId: 'lesson-1',
       replace: true,
     });
-    expect(toast.show).toHaveBeenLastCalledWith('Changed Policies to the new words.');
+    expect(toast.show).toHaveBeenLastCalledWith(
+      'Added to its instructions, and changed Policies to match.',
+    );
 
     // It never waits on the phone: with no signal, it says so and nothing changes.
     jest.mocked(change).mockRejectedValueOnce(new ChangeError('needs-signal', NEEDS_SIGNAL));

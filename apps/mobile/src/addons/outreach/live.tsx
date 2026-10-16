@@ -1,4 +1,4 @@
-import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
   clockWords,
   dayWords,
@@ -16,6 +16,8 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
+import { dailyWordsOn, networkShown } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
@@ -41,11 +43,13 @@ import {
   NeedsSignal,
   Note,
   openOutreach,
+  openSettingsPart,
   Part,
   QueuedNote,
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
+import { useNetworksOn } from './networks';
 
 /**
  * The live view on the phone (decision 44): what the person's extension is doing now, asked again every minute while
@@ -53,6 +57,8 @@ import {
  * limits, what the person asked their computer (decision 43, with **Carry on**, **Skip** and **Stop**), and today's
  * steps; for owners and admins, each person's state. Start and Stop wait on the phone with no
  * signal and go when it's back; the rest needs signal, and with none the last answer stays, "As of" when it came.
+ * The day, its warning, its limits and its first lists are one network's (`outreach.live`'s `platform`, Facebook's
+ * when left out): Today's strip asks for each network the person works (./hub.tsx).
  */
 
 const TONE_BADGE = { good: 'ok', waiting: 'pending', warn: 'danger', plain: 'gray' } as const;
@@ -90,17 +96,31 @@ export function StateChip({ state, testID }: { state: ShownState; testID?: strin
   );
 }
 
-export function LiveScreen() {
-  return <LiveBody {...useLiveProps()} />;
+/**
+ * The live screen: the day of the network picked, of those the person works (the one its address names, else their
+ * first, to start).
+ */
+export function LiveScreen({ net: start = null }: { net?: Platform | null }) {
+  const nets = useNetworksOn();
+  const [asked, setAsked] = React.useState<Platform | null>(start);
+  const net = networkShown(nets, asked);
+  return <LiveBody {...useLiveProps(true, net)} networks={nets} onNetwork={setAsked} />;
 }
 
-/** The live answer, Start and Stop with what waits on the phone: for its own screen and Today's strip (./hub.tsx). */
-export function useLiveProps(full = true): React.ComponentProps<typeof LiveBody> {
+/**
+ * The live answer on a network, Start and Stop there with what waits on the phone: for its own screen and Today's
+ * strip (./hub.tsx), a row for each network.
+ */
+export function useLiveProps(
+  full = true,
+  platform: Platform = 'facebook',
+): React.ComponentProps<typeof LiveBody> {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const live = useOutreachAnswer(
-    async () => unwrap(await api.POST('/v1/queries/outreach.live', { body: { workspaceId: ws } })),
-    `live:${ws}`,
+    async () =>
+      unwrap(await api.POST('/v1/queries/outreach.live', { body: { workspaceId: ws, platform } })),
+    `live:${ws}:${platform}`,
     W.rows.live,
     { everySeconds: LIVE_REFETCH_SECONDS },
   );
@@ -130,7 +150,7 @@ export function useLiveProps(full = true): React.ComponentProps<typeof LiveBody>
   }, [sent, reload]);
   const press = async (state: 'started' | 'stopped') => {
     try {
-      const made = await (state === 'started' ? startDay(ws) : stopDay(ws));
+      const made = await (state === 'started' ? startDay(ws, platform) : stopDay(ws, platform));
       setPressed({ state, id: made.id, at: Date.now() });
       const computerOpen =
         !!live.data?.computer && !isOffline(live.data.computer.lastSeenAt, Date.now());
@@ -149,6 +169,7 @@ export function useLiveProps(full = true): React.ComponentProps<typeof LiveBody>
     }
   };
   return {
+    platform,
     live: live.data,
     at: live.at,
     error: live.error,
@@ -160,13 +181,15 @@ export function useLiveProps(full = true): React.ComponentProps<typeof LiveBody>
     onStart: () => void press('started'),
     onStop: () => void press('stopped'),
     onWaiting: () => openOutreach(ws, 'today'),
-    onSettings: () => openOutreach(ws, 'settings'),
+    // What it does on its own is set on the network's own page of Settings.
+    onSettings: () => openSettingsPart(ws, platform),
     asks: asks.data,
     askActions,
   };
 }
 
 export function LiveBody({
+  platform = 'facebook',
   live,
   at,
   error,
@@ -181,7 +204,14 @@ export function LiveBody({
   onSettings,
   asks = null,
   askActions,
+  networks = [platform],
+  onNetwork,
 }: {
+  /** The network whose day, warning and limits these are. */
+  platform?: Platform;
+  /** The networks the person works: with more than one, their names pick whose day shows. */
+  networks?: readonly Platform[];
+  onNetwork?: (platform: Platform) => void;
   live: LiveOutput | null;
   /** When the answer on screen came. */
   at: number | null;
@@ -235,6 +265,22 @@ export function LiveBody({
     >
       {!online ? <NeedsSignal words={W.needsSignal(W.rows.live)} testID="live-offline" /> : null}
 
+      {networks.length > 1 && onNetwork ? (
+        <View className="flex-row flex-wrap gap-1.5" testID="live-networks">
+          {networks.map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={p === platform ? 'secondary' : 'ghost'}
+              onPress={() => onNetwork(p)}
+              testID={`live-network-${p}`}
+            >
+              {PLATFORMS[p]}
+            </Button>
+          ))}
+        </View>
+      ) : null}
+
       <Part title={W.rightNow} testID="live-now">
         <Card className="gap-2 px-4 py-3.5">
           <StateChip state={state} testID="live-state" />
@@ -268,7 +314,7 @@ export function LiveBody({
         {live.warning ? (
           <Card className="border-danger px-4 py-3" testID="live-warning">
             <Text className="text-[14px] leading-[20px] text-danger">
-              {warningNote(live.warning, now)}
+              {warningNote(live.warning, now, platform)}
             </Text>
           </Card>
         ) : null}
@@ -307,13 +353,13 @@ export function LiveBody({
             </Button>
           </View>
         )}
-        {dayWords(day, tz, live.lists) ? (
-          <Note testID="live-day-words">{dayWords(day, tz, live.lists)}</Note>
+        {dayWords(day, tz, live.lists, platform) ? (
+          <Note testID="live-day-words">{dayWords(day, tz, live.lists, platform)}</Note>
         ) : null}
         {pressed ? <QueuedNote online={online} /> : null}
       </Card>
 
-      <PreDayPart live={{ ...live, day }} now={now} />
+      <PreDayPart live={{ ...live, day }} now={now} platform={platform} />
 
       {asks && askActions ? <AskedPart asks={asks} actions={askActions} /> : null}
 
@@ -322,7 +368,7 @@ export function LiveBody({
           {DAILY_STEPS.map((step) => (
             <ListRow
               key={step}
-              label={DAILY_WORDS[step].label}
+              label={dailyWordsOn(platform)[step].label}
               end={
                 <Text className="text-[14px] text-text-2">
                   {W.countOf(live.limits[step].done, live.limits[step].most)}
@@ -407,9 +453,18 @@ const PRE_DAY_END = { done: 'Done', now: 'Under way', next: 'To come' } as const
  * The steps before the first day as a checklist (docs/outreach.md, decision 60 "Lists first"): each ticked once done,
  * the one under way with what the computer says it's doing, while it works. Gone once all are done.
  */
-export function PreDayPart({ live, now }: { live: LiveOutput; now: number }) {
+export function PreDayPart({
+  live,
+  now,
+  platform = 'facebook',
+}: {
+  live: LiveOutput;
+  now: number;
+  /** The network whose steps before its first day these are. */
+  platform?: Platform;
+}) {
   // The count under the step the computer says it's doing, while it works and is online.
-  const steps = preDaySteps(live.lists, preDayNow(live, now));
+  const steps = preDaySteps(live.lists, preDayNow(live, now), platform);
   if (!steps.length || live.day.state !== 'started') return null;
   return (
     <Part title={PRE_DAY_TITLE} about={preDayCount(steps)} testID="live-pre-day">

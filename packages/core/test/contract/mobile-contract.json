@@ -1121,6 +1121,28 @@
         "required": ["workspaceId", "step", "answers"]
       }
     },
+    "ai_teammate.answer_feedback": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "feedbackId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["workspaceId", "feedbackId", "answer"]
+      }
+    },
     "ai_teammate.decide_draft": {
       "offline": {
         "freshMinutes": 30
@@ -1161,6 +1183,64 @@
           }
         },
         "required": ["workspaceId", "draftId", "decision"]
+      }
+    },
+    "ai_teammate.give_feedback": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "string",
+            "enum": ["good", "bad"]
+          },
+          "betterReply": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "rating"]
       }
     },
     "ai_teammate.set_status": {
@@ -6782,6 +6862,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "ask": {
             "oneOf": [
               {
@@ -7029,7 +7114,9 @@
                           "opener",
                           "reconnect",
                           "pitch",
+                          "video",
                           "follow_up",
+                          "check_in",
                           "reply",
                           "comment",
                           "warm_lead"
@@ -7111,7 +7198,7 @@
                   "bio": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 101
+                    "maxLength": 220
                   }
                 },
                 "required": ["kind", "bio"]
@@ -7234,6 +7321,9 @@
                 "type": "string",
                 "enum": ["bundled", "each"]
               },
+              "dayReport": {
+                "type": "boolean"
+              },
               "voice": {
                 "type": "object",
                 "properties": {
@@ -7254,6 +7344,78 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "networks": {
+                "type": "object",
+                "properties": {
+                  "facebook": {
+                    "default": {
+                      "on": true
+                    },
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": true,
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "linkedin": {
+                    "default": {
+                      "on": false,
+                      "sending": "off",
+                      "replies": "draft",
+                      "warmUp": true,
+                      "confirmRequests": true,
+                      "collect": true,
+                      "joinGroups": true,
+                      "watchPosts": true,
+                      "posting": "after_ok"
+                    },
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "default": "off",
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      }
+                    }
+                  }
+                }
               }
             },
             "required": ["sending", "warmUp", "confirmRequests", "hours"]
@@ -7271,6 +7433,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "installId": {
             "type": "string",
             "format": "uuid"
@@ -7287,6 +7454,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           },
           "installId": {
             "type": "string",
@@ -7308,7 +7480,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "profileId": {
             "type": "string",
@@ -7318,31 +7490,14 @@
             "type": "object",
             "properties": {
               "id": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\d{1,30}$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": ["string", "null"]
               },
               "username": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^[A-Za-z0-9.]{1,100}$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": ["string", "null"]
               },
               "url": {
                 "type": "string",
-                "maxLength": 500,
-                "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                "maxLength": 500
               }
             },
             "required": ["id", "username", "url"]
@@ -7371,7 +7526,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "profileId": {
             "type": "string",
@@ -7381,31 +7536,14 @@
             "type": "object",
             "properties": {
               "id": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\d{1,30}$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": ["string", "null"]
               },
               "username": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^[A-Za-z0-9.]{1,100}$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": ["string", "null"]
               },
               "url": {
                 "type": "string",
-                "maxLength": 500,
-                "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                "maxLength": 500
               }
             },
             "required": ["id", "username", "url"]
@@ -7436,6 +7574,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           },
           "groupId": {
             "type": "string",
@@ -7698,6 +7841,70 @@
                   }
                 ]
               },
+              "videoLink": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "videoScript": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "part": {
+                              "type": "string",
+                              "enum": ["who", "cost", "method", "proof", "call", "next"]
+                            },
+                            "say": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 900
+                            },
+                            "show": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 240
+                            }
+                          },
+                          "required": ["part", "say", "show"]
+                        }
+                      },
+                      "at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["parts", "at", "version"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "audience": {
                 "anyOf": [
                   {
@@ -7745,7 +7952,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook"]
+                  "enum": ["facebook", "linkedin"]
                 }
               },
               "groupWords": {
@@ -7772,13 +7979,28 @@
                     "minimum": 0,
                     "maximum": 14
                   },
+                  "followUps": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 7
+                  },
+                  "followUpGaps": {
+                    "minItems": 5,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14
+                    }
+                  },
                   "followUpAfterDays": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 30
                   }
                 },
-                "required": ["messageAfterDays", "followUpAfterDays"]
+                "required": ["messageAfterDays"]
               },
               "tone": {
                 "anyOf": [
@@ -7980,6 +8202,19 @@
         "required": ["workspaceId", "profileId"]
       }
     },
+    "outreach.readiness.messages": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.readiness.numbers": {
       "offline": "online",
       "input": {
@@ -8017,9 +8252,14 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
+          },
           "item": {
             "type": "string",
-            "enum": ["picture", "cover", "bio", "work", "featured", "posts"]
+            "enum": ["picture", "cover", "bio", "work", "featured", "posts", "about"]
           },
           "done": {
             "type": "boolean"
@@ -8146,6 +8386,11 @@
           "userId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId", "userId"]
@@ -12896,6 +13141,23 @@
         "required": ["workspaceId", "lessonId"]
       }
     },
+    "teammate_lesson.dismiss": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lessonId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "lessonId"]
+      }
+    },
     "user_phone.start_verification": {
       "offline": "online",
       "input": {
@@ -13030,6 +13292,36 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "ai_teammate.feedback": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runIds": {
+            "default": [],
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "messageIds": {
+            "default": [],
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "required": ["workspaceId"]
@@ -13509,6 +13801,10 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100000
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13525,7 +13821,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "view": {
             "default": "work",
@@ -13553,6 +13849,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13565,6 +13866,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13593,7 +13899,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           },
           "profiles": {
             "default": [],
@@ -13603,26 +13909,10 @@
               "type": "object",
               "properties": {
                 "id": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^\\d{1,30}$"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "type": ["string", "null"]
                 },
                 "username": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^[A-Za-z0-9.]{1,100}$"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "type": ["string", "null"]
                 }
               },
               "required": ["id", "username"]
@@ -13633,8 +13923,7 @@
             "maxItems": 50,
             "type": "array",
             "items": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9._-]{1,64}$"
+              "type": "string"
             }
           },
           "names": {
@@ -13670,6 +13959,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13719,6 +14013,10 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100000
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]
@@ -13735,7 +14033,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook"]
+            "enum": ["facebook", "linkedin"]
           }
         },
         "required": ["workspaceId"]

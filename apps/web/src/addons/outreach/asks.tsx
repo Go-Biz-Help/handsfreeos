@@ -5,13 +5,18 @@
  * computer takes it, says how it's going, hands a step to the person when it can't find it, and says how it ended.
  * These are the shared pieces: the button, the line under it with **Carry on**, **Skip** and **Stop**, and the note
  * that says why the buttons wait. The rules and words are core's (packages/core/src/addons/outreach/asks.ts).
+ *
+ * An ask is made on a network (Facebook when a screen names none): a button on a network's screen carries its
+ * `platform`, shows only for the kinds that network can be asked (`ASK_KINDS_ON`), and its line is its own network's
+ * ask, never another's of the same kind.
  */
 import {
+  askableOn,
   askedWords,
   askOpen,
   askRepliesFor,
   askWaitingWords,
-  ASK_KINDS,
+  askNameOn,
   ASK_REPLIES,
   ASK_SHOWN_STATES,
   ASK_TONES,
@@ -21,10 +26,12 @@ import {
   tooOldFor,
   computerNoteWords,
   latestAsk,
+  latestAskOn,
   targetOf,
   type AskInput,
   type AskShownState,
 } from '@hfos/core/addons/outreach/asks';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { toast } from 'sonner';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -37,16 +44,18 @@ import { useAct } from './use-act';
 const TONES: Record<AskShownState, BadgeVariant> = ASK_TONES;
 
 /** Finding a button's ask, and why it can't ask: core's, the phone's too. */
-export { cantAskWhy, latestAsk, targetOf };
+export { cantAskWhy, latestAsk, latestAskOn, targetOf };
 
 /**
  * A button that asks the computer, with the line of its latest ask under it. Disabled while one like it is open (its
- * line has **Stop**), with no computer, and after a warning today for anything on Facebook.
+ * line has **Stop**), with no computer, and after a warning today for anything on Facebook. None for a kind its
+ * network can't be asked.
  */
 export function AskButton({
   workspaceId,
   asks,
   ask,
+  platform = 'facebook',
   label,
   variant = 'secondary',
   size = 'sm',
@@ -58,6 +67,8 @@ export function AskButton({
   workspaceId: string;
   asks: Asks;
   ask: AskInput;
+  /** The network it's asked on. */
+  platform?: Platform;
   label: string;
   variant?: 'primary' | 'secondary' | 'ghost';
   size?: 'sm' | 'md';
@@ -69,17 +80,20 @@ export function AskButton({
   const { busy, act } = useAct();
   const kind = ask.kind;
   const target = targetOf(ask);
-  const latest = latestAsk(asks, kind, target);
+  const latest = latestAskOn(asks, platform, kind, target);
   const open = latest !== null && askOpen(latest.state);
-  const why = cantAskWhy(asks, kind);
+  const why = cantAskWhy(asks, kind, platform);
   const press = () =>
     void act(`ask:${kind}`, async () => {
       const made = unwrap(
-        await apiBrowser().POST('/v1/commands/outreach.ask.make', { body: { workspaceId, ask } }),
+        await apiBrowser().POST('/v1/commands/outreach.ask.make', {
+          body: { workspaceId, platform, ask },
+        }),
       );
       toast.success(askedWords(made, asks, Date.now()));
       onAsked?.(made.ask);
     });
+  if (!askableOn(platform, kind)) return null;
   return (
     <div className="grid content-start gap-1.5" data-testid={testId ? `${testId}-box` : undefined}>
       <div>
@@ -96,7 +110,7 @@ export function AskButton({
         </Button>
       </div>
       {/* An older extension can't do this kind: said here, since the tab's note is about the computer. */}
-      {asks.computer && tooOldFor(asks.computer.version, kind) ? (
+      {asks.computer && tooOldFor(asks.computer.version, kind, platform) ? (
         <p className="text-[12.5px] text-warning-text" data-testid="outreach-ask-too-old">
           {why}
         </p>
@@ -160,7 +174,7 @@ export function AskLine({
         </Badge>
         {named ? (
           <span className="font-medium">
-            {ASK_KINDS[ask.kind]}
+            {askNameOn(ask.kind, ask.platform)}
             {ask.about ? ` · ${ask.about}` : ''}
           </span>
         ) : ask.about ? (

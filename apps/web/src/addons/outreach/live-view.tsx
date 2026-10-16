@@ -7,6 +7,9 @@
  * and works out "offline" itself on a 30-second clock, so the note shows with no event at all. A heartbeat tells
  * nobody, so while the tab is shown it also asks again every minute, which keeps "last seen" moving: a computer still
  * beating is never called offline.
+ *
+ * Each network's day is its own: with more than one network on, its names pick which (`?net=`), and Start my day and
+ * Stop for today, the counts, the first lists and the warning are that network's.
  */
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
@@ -22,6 +25,8 @@ import {
   stateTone,
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
+import { dailyWordsOn, NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
@@ -32,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
@@ -88,6 +94,8 @@ export function LiveView({
   live,
   team,
   asks,
+  platform = 'facebook',
+  networks = [platform],
 }: {
   workspaceId: string;
   live: Live;
@@ -95,7 +103,11 @@ export function LiveView({
   team: LiveTeam | null;
   /** What the person asked their computer to do from here: today's and the open ones. */
   asks: Asks;
+  /** The network whose day it is, of those the person works. */
+  platform?: Platform;
+  networks?: readonly Platform[];
 }) {
+  const router = useRouter();
   useLiveRefresh(
     [
       'outreach_computer',
@@ -114,20 +126,44 @@ export function LiveView({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]" data-testid="outreach-live">
       <div className="grid content-start gap-4">
-        <RightNow workspaceId={workspaceId} live={live} now={now} />
+        {networks.length > 1 ? (
+          <div className="max-w-full overflow-x-auto">
+            <Segmented<Platform>
+              ariaLabel={NW.filter}
+              value={platform}
+              onChange={(net) => router.push(outreachHref(workspaceId, { view: 'live', net }))}
+              options={networks.map((p) => ({
+                value: p,
+                label: PLATFORMS[p],
+                testId: `live-network-${p}`,
+              }))}
+            />
+          </div>
+        ) : null}
+        <RightNow workspaceId={workspaceId} live={live} now={now} platform={platform} />
         <AskedCard workspaceId={workspaceId} asks={asks} />
         <StepsCard live={live} />
         {team ? <TeamCard team={team} now={now} /> : null}
       </div>
       <div className="grid content-start gap-4">
-        <CountsCard workspaceId={workspaceId} live={live} />
+        <CountsCard workspaceId={workspaceId} live={live} platform={platform} />
         <ComputersCard workspaceId={workspaceId} live={live} now={now} />
       </div>
     </div>
   );
 }
 
-function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live; now: number }) {
+function RightNow({
+  workspaceId,
+  live,
+  now,
+  platform,
+}: {
+  workspaceId: string;
+  live: Live;
+  now: number;
+  platform: Platform;
+}) {
   const { busy, act } = useAct();
   const tz = live.timezone;
   const computer = live.computer;
@@ -148,15 +184,19 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
   const sendingOff = live.sending === 'off';
   const started = live.day.state === 'started';
   const stopped = live.day.state === 'stopped';
-  const said = dayWords(live.day, tz, live.lists);
+  const said = dayWords(live.day, tz, live.lists, platform);
   const press = (kind: 'start' | 'stop') =>
     void act(
       kind,
       async () =>
         unwrap(
           kind === 'start'
-            ? await apiBrowser().POST('/v1/commands/outreach.day.start', { body: { workspaceId } })
-            : await apiBrowser().POST('/v1/commands/outreach.day.stop', { body: { workspaceId } }),
+            ? await apiBrowser().POST('/v1/commands/outreach.day.start', {
+                body: { workspaceId, platform },
+              })
+            : await apiBrowser().POST('/v1/commands/outreach.day.stop', {
+                body: { workspaceId, platform },
+              }),
         ),
       kind === 'stop' ? W.stopped : W.started(!offline && computer !== null),
     );
@@ -187,7 +227,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           {W.noComputer}
         </p>
       )}
-      <PreDayList live={live} now={now} className="mt-3" />
+      <PreDayList live={live} now={now} platform={platform} className="mt-3" />
       {offline && computer ? (
         <p
           role="status"
@@ -204,7 +244,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
           data-testid="live-warning"
           className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
         >
-          {warningNote(live.warning)}
+          {warningNote(live.warning, now, platform)}
         </p>
       ) : null}
       {sendingOff ? (
@@ -218,7 +258,7 @@ function RightNow({ workspaceId, live, now }: { workspaceId: string; live: Live;
               {W.changeThatIn}{' '}
               <Link
                 className="font-medium text-accent-text underline-offset-2 hover:underline"
-                href={outreachHref(workspaceId, { view: 'settings' })}
+                href={outreachHref(workspaceId, { view: 'settings', part: platform })}
               >
                 {W.rows.settings}
               </Link>
@@ -279,7 +319,16 @@ function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
   );
 }
 
-function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) {
+function CountsCard({
+  workspaceId,
+  live,
+  platform,
+}: {
+  workspaceId: string;
+  live: Live;
+  platform: Platform;
+}) {
+  const words = dailyWordsOn(platform);
   return (
     <Card className="p-4" data-testid="live-counts">
       <h3 className="text-[15px] font-semibold">{W.todaySoFar}</h3>
@@ -293,7 +342,7 @@ function CountsCard({ workspaceId, live }: { workspaceId: string; live: Live }) 
               className="flex items-baseline justify-between gap-2 text-[13px]"
               data-testid={`live-count-${step}`}
             >
-              <span>{DAILY_WORDS[step].label}</span>
+              <span>{words[step].label}</span>
               <span
                 className={cn(
                   'tabular-nums',

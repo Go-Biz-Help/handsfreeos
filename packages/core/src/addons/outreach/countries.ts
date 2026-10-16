@@ -298,7 +298,7 @@ export const COUNTRY_WORDS = {
   notFound: 'That person isn’t kept anymore. Open the Skipped for country list again.',
 } as const;
 
-/** The business's setting (Social Outreach → Settings → Business settings): which countries it reaches. */
+/** The business's setting (Social Outreach → Settings → General, For your team): which countries it reaches. */
 export const CountryRule = z
   .object({
     mode: z.enum(COUNTRY_MODES).default('anywhere'),

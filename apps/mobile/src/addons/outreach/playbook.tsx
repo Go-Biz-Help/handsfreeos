@@ -1,9 +1,14 @@
+import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   ANSWER_NEXT_KEYS,
   answerNextLabel,
   nextQuestionId,
+  followUpGapsFor,
   PACE_LIMITS,
+  paceOf,
   PLAYBOOK_GOAL_KEYS,
   PLAYBOOK_GOALS,
   PLAYBOOK_STEP_KEYS,
@@ -44,7 +49,7 @@ import {
  * One playbook on the phone (decision 44): each part of it, and for owners and admins, changing it a part at a time
  * in a sheet. Before each save the phone asks for the playbook again and puts only the part changed on what it finds,
  * so a change made meanwhile on the web isn't undone. The AI's help (Improve, Suggest more) is on the web. It needs
- * signal.
+ * signal. Its networks are one part: one playbook for every network (Chris), at least one picked.
  */
 
 export type Section = keyof typeof W.playbookSections | 'name';
@@ -59,9 +64,12 @@ export const SECTION_FIELDS: Readonly<
   signs: ['signs'],
   skip: ['skip'],
   area: ['area'],
+  networks: ['platforms'],
   groupWords: ['groupWords'],
   steps: ['steps'],
   pace: ['pace'],
+  // The short video's link (decision 69): its script is written on the web, with the AI.
+  video: ['videoLink'],
   tone: ['tone'],
   samples: ['samples'],
   openers: ['openerStyles', 'ownOpeners'],
@@ -103,13 +111,31 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
       return details.steps.length
         ? details.steps.map((s) => PLAYBOOK_STEPS[s].label).join(' · ')
         : W.empty;
+    case 'networks':
+      return details.platforms.length
+        ? details.platforms.map((p) => PLATFORMS[p]).join(' · ')
+        : W.empty;
     case 'pace':
       return (
         W.pace(
           details.steps.includes('message') ? details.pace.messageAfterDays : null,
-          details.steps.includes('follow_up') ? details.pace.followUpAfterDays : null,
+          details.steps.includes('follow_up') ? paceOf(details.pace).followUps : null,
         ) || W.empty
       );
+    case 'video': {
+      const script = details.videoScript;
+      return [
+        details.videoLink?.trim() || V.summary(false, Boolean(script)),
+        script
+          ? [
+              V.runs(scriptMinutes(script)),
+              ...script.parts.map(
+                (p, i) => `${i + 1} · ${VIDEO_PARTS[p.part].title}\n${p.say}\n${V.show}: ${p.show}`,
+              ),
+            ].join('\n\n')
+          : V.onComputer,
+      ].join('\n\n');
+    }
     case 'openers':
       return list([...details.openerStyles, ...details.ownOpeners]);
     case 'questions':
@@ -460,6 +486,20 @@ function SectionEditor({
           />
         </>
       );
+    case 'video':
+      return (
+        <>
+          <WordsInput
+            value={d.videoLink ?? null}
+            onChange={(link) => set({ videoLink: link?.trim() || null })}
+            placeholder={V.linkPlaceholder}
+            multiline={false}
+            testID="playbook-video-link"
+          />
+          <Note>{V.linkHint}</Note>
+          <Note>{V.onComputer}</Note>
+        </>
+      );
     case 'audience':
     case 'area':
     case 'tone':
@@ -470,6 +510,36 @@ function SectionEditor({
           onChange={(v) => set({ [section]: v })}
           testID="playbook-words"
         />
+      );
+    case 'networks':
+      return (
+        <View className="gap-3">
+          <Note>{NW.playbookAbout}</Note>
+          {PLATFORM_KEYS.map((p) => {
+            const on = d.platforms.includes(p);
+            return (
+              <View key={p} className="flex-row items-center gap-3">
+                <View className="flex-1">
+                  <Text className="text-[14.5px] font-medium">{PLATFORMS[p]}</Text>
+                  <Note>{NW.where(p)}</Note>
+                </View>
+                <Switch
+                  label={PLATFORMS[p]}
+                  checked={on}
+                  disabled={on && d.platforms.length === 1}
+                  onCheckedChange={(v) =>
+                    set({
+                      platforms: PLATFORM_KEYS.filter((k) =>
+                        k === p ? v : d.platforms.includes(k),
+                      ),
+                    })
+                  }
+                  testID={`playbook-network-${p}`}
+                />
+              </View>
+            );
+          })}
+        </View>
       );
     case 'steps':
       return (
@@ -499,7 +569,8 @@ function SectionEditor({
           })}
         </View>
       );
-    case 'pace':
+    case 'pace': {
+      const pace = paceOf(d.pace);
       return (
         <>
           <DaysInput
@@ -510,12 +581,39 @@ function SectionEditor({
           />
           <DaysInput
             label={W.followUpAfter}
-            value={d.pace.followUpAfterDays}
-            limits={PACE_LIMITS.followUpAfterDays}
-            onChange={(followUpAfterDays) => set({ pace: { ...d.pace, followUpAfterDays } })}
+            value={pace.followUps}
+            limits={PACE_LIMITS.followUps}
+            onChange={(followUps) =>
+              set({
+                pace: {
+                  ...d.pace,
+                  followUps,
+                  // A new count keeps the gaps already set, and starts any new ones where they'd start.
+                  followUpGaps: followUpGapsFor(followUps).map((g, i) => pace.followUpGaps[i] ?? g),
+                },
+              })
+            }
           />
+          {pace.followUpGaps.map((gap, i) => (
+            <DaysInput
+              key={`gap-${i}`}
+              label={W.followUpGap(i + 1)}
+              value={gap}
+              limits={PACE_LIMITS.followUpGap}
+              onChange={(days) =>
+                set({
+                  pace: {
+                    ...d.pace,
+                    followUps: pace.followUps,
+                    followUpGaps: pace.followUpGaps.map((g, j) => (j === i ? days : g)),
+                  },
+                })
+              }
+            />
+          ))}
         </>
       );
+    }
     case 'openers':
       return (
         <>

@@ -1,0 +1,354 @@
+/**
+ * The presses LinkedIn's runner makes on its own (src/auto/linkedin.ts; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md,
+ * "LinkedIn, part by part", 5), once the person lets it, each only on the page it's for, in the tab (./work.ts):
+ *
+ * - **Like** the post of theirs the runner picked, on their activity: only a post they wrote, only its own Like (never
+ *   a comment's), and only when none of the person's reactions is on it already. In LinkedIn's newer layout (the
+ *   owner's outlines of 16 Oct 2026) that's the post bar's reaction button, found by where it is (./posts.ts,
+ *   `barOf`), and it's liked once the button shows a reaction given (`reactionChange`).
+ * - **Connect** on their profile, without a note (Chris: LinkedIn invitations go with no note): Connect in the top
+ *   card, or under More when Follow comes first; then the box's **Send without a note**. It never types a note, and a
+ *   box that asks for anything (their email, a note it insists on) is left for the person.
+ * - **A comment** in the post's own box, never a reply's, sent with that box's own button: one saying Comment or Post
+ *   (or, a best reading of LinkedIn's newer words, "Post comment", "Submit comment"); anything else is left for the
+ *   person.
+ * - **A message** in the conversation with them: on its page, or in the window their profile's **Message** opens,
+ *   typing only into that conversation's box, and leaving one with writing in it alone.
+ *
+ * Like the readers, it goes by what a person sees (words, labels, links, page order), never LinkedIn's class names.
+ */
+import type { AutoResult, TheirPost } from '../facebook/auto';
+import { isAfter } from '../facebook/dom';
+import { shown } from '../facebook/fetch';
+import { hasWriting, reacted } from './actions';
+import { readChat } from './chat';
+import { CONTROLS, mainOf, wordsOf } from './dom';
+import { peopleLinked } from './people';
+import {
+  barOf,
+  otherReactions,
+  postBoxes,
+  postIn,
+  reactionChange,
+  reactionState,
+  readPost,
+} from './posts';
+import { inTopCard, readProfile } from './profile';
+import type { ProfileRef } from './types';
+import { classifyUrl, comparable, sameMember } from './urls';
+import { CONNECT, MESSAGE, MORE } from './vocabulary';
+
+export type { AutoResult, TheirPost };
+
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+/** What LinkedIn draws over the page: the invitation's box. */
+const OVER_THE_PAGE = '[role="dialog"], [role="alertdialog"], dialog';
+/** Where a person writes. */
+const WRITING = '[role="textbox"], [contenteditable="true"], textarea';
+/** What's inside a post and isn't it: its comments and a link's preview. */
+const NESTED = 'article, [role="article"]';
+/** A post's own Like: "React Like" (or "Like"), not one of its comments'. */
+const OWN_LIKE = /^(react like|like)$/i;
+/** The box's button that sends an invitation as it is. */
+const WITHOUT_NOTE = /^send without a note$/i;
+/** Its other ways of sending: when it offers no note at all. */
+const SEND_INVITE = /^(send|send now|send invitation)$/i;
+/** What sends a comment, in the comment's own form. */
+const SENDS_COMMENT = /^(comment|post|post comment|submit comment)$/i;
+/** What sends a message. */
+const SENDS_MESSAGE = /^(send|send message)$/i;
+/** A reply's box, which a comment never goes in. */
+const REPLY_BOX = /^(add a reply|reply to\b|write a reply)/i;
+/** How long a box, a menu and a change are waited on, and how often they're looked at. */
+const WAIT_MS = 8_000;
+const LOOK_MS = 300;
+
+export const says = (control: Element, pattern: RegExp) =>
+  wordsOf(control).some((w) => pattern.test(w));
+
+/** Looks for something until it shows or `ms` is up. */
+export async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
+  for (let waited = 0; waited <= ms; waited += LOOK_MS) {
+    const found = find();
+    if (found) return found;
+    await pause(LOOK_MS);
+  }
+  return null;
+}
+
+/** Whether something in a post is in one of its comments (or a preview), not the post itself. */
+export function inNested(element: Element, post: Element): boolean {
+  const own = postIn(post);
+  const nested = element.closest(NESTED);
+  return nested !== null && nested !== own && nested !== post && post.contains(nested);
+}
+
+// ------------------------------------------------------------------------------------------------ likes
+
+/** The posts on the page that they wrote, as far as the page has drawn, the latest first. */
+export function theirPosts(
+  doc: Document,
+  href: string,
+  profile: ProfileRef,
+): { readonly box: Element; readonly post: TheirPost }[] {
+  return postBoxes(mainOf(doc)).flatMap((box) => {
+    const read = readPost(box, href);
+    if (!read?.author?.profile || read.company || !sameMember(read.author.profile, profile))
+      return [];
+    return [
+      {
+        box,
+        post: {
+          url: read.url,
+          when: read.when,
+          text: read.text,
+          pictures: [],
+          liked: reacted(box),
+        },
+      },
+    ];
+  });
+}
+
+/** A post's own Like, shown: the older layout's says so; the newer's is its bar's reaction button. */
+function likeOf(box: Element): HTMLElement | null {
+  const older = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
+    (control) => !inNested(control, box) && shown(control) && says(control, OWN_LIKE),
+  );
+  if (older) return older;
+  const reaction = barOf(box)?.reaction as HTMLElement | null | undefined;
+  return reaction && shown(reaction) ? reaction : null;
+}
+
+/** Likes the post of theirs picked (by its link, else its place among theirs), and waits for the like to show. */
+export async function likeTheirPost(
+  doc: Document,
+  href: string,
+  profile: ProfileRef,
+  pick: { readonly index: number; readonly url: string | null },
+): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
+  const found = theirPosts(doc, href, profile);
+  const one = pick.url ? found.find((f) => f.post.url === pick.url) : found[pick.index];
+  if (!one) return { result: 'none', postUrl: pick.url };
+  if (reacted(one.box)) return { result: 'already', postUrl: one.post.url };
+  const like = likeOf(one.box);
+  if (!like) return { result: 'none', postUrl: one.post.url };
+  const before = reactionState(like);
+  const others = otherReactions(mainOf(doc), one.box);
+  like.click();
+  // Liked: it says so, or (the newer layout) its button shows a reaction given since.
+  const given = () => {
+    if (reacted(one.box)) return true;
+    const now = barOf(one.box)?.reaction;
+    return !!now && reactionChange(before, reactionState(now), others) === 'added';
+  };
+  const went = await waitFor(() => (given() ? true : null), 5_000);
+  return { result: went ? 'done' : 'not_sent', postUrl: one.post.url };
+}
+
+// ------------------------------------------------------------------------------------------------ connect
+
+/** How connecting went. */
+export type ConnectResult =
+  /** The invitation went: the profile says Pending. */
+  | 'done'
+  /** It was pending already. */
+  | 'already'
+  /** No Connect to press, or a box that wants more than Send: nothing sent, for the person to do. */
+  | 'none'
+  /** Pressed, but the profile doesn't say Pending after. */
+  | 'not_sent';
+
+const profileOn = (doc: Document, href: string) =>
+  readProfile(mainOf(doc), classifyUrl(href), href, doc.title);
+
+/** A shown control in the profile's top card that says this. */
+function topCardControl(doc: Document, pattern: RegExp): HTMLElement | null {
+  const main = mainOf(doc);
+  return (
+    [...main.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].find(
+      (control) =>
+        inTopCard(control, main) &&
+        shown(control) &&
+        !control.closest(OVER_THE_PAGE) &&
+        says(control, pattern),
+    ) ?? null
+  );
+}
+
+/** The invitation box's way to send as it is, when it asks nothing else: no field to fill in. */
+function sendAsItIs(doc: Document): HTMLElement | 'asks' | null {
+  for (const box of doc.querySelectorAll(OVER_THE_PAGE)) {
+    if (!shown(box)) continue;
+    const controls = [...box.querySelectorAll<HTMLElement>(CONTROLS)].filter(shown);
+    const without = controls.find((c) => says(c, WITHOUT_NOTE));
+    if (without) return without;
+    const send = controls.find((c) => says(c, SEND_INVITE));
+    if (!send) continue;
+    // A box with something to fill in (their email, a note it insists on) is the person's.
+    const fields = [
+      ...box.querySelectorAll('input:not([type="hidden"]), textarea, [contenteditable="true"]'),
+    ];
+    return fields.some(shown) ? 'asks' : send;
+  }
+  return null;
+}
+
+/** Sends them an invitation without a note, from their profile, and waits for it to say Pending. */
+export async function connect(doc: Document, href: string): Promise<ConnectResult> {
+  const before = profileOn(doc, href).connection;
+  if (before === 'pending') return 'already';
+  if (before !== 'not_connected' && before !== 'unknown') return 'none';
+  let press = topCardControl(doc, CONNECT);
+  if (!press) {
+    // Follow first: Connect is in the More menu.
+    const more = topCardControl(doc, MORE);
+    if (!more) return 'none';
+    more.click();
+    press = await waitFor(() => topCardControl(doc, CONNECT), 3_000);
+  }
+  if (!press) return 'none';
+  press.click();
+  const pending = () => profileOn(doc, href).connection === 'pending';
+  const next = await waitFor<HTMLElement | 'asks' | 'sent'>(
+    () => sendAsItIs(doc) ?? (pending() ? 'sent' : null),
+  );
+  if (next === 'sent') return 'done';
+  if (next === null || next === 'asks') return next === 'asks' ? 'none' : 'not_sent';
+  next.click();
+  return (await waitFor(() => (pending() ? true : null))) ? 'done' : 'not_sent';
+}
+
+// ------------------------------------------------------------------------------------------------ writing
+
+/**
+ * The button that sends what's in a box: after the box, saying `pattern`, among its own buttons: in the form around
+ * it, or (LinkedIn's newer layout has none) the boxes around it that link nowhere. A box that links somewhere holds
+ * more than the box's own buttons: a comment and its writer, the next post.
+ */
+function sendFor(box: Element, pattern: RegExp): HTMLElement | null {
+  let up = box.parentElement;
+  for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
+    if ([...up.querySelectorAll('a[href]')].some((link) => !box.contains(link))) return null;
+    const sends = [...up.querySelectorAll<HTMLElement>(`${CONTROLS}, [type="submit"]`)].filter(
+      (control) => isAfter(control, box) && shown(control) && says(control, pattern),
+    );
+    if (sends.length) return sends[0]!;
+    if (up.matches('form')) return null;
+  }
+  return null;
+}
+
+/** Types into a box to write in, and sends it with its button; it's sent once the box empties. */
+async function typeAndSend(doc: Document, box: HTMLElement, text: string, pattern: RegExp) {
+  // Something written there already is the person's: left alone.
+  if (hasWriting(box)) return 'not_sent' as const;
+  box.focus();
+  box.click();
+  await pause(300);
+  doc.execCommand('insertText', false, text);
+  await pause(800);
+  if (!hasWriting(box)) return 'not_sent' as const;
+  const send = sendFor(box, pattern);
+  if (!send) return 'none' as const;
+  send.click();
+  return (await waitFor(() => (hasWriting(box) ? null : true), 6_000)) ? 'done' : 'not_sent';
+}
+
+/** The post the page is about: its own page's, the first. */
+const postOnPage = (doc: Document) => postBoxes(mainOf(doc))[0] ?? null;
+
+/** The post's own box to comment in: in the post, not in a comment, and not a reply's. */
+function commentBoxOf(post: Element): HTMLElement | null {
+  return (
+    [...post.querySelectorAll<HTMLElement>(WRITING)].find(
+      (box) =>
+        !inNested(box, post) &&
+        shown(box) &&
+        !REPLY_BOX.test(
+          box.getAttribute('aria-placeholder') ?? box.getAttribute('aria-label') ?? '',
+        ),
+    ) ?? null
+  );
+}
+
+/** Writes a comment in the post's own box and sends it with that box's button. */
+export async function writeComment(doc: Document, text: string): Promise<AutoResult> {
+  const post = postOnPage(doc);
+  if (!post) return 'none';
+  let box = commentBoxOf(post);
+  if (!box) {
+    // The box opens once the post's own Comment is pressed: the one in its bar, not a form's.
+    const opener = [...post.querySelectorAll<HTMLElement>(CONTROLS)].find(
+      (control) =>
+        !inNested(control, post) &&
+        !control.closest('form') &&
+        shown(control) &&
+        says(control, /^comment$/i),
+    );
+    opener?.click();
+    box = await waitFor(() => commentBoxOf(post), 3_000);
+  }
+  if (!box) return 'none';
+  return typeAndSend(doc, box, text, SENDS_COMMENT);
+}
+
+/** The boxes to write a message in: in a form with Send. */
+const messageBoxes = (root: ParentNode) =>
+  [...root.querySelectorAll<HTMLElement>(WRITING)].filter(
+    (box) => shown(box) && sendFor(box, SENDS_MESSAGE) !== null,
+  );
+
+/** The window over the page a box is in: the nearest box around it that links to anyone. */
+function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
+  const main = mainOf(doc);
+  let up = box.parentElement;
+  for (let steps = 0; up && steps < 20 && !up.contains(main); steps++, up = up.parentElement) {
+    const people = peopleLinked(up.querySelectorAll('a[href]'), href);
+    if (people.length) return people.map((p) => p.profile);
+  }
+  return [];
+}
+
+/**
+ * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
+ * one window over the page that links to them. Null when there's none, or more than one.
+ */
+function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
+  const address = classifyUrl(href);
+  const main = mainOf(doc);
+  if (address.kind === 'chat') {
+    // The runner opened their conversation by its id, and checked it's theirs: only a link plainly to someone else
+    // is a reason to stop.
+    const chat = readChat(doc, address, href);
+    if (chat.profile && comparable(chat.profile, them) && !sameMember(chat.profile, them))
+      return null;
+    const boxes = messageBoxes(main);
+    return boxes.length === 1 ? boxes[0]! : null;
+  }
+  const theirs = messageBoxes(doc).filter(
+    (box) => !main.contains(box) && windowLinks(box, doc, href).some((p) => sameMember(p, them)),
+  );
+  return theirs.length === 1 ? theirs[0]! : null;
+}
+
+/** On their profile, the top card's Message: whether there was one to press. */
+export function openMessage(doc: Document): boolean {
+  const message = topCardControl(doc, MESSAGE);
+  if (!message) return false;
+  message.click();
+  return true;
+}
+
+/** Writes a message to them in their conversation and sends it, waiting a little for the box to show. */
+export async function writeMessage(
+  doc: Document,
+  href: string,
+  text: string,
+  them: ProfileRef,
+): Promise<AutoResult> {
+  const box = await waitFor(() => messageBoxFor(doc, href, them), 5_000);
+  if (!box) return 'none';
+  return typeAndSend(doc, box, text, SENDS_MESSAGE);
+}

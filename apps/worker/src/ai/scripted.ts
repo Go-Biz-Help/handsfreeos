@@ -1033,15 +1033,33 @@ export function scriptedPromise(message: string): Record<string, unknown> {
  * comes from the corrections whose reasons share a word (of five letters or more) with it. What
  * the AI knows says otherwise when a line under one of its labels shares a word (of five letters or more) with the
  * reason: that line is the old words, and the reason takes their place.
+ *
+ * Feedback that only says what the reply should have said is unclear: it asks whether that's for every customer,
+ * once. "Just this one" teaches nothing; any other answer makes what it should have said the line.
  */
 export function scriptedLesson(message: string): Record<string, unknown> {
-  const none = { teach: false, line: null, why: null, from: [], conflict: null };
+  const none = { teach: false, line: null, why: null, from: [], conflict: null, ask: null };
   // Each correction's reason, by its number ("Correction 2:" … "Why: …").
   const reasons = new Map<number, string>();
   const parts = unquote(quotedBlock(message, 'corrections') ?? '').split(/^Correction (\d+):$/m);
   for (let i = 1; i + 1 < parts.length; i += 2) {
     const why = /^Why: (.+)$/m.exec(parts[i + 1]!)?.[1];
     if (why) reasons.set(Number(parts[i]), why.trim());
+  }
+  const newest = parts[2] ?? '';
+  const better = /^Should have said: (.+)$/m.exec(newest)?.[1]?.trim();
+  const answered = /^They answered: (.+)$/m.exec(newest)?.[1]?.trim();
+  if (!reasons.get(1) && better) {
+    if (!answered)
+      return {
+        ...none,
+        ask: {
+          question: 'Should it say this to every customer, or just this one?',
+          choices: ['Every customer', 'Just this one'],
+        },
+      };
+    if (/just this one/i.test(answered)) return { ...none, why: 'It only fits that one customer.' };
+    reasons.set(1, better);
   }
   const reason = reasons.get(1);
   if (!reason) return none;
@@ -1053,7 +1071,8 @@ export function scriptedLesson(message: string): Record<string, unknown> {
       .trim();
   const knows = unquote(quotedBlock(message, 'what_the_ai_knows') ?? '');
   const waiting = unquote(quotedBlock(message, 'already_suggested') ?? '');
-  if (flat(`${knows}\n${waiting}`).includes(flat(line))) return none;
+  if (flat(`${knows}\n${waiting}`).includes(flat(line)))
+    return { ...none, why: 'The AI already knows this.' };
   const wordsOf = (t: string) => new Set(t.toLowerCase().match(/[a-z]{5,}/g) ?? ([] as string[]));
   const said = wordsOf(line);
   const from = [...reasons]
@@ -1642,6 +1661,7 @@ function scriptedChatRead(message: string) {
     : /\b(not interested|no thanks|stop)\b/.test(theirs)
       ? 'not_interested'
       : 'not_yet';
+  const last = chat.split('\n').at(-1) ?? '';
   return {
     summary: `A chat of ${chat.split('\n').length} messages.`,
     tags,
@@ -1654,7 +1674,19 @@ function scriptedChatRead(message: string) {
         : pitch === 'not_interested'
           ? 'Said no thanks'
           : null,
+    // What their last message answers to the owner's last (the conversation, decisions 65 to 67).
+    reply: /\] Them: /.test(last) ? scriptedAnswer(last.split('] Them: ')[1] ?? '') : 'none',
   };
+}
+
+/** Someone's answer to the owner's last message, by its words: yes, a question, not now, or no. */
+function scriptedAnswer(text: string): string {
+  const t = text.toLowerCase();
+  if (/\b(not interested|no thanks|stop)\b/.test(t)) return 'no';
+  if (/\b(later|not now|busy)\b/.test(t)) return 'later';
+  if (t.includes('?')) return 'question';
+  if (/\b(sure|yes|sounds good|send it|interested)\b/.test(t)) return 'yes';
+  return 'none';
 }
 
 /**
@@ -1684,14 +1716,31 @@ function scriptedPlaybookAssist(message: string) {
 
 /**
  * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. A reply is
- * simple when their last message asks nothing.
+ * simple when their last message asks nothing, and says what they answered; the video and the link say which they
+ * are, for the checks to find their links on the end.
  */
 function scriptedTodayDraft(message: string) {
   const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
   const first = unquote(name).split(' ')[0];
   const theirs = [...message.matchAll(/^Them: (.*)$/gm)].at(-1)?.[1] ?? '';
+  const last = [...message.matchAll(/^(Owner|Them): /gm)].at(-1)?.[1];
+  const reply = message.includes('They wrote last. Write the owner’s reply');
+  const answer = reply && last === 'Them' ? scriptedAnswer(theirs) : 'none';
+  if (message.includes('Write a short message with the short video'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [`Great, ${first}! Here’s a short video on how it works.`],
+    };
+  if (message.includes('gives the link to book a quick call'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [`Here’s my link to book a quick call, ${first}.`],
+    };
   return {
     simple: theirs !== '' && !theirs.includes('?'),
+    answer,
     drafts: [
       `Hi ${first}, thanks for adding me! How’s business going?`,
       `Hey ${first}, good to connect. What keeps you busiest these days?`,
@@ -1789,10 +1838,19 @@ function scriptedJoinAnswers(message: string) {
 /** Social Outreach's pick of a post to like (decision 33): the first with a picture, or none. */
 function scriptedLikePick(message: string) {
   const posts = [...message.matchAll(/<post number="(\d+)">\n([\s\S]*?)\n<\/post>/g)];
+  // A post about their work: liked, with a warm-up comment under it.
+  const work = posts.find((p) => /\b(crew|customers?)\b/i.test(p[2]!));
+  if (work)
+    return {
+      pick: Number(work[1]),
+      about: 'business',
+      why: 'About their work',
+      comment: 'Great work, that looks sharp!',
+    };
   const pictured = posts.find((p) => /^Picture: /m.test(p[2]!));
   return pictured
-    ? { pick: Number(pictured[1]), about: 'personal', why: 'A photo they shared' }
-    : { pick: null, about: null, why: null };
+    ? { pick: Number(pictured[1]), about: 'personal', why: 'A photo they shared', comment: null }
+    : { pick: null, about: null, why: null, comment: null };
 }
 
 /**
@@ -1849,7 +1907,84 @@ function scriptedProfileCheck(message: string) {
   };
 }
 
+/**
+ * Sample messages for Your messages (Get ready): two first messages (one twice, for the check to drop), the video only
+ * when the playbook has one, the link, a follow-up more than the pace sends (for the check to cut), and a check-in.
+ */
+function scriptedSamples(message: string) {
+  const video = message.includes('- video: the message after they say yes');
+  const many = Number(/- followUps: (\d+) short follow-ups/.exec(message)?.[1] ?? 6);
+  return {
+    first: [
+      'Hi Sam! Open to more booked calls on a results guarantee? If so, I’ll send more info.',
+      'Hi Sam! Open to more booked calls on a results guarantee? If so, I’ll send more info.',
+      'Hey Sam, would more booked calls with a guarantee be worth a look? Happy to send details.',
+    ],
+    video: video ? 'Great! Here’s a short video on how it works: [video link]' : null,
+    link: 'Here’s my link to book a quick call: [booking link]',
+    followUps: Array.from({ length: many + 1 }, (_, i) => `Follow-up ${i + 1}: just checking in.`),
+    checkIn: 'Thought you might like this checklist. No need to reply.',
+  };
+}
+
+/**
+ * A short video's script (`outreach.video.script`): every part, plain, with the playbook's niche in the first; or, asked
+ * to write one part again, that part alone.
+ */
+function scriptedVideoScript(message: string) {
+  const again = /Write the part "(\w+)"/.exec(message)?.[1];
+  const niche = /Niche: (.+)/.exec(message)?.[1]?.trim() ?? 'businesses like yours';
+  const say: Record<string, string> = {
+    who: `If you run ${niche}, this is for you. Most of you tell me the same thing: the work comes in waves.`,
+    cost: 'Every slow week costs you crews sitting idle and jobs you never hear about.',
+    method:
+      'Here’s how it works, in three steps: we find them, we ask straight out, we book the call.',
+    proof: 'Here’s a real result: [your result].',
+    call: 'A quick call shows how it would work for you, with your numbers.',
+    next: 'If that sounds good, just reply and I’ll send you a few times.',
+  };
+  const show: Record<string, string> = {
+    who: 'You, to the camera',
+    cost: 'You, to the camera',
+    method: 'A slide with the three steps',
+    proof: 'A screenshot of the result',
+    call: 'You, to the camera',
+    next: 'You, to the camera',
+  };
+  const keys = again ? [again] : Object.keys(say);
+  return {
+    parts: keys.map((part) => ({
+      part,
+      say: again ? `${say[part] ?? 'Said again.'} Said even more plainly.` : say[part]!,
+      show: show[part] ?? 'You, to the camera',
+    })),
+  };
+}
+
+/**
+ * The week's review (`outreach.review`): the one thing it was told to fix first, with the first messages sent, and two
+ * things to do.
+ */
+function scriptedReview(message: string) {
+  const fix = /^Fix first: (\w+)/m.exec(message)?.[1] ?? 'volume';
+  const sent = /^First messages sent: (\d+)/m.exec(message)?.[1] ?? '0';
+  const headline: Record<string, string> = {
+    volume: 'Send more first messages this week',
+    message: 'Make your first message ask straight out',
+    video: 'Follow up after the video',
+    on_track: 'Keep the same pace',
+  };
+  return {
+    headline: headline[fix] ?? headline['volume']!,
+    why: `You sent ${sent} first messages last week.`,
+    steps: ['Start your day on each working day.', 'Look at Results at the end of each day.'],
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the week’s review\.$/, json: (message) => scriptedReview(message) },
+  { when: /Write the video script\.$/, json: (message) => scriptedVideoScript(message) },
+  { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
   {
@@ -2141,7 +2276,57 @@ export const MAIN_OFFER_RULES: readonly ScriptRule[] = [
   { when: /Score this offer\.$/, json: (m) => scriptedOfferScore(m) },
 ];
 
+/**
+ * Placing the texting section in a business's own policy (core's policy-update.ts): the whole document, the section
+ * before the contact details (else at the end), the date line given today's date, and a sentence sharing information
+ * for marketing given the carve-out. Not a policy when it never says privacy or terms.
+ */
+function scriptedPolicyPlace(message: string) {
+  const doc = unquote(quotedBlock(message, 'document') ?? '');
+  const today = /^Today: (.*)$/m.exec(message)?.[1] ?? '';
+  const blocks = [...doc.matchAll(/^\[(\d+)\] (heading|paragraph|item): (.*)$/gm)].map((m) => ({
+    n: Number(m[1]),
+    kind: m[2]!,
+    text: m[3]!,
+  }));
+  const last = Math.max(0, blocks.length - 1);
+  const contact = blocks.find((b) => b.kind === 'heading' && /contact/i.test(b.text));
+  const changes = blocks.flatMap((b) =>
+    /\b(last updated|effective)\b/i.test(b.text) && today
+      ? [
+          {
+            block: b.n,
+            action: 'replace',
+            text: `Last updated: ${today}`,
+            why: 'The date changes with it.',
+          },
+        ]
+      : /\bshare\b.*\bmarketing\b/i.test(b.text)
+        ? [
+            {
+              block: b.n,
+              action: 'replace',
+              text: `${b.text} Mobile numbers and text messaging opt-in data are never shared for marketing.`,
+              why: 'It let numbers be shared for marketing.',
+            },
+          ]
+        : [],
+  );
+  return {
+    isDocument: /privacy|terms/i.test(doc),
+    start: 0,
+    end: last,
+    after: contact && contact.n > 0 ? contact.n - 1 : last,
+    changes,
+  };
+}
+
+export const POLICY_RULES: readonly ScriptRule[] = [
+  { when: /Place the new section\.$/, json: (m) => scriptedPolicyPlace(m) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...POLICY_RULES,
   ...MEETING_RULES,
   ...MAIN_OFFER_RULES,
   ...KNOWLEDGE_RULES,

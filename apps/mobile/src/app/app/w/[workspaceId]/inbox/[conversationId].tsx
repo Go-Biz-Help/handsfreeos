@@ -1,4 +1,5 @@
 import {
+  aiWroteIt,
   ALL_LINES_WORDS,
   assigneeShort,
   BIN_WORDS,
@@ -77,6 +78,7 @@ import {
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
+import { ReplyFeedback } from '@/components/ai-team/reply-feedback';
 import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { BrandMark } from '@/components/shell/brand';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
@@ -84,6 +86,7 @@ import { Screen } from '@/components/shell/screen';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { useReplyFeedback } from '@/ai-team/feedback';
 import { change, changes, newId } from '@/changes';
 import { describe, loadNames } from '@/changes/describe';
 import type { OutboxRow } from '@/changes/outbox';
@@ -152,6 +155,16 @@ function Thread() {
     all ? lanes.map((l) => l.id) : undefined,
   );
   const lineOf = React.useMemo(() => new Map(lanes.map((l) => [l.id, l.lineDisplay])), [lanes]);
+  // Thumbs on what the AI teammate wrote here, and what came of them: asked of HandsFreeOS, with signal.
+  const aiMessageIds = React.useMemo(
+    () =>
+      thread.items
+        .filter(aiWroteIt)
+        .map((i) => i.id)
+        .slice(-100),
+    [thread.items],
+  );
+  const feedback = useReplyFeedback(business.id, { messageIds: aiMessageIds });
   const drafts = useWaitingDrafts({ conversationId, kinds: ['reply', 'ask'] });
   const members = useMembers();
   const names = useNames();
@@ -746,15 +759,25 @@ function Thread() {
               onRetry={(messageId) => void actions.retry(messageId, who, data.timeZone)}
             />
           );
+        // What the AI teammate wrote (once it's gone, not while it's held) takes a thumbs up or down.
+        const rated =
+          aiWroteIt(i) && !i.scheduledFor ? (
+            <View testID={`ai-feedback-${i.id}`}>
+              {shown}
+              <ReplyFeedback state={feedback} reply={i.body ?? ''} messageId={i.id} align="end" />
+            </View>
+          ) : (
+            shown
+          );
         // "All lines" says which of the business's lines each one was on; one lane's thread says it once, above.
         const line = all && i.conversationId ? lineOf.get(i.conversationId) : undefined;
-        if (!line) return shown;
+        if (!line) return rated;
         return (
           <View>
             <Text className="pt-2 text-center text-[11px] text-text-3" testID={`line-${i.id}`}>
               {ALL_LINES_WORDS.line(i.direction, line)}
             </Text>
-            {shown}
+            {rated}
           </View>
         );
       }

@@ -1,11 +1,13 @@
 /**
- * The Facebook tab the extension works in. What the person asks of it from HandsFreeOS (asks/run.ts) that they may
- * need to finish themselves (getting their file, where they type their password; cancelling old requests and
- * unfriending) goes in a tab in view, reused from step to step while it's open, and brought to the front when a step
- * is handed to them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts),
- * and the rest of what's asked, have a window of their own, which opens without taking the person's attention.
+ * The tab the extension works in, on one network's pages (its kit's `workUrl`): each network's asks have their own
+ * (asks/run.ts), and the runner Facebook's. What the person asks of it from HandsFreeOS that they may need to finish
+ * themselves (getting their file, where they type their password; cancelling old requests, withdrawing invitations and
+ * unfriending)
+ * goes in a tab in view, reused from step to step while it's open, and brought to the front when a step is handed to
+ * them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts), and the rest of
+ * what's asked, have a window of their own, which opens without taking the person's attention.
  */
-import { workUrl } from './facebook/urls';
+import { facebook, type Kit } from './networks';
 import type {
   Answer,
   Ask,
@@ -15,6 +17,10 @@ import type {
   AutoAsk,
   BrowseAnswer,
   BrowseAsk,
+  ConnectAsk,
+  OpenMessageAsk,
+  FeedPostAnswer,
+  FeedPostAsk,
   FetchAnswer,
   FetchAsk,
   GroupPostAnswer,
@@ -23,6 +29,8 @@ import type {
   JoinAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  WithdrawAnswer,
+  WithdrawAsk,
 } from './messages';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -36,9 +44,11 @@ export type TabPlace = 'view' | 'quiet' | 'window';
 export class WorkTab {
   private id: number | null = null;
   private readonly place: TabPlace;
+  private readonly kit: Kit;
 
-  constructor(place: TabPlace = 'view') {
+  constructor(place: TabPlace = 'view', kit: Kit = facebook) {
     this.place = place;
+    this.kit = kit;
   }
 
   /** The tab's number, while it's open. */
@@ -56,14 +66,14 @@ export class WorkTab {
   }
 
   /**
-   * Opens an address in the tab: the one opened before when it's still there, else a new one. Only Facebook's own
-   * pages (`workUrl`): anything else is refused, so a bad link kept or read never sends the tab elsewhere.
+   * Opens an address in the tab: the one opened before when it's still there, else a new one. Only its network's own
+   * pages (the kit's `workUrl`): anything else is refused, so a bad link kept or read never sends the tab elsewhere.
    */
   async open(href: string): Promise<number> {
-    const url = workUrl(href);
+    const url = this.kit.workUrl(href);
     if (url === null)
       throw new Error(
-        'That link isn’t a Facebook page, so the extension didn’t open it. Check the link in HandsFreeOS, then try again.',
+        `That link isn’t a ${this.kit.network.name} page, so the extension didn’t open it. Check the link in HandsFreeOS, then try again.`,
       );
     const active = this.place === 'view';
     if (this.id !== null) {
@@ -87,7 +97,7 @@ export class WorkTab {
     return this.loaded(this.id);
   }
 
-  /** Waits for a tab to finish loading, and for Facebook to draw the page. */
+  /** Waits for a tab to finish loading, and for the network to draw the page. */
   async loaded(id: number): Promise<number> {
     const until = Date.now() + 30_000;
     while (Date.now() < until) {
@@ -127,23 +137,41 @@ export class WorkTab {
   async ask(message: FetchAsk): Promise<FetchAnswer>;
   async ask(message: PostsAsk): Promise<PostsAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
+  async ask(message: ConnectAsk): Promise<AutoAnswer>;
+  async ask(message: OpenMessageAsk): Promise<BrowseAnswer>;
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
+  async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
-    message: FetchAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | BrowseAsk | Ask,
+    message:
+      | FetchAsk
+      | AutoAsk
+      | ConnectAsk
+      | OpenMessageAsk
+      | JoinAsk
+      | GroupPostAsk
+      | FeedPostAsk
+      | OwnProfileAsk
+      | WithdrawAsk
+      | BrowseAsk
+      | Ask,
   ): Promise<
     | FetchAnswer
     | AutoAnswer
     | JoinAnswer
     | GroupPostAnswer
+    | FeedPostAnswer
     | OwnProfileAnswer
+    | WithdrawAnswer
     | BrowseAnswer
     | Answer
   > {
-    if (this.id === null) return { ok: false, error: 'The Facebook tab was closed.' };
+    if (this.id === null)
+      return { ok: false, error: `The ${this.kit.network.name} tab was closed.` };
     const id = this.id;
     try {
       return (await chrome.tabs.sendMessage(id, message)) as
@@ -152,6 +180,7 @@ export class WorkTab {
         | JoinAnswer
         | GroupPostAnswer
         | OwnProfileAnswer
+        | WithdrawAnswer
         | BrowseAnswer
         | Answer;
     } catch {
@@ -163,13 +192,14 @@ export class WorkTab {
           | JoinAnswer
           | GroupPostAnswer
           | OwnProfileAnswer
+          | WithdrawAnswer
           | BrowseAnswer
           | Answer;
       } catch {
+        const name = this.kit.network.name;
         return {
           ok: false,
-          error:
-            'Facebook took the tab somewhere else. Check you’re signed in to Facebook in this browser, then try again.',
+          error: `${name} took the tab somewhere else. Check you’re signed in to ${name} in this browser, then try again.`,
         };
       }
     }

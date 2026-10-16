@@ -39,6 +39,7 @@ jest.mock('@/components/ui/toast', () => ({
 const chat = (over: Partial<ChatsOutput['chats'][number]> = {}): ChatsOutput['chats'][number] => ({
   chatId: id(70),
   name: 'Drew Moss',
+  platform: 'facebook',
   personId: null,
   lastAt: '2026-10-10T15:00:00.000Z',
   lastFromMe: true,

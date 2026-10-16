@@ -171,7 +171,27 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-useful-link')).toHaveValue(
     'https://summit.test/checklist',
   );
-  for (let i = 0; i < 9; i++) await playbook.getByTestId('playbook-next').click();
+  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+
+  // The short video: the AI writes its script from the offer and the niche, one part is written again, and the link
+  // is put in (an address without https:// gets it).
+  await playbook.getByTestId('playbook-video-write').click();
+  const parts = playbook.getByTestId('playbook-video-parts');
+  await expect(parts.getByRole('listitem')).toHaveCount(6);
+  await expect(playbook.getByTestId('playbook-video-say-who')).toHaveValue(
+    /Roofers with 2 to 3 crews/,
+  );
+  await playbook.getByTestId('playbook-video-improve-call').click();
+  await expect(playbook.getByTestId('playbook-video-say-call')).toHaveValue(
+    /Said even more plainly\./,
+  );
+  await playbook.getByTestId('playbook-video-link').fill('www.loom.com/share/abc123');
+  await playbook.getByTestId('playbook-video-link').blur();
+  await expect(playbook.getByTestId('playbook-video-link')).toHaveValue(
+    'https://www.loom.com/share/abc123',
+  );
+  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('review-video')).toContainText('Video linked, with its script');
   await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
   await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');
   await expect(playbook.getByTestId('review-offer')).toContainText(
@@ -227,6 +247,18 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await page.getByTestId('ready-profile-done').click();
   await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'done');
 
+  // Your messages: the AI writes samples for the playbook in the owner's voice, and they OK how they read.
+  await ready.getByTestId('ready-open-messages').click();
+  const messages = page.getByTestId('ready-messages-sheet');
+  await messages.getByTestId('ready-messages-write').click();
+  const samples = messages.getByTestId('ready-messages-samples');
+  await expect(samples).toContainText('First message, once they accept');
+  await expect(samples).toContainText('If they go quiet: 6 follow-ups');
+  await expect(samples).toContainText('If they say yes: the video');
+  await expect(samples).toContainText('[video link]');
+  await messages.getByTestId('ready-messages-ok').click();
+  await expect(ready.getByTestId('ready-messages')).toHaveAttribute('data-state', 'done');
+
   // The numbers: the math changes as the goal does, and saving it makes them ready.
   await ready.getByTestId('ready-open-numbers').click();
   const numbers = page.getByTestId('ready-numbers-sheet');
@@ -242,4 +274,12 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await numbers.getByTestId('ready-numbers-save').click();
   await expect(page.getByTestId('get-ready')).toHaveCount(0);
   await expect(page.getByTestId('live-not-ready')).toHaveCount(0);
+
+  // The main offer's page: how the live version is doing in Social Outreach, too new to judge with no messages yet.
+  await page.goto(`/app/w/${workspaceId}/settings/main-offer`);
+  const doing = page.getByTestId('outreach-offer-panel');
+  await expect(doing).toContainText('How version 2 is doing');
+  await expect(doing.getByTestId('outreach-offer-too-new')).toContainText(
+    'Give it 100 more first messages',
+  );
 });

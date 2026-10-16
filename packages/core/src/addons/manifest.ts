@@ -185,6 +185,8 @@ export const ADDON_SLOTS = [
   'call.panels',
   // Above a conversation's message box: what to write (Sales Coach's suggested replies). It may fill the box.
   'composer.suggestions',
+  // Settings → Main offer, under the live version: how it's doing in an add-on that uses it (Social Outreach).
+  'main_offer.panels',
 ] as const;
 export type AddonSlotName = (typeof ADDON_SLOTS)[number];
 

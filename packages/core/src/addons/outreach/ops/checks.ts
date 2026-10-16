@@ -29,6 +29,7 @@ import {
 import { ASK_KEEP_DAYS } from '../asks';
 import { checkedCountry, countryFromLines } from '../countries';
 import { limitNow } from '../limits';
+import { NETWORKS, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
 import { checks, profiles } from '../tables';
 import { inWorkspace, pitchable, type Ctx } from './common';
@@ -45,19 +46,31 @@ const knownToMe = (me: string) => sql`p.friendship <> 'self' and ${pitchable('p'
     where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')
   or exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}))`;
 
-/** How many a day the person's computer checks now: halved for a week after a warning from Facebook. */
-export async function perDayFor(ctx: Ctx, me: string, now: number) {
+/**
+ * How many a day the person's computer checks now on a network: its own profiles read a day (`checksPerDay`), halved
+ * for a week after a warning there, where the checks read profiles. Another network's checks and warnings never count.
+ */
+export async function perDayFor(
+  ctx: Ctx,
+  me: string,
+  now: number,
+  platform: Platform = 'facebook',
+) {
   const todayStart = await startOfToday(ctx, now);
-  const warning = await warningOf(ctx, me, todayStart, now);
+  const warning = await warningOf(ctx, me, platform, todayStart, now);
   const [done] = await rows<{ n: number }>(
     ctx.tx,
-    sql`select count(*)::int as n from addon_outreach.checks
-        where workspace_id = ${ctx.scope.workspaceId!} and user_id = ${me}
-          and looked_at >= ${todayStart.toISOString()}::timestamptz`,
+    sql`select count(*)::int as n from addon_outreach.checks ch
+        join addon_outreach.profiles p on p.id = ch.profile_id
+        where ch.workspace_id = ${ctx.scope.workspaceId!} and ch.user_id = ${me} and p.platform = ${platform}
+          and ch.looked_at >= ${todayStart.toISOString()}::timestamptz`,
   );
   return {
     today: done?.n ?? 0,
-    perDay: limitNow(CHECKS_PER_DAY, slowsNow(warning, now)),
+    perDay: limitNow(
+      Math.min(CHECKS_PER_DAY, NETWORKS[platform].checksPerDay),
+      slowsNow(warning, now),
+    ),
   };
 }
 
@@ -110,7 +123,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
-    const { today, perDay } = await perDayFor(ctx, me, now);
+    const { today, perDay } = await perDayFor(ctx, me, now, input.platform);
     const room = Math.max(0, Math.min(input.most, perDay - today));
     if (!room) return { people: [], today, perDay };
     const ago = (days: number) => new Date(now - days * DAY).toISOString();
@@ -145,7 +158,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
             ) c on true
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where p.workspace_id = ${ws} and ${who}
-              and p.url like 'https://www.facebook.com/%'
+              and p.platform = ${input.platform}
               and (ch.id is null
                 or (ch.again and ch.verdict <> 'waiting')
                 or (ch.verdict = 'failed' and ${asked})
@@ -180,13 +193,15 @@ export const checkLook = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const [profile] = await ctx.tx
-      .select({ id: profiles.id })
+      .select({ id: profiles.id, platform: profiles.platform })
       .from(profiles)
       .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Check your friends again.');
     const verdict: CheckVerdict = input.missing ? 'failed' : 'waiting';
-    const why = input.missing ? ['Facebook didn’t show their profile'] : [];
+    const why = input.missing
+      ? [`${NETWORKS[profile.platform].name} didn’t show their profile`]
+      : [];
     const [row] = await ctx.tx
       .insert(checks)
       .values({

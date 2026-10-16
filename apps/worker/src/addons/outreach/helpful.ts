@@ -13,7 +13,7 @@ import {
   checkedHelpful,
   HELPFUL_ASKED_MOST,
   HELPFUL_SCHEMA,
-  HELPFUL_SYSTEM,
+  helpfulSystem,
   HelpfulAnswer,
   type HelpfulDraftInput,
   helpfulPrompt,
@@ -21,6 +21,7 @@ import {
 import { helpfulDraft } from '@hfos/core/addons/outreach/ops/helpful';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand } from '@hfos/core/server';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
@@ -61,27 +62,29 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
     );
     const waiting = await rows<{
       id: string;
-      group_id: string;
+      user_id: string;
+      platform: Platform;
+      group_id: string | null;
       group_name: string | null;
-      about: string[];
-      rules: string[];
+      about: string[] | null;
+      rules: string[] | null;
       playbook_name: string | null;
       details: unknown;
       emoji: boolean | null;
     }>(
       tx,
       // Each post in its own person's voice (voice.ts): an emoji or none.
-      sql`select h.id, h.group_id, g.name as group_name, g.about, g.rules, pb.name as playbook_name, pb.details,
-            au.voice_emoji as emoji
+      sql`select h.id, h.user_id, h.platform, h.group_id, g.name as group_name, g.about, g.rules,
+            pb.name as playbook_name, pb.details, au.voice_emoji as emoji
           from addon_outreach.helpful h
-          join addon_outreach.groups g on g.id = h.group_id
+          left join addon_outreach.groups g on g.id = h.group_id
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
           left join addon_outreach.automation au on au.workspace_id = h.workspace_id and au.user_id = h.user_id
           where h.workspace_id = ${ws} and h.state = 'drafting'
           order by h.asked_at limit ${DRAFT_BATCH + 1}`,
     );
     const asked = new Map<string, string[]>();
-    for (const groupId of new Set(waiting.map((w) => w.group_id)))
+    for (const groupId of new Set(waiting.flatMap((w) => (w.group_id ? [w.group_id] : []))))
       asked.set(
         groupId,
         (
@@ -92,6 +95,21 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
           )
         ).map((p) => p.body),
       );
+    // Off Facebook it goes on the person's own feed: what people there asked is in the posts their search found.
+    for (const w of waiting)
+      if (!w.group_id)
+        asked.set(
+          `${w.user_id}:${w.platform}`,
+          (
+            await rows<{ body: string }>(
+              tx,
+              sql`select po.body from addon_outreach.posts po
+                  join addon_outreach.profiles pr on pr.id = po.profile_id
+                  where po.workspace_id = ${ws} and po.user_id = ${w.user_id} and pr.platform = ${w.platform}
+                  order by po.seen_at desc limit ${HELPFUL_ASKED_MOST}`,
+            )
+          ).map((p) => p.body),
+        );
     return { business: business?.name ?? 'the business', waiting, asked };
   });
   for (const h of found.waiting.slice(0, DRAFT_BATCH)) {
@@ -99,7 +117,7 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
     let draft: HelpfulDraftInput['draft'];
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: HELPFUL_SYSTEM,
+        system: helpfulSystem(h.platform),
         messages: [
           {
             role: 'user',
@@ -114,8 +132,11 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
                       tone: read.data.tone,
                     }
                   : null,
-              group: { name: h.group_name, about: h.about, rules: h.rules },
-              asked: found.asked.get(h.group_id) ?? [],
+              group: h.group_id
+                ? { name: h.group_name, about: h.about ?? [], rules: h.rules ?? [] }
+                : null,
+              platform: h.platform,
+              asked: found.asked.get(h.group_id ?? `${h.user_id}:${h.platform}`) ?? [],
               emoji: h.emoji ?? false,
             }),
           },

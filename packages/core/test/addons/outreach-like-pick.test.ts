@@ -38,7 +38,13 @@ describe('which post gets the like', () => {
   it('takes the AI’s pick, but never one the words rule out', () => {
     expect(
       checkedLikePick({ pick: 1, about: 'business', why: 'A new roof — on their shop.' }, posts),
-    ).toEqual({ pick: 1, about: 'business', why: 'A new roof, on their shop.', by: 'ai' });
+    ).toEqual({
+      pick: 1,
+      about: 'business',
+      why: 'A new roof, on their shop.',
+      by: 'ai',
+      comment: null,
+    });
     // The AI chose the RIP post, or a number it wasn't sent: the words pick instead.
     expect(checkedLikePick({ pick: 0, about: 'personal', why: 'x' }, posts).pick).toBe(1);
     expect(checkedLikePick({ pick: 9, about: 'personal', why: 'x' }, posts)).toMatchObject({
@@ -49,8 +55,25 @@ describe('which post gets the like', () => {
     expect(checkedLikePick({ pick: null, about: null, why: null }, posts).pick).toBeNull();
   });
 
+  it('keeps a warm-up comment only for a post to do with the business, plain, short and with no link', () => {
+    const said = (about: 'business' | 'personal', comment: string) =>
+      checkedLikePick({ pick: 1, about, why: 'Their shop', comment }, posts).comment;
+    expect(said('business', 'Great work — that roof looks sharp!')).toBe(
+      'Great work, that roof looks sharp!',
+    );
+    expect(said('personal', 'Great work!')).toBeNull();
+    expect(said('business', 'Check us out at https://acme.example')).toBeNull();
+    expect(said('business', 'Great work! '.repeat(30))).toBeNull();
+  });
+
   it('without the AI, likes the first safe post, or none', () => {
-    expect(fallbackLikePick(posts)).toEqual({ pick: 1, about: 'other', why: null, by: 'words' });
+    expect(fallbackLikePick(posts)).toEqual({
+      pick: 1,
+      about: 'other',
+      why: null,
+      by: 'words',
+      comment: null,
+    });
     expect(fallbackLikePick(posts.slice(0, 1)).pick).toBeNull();
   });
 

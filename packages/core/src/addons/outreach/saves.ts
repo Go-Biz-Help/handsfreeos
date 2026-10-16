@@ -14,11 +14,9 @@ import {
   LOOKUP_THREADS,
   MESSAGE_MOST,
   NAME_MOST,
-  PROFILE_ID,
-  THREAD_KEY,
-  USERNAME,
   WHEN_MOST,
 } from './limits';
+import { fitsAnyNetwork, networkOfLink } from './networks';
 import { PLATFORM_KEYS, type Platform } from './playbooks';
 
 export type { Platform };
@@ -41,12 +39,33 @@ export const FacebookUrl = z
   .max(500)
   .regex(/^https:\/\/www\.facebook\.com\//, 'Send the Facebook address the page links to.');
 
+/**
+ * An address on a network the add-on knows (./networks.ts), as the extension writes them, over https. Which network
+ * it must be on is the save's `platform`: the profile saves check that (`profileMisfit`).
+ */
+export const NetworkUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((url) => networkOfLink(url) !== null, 'Send the address the page links to.');
+
+/** A profile's id, its name in its address, and a chat's id, in the shape some network gives them. */
+const ProfileId = z
+  .string()
+  .refine((v) => fitsAnyNetwork('profileId', v), 'Send the id its links show.');
+const Username = z
+  .string()
+  .refine((v) => fitsAnyNetwork('username', v), 'Send the name in its address.');
+export const ThreadKey = z
+  .string()
+  .refine((v) => fitsAnyNetwork('threadKey', v), 'Send the chat’s id from its link.');
+
 /** A profile by its number, its username, or both: whichever its links showed. */
 export const ProfileRef = z
   .object({
-    id: z.string().regex(PROFILE_ID).nullable(),
-    username: z.string().regex(USERNAME).nullable(),
-    url: FacebookUrl,
+    id: ProfileId.nullable(),
+    username: Username.nullable(),
+    url: NetworkUrl,
   })
   .refine((p) => p.id !== null || p.username !== null, {
     error: 'Send the profile’s number or its username.',
@@ -102,9 +121,9 @@ export const ChatSaveInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
   thread: z.object({
-    id: z.string().regex(THREAD_KEY, 'Send the chat’s number from its link.'),
+    id: ThreadKey,
     encrypted: z.boolean().default(false),
-    url: FacebookUrl,
+    url: NetworkUrl,
   }),
   /** The name the chat shows. */
   name: PersonName,
@@ -153,14 +172,14 @@ export const OutreachLookupInput = z.object({
   profiles: z
     .array(
       z.object({
-        id: z.string().regex(PROFILE_ID).nullable(),
-        username: z.string().regex(USERNAME).nullable(),
+        id: ProfileId.nullable(),
+        username: Username.nullable(),
       }),
     )
     .max(LOOKUP_PROFILES)
     .default([]),
   /** Chats on the page: which of the person's own are saved, and how much of each. */
-  threads: z.array(z.string().regex(THREAD_KEY)).max(LOOKUP_THREADS).default([]),
+  threads: z.array(ThreadKey).max(LOOKUP_THREADS).default([]),
   /** Names to look for in Contacts: who someone not saved yet may already be. */
   names: z.array(PersonName).max(LOOKUP_NAMES).default([]),
 });

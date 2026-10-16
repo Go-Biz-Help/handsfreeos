@@ -10,6 +10,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
+import type { Platform } from '../networks';
 import type { DraftOpener } from '../openers';
 import {
   changed,
@@ -32,6 +33,7 @@ import {
 } from '../sends';
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { automationOf, countWheels } from './automation';
+import { noteSent, offerVersionFor } from './conversation';
 import { chatKey, contactable, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
 import { openNeed } from './needs';
 import { notePitched } from './stages';
@@ -113,9 +115,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       );
     const [had] = await open();
     if (had) return had;
-    const [profile] = await rows<{ id: string; name: string; off: boolean }>(
+    const [profile] = await rows<{ id: string; name: string; platform: Platform; off: boolean }>(
       ctx.tx,
-      sql`select p.id, p.name, not ${contactable('p')} as off from addon_outreach.profiles p
+      sql`select p.id, p.name, p.platform, not ${contactable('p')} as off from addon_outreach.profiles p
           where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
     );
     if (!profile)
@@ -135,7 +137,8 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
           .from(fileChats)
           .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
       : [];
-    const { settings, wheels } = await automationOf(ctx, me);
+    // The person's choices and training wheels on the network the message goes on: each network's are its own.
+    const { choices: settings, wheels } = await automationOf(ctx, me, Date.now(), profile.platform);
     const at = changeMoment(ctx.meta);
     // A reply goes on its own only to what HandsFreeOS saw them write, and never to someone who needs the person.
     const theirs =
@@ -181,6 +184,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         // Waits for an OK of its own (Waiting for you): handed over, or to someone who needs the person.
         handedOver: handOver,
         needsYou,
+        // The main offer's version it goes with: the one they were first pitched with, or the live one.
+        offerVersion:
+          input.kind === 'reconnect' ? null : await offerVersionFor(ctx, me, profile.id),
         createdAt: at,
         updatedAt: at,
       })
@@ -278,8 +284,28 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         payload: { kind: s.kind, changed: edits[edits.length - 1] },
       });
     }
-    const wheels = await countWheels(ctx, me, edits);
-    return { approved: waiting.map((s) => s.id), wheels };
+    // Each network's training wheels count its own messages OK'd.
+    const platforms = waiting.length
+      ? await ctx.tx
+          .select({ id: profiles.id, platform: profiles.platform })
+          .from(profiles)
+          .where(inArray(profiles.id, [...new Set(waiting.map((s) => s.profileId))]))
+      : [];
+    const platformOf = new Map(platforms.map((p) => [p.id, p.platform]));
+    const byNetwork = new Map<Platform, boolean[]>();
+    waiting.forEach((s, i) => {
+      const platform = platformOf.get(s.profileId) ?? 'facebook';
+      byNetwork.set(platform, [...(byNetwork.get(platform) ?? []), edits[i]!]);
+    });
+    let wheels = null;
+    for (const [platform, changes] of byNetwork) {
+      const state = await countWheels(ctx, me, changes, platform);
+      if (!wheels || platform === 'facebook') wheels = state;
+    }
+    return {
+      approved: waiting.map((s) => s.id),
+      wheels: wheels ?? (await countWheels(ctx, me, [])),
+    };
   },
 });
 
@@ -378,6 +404,14 @@ export const sendDone = defineAddonCommand(outreachAddon, {
       await noteOpener(ctx, me, row, row.opener);
     // A pitch that went moves them on to pitched (decision 47).
     if (input.sent && row.kind === 'pitch') await notePitched(ctx, me, row.profileId, at);
+    // Where their conversation is now: a step, a follow-up, a check-in or a reply (decisions 65 to 67).
+    if (input.sent)
+      await noteSent(ctx, me, {
+        profileId: row.profileId,
+        kind: row.kind,
+        at,
+        offerVersion: row.offerVersion,
+      });
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {
       const [to] = await ctx.tx

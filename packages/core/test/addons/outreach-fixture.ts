@@ -77,9 +77,13 @@ const READY_OFFER = {
   inAFewWords: { outcome: 'more booked calls', guarantee: 'you only pay for results' },
 };
 
+/** The short video the fixture links on each playbook in use without one (Your messages waits on one). */
+export const READY_VIDEO = 'https://www.loom.com/share/abc123';
+
 /**
- * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche and its problem on each playbook in use
- * without them, and each person's profile read and checked right, and ticked, against the live version, and a goal set.
+ * Gets `ws` ready for `userIds`: a live main offer (unless it has one), a niche, its problem and a short video on each
+ * playbook in use without them, and each person's profile read and checked right, and ticked, against the live
+ * version, their messages OK'd, and a goal set.
  * Safe to run again.
  */
 export async function getReady(ws: string, userIds: readonly string[]): Promise<void> {
@@ -97,7 +101,8 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
     sql`update addon_outreach.playbooks
         set details = details || jsonb_strip_nulls(jsonb_build_object(
           'niche', case when coalesce(details->>'niche', '') = '' then 'Owners of small businesses' end,
-          'problem', case when coalesce(details->>'problem', '') = '' then 'Too little time to follow up' end))
+          'problem', case when coalesce(details->>'problem', '') = '' then 'Too little time to follow up' end,
+          'videoLink', case when coalesce(details->>'videoLink', '') = '' then ${READY_VIDEO} end))
         where workspace_id = ${ws} and archived_at is null`,
   );
   for (const userId of userIds)
@@ -118,6 +123,30 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
               numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
               profile = excluded.profile, profile_check = excluded.profile_check`,
     );
+  // Their LinkedIn profile too, each network's its own: read and checked right, and ticked, with its headline and About.
+  await rows(
+    admin(),
+    sql`update addon_outreach.setup s set network_profiles = s.network_profiles || jsonb_build_object('linkedin',
+          (select jsonb_build_object(
+            'ticks', jsonb_object_agg(item, jsonb_build_object(
+              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+              'version', (select live_version from app.main_offers where workspace_id = ${ws}))),
+            'check', jsonb_build_object(
+              'items', jsonb_object_agg(item, jsonb_build_object('ok', true, 'why', 'Looks right.', 'fix', null)),
+              'bios', '[]'::jsonb, 'coverLine', null, 'feature', '[]'::jsonb,
+              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+              'version', (select live_version from app.main_offers where workspace_id = ${ws})))
+          from unnest(array['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts']) item))
+        where s.workspace_id = ${ws} and s.user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
+  );
+  // Their messages OK'd against the live version (Your messages).
+  await rows(
+    admin(),
+    sql`update addon_outreach.setup
+        set messages_at = now(),
+          messages_version = (select live_version from app.main_offers where workspace_id = ${ws})
+        where workspace_id = ${ws} and user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
+  );
 }
 
 /** Turns the add-on off or back on in a business. */

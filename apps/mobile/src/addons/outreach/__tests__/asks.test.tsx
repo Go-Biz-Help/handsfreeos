@@ -53,6 +53,7 @@ const asksOf = (asks: AskShown[] = [], over: Partial<AsksOutput> = {}): AsksOutp
 const ask = (over: Partial<AskShown>): AskShown => ({
   askId: id(10),
   kind: 'groups',
+  platform: 'facebook',
   target: '',
   about: null,
   via: 'mobile',

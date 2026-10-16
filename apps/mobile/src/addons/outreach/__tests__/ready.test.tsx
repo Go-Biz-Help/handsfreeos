@@ -1,13 +1,19 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
-import { PROFILE_ITEMS, type ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
+import { PROFILE_ITEMS_ON } from '@hfos/core/addons/outreach/profile-check';
+import {
+  PROFILE_ITEMS,
+  READY_WORDS,
+  type ReadinessOutput,
+} from '@hfos/core/addons/outreach/readiness';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
 
 import { GetReadyCard } from '../ready';
 
 /**
- * Get ready on the phone (decision 63): what's left, each item's state, the person's own two done right here, the
- * profile ticked an item at a time and the goal with its math, and nothing once they're ready.
+ * Get ready on the phone (decision 63): what's left, each item's state, the person's own three done right here, the
+ * profile ticked an item at a time, the messages written on their computer to OK, and the goal with its math, and
+ * nothing once they're ready.
  */
 
 jest.mock('@/changes', () => ({
@@ -38,6 +44,7 @@ const notReady: ReadinessOutput = {
   offer: { version: 1, line: 'We help roofers get booked inspections.' },
   profile: {},
   profileCheck: null,
+  messages: { at: null, version: null, samples: null },
   numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
 };
 
@@ -54,6 +61,54 @@ describe('Get ready on the phone', () => {
     expect(within(list).getAllByRole('checkbox')).toHaveLength(PROFILE_ITEMS.length);
     await fireEvent.press(screen.getByTestId('ready-profile-bio'));
     await waitFor(() => expect(onTick).toHaveBeenCalledWith('bio', true));
+  });
+
+  it('shows the messages written on the computer, and OKs them', async () => {
+    const onMessages = jest.fn(async () => true);
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      items: [
+        ...notReady.items,
+        {
+          item: 'messages',
+          state: 'todo',
+          whose: 'person',
+          left: 'See sample messages for your playbook, and OK how they read.',
+        },
+      ],
+      messages: {
+        at: null,
+        version: null,
+        samples: {
+          playbookId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+          playbookName: 'CRM demos',
+          first: ['Hi Sam! Open to 10 booked inspections a month, on a 60-day guarantee?'],
+          video: null,
+          link: 'Here’s my link to book a quick call: [booking link]',
+          followUps: ['Just making sure this didn’t get buried.', 'Should I check back later?'],
+          followUpGaps: [1, 2],
+          checkIn: 'Thought you might like our storm-season checklist.',
+          at: '2026-10-15T09:00:00.000Z',
+          version: 1,
+        },
+      },
+    };
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        onTick={jest.fn()}
+        onMessages={onMessages}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-messages'));
+    const list = screen.getByTestId('ready-messages-list');
+    expect(within(list).getAllByTestId('ready-message-sample')).toHaveLength(5);
+    expect(within(list).getByText('If they go quiet: 2 follow-ups')).toBeTruthy();
+    expect(within(list).getByText('2 days later')).toBeTruthy();
+    expect(within(list).getByText(READY_WORDS.messages.noVideo)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ready-messages-ok'));
+    await waitFor(() => expect(onMessages).toHaveBeenCalled());
   });
 
   it('works the goal out as it changes, and saves it with the days', async () => {
@@ -122,10 +177,80 @@ describe('Get ready on the phone', () => {
     expect(screen.getByText('“Roofers: 10 booked inspections a month.”')).toBeTruthy();
     expect(screen.getByTestId('ready-profile-read-ask')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ready-bio-use-1'));
-    expect(actions.ask).toHaveBeenCalledWith({
-      kind: 'profile_edit',
-      bio: 'Booked inspections for roofers.',
-    });
+    expect(actions.ask).toHaveBeenCalledWith(
+      { kind: 'profile_edit', bio: 'Booked inspections for roofers.' },
+      'facebook',
+    );
+  });
+
+  it('checks LinkedIn’s profile by its own list, in its words, and asks on LinkedIn', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const headline =
+      'I help roofers book 10 more inspections a month with plain follow-ups that sound like them, not a robot.';
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'linkedin',
+      profileCheck: {
+        items: {
+          picture: ok,
+          cover: fix('Nothing read.', 'Put your result on your banner.'),
+          bio: fix('Only a job title.', 'Say who you help.'),
+          about: fix('Nothing read.', 'Start with who you help.'),
+          work: ok,
+          featured: ok,
+          posts: ok,
+        },
+        bios: [headline],
+        aboutDraft: 'I help roofers book more inspections. Book a call with me below.',
+        coverLine: 'Roofers: 10 booked inspections a month.',
+        feature: [],
+        at: '2026-10-14T15:00:00.000Z',
+        version: 1,
+      },
+    };
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.40.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    const onTick = jest.fn(async () => undefined);
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={onTick}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-profile'));
+    const list = screen.getByTestId('ready-profile-list');
+    // LinkedIn's seven, About among them: four right by the AI, three to tick.
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(3);
+    expect(PROFILE_ITEMS_ON.linkedin).toHaveLength(7);
+    expect(within(list).getByText('A headline that says who you help and the result')).toBeTruthy();
+    expect(within(list).getByText('Headlines to pick from')).toBeTruthy();
+    expect(within(list).getByText('A line for your banner')).toBeTruthy();
+    expect(within(list).getByText('An About to start from')).toBeTruthy();
+    expect(
+      within(list).getByText('I help roofers book more inspections. Book a call with me below.'),
+    ).toBeTruthy();
+    expect(within(list).queryByText(/Facebook/)).toBeNull();
+    await fireEvent.press(screen.getByTestId('ready-profile-about'));
+    await waitFor(() => expect(onTick).toHaveBeenCalledWith('about', true));
+    await fireEvent.press(screen.getByTestId('ready-bio-use-0'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'profile_edit', bio: headline }, 'linkedin');
   });
 
   it('shows nothing once they’re ready', async () => {

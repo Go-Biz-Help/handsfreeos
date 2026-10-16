@@ -1,7 +1,7 @@
 /**
  * Automations' health and quality (stage 4b), without a database: when a channel goes quiet, a connection breaks
  * or goes silent, nobody reviews the AI, a lesson waits (and what it goes against), the website changed and a
- * question keeps coming up; how a lesson joins the policies or takes the place of what says otherwise; and where
+ * question keeps coming up; how a lesson joins the instructions or takes the place of what says otherwise; and where
  * each card opens.
  */
 import { describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ import {
   type WebsiteChangedFacts,
 } from '../src/attention/index';
 import { openDayMs } from '../src/attention/load-health';
-import { withLesson } from '../src/commands/teammate-lesson';
+import { sameInstruction } from '../src/commands/teammate-instruction';
 import { saysWords, swapWords } from '../src/knowledge/lessons';
 import { ago, business, DAY, HOUR, later, NOW, uid, WEEKDAYS_8_TO_5 } from './attention-fixtures';
 
@@ -314,16 +314,10 @@ describe('ai_corrections, website_changed and faq_suggestions', () => {
   });
 });
 
-describe('a lesson joins the policies', () => {
-  it('goes on a line of its own, once, and never past the field’s limit', () => {
-    expect(withLesson('', 'We don’t work Sundays.')).toBe('We don’t work Sundays.');
-    expect(withLesson('Deposits are 20%.', 'We don’t work Sundays.')).toBe(
-      'Deposits are 20%.\nWe don’t work Sundays.',
-    );
-    expect(withLesson('- We don’t work Sundays.', 'We don’t work Sundays.')).toBe(
-      '- We don’t work Sundays.',
-    );
-    expect(withLesson('x'.repeat(2990), 'We don’t work Sundays.')).toBeNull();
+describe('a lesson joins the instructions', () => {
+  it('is told from one already there whatever its case or spacing', () => {
+    expect(sameInstruction('We don’t work  Sundays.', 'we don’t work sundays.')).toBe(true);
+    expect(sameInstruction('We don’t work Sundays.', 'We don’t work Saturdays.')).toBe(false);
   });
 });
 

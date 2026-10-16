@@ -3,7 +3,9 @@
  * 43), with the extension's storage, HandsFreeOS and the job stood in for: one that goes to the end is done; one that
  * throws, or can't do what it was asked, is failed with its words; Stop on the web, Stop for today pressed in the panel,
  * a Facebook warning kept while it goes (from any tab) or seen on another computer each end it at its next page, with
- * how far it got; and one left under way when the extension starts again is ended as lost.
+ * how far it got; and one left under way when the extension starts again is ended as lost. Each network has its own
+ * line: LinkedIn's takes its own asks beside Facebook's, only while LinkedIn is on and allowed, and a warning or Stop
+ * for today on one network ends only that network's.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -13,6 +15,7 @@ import {
   type AskTaken,
 } from '@hfos/core/addons/outreach/asks';
 import type { LiveDay } from '@hfos/core/addons/outreach/live';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { Job, JobEnd } from '../src/jobs/job';
 
 const ME = { userId: 'u-dana', businessId: 'b-one' };
@@ -91,23 +94,30 @@ vi.mock('../src/tab', () => ({
 /** The job an ask of Read my chats does: it waits to be let go, then says how far it got. */
 let job: Job | null = null;
 let letGo: (() => void) | null = null;
+/** Each one going, by its network: two go side by side, a line each. */
+const going = new Map<Platform, { readonly job: Job; readonly letGo: () => void }>();
 let ending: (job: Job) => Promise<JobEnd> = async (j) => ({
   line: j.stopped() ? 'Stopped. 2 chats sent for the AI to read.' : 'Read 3 chats.',
   warned: false,
 });
 vi.mock('../src/jobs/chats', () => ({
   chatMemory: {},
-  readChats: async (j: Job) => {
+  LINKEDIN_MESSAGING: { platform: 'linkedin' },
+  readChats: async (j: Job, options: { readonly home?: { readonly platform: Platform } }) => {
     job = j;
-    await new Promise<void>((done) => (letGo = done));
+    await new Promise<void>((done) => {
+      letGo = done;
+      going.set(options.home?.platform ?? 'facebook', { job: j, letGo: done });
+    });
     return ending(j);
   },
 }));
 
 const { runAsks, recoverAsk, endOf, signInChanged } = await import('../src/asks/run');
 const { beat, LIVE_KEY, pressDay } = await import('../src/hfos/live');
-const { ASK_ENDS_KEY, ASK_KEY, sendWaitingEnds } = await import('../src/hfos/asks');
+const { ASK_ENDS_KEY, ASK_KEY, askKeyOf, sendWaitingEnds } = await import('../src/hfos/asks');
 const { WARNED_KEY } = await import('../src/hfos/warned');
+const { NETWORKS_KEY } = await import('../src/networks/on');
 
 const store = new Map<string, unknown>();
 const changed = new Set<(changes: Record<string, unknown>, area: string) => void>();
@@ -171,6 +181,7 @@ const taken: AskTaken = {
   kind: 'chats',
   task: { kind: 'chats' },
   about: null,
+  platform: 'facebook',
   askedAt: '2026-10-27T15:00:00.000Z',
 };
 
@@ -203,6 +214,7 @@ beforeEach(() => {
   posted.length = 0;
   job = null;
   letGo = null;
+  going.clear();
   ending = async (j) => ({
     line: j.stopped() ? 'Stopped. 2 chats sent for the AI to read.' : 'Read 3 chats.',
     warned: false,
@@ -274,6 +286,41 @@ describe('an ask from taking it to its end', () => {
     ]);
   });
 
+  it.each(['carry_on', 'skip'] as const)(
+    'takes %s for a step it handed over, pressed in HandsFreeOS’s Needs you, never the panel',
+    async (pressed) => {
+      // The step waits on a look every 20 seconds; that timer ends with the test.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        let got: unknown = null;
+        ending = async (j) => {
+          got = await j.handOver!('Couldn’t find that step on the page. Then press Carry on.');
+          return { line: 'Read 3 chats.', warned: false };
+        };
+        // Pressed on the web or the phone: the look's answer has it (outreach.ask.reply keeps it there).
+        answers['/v1/commands/outreach.ask.progress'] = (body) => ({
+          status: 200,
+          data: { cancelled: false, reply: body.state === 'stuck' ? pressed : null },
+        });
+        const { running } = await start();
+        letGo!();
+        await running;
+        expect(got).toBe(pressed);
+        const states = posted
+          .filter((p) => p.path === '/v1/commands/outreach.ask.progress')
+          .map((p) => p.body.state);
+        // Taken, handed over, then on again once the answer came.
+        expect(states).toEqual(['working', 'stuck', 'working']);
+        // The extension says nothing of its own about the answer: HandsFreeOS has it already.
+        expect(posted.some((p) => p.path === '/v1/commands/outreach.ask.reply')).toBe(false);
+        expect(ends()).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+      } finally {
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it('ends on a Facebook warning kept while it goes, from any tab', async () => {
     const { running } = await start();
     expect(job!.stopped()).toBe(false);
@@ -292,6 +339,24 @@ describe('an ask from taking it to its end', () => {
         line: `${askWarnedLine('You’re temporarily blocked')} 2 chats sent for the AI to read.`,
       },
     ]);
+  });
+
+  it('keeps going on a LinkedIn warning: a warning on one network never stops another', async () => {
+    const { running } = await start();
+    await chrome.storage.local.set({
+      [WARNED_KEY]: {
+        linkedin: {
+          day: new Date().toLocaleDateString('en-CA'),
+          words: ['You’ve reached the weekly invitation limit'],
+        },
+      },
+    });
+    // Heard and looked at: Facebook's day is as it was.
+    await new Promise((done) => setTimeout(done, 20));
+    expect(job!.stopped()).toBe(false);
+    letGo!();
+    await running;
+    expect(ends()).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
   });
 
   it('ends on a warning seen on another of the person’s computers, as the beat says', async () => {
@@ -385,5 +450,153 @@ describe('how an ask ended', () => {
     expect(
       endOf({ halted: null, warned: false }, { line: 'Saved 3 groups.', warned: false }),
     ).toEqual({ state: 'done', line: 'Saved 3 groups.' });
+  });
+});
+
+describe('a line of asks per network', () => {
+  const LINKEDIN_ASK = '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a';
+  const both = {
+    facebook: { on: true, allowed: true },
+    linkedin: { on: true, allowed: true },
+  };
+  const onLinkedIn: AskTaken = { ...taken, askId: LINKEDIN_ASK, platform: 'linkedin' };
+  const takes = () =>
+    posted.filter((p) => p.path === '/v1/commands/outreach.ask.take').map((p) => p.body.platform);
+  const endOf_ = (askId: string) =>
+    posted
+      .filter((p) => p.path === '/v1/commands/outreach.ask.end' && p.body.askId === askId)
+      .map((p) => ({ state: p.body.state, line: p.body.line }));
+
+  /** Each network's line is handed its own ask once; both go side by side. */
+  async function startBoth(): Promise<{ readonly running: Promise<void> }> {
+    store.set(NETWORKS_KEY, both);
+    const given = new Set<unknown>();
+    answers['/v1/commands/outreach.ask.take'] = (body) => {
+      const ask = given.has(body.platform)
+        ? null
+        : body.platform === 'linkedin'
+          ? onLinkedIn
+          : taken;
+      given.add(body.platform);
+      return { status: 200, data: { ask, waiting: 0 } };
+    };
+    const running = runAsks();
+    await until(() => going.size === 2);
+    return { running };
+  }
+
+  it('takes LinkedIn’s asks on a line of its own, beside Facebook’s, each kept apart for the panel', async () => {
+    const { running } = await startBoth();
+    // Each line asks for its own network's.
+    expect(takes()).toEqual(expect.arrayContaining(['facebook', 'linkedin']));
+    expect(going.get('linkedin')!.job.stopped()).toBe(false);
+    expect(store.get(askKeyOf('linkedin'))).toMatchObject({
+      askId: LINKEDIN_ASK,
+      platform: 'linkedin',
+    });
+    expect(store.get(ASK_KEY)).toMatchObject({ askId: ASK_ID, platform: 'facebook' });
+    // LinkedIn's ends first: Facebook's goes on.
+    going.get('linkedin')!.letGo();
+    await until(() => endOf_(LINKEDIN_ASK).length === 1);
+    expect(going.get('facebook')!.job.stopped()).toBe(false);
+    expect(store.has(askKeyOf('linkedin'))).toBe(false);
+    going.get('facebook')!.letGo();
+    await running;
+    expect(endOf_(LINKEDIN_ASK)).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+    expect(endOf_(ASK_ID)).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+  });
+
+  it('takes nothing on LinkedIn while it’s off, or Chrome hasn’t allowed it', async () => {
+    for (const linkedin of [
+      { on: false, allowed: true },
+      { on: true, allowed: false },
+    ]) {
+      posted.length = 0;
+      store.set(NETWORKS_KEY, { ...both, linkedin });
+      answers['/v1/commands/outreach.ask.take'] = () => ({
+        status: 200,
+        data: { ask: null, waiting: 0 },
+      });
+      await runAsks();
+      expect(takes()).toEqual(['facebook']);
+    }
+  });
+
+  it('ends a LinkedIn ask at once when LinkedIn was turned off since it was taken, saying how to turn it on', async () => {
+    store.set(NETWORKS_KEY, both);
+    let given = false;
+    answers['/v1/commands/outreach.ask.take'] = (body) => {
+      if (body.platform !== 'linkedin' || given)
+        return { status: 200, data: { ask: null, waiting: 0 } };
+      given = true;
+      // Turned off in Chrome just now.
+      store.set(NETWORKS_KEY, { ...both, linkedin: { on: true, allowed: false } });
+      return { status: 200, data: { ask: onLinkedIn, waiting: 0 } };
+    };
+    await runAsks();
+    expect(going.size).toBe(0);
+    expect(endOf_(LINKEDIN_ASK)).toEqual([
+      {
+        state: 'failed',
+        line: 'Chrome hasn’t let the extension on LinkedIn yet. Press Allow on LinkedIn in the extension’s panel, then ask again.',
+      },
+    ]);
+  });
+
+  it('ends only LinkedIn’s on a LinkedIn warning, in LinkedIn’s words', async () => {
+    const { running } = await startBoth();
+    await chrome.storage.local.set({
+      [WARNED_KEY]: {
+        linkedin: {
+          day: new Date().toLocaleDateString('en-CA'),
+          words: ['You’ve reached the weekly invitation limit'],
+        },
+      },
+    });
+    await until(() => going.get('linkedin')!.job.stopped());
+    expect(going.get('facebook')!.job.stopped()).toBe(false);
+    for (const one of going.values()) one.letGo();
+    await running;
+    expect(endOf_(LINKEDIN_ASK)).toEqual([
+      {
+        state: 'failed',
+        line: `${askWarnedLine('You’ve reached the weekly invitation limit', 'linkedin')} 2 chats sent for the AI to read.`,
+      },
+    ]);
+    expect(askWarnedLine(null, 'linkedin')).toBe(
+      'LinkedIn warned you today, so the extension does nothing more on LinkedIn until tomorrow.',
+    );
+    expect(endOf_(ASK_ID)).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+  });
+
+  it('ends only Facebook’s when Stop for today is pressed: the day the beat carries is Facebook’s', async () => {
+    const { running } = await startBoth();
+    answers['/v1/commands/outreach.day.stop'] = { status: 200, data: day('stopped', 'person') };
+    await pressDay('stop');
+    await until(() => going.get('facebook')!.job.stopped());
+    await new Promise((done) => setTimeout(done, 20));
+    expect(going.get('linkedin')!.job.stopped()).toBe(false);
+    for (const one of going.values()) one.letGo();
+    await running;
+    expect(endOf_(LINKEDIN_ASK)).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+  });
+
+  it('ends a LinkedIn ask left under way when the extension starts again, beside Facebook’s', async () => {
+    const left = (askId: string, platform: Platform) => ({
+      ...ME,
+      askId,
+      platform,
+      kind: 'chats',
+      about: null,
+      state: 'working',
+      line: 'Reading your chats…',
+      at: Date.now(),
+    });
+    store.set(ASK_KEY, left(ASK_ID, 'facebook'));
+    store.set(askKeyOf('linkedin'), left(LINKEDIN_ASK, 'linkedin'));
+    await recoverAsk();
+    expect(endOf_(ASK_ID)).toEqual([{ state: 'failed', line: ASK_LOST_LINE }]);
+    expect(endOf_(LINKEDIN_ASK)).toEqual([{ state: 'failed', line: ASK_LOST_LINE }]);
+    expect(store.has(askKeyOf('linkedin'))).toBe(false);
   });
 });

@@ -162,21 +162,21 @@ describe('the list for today', () => {
     expect(
       (today.items as { kind: string; name: string }[]).map((i) => `${i.kind}: ${i.name}`),
     ).toEqual([
-      'friend_request: Sam Lee',
-      'opener: Dana Reyes',
       'reply: Quinn Harper',
+      'opener: Dana Reyes',
       'follow_up: Avery Lane',
+      'friend_request: Sam Lee',
     ]);
-    expect(today.items[3]).toMatchObject({
+    expect(today.items[2]).toMatchObject({
       threadKey: '2000123',
       summary: 'Asked about the price.',
       nextStep: 'Offer a demo.',
     });
     // A message shows the chat so far, where it's going; a friend request has none.
-    expect(today.items[2].recent).toEqual([
+    expect(today.items[0].recent).toEqual([
       { fromMe: false, text: 'Do you do demos?', at: expect.any(String) },
     ]);
-    expect(today.items[0].recent).toEqual([]);
+    expect(today.items[3].recent).toEqual([]);
 
     // Messaging Dana takes the opener off.
     await runAs(owner, ws, 'outreach.touch.save', {
@@ -186,9 +186,9 @@ describe('the list for today', () => {
       at: new Date().toISOString(),
     });
     expect(await kinds()).toEqual([
-      'friend_request: Sam Lee',
       'reply: Quinn Harper',
       'follow_up: Avery Lane',
+      'friend_request: Sam Lee',
     ]);
   });
 

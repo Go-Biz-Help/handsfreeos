@@ -20,7 +20,8 @@ import { JOINS_PER_DAY } from './group-checks';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
-import { FACEBOOK_BIO_MOST } from './profile-check';
+import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { BIO_MOST_ON, PROFILE_BIO_MOST } from './profile-check';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
 export const ASK_KINDS = {
@@ -54,6 +55,101 @@ export const FILE_KINDS = ['file_request', 'file_download', 'file_backup'] as co
 export const OFF_FACEBOOK_KINDS = ['file_in'] as const;
 /** The ones that press something on Facebook on the person's friends: in a tab they can see, brought to the front. */
 export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
+
+/**
+ * The kinds each network's pages can be asked (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "LinkedIn, part by
+ * part"): Facebook's every kind; LinkedIn's its invitations and connections, checking connections for fits, reading
+ * chats, looking someone up, researching one person, reading the profile and putting the headline in, withdrawing old
+ * invitations, searching posts and putting up a post. A kind a network can't be asked is refused
+ * (`outreach_ask_not_on_network`).
+ */
+export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
+  facebook: ASK_KIND_KEYS,
+  linkedin: [
+    // LinkedIn's own copy of the person's data ("Get a copy of your data"): asked for, downloaded, brought in
+    // (./linkedin-export.ts). It has no chat backup.
+    'file_request',
+    'file_download',
+    'file_in',
+    'requests',
+    'friends',
+    'checks',
+    'chats',
+    'lookup',
+    'research',
+    'profile_read',
+    'profile_edit',
+    'cancel',
+    'posts',
+    'post',
+  ],
+};
+export const askableOn = (platform: Platform, kind: AskKind): boolean =>
+  ASK_KINDS_ON[platform].includes(kind);
+
+/** What a kind is called on a network where the kit's words don't say it: LinkedIn withdraws, and has a headline. */
+const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, string>>>>> = {
+  linkedin: {
+    cancel: 'Withdraw old invitations',
+    posts: 'Find posts on LinkedIn',
+    post: 'Put up your helpful post on your feed',
+    profile_edit: 'Put your new headline in',
+  },
+};
+
+/** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
+export const askNameOn = (kind: AskKind, platform: Platform = 'facebook'): string =>
+  ASK_NAMES_ON[platform]?.[kind] ?? inNetworkWords(ASK_KINDS[kind], platform);
+
+/** What a profile's bio is called on a network: LinkedIn's is its headline. */
+const BIO_NAME_ON: Readonly<Record<Platform, string>> = { facebook: 'bio', linkedin: 'headline' };
+
+/**
+ * Why a bio can't go in on a network: longer than it takes (Facebook's short bio 101 characters, LinkedIn's headline
+ * 220). Null when it fits.
+ */
+export function bioTooLongWords(platform: Platform, bio: string): string | null {
+  const most = BIO_MOST_ON[platform];
+  const length = bio.trim().length;
+  if (length <= most) return null;
+  const name = BIO_NAME_ON[platform];
+  return `${PLATFORMS[platform]}’s ${name} takes up to ${most} characters, and this one has ${length}. Pick a shorter one, or cut it to fit.`;
+}
+
+/**
+ * The first build of the extension that works on each network but Facebook: one before it never takes an ask there,
+ * which ends saying how to update.
+ */
+export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
+  linkedin: '0.40.0',
+};
+
+/**
+ * On a network but Facebook, the first build that does a kind there when it came after the network's first: LinkedIn's
+ * data file (asked for, downloaded and brought in) came in 0.42.0, and its helpful post on the person's feed in 0.43.0.
+ */
+export const ASK_KIND_SINCE_ON: Readonly<
+  Partial<Record<Platform, Readonly<Partial<Record<AskKind, string>>>>>
+> = {
+  linkedin: { file_request: '0.42.0', file_download: '0.42.0', file_in: '0.42.0', post: '0.43.0' },
+};
+
+/** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
+export const targetOn = (platform: Platform, target: string): string =>
+  platform === 'facebook' ? target : `${platform}:${target}`;
+
+/**
+ * What an ask is about, for one like it open to answer it: as `askTarget` says on Facebook, and named by its network
+ * on any other, so a LinkedIn ask never answers a Facebook one.
+ */
+export const askTargetOn = (platform: Platform, ask: AskAsked): string =>
+  targetOn(platform, askTarget(ask));
+
+/** Why an ask can't be made on a network: the kind isn't one it's asked there. Null when it can. */
+export const notOnNetworkWords = (platform: Platform, kind: AskKind): string | null =>
+  askableOn(platform, kind)
+    ? null
+    : `Your computer can’t do that on ${PLATFORMS[platform]} yet. Ask it on Facebook, or from that network’s own buttons.`;
 
 export const isFileKind = (kind: AskKind): boolean =>
   (FILE_KINDS as readonly string[]).includes(kind);
@@ -255,10 +351,13 @@ export const AskInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('research'), profileId: z.uuid() }),
   /** Read the person's own profile for the AI's check (decision 64, ./profile-check.ts). */
   plain('profile_read'),
-  /** Put a bio in on their own profile, one the AI wrote and they picked or changed: then read it again. */
+  /**
+   * Put a bio in on their own profile, one the AI wrote and they picked or changed: then read it again. On LinkedIn
+   * it's the headline. Each network's own length (`BIO_MOST_ON`) is held when it's asked.
+   */
   z.object({
     kind: z.literal('profile_edit'),
-    bio: z.string().trim().min(1, 'Pick a bio first.').max(FACEBOOK_BIO_MOST),
+    bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST),
   }),
 ]);
 export type AskInput = z.input<typeof AskInput>;
@@ -291,7 +390,15 @@ export const AskTask = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('group_search'), words: z.string() }),
   /** Null groups: the computer picks the best ones to work, as the runner does. */
   z.object({ kind: z.literal('members'), groups: z.array(AskGroup).nullable() }),
-  z.object({ kind: z.literal('posts'), groups: z.array(AskGroup).nullable() }),
+  /**
+   * Off Facebook, `words` are what to search the network's posts with, the playbooks' own (`postSearchWords`): groups
+   * there are quiet. Empty on Facebook, and from an API before them.
+   */
+  z.object({
+    kind: z.literal('posts'),
+    groups: z.array(AskGroup).nullable(),
+    words: z.array(z.string()).default([]),
+  }),
   z.object({ kind: z.literal('cancel'), profileIds: z.array(z.uuid()) }),
   z.object({ kind: z.literal('unfriend'), profileIds: z.array(z.uuid()) }),
   z.object({
@@ -314,6 +421,11 @@ export type AskTask = z.output<typeof AskTask>;
 /** What came of it beyond the line: a look-up's drafts. */
 export const AskResult = z.object({
   drafts: z.array(z.string().max(2_000)).max(5),
+  /**
+   * What the drafts are for, when it isn't the kind asked: a reply to someone who said yes becomes Send the video or
+   * Send the link (`TodayDraftOutput.kind`). Null from extensions before 0.33.0.
+   */
+  kind: z.enum(DRAFT_KINDS).nullable().default(null),
   opener: DraftOpener.nullable().default(null),
   simple: z.boolean().default(false),
   lookedUp: z.boolean().default(false),
@@ -327,6 +439,8 @@ const moment = z.iso.datetime();
 /** An ask, as the lists show it. */
 export const AskShown = z.object({
   askId: z.uuid(),
+  /** The network it's asked on. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   kind: z.enum(ASK_KIND_KEYS),
   /** What it's about, for matching a button to its ask: who, which groups, the words. */
   target: z.string(),
@@ -343,7 +457,12 @@ export const AskShown = z.object({
 });
 export type AskShown = z.output<typeof AskShown>;
 
-export const AskMakeInput = z.object({ workspaceId: z.uuid(), ask: AskInput });
+export const AskMakeInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network it's asked on: Facebook when left out. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  ask: AskInput,
+});
 export type AskMakeInput = z.input<typeof AskMakeInput>;
 export const AskMakeOutput = z.object({
   ask: AskShown,
@@ -386,12 +505,20 @@ export const AskTakeInput = z.object({
   installId: z.uuid(),
   /** The ask it's doing now, if any: other asks it took before are ended as lost (Chrome restarted mid-way). */
   underway: z.uuid().nullable().default(null),
+  /**
+   * Only asks on this network (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "One runner, one turn"): each
+   * network's line takes its own, so one waiting on the person never holds another's, and `underway` is that
+   * network's alone. Left out, by a build before networks: the oldest on any network, as before.
+   */
+  platform: z.enum(PLATFORM_KEYS).optional(),
 });
 export type AskTakeInput = z.input<typeof AskTakeInput>;
 export const AskTakeOutput = z.object({
   ask: z
     .object({
       askId: z.uuid(),
+      /** The network to do it on: a build that knows no network but Facebook is never handed another's. */
+      platform: z.enum(PLATFORM_KEYS).default('facebook'),
       kind: z.enum(ASK_KIND_KEYS),
       task: AskTask,
       about: z.string().nullable(),
@@ -615,9 +742,9 @@ export function askSignInLine(
     return 'Stopped: you signed in as someone else here. Sign in as yourself, then ask again.';
   return 'Stopped: you picked another business in the extension. Pick this one again, then ask again.';
 }
-/** Ended on the day's warning, before it began. */
-export const askWarnedLine = (words: string | null): string =>
-  `Facebook warned you today${words ? ` (“${words}”)` : ''}, so the extension does nothing more on Facebook until tomorrow.`;
+/** Ended on the day's warning on its network (Facebook's unless said), before it began or as it went. */
+export const askWarnedLine = (words: string | null, platform: Platform = 'facebook'): string =>
+  `${PLATFORMS[platform]} warned you today${words ? ` (“${words}”)` : ''}, so the extension does nothing more on ${PLATFORMS[platform]} until tomorrow.`;
 /** Under a step handed to the person, while they type their password. */
 export const ASK_TYPING_WORDS =
   'Facebook is asking for your password or PIN. Type it on your computer, in the Facebook tab it opened.';
@@ -692,24 +819,44 @@ export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
   profile_edit: '0.32.0',
 };
 
-/** Whether a build of the extension is too old for a kind of ask. One that didn't say its version is. */
-export const tooOldFor = (version: string | null, kind: AskKind): boolean => {
+/**
+ * Whether a build of the extension is too old for a kind of ask, on a network (Facebook when left out). One that
+ * didn't say its version is.
+ */
+export const tooOldFor = (
+  version: string | null,
+  kind: AskKind,
+  platform: Platform = 'facebook',
+): boolean => {
   const since = ASK_KIND_SINCE[kind];
-  return since !== undefined && !appVersionAtLeast(version, since);
+  const network = ASK_NETWORK_SINCE[platform];
+  const there = ASK_KIND_SINCE_ON[platform]?.[kind];
+  return (
+    (since !== undefined && !appVersionAtLeast(version, since)) ||
+    (network !== undefined && !appVersionAtLeast(version, network)) ||
+    (there !== undefined && !appVersionAtLeast(version, there))
+  );
 };
 
 /** What a computer whose extension is too old for an ask says: how to update it. */
 export const tooOldWords = (computer: { readonly name: string; readonly version: string | null }) =>
   `HandsFreeOS Social on ${computer.name} is an older build${computer.version ? ` (${computer.version})` : ''} that can’t do this yet. Download the newest one (the link is in Social Outreach’s setup, under Install the extension), unzip it over the old folder, and press Reload on Chrome’s Extensions page. Then ask again.`;
 
-/** Why a button can't ask now, in words: null when it can. */
+/**
+ * Why a button can't ask now, on a network (Facebook when left out), in words: null when it can. A kind the network
+ * can't be asked never can; `warnedToday` is Facebook's warning, so it holds back only Facebook's asks, and the server
+ * refuses another network's after a warning there.
+ */
 export function cantAskWhy(
   asks: Pick<AsksOutput, 'computer' | 'warnedToday'>,
   kind: AskKind,
+  platform: Platform = 'facebook',
 ): string | null {
   if (!asks.computer) return NO_COMPUTER_ASK_WORDS;
-  if (tooOldFor(asks.computer.version, kind)) return tooOldWords(asks.computer);
-  if (asks.warnedToday && onFacebook(kind)) return WARNED_ASK_WORDS;
+  const notOn = notOnNetworkWords(platform, kind);
+  if (notOn) return notOn;
+  if (tooOldFor(asks.computer.version, kind, platform)) return tooOldWords(asks.computer);
+  if (platform === 'facebook' && asks.warnedToday && onFacebook(kind)) return WARNED_ASK_WORDS;
   return null;
 }
 
@@ -771,5 +918,28 @@ export function latestAsk<A extends { readonly kind: AskKind; readonly target: s
 ): A | null {
   return (
     asks?.asks.find((a) => a.kind === kind && (target === undefined || a.target === target)) ?? null
+  );
+}
+
+/**
+ * The newest ask of a kind on a network (and about the same thing, when given, as `targetOf` says it): another
+ * network's ask of the same kind never stands for it.
+ */
+export function latestAskOn<
+  A extends { readonly kind: AskKind; readonly target: string; readonly platform?: Platform },
+>(
+  asks: { readonly asks: readonly A[] } | null,
+  platform: Platform,
+  kind: AskKind,
+  target?: string,
+): A | null {
+  const named = target === undefined ? undefined : targetOn(platform, target);
+  return (
+    asks?.asks.find(
+      (a) =>
+        a.kind === kind &&
+        (a.platform ?? 'facebook') === platform &&
+        (named === undefined || a.target === named),
+    ) ?? null
   );
 }

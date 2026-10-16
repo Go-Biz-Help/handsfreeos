@@ -20,6 +20,11 @@
  * reply handed over or one to someone who needs the person, which wait for an OK of their own (`oneByOne`, decision
  * 42); the extension then sends them in Messenger. The same messages are in Waiting for you (./waiting-view.tsx). While the person's training wheels are on, it says what's left before they
  * come off; owners and admins see who's on them and can end them early.
+ *
+ * Each network has its own list (Chris: each network on its own): the strip at the top has a row for each network the
+ * person works, with its own Start my day and Stop for today and its own warning line, and the list is the one shown
+ * (`outreach.today` with its `platform`), in its words: an invitation to connect on LinkedIn, a friend request on
+ * Facebook. Asks made from it carry its network, and only the kinds it can be asked show.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
@@ -27,20 +32,24 @@ import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/o
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import {
   DRAFT_KINDS,
-  TODAY_KINDS,
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import { approveAllWords, oneByOne } from '@hfos/core/addons/outreach/waiting-words';
+import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks';
 import {
-  approveAllWords,
-  messengerChatUrl,
-  oneByOne,
-} from '@hfos/core/addons/outreach/waiting-words';
-import { askOpen, onFacebook } from '@hfos/core/addons/outreach/asks';
+  chatUrlOn,
+  dailyWordsOn,
+  helpfulOn,
+  NETWORK_WORDS as NW,
+  todayKindsOn,
+} from '@hfos/core/addons/outreach/network-words';
+import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
+  BellOff,
   CalendarCheck,
   Check,
   CheckCheck,
@@ -48,6 +57,7 @@ import {
   Copy,
   Loader2,
   Sparkles,
+  Video,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -62,13 +72,13 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton, AskLine, latestAsk, targetOf } from './asks';
+import { AskButton, AskLine, latestAskOn, targetOf } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonMenu } from './person-menu';
 import { GetReadyCard } from './get-ready';
-import { StatusStrip } from './status-strip';
+import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
   Asks,
   HelpfulList,
@@ -89,29 +99,40 @@ const KIND_BADGE = {
   opener: 'ok',
   reconnect: 'ok',
   pitch: 'accent',
+  video: 'accent',
   follow_up: 'gray',
+  check_in: 'gray',
   reply: 'pending',
   comment: 'accent',
   warm_lead: 'ok',
 } as const;
 
-/** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
-function openUrl(item: TodayItem): string | null {
+/**
+ * Where to open someone on the list: the post to comment on, their chat for a message in one (on its network's
+ * messaging), else their profile.
+ */
+function openUrl(item: TodayItem, platform: Platform): string | null {
   if (item.postUrl) return item.postUrl;
-  return messengerChatUrl(item.threadKey) ?? item.profileUrl;
+  return chatUrlOn(platform, item.threadKey) ?? item.profileUrl;
 }
 
 export function TodayView({
   workspaceId,
+  platform = 'facebook',
+  networks,
   today,
   helpful,
   wheels,
   asks,
-  live,
   waiting,
   readiness,
 }: {
   workspaceId: string;
+  /** The network whose list it is. */
+  platform?: Platform;
+  /** Each network the person works, with what their computer is doing there: the strip at the top. */
+  networks: readonly NetworkLive[];
+  /** The network's list for today. */
   today: TodayList;
   /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
   readiness: Readiness | null;
@@ -121,13 +142,14 @@ export function TodayView({
   wheels: WheelsList | null;
   /** The look-ups and group members asked of the person's computer from here. */
   asks: Asks;
-  /** What the person's computer is doing: the strip at the top. Null when it couldn't be had. */
-  live: Live | null;
   /** Everything that needs the person, first. Null when it couldn't be had. */
   waiting: Waiting | null;
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
+  const live = networks.find((n) => n.platform === platform)?.live ?? null;
+  const many = networks.length > 1;
+  const name = PLATFORMS[platform];
   // A message waiting for an OK is under Needs you; the list keeps everyone else, so nobody shows twice.
   const needs = new Set(
     (waiting?.items ?? []).flatMap((i) =>
@@ -150,7 +172,14 @@ export function TodayView({
     });
   return (
     <div data-testid="outreach-today">
-      {live ? <StatusStrip workspaceId={workspaceId} live={live} ready={!readiness} /> : null}
+      {networks.length ? (
+        <StatusStrip
+          workspaceId={workspaceId}
+          networks={networks}
+          platform={platform}
+          ready={!readiness}
+        />
+      ) : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           {today.warning && !live?.warning ? (
@@ -159,7 +188,7 @@ export function TodayView({
               data-testid="today-warning"
               className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
             >
-              {warningNote(today.warning)}
+              {warningNote(today.warning, Date.now(), platform)}
             </p>
           ) : null}
           {today.wheels.on ? (
@@ -174,12 +203,19 @@ export function TodayView({
             <GetReadyCard workspaceId={workspaceId} readiness={readiness} asks={asks} />
           ) : null}
           {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
-          <HelpfulCard workspaceId={workspaceId} helpful={helpful} asks={asks} />
+          {helpfulOn(platform) ? (
+            <HelpfulCard
+              workspaceId={workspaceId}
+              platform={platform}
+              helpful={helpful}
+              asks={asks}
+            />
+          ) : null}
           {items.length ? (
             <section aria-labelledby="today-list-title" className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h2 id="today-list-title" className="text-lg font-semibold tracking-tight">
-                  {W.listTitle}
+                  {many ? NW.listOn(name) : W.listTitle}
                   <span className="font-medium text-text-3">
                     {' '}
                     · {items.length.toLocaleString()}
@@ -207,6 +243,7 @@ export function TodayView({
                     <TodayRow
                       key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
                       workspaceId={workspaceId}
+                      platform={platform}
                       item={item}
                       auto={today.auto.includes(item.kind)}
                       asks={asks}
@@ -217,18 +254,20 @@ export function TodayView({
               </Card>
             </section>
           ) : readiness ? null : (
-            <TodayStart workspaceId={workspaceId} />
+            <TodayStart workspaceId={workspaceId} platform={platform} />
           )}
         </div>
         <aside className="space-y-4">
-          {live ? <DoneToday workspaceId={workspaceId} live={live} /> : null}
+          {live ? <DoneToday workspaceId={workspaceId} live={live} platform={platform} /> : null}
           {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
           {!today.hasPlaybook ? (
             <Card className="p-4">
-              <h3 className="text-[15px] font-semibold">Friend requests need a playbook</h3>
+              <h3 className="text-[15px] font-semibold">
+                {`${dailyWordsOn(platform).friend_request.label} need a playbook`}
+              </h3>
               <p className="mt-1.5 text-[13px] text-text-2">
-                People from your groups are suggested once the business has a playbook saying who to
-                look for.
+                People who fit are suggested once the business has a playbook saying who to look
+                for.
               </p>
               <ButtonLink
                 size="sm"
@@ -240,7 +279,7 @@ export function TodayView({
               </ButtonLink>
             </Card>
           ) : null}
-          {today.readAdmins.length ? (
+          {today.readAdmins.length && askableOn(platform, 'members') ? (
             <Card className="p-4" data-testid="today-read-admins">
               <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
               <p className="mt-1.5 text-[13px] text-text-2">
@@ -277,14 +316,34 @@ export function TodayView({
   );
 }
 
-/** An empty list: what gives it something to work with, each a button to where it's done (decision 59). */
-function TodayStart({ workspaceId }: { workspaceId: string }) {
+/** What each of the empty list's steps asks the computer: shown only on a network that can be asked it. */
+const START_ASKS = { groups: 'groups', chats: 'chats', friends: 'checks' } as const;
+
+/**
+ * An empty list: what gives it something to work with, each a button to where it's done (decision 59), in its
+ * network's words, and only the steps its network can be asked.
+ */
+function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: Platform }) {
+  const words = NETWORKS[platform].words;
+  const steps = W.todayStart
+    .filter((step) => askableOn(platform, START_ASKS[step.to]))
+    .map((step) =>
+      step.to === 'chats'
+        ? { ...step, body: `The AI reads your ${words.messaging} chats and finds who fits.` }
+        : step.to === 'friends'
+          ? {
+              ...step,
+              title: `Check your ${words.friends}`,
+              body: `It looks for good fits among the ${words.friends} you already have.`,
+            }
+          : step,
+    );
   return (
     <Card className="p-5" data-testid="today-empty">
       <h2 className="text-[15px] font-semibold">{W.todayEmptyTitle}</h2>
       <p className="mt-1 text-[13px] text-text-2">{W.todayEmptyBody}</p>
       <ol className="mt-4 grid gap-2.5">
-        {W.todayStart.map((step, i) => (
+        {steps.map((step, i) => (
           <li
             key={step.to}
             className="flex flex-wrap items-center gap-3 rounded-menu border border-border p-3.5"
@@ -303,7 +362,10 @@ function TodayStart({ workspaceId }: { workspaceId: string }) {
             <ButtonLink
               size="sm"
               variant="secondary"
-              href={outreachHref(workspaceId, { view: step.to })}
+              href={outreachHref(workspaceId, {
+                view: step.to,
+                ...(step.to === 'groups' ? {} : { net: platform }),
+              })}
             >
               {step.button}
             </ButtonLink>
@@ -315,7 +377,15 @@ function TodayStart({ workspaceId }: { workspaceId: string }) {
 }
 
 /** The newest of today's steps, beside the lists: the rest, and the computers, on the computer's own page. */
-function DoneToday({ workspaceId, live }: { workspaceId: string; live: Live }) {
+function DoneToday({
+  workspaceId,
+  live,
+  platform,
+}: {
+  workspaceId: string;
+  live: Live;
+  platform: Platform;
+}) {
   const shown = live.steps.slice(0, 6);
   return (
     <Card className="p-4" data-testid="today-done">
@@ -343,7 +413,7 @@ function DoneToday({ workspaceId, live }: { workspaceId: string; live: Live }) {
         <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
       )}
       <Link
-        href={outreachHref(workspaceId, { view: 'live' })}
+        href={outreachHref(workspaceId, { view: 'live', net: platform })}
         className="mt-3 inline-block text-[13px] font-medium text-accent-text hover:underline"
       >
         {W.seeAllToday}
@@ -383,12 +453,15 @@ function HowItWorks() {
 
 function TodayRow({
   workspaceId,
+  platform,
   item,
   auto,
   asks,
   first = false,
 }: {
   workspaceId: string;
+  /** The network the list is on. */
+  platform: Platform;
   item: TodayItem;
   /** The extension does it on its own for you. */
   auto: boolean;
@@ -396,7 +469,7 @@ function TodayRow({
   /** The list's first row: no line above it. */
   first?: boolean;
 }) {
-  const url = openUrl(item);
+  const url = openUrl(item, platform);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
     <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
@@ -429,7 +502,7 @@ function TodayRow({
               {W.doneOnItsOwn}
             </Badge>
           ) : null}
-          <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
+          <Badge variant={KIND_BADGE[item.kind]}>{todayKindsOn(platform)[item.kind]}</Badge>
           <PersonMenu workspaceId={workspaceId} who={item} />
         </span>
       </div>
@@ -450,7 +523,13 @@ function TodayRow({
       {item.send ? (
         <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
       ) : draftKind ? (
-        <Drafts workspaceId={workspaceId} item={item} kind={draftKind} asks={asks} />
+        <Drafts
+          workspaceId={workspaceId}
+          platform={platform}
+          item={item}
+          kind={draftKind}
+          asks={asks}
+        />
       ) : null}
     </li>
   );
@@ -468,9 +547,10 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
       </p>
       <ul className="mt-2 space-y-2 text-[13px]">
         {wheels.people.map((p) => (
-          <li key={p.userId} className="flex items-center justify-between gap-3">
+          <li key={`${p.userId}:${p.platform}`} className="flex items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="font-medium">{p.name}</span>
+              <span className="text-text-3"> · {PLATFORMS[p.platform]}</span>
               <span className="block text-[12px] text-text-3">
                 {p.wheels.ok.toLocaleString()} of 25 OK’d ·{' '}
                 {p.wheels.daysLeft
@@ -484,11 +564,11 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
               disabled={busy !== null}
               onClick={() =>
                 void act(
-                  p.userId,
+                  `${p.userId}:${p.platform}`,
                   async () =>
                     unwrap(
                       await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
-                        body: { workspaceId, userId: p.userId },
+                        body: { workspaceId, userId: p.userId, platform: p.platform },
                       }),
                     ),
                   W.wheelsEnded(p.name),
@@ -506,14 +586,16 @@ function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: Whee
   );
 }
 
-/** The AI's drafts for a message, asked for when wanted: each to copy and send on Facebook. */
+/** The AI's drafts for a message, asked for when wanted: each to copy and send on its network. */
 function Drafts({
   workspaceId,
+  platform,
   item,
   kind,
   asks,
 }: {
   workspaceId: string;
+  platform: Platform;
   item: TodayItem;
   kind: DraftKind;
   asks: Asks;
@@ -522,21 +604,25 @@ function Drafts({
   const [drafted, setDrafted] = useState<readonly string[]>([]);
   /** The opener the drafts were written with, for a first message. */
   const [draftedOpener, setOpener] = useState<DraftOpener | null>(null);
-  // Looked up on Facebook first, while the computer is online and Facebook didn't warn them today.
+  /** What they were written as: a reply to a yes comes back as Send the video or Send the link. */
+  const [draftedAs, setDraftedAs] = useState<DraftKind | null>(null);
+  // Looked up on its network first, while the computer is online and can be asked there.
   const lookup = {
     kind: 'lookup' as const,
     draft: { kind, profileId: item.profileId, chatId: item.chatId, postId: item.postId },
   };
-  const looked = latestAsk(asks, 'lookup', targetOf(lookup));
+  const looked = latestAskOn(asks, platform, 'lookup', targetOf(lookup));
   const online =
     asks.computer !== null &&
     asks.computer.online &&
     !asks.computer.signedOut &&
-    !(asks.warnedToday && onFacebook('lookup'));
+    cantAskWhy(asks, 'lookup', platform) === null;
+  const messaging = NETWORKS[platform].words.messaging;
   // Drafts asked for here come first; else the look-up's, once it's done.
   const fromLookup = !drafted.length && looked?.state === 'done' ? looked.result : null;
   const drafts = fromLookup?.drafts ?? drafted;
   const opener = fromLookup ? fromLookup.opener : draftedOpener;
+  const as = (fromLookup ? fromLookup.kind : draftedAs) ?? kind;
   const lookingUp = looked !== null && askOpen(looked.state);
   const skipping = useAct();
   const skip = (postId: string) =>
@@ -563,6 +649,7 @@ function Drafts({
       if (!out.drafts.length) toast.message('The AI had nothing to suggest. Try again.');
       setDrafted(out.drafts);
       setOpener(out.opener);
+      setDraftedAs(out.kind);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -570,33 +657,62 @@ function Drafts({
     }
   };
   /**
-   * Copying a first message notes which opener it was, and copying a pitch moves them on to pitched (decision 47);
-   * that it couldn't is no reason to stop them.
+   * Copying a message notes it as sent, so its follow-ups come in turn (decision 67): the link moves them on to
+   * pitched (decision 47), and a first message also notes which opener it was. That it couldn't is no reason to stop
+   * them.
    */
+  const noteSent = async (sent: DraftKind) => {
+    const profileId = item.profileId;
+    if (!profileId) return;
+    const api = apiBrowser();
+    if (sent === 'pitch')
+      await api
+        .POST('/v1/commands/outreach.stage.mark', {
+          body: { workspaceId, profileId, mark: 'pitched' },
+        })
+        .catch(() => undefined);
+    else if (
+      sent === 'opener' ||
+      sent === 'video' ||
+      sent === 'follow_up' ||
+      sent === 'check_in' ||
+      sent === 'reply'
+    )
+      await api
+        .POST('/v1/commands/outreach.conversation.note', {
+          body: { workspaceId, profileId, kind: sent },
+        })
+        .catch(() => undefined);
+    if (sent !== 'opener' || !opener) return;
+    await api
+      .POST('/v1/commands/outreach.opener.use', { body: { workspaceId, profileId, opener } })
+      .catch(() => undefined);
+  };
   const copy = async (text: string, part?: { readonly n: number; readonly of: number }) => {
     await copyText(
       text,
       kind === 'comment' || kind === 'warm_lead'
         ? 'Copied. Paste it as a comment on the post.'
         : part
-          ? `Copied text ${part.n} of ${part.of}. Paste it in Messenger${part.n < part.of ? ', then copy the next' : ''}.`
-          : 'Copied. Paste it in Messenger.',
+          ? `Copied text ${part.n} of ${part.of}. Paste it in ${messaging}${part.n < part.of ? ', then copy the next' : ''}.`
+          : `Copied. Paste it in ${messaging}.`,
     );
     // A message copied a text at a time counts once, with its first.
     if (part && part.n > 1) return;
-    if (kind === 'pitch' && item.profileId)
-      await apiBrowser()
-        .POST('/v1/commands/outreach.stage.mark', {
-          body: { workspaceId, profileId: item.profileId, mark: 'pitched' },
-        })
-        .catch(() => undefined);
-    if (!opener || !item.profileId) return;
-    await apiBrowser()
-      .POST('/v1/commands/outreach.opener.use', {
-        body: { workspaceId, profileId: item.profileId, opener },
-      })
-      .catch(() => undefined);
+    await noteSent(as);
   };
+  const stopping = useAct();
+  const stopCheckIns = (profileId: string) =>
+    stopping.act(
+      'stop',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.conversation.stop', {
+            body: { workspaceId, profileId },
+          }),
+        ),
+      W.checkInsStopped(item.name),
+    );
   return (
     <div className="mt-2">
       {!online && drafted.length ? (
@@ -660,6 +776,7 @@ function Drafts({
             workspaceId={workspaceId}
             asks={asks}
             ask={lookup}
+            platform={platform}
             label={
               drafts.length
                 ? 'Look up and draft again'
@@ -694,21 +811,50 @@ function Drafts({
               ? 'Draft a comment'
               : 'Draft a message'}
       </Button>
-      {item.demoLink ? (
+      {kind === 'video' && item.videoLink ? (
         <Button
           variant="ghost"
           size="sm"
           className="ml-1.5 mt-1.5"
           onClick={() =>
-            void copyText(
-              item.demoLink!,
-              'Copied your demo link for them. A booking through it counts by itself.',
-            )
+            void copyText(item.videoLink!, W.videoCopied).then(() => noteSent('video'))
+          }
+          data-testid="today-video-link"
+        >
+          <Video className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {W.copyVideoLink}
+        </Button>
+      ) : null}
+      {item.demoLink && kind !== 'video' ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-1.5 mt-1.5"
+          onClick={() =>
+            kind === 'pitch'
+              ? void copyText(item.demoLink!, W.linkCopied).then(() => noteSent('pitch'))
+              : void copyText(
+                  item.demoLink!,
+                  'Copied your demo link for them. A booking through it counts by itself.',
+                )
           }
           data-testid="today-demo-link"
         >
           <CalendarCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Copy demo link
+          {kind === 'pitch' ? W.copyLinkOnly : 'Copy demo link'}
+        </Button>
+      ) : null}
+      {kind === 'check_in' && item.profileId ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-1.5 mt-1.5"
+          disabled={stopping.busy !== null}
+          onClick={() => void stopCheckIns(item.profileId!)}
+          data-testid="today-stop-check-ins"
+        >
+          <BellOff className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {W.stopCheckIns}
         </Button>
       ) : null}
       {item.postId ? (

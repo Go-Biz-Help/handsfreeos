@@ -322,7 +322,8 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
     const todayStart = await startOfToday(ctx, now);
-    const warning = await warningOf(ctx, me, todayStart, now);
+    // Groups are joined on Facebook: only its warning halves the joins.
+    const warning = await warningOf(ctx, me, 'facebook', todayStart, now);
     const perDay = limitNow(JOINS_PER_DAY, slowsNow(warning, now));
     const [done] = await rows<{ n: number }>(
       ctx.tx,

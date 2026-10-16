@@ -63,6 +63,8 @@ describe('what the AI is asked, and what it may answer', () => {
       // An answer without the pitch read is not yet (decision 47).
       pitch: 'not_yet',
       pitchWhy: null,
+      // The owner's message last, or no answer read: nothing for the conversation (../conversation.ts).
+      reply: null,
     });
   });
 

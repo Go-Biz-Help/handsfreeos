@@ -1,8 +1,15 @@
 import { wheelsWords, type WheelsListOutput } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
+  chatUrlOn,
+  helpfulOn,
+  openChatWords,
+  openPageWords,
+  todayKindsOn,
+} from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
   TODAY_KIND_KEYS,
-  TODAY_KINDS,
   TODAY_LIMIT,
   type TodayItem,
   type TodayKind,
@@ -11,12 +18,12 @@ import {
 import {
   HELPFUL_STATES,
   HELPFUL_WORDS as H,
-  howWords,
+  helpfulOpenUrl,
+  helpfulWordsOn,
   OPEN_HELPFUL_STATES,
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
-import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -41,23 +48,34 @@ import { PersonMenu } from './person-menu';
  * and each message it drafted, to OK or skip; each person's menu (Add to Contacts, Demo booked, Don't pitch, as the
  * web's); for owners and admins, who is on training wheels, with End now. Drafting
  * a message, copying an opener and the AI's drafts stay on the computer, beside Facebook. It needs signal.
+ *
+ * The list is one network's (`outreach.today`'s `platform`), in its words: "Send an invitation to connect" on
+ * LinkedIn, its chats opening in LinkedIn messaging; Today's tab shows the one picked on its strip (./hub.tsx).
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
 
-/** Today's answers and what its buttons do: for its own screen, and for Today's tab with Needs you above it. */
-export function useTodayProps(): React.ComponentProps<typeof TodayBody> {
+/**
+ * A network's list for today and what its buttons do: for its own screen, and for Today's tab with Needs you above it.
+ */
+export function useTodayProps(
+  platform: Platform = 'facebook',
+): React.ComponentProps<typeof TodayBody> {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const today = useOutreachAnswer(
-    async () => unwrap(await api.POST('/v1/queries/outreach.today', { body: { workspaceId: ws } })),
-    `today:${ws}`,
+    async () =>
+      unwrap(await api.POST('/v1/queries/outreach.today', { body: { workspaceId: ws, platform } })),
+    `today:${ws}:${platform}`,
     W.rows.today,
   );
+  // The network's own helpful post: in a group on Facebook, on the person's own feed on LinkedIn.
   const helpful = useOutreachAnswer(
     async () =>
-      unwrap(await api.POST('/v1/queries/outreach.helpful', { body: { workspaceId: ws } })),
-    `helpful:${ws}`,
+      unwrap(
+        await api.POST('/v1/queries/outreach.helpful', { body: { workspaceId: ws, platform } }),
+      ),
+    `helpful:${ws}:${platform}`,
     H.title,
   );
   const helpfulChange = async (run: () => Promise<unknown>, said: string) => {
@@ -82,16 +100,22 @@ export function useTodayProps(): React.ComponentProps<typeof TodayBody> {
     today.reload();
   };
   return {
+    platform,
     today: today.data,
     helpful: helpful.data,
     onHelpful: {
       write: () =>
-        helpfulChange(() => change('outreach.helpful.ask', { workspaceId: ws }), H.writing),
+        helpfulChange(
+          () => change('outreach.helpful.ask', { workspaceId: ws, platform }),
+          H.writing,
+        ),
       ok: (helpfulId) =>
         helpfulChange(async () => {
           await change('outreach.helpful.ok', { workspaceId: ws, helpfulId });
+          // Put up on the network it's for: in its group on Facebook, on their own feed on LinkedIn.
           await change('outreach.ask.make', {
             workspaceId: ws,
+            platform,
             ask: { kind: 'post', helpfulId },
           });
         }, H.waitingComputer),
@@ -136,9 +160,9 @@ export function useTodayProps(): React.ComponentProps<typeof TodayBody> {
         failed(e);
       }
     },
-    onEndWheels: async (userId, name) => {
+    onEndWheels: async (userId, name, network = 'facebook') => {
       try {
-        await change('outreach.wheels.end', { workspaceId: ws, userId });
+        await change('outreach.wheels.end', { workspaceId: ws, userId, platform: network });
         toast.show(W.wheelsEnded(name));
         wheels.reload();
       } catch (e) {
@@ -157,6 +181,7 @@ export interface HelpfulActions {
 }
 
 export function TodayBody({
+  platform = 'facebook',
   today,
   helpful = null,
   onHelpful,
@@ -171,6 +196,8 @@ export function TodayBody({
   embedded = false,
   hideSends,
 }: {
+  /** The network whose list it is. */
+  platform?: Platform;
   today: TodayOutput | null;
   /** Today's helpful post, and those up lately: none while it loads. */
   helpful?: HelpfulListOutput | null;
@@ -183,7 +210,8 @@ export function TodayBody({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
-  onEndWheels: (userId: string, name: string) => void;
+  /** Ends someone's training wheels on a network: Facebook's when left out. */
+  onEndWheels: (userId: string, name: string, platform?: Platform) => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
   embedded?: boolean;
   /** Messages Needs you shows already: left off here, so nobody shows twice. */
@@ -220,12 +248,14 @@ export function TodayBody({
       {list.warning ? (
         <Card className="border-danger px-4 py-3" testID="today-warning">
           <Text className="text-[14px] leading-[20px] text-danger">
-            {warningNote(list.warning)}
+            {warningNote(list.warning, Date.now(), platform)}
           </Text>
         </Card>
       ) : null}
       {list.wheels.on ? <Note testID="today-wheels">{wheelsWords(list.wheels)}</Note> : null}
-      {helpful && onHelpful ? <HelpfulPart helpful={helpful} on={onHelpful} /> : null}
+      {helpful && onHelpful && helpfulOn(platform) ? (
+        <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
+      ) : null}
       {asking.length ? (
         <Part
           title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}
@@ -235,6 +265,7 @@ export function TodayBody({
           {asking.map((item, i) => (
             <ItemCard
               key={`${item.postId ?? i}:${i}`}
+              platform={platform}
               item={item}
               menu={menu}
               onOk={onOk}
@@ -248,6 +279,7 @@ export function TodayBody({
         kinds.map((kind) => (
           <KindPart
             key={kind}
+            platform={platform}
             kind={kind}
             today={list}
             menu={menu}
@@ -266,14 +298,16 @@ export function TodayBody({
         <Part title={W.wheelsTitle} testID="today-wheels-team">
           {wheels.people.length ? (
             wheels.people.map((p) => (
-              <Card key={p.userId} className="gap-2 px-4 py-3.5">
-                <Text className="text-[15px] font-semibold">{p.name}</Text>
+              <Card key={`${p.userId}:${p.platform}`} className="gap-2 px-4 py-3.5">
+                <Text className="text-[15px] font-semibold">
+                  {`${p.name} · ${PLATFORMS[p.platform]}`}
+                </Text>
                 <Note>{wheelsWords(p.wheels)}</Note>
                 <Button
                   size="md"
                   variant="secondary"
                   className="self-start"
-                  onPress={() => onEndWheels(p.userId, p.name)}
+                  onPress={() => onEndWheels(p.userId, p.name, p.platform)}
                   testID="today-wheels-end"
                 >
                   {W.endNow}
@@ -297,6 +331,7 @@ function limitWords(today: TodayOutput, kind: TodayKind): string | null {
 }
 
 function KindPart({
+  platform,
   kind,
   today,
   menu,
@@ -304,6 +339,7 @@ function KindPart({
   onSkip,
   onNotForMe,
 }: {
+  platform: Platform;
   kind: TodayKind;
   today: TodayOutput;
   menu?: (item: TodayItem) => React.ReactNode;
@@ -315,13 +351,14 @@ function KindPart({
   const auto = today.auto.includes(kind);
   return (
     <Part
-      title={`${TODAY_KINDS[kind]} · ${items.length.toLocaleString('en-US')}`}
+      title={`${todayKindsOn(platform)[kind]} · ${items.length.toLocaleString('en-US')}`}
       about={[limitWords(today, kind), auto ? W.doneOnItsOwn : null].filter(Boolean).join(' · ')}
       testID={`today-${kind}`}
     >
       {items.map((item, i) => (
         <ItemCard
           key={`${item.profileId ?? item.postId ?? i}:${i}`}
+          platform={platform}
           item={item}
           menu={menu}
           onOk={onOk}
@@ -334,19 +371,21 @@ function KindPart({
 }
 
 function ItemCard({
+  platform,
   item,
   menu,
   onOk,
   onSkip,
   onNotForMe,
 }: {
+  platform: Platform;
   item: TodayItem;
   menu?: (item: TodayItem) => React.ReactNode;
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
 }) {
-  const chat = messengerChatUrl(item.threadKey);
+  const chat = chatUrlOn(platform, item.threadKey);
   const onPost = item.kind === 'comment' || item.kind === 'warm_lead';
   const page = onPost ? (item.postUrl ?? item.profileUrl) : (chat ?? item.profileUrl);
   return (
@@ -363,6 +402,7 @@ function ItemCard({
         {menu?.(item)}
       </View>
       {item.why.length ? <Note>{item.why.join(' · ')}</Note> : null}
+      {item.kind === 'video' && !item.send ? <Note>{W.videoNext}</Note> : null}
       {item.summary ? <Text className="text-[14px] leading-[20px]">{item.summary}</Text> : null}
       {item.nextStep ? <Note>{`${W.nextStepLabel}: ${item.nextStep}`}</Note> : null}
       {item.post ? (
@@ -426,7 +466,7 @@ function ItemCard({
         ) : null}
         {page ? (
           <Button size="md" variant="ghost" icon={ExternalLink} onPress={() => openOutside(page)}>
-            {chat && !onPost ? W.openInMessenger : W.openOnFacebook}
+            {chat && !onPost ? openChatWords(platform) : openPageWords(platform)}
           </Button>
         ) : null}
       </View>
@@ -437,9 +477,19 @@ function ItemCard({
 /**
  * Today's helpful post (decision 50): what the AI wrote and for which group, to OK for the computer, say it's up
  * after copying it (the words can be selected), or put aside; why one was put aside; and those up lately, with who
- * engaged. With none today, Write a helpful post. It needs signal.
+ * engaged. With none today, Write a helpful post. It needs signal. On LinkedIn it's for the person's own feed: "Your
+ * LinkedIn feed" where a group's name would be, and Open LinkedIn in place of Open the group.
  */
-function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulActions }) {
+function HelpfulPart({
+  platform,
+  helpful,
+  on,
+}: {
+  platform: Platform;
+  helpful: HelpfulListOutput;
+  on: HelpfulActions;
+}) {
+  const H = helpfulWordsOn(platform);
   const open = helpful.posts.find((p) =>
     (OPEN_HELPFUL_STATES as readonly string[]).includes(p.state),
   );
@@ -449,7 +499,7 @@ function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulA
     <Part title={H.title} about={H.limit} testID="today-helpful">
       {shown ? (
         <Card className="gap-2 px-4 py-3.5" testID="today-helpful-post">
-          <Note>{[shown.groupName, shown.topic].filter(Boolean).join(' · ')}</Note>
+          <Note>{[shown.groupName ?? H.feed?.name, shown.topic].filter(Boolean).join(' · ')}</Note>
           {shown.state === 'drafting' ? <Note>{H.writing}</Note> : null}
           {shown.state === 'skipped' || shown.state === 'failed' ? (
             <Note>{`${HELPFUL_STATES[shown.state]}${shown.whyNot ? `: ${shown.whyNot}` : '.'}`}</Note>
@@ -462,7 +512,7 @@ function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulA
               >
                 {shown.text}
               </Text>
-              <Note>{shown.state === 'approved' ? H.waitingComputer : howWords(shown.how)}</Note>
+              <Note>{shown.state === 'approved' ? H.waitingComputer : H.how(shown.how)}</Note>
               <View className="flex-row flex-wrap gap-2">
                 {shown.how === 'after_ok' || shown.state === 'approved' ? (
                   <Button
@@ -480,9 +530,10 @@ function HelpfulPart({ helpful, on }: { helpful: HelpfulListOutput; on: HelpfulA
                       size="md"
                       variant="ghost"
                       icon={ExternalLink}
-                      onPress={() => openOutside(shown.groupUrl)}
+                      onPress={() => openOutside(helpfulOpenUrl({ ...shown, platform }))}
+                      testID="today-helpful-open"
                     >
-                      {H.openGroup}
+                      {H.open}
                     </Button>
                     <Button
                       size="md"

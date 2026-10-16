@@ -43,7 +43,8 @@ const paceMessage = (n: number) =>
   n === 0
     ? 'First message the day they accept'
     : `First message ${days(n, 'day', 'days')} after they accept`;
-const paceFollowUp = (n: number) => `Follow up after ${days(n, 'quiet day', 'quiet days')}`;
+const paceFollowUp = (n: number) =>
+  `${days(n, 'follow-up', 'follow-ups')} until they answer, then a check-in each month`;
 
 const things = (n: number, one: string, many: string) =>
   n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`;
@@ -74,7 +75,7 @@ export const OUTREACH_WORDS = {
     today: LIST_TODAY,
     pipeline: 'Everyone you reached, by where they stand',
     groups: 'Groups to work, and why',
-    chats: 'Your Facebook chats, read by the AI',
+    chats: 'Your chats, read by the AI',
     playbooks: 'Who you’re looking for, and how you sound',
     settings: 'What the extension does, and when',
   },
@@ -210,6 +211,17 @@ export const OUTREACH_WORDS = {
   askingAbout: 'Answer these first, while they’re fresh.',
   notForMe: 'Not for me',
   notForMeDone: 'Put aside. It won’t be on your list again.',
+  /** The conversation's steps on Today (decisions 65 to 67). */
+  copyLinkOnly: 'Copy the link only',
+  linkCopied:
+    'Copied your link for them. Paste it in Messenger: a booking through it counts by itself.',
+  copyVideoLink: 'Copy the video link',
+  videoCopied: 'Copied your video’s link. Paste it in Messenger.',
+  /** The phone's Send the video: the computer drafts it. */
+  videoNext: 'Your computer drafts it next, with your video’s link.',
+  stopCheckIns: 'Stop checking in',
+  checkInsStopped: (name: string) =>
+    `No more check-ins to ${name}. They start again if you two talk again.`,
   wheelsTitle: 'On training wheels',
   wheelsNone: 'Nobody is on training wheels.',
   endNow: 'End now',
@@ -219,7 +231,8 @@ export const OUTREACH_WORDS = {
 
   // ---- The page's tabs (decision 59) ----
   /** The line under the page's title. */
-  pageAbout: 'Finds people in your Facebook groups, makes friends and starts real chats for you.',
+  pageAbout:
+    'Finds people who fit on your networks, connects with them and starts real chats for you.',
   /** The four tabs and the gear, in order. */
   tabs: {
     today: 'Today',
@@ -269,10 +282,8 @@ export const OUTREACH_WORDS = {
     },
     openFacebook: 'Facebook',
   },
-  /** The Settings tab's parts. */
+  /** The Settings menu's parts under More; General and the networks are `SETTINGS_WORDS`' (decision 73). */
   settingsParts: {
-    mine: 'My settings',
-    business: 'Business settings',
     playbooks: 'Playbooks',
     computer: 'Your computer',
     fresh: 'Start fresh',
@@ -454,16 +465,17 @@ export const OUTREACH_WORDS = {
   addsTag: 'Adds the tag',
   theySay: 'They say',
   noTag: 'No tag',
-  /** How fast, for the steps it takes: null for a step it doesn't (a first message, a follow-up). */
-  pace: (messageAfterDays: number | null, followUpAfterDays: number | null) => {
+  /** How fast, for the steps it takes: null for a step it doesn't (a first message, follow-ups). */
+  pace: (messageAfterDays: number | null, followUps: number | null) => {
     const said = [
       messageAfterDays === null ? null : paceMessage(messageAfterDays),
-      followUpAfterDays === null ? null : paceFollowUp(followUpAfterDays),
+      followUps === null ? null : paceFollowUp(followUps),
     ].filter(Boolean);
     return said.length ? `${said.join('. ')}.` : '';
   },
   messageAfter: 'First message, days after they accept',
-  followUpAfter: 'Follow up after this many quiet days',
+  followUpAfter: 'Follow-ups before the monthly check-in',
+  followUpGap: (n: number) => `Follow-up ${n}, quiet days after the last message`,
   playbookSections: {
     goal: 'Goal',
     offer: 'The offer and its link',
@@ -471,9 +483,11 @@ export const OUTREACH_WORDS = {
     signs: 'Signs they fit',
     skip: 'Who to skip',
     area: 'Where they are',
+    networks: 'Networks',
     groupWords: 'Words to search for groups',
     steps: 'Steps it takes',
     pace: 'How fast',
+    video: 'Short video',
     tone: 'How it sounds',
     samples: 'Sample messages',
     openers: 'How first messages open',
@@ -490,9 +504,6 @@ export const OUTREACH_WORDS = {
   changedSince: 'Someone changed this playbook meanwhile. Your change went on top of theirs.',
 
   // ---- Settings ----
-  settingsIntro:
-    'Everything the browser extension does is set here. It follows a change within a few seconds on every computer you’re signed in on.',
-  mySettings: 'My settings',
   settingsFor: 'Settings for',
   settingsOf: (name: string) => `Settings for ${name}`,
   notSetYet: ' (not set yet)',
@@ -508,7 +519,6 @@ export const OUTREACH_WORDS = {
     allowed: 'What people may pick',
     limits: 'Daily limits for each person',
     defaults: 'Where a new person starts',
-    business: 'Business settings',
     contacts: 'Who from Facebook chats goes in Contacts',
     cancelAfter: 'Suggest cancelling friend requests after',
     morning: 'Morning push',
@@ -525,8 +535,10 @@ export const OUTREACH_WORDS = {
       'A reply to someone who asks for you, sounds upset, or writes about a refund, a complaint or cancelling always waits for you, and your phone hears it.',
     extension:
       'What it does while you use Facebook yourself, on every computer you’re signed in on.',
-    pushes: 'How you hear about messages and steps waiting for you.',
+    pushes: 'How you hear about messages and steps waiting for you, and your numbers.',
     pushesAlways: 'A reply handed over to you always comes at once.',
+    /** Under the day's report. */
+    weekReview: 'Your week’s review comes on Monday morning, on Results and in a push.',
     when: (timeZone: string) =>
       `On your business’s clock (${timeZone}), at random times spread over the hours.`,
     allowed:
@@ -580,6 +592,10 @@ export const OUTREACH_WORDS = {
       'Look for posts as I scroll a group',
       'Posts worth a comment go on your list for today.',
     ],
+    dayReport: [
+      'The day’s report',
+      'A push at the end of your working hours with the day’s numbers: messages sent, yeses and calls booked, and how far you are from your target. Only on a day you sent something.',
+    ],
   } as const,
   /** On the Add-ons page, which points to Social Outreach's own Settings tab. */
   addonsPage: {
@@ -587,13 +603,13 @@ export const OUTREACH_WORDS = {
       'Who from Facebook chats goes in Contacts, when friend requests are suggested for cancelling, the morning push, the weekly report, the choices people may pick, daily limits and where your team gets the extension.',
     open: 'Open Social Outreach settings',
     notOwner:
-      'Owners and admins change these under Social Outreach → Settings → Business settings.',
+      'Owners and admins change these in Social Outreach → Settings, under For your team on General and on each network’s page.',
     /** On the Chats tab, beside who goes in Contacts. */
     changeContacts: 'Change it in Settings',
-    contactsNotOwner: 'An owner or admin can change this in Settings → Business settings.',
+    contactsNotOwner: 'An owner or admin can change this in Settings → General.',
   },
   notAllowed: (choices: readonly string[]) =>
-    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that under Business settings.`,
+    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that in Settings → General.`,
   from: 'From',
   to: 'to',
   usual: 'The usual choice.',

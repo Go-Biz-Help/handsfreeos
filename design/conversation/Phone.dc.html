@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The phone’s Today: the conversation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border-radius:10px;border:1px solid transparent;font:inherit;font-weight:500;font-size:15px;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:focus-visible,.tabbar a:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13.5px}.xs{font-size:12.5px}
+.row{display:flex;align-items:center;gap:10px}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.sect{font-size:13px;font-weight:600;color:var(--text-2);padding:4px 2px 0}
+.it{display:flex;flex-direction:column;gap:8px;padding:14px}
+.draft{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--card-2)}
+.wait{font-size:12.5px;color:var(--warning-text);background:var(--warning-soft);border-radius:999px;padding:2px 8px;align-self:flex-start}
+.tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);background:var(--card);padding:6px 4px 20px}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-2);padding:6px 0;border-radius:8px;text-decoration:none}
+.tabbar a.on{color:var(--accent-text)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 390px; height: 844px; display: flex; flex-direction: column;">
+<header class="row" style="height: 56px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border);">
+<a href="#" aria-label="Back to More" class="row" style="width: 44px; height: 44px; justify-content: center;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+<h1 style="font-size: 17px; font-weight: 600;">Social Outreach</h1>
+</header>
+
+<div class="stack" style="flex: 1; overflow: auto; padding: 16px; gap: 12px;">
+<section class="card row" style="justify-content: space-between; padding: 12px 14px;" aria-label="Your day">
+<div class="stack"><span style="font-weight: 600;">Working on your list</span><span class="xs muted">5 of 20 follow-ups today</span></div>
+<button class="btn btn-secondary" type="button">Stop</button>
+</section>
+
+<span class="sect">Reply · 1</span>
+<section class="card it" aria-label="Dana Reyes">
+<div class="stack"><span style="font-weight: 600;">Dana Reyes</span><span class="xs muted">Asked a question · 12 min ago</span></div>
+<span class="wait">Waiting for your OK</span>
+<div class="draft">Fair question! It’s $2,000 a month, and if you don’t get 10 in 60 days you don’t pay. A quick call would show how it works for you. Want a time this week?</div>
+<div class="row"><button class="btn btn-primary" type="button" style="flex: 1;">OK</button><button class="btn btn-secondary" type="button">Change</button><button class="btn btn-ghost" type="button">Skip</button></div>
+</section>
+
+<span class="sect">Send the link · 1</span>
+<section class="card it" aria-label="Mike Johnson">
+<div class="stack"><span style="font-weight: 600;">Mike Johnson</span><span class="xs muted">Said yes after your video</span></div>
+<span class="wait">Waiting for your OK</span>
+<div class="draft">Great! Here’s my link to book a quick call. You’ll leave with a plan for your business, with your numbers. book.handsfreeos.app/summit…</div>
+<div class="row"><button class="btn btn-primary" type="button" style="flex: 1;">OK</button><button class="btn btn-secondary" type="button">Change</button><button class="btn btn-ghost" type="button">Skip</button></div>
+</section>
+
+<span class="sect">Send the video · 1</span>
+<section class="card it" aria-label="Kim Park">
+<div class="stack"><span style="font-weight: 600;">Kim Park</span><span class="xs muted">Said yes to your first message</span></div>
+<p class="small muted">Your computer drafts it next, with your video’s link.</p>
+</section>
+
+<span class="sect">Follow up · 2</span>
+<section class="card it" aria-label="Avery Lane">
+<div class="stack"><span style="font-weight: 600;">Avery Lane</span><span class="xs muted">First message sent, no answer yet · 2 of 6</span></div>
+</section>
+<section class="card it" aria-label="Rowan Diaz">
+<div class="stack"><span style="font-weight: 600;">Rowan Diaz</span><span class="xs muted">Video sent, no answer yet · 1 of 6</span></div>
+</section>
+
+<span class="sect">Check in · 1</span>
+<section class="card it" aria-label="Jules Ortiz">
+<div class="stack"><span style="font-weight: 600;">Jules Ortiz</span><span class="xs muted">No answer since Sep 12 · once a month</span></div>
+</section>
+</div>
+
+<nav class="tabbar" aria-label="Main">
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Inbox</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"></rect><rect x="14" y="3" width="7" height="11" rx="1"></rect></svg>Pipeline</a>
+<a href="#"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Calendar</a>
+<a class="on" href="#" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>More</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

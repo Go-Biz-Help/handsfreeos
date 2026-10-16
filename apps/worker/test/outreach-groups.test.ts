@@ -231,6 +231,17 @@ describe('picking a post to like', () => {
       about: 'personal',
       why: 'A photo they shared',
       by: 'ai',
+      comment: null,
+    });
+    // A post about their work: liked, with a short warm-up comment for under it.
+    const work = await pick([
+      { text: 'Busy week at the shop', pictures: [] },
+      { text: 'Our new crew finished the Miller roof', pictures: [] },
+    ]);
+    expect(work.json()).toMatchObject({
+      pick: 1,
+      about: 'business',
+      comment: 'Great work, that looks sharp!',
     });
     // The AI's pick is a sad one: the words pick the first safe post instead.
     const sad = await pick([

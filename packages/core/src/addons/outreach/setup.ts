@@ -1,7 +1,8 @@
 /**
  * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36, 45 and 63; the owner's answers 21a, 22a and
  * 23a): a step at a time, like the main app's onboarding. Pick the playbooks, get ready (./readiness.ts), set the team's
- * rules (owners and admins), choose your own settings, install the extension and sign in, then bring in your groups.
+ * rules (owners and admins), pick your networks, choose your own settings, install the extension and sign in, then
+ * bring in your groups.
  *
  * - **Each person's own,** and it only moves forward (`laterStep`): `addon_outreach.setup` keeps the furthest step
  *   finished, when they started and finished, and when the extension last said it's signed in for them.
@@ -19,12 +20,17 @@ import { localDateOf } from '../../calendar/engine/zoned';
 import { fmtMonthDay, fmtTime, localDayOf } from '../../calendar/when';
 import { settingsSummary, type AutomationSettings } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
+import { PLATFORM_KEYS, PLATFORMS } from './networks';
 
-/** The steps, in order. The team's rules come before the person's own, so a rule never quietly steps theirs back. */
+/**
+ * The steps, in order. The team's rules come before the person's own, so a rule never quietly steps theirs back; the
+ * networks they work come before what the extension does on each.
+ */
 export const SETUP_STEPS = [
   'playbooks',
   'ready',
   'rules',
+  'networks',
   'settings',
   'extension',
   'groups',
@@ -272,6 +278,7 @@ export const SETUP_WORDS = {
     playbooks: 'Who you’re looking for, how you sound, and what you offer',
     ready: 'Your main offer, a niche, your profile and your goal, for your best results',
     rules: 'What your team may do on its own, and how much a day',
+    networks: `Where you reach people: ${PLATFORM_KEYS.map((p) => PLATFORMS[p]).join(' or ')}`,
     settings: 'What the extension does for you, how the AI writes, and when',
     extension: 'Put the extension in Chrome and sign in',
     groups: 'Bring in the Facebook groups you’re in',
@@ -296,6 +303,11 @@ export const SETUP_WORDS = {
       name: 'Your team’s rules',
       title: 'Set your team’s rules',
       hint: 'What everyone may pick, their daily limits, and where a new person starts. Only owners and admins see this step.',
+    },
+    networks: {
+      name: 'Your networks',
+      title: 'Pick your networks',
+      hint: 'Where you reach people. Facebook is on to start; turn on any other your business allows. Each network has its own day, limits and choices, and a warning on one never stops another. Change them later on the Settings tab.',
     },
     settings: {
       name: 'Your settings',
@@ -382,16 +394,16 @@ export const SETUP_WORDS = {
   hide: 'Hide',
   again: 'Set up again',
   againAbout:
-    'Go through the setup again: playbooks, getting ready, your settings, the extension and your groups.',
+    'Go through the setup again: playbooks, getting ready, your networks, your settings, the extension and your groups.',
   againAboutManage:
-    'Go through the setup again: playbooks, getting ready, your team’s rules, your settings, the extension and your groups.',
+    'Go through the setup again: playbooks, getting ready, your team’s rules, your networks, your settings, the extension and your groups.',
   /** Under the Get ready step's items. */
   readyStill:
     'Reading your friends and groups goes on while you get ready, so your first day starts with a full list.',
   useTemplate: 'Use this one',
   writeOwn: 'Write your own',
   download: 'Download HandsFreeOS Social',
-  /** Where the team gets the extension (`extensionLink`): Business settings and the install step, on the web and the phone. */
+  /** Where the team gets the extension (`extensionLink`): Settings' For your team and the install step, on the web and the phone. */
   link: {
     title: 'Where your team gets the extension',
     about:
@@ -423,10 +435,14 @@ export function setupSummary(
   timeZone?: string,
   now = Date.now(),
 ): string[] {
+  const networks = settings ? PLATFORM_KEYS.filter((p) => settings.networks[p].on) : [];
   return [
     got.playbooks.length
       ? `Playbooks: ${got.playbooks.map((p) => p.name).join(', ')}`
       : 'Playbooks: none yet',
+    networks.length
+      ? `Networks: ${networks.map((p) => PLATFORMS[p]).join(', ')}`
+      : `Networks: ${PLATFORMS.facebook}`,
     settings ? settingsSummary(settings)[0]! : 'Your settings: your business’s defaults',
     got.extensionAt
       ? `Extension: last checked in ${whenWords(got.extensionAt, now, timeZone)}`

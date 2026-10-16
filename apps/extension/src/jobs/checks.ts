@@ -15,9 +15,9 @@ import {
 } from '@hfos/core/addons/outreach/checks';
 import type { ChecksNext } from '../hfos/messages';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
-import { samePerson } from '../facebook/auto';
-import { linesOf, pageHeading, POSTS_READ } from '../facebook/lookup';
-import { profileFromUrl, workUrl } from '../facebook/urls';
+import { samePerson } from '../networks/facebook/auto';
+import { linesOf, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
+import { profileFromUrl, workUrl } from '../networks/facebook/urls';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 
@@ -96,7 +96,14 @@ export async function research(
       ? {
           line: RESEARCH_WORDS.tomorrow(who.name, next.perDay),
           warned: false,
-          result: { drafts: [], opener: null, simple: false, lookedUp: false, queued: true },
+          result: {
+            drafts: [],
+            kind: null,
+            opener: null,
+            simple: false,
+            lookedUp: false,
+            queued: true,
+          },
         }
       : { line: RESEARCH_WORDS.gone(who.name), warned: false, failed: true };
   return checkFriends(job, 1, next);

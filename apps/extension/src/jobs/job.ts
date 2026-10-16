@@ -6,9 +6,12 @@
  * they ticked (./tidy.ts). The person asks for each from HandsFreeOS (src/asks/run.ts, docs/outreach.md decision
  * 43); the runner that works on its own runs four of them once a day, at the start of their working day
  * (src/auto/daily.ts, decision 32). Each saves to HandsFreeOS, goes at a person's pace, and stops on any Facebook
- * warning. Only the file's steps and tidying press anything on Facebook; the rest open and scroll.
+ * warning. Only the file's steps and tidying press anything on Facebook; the rest open and scroll. LinkedIn's are in
+ * ./linkedin/, with the same `Job`, and Read my chats (./chats.ts) works on both.
  */
-import type { ReadResult } from '../facebook/types';
+import { NETWORKS } from '@hfos/core/addons/outreach/networks';
+import { platformOf, type PageRead } from '../networks/kit';
+import type { ReadResult } from '../networks/facebook/types';
 import type { HfosAnswer, HfosAsk, HfosValues } from '../hfos/messages';
 import type {
   Answer,
@@ -17,15 +20,19 @@ import type {
   BrowseAsk,
   FetchAnswer,
   FetchAsk,
+  FeedPostAnswer,
+  FeedPostAsk,
   GroupPostAnswer,
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  WithdrawAnswer,
+  WithdrawAsk,
 } from '../messages';
 
-/** The Facebook tab a job works in: one of the extension's own (src/tab.ts). */
+/** The tab a job works in, on its network's pages: one of the extension's own (src/tab.ts). */
 export interface JobTab {
   /** Opens an address, and waits for Facebook to draw it. */
   open(url: string): Promise<unknown>;
@@ -33,12 +40,16 @@ export interface JobTab {
   loaded?(id: number): Promise<unknown>;
   /** Brings it to the front, for a step handed to the person. */
   focus?(): Promise<void>;
+  /** Closes it, and its window when it has one of its own: done with the network's pages before the job ends. */
+  close?(): Promise<void>;
   ask(message: Ask): Promise<Answer>;
   ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   ask(message: FetchAsk): Promise<FetchAnswer>;
   ask(message: JoinAsk): Promise<JoinAnswer>;
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
+  ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */
@@ -52,14 +63,14 @@ export interface Job {
   readonly stopped: () => boolean;
   /** Where it's got to, in words for the person. */
   readonly progress: (line: string) => void;
-  /** Notes Facebook's warning words in HandsFreeOS (decision 25). */
+  /** Notes its network's warning words in HandsFreeOS, as that network's (decision 25). */
   readonly warn: (words: readonly string[], url: string) => Promise<void>;
   /**
    * Hands a step the job can't find to the person, and waits for their answer: Carry on once they've done it, Skip
    * (that person), or Stop. Only what the person asked for has one; the runner's daily jobs never hand over.
    */
   readonly handOver?: (says: string) => Promise<HandOverReply>;
-  /** Facebook asks for the person's password or PIN: said while the job waits; null once it's gone on. */
+  /** The network asks for the person's password (or Facebook's PIN): said while the job waits; null once it's gone on. */
   readonly typing?: (line: string | null) => void;
 }
 
@@ -83,22 +94,27 @@ export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms))
 /** A wait between two bounds, never the same twice: a person's pace. */
 export const paced = ([low, high]: readonly [number, number]) => low + Math.random() * (high - low);
 
-/** The words a job ends with on a Facebook warning. */
-export const warnedLine = (words: readonly string[]) =>
-  `Stopped: Facebook says “${words[0]}”. The extension stops for today, and your daily limits are halved for a week.`;
+/** The words a job ends with on a network's warning (Facebook's unless said): that network alone stops. */
+export const warnedLine = (words: readonly string[], name: string = NETWORKS.facebook.name) =>
+  `Stopped: ${name} says “${words[0]}”. The extension stops on ${name} for today, and your ${name} limits are halved for a week.`;
 
-/** Reads the page in the job's tab. */
+/** Reads the page in the job's tab: a Facebook page. */
 export async function readIn(tab: JobTab): Promise<ReadResult> {
   const answer = await tab.ask({ type: 'hfos-read' });
   if (!answer.ok) throw new Error(answer.error);
   return answer.result;
 }
 
-/** A warning on the page: noted, and the end of the job. Null when there's none. */
-export async function warnedOn(job: Job, page: ReadResult): Promise<JobEnd | null> {
+/** Reads the page in the job's tab, on whichever network it is. */
+export async function readPageIn(tab: JobTab): Promise<PageRead> {
+  return (await readIn(tab)) as PageRead;
+}
+
+/** A warning on the page: noted, and the end of the job, in its network's words. Null when there's none. */
+export async function warnedOn(job: Job, page: PageRead): Promise<JobEnd | null> {
   if (!page.warnings.length) return null;
   await job.warn(page.warnings, page.url);
-  return { line: warnedLine(page.warnings), warned: true };
+  return { line: warnedLine(page.warnings, NETWORKS[platformOf(page)].name), warned: true };
 }
 
 /** What HandsFreeOS answered, or the problem it said, thrown. */

@@ -4,7 +4,9 @@
  * download, as the AI read them: a short summary, the playbooks' tags that fit, whether they look like a prospect
  * and a next step. The likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag
  * and a name narrow it. Which, the tag, the name and the page are in the address (./address.ts), so the page asks
- * HandsFreeOS for them. Who goes in Contacts is the business's setting, in Social Outreach → Settings → Business settings.
+ * HandsFreeOS for them. Who goes in Contacts is the business's setting, in Social Outreach → Settings → General.
+ * Every network's chats, each row naming its network, or one network's (`?net=`); Read my chats asks the network
+ * shown, Facebook's when the list is every network's.
  */
 import { ASK_WORDS, READ_CHATS_WORDS } from '@hfos/core/addons/outreach/asks';
 import {
@@ -14,7 +16,8 @@ import {
   CONTACTS_FROM_CHATS_WORDS,
   type ChatView,
 } from '@hfos/core/addons/outreach/chat-read';
-import { messengerChatUrl } from '@hfos/core/addons/outreach/waiting-words';
+import { chatUrlOn, openChatWords } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -32,6 +35,7 @@ import { outreachHref } from './address';
 import { AskButton } from './asks';
 import { KeepChatButton } from './chat-keep';
 import { dayWords, Pager, SearchBox } from './friends-view';
+import { NetworkFilterControl, NetworkName } from './network-ui';
 import { PersonMenu } from './person-menu';
 import type { Asks, Chat, Chats } from './types';
 
@@ -45,6 +49,7 @@ export function ChatsView({
   show,
   tag,
   search,
+  net = null,
   canManage,
   asks,
 }: {
@@ -53,6 +58,8 @@ export function ChatsView({
   show: ChatView;
   tag: string;
   search: string;
+  /** The network it's narrowed to: null for every network. */
+  net?: Platform | null;
   /** Owners and admins change who goes in Contacts. */
   canManage: boolean;
   /** What the person asked their computer to do on this tab. */
@@ -63,15 +70,22 @@ export function ChatsView({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // What was last asked for, ahead of the address while it loads (as the Friends tab).
-  const asked = useRef({ chats: show, tag, search });
+  const asked = useRef({ chats: show, tag, search, net });
   useEffect(() => {
-    asked.current = { chats: show, tag, search };
-  }, [show, tag, search]);
-  const go = (to: { chats?: ChatView; tag?: string; search?: string; page?: number }) => {
+    asked.current = { chats: show, tag, search, net };
+  }, [show, tag, search, net]);
+  const go = (to: {
+    chats?: ChatView;
+    tag?: string;
+    search?: string;
+    page?: number;
+    net?: Platform | null;
+  }) => {
     asked.current = {
       chats: to.chats ?? asked.current.chats,
       tag: to.tag ?? asked.current.tag,
       search: to.search ?? asked.current.search,
+      net: to.net === undefined ? asked.current.net : to.net,
     };
     const href = outreachHref(workspaceId, { view: 'chats', ...asked.current, page: to.page ?? 1 });
     startTransition(() => router.replace(href, { scroll: false }));
@@ -99,6 +113,7 @@ export function ChatsView({
             }))}
           />
         </div>
+        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="chats-asks">
@@ -106,6 +121,7 @@ export function ChatsView({
           workspaceId={workspaceId}
           asks={asks}
           ask={{ kind: 'chats' }}
+          platform={net ?? 'facebook'}
           label={ASK_WORDS.readChats}
           testId="ask-chats"
         />
@@ -203,8 +219,8 @@ export function ChatsView({
             <h3 className="text-[15px] font-semibold">Your chats are your own</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
               Only you see your chats here. HandsFreeOS keeps each one’s latest 20 messages for the
-              AI to read, and never sends anything on Facebook. Save to their card puts a chat on
-              the customer’s card, where the business sees it. Newer messages come in when you press
+              AI to read, and never sends anything itself. Save to their card puts a chat on the
+              customer’s card, where the business sees it. Newer messages come in when you press
               Read my chats, as you open chats with Read chats as I open them on in Settings, or
               when you bring your file in again.
             </p>
@@ -230,19 +246,20 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
             </Link>
           ) : (
             <span className="font-medium">{c.name}</span>
-          )}
+          )}{' '}
+          <NetworkName platform={c.platform} />
           <div className="text-[12.5px] text-text-3">
             {last} · {c.messages.toLocaleString()} {c.messages === 1 ? 'message' : 'messages'}
             {c.threadKey ? (
               <>
                 {' · '}
                 <a
-                  href={messengerChatUrl(c.threadKey) ?? undefined}
+                  href={chatUrlOn(c.platform, c.threadKey) ?? undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="text-accent-text hover:underline"
                 >
-                  Open in Messenger
+                  {openChatWords(c.platform)}
                 </a>
               </>
             ) : null}

@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
 import {
   fileChats,
+  followUps,
   openerUses,
   playbooks,
   posts,
@@ -127,6 +128,8 @@ describe('drafts for Today', () => {
     const res = await draft(owner, { kind: 'opener', profileId });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
+      kind: 'opener',
+      answer: null,
       drafts: [
         'Hi Dana, thanks for adding me! How’s business going?',
         'Hey Dana, good to connect. What keeps you busiest these days?',
@@ -175,6 +178,8 @@ describe('drafts for Today', () => {
     }
     const res = await draft(owner, { kind: 'opener', profileId });
     expect(res.json()).toEqual({
+      kind: 'opener',
+      answer: null,
       drafts: ['Hi Dana! Do you run your own business?'],
       opener: { playbookId: playbook!.id, kind: 'own', text: own },
       simple: false,
@@ -212,5 +217,61 @@ describe('drafts for Today', () => {
     expect(await said('Thanks, sounds great.')).toBe(true);
     // The AI found it simple, but it's about a refund: it comes to the person.
     expect(await said('Thanks. I want my money back.')).toBe(false);
+  });
+
+  it('reads a yes to the first message, keeps it, and drafts the next step instead', async () => {
+    // Dana got the first message; this is her chat, and she wrote back.
+    await testDbs()
+      .admin.db.update(fileChats)
+      .set({
+        profileId,
+        recent: [
+          {
+            fromMe: true,
+            text: 'Open to more booked calls?',
+            at: new Date(Date.now() - 60_000).toISOString(),
+          },
+          { fromMe: false, text: 'Sure, send it over', at: new Date().toISOString() },
+        ],
+      })
+      .where(eq(fileChats.id, chatId));
+    await testDbs()
+      .admin.db.insert(followUps)
+      .values({
+        workspaceId: ws,
+        userId: owner.id,
+        profileId,
+        step: 'first',
+        stepAt: new Date(Date.now() - 120_000),
+        lastAt: new Date(Date.now() - 120_000),
+        next: 'follow_up',
+        dueAt: new Date(Date.now() + 86_400_000),
+      });
+    const res = (await draft(owner, { kind: 'reply', chatId })).json();
+    // No video yet: the link is next.
+    expect(res).toMatchObject({ kind: 'pitch', answer: 'yes', simple: false });
+    expect(res.drafts[0]).toMatch(/link to book a quick call/);
+    const [kept] = await testDbs()
+      .admin.db.select()
+      .from(followUps)
+      .where(eq(followUps.profileId, profileId));
+    expect(kept).toMatchObject({ answer: 'yes', next: null, dueAt: null });
+
+    // With a video, a yes to the first message gets the video, with its link on the end.
+    const [playbook] = await testDbs()
+      .admin.db.select()
+      .from(playbooks)
+      .where(eq(playbooks.workspaceId, ws));
+    await testDbs()
+      .admin.db.update(playbooks)
+      .set({ details: { ...playbook!.details, videoLink: 'https://www.loom.com/share/abc123' } })
+      .where(eq(playbooks.id, playbook!.id));
+    await testDbs()
+      .admin.db.update(followUps)
+      .set({ answer: null, answeredAt: null })
+      .where(eq(followUps.profileId, profileId));
+    const video = (await draft(owner, { kind: 'reply', chatId })).json();
+    expect(video).toMatchObject({ kind: 'video', answer: 'yes' });
+    expect(video.drafts[0]).toMatch(/short video[\s\S]*https:\/\/www\.loom\.com\/share\/abc123$/);
   });
 });

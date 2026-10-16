@@ -32,6 +32,7 @@ import {
   type FriendView,
 } from '../friends';
 import { outreachAddon } from '../manifest';
+import { NETWORKS } from '../networks';
 import { PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { friends, imports, playbooks, profiles, sends } from '../tables';
@@ -46,6 +47,7 @@ import {
   neverContactOf,
   once,
   pitchable,
+  requireFits,
   type Profile,
   type ProfileKey,
 } from './common';
@@ -140,6 +142,7 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const people = eachOnce(input.people);
+    for (const p of people) requireFits(input.platform, p.profile);
     return once(async () => {
       const ids = people.flatMap((p) => (p.profile.id ? [p.profile.id] : []));
       const usernames = people.flatMap((p) =>
@@ -223,7 +226,11 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
       const changed = await keepFriendStates(
         ctx,
         me,
-        people.map((p) => ({ profileId: found(p.profile)!.id, state: LIST_STATE[input.list] })),
+        people.map((p) => ({
+          profileId: found(p.profile)!.id,
+          state: LIST_STATE[input.list],
+          since: p.since ? new Date(p.since) : null,
+        })),
         at,
       );
       const result = {
@@ -402,6 +409,7 @@ export const friendSet = defineAddonCommand(outreachAddon, {
 type Listed = {
   readonly profile_id: string;
   readonly person_id: string | null;
+  readonly platform: Platform;
   readonly name: string;
   readonly url: string;
   readonly state: FriendState | null;
@@ -558,31 +566,35 @@ export const friendsList = defineAddonQuery(outreachAddon, {
     const tagged = sql`exists (select 1 from app.record_tags rt join app.tags t on t.id = rt.tag_id
       where rt.workspace_id = p.workspace_id and rt.record_type = 'person' and rt.record_id = p.person_id
         and lower(t.name::text) = lower(${DONT_PITCH_TAG}))`;
+    // One network's people, counts too, when asked: every network's otherwise.
+    const onNetwork = input.platform ? sql`p.platform = ${input.platform}` : sql`true`;
 
     const [fits] = await rows<{ fits: number }>(
       ctx.tx,
       sql`select count(*)::int as fits from addon_outreach.checks ch
           join addon_outreach.profiles p on p.id = ch.profile_id
           where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
-            and ${pitchable('p')} and ${lets('p')}`,
+            and ${pitchable('p')} and ${lets('p')} and ${onNetwork}`,
     );
     const [mine] = await rows<{ friends: number; requests: number; sent: number; keep: number }>(
       ctx.tx,
-      sql`select count(*) filter (where state = 'friends')::int as friends,
-            count(*) filter (where state = 'request_received')::int as requests,
-            count(*) filter (where state = 'request_sent')::int as sent,
-            count(*) filter (where keep)::int as keep
-          from addon_outreach.friends where workspace_id = ${ws} and user_id = ${me}`,
+      sql`select count(*) filter (where f.state = 'friends')::int as friends,
+            count(*) filter (where f.state = 'request_received')::int as requests,
+            count(*) filter (where f.state = 'request_sent')::int as sent,
+            count(*) filter (where f.keep)::int as keep
+          from addon_outreach.friends f join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and ${onNetwork}`,
     );
     const [never] = await rows<{ dont_pitch: number; never_contact: number }>(
       ctx.tx,
       sql`select count(*) filter (where p.dont_pitch or ${tagged})::int as dont_pitch,
             count(*) filter (where p.never_contact)::int as never_contact
           from addon_outreach.profiles p
-          where p.workspace_id = ${ws} and (p.dont_pitch or p.never_contact or ${tagged})`,
+          where p.workspace_id = ${ws} and (p.dont_pitch or p.never_contact or ${tagged})
+            and ${onNetwork}`,
     );
 
-    const profilesHere = sql`select p.id as profile_id, p.person_id,
+    const profilesHere = sql`select p.id as profile_id, p.person_id, p.platform,
         coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
         f.state, f.since, f.keep, p.dont_pitch,
         coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
@@ -598,7 +610,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       left join app.users u on u.id = p.dont_pitch_by
       left join app.users nu on nu.id = p.never_contact_by
       left join addon_outreach.groups g on g.id = p.group_id
-      where p.workspace_id = ${ws}`;
+      where p.workspace_id = ${ws} and ${onNetwork}`;
     const shown = sql`${VIEW_WHERE[input.view]}
       and ${input.view === 'fits' ? lets('l') : sql`true`}
       and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(l.name)) > 0` : sql`true`}`;
@@ -631,6 +643,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         personId: l.person_id,
         name: l.name,
         url: l.url,
+        platform: l.platform,
         state: l.state,
         since: isoOrNull(l.since),
         keep: l.keep ?? false,
@@ -697,7 +710,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         dontPitch: never?.dont_pitch ?? 0,
         neverContact: never?.never_contact ?? 0,
       },
-      cap: FRIENDS_CAP,
+      cap: input.platform ? NETWORKS[input.platform].friendsCap : FRIENDS_CAP,
       download: await latestDownload(ctx, me),
       people,
       checks: await checksSummary(ctx, me),

@@ -303,7 +303,7 @@ describe('live status', () => {
     expect(await pushes(ws)).toEqual([
       {
         title: 'Facebook showed a warning.',
-        body: 'The extension stopped for today.',
+        body: 'The extension stopped on Facebook for today.',
         path: `/app/w/${ws}/a/outreach?view=live`,
         user_ids: [owner.id],
       },

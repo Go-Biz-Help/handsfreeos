@@ -4,7 +4,7 @@
  */
 import { FRIENDS_SAVE_MOST } from '@hfos/core/addons/outreach/limits';
 import { describe, expect, it } from 'vitest';
-import type { ChatPage, Person, ProfileRef, ReadResult } from '../src/facebook/types';
+import type { ChatPage, Person, ProfileRef, ReadResult } from '../src/networks/facebook/types';
 import {
   chatCollect,
   friendsSave,

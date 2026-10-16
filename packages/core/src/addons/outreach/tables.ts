@@ -27,10 +27,18 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
-import type { MessageKind, PostingMode, PushMode, ReplyMode, SendingMode } from './automation';
+import type {
+  MessageKind,
+  OtherPlatform,
+  PostingMode,
+  PushMode,
+  ReplyMode,
+  SendingMode,
+} from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
+import type { Answer, ConversationStep, FollowUpNext, MessageSamples } from './conversation';
 import type { CountryHow } from './countries';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
@@ -47,6 +55,7 @@ import type { PostCheck, PostFound } from './posts';
 import type { SendState } from './sends';
 import type { NeedState, NeedStep } from './waiting-words';
 import type { SetupStep } from './setup';
+import type { ReviewFix, TrackingNumbers } from './tracking';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -366,6 +375,8 @@ export const fileChats = addonOutreach.table(
     /** The AI's read of whether it's time to offer (decision 47), with why. */
     pitch: text('pitch').$type<PitchRead>(),
     pitchWhy: text('pitch_why'),
+    /** What their last message answers to the person's last step (../conversation.ts, 20261027006400). */
+    reply: text('reply').$type<Answer>(),
     readAt: ts('read_at'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
     /** The chat's number from its link, once it's been read in Messenger. */
@@ -669,17 +680,42 @@ export const automation = addonOutreach.table(
     readChats: boolean('read_chats').notNull().default(true),
     markPosts: boolean('mark_posts').notNull().default(true),
     pushes: text('pushes').notNull().default('bundled').$type<PushMode>(),
+    /** The day's report: a push at the end of their working hours with the day's numbers (../tracking.ts). */
+    dayReport: boolean('day_report').notNull().default(true),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
     voiceEmoji: boolean('voice_emoji').notNull().default(false),
     voiceSplit: boolean('voice_split').notNull().default(true),
+    /**
+     * Which networks they work, and each other network's own choices (../automation.ts, `NetworksSettings`): read with
+     * the defaults filling in what's left out. Facebook's choices are the columns above.
+     */
+    networks: jsonb('networks').notNull().default({}).$type<Record<string, unknown>>(),
+    /** Each other network's training wheels, as Facebook's are the wheels columns above (`NetworkWheelsKept`). */
+    networkWheels: jsonb('network_wheels').notNull().default({}).$type<NetworkWheelsKept>(),
     changedBy: uuid('changed_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
+
+/** A network's training wheels as kept in `automation.network_wheels`: when they started, OKs, edits, when done. */
+export interface NetworkWheelKept {
+  readonly from: string | null;
+  readonly ok: number;
+  readonly edits: readonly boolean[];
+  readonly doneAt: string | null;
+}
+/** Another network's profile in Get ready, kept on the person's setup row (`setup.network_profiles`). */
+export interface NetworkProfileKept {
+  readonly ticks?: ProfileTicks;
+  readonly check?: ProfileCheck | null;
+}
+export type NetworkProfilesKept = Partial<Record<OtherPlatform, NetworkProfileKept>>;
+
+export type NetworkWheelsKept = Partial<Record<OtherPlatform, NetworkWheelKept>>;
 
 /**
  * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27): the words that go and the
@@ -709,6 +745,8 @@ export const sends = addonOutreach.table(
     /** Who it's to and their profile's link, kept by triggers from `profiles` for phones (20261027001800). */
     name: text('name'),
     profileUrl: text('profile_url'),
+    /** The main offer's version it went with (../conversation.ts): what's sent after keeps the first one's. */
+    offerVersion: integer('offer_version'),
     approvedAt: ts('approved_at'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -750,7 +788,10 @@ export const computers = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.installId)],
 );
 
-/** The person's day: started or stopped, why, from where and when (./live.ts). */
+/**
+ * The person's day on one network: started or stopped, why, from where and when (./live.ts). Each network's is its
+ * own (`platform`, unique with the person), so a stop or a warning on one leaves the others going.
+ */
 export const days = addonOutreach.table(
   'days',
   {
@@ -759,6 +800,7 @@ export const days = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('facebook').$type<Platform>(),
     day: date('day', { mode: 'string' }).notNull(),
     state: text('state').notNull().$type<DayState>(),
     why: text('why').$type<DayWhy>(),
@@ -767,7 +809,8 @@ export const days = addonOutreach.table(
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
-  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+  // One a person and network (`days_user_platform_idx`).
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
 /** The feed of the extension's steps, and the day's starts, stops and warnings (./live.ts). */
@@ -864,6 +907,8 @@ export const asks = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    /** The network it's asked on (`PLATFORMS`): each network's asks are its own. */
+    platform: text('platform').notNull().default('facebook').$type<Platform>(),
     kind: text('kind').notNull().$type<AskKind>(),
     target: text('target').notNull().default(''),
     task: jsonb('task')
@@ -919,6 +964,12 @@ export const setup = addonOutreach.table(
     profile: jsonb('profile').$type<ProfileTicks>().notNull().default({}),
     /** The AI's latest check of their own Facebook profile (../profile-check.ts): never what the page said. */
     profileCheck: jsonb('profile_check').$type<ProfileCheck>(),
+    /** Each other network's profile in Get ready, as the two above are Facebook's: its ticks and the AI's check. */
+    networkProfiles: jsonb('network_profiles').$type<NetworkProfilesKept>().notNull().default({}),
+    /** When they OK'd how their messages read (Get ready's Your messages), the offer's version then, and the samples. */
+    messagesAt: ts('messages_at'),
+    messagesVersion: integer('messages_version'),
+    messageSamples: jsonb('message_samples').$type<MessageSamples>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -986,6 +1037,8 @@ export const stages = addonOutreach.table(
     why: text('why'),
     markedAt: ts('marked_at'),
     pitchedAt: ts('pitched_at'),
+    /** When they first said yes: a positive reply (../conversation.ts), counted on Results. */
+    positiveAt: ts('positive_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -997,6 +1050,70 @@ export const stages = addonOutreach.table(
       foreignColumns: [profiles.workspaceId, profiles.id],
     }).onDelete('cascade'),
   ],
+);
+
+/**
+ * Where each person's conversation with someone is (../conversation.ts, decisions 65 to 67): the last step sent, the
+ * follow-ups since and when the next is due, their latest answer, and the main offer's version they were first pitched
+ * with. A no stops it. Each person's own.
+ */
+export const followUps = addonOutreach.table(
+  'follow_ups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    step: text('step').notNull().$type<ConversationStep>(),
+    stepAt: ts('step_at').notNull(),
+    sent: smallint('sent').notNull().default(0),
+    lastAt: ts('last_at').notNull(),
+    next: text('next').$type<FollowUpNext>(),
+    dueAt: ts('due_at'),
+    answer: text('answer').$type<Answer>(),
+    answeredAt: ts('answered_at'),
+    offerVersion: integer('offer_version'),
+    stoppedAt: ts('stopped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Each person's week's review (../tracking.ts, decision 70): what to fix first, in the video's order, the week's
+ * numbers, and the words the AI wrote from them, or the numbers' own. One a person a week, each person's own.
+ */
+export const reviews = addonOutreach.table(
+  'reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The Monday the week began, in the business's time zone. */
+    week: date('week', { mode: 'string' }).notNull(),
+    fix: text('fix').notNull().$type<ReviewFix>(),
+    numbers: jsonb('numbers').notNull().$type<TrackingNumbers>(),
+    target: integer('target'),
+    headline: text('headline').notNull(),
+    why: text('why').notNull(),
+    steps: jsonb('steps').notNull().$type<string[]>(),
+    by: text('by').notNull().$type<'ai' | 'rules'>(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.week)],
 );
 
 /** Each person's asks to join a group (decision 31), with the AI's answers to its questions. Each person's own. */
@@ -1038,7 +1155,9 @@ export const helpful = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    groupId: uuid('group_id').notNull(),
+    /** The network it goes up on: on Facebook in a group, on LinkedIn on the person's own feed. */
+    platform: text('platform').notNull().default('facebook').$type<Platform>(),
+    groupId: uuid('group_id'),
     playbookId: uuid('playbook_id'),
     state: text('state').notNull().$type<HelpfulState>(),
     /** The person's posting choice when it was drafted. */
@@ -1114,6 +1233,14 @@ export const listSaves = addonOutreach.table(
     groupChecksAt: ts('group_checks_at'),
     tidyAt: ts('tidy_at'),
     checksAt: ts('checks_at'),
+    /**
+     * Each other network's lists, as the columns above are Facebook's: when each was saved to its end or done, as
+     * ISO moments under the network and the column's name (`{ "linkedin": { "friendsAt": "…" } }`).
+     */
+    networkSaves: jsonb('network_saves')
+      .notNull()
+      .default({})
+      .$type<Partial<Record<OtherPlatform, Partial<Record<string, string>>>>>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

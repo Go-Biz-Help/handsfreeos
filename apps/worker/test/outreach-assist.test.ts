@@ -17,6 +17,7 @@ import {
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
@@ -207,5 +208,84 @@ describe('your profile, checked by the AI', () => {
 
   it('is for everyone using the add-on, each their own', async () => {
     expect((await check(member)).statusCode).toBe(200);
+  });
+});
+
+describe('your messages, written by the AI', () => {
+  const samples = async (u: TestUser) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.messages.samples',
+      headers: { authorization: `Bearer ${await signInTestUser(u)}` },
+      payload: { workspaceId: ws, input: {} },
+    });
+
+  it('writes samples for the playbook from the live main offer, as many follow-ups as the pace sends, and keeps them', async () => {
+    await rows(
+      testDbs().admin.db,
+      sql`insert into addon_outreach.playbooks (workspace_id, name, details)
+          values (${ws}, 'Roofers', ${JSON.stringify({
+            ...PLAYBOOK_TEMPLATES.crm_demos.details,
+            niche: 'Roofers with 2 to 3 crews',
+          })}::jsonb)`,
+    );
+    const res = await samples(owner);
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    expect(got).toMatchObject({ playbookName: 'Roofers', version: 1, video: null });
+    // Each once, the video only with one, and the pace's 6 follow-ups.
+    expect(got.first).toHaveLength(2);
+    expect(got.followUps).toHaveLength(6);
+    expect(got.link).toContain('[booking link]');
+    const [kept] = await rows<{ message_samples: unknown }>(
+      testDbs().admin.db,
+      sql`select message_samples from addon_outreach.setup where workspace_id = ${ws} and user_id = ${owner.id}`,
+    );
+    expect(kept!.message_samples).toEqual(got);
+  });
+});
+
+describe('the short video’s script, written by the AI', () => {
+  const script = async (u: TestUser, input: Record<string, unknown>) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.video.script',
+      headers: { authorization: `Bearer ${await signInTestUser(u)}` },
+      payload: { workspaceId: ws, input },
+    });
+  const roofers = { name: 'Roofers', niche: 'Roofers with 2 to 3 crews' };
+
+  it('writes every part from the live main offer and the playbook, then one part again', async () => {
+    const res = await script(owner, { draft: roofers });
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    expect(got.parts.map((p: { part: string }) => p.part)).toEqual([
+      'who',
+      'cost',
+      'method',
+      'proof',
+      'call',
+      'next',
+    ]);
+    expect(got.parts[0].say).toContain('Roofers with 2 to 3 crews');
+    expect(got.version).toBe(1);
+
+    const again = await script(owner, {
+      draft: roofers,
+      mode: 'improve',
+      part: 'call',
+      script: got,
+    });
+    expect(again.statusCode).toBe(200);
+    const better = again.json();
+    expect(better.parts[4].say).toContain('Said even more plainly.');
+    expect(better.parts.filter((p: { part: string }) => p.part !== 'call')).toEqual(
+      got.parts.filter((p: { part: string }) => p.part !== 'call'),
+    );
+  });
+
+  it('is for owners and admins, who write the playbooks', async () => {
+    expect((await script(member, { draft: roofers })).statusCode).toBe(403);
+    expect((await script(owner, { draft: roofers, mode: 'improve' })).statusCode).toBe(400);
   });
 });

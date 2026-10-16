@@ -49,6 +49,7 @@ describe('what a row shows for Research', () => {
   it('reads the ask: open, ended for tomorrow, failed, or nothing to say', () => {
     const r = (queued: boolean) => ({
       drafts: [],
+      kind: null,
       opener: null,
       simple: false,
       lookedUp: false,

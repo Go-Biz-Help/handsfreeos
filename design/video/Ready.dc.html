@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Get ready: waiting on the video</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.item{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 20px;border-top:1px solid var(--border)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}
+.bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 820px; padding: 32px 40px; display: flex; flex-direction: column; gap: 20px;">
+<div class="card" style="max-width: 760px;">
+<div class="stack" style="gap: 12px; padding: 20px 20px 18px;">
+<div class="row" style="justify-content: space-between; align-items: flex-start;">
+<div class="stack" style="gap: 4px;">
+<span class="overline">Get ready</span>
+<h2 style="font-size: 18px; font-weight: 600;">Get ready for your best results</h2>
+<p class="muted small">1 thing to do before the extension reaches anyone for you.<sc-if value="{{ member }}" hint-placeholder-val="{{ false }}"> It waits on your business.</sc-if></p>
+</div>
+<span class="small muted" style="white-space: nowrap; font-variant-numeric: tabular-nums;">4 of 5 done</span>
+</div>
+<div class="bar" role="progressbar" aria-label="4 of 5 done" aria-valuemin="0" aria-valuemax="5" aria-valuenow="4"><span style="width: 80%;"></span></div>
+</div>
+<div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done" style="color:var(--success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">Your main offer</span><span class="badge badge-ok">Done</span></div>
+<div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done" style="color:var(--success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">A playbook with a niche</span><span class="badge badge-ok">Done</span></div>
+<div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done" style="color:var(--success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">Your profile</span><span class="badge badge-ok">Done</span></div>
+
+<sc-if value="{{ owner }}" hint-placeholder-val="{{ true }}">
+<div class="item">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="To do" style="color:var(--text-3)"><circle cx="12" cy="12" r="10"></circle></svg>
+<div class="stack" style="gap: 2px; min-width: 0;">
+<span style="font-weight: 600;">Your messages</span>
+<span class="small muted">See what goes out in your name before anything does, and that it sounds like you.</span>
+<span class="small" style="margin-top: 4px;">Link your playbook’s short video: the AI writes its script under Playbooks → Short video.</span>
+</div>
+<a class="btn btn-secondary" href="Main.dc.html">Add the video</a>
+</div>
+</sc-if>
+<sc-if value="{{ member }}" hint-placeholder-val="{{ false }}">
+<div class="item">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Waiting" style="color:var(--warning)"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+<div class="stack" style="gap: 2px; min-width: 0;">
+<span style="font-weight: 600;">Your messages</span>
+<span class="small muted">See what goes out in your name before anything does, and that it sounds like you.</span>
+<span class="small" style="margin-top: 4px;">Waiting on the playbook’s short video. Ask an owner or admin of this business to link it under Playbooks → Short video.</span>
+</div>
+<span class="badge badge-wait">Waiting</span>
+</div>
+</sc-if>
+
+<div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done" style="color:var(--success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span style="font-weight: 600;">Your numbers</span><span class="badge badge-ok">Done</span></div>
+</div>
+<p class="small faint" style="max-width: 760px;">Your messages counts once you’ve OK’d how they read and a playbook in use has its short video linked. Someone who says yes gets the video next, then the booking link.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"who":{"editor":"enum","options":["owner","member"],"default":"owner"},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const who = this.props.who ?? 'owner';
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      owner: who === 'owner',
+      member: who === 'member'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { NeedClear } from '@hfos/core/addons/outreach/waiting-words';
 import { SENDS_SOURCE } from '@hfos/core/addons/outreach/views/waiting';
 
@@ -66,9 +67,14 @@ export const clearNeed = (workspaceId: string, needId: string, how: NeedClear) =
 export const setAside = (workspaceId: string, profileId: string) =>
   change('outreach.request.set_aside', { workspaceId, profileId });
 
-/** Start my day, and Stop for today: they wait on the phone with no signal, and go when it's back. */
-export const startDay = (workspaceId: string) => change('outreach.day.start', { workspaceId });
-export const stopDay = (workspaceId: string) => change('outreach.day.stop', { workspaceId });
+/**
+ * Start my day, and Stop for today, on one network (each network's day is its own): they wait on the phone with no
+ * signal, and go when it's back.
+ */
+export const startDay = (workspaceId: string, platform: Platform = 'facebook') =>
+  change('outreach.day.start', { workspaceId, platform });
+export const stopDay = (workspaceId: string, platform: Platform = 'facebook') =>
+  change('outreach.day.stop', { workspaceId, platform });
 
 /** Not for me, on a post on Today's list. */
 export const skipPost = (workspaceId: string, postId: string) =>

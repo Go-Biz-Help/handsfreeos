@@ -35,7 +35,7 @@ export const repliesNote = defineAddonCommand(outreachAddon, {
     const done = new Set<string>();
     for (const seen of input.seen) {
       const ids = seen.profile
-        ? (await profilesFor(ctx, 'facebook', seen.profile)).map((p) => p.id)
+        ? (await profilesFor(ctx, input.platform, seen.profile)).map((p) => p.id)
         : [];
       if (!ids.length && !seen.threadKey) continue;
       const byProfile = ids.length
@@ -51,7 +51,7 @@ export const repliesNote = defineAddonCommand(outreachAddon, {
         sql`select t.profile_id, max(t.at) as last_at, p.name
             from addon_outreach.touches t join addon_outreach.profiles p on p.id = t.profile_id
             where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'message'
-              and (${byProfile} or ${byThread}) and ${contactable('p')}
+              and p.platform = ${input.platform} and (${byProfile} or ${byThread}) and ${contactable('p')}
             group by t.profile_id, p.name
             order by max(t.at) desc limit 1`,
       );

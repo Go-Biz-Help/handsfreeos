@@ -21,7 +21,9 @@ export const outreachAddon = defineAddon({
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
-  dataVersion: 3,
+  // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
+  // 5: a playbook has its short video's script.
+  dataVersion: 5,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
@@ -144,7 +146,9 @@ export const outreachAddon = defineAddon({
     // pushes to them at once (decision 43, ./asks.ts). A post asking for what the business offers pushes to the person
     // who found it at once (decision 49, ./posts.ts). A helpful post asked for is written by the AI (decision 50,
     // ./helpful.ts). People found in a group or asking to be friends, and a change to the country setting, have the AI
-    // work out where they live when the setting skips anyone (decision 61, ./countries.ts).
+    // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
+    // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
+    // older one (decision 70, ./tracking.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -163,6 +167,9 @@ export const outreachAddon = defineAddon({
       'outreach.ask.progressed',
       'outreach.group.saved',
       'outreach.friends.saved',
+      'outreach.day.started',
+      'outreach.automation.saved',
+      'main_offer.published',
     ],
   },
   jobs: [
@@ -176,9 +183,12 @@ export const outreachAddon = defineAddon({
     'outreach.live_prune',
     'outreach.waiting_push',
     'outreach.guess_countries',
+    'outreach.day_report',
+    'outreach.review',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
-  // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → Business settings.
+  // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
+  // team, with each network's page for its own say.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
@@ -191,6 +201,7 @@ export const outreachAddon = defineAddon({
     'engagements',
     'file_chats',
     'file_people',
+    'follow_ups',
     'friend_ends',
     'friends',
     'group_people',
@@ -207,6 +218,7 @@ export const outreachAddon = defineAddon({
     'posts',
     'profiles',
     'replies',
+    'reviews',
     'sends',
     'setup',
     'stages',
@@ -245,15 +257,19 @@ export const outreachAddon = defineAddon({
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
-    // A customer's Facebook profile and the chats saved with them.
-    slots: [{ slot: 'person.panels', permission: 'outreach.use' }],
+    // A customer's Facebook profile and the chats saved with them; and how the main offer's live version is doing.
+    slots: [
+      { slot: 'person.panels', permission: 'outreach.use' },
+      { slot: 'main_offer.panels', permission: 'outreach.use' },
+    ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
-    // links (`?view=waiting`, `live`, `today`) open the phone's screens; and a playbook. The activity and friends stay
-    // on the web, and their links open it.
+    // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
+    // network shown (`?net=`) with them; and a playbook. The activity and friends stay on the web, and their links
+    // open it.
     phone: [
       {
         path: '',
-        query: ['view', 'for', 'show', 'tag', 'q'],
+        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q'],
         web: { view: ['activity', 'friends'] },
       },
       { path: 'playbooks/:playbookId' },

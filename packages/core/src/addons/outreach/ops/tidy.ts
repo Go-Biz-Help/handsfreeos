@@ -1,7 +1,7 @@
 /**
- * Tidying the person's own friends, and Facebook's warnings (../tidy.ts): the sent requests and friends the extension
- * may cancel or unfriend once the person ticks them, each one it did, and each warning Facebook showed them. Each
- * person's are their own.
+ * Tidying the person's own friends, and the networks' warnings (../tidy.ts): the sent requests and friends the
+ * extension may cancel or unfriend once the person ticks them, each one it did, and each warning a network showed
+ * them. Each person's are their own, and a warning is its network's alone: the others go on.
  */
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -12,8 +12,9 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
-import { FRIENDS_CAP, limitNow, TIDY_LIMITS, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
+import { limitNow, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
 import { outreachAddon } from '../manifest';
+import { NETWORKS, type Platform } from '../networks';
 import { friendEnds, warnings } from '../tables';
 import {
   FriendEndInput,
@@ -42,10 +43,14 @@ export async function startOfToday(ctx: Ctx, now = Date.now()): Promise<Date> {
   return new Date(startOfLocalDay(localDateOf(now, timezone), timezone));
 }
 
-/** The latest warning Facebook showed the person that still slows them down, or null. */
+/**
+ * The latest warning a network showed the person that still slows them down there, or null. Another network's
+ * warning never counts: each slows and stops only its own.
+ */
 export async function warningOf(
   ctx: Ctx,
   me: string,
+  platform: Platform,
   todayFrom: Date,
   now = Date.now(),
 ): Promise<WarningState | null> {
@@ -56,6 +61,7 @@ export async function warningOf(
       and(
         eq(warnings.workspaceId, ctx.scope.workspaceId!),
         eq(warnings.userId, me),
+        eq(warnings.platform, platform),
         gte(warnings.at, new Date(now - WARNING_SLOWER_DAYS * DAY)),
       ),
     )
@@ -80,15 +86,21 @@ function stateOf(at: Date, words: readonly string[], todayFrom: Date): WarningSt
 export const slowsNow = (warning: WarningState | null, now = Date.now()): boolean =>
   warning !== null && new Date(warning.slowerUntil).getTime() > now;
 
-/** How many of each the extension did for the person today. */
-async function endsToday(ctx: Ctx, me: string, todayFrom: Date): Promise<Record<TidyKind, number>> {
+/** How many of each the extension did for the person today on one network: each network's limits are its own. */
+async function endsToday(
+  ctx: Ctx,
+  me: string,
+  todayFrom: Date,
+  platform: Platform,
+): Promise<Record<TidyKind, number>> {
   const [done] = await rows<{ cancel_request: number; unfriend: number }>(
     ctx.tx,
-    sql`select count(*) filter (where kind = 'cancel_request')::int as cancel_request,
-          count(*) filter (where kind = 'unfriend')::int as unfriend
-        from addon_outreach.friend_ends
-        where workspace_id = ${ctx.scope.workspaceId!} and user_id = ${me}
-          and at >= ${todayFrom.toISOString()}::timestamptz`,
+    sql`select count(*) filter (where e.kind = 'cancel_request')::int as cancel_request,
+          count(*) filter (where e.kind = 'unfriend')::int as unfriend
+        from addon_outreach.friend_ends e
+        join addon_outreach.profiles p on p.id = e.profile_id
+        where e.workspace_id = ${ctx.scope.workspaceId!} and e.user_id = ${me} and p.platform = ${platform}
+          and e.at >= ${todayFrom.toISOString()}::timestamptz`,
   );
   return done ?? { cancel_request: 0, unfriend: 0 };
 }
@@ -112,7 +124,7 @@ const iso = (at: Date | string) => new Date(at).toISOString();
 export const friendsTidy = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends.tidy',
   description:
-    'The person’s own sent friend requests nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with today’s counts against the limits, and any warning Facebook showed them lately.',
+    'The person’s own sent friend requests (LinkedIn’s invitations) on one network nobody answered in the business’s wait, and friends with no contact either way in six months who aren’t in Contacts, a prospect, kept or on Don’t pitch, for them to tick for the extension to cancel or unfriend; with that network’s counts today against its limits, and any warning it showed them lately.',
   input: TidyInput,
   output: TidyOutput,
   permission: 'outreach.use',
@@ -128,9 +140,10 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           where workspace_id = ${ws} and addon_id = ${outreachAddon.id}`,
     );
     const weeks = outreachSettings(installed?.settings).cancelRequestsAfterWeeks;
-    const warning = await warningOf(ctx, me, todayFrom, now);
-    const slower = await slowerFor(ctx, me, slowsNow(warning, now), now);
-    const done = await endsToday(ctx, me, todayFrom);
+    const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
+    const slower = await slowerFor(ctx, me, slowsNow(warning, now), now, input.platform);
+    const kit = NETWORKS[input.platform];
+    const done = await endsToday(ctx, me, todayFrom, input.platform);
 
     const cancel = await rows<Found>(
       ctx.tx,
@@ -148,7 +161,8 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const [file] = await rows<{ any: boolean }>(
       ctx.tx,
       sql`select exists (select 1 from addon_outreach.imports
-            where workspace_id = ${ws} and user_id = ${me} and finished_at is not null) as any`,
+            where workspace_id = ${ws} and user_id = ${me} and platform = ${input.platform}
+              and finished_at is not null) as any`,
     );
     const needsFile = !file?.any;
     const quietSince = new Date(now - UNFRIEND_QUIET_DAYS * DAY).toISOString();
@@ -205,8 +219,10 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     });
     const [counted] = await rows<{ friends: number }>(
       ctx.tx,
-      sql`select count(*)::int as friends from addon_outreach.friends
-          where workspace_id = ${ws} and user_id = ${me} and state = 'friends'`,
+      sql`select count(*)::int as friends from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
+            and p.platform = ${input.platform}`,
     );
     return {
       cancel: cancel.map((f) => candidate(f, true)),
@@ -215,11 +231,11 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
       cancelAfterWeeks: weeks,
       needsFile,
       limits: tidyLimits(done, {
-        cancel_request: limitNow(TIDY_LIMITS.cancel_request, slower),
-        unfriend: limitNow(TIDY_LIMITS.unfriend, slower),
+        cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
+        unfriend: limitNow(kit.tidyLimits.unfriend, slower),
       }),
       friends: counted?.friends ?? 0,
-      cap: FRIENDS_CAP,
+      cap: kit.friendsCap,
       warning,
     };
   },
@@ -255,7 +271,7 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
           kind: input.kind,
           at,
         });
-      const done = await endsToday(ctx, me, await startOfToday(ctx));
+      const done = await endsToday(ctx, me, await startOfToday(ctx), input.platform);
       await ctx.emit({
         type: 'outreach.friend.ended',
         entityType: 'outreach_profile',
@@ -270,7 +286,7 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
 export const warningNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.warning.note',
   description:
-    'Note a warning Facebook showed the person, in its own words, as the extension read it: it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone.',
+    'Note a warning a network showed the person, in its own words, as the extension read it: on that network alone, it halves their daily limits for a week, keeps friend requests off their list for two days, stops the extension for them for the day on every computer, and tells their phone. Their other networks go on.',
   risk: 1,
   input: WarningNoteInput,
   output: WarningNoteOutput,
@@ -285,7 +301,7 @@ export const warningNote = defineAddonCommand(outreachAddon, {
     const todayFrom = await startOfToday(ctx);
     const words = [...new Set(input.words)];
     const asArray = `{${words.map((w) => `"${w.replace(/["\\]/g, '\\$&')}"`).join(',')}}`;
-    // The same words seen again the same day are the same warning.
+    // The same words seen again the same day on the same network are the same warning.
     const [same] = await ctx.tx
       .select({ at: warnings.at, words: warnings.words })
       .from(warnings)
@@ -293,6 +309,7 @@ export const warningNote = defineAddonCommand(outreachAddon, {
         and(
           eq(warnings.workspaceId, ws),
           eq(warnings.userId, me),
+          eq(warnings.platform, input.platform),
           gte(warnings.at, todayFrom),
           sql`${warnings.words} = ${asArray}::text[]`,
         ),
@@ -307,10 +324,12 @@ export const warningNote = defineAddonCommand(outreachAddon, {
       url: input.url,
       at,
     });
-    // Training wheels go back on for 7 days, for anyone who ever had them.
-    await wheelsBackOn(ctx, me);
-    // The day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs follows it.
-    await warnDay(ctx, me, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
+    // Training wheels go back on for 7 days on this network, for anyone who ever had them there. Their other
+    // networks' stay as they were.
+    await wheelsBackOn(ctx, me, input.platform);
+    // The network's day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs
+    // follows it. The person's other networks go on.
+    await warnDay(ctx, me, input.platform, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
     await ctx.emit({
       type: 'outreach.warning.seen',
       entityType: 'workspace',

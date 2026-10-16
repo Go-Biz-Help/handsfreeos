@@ -381,7 +381,7 @@ export async function loadLessons(
   }>(
     tx,
     sql`select l.id, l.teammate_id, t.name as teammate_name, l.line, l.why,
-          cardinality(l.draft_ids) as corrections, l.status, l.conflict, l.created_at
+          cardinality(l.draft_ids) + cardinality(l.feedback_ids) as corrections, l.status, l.conflict, l.created_at
         from app.teammate_lessons l join app.ai_teammates t on t.id = l.teammate_id
         where l.workspace_id = ${workspaceId}
           and (l.id = any(${uuidArray([...ids])}) ${all ? sql`or l.status = 'open'` : sql``})`,

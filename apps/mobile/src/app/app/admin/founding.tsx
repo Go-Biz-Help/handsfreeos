@@ -3,9 +3,12 @@ import {
   FOUNDING_ANOTHER,
   FOUNDING_WORDS,
   foundingApplicationLine,
+  foundingOfferIsPaid,
   foundingBusinessLabel,
   foundingClaimPath,
   foundingFirstChoice,
+  foundingFirstOffer,
+  foundingGivableOffers,
   foundingGivenBackLine,
   foundingOfferCard,
   foundingOfferPriceLine,
@@ -52,8 +55,11 @@ type Grant = Queue['grants'][number];
  *
  * **The cap is enforced by the database, not here.** "Seats left" is shown, never used to disable anything: an
  * approval is offered, pressed, and a refusal comes back as a sentence. Revoking asks for a reason and won't go
- * without one, because it's kept forever. The claim link an approval makes is shown once, in the same sheet, since
- * only its hash is kept.
+ * without one, because it's kept forever.
+ *
+ * A free seat is on the moment it's approved or given (to any business, applied or not) and stays on until it's
+ * revoked. Only a paid seat is held behind a claim link, shown once in the same sheet since only its hash is kept. A
+ * seat still held from before, or one that lapsed, is turned on from its row.
  */
 export default function Founding() {
   const can = useDeskCan('platform.founding.manage');
@@ -69,6 +75,7 @@ function FoundingDesk() {
   const [approveOpen, setApproveOpen] = React.useState(false);
   const [revoking, setRevoking] = React.useState<Grant | null>(null);
   const [revokeOpen, setRevokeOpen] = React.useState(false);
+  const [giveOpen, setGiveOpen] = React.useState(false);
   // Each opening starts afresh: a claim link already shown is never shown again, even for the same application.
   const [opening, setOpening] = React.useState(0);
 
@@ -101,6 +108,18 @@ function FoundingDesk() {
     );
 
   const { pending, held, gone } = foundingQueueParts(queue);
+
+  /** A seat held but not on, or one that lapsed: on their only workspace now, for good. */
+  const turnOn = (g: Grant) =>
+    void run(
+      `on:${g.grantId}`,
+      () =>
+        desk('/v1/commands/founding.give', {
+          offerId: g.offerId,
+          organizationId: g.organizationId,
+        }),
+      MONEY_DESK_WORDS.turnedOn(g.organizationName),
+    );
 
   return (
     <Screen
@@ -219,6 +238,18 @@ function FoundingDesk() {
 
         <Section
           title={deskCountHeading(FOUNDING_WORDS.seatsOut, held.length)}
+          end={
+            <Button
+              size="sm"
+              onPress={() => {
+                setOpening((n) => n + 1);
+                setGiveOpen(true);
+              }}
+              testID="founding-give"
+            >
+              {FOUNDING_WORDS.give}
+            </Button>
+          }
           testID="founding-seats"
         >
           {held.length === 0 ? (
@@ -227,19 +258,32 @@ function FoundingDesk() {
             held.map((g, i) => (
               <Row key={g.grantId} first={i === 0} testID={`founding-seat-${g.grantId}`}>
                 <SeatFacts grant={g} line={foundingSeatLine(g)} />
-                <Button
-                  size="md"
-                  variant="secondary"
-                  className="mt-1"
-                  onPress={() => {
-                    setRevoking(g);
-                    setOpening((n) => n + 1);
-                    setRevokeOpen(true);
-                  }}
-                  testID={`founding-revoke-${g.grantId}`}
-                >
-                  {FOUNDING_WORDS.revoke}
-                </Button>
+                <View className="mt-1 flex-row gap-2">
+                  {g.status === 'reserved' && !foundingOfferIsPaid(g.offerId, queue.offers) ? (
+                    <Button
+                      size="md"
+                      className="flex-1"
+                      loading={busy === `on:${g.grantId}`}
+                      onPress={() => turnOn(g)}
+                      testID={`founding-on-${g.grantId}`}
+                    >
+                      {FOUNDING_WORDS.turnOn}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="md"
+                    variant="secondary"
+                    className="flex-1"
+                    onPress={() => {
+                      setRevoking(g);
+                      setOpening((n) => n + 1);
+                      setRevokeOpen(true);
+                    }}
+                    testID={`founding-revoke-${g.grantId}`}
+                  >
+                    {FOUNDING_WORDS.revoke}
+                  </Button>
+                </View>
               </Row>
             ))
           )}
@@ -267,6 +311,17 @@ function FoundingDesk() {
                   >
                     {FOUNDING_WORDS.undo}
                   </Button>
+                ) : !foundingOfferIsPaid(g.offerId, queue.offers) ? (
+                  <Button
+                    size="md"
+                    variant="secondary"
+                    className="mt-1"
+                    loading={busy === `on:${g.grantId}`}
+                    onPress={() => turnOn(g)}
+                    testID={`founding-on-${g.grantId}`}
+                  >
+                    {FOUNDING_WORDS.turnOn}
+                  </Button>
                 ) : null}
               </Row>
             ))}
@@ -276,10 +331,27 @@ function FoundingDesk() {
 
       <ApproveSheet
         application={approving}
+        paid={approving ? foundingOfferIsPaid(approving.offerId, queue.offers) : false}
         opening={opening}
         open={approveOpen}
         onClose={() => setApproveOpen(false)}
         onApproved={live.reload}
+        onTurnedOn={() => {
+          setApproveOpen(false);
+          toast.show(MONEY_DESK_WORDS.turnedOn(approving?.businessName ?? null));
+          live.reload();
+        }}
+      />
+      <GiveSheet
+        offers={foundingGivableOffers(queue.offers)}
+        opening={opening}
+        open={giveOpen}
+        onClose={() => setGiveOpen(false)}
+        onGiven={(business) => {
+          setGiveOpen(false);
+          toast.show(MONEY_DESK_WORDS.turnedOn(business));
+          live.reload();
+        }}
       />
       <RevokeSheet
         grant={revoking}
@@ -470,16 +542,21 @@ interface Issued {
  */
 function ApproveSheet({
   application,
+  paid,
   opening,
   open,
   onClose,
   onApproved,
+  onTurnedOn,
 }: {
   application: Application | null;
+  /** A paid seat is held behind a link; a free one is on at once. */
+  paid: boolean;
   opening: number;
   open: boolean;
   onClose: () => void;
   onApproved: () => void;
+  onTurnedOn: () => void;
 }) {
   const [issued, setIssued] = React.useState<Issued | null>(null);
   // Only the opening that made it shows the link: opening the sheet again never shows it twice.
@@ -490,7 +567,13 @@ function ApproveSheet({
       open={open}
       onClose={onClose}
       title={shown ? FOUNDING_WORDS.issuedTitle(business) : FOUNDING_WORDS.approveTitle(business)}
-      description={shown ? FOUNDING_WORDS.issuedDescription : FOUNDING_WORDS.approveDescription}
+      description={
+        shown
+          ? FOUNDING_WORDS.issuedDescription
+          : paid
+            ? FOUNDING_WORDS.approveDescription
+            : FOUNDING_WORDS.approveFreeDescription
+      }
       scroll
       testID={shown ? 'founding-issued' : 'founding-approve-sheet'}
     >
@@ -500,11 +583,13 @@ function ApproveSheet({
         <ApproveForm
           key={opening}
           application={application}
+          paid={paid}
           onClose={onClose}
           onIssued={(link, until) => {
             setIssued({ opening, link, until });
             onApproved();
           }}
+          onTurnedOn={onTurnedOn}
         />
       ) : null}
     </Sheet>
@@ -513,12 +598,16 @@ function ApproveSheet({
 
 function ApproveForm({
   application,
+  paid,
   onClose,
   onIssued,
+  onTurnedOn,
 }: {
   application: Application;
+  paid: boolean;
   onClose: () => void;
   onIssued: (link: string, until: string) => void;
+  onTurnedOn: () => void;
 }) {
   const colors = useColors();
   const keyboard = useKeyboardHeight();
@@ -528,20 +617,7 @@ function ApproveForm({
   const [term, setTerm] = React.useState('');
   const search = useSettled(term, 250);
   const searching = choice === FOUNDING_ANOTHER && search.length >= 2;
-  const found = useLive<FoundingPickable[] | null>(
-    () =>
-      searching
-        ? desk('/v1/queries/platform.business.list', { search, sort: 'name', limit: 20 }).then(
-            (out) =>
-              out.businesses.map((b) => ({
-                workspaceId: b.workspaceId,
-                organizationId: b.organizationId,
-                label: foundingBusinessLabel(b.name, b.organizationName),
-              })),
-          )
-        : Promise.resolve(null),
-    searching ? `search:${search}` : 'none',
-  );
+  const found = useBusinessSearch(search, searching);
   const [foundChoice, setFoundChoice] = React.useState('');
   React.useEffect(() => setFoundChoice(''), [search]);
   const [note, setNote] = React.useState('');
@@ -561,9 +637,13 @@ function ApproveForm({
       const made = await desk('/v1/commands/founding.approve', {
         applicationId: application.applicationId,
         organizationId: picked.organizationId,
+        workspaceId: picked.workspaceId,
         note,
       });
-      onIssued(`${config.webUrl}${foundingClaimPath(made.claimToken)}`, made.expiresAt);
+      // A free seat is simply on. Only a paid one comes back with a link to send.
+      if (made.claimToken && made.expiresAt)
+        onIssued(`${config.webUrl}${foundingClaimPath(made.claimToken)}`, made.expiresAt);
+      else onTurnedOn();
     } catch (e) {
       // The database's refusals arrive as sentences: "Every seat in this offer is taken", and so on.
       setProblem(errorMessage(e));
@@ -668,7 +748,189 @@ function ApproveForm({
         disabled={!picked}
         testID="founding-approve-go"
       >
-        {busy ? FOUNDING_WORDS.approving : FOUNDING_WORDS.approveAndHold}
+        {busy
+          ? paid
+            ? FOUNDING_WORDS.approving
+            : FOUNDING_WORDS.giving
+          : paid
+            ? FOUNDING_WORDS.approveAndHold
+            : FOUNDING_WORDS.approveAndTurnOn}
+      </Button>
+      <Button variant="secondary" onPress={onClose}>
+        {DESK_PHONE_WORDS.cancel}
+      </Button>
+    </View>
+  );
+}
+
+/** Businesses whose name has `search` in it. Null until there's something to look for. */
+function useBusinessSearch(search: string, searching: boolean) {
+  return useLive<FoundingPickable[] | null>(
+    () =>
+      searching
+        ? desk('/v1/queries/platform.business.list', { search, sort: 'name', limit: 20 }).then(
+            (out) =>
+              out.businesses.map((b) => ({
+                workspaceId: b.workspaceId,
+                organizationId: b.organizationId,
+                label: foundingBusinessLabel(b.name, b.organizationName),
+              })),
+          )
+        : Promise.resolve(null),
+    searching ? `search:${search}` : 'none',
+  );
+}
+
+/** A seat for any business, applied or not: found by name, on its workspace at once, kept until revoked. */
+function GiveSheet({
+  offers,
+  opening,
+  open,
+  onClose,
+  onGiven,
+}: {
+  offers: readonly Offer[];
+  opening: number;
+  open: boolean;
+  onClose: () => void;
+  onGiven: (business: string) => void;
+}) {
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={FOUNDING_WORDS.giveTitle}
+      description={FOUNDING_WORDS.giveDescription}
+      scroll
+      testID="founding-give-sheet"
+    >
+      <GiveForm key={opening} offers={offers} onClose={onClose} onGiven={onGiven} />
+    </Sheet>
+  );
+}
+
+function GiveForm({
+  offers,
+  onClose,
+  onGiven,
+}: {
+  offers: readonly Offer[];
+  onClose: () => void;
+  onGiven: (business: string) => void;
+}) {
+  const colors = useColors();
+  const keyboard = useKeyboardHeight();
+  const [term, setTerm] = React.useState('');
+  const search = useSettled(term, 250);
+  const found = useBusinessSearch(search, search.length >= 2);
+  const [foundChoice, setFoundChoice] = React.useState('');
+  React.useEffect(() => setFoundChoice(''), [search]);
+  const [offerId, setOfferId] = React.useState(() => foundingFirstOffer(offers));
+  const [note, setNote] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [problem, setProblem] = React.useState<string | null>(null);
+  const picked = found.data?.find((b) => b.workspaceId === foundChoice);
+
+  const give = async () => {
+    if (!picked || !offerId) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      await desk('/v1/commands/founding.give', {
+        offerId,
+        organizationId: picked.organizationId,
+        workspaceId: picked.workspaceId,
+        note,
+      });
+      onGiven(picked.label);
+    } catch (e) {
+      // The database's refusals arrive as sentences: "Every seat in this offer is taken", and so on.
+      setProblem(errorMessage(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View className="mt-4 gap-3" style={keyboard ? { paddingBottom: keyboard } : undefined}>
+      <View className="gap-1.5">
+        <Label>{FOUNDING_WORDS.searchBusinesses}</Label>
+        <SearchBox
+          value={term}
+          onChange={setTerm}
+          placeholder={FOUNDING_WORDS.searchPlaceholder}
+          testID="founding-give-search"
+        />
+      </View>
+      {found.data === null ? (
+        search.length >= 2 && found.error ? (
+          <Text className="text-[13px] text-text-3">{found.error}</Text>
+        ) : null
+      ) : found.data.length === 0 ? (
+        <Text className="text-[13px] text-text-3" testID="founding-give-none">
+          {FOUNDING_WORDS.noBusiness}
+        </Text>
+      ) : (
+        <View className="gap-1.5">
+          <Label>{FOUNDING_WORDS.business}</Label>
+          <View className="overflow-hidden rounded-card border border-border bg-card">
+            {found.data.map((b, i) => (
+              <Choice
+                key={b.workspaceId}
+                label={b.label}
+                on={foundChoice === b.workspaceId}
+                first={i === 0}
+                onPress={() => setFoundChoice(b.workspaceId)}
+                testID={`founding-give-found-${b.workspaceId}`}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {offers.length === 0 ? (
+        <Text className="text-[13px] text-text-3">{FOUNDING_WORDS.noOfferOpen}</Text>
+      ) : offers.length > 1 ? (
+        <View className="gap-1.5">
+          <Label>{FOUNDING_WORDS.offer}</Label>
+          <View className="overflow-hidden rounded-card border border-border bg-card">
+            {offers.map((o, i) => (
+              <Choice
+                key={o.offerId}
+                label={`${o.name} · ${foundingOfferPriceLine(o)}`}
+                on={offerId === o.offerId}
+                first={i === 0}
+                onPress={() => setOfferId(o.offerId)}
+                testID={`founding-give-offer-${o.offerId}`}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <View className="gap-1.5">
+        <Label>{FOUNDING_WORDS.whyThem}</Label>
+        <TextInput
+          value={note}
+          onChangeText={setNote}
+          multiline
+          textAlignVertical="top"
+          accessibilityLabel={FOUNDING_WORDS.whyThem}
+          placeholderTextColor={colors.text3}
+          maxLength={2000}
+          className="h-24 rounded-control border border-border-strong bg-card px-3 py-3 font-sans text-[15px] text-text"
+          testID="founding-give-note"
+        />
+        <Text className="text-[13px] text-text-3">{FOUNDING_WORDS.whyThemHint}</Text>
+      </View>
+
+      {problem ? <FieldError testID="founding-give-problem">{problem}</FieldError> : null}
+      <Button
+        onPress={() => void give()}
+        loading={busy}
+        disabled={!picked || !offerId}
+        testID="founding-give-go"
+      >
+        {busy ? FOUNDING_WORDS.giving : FOUNDING_WORDS.giveSeat}
       </Button>
       <Button variant="secondary" onPress={onClose}>
         {DESK_PHONE_WORDS.cancel}

@@ -16,6 +16,7 @@ import { useAct } from './use-act';
 
 const NAME = 'Social Outreach';
 
+/** The button and its box to confirm, under the Start fresh page's own title and about (./settings-page.tsx). */
 export function StartFresh({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -41,8 +42,6 @@ export function StartFresh({ workspaceId }: { workspaceId: string }) {
       className="space-y-3 rounded-card border border-border bg-card p-4"
       data-testid="outreach-start-fresh"
     >
-      <h2 className="text-[15px] font-semibold">{F.title}</h2>
-      <p className="text-[13px] text-text-2">{F.about}</p>
       <Dialog
         open={open}
         onOpenChange={(next) => {

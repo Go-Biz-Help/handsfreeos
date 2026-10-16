@@ -19,11 +19,13 @@ import {
   foundingCheckoutStatus,
   foundingClaim,
   foundingClaimPreview,
+  foundingGive,
   foundingRecordCheckoutOpened,
   foundingRecordCheckoutPaid,
   foundingStartCheckout,
   organizationCreate,
   platformFounding,
+  workspaceCreate,
 } from '../src/server';
 
 const api = () => testDbs().api.db;
@@ -116,6 +118,22 @@ async function approve(offer: string): Promise<{ token: string; grantId: string 
   );
   return { token, grantId: grant!.id };
 }
+
+const seatOf = async (grantId: string) =>
+  (
+    await rows<{ status: string; expires_at: string | null; workspace_id: string | null }>(
+      admin(),
+      sql`select status, expires_at, workspace_id from platform.founding_grants where id = ${grantId}::uuid`,
+    )
+  )[0];
+
+const planOf = async (workspaceId: string) =>
+  (
+    await rows<{ plan: string; status: string; grant_id: string | null }>(
+      admin(),
+      sql`select plan, status, grant_id from app.workspace_plans where workspace_id = ${workspaceId}::uuid`,
+    )
+  )[0];
 
 const eventsOf = (type: string, entityId: string) =>
   rows<{ event_type: string }>(
@@ -279,11 +297,33 @@ describe('approving', () => {
       sql`select id from platform.founding_grants where offer_id = ${offer}`,
     );
 
-  it('holds a seat for the business picked', async () => {
+  it('turns a free seat on for the business picked, with no link to follow', async () => {
     const applicationId = await apply(FREE);
+    const out = await run(
+      foundingApprove,
+      { applicationId, organizationId: orgId, workspaceId: wsId },
+      staff,
+    );
+    expect(out).toMatchObject({
+      offerId: FREE,
+      status: 'active',
+      workspaceId: wsId,
+      expiresAt: null,
+      claimToken: null,
+      remaining: 4,
+    });
+    expect(await seatOf(out.grantId)).toMatchObject({ status: 'active', expires_at: null });
+    expect(await planOf(wsId)).toMatchObject({ plan: 'founding_free', status: 'active' });
+    expect(await eventsOf('founding.approved', out.grantId)).toHaveLength(1);
+    expect(await eventsOf('founding.claimed', out.grantId)).toHaveLength(1);
+  });
+
+  it('holds a paid seat and returns the link to pay for it, once', async () => {
+    const applicationId = await apply(PAID);
     const out = await run(foundingApprove, { applicationId, organizationId: orgId }, staff);
-    expect(out).toMatchObject({ offerId: FREE, remaining: 4 });
+    expect(out).toMatchObject({ offerId: PAID, status: 'reserved', workspaceId: null });
     expect(out.claimToken).toMatch(/^[0-9a-f]{64}$/);
+    expect(out.expiresAt).not.toBeNull();
   });
 
   it('offers the business its owner applied from, matched on their email', async () => {
@@ -324,5 +364,122 @@ describe('approving', () => {
     expect(e.status).toBe(404);
     expect(e.rule).toBe('founding_business_missing');
     expect(await heldOn(FREE)).toHaveLength(0);
+  });
+});
+
+describe('giving a seat', () => {
+  const give = (input: object) =>
+    run(foundingGive, { offerId: FREE, organizationId: orgId, ...input }, staff);
+  const seatsOf = (offer: string) =>
+    rows<{ id: string; status: string }>(
+      admin(),
+      sql`select id, status from platform.founding_grants
+          where offer_id = ${offer} and organization_id = ${orgId}::uuid`,
+    );
+
+  it('turns a seat on for any business, with no application, and it does not run out', async () => {
+    const out = await give({ note: 'They helped us shape the calendar.' });
+    expect(out).toMatchObject({
+      offerId: FREE,
+      organizationId: orgId,
+      workspaceId: wsId,
+      plan: 'founding_free',
+      remaining: 4,
+    });
+    expect(await seatOf(out.grantId)).toMatchObject({
+      status: 'active',
+      expires_at: null,
+      workspace_id: wsId,
+    });
+    expect(await planOf(wsId)).toMatchObject({ plan: 'founding_free', grant_id: out.grantId });
+    expect(await eventsOf('founding.claimed', out.grantId)).toHaveLength(1);
+
+    // The hourly sweep that gives back lapsed holds leaves it alone.
+    await admin().execute(sql`select private.founding_expire_reservations()`);
+    expect(await seatOf(out.grantId)).toMatchObject({ status: 'active' });
+  });
+
+  it('turns on the seat the business is already holding, instead of taking a second', async () => {
+    const { grantId } = await approve(FREE);
+    const out = await give({ workspaceId: wsId });
+    expect(out).toMatchObject({ grantId, remaining: 4 });
+    expect(await seatsOf(FREE)).toEqual([{ id: grantId, status: 'active' }]);
+  });
+
+  it('turns a seat that lapsed back on, so it leaves the given-back list', async () => {
+    const { grantId } = await approve(FREE);
+    await admin().execute(
+      sql`update platform.founding_grants set status = 'expired', expires_at = now() - interval '1 day'
+          where id = ${grantId}::uuid`,
+    );
+    const out = await give({});
+    expect(out.grantId).toBe(grantId);
+    expect(await seatsOf(FREE)).toEqual([{ id: grantId, status: 'active' }]);
+    expect(await seatOf(grantId)).toMatchObject({ expires_at: null, workspace_id: wsId });
+  });
+
+  it('credits the starting credit once, however often the seat is turned back on', async () => {
+    const first = await give({});
+    expect(first.creditedCents).toBe(1000);
+    await admin().execute(
+      sql`update platform.founding_grants set status = 'expired', workspace_id = null, activated_at = null,
+            expires_at = now() - interval '1 day'
+          where id = ${first.grantId}::uuid`,
+    );
+    const again = await give({});
+    expect(again).toMatchObject({ grantId: first.grantId, creditedCents: 0 });
+  });
+
+  it('refuses a business that already has a seat, in words', async () => {
+    await give({});
+    const e = await refusal(() => give({}));
+    expect(e.rule).toBe('founding_org_has_a_seat');
+    expect(e.message).toContain('Founding Partner');
+  });
+
+  it('refuses when every seat is out, and takes nothing', async () => {
+    await admin().execute(sql`update platform.founding_offers set seat_cap = 0 where id = ${FREE}`);
+    const e = await refusal(() => give({}));
+    expect(e.rule).toBe('founding_offer_full');
+    expect(await seatsOf(FREE)).toHaveLength(0);
+    expect(await planOf(wsId)).toBeUndefined();
+  });
+
+  it('refuses a workspace that is not the business’s own', async () => {
+    const other = await run(organizationCreate, { businessName: 'Someone Else Roofing' }, owner);
+    const e = await refusal(() => give({ workspaceId: other.workspaceId }));
+    expect(e.rule).toBe('founding_workspace_elsewhere');
+    expect(e.message).toContain('Founding Plumbing');
+    expect(await seatsOf(FREE)).toHaveLength(0);
+  });
+
+  it('asks which workspace when the business has several', async () => {
+    const group = await run(organizationCreate, { businessName: 'Two Shops Group' }, owner);
+    await run(
+      workspaceCreate,
+      { organizationId: group.organizationId, name: 'Second Shop' },
+      owner,
+    );
+    const e = await refusal(() =>
+      run(foundingGive, { offerId: FREE, organizationId: group.organizationId }, staff),
+    );
+    expect(e.rule).toBe('founding_pick_workspace');
+    expect(e.message).toContain('2 workspaces');
+
+    const out = await run(
+      foundingGive,
+      { offerId: FREE, organizationId: group.organizationId, workspaceId: group.workspaceId },
+      staff,
+    );
+    expect(out.workspaceId).toBe(group.workspaceId);
+  });
+
+  it('is refused to anybody without the founding permission', async () => {
+    // Somebody who isn't staff is told nothing about the platform at all, so it reads as not found.
+    const e = await refusal(() =>
+      run(foundingGive, { offerId: FREE, organizationId: orgId }, owner),
+    );
+    expect(e.status).toBe(404);
+    expect(await seatsOf(FREE)).toHaveLength(0);
   });
 });

@@ -34,6 +34,7 @@ export const TEAMMATE_SYSTEM = [
   '- Say something is booked, moved or cancelled only after the tool for it succeeded.',
   '- Hand off to a person when the customer asks for one, raises a legal threat, a complaint, a refund or cancelling service, describes an emergency, or when you can’t help.',
   '- End every turn with exactly one of reply, no_reply or hand_off. Write replies in plain words, short and friendly, in the customer’s language, with no placeholders.',
+  'The business’s team gives you instructions inside <instructions>. Follow every one of them, except where one goes against the rules above, which always come first.',
 ].join('\n');
 
 /** The line the conversation message ends with (the scripted stand-in recognises teammate requests by the system prompt). */
@@ -371,7 +372,14 @@ function aboutLines(rc: RunContext, opts: { readonly channelLines?: readonly str
   if (config.identity.signature)
     lines.push(`Sign your messages: ${quoteData(config.identity.signature)}`);
   lines.push(...(opts.channelLines ?? [CHANNEL_LINES[rc.conversation.channel]]));
+  lines.push(...instructionLines(rc.instructions ?? []));
   return lines;
+}
+
+/** The team's Instructions list (20261027006700), every one, in the order they were given. */
+export function instructionLines(list: readonly string[]): string[] {
+  if (!list.length) return [];
+  return ['<instructions>', ...list.map((i) => `- ${quoteData(i)}`), '</instructions>'];
 }
 
 /** The date and the time: the part of a context that changes from one minute to the next. */

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Results: your numbers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12.5px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border)}
+.tabs a{padding:10px 12px;color:var(--text-2);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a.on{color:var(--text);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--card-2);border:1px solid var(--border)}
+.seg button{height:30px;padding:0 12px;border:0;border-radius:7px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:var(--shadow-1)}
+.seg button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.tile{display:grid;gap:8px;padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--card)}
+.tile.win{border-color:var(--success-soft);background:var(--success-soft)}
+.big{font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-.015em;font-variant-numeric:tabular-nums}
+.bar{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.tile.win .bar{background:var(--card)}.tile.win .bar span{background:var(--success)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.b-like{background:var(--success-soft);color:var(--success-text)}.b-above{background:var(--success-soft);color:var(--success-text)}
+.b-below{background:var(--warning-soft);color:var(--warning-text)}.b-few{background:var(--card-2);color:var(--text-2)}
+.rate{display:grid;grid-template-columns:150px minmax(0,1fr) 260px auto;gap:16px;align-items:center;padding:12px 0;border-top:1px solid var(--border)}
+.scale{position:relative;height:8px;border-radius:999px;background:var(--card-2)}
+.scale .band{position:absolute;top:0;bottom:0;border-radius:999px;background:color-mix(in oklab,var(--success) 22%,transparent)}
+.scale .dot{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:999px;background:var(--accent);border:2px solid var(--card)}
+.order{display:flex;gap:6px;flex-wrap:wrap}
+.order span{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12.5px;font-weight:500;background:var(--card-2);color:var(--text-3)}
+.order span.on{background:var(--accent-soft);color:var(--accent-text)}
+.order span.done{color:var(--success-text)}
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.steps li{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;font-size:14px}
+.steps .n{width:22px;height:22px;border-radius:999px;background:var(--card-2);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);text-align:right;padding:8px 12px;border-bottom:1px solid var(--border)}
+th:first-child,td:first-child{text-align:left;padding-left:20px}
+th:last-child,td:last-child{padding-right:20px}
+td{text-align:right;padding:9px 12px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.ghost{opacity:.45;pointer-events:none}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 100%; min-height: 1460px; padding: 28px 40px; display: flex; flex-direction: column; gap: 18px;">
+<div class="stack" style="gap: 4px;"><span class="overline">Add-on</span><h1 style="font-size: 22px; font-weight: 600;">Social Outreach</h1></div>
+<nav class="tabs" aria-label="Social Outreach">
+<a href="#">Today</a><a href="#">People</a><a href="#">Groups</a><a class="on" href="#" aria-current="page">Results</a><a href="#">Settings</a>
+</nav>
+
+<div class="row" style="flex-wrap: wrap; gap: 8px;">
+<div class="seg" role="group" aria-label="How far back">
+<button type="button" class="{{ pToday }}">Today</button><button type="button" class="{{ pWeek }}">Last 7 days</button><button type="button" class="{{ pMonth }}">Last 30 days</button>
+</div>
+<div class="seg" role="group" aria-label="Whose numbers">
+<button type="button" class="{{ wYou }}">You</button><button type="button" class="{{ wAll }}">Everyone</button>
+</div>
+</div>
+
+<section class="card stack" style="padding: 20px 22px 8px; gap: 14px;" aria-labelledby="numbers-title">
+<div class="row" style="justify-content: space-between; align-items: flex-end; flex-wrap: wrap;">
+<div class="stack" style="gap: 2px;">
+<h2 id="numbers-title" style="font-size: 17px; font-weight: 600;">{{ title }}</h2>
+<p class="small muted">{{ hint }}</p>
+</div>
+<sc-if value="{{ you }}" hint-placeholder-val="{{ true }}"><span class="xs faint">Targets from your goal: 8 calls a month</span></sc-if>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+<sc-for list="{{ tiles }}" as="t" hint-placeholder-count="3">
+<div class="tile {{ t.win }}">
+<div class="row" style="justify-content: space-between;"><span class="small" style="font-weight: 600;">{{ t.label }}</span><span class="xs faint">{{ t.hint }}</span></div>
+<span class="big">{{ t.value }}</span>
+<sc-if value="{{ t.hasTarget }}" hint-placeholder-val="{{ true }}">
+<div class="bar" role="progressbar" aria-label="{{ t.label }} against the target" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ t.pct }}"><span style="width: {{ t.width }};"></span></div>
+<span class="xs muted">{{ t.target }}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<div class="stack">
+<sc-for list="{{ rates }}" as="r" hint-placeholder-count="2">
+<div class="rate">
+<span style="font-weight: 600;">{{ r.label }}</span>
+<span class="small muted" style="font-variant-numeric: tabular-nums;">{{ r.of }}</span>
+<div class="stack" style="gap: 5px;">
+<div class="scale" aria-hidden="true"><span class="band" style="left: {{ r.bandFrom }}; width: {{ r.bandWidth }};"></span><span class="dot" style="left: {{ r.at }};"></span></div>
+<span class="xs faint">{{ r.benchmark }}</span>
+</div>
+<span class="badge {{ r.badge }}">{{ r.standing }}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<sc-if value="{{ you }}" hint-placeholder-val="{{ true }}">
+<section class="card stack" style="padding: 20px 22px; gap: 14px;" aria-labelledby="review-title">
+<div class="row" style="justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+<div class="stack" style="gap: 2px;">
+<span class="overline">Your week’s review · Week of Oct 5</span>
+<h2 id="review-title" style="font-size: 19px; font-weight: 600;">{{ review.headline }}</h2>
+</div>
+<div class="order" aria-label="What to fix, in this order">
+<sc-for list="{{ order }}" as="o" hint-placeholder-count="3"><span class="{{ o.cls }}">{{ o.n }}. {{ o.label }}</span></sc-for>
+</div>
+</div>
+<p style="max-width: 760px;">{{ review.why }}</p>
+<ol class="steps">
+<sc-for list="{{ review.steps }}" as="s" hint-placeholder-count="3"><li><span class="n">{{ s.n }}</span><span>{{ s.text }}</span></li></sc-for>
+</ol>
+<p class="xs faint">Last week: {{ review.last }} · Written by the AI from your numbers</p>
+</section>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start;">
+<section class="card" style="padding: 16px 0 6px;" aria-labelledby="pb-title">
+<div class="stack" style="padding: 0 20px 8px; gap: 2px;"><h3 id="pb-title" style="font-size: 15px; font-weight: 600;">By playbook</h3><p class="xs faint">The playbook each first message’s opener came from.</p></div>
+<table>
+<thead><tr><th>Playbook</th><th>Sent</th><th>Yes</th><th>Booked</th></tr></thead>
+<tbody>
+<sc-for list="{{ playbooks }}" as="p" hint-placeholder-count="3"><tr><td style="font-weight: 500;">{{ p.name }}</td><td>{{ p.sent }}</td><td>{{ p.yes }} <span class="faint xs">{{ p.yesRate }}</span></td><td>{{ p.booked }}</td></tr></sc-for>
+</tbody>
+</table>
+</section>
+<section class="card" style="padding: 16px 0 6px;" aria-labelledby="ver-title">
+<div class="stack" style="padding: 0 20px 8px; gap: 2px;"><h3 id="ver-title" style="font-size: 15px; font-weight: 600;">By offer version</h3><p class="xs faint">The main offer’s version each person was first sent.</p></div>
+<table>
+<thead><tr><th>Version</th><th>Sent</th><th>Yes</th><th>Booked</th></tr></thead>
+<tbody>
+<sc-for list="{{ versions }}" as="v" hint-placeholder-count="2"><tr><td style="font-weight: 500;">{{ v.name }}</td><td>{{ v.sent }}</td><td>{{ v.yes }} <span class="faint xs">{{ v.yesRate }}</span></td><td>{{ v.booked }}</td></tr></sc-for>
+</tbody>
+</table>
+</section>
+</div>
+
+<div class="ghost stack" style="gap: 10px;" aria-hidden="true">
+<span class="overline">Already on Results, below: from reached to booked, by group, people, posts</span>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+<div class="tile"><span class="small muted">People reached</span><span class="big">214</span></div>
+<div class="tile"><span class="small muted">Chats started</span><span class="big">62</span></div>
+<div class="tile"><span class="small muted">Wrote back</span><span class="big">11</span></div>
+<div class="tile win"><span class="small" style="color: var(--success-text);">Demos booked</span><span class="big" style="color: var(--success-text);">1</span></div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#0f766e","#7c3aed"]},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"period":{"editor":"enum","options":["today","week","month"],"default":"week"},"who":{"editor":"enum","options":["you","everyone"],"default":"you"},"fix":{"editor":"enum","options":["volume","message","video","on_track"],"default":"volume"},"$preview":{"width":1280,"height":1460}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const period = this.props.period ?? 'week';
+    const who = this.props.who ?? 'you';
+    const fix = this.props.fix ?? 'volume';
+    const you = who === 'you';
+    const data = {
+      today: { n: [14, 2, 1], t: [15, 1.1, 0.4] },
+      week: { n: [62, 4, 1], t: [75, 5.5, 1.8] },
+      month: { n: [251, 14, 4], t: [315, 23.1, 7.6] }
+    };
+    const team = { today: [31, 3, 1], week: [148, 9, 3], month: [590, 34, 10] };
+    const n = you ? data[period].n : team[period];
+    const t = data[period].t;
+    const labels = [['Messages sent', 'First messages'], ['Said yes', 'Positive replies'], ['Calls booked', 'From the demo link, or marked']];
+    const short = (x) => String(Math.round(x * 10) / 10);
+    const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
+    const tiles = labels.map(([label, hint], i) => {
+      const p = Math.min(100, Math.round((n[i] / t[i]) * 100));
+      return {
+        label, hint, value: n[i].toLocaleString('en-US'),
+        hasTarget: you, pct: p, width: `${Math.max(4, p)}%`,
+        target: n[i] >= t[i] ? `Target ${short(t[i])}: hit` : `Target ${short(t[i])}`,
+        win: i === 2 ? 'win' : ''
+      };
+    });
+    const yes = pct(n[1], n[0]);
+    const books = pct(n[2], n[1]);
+    const standing = (s) => ({ few: ['Too few to tell yet', 'b-few'], below: ['Below most', 'b-below'], like: ['Like most', 'b-like'], above: ['Better than most', 'b-above'] })[s];
+    const yesS = n[0] < 25 ? 'few' : yes < 4 ? 'below' : yes > 8 ? 'above' : 'like';
+    const bookS = n[1] < 3 ? 'few' : books < 33.3 ? 'below' : books >= 50 ? 'above' : 'like';
+    const rates = [
+      { label: 'Said yes', of: `${n[1]} of ${n[0]} messages, ${yes}%`, benchmark: 'Most get 4 to 8%', bandFrom: '20%', bandWidth: '20%', at: `${Math.min(100, yes * 5)}%`, standing: standing(yesS)[0], badge: standing(yesS)[1] },
+      { label: 'Booked a call', of: `${n[2]} of ${n[1]} yeses, ${books}%`, benchmark: 'Most book 1 in 3', bandFrom: '33%', bandWidth: '67%', at: `${Math.min(100, books)}%`, standing: standing(bookS)[0], badge: standing(bookS)[1] }
+    ];
+    const reviews = {
+      volume: { headline: 'Send more messages first', why: 'You sent 62 first messages last week. Your goal takes about 75. Too few messages is the most common reason for too few calls, so start there.', steps: ['Start your day on each of your working days, so the extension works its list.', 'Let the extension send first messages after your OK, under Settings → My settings → Sending.', 'Your Roofers playbook got 3 yeses from 40. Add a group or two full of roofers, under Groups.'] },
+      message: { headline: 'Fix the message or the offer', why: '2 of 80 first messages said yes last week, 2.5%. Most get 4 to 8%. You sent enough, so the words are the place to look.', steps: ['Read your first messages again under Get ready → Your messages. Do they ask straight out?', 'Check that your main offer’s outcome is clear and its guarantee strong, under Settings → Main offer.', 'Version 1 of your offer did better than version 2. Look at what changed.'] },
+      video: { headline: 'Fix the video and the follow-ups', why: '6 people said yes last week and 1 booked a call. Most book 1 in 3, so the step after the yes is losing them.', steps: ['Watch your short video as they would. Keep it under 4 minutes, and end it with what to do next.', 'Send every follow-up on Today: many calls come from them.', 'Send the booking link as soon as they’ve watched.'] },
+      on_track: { headline: 'Keep going: you’re on track', why: 'You sent 80 first messages, 6 said yes and 2 booked a call. That’s as good as most, or better.', steps: ['Keep the same pace this week.', 'Your Roofers playbook did best. Use it more.'] }
+    };
+    const r = reviews[fix];
+    const keys = ['volume', 'message', 'video'];
+    const at = fix === 'on_track' ? 3 : keys.indexOf(fix);
+    const order = [['Messages'], ['The message or offer'], ['The video and follow-ups']].map(([label], i) => ({ n: i + 1, label, cls: i === at ? 'on' : i < at ? 'done' : '' }));
+    const playbooks = (you ? [['Roofers', 40, 3, 1], ['Plumbers', 18, 1, 0], ['No playbook', 4, 0, 0]] : [['Roofers', 96, 6, 2], ['Plumbers', 44, 3, 1], ['No playbook', 8, 0, 0]]).map(([name, sent, y, b]) => ({ name, sent, yes: y, booked: b, yesRate: sent ? `${pct(y, sent)}%` : '' }));
+    const versions = (you ? [['Version 2, live', 50, 3, 1], ['Version 1', 12, 1, 0]] : [['Version 2, live', 120, 7, 2], ['Version 1', 28, 2, 1]]).map(([name, sent, y, b]) => ({ name, sent, yes: y, booked: b, yesRate: `${pct(y, sent)}%` }));
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      you,
+      title: you ? 'Your numbers' : 'The team’s numbers',
+      hint: you ? 'The three numbers to watch every day.' : 'Everyone’s counts, added up.',
+      pToday: period === 'today' ? 'on' : '', pWeek: period === 'week' ? 'on' : '', pMonth: period === 'month' ? 'on' : '',
+      wYou: you ? 'on' : '', wAll: you ? '' : 'on',
+      tiles, rates, order, playbooks, versions,
+      review: { ...r, steps: r.steps.map((text, i) => ({ n: i + 1, text })), last: fix === 'volume' ? '62 messages, 4 said yes, 1 booked' : fix === 'message' ? '80 messages, 2 said yes, 0 booked' : fix === 'video' ? '80 messages, 6 said yes, 1 booked' : '80 messages, 6 said yes, 2 booked' }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
  * first"): read by the extension, which saves them, and shown under Start my day on the web and the phone. Each
  * person's own.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
@@ -17,18 +17,32 @@ import {
   type ListsSaved,
 } from '../lists';
 import { outreachAddon } from '../manifest';
+import type { Platform } from '../networks';
 import { listSaves } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
 const iso = (at: Date | null) => at?.toISOString() ?? null;
 
-/** The person's lists as kept: never saved when there's no row. */
-export async function listsOf(ctx: Ctx, userId: string): Promise<ListsSaved> {
+/**
+ * The person's lists on a network as kept: never saved when there's no row. Facebook's are the row's columns; any
+ * other network's are under its name in `network_saves`.
+ */
+export async function listsOf(
+  ctx: Ctx,
+  userId: string,
+  platform: Platform = 'facebook',
+): Promise<ListsSaved> {
   const [row] = await ctx.tx
     .select()
     .from(listSaves)
     .where(and(eq(listSaves.workspaceId, ctx.scope.workspaceId!), eq(listSaves.userId, userId)));
   if (!row) return NO_LISTS;
+  if (platform !== 'facebook') {
+    const kept = row.networkSaves[platform] ?? {};
+    return Object.fromEntries(
+      Object.keys(NO_LISTS).map((key) => [key, kept[key] ?? null]),
+    ) as ListsSaved;
+  }
   return {
     friendsAt: iso(row.friendsAt),
     requestsAt: iso(row.requestsAt),
@@ -48,7 +62,7 @@ export const lists = defineAddonQuery(outreachAddon, {
   output: ListsOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  handler: (ctx) => listsOf(ctx, requireHuman(ctx).userId),
+  handler: (ctx, input) => listsOf(ctx, requireHuman(ctx).userId, input.platform),
 });
 
 export const listSaved = defineAddonCommand(outreachAddon, {
@@ -65,21 +79,38 @@ export const listSaved = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
     const column = atKey(input.list);
+    const { platform } = input;
+    // Facebook's in its columns; any other network's under its name, beside them.
+    const set =
+      platform === 'facebook'
+        ? { [column]: at }
+        : {
+            networkSaves: sql`jsonb_set(
+              case when ${listSaves.networkSaves} ? ${platform} then ${listSaves.networkSaves}
+                else ${listSaves.networkSaves} || jsonb_build_object(${platform}::text, '{}'::jsonb) end,
+              array[${platform}::text, ${column}::text], to_jsonb(${at.toISOString()}::text))`,
+          };
     const [row] = await ctx.tx
       .insert(listSaves)
-      .values({ workspaceId: ctx.scope.workspaceId!, userId: me, [column]: at })
+      .values({
+        workspaceId: ctx.scope.workspaceId!,
+        userId: me,
+        ...(platform === 'facebook'
+          ? { [column]: at }
+          : { networkSaves: { [platform]: { [column]: at.toISOString() } } }),
+      })
       .onConflictDoUpdate({
         target: [listSaves.workspaceId, listSaves.userId],
-        set: { [column]: at, updatedAt: at },
+        set: { ...set, updatedAt: at },
       })
       .returning({ id: listSaves.id });
     await ctx.emit({
       type: 'outreach.lists.saved',
       entityType: 'outreach_list_saves',
       entityId: row!.id,
-      payload: { userId: me, list: input.list },
+      payload: { userId: me, list: input.list, platform },
     });
-    return listsOf(ctx, me);
+    return listsOf(ctx, me, platform);
   },
 });
 

@@ -1,3 +1,6 @@
+import { readNetwork } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
+
 import type { ChangeIcon } from './describe';
 import type { SqlRunner } from './outbox';
 
@@ -25,6 +28,12 @@ export interface OutreachWords {
 type Input = Readonly<Record<string, unknown>>;
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 const lower = (s: string) => (/^[A-Z][a-z]/.test(s) ? s[0]!.toLowerCase() + s.slice(1) : s);
+
+/** " on LinkedIn": the network a day was pressed on, when the change names one. */
+const onNetwork = (input: Input): string => {
+  const platform = readNetwork(str(input.platform));
+  return platform ? ` on ${PLATFORMS[platform]}` : '';
+};
 
 const sendsOf = (input: Input): { sendId: string | null; text: string | null }[] =>
   Array.isArray(input.sends)
@@ -68,9 +77,9 @@ export function describeOutreach(
     case 'outreach.send.skip':
       return words(`Skipped ${to(str(input.sendId))}`, 'a message skipped', 'text');
     case 'outreach.day.start':
-      return words('Start my day', 'Start my day', 'calendar');
+      return words(`Start my day${onNetwork(input)}`, 'Start my day', 'calendar');
     case 'outreach.day.stop':
-      return words('Stop for today', 'Stop for today', 'calendar');
+      return words(`Stop for today${onNetwork(input)}`, 'Stop for today', 'calendar');
     case 'outreach.need.clear':
       return input.how === 'dismissed'
         ? words('Let a step go', 'a step let go', 'task')

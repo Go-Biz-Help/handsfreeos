@@ -26,6 +26,9 @@ export const MONEY_DESK_WORDS = {
   revoked: (business: string | null) =>
     `Took the seat back from ${business ?? 'that business'}. It’s free for somebody else.`,
   restored: (business: string | null) => `${business ?? 'That business'} has its seat back.`,
+  /** A seat approved, given or turned on: on their workspace now, until somebody revokes it. */
+  turnedOn: (business: string | null) =>
+    `${business ?? 'That business'} has a founding seat. It stays on until you revoke it.`,
   capSaved: (name: string, seats: number) => `${name} now has ${seats} seats.`,
   opened: (name: string) => `${name} is open.`,
   closed: (name: string) => `${name} is closed.`,

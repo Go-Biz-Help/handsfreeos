@@ -74,15 +74,53 @@ export const FoundingApproveInput = z.strictObject({
   applicationId: uuid,
   /** The business the seat belongs to. A seat is a business's, not a person's. */
   organizationId: uuid,
+  /**
+   * The workspace a free seat goes on. Left out: the business's only workspace. A paid seat ignores it — they
+   * pick at checkout.
+   */
+  workspaceId: uuid.optional(),
   note: shortText(2000).default(''),
 });
 
 export const FoundingApproveOutput = z.strictObject({
   grantId: uuid,
   offerId,
-  expiresAt: z.iso.datetime(),
-  /** The claim link's token. Returned once, stored only as a hash, kept out of the command receipt. */
-  claimToken: z.string(),
+  /**
+   * `active`: a free seat, on their workspace now and theirs until it is taken back. `reserved`: a paid seat,
+   * held until they pay from the claim link.
+   */
+  status: z.enum(['active', 'reserved']),
+  /** Where a free seat went. Null for a paid one until it is paid for. */
+  workspaceId: uuid.nullable(),
+  /** When a paid seat's hold runs out. Null for a free one: an active seat does not run out. */
+  expiresAt: z.iso.datetime().nullable(),
+  /**
+   * A paid seat's claim link token. Returned once, stored only as a hash, kept out of the command receipt. Null
+   * for a free seat, which needs no link.
+   */
+  claimToken: z.string().nullable(),
+  remaining: z.int(),
+});
+
+/** Turn a seat on for any business, whether or not it applied. */
+export const FoundingGiveInput = z.strictObject({
+  offerId,
+  /** The business the seat belongs to. */
+  organizationId: uuid,
+  /** The one workspace the deal covers. Left out: the business's only workspace. */
+  workspaceId: uuid.optional(),
+  /** Why them. Kept in the audit log; only staff see it. */
+  note: shortText(2000).default(''),
+});
+
+export const FoundingGiveOutput = z.strictObject({
+  grantId: uuid,
+  offerId,
+  organizationId: uuid,
+  workspaceId: uuid,
+  plan: planKind,
+  /** What was put in the wallet to start them off, in cents. Zero when the seat had already credited it. */
+  creditedCents: z.int(),
   remaining: z.int(),
 });
 

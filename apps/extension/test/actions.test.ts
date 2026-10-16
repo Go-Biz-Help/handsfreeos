@@ -9,7 +9,7 @@ import {
   seenFromClick,
   stepFromClick,
   stepFromEnter,
-} from '../src/facebook/actions';
+} from '../src/networks/facebook/actions';
 import { boxEverything, load } from './load';
 
 const FB = 'https://www.facebook.com';

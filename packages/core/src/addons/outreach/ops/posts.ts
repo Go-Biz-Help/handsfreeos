@@ -8,7 +8,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import { defineAddonCommand } from '../../server';
+import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import {
   PostCheckInput,
@@ -20,6 +20,9 @@ import {
   PostSkipOutput,
   PostsSaveInput,
   PostsSaveOutput,
+  postSearchWords,
+  PostWordsInput,
+  PostWordsOutput,
 } from '../posts';
 import { posts, touches } from '../tables';
 import { keepGroup } from './activity';
@@ -29,7 +32,7 @@ import { playbooksInUse } from './friends';
 export const postsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.posts.save',
   description:
-    'Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
+    'Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
   risk: 1,
   input: PostsSaveInput,
   output: PostsSaveOutput,
@@ -41,7 +44,7 @@ export const postsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     return once(async () => {
-      const groupId = await keepGroup(ctx, input.platform, input.group);
+      const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
       const playbooks = await playbooksInUse(ctx);
       const urls = [...new Set(input.posts.map((p) => p.url))];
       const kept = await ctx.tx
@@ -213,4 +216,22 @@ export const postSkip = defineAddonCommand(outreachAddon, {
   },
 });
 
+/**
+ * The words to search a network's posts with (LinkedIn's post search, latest first): the playbooks' own, as an ask for
+ * Find posts takes them (`postSearchWords`). For the extension's runner, which finds posts once a day on its own.
+ */
+export const postWords = defineAddonQuery(outreachAddon, {
+  name: 'outreach.posts.words',
+  description:
+    'The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.',
+  input: PostWordsInput,
+  output: PostWordsOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    return { words: postSearchWords(await playbooksInUse(ctx), input.platform) };
+  },
+});
+
 export const postCommands = [postsSave, postCheck, postSkip] as const;
+export const postQueries = [postWords] as const;

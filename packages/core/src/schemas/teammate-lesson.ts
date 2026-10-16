@@ -1,5 +1,6 @@
 /**
- * Automations' "Learn from corrections": adding the line of guidance the worker made of them to what the AI knows.
+ * Automations' "Learn from corrections", and feedback on replies: saving the line of guidance the worker made of
+ * them to the AI teammate's instructions, or turning it down.
  */
 import { z } from 'zod';
 import { LESSON_PLACES } from '../knowledge/lessons';
@@ -28,8 +29,10 @@ export const TeammateLessonApplyInput = z.object({
 });
 export const TeammateLessonApplyOutput = z.object({
   lessonId: uuid,
-  /** The line that was added to the business's policies. */
+  /** The line that was added to the AI teammate's instructions. */
   line: z.string(),
+  /** Its instruction (one that already said it, when one did). */
+  instructionId: uuid,
   /** The old words it took the place of, and where; null when nothing said otherwise (any more). */
   replaced: z
     .object({
@@ -39,3 +42,6 @@ export const TeammateLessonApplyOutput = z.object({
     })
     .nullable(),
 });
+
+export const TeammateLessonDismissInput = z.object({ workspaceId: uuid, lessonId: uuid });
+export const TeammateLessonDismissOutput = z.object({ lessonId: uuid });

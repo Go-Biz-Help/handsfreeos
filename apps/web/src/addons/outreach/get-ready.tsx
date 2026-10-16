@@ -2,24 +2,30 @@
 /**
  * Get ready for your best results (docs/outreach.md, decision 63; packages/core/src/addons/outreach/readiness.ts): the
  * card on Today while the person isn't ready, and the setup's step. Each item says what's left and opens where it's
- * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own two in a sheet here:
+ * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own three in a sheet here:
  * their profile, read by their computer and checked by the AI (decision 64), with bios to put in and each item to tick
- * once it's right; and their goal with the math worked as they change it.
+ * once it's right; their messages, samples the AI writes for their playbook in their voice, to OK (decisions 65 to 67);
+ * and their goal with the math worked as they change it.
+ *
+ * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines up to
+ * 220 characters to put in, and an About to start from, each asked and ticked on LinkedIn.
  */
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import {
   numbersLines,
   numbersMath,
   numbersVerdict,
-  PROFILE_ITEMS,
+  profileWordsOn,
   READY_WORDS as R,
   tickCounts,
   CALLS_GOAL,
   type ReadyItem,
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
-import { checkCounts, PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
-import { Check, CheckCircle2, Circle, Clock, RefreshCw } from 'lucide-react';
+import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
+import { checkCounts, type AnyProfileItem } from '@hfos/core/addons/outreach/profile-check';
+import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -29,6 +35,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Stepper } from '@/components/ui/stepper';
 import { copyText } from '@/components/ui/copy-field';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -45,7 +52,7 @@ const STATE_ICON: Record<ReadyState, { icon: typeof Circle; className: string }>
   waiting: { icon: Clock, className: 'text-warning' },
 };
 
-/** The four items, each with what's left and where it's done. Used on Today's card and in the setup's step. */
+/** The five items, each with what's left and where it's done. Used on Today's card and in the setup's step. */
 export function ReadyItems({
   workspaceId,
   readiness,
@@ -59,9 +66,21 @@ export function ReadyItems({
   /** The person's own two changed: what the server says now. */
   onChange?: (next: Readiness) => void;
 }) {
-  const [open, setOpen] = useState<'profile' | 'numbers' | null>(null);
-  const go = (item: ReadyItem): ReactNode => {
+  const [open, setOpen] = useState<'profile' | 'messages' | 'numbers' | null>(null);
+  const go = (item: ReadyItem, left: string | null): ReactNode => {
     const label = R.items[item].go;
+    // OK'd, with the playbook's short video still to link: its step in the playbook (decision 69).
+    if (item === 'messages' && left === R.left.messagesVideo)
+      return (
+        <ButtonLink
+          size="sm"
+          variant="secondary"
+          href={outreachHref(workspaceId, { view: 'playbooks' })}
+          data-testid="ready-add-video"
+        >
+          {R.items.messages.goVideo}
+        </ButtonLink>
+      );
     if (item === 'offer')
       return (
         <ButtonLink
@@ -117,7 +136,9 @@ export function ReadyItems({
                   <p className="text-[13px] text-text-2">{R.items[i.item].why}</p>
                 )}
                 {i.left ? <p className="mt-1 text-[13px]">{i.left}</p> : null}
-                {i.item === 'profile' && i.state === 'look_again' && readiness.changed.length ? (
+                {(i.item === 'profile' || i.item === 'messages') &&
+                i.state === 'look_again' &&
+                readiness.changed.length ? (
                   <p className="text-[13px] text-text-2">{R.changed(readiness.changed)}</p>
                 ) : null}
               </div>
@@ -131,7 +152,7 @@ export function ReadyItems({
                     {R.states.waiting}
                   </span>
                 ) : (
-                  go(i.item)
+                  go(i.item, i.left)
                 )}
               </div>
             </li>
@@ -143,6 +164,13 @@ export function ReadyItems({
         readiness={readiness}
         asks={asks}
         open={open === 'profile'}
+        onClose={() => setOpen(null)}
+        onChange={onChange}
+      />
+      <MessagesSheet
+        workspaceId={workspaceId}
+        readiness={readiness}
+        open={open === 'messages'}
         onClose={() => setOpen(null)}
         onChange={onChange}
       />
@@ -237,20 +265,22 @@ function ProfileSheet({
   onChange?: (next: Readiness) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  // The network's own profile: its list, its words, and its asks.
+  const platform = readiness.platform ?? 'facebook';
+  const P = profileWordsOn(platform);
   const live = readiness.offer?.version ?? null;
-  const on = (item: (typeof PROFILE_ITEMS)[number]) => tickCounts(readiness.profile[item], live);
+  const on = (item: AnyProfileItem) => tickCounts(readiness.profile[item], live);
   // The AI's check, when it's of the live version: what's right, and what to change.
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
-  const right = (item: (typeof PROFILE_ITEMS)[number]) =>
-    on(item) || check?.items[item].ok === true;
-  const ticked = PROFILE_ITEMS.filter(right).length;
+  const right = (item: AnyProfileItem) => on(item) || check?.items[item]?.ok === true;
+  const ticked = P.items.filter((i) => right(i.item)).length;
   const again = readiness.items.find((i) => i.item === 'profile')?.state === 'look_again';
-  const tick = async (item: (typeof PROFILE_ITEMS)[number]) => {
+  const tick = async (item: AnyProfileItem) => {
     setBusy(item);
     try {
       const next = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.readiness.profile', {
-          body: { workspaceId, item, done: !on(item) },
+          body: { workspaceId, platform, item, done: !on(item) },
         }),
       );
       onChange?.(next);
@@ -262,7 +292,7 @@ function ProfileSheet({
   };
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent title={R.profile.title} description={R.profile.hint}>
+      <SheetContent title={P.title} description={P.hint}>
         <div className="grid gap-4" data-testid="ready-profile-sheet">
           {again ? (
             <p
@@ -276,10 +306,8 @@ function ProfileSheet({
           {readiness.offer ? (
             <div className="grid gap-1.5">
               <div className="flex justify-between text-[13px] text-text-2">
-                <span>{R.profile.offer}</span>
-                <span className="tabular-nums">
-                  {R.profile.ticked(ticked, PROFILE_ITEMS.length)}
-                </span>
+                <span>{P.offer}</span>
+                <span className="tabular-nums">{P.ticked(ticked, P.items.length)}</span>
               </div>
               <p className="text-[13px] font-medium">“{readiness.offer.line}”</p>
             </div>
@@ -302,6 +330,7 @@ function ProfileSheet({
                 workspaceId={workspaceId}
                 asks={asks}
                 ask={{ kind: 'profile_read' }}
+                platform={platform}
                 label={check ? P.readAgain : P.read}
                 variant={check ? 'secondary' : 'primary'}
                 testId="ready-profile-read-ask"
@@ -309,8 +338,8 @@ function ProfileSheet({
             ) : null}
           </div>
           <ul className="divide-y divide-border">
-            {PROFILE_ITEMS.map((item) => {
-              const words = R.profile.items[item];
+            {P.items.map((words) => {
+              const { item } = words;
               const checked = on(item);
               const ai = check?.items[item] ?? null;
               return (
@@ -377,6 +406,7 @@ function ProfileSheet({
                       workspaceId={workspaceId}
                       asks={asks}
                       ask={{ kind: 'profile_edit', bio }}
+                      platform={platform}
                       label={P.useBio}
                       testId={`ready-bio-use-${i}`}
                     />
@@ -393,15 +423,34 @@ function ProfileSheet({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    void copyText(check.coverLine!, 'Copied. Put it on your cover image.')
-                  }
+                  onClick={() => void copyText(check.coverLine!, P.coverCopied)}
                   data-testid="ready-cover-copy"
                 >
                   Copy
                 </Button>
               </div>
               <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
+            </div>
+          ) : null}
+          {check?.aboutDraft && P.about ? (
+            <div className="grid gap-1.5" data-testid="ready-about">
+              <div>
+                <p className="font-semibold">{P.about}</p>
+                <p className="text-[13px] text-text-2">{P.aboutHint}</p>
+              </div>
+              <p className="whitespace-pre-wrap rounded-menu border border-border p-3 text-[14px]">
+                {check.aboutDraft}
+              </p>
+              <div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void copyText(check.aboutDraft!, P.aboutCopied ?? 'Copied.')}
+                  data-testid="ready-about-copy"
+                >
+                  Copy
+                </Button>
+              </div>
             </div>
           ) : null}
           {check?.feature.length ? (
@@ -416,8 +465,185 @@ function ProfileSheet({
           ) : null}
           <div className="flex justify-end">
             <Button onClick={onClose} data-testid="ready-profile-done">
-              {R.profile.done}
+              {P.done}
             </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * Your messages: samples the AI writes for the person's playbook, in their voice, to someone made up (the worker's
+ * `outreach.messages.samples`). The first messages, the video, the link, the follow-ups in turn and a check-in, each as
+ * it would read in Messenger; They read right OKs them against the main offer live now.
+ */
+function MessagesSheet({
+  workspaceId,
+  readiness,
+  open,
+  onClose,
+  onChange,
+}: {
+  workspaceId: string;
+  readiness: Readiness;
+  open: boolean;
+  onClose: () => void;
+  onChange?: (next: Readiness) => void;
+}) {
+  const M = R.messages;
+  const [samples, setSamples] = useState<MessageSamples | null>(readiness.messages.samples);
+  useEffect(() => setSamples(readiness.messages.samples), [readiness.messages.samples]);
+  const [busy, setBusy] = useState<'write' | 'ok' | null>(null);
+  const live = readiness.offer?.version ?? null;
+  const again = readiness.items.find((i) => i.item === 'messages')?.state === 'look_again';
+  // Written for an earlier version: shown, but written again before they're OK'd.
+  const older = samples !== null && live !== null && samples.version !== live;
+  const write = async () => {
+    setBusy('write');
+    try {
+      setSamples(
+        await workerPost<MessageSamples>('/v1/addons/outreach/actions/outreach.messages.samples', {
+          workspaceId,
+          input: {},
+        }),
+      );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const ok = async () => {
+    setBusy('ok');
+    try {
+      const next = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.readiness.messages', {
+          body: { workspaceId },
+        }),
+      );
+      toast.success(M.okd);
+      onChange?.(next);
+      onClose();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const bubble = (text: string, key?: string) => (
+    <p
+      key={key}
+      className="max-w-[88%] whitespace-pre-wrap rounded-[14px] bg-accent-soft px-3 py-2 text-[13.5px]"
+      data-testid="ready-message-sample"
+    >
+      {text}
+    </p>
+  );
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent title={M.title} description={M.hint}>
+        <div className="grid gap-4" data-testid="ready-messages-sheet">
+          {samples ? (
+            <p className="text-[12.5px] text-text-3">
+              {M.about(samples.playbookName, samples.version)}
+            </p>
+          ) : null}
+          {again ? (
+            <p
+              role="status"
+              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
+            >
+              <span className="font-semibold">{R.left.messagesAgain}</span>
+              {readiness.changed.length ? ` ${R.changed(readiness.changed)}` : null}
+            </p>
+          ) : older ? (
+            <p
+              role="status"
+              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
+            >
+              {M.older}
+            </p>
+          ) : null}
+          {busy === 'write' ? (
+            <p className="flex items-center gap-2 text-[13px] text-text-2" role="status">
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+              {M.writing}
+            </p>
+          ) : null}
+          {samples ? (
+            <div className="divide-y divide-border" data-testid="ready-messages-samples">
+              <section className="grid gap-2 pb-4">
+                <h3 className="font-semibold">{M.first}</h3>
+                {samples.first.map((t) => bubble(t, t))}
+              </section>
+              <section className="grid gap-2 py-4">
+                <h3 className="font-semibold">{M.video}</h3>
+                {samples.video ? (
+                  bubble(samples.video)
+                ) : (
+                  <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.noVideo}</p>
+                )}
+              </section>
+              {samples.link ? (
+                <section className="grid gap-2 py-4">
+                  <h3 className="font-semibold">{M.link}</h3>
+                  {bubble(samples.link)}
+                </section>
+              ) : null}
+              {samples.followUps.length ? (
+                <section className="grid gap-2 py-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="font-semibold">{M.followUps(samples.followUps.length)}</h3>
+                    <Link
+                      href={outreachHref(workspaceId, { view: 'playbooks' })}
+                      className="text-[13px] font-medium text-accent-text hover:underline"
+                    >
+                      {M.changeHowMany}
+                    </Link>
+                  </div>
+                  {samples.followUps.map((t, i) => (
+                    <div key={t} className="grid gap-1">
+                      <span className="text-[11.5px] tabular-nums text-text-3">
+                        {M.later(samples.followUpGaps[i] ?? 1)}
+                      </span>
+                      {bubble(t)}
+                    </div>
+                  ))}
+                </section>
+              ) : null}
+              {samples.checkIn ? (
+                <section className="grid gap-2 pt-4">
+                  <h3 className="font-semibold">{M.checkIn}</h3>
+                  {bubble(samples.checkIn)}
+                </section>
+              ) : null}
+            </div>
+          ) : busy !== 'write' ? (
+            <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.none}</p>
+          ) : null}
+          <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
+            <Button
+              variant={samples ? 'secondary' : 'primary'}
+              onClick={() => void write()}
+              loading={busy === 'write'}
+              disabled={busy !== null || live === null}
+              data-testid="ready-messages-write"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {samples ? M.again : M.write}
+            </Button>
+            {samples && !older ? (
+              <Button
+                onClick={() => void ok()}
+                loading={busy === 'ok'}
+                disabled={busy !== null}
+                data-testid="ready-messages-ok"
+              >
+                {M.ok}
+              </Button>
+            ) : null}
           </div>
         </div>
       </SheetContent>

@@ -196,8 +196,8 @@ export function useHomeActions(o: {
                 const { replaced } = made.output;
                 toast.show(
                   replaced
-                    ? `Changed ${replaced.where} to the new words.`
-                    : 'Added to what the AI knows.',
+                    ? `Added to its instructions, and changed ${replaced.where} to match.`
+                    : 'Added to its instructions.',
                 );
               } catch (error) {
                 failed(error);

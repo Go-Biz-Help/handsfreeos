@@ -6,6 +6,8 @@
  * part has its own Change. It's checked as it's written by the same rules the server holds (`PlaybookDetails`), so a
  * step with a problem on it doesn't carry on.
  */
+import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
+import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { NICHE_FIT_WORDS, type NicheFitOutput } from '@hfos/core/addons/outreach/niche-fit';
 import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
 import type {
@@ -18,7 +20,9 @@ import {
   answerNextLabel,
   blankPlaybook,
   nextQuestionId,
+  followUpGapsFor,
   PACE_LIMITS,
+  paceOf,
   PLAYBOOK_GOAL_KEYS,
   PLAYBOOK_GOALS,
   PLAYBOOK_LIMITS,
@@ -33,16 +37,31 @@ import {
   type PlaybookStep,
   type PlaybookTemplateKey,
 } from '@hfos/core/addons/outreach/playbooks';
+import {
+  scriptMinutes,
+  VIDEO_LIMITS,
+  VIDEO_PARTS,
+  VIDEO_SHOWS,
+  VIDEO_TIPS,
+  VIDEO_WORDS as V,
+  type VideoDraft,
+  type VideoPart,
+  type VideoScript,
+} from '@hfos/core/addons/outreach/video';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Check,
   CheckCircle2,
+  ExternalLink,
   Info,
   MessageCircleQuestion,
   Plus,
+  Sparkles,
+  Video,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -80,6 +99,8 @@ interface Draft {
   proof: string[];
   usefulWhat: string;
   usefulLink: string;
+  videoLink: string;
+  videoScript: VideoScript | null;
   audience: string;
   signs: string[];
   skip: string[];
@@ -108,6 +129,8 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   proof: d.proof ?? [],
   usefulWhat: d.usefulWhat ?? '',
   usefulLink: d.usefulLink ?? '',
+  videoLink: d.videoLink ?? '',
+  videoScript: d.videoScript ?? null,
   audience: d.audience ?? '',
   signs: d.signs,
   skip: d.skip,
@@ -167,6 +190,8 @@ const toDetails = (d: Draft): PlaybookDetails => ({
   proof: d.proof,
   usefulWhat: orNull(d.usefulWhat),
   usefulLink: orNull(d.usefulLink),
+  videoLink: orNull(d.videoLink),
+  videoScript: d.videoScript,
   audience: orNull(d.audience),
   signs: d.signs,
   skip: d.skip,
@@ -239,6 +264,7 @@ type StepKey =
   | 'skip'
   | 'where'
   | 'steps'
+  | 'video'
   | 'tags'
   | 'conversation'
   | 'voice'
@@ -298,7 +324,7 @@ const STEPS: readonly Step[] = [
     key: 'where',
     part: 'Where to look',
     title: 'Where do you find them?',
-    blurb: 'Words to search for, to find the groups these people are in.',
+    blurb: 'The networks it works on, and words to search for to find these people there.',
     fields: ['platforms', 'groupWords'],
   },
   {
@@ -307,6 +333,13 @@ const STEPS: readonly Step[] = [
     title: 'What it does, and how fast',
     blurb: 'The steps it takes with each person, in this order.',
     fields: ['steps', 'pace'],
+  },
+  {
+    key: 'video',
+    part: 'Short video',
+    title: V.title,
+    blurb: V.hint,
+    fields: ['videoLink', 'videoScript'],
   },
   {
     key: 'tags',
@@ -363,6 +396,7 @@ export function PlaybookBuilder({
   bookingPages,
   brandedOrigin,
   mainOffer,
+  mainOfferVersion = null,
   doneHref,
 }: {
   workspaceId: string;
@@ -378,6 +412,8 @@ export function PlaybookBuilder({
   brandedOrigin: string | null;
   /** The business's live main offer (core's, docs/main-offer.md), which a playbook narrows; null with none live. */
   mainOffer: PlaybookOffer | null;
+  /** Its live version, which the short video's script was written for or not. */
+  mainOfferVersion?: number | null;
   /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
   doneHref?: string;
 }) {
@@ -932,9 +968,39 @@ export function PlaybookBuilder({
     case 'where':
       body = (
         <div className="space-y-5">
-          <Callout tone="neutral" icon={Info}>
-            On Facebook for now. LinkedIn and Instagram come later.
-          </Callout>
+          {/* One playbook for every network (Chris), with where it looks on each. */}
+          <fieldset className="space-y-2" data-testid="playbook-networks">
+            <legend className="text-[14px] font-semibold">{NW.playbookTitle}</legend>
+            <p className="text-[13px] text-text-2">{NW.playbookAbout}</p>
+            <div className="divide-y divide-border rounded-card border border-border bg-card">
+              {PLATFORM_KEYS.map((p) => {
+                const on = draft.platforms.includes(p);
+                return (
+                  <div key={p} className="flex items-start justify-between gap-3 p-3.5">
+                    <div>
+                      <div className="text-[14px] font-medium">{PLATFORMS[p]}</div>
+                      <div className="text-[13px] text-text-2">{NW.where(p)}</div>
+                    </div>
+                    <Switch
+                      checked={on}
+                      onChange={(v) =>
+                        set(
+                          'platforms',
+                          v
+                            ? PLATFORM_KEYS.filter((k) => k === p || draft.platforms.includes(k))
+                            : draft.platforms.filter((k) => k !== p),
+                        )
+                      }
+                      label={PLATFORMS[p]}
+                      disabled={on && draft.platforms.length === 1}
+                      testId={`playbook-network-${p}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {issueIn('platforms') ? <FieldError>{issueIn('platforms')}</FieldError> : null}
+          </fieldset>
           <ListField
             id="pb-groups"
             {...typed('groupWords')}
@@ -943,7 +1009,7 @@ export function PlaybookBuilder({
             items={draft.groupWords}
             onChange={(v) => set('groupWords', v)}
             limits={PLAYBOOK_LIMITS.groupWords}
-            error={issueIn('groupWords') ?? issueIn('platforms')}
+            error={issueIn('groupWords')}
           />
           {listHelp('groupWords')}
         </div>
@@ -985,13 +1051,17 @@ export function PlaybookBuilder({
                   />
                 ) : null}
                 {on && k === 'follow_up' ? (
-                  <Pace
-                    before="Follow up after"
-                    value={draft.pace.followUpAfterDays}
-                    limits={PACE_LIMITS.followUpAfterDays}
-                    after={(n) => `quiet ${n === 1 ? 'day' : 'days'}`}
-                    onChange={(n) => set('pace', { ...draft.pace, followUpAfterDays: n })}
-                    testId="pace-follow-up"
+                  <FollowUpPace
+                    pace={draft.pace}
+                    onChange={(pace) => set('pace', pace)}
+                    usefulWhat={draft.usefulWhat.trim()}
+                    usefulLink={draft.usefulLink.trim()}
+                    onChangeUseful={() =>
+                      go(
+                        STEPS.findIndex((st) => st.key === 'offer'),
+                        false,
+                      )
+                    }
                   />
                 ) : null}
               </div>
@@ -1003,6 +1073,19 @@ export function PlaybookBuilder({
             </div>
           ) : null}
         </div>
+      );
+      break;
+    case 'video':
+      body = (
+        <VideoStep
+          workspaceId={workspaceId}
+          draft={draft}
+          liveVersion={mainOfferVersion}
+          onScript={(script) => set('videoScript', script)}
+          onLink={(link) => set('videoLink', link)}
+          linkIssue={issueAt('videoLink')}
+          scriptIssue={issueIn('videoScript')}
+        />
       );
       break;
     case 'tags':
@@ -1645,7 +1728,11 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
     case 'where':
       return (
         <>
-          Facebook
+          {d.platforms.length ? (
+            d.platforms.map((p) => PLATFORMS[p]).join(', ')
+          ) : (
+            <Missing>{NW.playbookAtLeastOne}</Missing>
+          )}
           {d.groupWords.length ? (
             <div className="text-[13px] text-text-2">Groups about {d.groupWords.join(' · ')}</div>
           ) : null}
@@ -1656,7 +1743,7 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
       if (!steps.length) return <Missing>No steps picked</Missing>;
       const pace = W.pace(
         steps.includes('message') ? d.pace.messageAfterDays : null,
-        steps.includes('follow_up') ? d.pace.followUpAfterDays : null,
+        steps.includes('follow_up') ? paceOf(d.pace).followUps : null,
       );
       return (
         <>
@@ -1665,6 +1752,19 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
         </>
       );
     }
+    case 'video':
+      return (
+        <>
+          {d.videoLink.trim() || d.videoScript ? (
+            V.summary(Boolean(d.videoLink.trim()), d.videoScript !== null)
+          ) : (
+            <Missing>{V.summary(false, false)}</Missing>
+          )}
+          {d.videoScript ? (
+            <div className="text-[13px] text-text-2">{V.runs(scriptMinutes(d.videoScript))}</div>
+          ) : null}
+        </>
+      );
     case 'tags':
       return d.tags.length ? (
         <div className="flex flex-wrap gap-1.5">
@@ -1769,6 +1869,293 @@ function Pace({
         testId={testId}
       />
       <span>{after(value)}</span>
+    </div>
+  );
+}
+
+/**
+ * How many follow-ups whoever goes quiet gets, and the quiet days before each (decision 67), then the check-in each
+ * month with the playbook's something useful to send.
+ */
+function FollowUpPace({
+  pace,
+  onChange,
+  usefulWhat,
+  usefulLink,
+  onChangeUseful,
+}: {
+  pace: PlaybookDetails['pace'];
+  onChange: (pace: PlaybookDetails['pace']) => void;
+  usefulWhat: string;
+  usefulLink: string;
+  onChangeUseful: () => void;
+}) {
+  const p = paceOf(pace);
+  // A new count keeps the gaps already set, and starts any new ones where they'd start.
+  const count = (n: number) => {
+    const start = followUpGapsFor(n);
+    onChange({
+      ...pace,
+      followUps: n,
+      followUpGaps: start.map((g, i) => p.followUpGaps[i] ?? g),
+    });
+  };
+  const gap = (i: number, days: number) =>
+    onChange({
+      ...pace,
+      followUps: p.followUps,
+      followUpGaps: p.followUpGaps.map((g, j) => (j === i ? days : g)),
+    });
+  return (
+    <div className="mt-3 space-y-3" data-testid="pace-follow-ups">
+      <Pace
+        before="Send"
+        value={p.followUps}
+        limits={PACE_LIMITS.followUps}
+        after={() =>
+          `follow-ups until they answer (${PACE_LIMITS.followUps.min} to ${PACE_LIMITS.followUps.max})`
+        }
+        onChange={count}
+        testId="pace-follow-up"
+      />
+      <ol className="divide-y divide-border pl-1">
+        {p.followUpGaps.map((g, i) => (
+          <li
+            key={i}
+            className="grid grid-cols-[100px_auto_minmax(0,1fr)] items-center gap-3 py-2 text-[13px]"
+          >
+            <span className="font-medium">Follow-up {i + 1}</span>
+            <Stepper
+              value={g}
+              onChange={(n) => gap(i, n)}
+              min={PACE_LIMITS.followUpGap.min}
+              max={PACE_LIMITS.followUpGap.max}
+              label={`Follow-up ${i + 1}, quiet days before it`}
+              testId={`pace-gap-${i + 1}`}
+            />
+            <span className="text-text-2">
+              {g === 1 ? 'quiet day' : 'quiet days'} after the last message
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="space-y-2">
+        <p className="text-[13.5px] font-medium">Then a check-in each month</p>
+        <div className="flex items-center gap-2.5 rounded-menu bg-card-2 px-3.5 py-3">
+          <ExternalLink className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium">
+              {usefulWhat || 'Nothing useful to send yet'}
+            </p>
+            <p className="truncate text-[12px] text-text-3">
+              {usefulWhat
+                ? `${usefulLink ? `${usefulLink} · ` : ''}your something useful to send`
+                : 'Without one, a check-in is a warm hello with no ask.'}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onChangeUseful} data-testid="pace-useful">
+            {usefulWhat ? 'Change' : 'Add one'}
+          </Button>
+        </div>
+        <p className="text-[12px] text-text-3">
+          Until they answer, say no, or you stop it. Nobody gets the same message twice.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The playbook's short video (decision 69): the AI writes its script from the main offer and the niche, part by part,
+ * each with what to say and what to show, and writes one part again on Improve; the business changes the words as it
+ * likes, records it, and pastes its link. All of it is saved with the playbook.
+ */
+function VideoStep({
+  workspaceId,
+  draft,
+  liveVersion,
+  onScript,
+  onLink,
+  linkIssue,
+  scriptIssue,
+}: {
+  workspaceId: string;
+  draft: Draft;
+  liveVersion: number | null;
+  onScript: (script: VideoScript) => void;
+  onLink: (link: string) => void;
+  linkIssue: string | undefined;
+  scriptIssue: string | undefined;
+}) {
+  const [busy, setBusy] = useState<'write' | VideoPart | null>(null);
+  const script = draft.videoScript;
+  const older =
+    script !== null &&
+    script.version !== null &&
+    liveVersion !== null &&
+    script.version !== liveVersion;
+  const videoDraft: VideoDraft = {
+    name: draft.name,
+    niche: draft.niche,
+    problem: draft.problem,
+    proof: draft.proof,
+    offer: draft.offer,
+    tone: draft.tone,
+    avoid: draft.avoid,
+    disclaimer: draft.disclaimer,
+  };
+  const ask = async (part: VideoPart | null) => {
+    setBusy(part ?? 'write');
+    try {
+      onScript(
+        await workerPost<VideoScript>('/v1/addons/outreach/actions/outreach.video.script', {
+          workspaceId,
+          input: part
+            ? { draft: videoDraft, mode: 'improve', part, script }
+            : { draft: videoDraft, mode: 'write' },
+        }),
+      );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const change = (part: VideoPart, key: 'say' | 'show', value: string) => {
+    if (!script) return;
+    onScript({
+      ...script,
+      parts: script.parts.map((p) => (p.part === part ? { ...p, [key]: value } : p)),
+    });
+  };
+  return (
+    <div className="space-y-5" data-testid="playbook-video">
+      <section className="rounded-card border border-border bg-card p-5">
+        {script ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] text-text-2" data-testid="playbook-video-runs">
+                {V.runs(scriptMinutes(script))}
+                {script.version ? ` · written for your main offer, version ${script.version}` : ''}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === 'write'}
+                disabled={busy !== null}
+                onClick={() => void ask(null)}
+                data-testid="playbook-video-again"
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {V.again}
+              </Button>
+            </div>
+            {older ? (
+              <p
+                role="status"
+                className="mt-3 rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
+              >
+                {V.older(script.version!)}
+              </p>
+            ) : null}
+            {scriptIssue ? (
+              <p className="mt-3 text-[13px] text-danger-text" role="alert">
+                {scriptIssue}
+              </p>
+            ) : null}
+            <ol className="mt-2 divide-y divide-border" data-testid="playbook-video-parts">
+              {script.parts.map((p, i) => (
+                <li key={p.part} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 py-4">
+                  <span
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-card-2 text-[12.5px] font-semibold text-text-2"
+                    aria-hidden="true"
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="font-semibold">{VIDEO_PARTS[p.part].title}</span>
+                        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-card-2 px-2.5 text-[12px] font-medium text-text-2">
+                          <Video className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          {VIDEO_SHOWS[VIDEO_PARTS[p.part].shows]}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        loading={busy === p.part}
+                        disabled={busy !== null}
+                        onClick={() => void ask(p.part)}
+                        data-testid={`playbook-video-improve-${p.part}`}
+                      >
+                        {V.improve}
+                      </Button>
+                    </div>
+                    <Field label={V.say} htmlFor={`pb-video-say-${p.part}`}>
+                      <Textarea
+                        id={`pb-video-say-${p.part}`}
+                        value={p.say}
+                        rows={3}
+                        maxLength={VIDEO_LIMITS.say}
+                        onChange={(e) => change(p.part, 'say', e.target.value)}
+                        data-testid={`playbook-video-say-${p.part}`}
+                      />
+                    </Field>
+                    <Field label={V.show} htmlFor={`pb-video-show-${p.part}`}>
+                      <Input
+                        id={`pb-video-show-${p.part}`}
+                        value={p.show}
+                        maxLength={VIDEO_LIMITS.show}
+                        onChange={(e) => change(p.part, 'show', e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <div className="flex flex-col items-start gap-3 rounded-card border border-dashed border-border-strong bg-card-2 p-5">
+            <p className="text-[13.5px] text-text-2">{V.none}</p>
+            <Button
+              loading={busy === 'write'}
+              onClick={() => void ask(null)}
+              data-testid="playbook-video-write"
+            >
+              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+              {V.write}
+            </Button>
+          </div>
+        )}
+      </section>
+      <div className="grid gap-5 md:grid-cols-2">
+        <section className="rounded-card border border-border bg-card p-5">
+          <Field label={V.link} htmlFor="pb-video-link" hint={V.linkHint} error={linkIssue}>
+            <Input
+              id="pb-video-link"
+              value={draft.videoLink}
+              placeholder={V.linkPlaceholder}
+              inputMode="url"
+              maxLength={VIDEO_LIMITS.link}
+              onChange={(e) => onLink(e.target.value)}
+              onBlur={() => onLink(withScheme(draft.videoLink))}
+              data-testid="playbook-video-link"
+            />
+          </Field>
+        </section>
+        <section className="rounded-card border border-border bg-card p-5">
+          <h3 className="text-[15px] font-semibold">{V.tips}</h3>
+          <ul className="mt-2.5 space-y-2">
+            {VIDEO_TIPS.map((tip) => (
+              <li key={tip} className="flex gap-2 text-[13px] text-text-2">
+                <Check className="mt-0.5 h-4 w-4 flex-none text-accent-text" strokeWidth={1.75} />
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
     </div>
   );
 }

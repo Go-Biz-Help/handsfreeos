@@ -12,6 +12,8 @@ import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
+import { MESSAGE_SAMPLES_ACTION, messageSamples } from './samples';
+import { VIDEO_SCRIPT_ACTION, videoScript } from './video';
 import { PROFILE_CHECK_ACTION, profileCheck } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
@@ -32,6 +34,16 @@ import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askProgressed } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
 import { needNoted, sendWaits, WAITING_PUSH_JOB, waitingPushJob } from './waiting';
+import {
+  armDayReportFor,
+  armDayReports,
+  armReview,
+  DAY_REPORT_JOB,
+  dayReportJob,
+  offerPublished,
+  REVIEW_JOB,
+  reviewJob,
+} from './tracking';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 
 /**
@@ -44,6 +56,7 @@ const andMorning =
     await subscriber(ctx);
     await armMorning(ctx);
     await armWeekly(ctx);
+    await armReview(ctx);
   };
 
 /** The weekly report moves with the settings, and is armed whenever the morning push is (./weekly.ts). */
@@ -52,7 +65,10 @@ const andWeekly =
   async (ctx) => {
     await subscriber(ctx);
     const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
-    if (p['addonId'] === undefined || p['addonId'] === ctx.manifest.id) await armWeekly(ctx);
+    if (p['addonId'] === undefined || p['addonId'] === ctx.manifest.id) {
+      await armWeekly(ctx);
+      await armReview(ctx);
+    }
   };
 
 /** Every playbook of a business in today's shape (`upgradePlaybookDetails`). */
@@ -83,10 +99,13 @@ export const outreachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('outreach'),
   dataMigrations: {
     // 2: a playbook's questions have answers, and it has a pace. 3: a niche, its problem and proof, and something
-    // useful to send. Reading upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall
-    // brings back.
+    // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
+    // link. 5: the video's script. Reading upgrades an older one too (outreach.playbook.list), so these only tidy what
+    // a reinstall brings back.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
+    4: upgradePlaybooks,
+    5: upgradePlaybooks,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
@@ -119,6 +138,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.live.changed': liveChanged,
     // Something the person asked of their computer needs them: their phone hears it at once (./asks.ts).
     'outreach.ask.progressed': askProgressed,
+    // Starting the day, or saving one's settings, arms the day's report; a new main offer tells whoever OK'd their
+    // messages against an older one (./tracking.ts).
+    'outreach.day.started': armDayReportFor,
+    'outreach.automation.saved': armDayReportFor,
+    'main_offer.published': offerPublished,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
@@ -126,11 +150,18 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,
     [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
-    [MORNING_JOB]: morningJob,
+    // The morning push arms the day's reports of whoever noted a step this week (./tracking.ts).
+    [MORNING_JOB]: async (ctx) => {
+      const next = await morningJob(ctx);
+      await armDayReports(ctx);
+      return next;
+    },
     [WEEKLY_JOB]: weeklyJob,
     [LIVE_PRUNE_JOB]: livePruneJob,
     [WAITING_PUSH_JOB]: waitingPushJob,
     [GUESS_COUNTRIES_JOB]: guessCountriesJob,
+    [DAY_REPORT_JOB]: dayReportJob,
+    [REVIEW_JOB]: reviewJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).
@@ -139,14 +170,18 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [NICHE_FIT_ACTION]: nicheFit,
     // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
     [PROFILE_CHECK_ACTION]: profileCheck,
+    [MESSAGE_SAMPLES_ACTION]: messageSamples,
+    [VIDEO_SCRIPT_ACTION]: videoScript,
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,
   },
-  // The morning push, weekly report and the feed's pruning, from now: nothing that came due while it was off runs late.
+  // The morning push, weekly report and review, and the feed's pruning, from now: nothing that came due while it was
+  // off runs late.
   onEnable: async (ctx) => {
     await armMorning(ctx);
     await armWeekly(ctx);
+    await armReview(ctx);
     await armPrune(ctx);
   },
 };

@@ -12,7 +12,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, RequestMeta } from '../../../kernel/types';
 import { onServerClock } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { businessDay } from '../automation';
+import { businessDay, businessLimitsOn, OTHER_PLATFORMS } from '../automation';
 import {
   ComputerRenameInput,
   ComputerRenameOutput,
@@ -31,7 +31,9 @@ import {
   LiveTeamOutput,
   numberedName,
   sendingOffWords,
+  networkOffWords,
   shownState,
+  warnedTodayWords,
   type ComputerShown,
   type DayState,
   type DayVia,
@@ -39,6 +41,8 @@ import {
 } from '../live';
 import { dailyLimitsNow, WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
+import { networkLimitsNow } from '../networks';
+import type { Platform } from '../playbooks';
 import { notReadyWords } from '../readiness';
 import { computers, days, liveSteps } from '../tables';
 import { todayLimits } from '../today';
@@ -240,45 +244,56 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
       name: kept!.name,
       working: isWorking,
       workingName: isWorking ? null : (working?.name ?? null),
-      day: await dayOf(ctx, me, today),
+      // Facebook's day, as every build follows it; each other network's beside it, for its own runner.
+      day: await dayOf(ctx, me, 'facebook', today),
+      days: Object.fromEntries(
+        await Promise.all(
+          OTHER_PLATFORMS.map(async (p) => [p, await dayOf(ctx, me, p, today)] as const),
+        ),
+      ),
       stepsKept: input.steps.map((s) => s.id),
       asks: isWorking ? await asksWaiting(ctx, me, now.getTime()) : 0,
     };
   },
 });
 
-/** Start my day or Stop for today, for the person's own day, from wherever it was pressed. */
+/**
+ * Start my day or Stop for today, for the person's own day on one network, from wherever it was pressed. Each
+ * network's day is its own: a stop or a warning on one leaves the others as they are.
+ */
 async function setDay(
   ctx: CommandContext,
-  input: { installId?: string | undefined },
+  input: { platform: Platform; installId?: string | undefined },
   state: DayState,
 ): Promise<LiveDay> {
   const me = requireHuman(ctx).userId;
   const ws = ctx.scope.workspaceId!;
+  const { platform } = input;
   const at = changeMoment(ctx.meta);
   const { today, timezone } = await businessToday(ctx);
   const via = viaOf(ctx.meta);
   // A press from another day (one that waited overnight on the phone) changes nothing today, and is passed over
   // quietly: today's warning or Sending off never comes back as a refusal for it.
-  if (businessDay(at.getTime(), timezone) !== today) return dayOf(ctx, me, today);
+  if (businessDay(at.getTime(), timezone) !== today) return dayOf(ctx, me, platform, today);
   if (state === 'started') {
-    const warning = await warningOf(ctx, me, await startOfToday(ctx));
-    const kept = await dayOf(ctx, me, today);
+    const warning = await warningOf(ctx, me, platform, await startOfToday(ctx));
+    const kept = await dayOf(ctx, me, platform, today);
     if (warning?.today || kept.why === 'warning')
-      throw HfosError.rule(
-        'outreach_warned_today',
-        409,
-        'Facebook showed you a warning today, so the extension stays stopped until tomorrow. Your daily limits are halved for a week.',
-      );
+      throw HfosError.rule('outreach_warned_today', 409, warnedTodayWords(platform));
+    // A network the person doesn't work has no day to start.
+    const { choices: settings, rules } = await automationOf(ctx, me, Date.now(), platform);
+    if (!settings.on) throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
     // Nothing outreach-like until they're ready (decision 63): the first item left says where to finish it.
-    const ready = await readinessFor(ctx, me);
+    const ready = await readinessFor(ctx, me, platform);
     if (!ready.ready) throw HfosError.rule('outreach_not_ready', 409, notReadyWords(ready));
-    const { settings, rules } = await automationOf(ctx, me);
     if (settings.sending === 'off')
       throw HfosError.rule(
         'outreach_sending_off',
         409,
-        sendingOffWords(rules.sendingAllowed.some((m) => m !== 'off')),
+        sendingOffWords(
+          rules.sendingAllowed.some((m) => m !== 'off'),
+          platform,
+        ),
       );
   }
   // Pressed in the extension: that computer is the one the person is using, so it works. When that makes a different
@@ -307,20 +322,20 @@ async function setDay(
         payload: { userId: me, state: workingNow.state, working: true, made: false },
       });
   }
-  if (await keepDay(ctx, me, { today, state, via, at })) {
+  if (await keepDay(ctx, me, platform, { today, state, via, at })) {
     await writeLine(ctx, me, at, 'day', dayLine(state, via));
     const [row] = await ctx.tx
       .select({ id: days.id })
       .from(days)
-      .where(and(eq(days.workspaceId, ws), eq(days.userId, me)));
+      .where(and(eq(days.workspaceId, ws), eq(days.userId, me), eq(days.platform, platform)));
     await ctx.emit({
       type: state === 'started' ? 'outreach.day.started' : 'outreach.day.stopped',
       entityType: 'outreach_day',
       entityId: row!.id,
-      payload: { userId: me, via },
+      payload: { userId: me, via, platform },
     });
   }
-  return dayOf(ctx, me, today);
+  return dayOf(ctx, me, platform, today);
 }
 
 export const dayStart = defineAddonCommand(outreachAddon, {
@@ -397,24 +412,27 @@ const NONE: Record<DailyStep, number> = {
 export const live = defineAddonQuery(outreachAddon, {
   name: 'outreach.live',
   description:
-    'What the extension is doing for the person right now, on the computer that works: its line, next step, today’s counts against the daily limits, how many things wait for them (Waiting for you), any Facebook warning and the feed of today’s steps; their day, and their computers with when each was last seen.',
+    'What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.',
   input: LiveInput,
   output: LiveOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  async handler(ctx) {
+  async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
+    const { platform } = input;
     const { today, timezone } = await businessToday(ctx, now);
     const todayStart = await startOfToday(ctx, now);
+    // The network's own day, warning, counts, choices and lists: another network's never show here (Chris: each
+    // network on its own). The computers and the feed are the person's, for every network.
     const [warning, auto, all, day, counts, waiting, lists] = await Promise.all([
-      warningOf(ctx, me, todayStart, now),
-      automationOf(ctx, me, now),
+      warningOf(ctx, me, platform, todayStart, now),
+      automationOf(ctx, me, now, platform),
       myComputers(ctx, me),
-      dayOf(ctx, me, today),
-      dayCounts(ctx, [me], todayStart),
+      dayOf(ctx, me, platform, today),
+      dayCounts(ctx, [me], platform, todayStart),
       waitingFor(ctx, [me]),
-      listsOf(ctx, me),
+      listsOf(ctx, me, platform),
     ]);
     const working = workingOf(all);
     const steps = await ctx.tx
@@ -437,7 +455,7 @@ export const live = defineAddonQuery(outreachAddon, {
     return {
       timezone,
       now: new Date(now).toISOString(),
-      sending: auto.settings.sending,
+      sending: auto.choices.sending,
       canSend: auto.rules.sendingAllowed.some((m) => m !== 'off'),
       day,
       computer: working ? shown(working, working) : null,
@@ -453,7 +471,11 @@ export const live = defineAddonQuery(outreachAddon, {
         : null,
       limits: todayLimits(
         counts.get(me) ?? NONE,
-        dailyLimitsNow(slowsNow(warning, now) || auto.wheels.on, auto.rules.dailyLimits),
+        networkLimitsNow(
+          platform,
+          slowsNow(warning, now) || auto.wheels.on,
+          businessLimitsOn(auto.rules, platform),
+        ),
       ),
       waiting: waiting.get(me) ?? 0,
       warning,
@@ -512,15 +534,20 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
             and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`,
     );
     const ids = found.map((p) => p.user_id);
+    // Facebook's days, counts and warnings: the extension works there alone yet.
     const [all, kept, counts, waiting, warned, auto] = await Promise.all([
       teamComputers(ctx),
-      ctx.tx.select().from(days).where(eq(days.workspaceId, ws)),
-      dayCounts(ctx, ids, todayStart),
+      ctx.tx
+        .select()
+        .from(days)
+        .where(and(eq(days.workspaceId, ws), eq(days.platform, 'facebook'))),
+      dayCounts(ctx, ids, 'facebook', todayStart),
       waitingFor(ctx, ids),
       rows<{ user_id: string; at: Date | string }>(
         ctx.tx,
         sql`select distinct on (user_id) user_id, at from addon_outreach.warnings
-            where workspace_id = ${ws} and at >= ${new Date(now - WARNING_SLOWER_DAYS * DAY).toISOString()}::timestamptz
+            where workspace_id = ${ws} and platform = 'facebook'
+              and at >= ${new Date(now - WARNING_SLOWER_DAYS * DAY).toISOString()}::timestamptz
             order by user_id, at desc`,
       ),
       everyoneAutomation(ctx, now),

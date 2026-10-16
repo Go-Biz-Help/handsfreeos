@@ -134,7 +134,7 @@ export function TeammateHeader({
   );
 }
 
-/** Teammate · Activity · Approvals. */
+/** Teammate · Instructions · Review · Activity · Approvals. */
 export function TeammateSubnav({
   workspaceId,
   className,
@@ -146,6 +146,16 @@ export function TeammateSubnav({
   const base = `/app/w/${workspaceId}/ai-team`;
   const items = [
     { href: base, label: 'Teammate', active: pathname === base },
+    {
+      href: `${base}/instructions`,
+      label: 'Instructions',
+      active: pathname.startsWith(`${base}/instructions`),
+    },
+    {
+      href: `${base}/review`,
+      label: 'Review',
+      active: pathname.startsWith(`${base}/review`),
+    },
     {
       href: `${base}/activity`,
       label: 'Activity',

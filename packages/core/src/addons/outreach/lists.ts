@@ -11,9 +11,14 @@
  * HandsFreeOS keeps when each was last saved to its end, each person's own (`outreach.lists`, `outreach.lists.saved`);
  * the extension does the saving (apps/extension/src/auto/lists.ts). Browser-safe: the extension, the web and the
  * phone read these.
+ *
+ * Each network has its own lists and its own first day (Chris: each network on its own). LinkedIn's are the person's
+ * connections and their invitations either way, then the old invitations to withdraw and the good fits among their
+ * connections; it has no groups to save first (`LIST_SAVES_ON`, `LIST_MARKS_ON`).
  */
 import { z } from 'zod';
 import { businessDay } from './automation';
+import { PLATFORM_KEYS, type Platform } from './networks';
 
 /** The lists saved before the day, in the order they're saved: the person's groups last. */
 export const LIST_SAVE_KEYS = ['friends', 'requests', 'sent', 'groups'] as const;
@@ -25,6 +30,17 @@ export type ListSave = (typeof LIST_SAVE_KEYS)[number];
  */
 export const LIST_MARK_KEYS = [...LIST_SAVE_KEYS, 'group_checks', 'tidy', 'checks'] as const;
 export type ListMark = (typeof LIST_MARK_KEYS)[number];
+
+/** The lists each network saves before its first day, in order. */
+export const LIST_SAVES_ON: Readonly<Record<Platform, readonly ListSave[]>> = {
+  facebook: LIST_SAVE_KEYS,
+  linkedin: ['friends', 'requests', 'sent'],
+};
+/** What each network notes as done before its first day, in order. */
+export const LIST_MARKS_ON: Readonly<Record<Platform, readonly ListMark[]>> = {
+  facebook: LIST_MARK_KEYS,
+  linkedin: ['friends', 'requests', 'sent', 'tidy', 'checks'],
+};
 
 /** The friends list, and the groups, are saved again once their last full save is this old. */
 export const FRIENDS_AGAIN_DAYS = 7;
@@ -57,12 +73,18 @@ export const NO_LISTS: ListsSaved = {
   checksAt: null,
 };
 
-export const ListsInput = z.object({ workspaceId: z.uuid() });
+export const ListsInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network whose lists: Facebook's when left out. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type ListsInput = z.input<typeof ListsInput>;
 export const ListsOutput = ListsSaved;
 
 export const ListSavedInput = z.object({
   workspaceId: z.uuid(),
+  /** The network the list is on: Facebook's when left out. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
   /** What was done: a list saved to its very end, the tidy-up worked out, or the first check run. */
   list: z.enum(LIST_MARK_KEYS),
 });
@@ -80,17 +102,25 @@ const AT_KEY: Readonly<Record<ListMark, keyof ListsSaved>> = {
 };
 export const atKey = (mark: ListMark): keyof ListsSaved => AT_KEY[mark];
 
-/** Whether the first full save is done: friends, received and sent requests, and groups, each saved once. */
-export const firstSaveDone = (lists: ListsSaved): boolean =>
-  LIST_SAVE_KEYS.every((list) => lists[AT_KEY[list]] !== null);
+/**
+ * Whether the first full save is done on a network: on Facebook, friends, received and sent requests, and groups,
+ * each saved once; on LinkedIn, connections and invitations either way.
+ */
+export const firstSaveDone = (lists: ListsSaved, platform: Platform = 'facebook'): boolean =>
+  LIST_SAVES_ON[platform].every((list) => lists[AT_KEY[list]] !== null);
 
 /**
  * The lists to save before the day, in order: any never saved; the requests, either way, unless saved already on the
  * business's day today; and the friends list and the groups once their last full save is FRIENDS_AGAIN_DAYS old.
  */
-export function listsDue(lists: ListsSaved, now: number, timeZone: string): ListSave[] {
+export function listsDue(
+  lists: ListsSaved,
+  now: number,
+  timeZone: string,
+  platform: Platform = 'facebook',
+): ListSave[] {
   const today = businessDay(now, timeZone);
-  return LIST_SAVE_KEYS.filter((list) => {
+  return LIST_SAVES_ON[platform].filter((list) => {
     const at = lists[AT_KEY[list]];
     if (at === null) return true;
     const ms = new Date(at).getTime();
@@ -104,9 +134,13 @@ export function listsDue(lists: ListsSaved, now: number, timeZone: string): List
  * What's left once the first full save is done: check the groups, work out the Tidy up suggestions, then check
  * friends once.
  */
-export function afterFirstSave(lists: ListsSaved): 'group_checks' | 'tidy' | 'checks' | null {
-  if (!firstSaveDone(lists)) return null;
-  if (lists.groupChecksAt === null) return 'group_checks';
+export function afterFirstSave(
+  lists: ListsSaved,
+  platform: Platform = 'facebook',
+): 'group_checks' | 'tidy' | 'checks' | null {
+  if (!firstSaveDone(lists, platform)) return null;
+  const marks = LIST_MARKS_ON[platform];
+  if (marks.includes('group_checks') && lists.groupChecksAt === null) return 'group_checks';
   if (lists.tidyAt === null) return 'tidy';
   if (lists.checksAt === null) return 'checks';
   return null;
@@ -128,11 +162,28 @@ export const LIST_NAMES: Readonly<Record<ListSave, string>> = {
   groups: 'Your groups',
 };
 
-const WAIT_NAMES: Readonly<Record<ListSave, string>> = {
-  friends: 'your friends list',
-  requests: 'the friend requests you’ve got',
-  sent: 'the ones you’ve sent',
-  groups: 'your groups',
+/** Each network's lists as "It's saving … first" names them: one of them, or all of them at once. */
+const WAIT_NAMES_ON: Readonly<
+  Record<Platform, { readonly each: Readonly<Record<ListSave, string>>; readonly all: string }>
+> = {
+  facebook: {
+    each: {
+      friends: 'your friends list',
+      requests: 'the friend requests you’ve got',
+      sent: 'the ones you’ve sent',
+      groups: 'your groups',
+    },
+    all: 'your friends list, friend requests and groups',
+  },
+  linkedin: {
+    each: {
+      friends: 'your connections',
+      requests: 'the invitations you’ve got',
+      sent: 'the ones you’ve sent',
+      groups: 'your groups',
+    },
+    all: 'your connections and invitations',
+  },
 };
 
 /** "a, b and c". */
@@ -140,16 +191,20 @@ const listed = (words: readonly string[]): string =>
   words.length < 2 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
 
 /**
- * Why a day started isn't under way yet, under Start my day: the first time, until the lists and groups are saved.
- * Empty once they are, or when the day isn't started.
+ * Why a network's day started isn't under way yet (Facebook's when left out), under Start my day: the first time,
+ * until its lists are saved. Empty once they are, or when the day isn't started.
  */
-export function listsWaitWords(lists: ListsSaved | null | undefined, started: boolean): string {
-  if (!started || !lists || firstSaveDone(lists)) return '';
-  const left = LIST_SAVE_KEYS.filter((list) => lists[AT_KEY[list]] === null);
+export function listsWaitWords(
+  lists: ListsSaved | null | undefined,
+  started: boolean,
+  platform: Platform = 'facebook',
+): string {
+  if (!started || !lists || firstSaveDone(lists, platform)) return '';
+  const saves = LIST_SAVES_ON[platform];
+  const names = WAIT_NAMES_ON[platform];
+  const left = saves.filter((list) => lists[AT_KEY[list]] === null);
   const what =
-    left.length === LIST_SAVE_KEYS.length
-      ? 'your friends list, friend requests and groups'
-      : listed(left.map((list) => WAIT_NAMES[list]));
+    left.length === saves.length ? names.all : listed(left.map((list) => names.each[list]));
   return `It’s saving ${what} first, the first time only. Your day starts once they’re saved.`;
 }
 
@@ -166,12 +221,25 @@ export const PRE_DAY_WORDS: Readonly<Record<ListMark, string>> = {
   checks: 'Check your friends for good fits',
 };
 
+/** Each network's steps before its first day, in its own words. */
+export const PRE_DAY_WORDS_ON: Readonly<Record<Platform, Readonly<Record<ListMark, string>>>> = {
+  facebook: PRE_DAY_WORDS,
+  linkedin: {
+    ...PRE_DAY_WORDS,
+    friends: 'Save your connections',
+    requests: 'Save invitations you got',
+    sent: 'Save invitations you sent',
+    tidy: 'Work out which old invitations to withdraw',
+    checks: 'Check your connections for good fits',
+  },
+};
+
 /** The checklist's heading. */
 export const PRE_DAY_TITLE = 'Getting ready for your first day';
 
-/** Whether every step before the first day is done: the checklist goes once it is. */
-export const preDayDone = (lists: ListsSaved): boolean =>
-  LIST_MARK_KEYS.every((mark) => lists[AT_KEY[mark]] !== null);
+/** Whether every step before a network's first day is done: the checklist goes once it is. */
+export const preDayDone = (lists: ListsSaved, platform: Platform = 'facebook'): boolean =>
+  LIST_MARKS_ON[platform].every((mark) => lists[AT_KEY[mark]] !== null);
 
 export interface PreDayStep {
   readonly key: ListMark;
@@ -191,16 +259,20 @@ export interface PreDayStep {
 export function preDaySteps(
   lists: ListsSaved | null | undefined,
   now: { readonly doing?: ListMark | null; readonly line?: string | null } = {},
+  platform: Platform = 'facebook',
 ): PreDayStep[] {
-  if (!lists || preDayDone(lists)) return [];
+  if (!lists || preDayDone(lists, platform)) return [];
+  const marks = LIST_MARKS_ON[platform];
   const done = (mark: ListMark) => lists[AT_KEY[mark]] !== null;
   const current =
-    now.doing && !done(now.doing) ? now.doing : LIST_MARK_KEYS.find((mark) => !done(mark));
-  return LIST_MARK_KEYS.map((key) => {
+    now.doing && marks.includes(now.doing) && !done(now.doing)
+      ? now.doing
+      : marks.find((mark) => !done(mark));
+  return marks.map((key) => {
     const state = done(key) ? 'done' : key === current ? 'now' : 'next';
     return {
       key,
-      label: PRE_DAY_WORDS[key],
+      label: PRE_DAY_WORDS_ON[platform][key],
       state,
       progress: state === 'now' ? now.line?.trim() || null : null,
     };

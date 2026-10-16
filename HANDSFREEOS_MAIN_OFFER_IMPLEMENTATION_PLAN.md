@@ -353,8 +353,8 @@ offer, price) is its starting point.
 
 ## What this changes in Social Outreach's decisions
 
-New decisions, numbered from 62 in docs/outreach.md (the numbering there repeats 60 and 61; tidy that when these go
-in):
+New decisions, numbered from 62 in docs/outreach.md (the numbering there repeated 60 and 61; step 9 made the warning
+25, as the code calls it, and handing out the extension 71):
 
 - **62. The main offer comes first.** Social Outreach uses core's main offer; a playbook narrows its who.
 - **63. Ready before the first day.** The readiness check holds Start my day and everything Today would send.
@@ -392,12 +392,28 @@ Each step ships on its own, with its tests, and leaves the add-on working.
    `outreach.profile.check`, and the AI's verdict on each item, three bios, a cover line and what to feature, on the
    web's and the phone's Get ready (docs/outreach.md, decision 64). An item the AI says is right counts as done; the
    rest are ticked. Tuned from page outlines, and not yet tried on the owner's account.
-6. **The conversation.** The first message rewritten, the reply read (yes, question, later, no), Send the video, Send
-   the link, the follow-up sequence and the monthly check-in, `sends.offer_version`, the comment on their own post.
-7. **The short video.** The script and shot list, the link.
-8. **Tracking.** The numbers on Results, by playbook and version, the day's report, the week's review.
-9. **Docs.** `docs/main-offer.md` (new, with its rules worth knowing), docs/outreach.md (what's built, the
-   decisions, the rules), docs/addon-architecture.md (`uses`), and a row in CLAUDE.md's Read first table.
+6. **The conversation. Built.** The first message rewritten, the reply read (yes, question, later, no), Send the
+   video, Send the link, the follow-up sequence and the monthly check-in, `sends.offer_version`, the comment on their
+   own post (extension 0.33.0), from the boards in `design/conversation` (Chris approved them, 2026-10-15: "boards
+   look good"). Get ready's **Your messages** joined (five items), and the main offer's page shows how the live version
+   is doing, too new to judge before 100 first messages, through a panel slot core gained (`main_offer.panels`).
+   Data version 4 (the pace's follow-ups and the gaps between them, the video link). Each person's conversation is kept
+   in `addon_outreach.follow_ups` (migration `20261027006400`). docs/outreach.md, decisions 65 to 68. The playbook's
+   video link has no field until step 7, so a yes gets the link for now.
+7. **The short video. Built.** The script and shot list, the link, from the boards in `design/video` (Chris approved
+   them, 2026-10-15: "build it"). The AI writes six parts from the live main offer and the niche
+   (`outreach.video.script`), each part can be improved on its own, and the playbook keeps the script and the link
+   (data version 5). **Your messages** now waits on the playbook's video link, as the readiness table says. The
+   phone shows the script and changes the link. docs/outreach.md, decision 69.
+8. **Tracking. Built.** The three numbers on Results with their rates and the person's targets, by playbook and
+   version (`outreach.tracking`, counted through `private.outreach_numbers` so owners and admins see the team's yeses,
+   the main offer page's counts too), the day's report (`dayReport` in My settings, on to start), the week's review
+   (the AI's, or the numbers' own without it; kept in `addon_outreach.reviews` and pushed), and a push to whoever OK'd
+   their messages when a new main offer goes live, from the boards in `design/tracking` (Chris approved them,
+   2026-10-15: "build it"). Migration `20261027006600`. docs/outreach.md, decision 70.
+9. **Docs. Built.** `docs/main-offer.md` (what's built, how Social Outreach uses it, its rules worth knowing, what's
+   not yet), docs/outreach.md (what's built, decision 70's rules, the decisions numbered once each, what's not yet),
+   docs/addon-architecture.md (the rule for `uses`), the README's main offer section, and CLAUDE.md's Read first row.
 
 Steps 1 and 2 are core and come first. Steps 3 to 8 are the add-on's, in that order, because the readiness check
 needs the niche and the conversation needs the readiness check.

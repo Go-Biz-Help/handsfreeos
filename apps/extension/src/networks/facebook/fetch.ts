@@ -15,10 +15,11 @@ import { clean, isAfter, textPieces } from './dom';
 
 /**
  * What a step does: press a button, link or menu row; tick a box that isn't ticked, or untick one that is; pick one of
- * a few choices; or, when the page says one of the words, stop there, as there's nothing to do (a file already asked
- * for).
+ * a few choices; when the page says one of the words, stop there, as there's nothing to do (a file already asked
+ * for); or wait till the page says one of the words, while the network asks the person to type (LinkedIn's password
+ * after Request archive). The same steps serve LinkedIn's data file (../linkedin/data.ts).
  */
-export type FetchAction = 'press' | 'tick' | 'untick' | 'pick' | 'stopIf';
+export type FetchAction = 'press' | 'tick' | 'untick' | 'pick' | 'stopIf' | 'waitFor';
 
 export interface FetchStep {
   readonly action: FetchAction;
@@ -381,7 +382,7 @@ function candidatesFor(doc: Document, step: FetchStep): Element[] {
 
 /** The element a step would act on, or null when it isn't on the page. The likeliest words win. */
 export function findStep(doc: Document, step: FetchStep): Element | null {
-  if (step.action === 'stopIf') return null;
+  if (step.action === 'stopIf' || step.action === 'waitFor') return null;
   return candidatesFor(doc, step)[0] ?? null;
 }
 
@@ -414,7 +415,7 @@ export function waitingForPerson(doc: Document): boolean {
 }
 
 export type StepResult =
-  /** Pressed, ticked or picked. */
+  /** Pressed, ticked or picked; or, waiting for words, they're there. */
   | 'done'
   /** Ticked or picked already, so left as it was. */
   | 'already'
@@ -428,6 +429,8 @@ export type StepResult =
 /** Does one step on the page, when its button or box is there. */
 export function doStep(doc: Document, step: FetchStep): StepResult {
   if (step.action === 'stopIf') return says(doc, step.words) ? 'stop' : 'missing';
+  if (step.action === 'waitFor')
+    return says(doc, step.words) ? 'done' : waitingForPerson(doc) ? 'waiting' : 'missing';
   const found = candidatesFor(doc, step);
   const element = found[0];
   if (!element) return waitingForPerson(doc) ? 'waiting' : 'missing';
@@ -454,4 +457,41 @@ export function doPath(
     return { at: i };
   }
   return { result: waitingForPerson(doc) ? 'waiting' : 'missing' };
+}
+
+/** How often a step that isn't on the page yet is looked for again, while the network draws the next screen. */
+const LOOK_AGAIN_MS = 300;
+
+/** One step, or the furthest along a path, as the background asks a tab for it. */
+export type StepAsk =
+  | { readonly type: 'hfos-fetch-step'; readonly step: FetchStep; readonly waitMs: number }
+  | {
+      readonly type: 'hfos-fetch-path';
+      readonly steps: readonly FetchStep[];
+      readonly from: number;
+      readonly waitMs: number;
+    };
+
+/**
+ * A step done on the page, looked for again till it's there or `waitMs` is up, as the network draws the next screen:
+ * how it went, and along a path, the step it pressed. Each network's tab checks first it's on a page for it.
+ */
+export async function stepOnPage(
+  doc: Document,
+  ask: StepAsk,
+): Promise<{ readonly result: StepResult; readonly at?: number }> {
+  const until = Date.now() + ask.waitMs;
+  for (;;) {
+    let result: StepResult;
+    let at: number | undefined;
+    if (ask.type === 'hfos-fetch-step') result = doStep(doc, ask.step);
+    else {
+      const went = doPath(doc, ask.steps, ask.from);
+      result = 'at' in went ? 'done' : went.result;
+      at = 'at' in went ? went.at : undefined;
+    }
+    if (result === 'done' || result === 'already' || result === 'stop' || Date.now() >= until)
+      return { result, at };
+    await new Promise((done) => setTimeout(done, LOOK_AGAIN_MS));
+  }
 }

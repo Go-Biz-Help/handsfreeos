@@ -3,14 +3,14 @@
  *
  * - **Putting one up:** the one the person OK'd (an ask from HandsFreeOS, `post`), or, when they let it post on its
  *   own, today's draft (the runner, ../auto/run.ts). It opens the group, types the post into Facebook's box and
- *   presses Post (../facebook/compose.ts), then finds it at the top of the group's newest posts for its link, and
+ *   presses Post (../networks/facebook/compose.ts), then finds it at the top of the group's newest posts for its link, and
  *   notes how it went: up, waiting for the admins, or couldn't, with why. It stops on any Facebook warning.
  * - **Who engaged:** once a day, each post up in the last fortnight: it opens it (found by its first words when its
  *   link isn't known), reads who commented and who reacted, and sends them; each is a warm lead on Today.
  */
 import { HELPFUL_TEXT_MOST } from '@hfos/core/addons/outreach/helpful';
-import { line } from '../facebook/lookup';
-import type { ReadResult } from '../facebook/types';
+import { line } from '../networks/facebook/lookup';
+import type { ReadResult } from '../networks/facebook/types';
 import type { HelpfulNext } from '../hfos/messages';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
@@ -27,9 +27,14 @@ const plain = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
  * The post among those the page shows that starts the way this one does (Facebook may cut a long one short with See
- * more): its link.
+ * more, and LinkedIn with …more): its link. Any network's read.
  */
-export function foundPost(page: ReadResult, text: string): string | null {
+export function foundPost(
+  page: {
+    readonly posts?: readonly Pick<NonNullable<ReadResult['posts']>[number], 'text' | 'url'>[];
+  },
+  text: string,
+): string | null {
   const mine = plain(text).slice(0, 60);
   if (!mine) return null;
   return (
@@ -87,8 +92,12 @@ export async function postHelpful(job: Job, helpfulId: string | null): Promise<H
       warned: false,
     };
   const group = post.groupName ?? 'the group';
+  // Facebook's are each in a group; one on a feed of its own is its network's to post.
+  const groupUrl = post.groupUrl;
+  if (!groupUrl)
+    return { line: 'That helpful post goes on your own feed, not in a group.', warned: false };
   job.progress(`Putting your helpful post up in ${group}…`);
-  await job.tab.open(post.groupUrl);
+  await job.tab.open(groupUrl);
   const page = await readIn(job.tab);
   const warned = await warnedOn(job, page);
   if (warned) return warned;
@@ -114,7 +123,7 @@ export async function postHelpful(job: Job, helpfulId: string | null): Promise<H
   let url: string | null = null;
   if (result === 'done') {
     await pause(SETTLE_MS);
-    await job.tab.open(newestUrl(post.groupUrl));
+    await job.tab.open(newestUrl(groupUrl));
     const after = await readIn(job.tab);
     const warnedAfter = await warnedOn(job, after);
     if (warnedAfter) {
@@ -146,6 +155,7 @@ export async function readEngaged(job: Job): Promise<JobEnd> {
     job.progress(`Reading who engaged with your post in ${p.groupName ?? 'a group'}…`);
     let url = p.postUrl;
     if (!url) {
+      if (!p.groupUrl) continue;
       await job.tab.open(newestUrl(p.groupUrl));
       const feed = await readIn(job.tab);
       const warned = await warnedOn(job, feed);

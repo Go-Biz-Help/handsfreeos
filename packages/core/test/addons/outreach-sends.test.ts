@@ -220,7 +220,9 @@ describe('messages on their own', () => {
       'opener',
       'reconnect',
       'pitch',
+      'video',
       'follow_up',
+      'check_in',
       'reply',
     ]);
     expect((await openerOf('Dana Cole')).send).toBeNull();

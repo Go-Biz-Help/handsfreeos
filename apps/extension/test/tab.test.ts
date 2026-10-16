@@ -1,10 +1,10 @@
 /**
- * The extension's own tab goes only to Facebook's pages (src/tab.ts, src/facebook/urls.ts): https, on
+ * The extension's own tab goes only to Facebook's pages (src/tab.ts, src/networks/facebook/urls.ts): https, on
  * www.facebook.com, web.facebook.com or accountscenter.facebook.com. A bad link kept in HandsFreeOS or read off a page
  * is refused with plain words, and Chrome is never asked to open it.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { workUrl } from '../src/facebook/urls';
+import { workUrl } from '../src/networks/facebook/urls';
 import { WorkTab } from '../src/tab';
 
 const opened: string[] = [];

@@ -1,8 +1,8 @@
-import { AUTOMATION_DEFAULTS, type AutomationOutput } from '@hfos/core/addons/outreach/automation';
 import type { LiveOutput, LiveTeamOutput } from '@hfos/core/addons/outreach/live';
 import type { HelpfulListOutput } from '@hfos/core/addons/outreach/helpful';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
+import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -16,14 +16,14 @@ import { LiveBody, pressShown } from '../live';
 import { OutreachMoreRow } from '../more';
 import { isSetUp, WebOnlyBody } from '../page';
 import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
-import { businessDraftOf, SettingsBody } from '../settings';
 import { TodayBody } from '../today';
-import { id, ME, TZ, WS } from './mocks';
+import { id, TZ, WS } from './mocks';
 
 /**
  * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
  * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
- * asking for what the business offers first, the settings, and a playbook changed a part at a time on what's there now.
+ * asking for what the business offers first, and a playbook changed a part at a time on what's there now. Settings
+ * have their own file (./settings.test.tsx).
  */
 
 jest.mock('expo-router', () => ({
@@ -159,6 +159,7 @@ const post = (n: number, name: string, asking: boolean): TodayItem => ({
   nextStep: null,
   playbookName: null,
   demoLink: null,
+  videoLink: null,
   send: null,
   personId: null,
   demoBooked: false,
@@ -177,6 +178,7 @@ describe('Today on the phone', () => {
       sending: 'off',
       wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
       ready: true,
+      week: null,
     };
     await render(
       <TodayBody
@@ -211,6 +213,7 @@ describe('Today on the phone', () => {
       sending: 'off',
       wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
       ready: true,
+      week: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -261,6 +264,75 @@ describe('Today on the phone', () => {
     expect(actions.ok).toHaveBeenCalledWith(id(60));
     await fireEvent.press(screen.getByTestId('today-helpful-skip'));
     expect(actions.skip).toHaveBeenCalledWith(id(60));
+  });
+
+  it('puts LinkedIn’s helpful post on the person’s own feed, to copy and post there', async () => {
+    const actions = { write: jest.fn(), ok: jest.fn(), posted: jest.fn(), skip: jest.fn() };
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+    };
+    const helpful: HelpfulListOutput = {
+      posts: [
+        {
+          helpfulId: id(70),
+          platform: 'linkedin',
+          groupId: null,
+          groupName: null,
+          groupUrl: null,
+          playbookName: 'CRM demos',
+          state: 'draft',
+          how: 'copy',
+          topic: 'Following up on quotes',
+          text: 'I follow up on every quote two days later.',
+          postUrl: null,
+          whyNot: null,
+          askedAt: new Date(NOW).toISOString(),
+          postedAt: null,
+          comments: 0,
+          reactions: 0,
+        },
+      ],
+      today: 1,
+      perDay: 1,
+      posting: 'copy',
+    };
+    await render(
+      <TodayBody
+        platform="linkedin"
+        today={today}
+        helpful={helpful}
+        onHelpful={actions}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const part = screen.getByTestId('today-helpful');
+    expect(within(part).getByText('One helpful post a day, on your own feed.')).toBeTruthy();
+    expect(within(part).getByText('Your LinkedIn feed · Following up on quotes')).toBeTruthy();
+    expect(
+      within(part).getByText(
+        'Copy it, post it on your LinkedIn feed yourself, then press I posted it.',
+      ),
+    ).toBeTruthy();
+    expect(within(part).getByTestId('today-helpful-open')).toHaveTextContent('Open LinkedIn');
+    expect(within(part).queryByText(/group/i)).toBeNull();
+    await fireEvent.press(screen.getByTestId('today-helpful-posted'));
+    expect(actions.posted).toHaveBeenCalledWith(id(70));
   });
 });
 
@@ -537,145 +609,6 @@ describe('The live view on the phone', () => {
   });
 });
 
-const AUTOMATION: AutomationOutput = {
-  settings: AUTOMATION_DEFAULTS,
-  timezone: TZ,
-  startedAt: null,
-  saved: false,
-  wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
-  userId: ME,
-  name: 'Dana Reyes',
-  changedBy: null,
-  rules: {
-    sendingAllowed: ['off', 'steps'],
-    repliesAllowed: ['draft'],
-    postingAllowed: ['copy'],
-    dailyLimits: {},
-  },
-};
-
-describe('Social Outreach’s settings on the phone', () => {
-  const props = () => ({
-    error: null,
-    mine: true,
-    people: null,
-    business: null,
-    manages: false,
-    online: true,
-    onRetry: jest.fn(),
-    onWhose: jest.fn(),
-    onSaveMine: jest.fn(async () => null),
-    onSaveBusiness: jest.fn(async () => null),
-  });
-
-  it('saves the person’s own choices, only those the business allows', async () => {
-    const p = props();
-    await render(<SettingsBody automation={AUTOMATION} {...p} />);
-    expect(screen.getByText('My settings')).toBeTruthy();
-    expect(screen.queryByTestId('settings-my-sending-everything')).toBeNull();
-    expect(screen.getByText(/Your business doesn’t allow:/)).toBeTruthy();
-    expect(screen.getByText(/An owner or admin of this business sets the choices/)).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('settings-my-sending-steps'));
-    await fireEvent.press(screen.getByTestId('settings-my-pushes-each'));
-    await fireEvent.press(screen.getByTestId('settings-my-start-up'));
-    await fireEvent.press(screen.getByTestId('settings-my-save'));
-    expect(p.onSaveMine).toHaveBeenCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      sending: 'steps',
-      pushes: 'each',
-      hours: { ...AUTOMATION_DEFAULTS.hours, start: 10 },
-    });
-  });
-
-  it('lets owners and admins pick whose, and set the business’s', async () => {
-    const p = props();
-    const business = { contactsFromChats: 'tagged', weeklyReport: true };
-    await render(
-      <SettingsBody
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={business}
-        people={{
-          people: [
-            {
-              userId: ME,
-              name: 'Dana Reyes',
-              saved: false,
-              sending: 'off',
-              replies: 'draft',
-              wheels: false,
-            },
-            {
-              userId: id(7),
-              name: 'Riley Member',
-              saved: true,
-              sending: 'steps',
-              replies: 'draft',
-              wheels: true,
-            },
-          ],
-        }}
-      />,
-    );
-    expect(screen.getByText('Dana Reyes (not set yet)')).toBeTruthy();
-    await fireEvent.press(screen.getAllByTestId('settings-for-person')[1]!);
-    expect(p.onWhose).toHaveBeenCalledWith(id(7));
-    await fireEvent.press(screen.getByTestId('settings-contacts-everyone'));
-    await fireEvent.press(screen.getByTestId('settings-weekly'));
-    await fireEvent.press(screen.getByTestId('settings-morning-down'));
-    await fireEvent.press(screen.getByTestId('settings-business-save'));
-    expect(p.onSaveBusiness).toHaveBeenCalledWith({
-      ...businessDraftOf(business),
-      contactsFromChats: 'everyone',
-      weeklyReport: false,
-      morningPushHour: 7,
-    });
-  });
-
-  it('sets where the team gets the extension, checked as the save checks it', async () => {
-    const p = props();
-    await render(
-      <SettingsBody
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={{ contactsFromChats: 'tagged', extensionLink: 'http://old.example.test/x.zip' }}
-      />,
-    );
-    expect(screen.getByText('Where your team gets the extension')).toBeTruthy();
-    // A stored link that stopped passing reads as none.
-    expect(screen.getByTestId('settings-extension-link-input').props.value).toBe('');
-    await fireEvent.changeText(
-      screen.getByTestId('settings-extension-link-input'),
-      'http://files.example.test/social.zip',
-    );
-    await fireEvent.press(screen.getByTestId('settings-extension-link-save'));
-    expect(
-      screen.getByText(
-        'That isn’t a whole link starting https://. Paste the https link to the extension’s zip.',
-      ),
-    ).toBeTruthy();
-    expect(p.onSaveBusiness).not.toHaveBeenCalled();
-    await fireEvent.changeText(
-      screen.getByTestId('settings-extension-link-input'),
-      ' https://files.example.test/social.zip ',
-    );
-    await fireEvent.press(screen.getByTestId('settings-extension-link-save'));
-    expect(p.onSaveBusiness).toHaveBeenCalledWith(
-      { extensionLink: 'https://files.example.test/social.zip' },
-      'Saved. Everyone’s setup shows the link.',
-    );
-  });
-
-  it('can’t save with no signal', async () => {
-    await render(<SettingsBody automation={AUTOMATION} {...props()} online={false} />);
-    expect(
-      screen.getByText('Settings needs signal. Try again when you’re back online.'),
-    ).toBeTruthy();
-  });
-});
-
 const PLAYBOOK: Playbook = {
   id: id(30),
   name: 'Bakery owners',
@@ -717,6 +650,24 @@ describe('A playbook on the phone', () => {
     expect(sectionWords(PLAYBOOK.details, 'offer')).toBe('A 20-minute demo');
     expect(sectionWords(PLAYBOOK.details, 'signs')).toBe('Nothing yet.');
     expect(sectionWords(PLAYBOOK.details, 'goal')).toBe('Book a demo');
+    // The short video: its link, and the script written on the computer, part by part.
+    expect(sectionWords(PLAYBOOK.details, 'video')).toBe(
+      'No video yet\n\nWrite the script on your computer, under Playbooks in HandsFreeOS.',
+    );
+    const scripted = sectionWords(
+      {
+        ...PLAYBOOK.details,
+        videoLink: 'https://www.loom.com/share/abc123',
+        videoScript: {
+          parts: VIDEO_PART_KEYS.map((part) => ({ part, say: `Say ${part}.`, show: 'You' })),
+          at: '2026-10-15T09:00:00.000Z',
+          version: 1,
+        },
+      },
+      'video',
+    );
+    expect(scripted).toContain('https://www.loom.com/share/abc123');
+    expect(scripted).toContain('1 · Who it’s for, and the problem\nSay who.\nShow: You');
   });
 
   it('lets owners and admins change a part, and says what’s wrong when it can’t be saved', async () => {
