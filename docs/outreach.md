@@ -1241,7 +1241,8 @@ code" (decision 45's install step). Settled too:
   network can be asked (`ASK_KINDS_ON`; LinkedIn's: its invitations and connections, checks, chats, a look-up,
   research, the profile, withdrawing old invitations, post search and a post), only while the person works it, named
   by its network in its target (`askTargetOn`) so it never answers another's, ended at the take by that network's
-  warning alone, and never handed to a build older than the network's first (`ASK_NETWORK_SINCE`, LinkedIn 0.40.0);
+  warning alone, and never handed to a build older than the network's first (`ASK_NETWORK_SINCE`, LinkedIn 0.40.0)
+  or than the kind's first there (`ASK_KIND_SINCE_ON`: LinkedIn's file 0.42.0, its helpful post 0.43.0);
   the take says the ask's network. The lists saved before the first day are each network's (`outreach.lists` and
   `outreach.lists.saved` take `platform`; other networks' in `list_saves.network_saves`): LinkedIn's first day saves
   connections and invitations either way, then works out old invitations to withdraw and checks connections, with no
@@ -1318,13 +1319,19 @@ code" (decision 45's install step). Settled too:
   `platform: 'linkedin'` takes no group (`helpful.platform`, a null `group_id` there only, 20261027007500), one a day
   on each network, each network's posting choice; its AI (`LINKEDIN_HELPFUL_SYSTEM`) writes for their connections and
   followers from what the posts their search found asked. `outreach.helpful` and `outreach.helpful.next` take the
-  network, and whoever engages with it is a warm lead on that network's Today.
+  network, and whoever engages with it is a warm lead on that network's Today. The extension (0.43.0) puts it up on
+  the person's feed (Start a post, the box's own Post), notes its link, and reads who commented and reacted once a
+  day; on its own when LinkedIn's posting choice is `own`.
 - **LinkedIn's data file** ("Get a copy of your data"; `linkedin-export.ts`, no zod, read in the browser as
   Facebook's file is): `readLinkedInExport` reads Connections.csv (each connection's profile address and since when),
   Invitations.csv (either way, with the other person's profile), messages.csv (one-to-one conversations only, no spam,
   their latest few messages) and Profile.csv (the person's own name), each column found by its name in the header
   row past LinkedIn's notes. LinkedIn can be asked for it, to download it and to bring it in (`file_request`,
-  `file_download`, `file_in` in `ASK_KINDS_ON.linkedin`); it has no chat backup.
+  `file_download`, `file_in` in `ASK_KINDS_ON.linkedin`); it has no chat backup. The extension (0.42.0) asks for it
+  on that page in a tab the person can see (they type their password), and brings it in: connections through
+  `outreach.friends.save` as the friends list, the invitations still waiting as requests and sent ones, each with
+  `since` (when the file says it began, so an old invitation is old at once), then the chats through
+  `outreach.download.save` as LinkedIn's, matched by name.
 - **The AI hears each network's words.** A draft, a chat read, a check, a like and a post check are told the network
   they're on (`todayDraftSystem`, `chatReadSystem`, `checkSystem`, `likePickSystem`, `postCheckSystem`, each taking
   a `platform`; the worker passes the profile's or the chat's). `inNetworkWords` puts the add-on's own Facebook

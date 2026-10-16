@@ -103,6 +103,15 @@ export type GroupPostAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * LinkedIn's helpful post, put up on the person's own feed (src/networks/linkedin/compose.ts): how it went, and its
+ * link once LinkedIn shows it. Who engaged is read with `hfos-engaged`, as on Facebook.
+ */
+export type FeedPostAsk = { readonly type: 'hfos-feed-post'; readonly text: string };
+export type FeedPostAnswer =
+  | { readonly ok: true; readonly result: PostResult; readonly url: string | null }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
  * LinkedIn is their headline (src/networks/facebook/own-profile.ts, src/networks/linkedin/own-profile.ts).
  */

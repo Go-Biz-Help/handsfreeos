@@ -11,7 +11,10 @@
  *   saved to their end, the old invitations to withdraw worked out and the connections checked once (./lists.ts);
  *   after that the invitations each morning and the connections weekly.
  * - **Once a day,** as the person's LinkedIn choices say (`collect`): the invitations, the connections checked for good
- *   fits (40 profiles a day: each is seen), their chats read for the AI, and posts found with LinkedIn's post search.
+ *   fits (40 profiles a day: each is seen), their chats read for the AI, posts found with LinkedIn's post search, and
+ *   today's helpful post asked for (for their own feed) with who engaged with those up lately read.
+ * - **Today's helpful post,** when their LinkedIn posting choice lets it post on its own (`posting: 'own'`): put up on
+ *   their own feed once the AI has written it (../jobs/linkedin/helpful.ts).
  * - **Then LinkedIn's list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own
  *   (`auto`): a look at their profile and a like on a post of theirs (warm-up), an invitation to connect without a
  *   note (Chris), a comment in the post's own box, and the messages: drafted after a look-up, and sent once OK'd, in
@@ -43,6 +46,7 @@ import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { checkConnections, isThem } from '../jobs/linkedin/checks';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
+import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
 import { checkInvitations } from '../jobs/linkedin/people';
 import { findPostsBySearch } from '../jobs/linkedin/posts';
 import { LINKEDIN, readLinkedIn } from '../jobs/linkedin/read';
@@ -63,6 +67,8 @@ import {
 import {
   freshState,
   gapAfter,
+  HELPFUL_AGAIN_MS,
+  helpfulDue,
   isState,
   LINKEDIN_STATE_KEY,
   needOf,
@@ -89,6 +95,7 @@ export const LINKEDIN_DAILY = [
   'checks',
   'chats',
   'posts',
+  'helpful',
 ] as const satisfies readonly DailyJob[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
 
@@ -97,12 +104,14 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
   posts: 'Finding posts with LinkedIn’s post search…',
+  helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Invitations',
   checks: 'Check my connections',
   chats: 'Read my chats',
   posts: 'Find posts',
+  helpful: 'Helpful posts',
 };
 
 /** LinkedIn's pace between steps: slower than Facebook's, a person's. */
@@ -689,6 +698,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       ).words;
       return findPostsBySearch(job, words);
     }
+    case 'helpful':
+      return linkedInHelpfulDaily(job);
   }
 }
 
@@ -811,6 +822,29 @@ async function go(): Promise<void> {
     return soon();
   }
 
+  // Today's helpful post, when the person lets it post on its own on LinkedIn: once the AI has written it.
+  if (
+    choices.posting === 'own' &&
+    (!choices.collect || state.daily?.helpful !== undefined) &&
+    helpfulDue(state, at)
+  ) {
+    const end = await inTurn('runner', () => postOwn(to.businessId), PLATFORM);
+    // Up, or it couldn't go: done for today. None written yet: it looks again in a while.
+    const settled = end.posted === true || end.failed === true;
+    await setState({ helpfulUp: settled, helpfulAt: Date.now() + HELPFUL_AGAIN_MS });
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(null);
+    }
+    if (settled) {
+      const line = `Helpful post: ${end.line}`;
+      await say(line);
+      void feed(end.posted ? 'done' : 'passed', `${NAME}: ${line}`);
+      return soon();
+    }
+  }
+
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', {
       body: { workspaceId: to.businessId, platform: PLATFORM },
@@ -921,6 +955,19 @@ async function collect(kind: LinkedInDaily, businessId: string): Promise<JobEnd>
   const state = await stateNow();
   await setState({ daily: { ...state.daily, [kind]: end.line } });
   return end;
+}
+
+/** Puts up today's helpful post on the person's feed, on its own. */
+async function postOwn(businessId: string): ReturnType<typeof postOnLinkedIn> {
+  await say('Looking for today’s helpful post…', { working: true });
+  try {
+    return await postOnLinkedIn(jobFor(businessId), null);
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    return { line: error instanceof Error ? error.message : String(error), warned: false };
+  } finally {
+    await setState({ working: false, tabId: tab.tabId });
+  }
 }
 
 /** The alarm went off, or LinkedIn's day changed: one go, never two at once. */

@@ -27,6 +27,11 @@ const PAGES = [
   ['linkedin-withdraw-invitation.html', `${LI}/mynetwork/invitation-manager/sent/`],
   ['linkedin-company.html', `${LI}/company/acme-plumbing-atx/about/`],
   ['linkedin-activity.html', `${LI}/in/dana-reyes-4b2a1c/recent-activity/all/`],
+  ['linkedin-own-post.html', `${LI}/feed/update/urn:li:activity:7380000000000000500/`],
+  ['linkedin-share-box.html', `${LI}/feed/`],
+  ['linkedin-reactions.html', `${LI}/feed/update/urn:li:activity:7380000000000000500/`],
+  ['linkedin-data.html', `${LI}/mypreferences/d/download-my-data`],
+  ['linkedin-data-ready.html', `${LI}/mypreferences/d/download-my-data`],
 ] as const;
 
 const outlines = Object.fromEntries(
@@ -77,6 +82,14 @@ describe('the outline of a LinkedIn page', () => {
     expect(outlines['linkedin-invite-box.html']).toContain('"Add a note to your invitation?"');
   });
 
+  it('keeps LinkedIn’s words on Get a copy of your data, so a step it couldn’t find can be named', () => {
+    const data = outlines['linkedin-data.html']!;
+    for (const words of ['Request archive', 'Connections', 'Invitations', 'Messages'])
+      expect(data).toContain(words);
+    expect(data).toContain('Page: other /mypreferences/d/download-my-data');
+    expect(outlines['linkedin-data-ready.html']).toContain('Download archive');
+  });
+
   it('leaves out the top bar, which is about the person', () => {
     expect(outlines['linkedin-feed.html']).toContain("(LinkedIn's top bar, left out)");
   });
@@ -114,6 +127,11 @@ describe('the outline of a LinkedIn page', () => {
         'sam-lee',
         '7380000000000000101',
         'plumber',
+        'Riley',
+        'shut-off',
+        'Lee Heating',
+        'chris-gee',
+        '7380000000000000500',
       ])
         expect(outline, `${name}: ${secret}`).not.toContain(secret);
   });

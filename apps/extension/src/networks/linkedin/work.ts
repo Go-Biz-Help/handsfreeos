@@ -8,6 +8,7 @@
  * - Their own profile read for the AI's check, and the headline they picked put in (./own-profile.ts).
  * - On Sent invitations, the one to a member they ticked withdrawn (./withdraw.ts).
  * - On Get a copy of your data alone, the steps that ask for their archive and download it (./data.ts).
+ * - Their helpful post put up on their own feed, and who engaged with one of theirs read (./compose.ts).
  * - Once the person lets LinkedIn's runner work on its own (src/auto/linkedin.ts), on the pages of people on their
  *   list for today: their posts read and one liked, Connect without a note, the comment the AI drafted, and the
  *   messages they OK'd (./auto.ts).
@@ -20,8 +21,12 @@ import type {
   BrowseAnswer,
   ConnectAsk,
   BrowseAsk,
+  FeedPostAnswer,
+  FeedPostAsk,
   FetchAnswer,
   FetchAsk,
+  GroupPostAnswer,
+  GroupPostAsk,
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
@@ -39,6 +44,7 @@ import {
 } from './auto';
 import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
+import { readComments, readReactions, writeFeedPost } from './compose';
 import { dataPage } from './data';
 import { readOwnProfile, writeHeadline } from './own-profile';
 import { classifyUrl } from './urls';
@@ -60,6 +66,8 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-open-message',
   'hfos-fetch-step',
   'hfos-fetch-path',
+  'hfos-feed-post',
+  'hfos-engaged',
 ]);
 
 type WorkAsk =
@@ -69,7 +77,9 @@ type WorkAsk =
   | AutoAsk
   | ConnectAsk
   | OpenMessageAsk
-  | FetchAsk;
+  | FetchAsk
+  | FeedPostAsk
+  | Extract<GroupPostAsk, { type: 'hfos-engaged' }>;
 
 /** Whether the tab shows a profile: the person's own, after linkedin.com/in/me/ took it there. */
 const onProfile = (href: string) => {
@@ -97,6 +107,23 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
   if (!dataPage(location.href))
     return { ok: false, error: 'LinkedIn didn’t open its Get a copy of your data page.' };
   return { ok: true, ...(await stepOnPage(document, ask)) };
+}
+
+/** The helpful post (./compose.ts): put up on the feed, or who engaged read on the post's own page. */
+async function postStep(
+  ask: FeedPostAsk | Extract<GroupPostAsk, { type: 'hfos-engaged' }>,
+): Promise<FeedPostAnswer | GroupPostAnswer> {
+  const kind = classifyUrl(location.href).kind;
+  if (ask.type === 'hfos-feed-post') {
+    if (kind !== 'feed') return { ok: false, error: 'LinkedIn didn’t open your feed.' };
+    return { ok: true, ...(await writeFeedPost(document, location.href, ask.text)) };
+  }
+  if (kind !== 'post') return { ok: false, error: 'LinkedIn didn’t open the post.' };
+  return {
+    ok: true,
+    comments: readComments(document, location.href),
+    reactions: await readReactions(document, location.href),
+  };
 }
 
 /** The runner's steps (./auto.ts), each only on its own kind of page. */
@@ -163,5 +190,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':
       return fetchStep(known);
+    case 'hfos-feed-post':
+    case 'hfos-engaged':
+      return postStep(known);
   }
 }

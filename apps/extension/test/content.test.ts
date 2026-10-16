@@ -108,6 +108,11 @@ describe('a tab’s script, by its network', () => {
         waitMs: 0,
       }),
     ).toEqual({ ok: false, error: 'LinkedIn didn’t open its Get a copy of your data page.' });
+    // Who engaged, only on a post's own page.
+    expect(await page.ask({ type: 'hfos-engaged' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open the post.',
+    });
     // LinkedIn's runner's own steps, each only on its own page.
     expect(await page.ask({ type: 'hfos-like-post', index: 0, url: null })).toEqual({
       ok: false,
@@ -143,6 +148,14 @@ describe('a tab’s script, by its network', () => {
     expect(
       await page.ask({ type: 'hfos-open-chat', threadId: '2-MadeUpThreadDana0001==' }),
     ).toEqual({ ok: false });
+  });
+
+  it('puts a helpful post up only on LinkedIn’s feed', async () => {
+    const page = await tab('linkedin-own-profile.html', 'https://www.linkedin.com/in/me/', on);
+    expect(await page.ask({ type: 'hfos-feed-post', text: 'Hi' })).toEqual({
+      ok: false,
+      error: 'LinkedIn didn’t open your feed.',
+    });
   });
 
   it('on LinkedIn’s Get a copy of your data: does the file’s steps there', async () => {

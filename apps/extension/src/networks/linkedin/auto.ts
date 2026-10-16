@@ -52,10 +52,11 @@ const REPLY_BOX = /^(add a reply|reply to\b|write a reply)/i;
 const WAIT_MS = 8_000;
 const LOOK_MS = 300;
 
-const says = (control: Element, pattern: RegExp) => wordsOf(control).some((w) => pattern.test(w));
+export const says = (control: Element, pattern: RegExp) =>
+  wordsOf(control).some((w) => pattern.test(w));
 
 /** Looks for something until it shows or `ms` is up. */
-async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
+export async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
   for (let waited = 0; waited <= ms; waited += LOOK_MS) {
     const found = find();
     if (found) return found;
@@ -65,7 +66,7 @@ async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null>
 }
 
 /** Whether something in a post is in one of its comments (or a preview), not the post itself. */
-function inNested(element: Element, post: Element): boolean {
+export function inNested(element: Element, post: Element): boolean {
   const own = postIn(post);
   const nested = element.closest(NESTED);
   return nested !== null && nested !== own && nested !== post && post.contains(nested);

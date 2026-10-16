@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.42.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
+**This is a test build (0.43.0), and a bare one** (decisions 43 and 59 in docs/outreach.md). Everything is set and
 started in HandsFreeOS; the extension does the work on Facebook. Its side panel keeps only signing in, what it does
 next with today's steps and **Start my day** and **Stop for today**, **Needs you**, what it did today, and a link to
 HandsFreeOS.
@@ -28,7 +28,9 @@ your connections for good fits, reading your chats, looking someone up before dr
 putting your headline in, withdrawing the old invitations you tick, and finding posts with LinkedIn's post search.
 Since 0.41.0, once you let it and start your day on LinkedIn, it works your LinkedIn list on its own too, beside
 Facebook's and never waiting on it (below, "On its own on LinkedIn"). Since 0.42.0 it gets LinkedIn's copy of your
-data (your connections, invitations and messages) and brings it in, as it does Facebook's file.
+data (your connections, invitations and messages) and brings it in, as it does Facebook's file. Since 0.43.0 it
+puts your helpful post up on your own LinkedIn feed, once you OK it or on its own if you let it, and reads who
+engaged with it.
 
 ## The networks
 
@@ -316,7 +318,7 @@ and nothing to get around LinkedIn's limits or checks (`src/jobs/linkedin/`, `sr
 | Put this one in (`profile_edit`)           | Presses the pencil by your name (**Edit intro**), types only into **Headline** in the box it opens, presses that box's **Save**, and checks the headline under your name; anything it doesn't expect it hands to you, never guessing                                                                                                                       | A window of its own, brought to the front if it hands the step over                         |
 | Withdraw the ticked invitations (`cancel`) | On Sent invitations, finds each one you ticked by the link to their profile, scrolling for it, presses **Withdraw** and the box's **Withdraw**, checks the row is gone, and notes it; one not on the list, read to its end, answered already (`withdraw.ts`)                                                                                               | A tab you can see (decision 17), one every 20 to 40 seconds, up to LinkedIn's 20 a day      |
 | Find posts (`posts`)                       | LinkedIn's post search, latest first, with your playbooks' words (HandsFreeOS picks them: the quoted words in their signs, then their words for groups), a few screens each; posts by people go to the AI, in no group (`posts.ts`)                                                                                                                        | A window of its own, 6 to 12 seconds a screen, 3 screens a search                           |
-| Put up your helpful post (`post`)          | Not yet (the plan's part 6): it ends at once saying to post it yourself, and opens nothing                                                                                                                                                                                                                                                                 |                                                                                             |
+| Put up your helpful post (`post`, 0.43.0)  | The one you OK'd, on your own feed: opens it, presses **Start a post**, types the post into the box LinkedIn opens, presses that box's **Post**, takes its link from LinkedIn's **View post** (else finds it among your own posts by its words), and notes it as LinkedIn's (`helpful.ts`, `src/networks/linkedin/compose.ts`)                             | A window of its own, one post                                                               |
 | Ask for my file (`file_request`, 0.42.0)   | On LinkedIn's **Get a copy of your data** (Settings, Data privacy): picks **Want something in particular?**, ticks Connections, Invitations, Messages and Profile, presses **Request archive**, and waits while you type your password till LinkedIn says it's preparing it; stops if it's making one already (`file.ts`, `src/networks/linkedin/data.ts`) | A tab you can see; you type your password there                                             |
 | Download my file (`file_download`)         | Once LinkedIn has emailed you, presses **Download archive** on the same page and waits for Chrome to start the download (and for your password, if LinkedIn asks); if nothing starts, it hands the step to you                                                                                                                                             | The same                                                                                    |
 | Bring it in (`file_in`)                    | Finds LinkedIn's zip in Chrome's downloads however it was downloaded, reads it (core's `readLinkedInExport`) and saves your connections as your friends list, the invitations still waiting both ways, each since when the file says, then each one-to-one chat's latest 20 messages, matched by name (`outreach.download.save`, chats only)               | The offscreen page; needs **Allow access to file URLs**; doesn't open LinkedIn              |
@@ -434,8 +436,12 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   once (`src/auto/lists.ts`, `outreach.lists` with `platform: 'linkedin'`); then the invitations each morning and the
   connections weekly.
 - **Once a day,** with **Once a day** on for LinkedIn: your invitations, your connections checked (40 profiles a day:
-  each look is seen), your chats read for the AI (60 a day), and posts found with LinkedIn's post search, with your
-  playbooks' words (`outreach.posts.words`).
+  each look is seen), your chats read for the AI (60 a day), posts found with LinkedIn's post search, with your
+  playbooks' words (`outreach.posts.words`), and, last, today's helpful post for your feed asked for
+  (`outreach.helpful.ask` with `platform: 'linkedin'`) and who commented on or reacted to those up in the last
+  fortnight read (each a warm lead on LinkedIn's Today, `outreach.helpful.engaged`).
+- **Today's helpful post,** when your LinkedIn posting choice is **On its own**: put up on your own feed once the AI
+  has written it, as an OK'd one is (`src/jobs/linkedin/helpful.ts`).
 - **Your LinkedIn list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own:
   a look at their profile and a like on the first post of theirs nothing rules out (never one about grief, illness or
   trouble; one liked already counts), a day before the invitation; an invitation to connect **without a note**
@@ -616,7 +622,10 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   made-up pages, as written and with bare boxes. On its own (`src/networks/linkedin/auto.ts`), it presses Like only on
   a post they wrote, never a comment's; Connect and **Send without a note**, never typing a note; a comment only in the
   post's own box, never a reply's; and a message only in the box of the conversation with them, never one with writing
-  in it. `test/linkedin-auto.test.ts` walks each, both ways. For your file, on Get a copy of your data alone
+  in it. `test/linkedin-auto.test.ts` walks each, both ways. Your helpful post it types only into the box **Start a
+  post** opens, while it's empty, and puts up with that box's own **Post**; who engaged it reads from your post and
+  the box its reactions count opens, which it closes (`src/networks/linkedin/compose.ts`,
+  `test/linkedin-helpful.test.ts`). For your file, on Get a copy of your data alone
   (`dataPage`), it picks the data files, ticks only Connections, Invitations, Messages and Profile, and presses
   **Request archive** or **Download archive**; the password it leaves to you. `test/linkedin-file.test.ts` walks each,
   both ways.
@@ -749,7 +758,7 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 ## Next
 
 LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): its asks are in (0.40.0), what it does
-on its own there (0.41.0), and getting and bringing in its file (0.42.0); next, growing, with the helpful post on your
-own feed (part 6). Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
+on its own there (0.41.0), getting and bringing in its file (0.42.0), and growing, with the helpful post on your own
+feed (0.43.0). Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
 of decisions 26 to 35); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.

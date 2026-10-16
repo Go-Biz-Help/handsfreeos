@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  An approximation of the box LinkedIn opens over the feed when you press Start a post, as it draws it in 2026, written
+  by hand: not a saved LinkedIn page, and nobody real. A dialog outside the page's main column: who posts and to whom
+  (Post to Anyone), the box to write in, LinkedIn's tools under it (Schedule post among them), and Post, turned off
+  till there's writing in the box.
+-->
+<html lang="en">
+  <head>
+    <title>Feed | LinkedIn</title>
+  </head>
+  <body>
+    <div class="_mo0" id="modal-outlet">
+      <div role="dialog" aria-labelledby="share-title" class="_dl1">
+        <div class="_dh">
+          <img alt="Chris Gee" src="me.jpg" />
+          <h2 id="share-title"><span>Chris Gee</span></h2>
+          <button type="button" aria-label="Post to Anyone"><span>Post to Anyone</span></button>
+          <button type="button" aria-label="Dismiss"><svg aria-hidden="true"></svg></button>
+        </div>
+        <div class="_ed">
+          <div
+            role="textbox"
+            contenteditable="true"
+            aria-label="Text editor for creating content"
+            aria-placeholder="What do you want to talk about?"
+            aria-multiline="true"
+          >
+            <p><br /></p>
+          </div>
+        </div>
+        <div class="_tl">
+          <button type="button" aria-label="Add media"><svg aria-hidden="true"></svg></button>
+          <button type="button" aria-label="Create an event"><svg aria-hidden="true"></svg></button>
+          <button type="button" aria-label="Schedule post"><svg aria-hidden="true"></svg></button>
+          <button type="button" class="_pb" id="share-post" disabled><span>Post</span></button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

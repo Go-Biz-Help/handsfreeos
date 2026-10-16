@@ -206,7 +206,9 @@ export function classifyUrl(href: string): PageAddress {
     return post ? { kind: 'post', ...none, post } : { kind: 'other', ...none };
   }
   if (first === 'in' && second) {
-    if (second === 'me') return { kind: 'own-profile', ...none };
+    // Their own: linkedin.com/in/me/ takes them to their profile; its recent-activity lists their own posts.
+    if (second === 'me')
+      return { kind: third === 'recent-activity' ? 'activity' : 'own-profile', ...none };
     const profile = profilePageOf(url);
     if (!profile) return { kind: 'other', ...none };
     return { kind: third === 'recent-activity' ? 'activity' : 'profile', ...none, profile };

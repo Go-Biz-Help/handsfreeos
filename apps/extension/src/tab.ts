@@ -19,6 +19,8 @@ import type {
   BrowseAsk,
   ConnectAsk,
   OpenMessageAsk,
+  FeedPostAnswer,
+  FeedPostAsk,
   FetchAnswer,
   FetchAsk,
   GroupPostAnswer,
@@ -139,6 +141,7 @@ export class WorkTab {
   async ask(message: OpenMessageAsk): Promise<BrowseAnswer>;
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
+  async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
@@ -151,6 +154,7 @@ export class WorkTab {
       | OpenMessageAsk
       | JoinAsk
       | GroupPostAsk
+      | FeedPostAsk
       | OwnProfileAsk
       | WithdrawAsk
       | BrowseAsk
@@ -160,6 +164,7 @@ export class WorkTab {
     | AutoAnswer
     | JoinAnswer
     | GroupPostAnswer
+    | FeedPostAnswer
     | OwnProfileAnswer
     | WithdrawAnswer
     | BrowseAnswer
