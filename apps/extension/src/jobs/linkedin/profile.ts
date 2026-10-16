@@ -38,7 +38,9 @@ async function openOwn(job: Job): Promise<JobEnd | null> {
 /** Reads the profile the window shows and has the AI check it. */
 async function readAndCheck(job: Job): Promise<JobEnd> {
   job.progress('Reading your profile…');
-  const answer = await job.tab.ask({ type: 'hfos-own-profile' });
+  // In front while it's read: LinkedIn draws Experience and the rest only as they come into view on screen.
+  const read = () => job.tab.ask({ type: 'hfos-own-profile' });
+  const answer = await (job.tab.inFront ? job.tab.inFront(read) : read());
   if (!answer.ok) return failed(answer.error);
   if (!('read' in answer)) return failed('LinkedIn didn’t show your profile.');
   if (job.stopped()) return { line: 'Stopped.', warned: false };

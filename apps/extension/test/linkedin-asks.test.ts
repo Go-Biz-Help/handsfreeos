@@ -636,10 +636,25 @@ describe('reading your LinkedIn chats', () => {
 
 describe('your own LinkedIn profile, asked from Get ready', () => {
   it('opens it, checks it’s yours, and sends it for the AI’s check as LinkedIn’s', async () => {
-    const { tab, opened } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }));
+    const { tab, opened, asked } = fakeTab(() => ({
+      fixture: 'linkedin-own-profile-full.html',
+      at: OWN,
+    }));
+    // Read with its window in front, as LinkedIn draws only what's on screen.
+    tab.inFront = async (work) => {
+      asked.push('in front');
+      const out = await work();
+      asked.push('back');
+      return out;
+    };
     const { hfos, sent } = fakeHfos();
     const end = await onLinkedIn({ kind: 'profile_read' }, jobWith(tab, hfos).job);
     expect(opened).toEqual([`${LI}/in/me/`]);
+    expect(asked.slice(asked.indexOf('in front'))).toEqual([
+      'in front',
+      'hfos-own-profile',
+      'back',
+    ]);
     expect(sentOf(sent, 'hfos-profile-check')[0]!.input).toMatchObject({
       platform: 'linkedin',
       bio: 'Helping home service businesses answer every lead | Founder, Gee Consulting',

@@ -117,6 +117,25 @@ export class WorkTab {
       await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
   }
 
+  /**
+   * Brings its window to the front while `work` runs, then puts back the window the person had in front. Some pages
+   * draw only what's on screen, and Chrome draws nothing in a window hidden behind another: LinkedIn's profile drew
+   * nothing below Activity in one (the owner's test, 16 Oct 2026). A tab in the person's window is left as it is.
+   */
+  async inFront<T>(work: () => Promise<T>): Promise<T> {
+    const id = this.id;
+    if (id === null || this.place !== 'window') return work();
+    const theirs = await chrome.windows.getLastFocused().catch(() => null);
+    await this.focus();
+    try {
+      return await work();
+    } finally {
+      const tab = await chrome.tabs.get(id).catch(() => null);
+      if (theirs?.id !== undefined && theirs.id !== tab?.windowId)
+        await chrome.windows.update(theirs.id, { focused: true }).catch(() => undefined);
+    }
+  }
+
   /** Closes the tab, when it's still open; for the runner, its whole window. */
   async close(): Promise<void> {
     const id = this.id;

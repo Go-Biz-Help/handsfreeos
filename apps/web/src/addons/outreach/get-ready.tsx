@@ -10,6 +10,7 @@
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines up to
  * 220 characters to put in, and an About to start from, each asked and ticked on LinkedIn.
  */
+import { bioEditShown } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import {
   numbersLines,
@@ -39,7 +40,7 @@ import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton } from './asks';
+import { AskButton, AskLine } from './asks';
 import type { Asks, Readiness } from './types';
 
 /** Monday first, as the working week reads. */
@@ -273,6 +274,7 @@ function ProfileSheet({
   // The AI's check, when it's of the live version: what's right, and what to change.
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
   const right = (item: AnyProfileItem) => on(item) || check?.items[item]?.ok === true;
+  const edit = bioEditShown(asks, platform, readiness.profileCheck?.at ?? null);
   const ticked = P.items.filter((i) => right(i.item)).length;
   const again = readiness.items.find((i) => i.item === 'profile')?.state === 'look_again';
   const tick = async (item: AnyProfileItem) => {
@@ -408,11 +410,14 @@ function ProfileSheet({
                       ask={{ kind: 'profile_edit', bio }}
                       platform={platform}
                       label={P.useBio}
+                      showLine={false}
                       testId={`ready-bio-use-${i}`}
                     />
                   ) : null}
                 </div>
               ))}
+              {/* How the last one put in went, once: an ask doesn't say which it was. */}
+              {edit && asks ? <AskLine workspaceId={workspaceId} asks={asks} ask={edit} /> : null}
             </div>
           ) : null}
           {check?.coverLine ? (

@@ -618,6 +618,21 @@ describe.each(SHAPES)('your own profile in LinkedIn’s newer layout, %s', (_, b
     expect(pressed).toEqual([]);
   });
 
+  it('reads only what’s drawn: with nothing below Activity yet, no roles, and never the About as a post', () => {
+    const doc = own();
+    // As a window hidden behind another had it: LinkedIn draws the sections below Activity only on screen.
+    const activity = [...doc.querySelectorAll('h2')]
+      .find((h) => h.textContent!.trim() === 'Activity')!
+      .closest('section')!;
+    for (const section of [...doc.querySelectorAll('section')])
+      if (
+        activity.compareDocumentPosition(section) &
+        doc.defaultView!.Node.DOCUMENT_POSITION_FOLLOWING
+      )
+        section.remove();
+    expect(readOwnProfile(doc, OWN)).toMatchObject({ about: ABOUT, intro: [], posts: [] });
+  });
+
   it('reads it as a profile too: you, your place, your first role and its company', () => {
     expect(readPage(own(), OWN, NOW).profile).toEqual({
       name: 'Chris Gee',

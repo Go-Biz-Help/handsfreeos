@@ -1,4 +1,4 @@
-import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { bioEditShown, type AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import { seenWords } from '@hfos/core/addons/outreach/live';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
@@ -27,7 +27,7 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-import { AskButton, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
+import { AskButton, AskLine, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
 import { Note, useOutreachAnswer, useOutreachContext } from './kit';
 
 /**
@@ -334,6 +334,7 @@ function ProfileList({
   const live = readiness.offer?.version ?? null;
   // The AI's check, when it's of the live version: what's right, and what to change.
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
+  const edit = bioEditShown(asks, platform, readiness.profileCheck?.at ?? null);
   const timeZone = asks?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   return (
     <View className="mt-1 gap-3" testID="ready-profile-list">
@@ -439,11 +440,14 @@ function ProfileList({
                   platform={platform}
                   label={P.useBio}
                   actions={actions}
+                  showLine={false}
                   testID={`ready-bio-use-${i}`}
                 />
               ) : null}
             </View>
           ))}
+          {/* How the last one put in went, once: an ask doesn't say which it was. */}
+          {edit && asks && actions ? <AskLine asks={asks} ask={edit} actions={actions} /> : null}
         </View>
       ) : null}
       {check?.coverLine ? (
