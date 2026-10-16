@@ -8,6 +8,7 @@
     "./server": "./src/server.ts",
     "./mobile": "./src/mobile.ts",
     "./extension-sign-in": "./src/account/extension-sign-in-words.ts",
+    "./problem-report": "./src/schemas/problem-report.ts",
     "./addons/*": "./src/addons/*.ts"
   },
   "scripts": {

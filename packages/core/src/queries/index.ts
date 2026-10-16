@@ -16,6 +16,7 @@ export { binList, binPreview } from './bin';
 import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
+import { problemReportQueries } from './problem-reports';
 import { teammateViewQueries } from './teammate-view';
 import { foundingQueries } from './founding';
 import { supportQueries } from './support';
@@ -248,6 +249,8 @@ export const queries: readonly QueryDef[] = [
   ...portalMessageQueries,
   ...supportQueries,
   ...platformQueries,
+  // What our own tools saw when something didn't go (20261027008100).
+  ...problemReportQueries,
   // Viewing the app as a teammate (20261018000100).
   ...teammateViewQueries,
   ...foundingQueries,
@@ -467,6 +470,7 @@ export * from './number-import';
 export * from './social';
 export * from './support';
 export * from './platform';
+export * from './problem-reports';
 export * from './teammate-view';
 export * from './wallet';
 export * from './port';

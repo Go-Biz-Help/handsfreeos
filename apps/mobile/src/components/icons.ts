@@ -14,6 +14,7 @@ export { default as BellRing } from 'lucide-react-native/icons/bell-ring';
 export { default as Blocks } from 'lucide-react-native/icons/blocks';
 export { default as BookOpen } from 'lucide-react-native/icons/book-open';
 export { default as Bot } from 'lucide-react-native/icons/bot';
+export { default as Bug } from 'lucide-react-native/icons/bug';
 export { default as Building } from 'lucide-react-native/icons/building';
 export { default as CalendarCheck } from 'lucide-react-native/icons/calendar-check';
 export { default as CalendarClock } from 'lucide-react-native/icons/calendar-clock';

@@ -20,6 +20,8 @@ export const DESK_SECTIONS = [
   // How Getting started is going, everywhere: its skips and finishes, counted (the onboarding plan's §9).
   { key: 'getting-started', label: 'Getting started', needs: 'platform.businesses.read' },
   { key: 'health', label: 'Health', needs: 'platform.health.read' },
+  // What our own tools saw when something didn't go (20261027008100), read beside Health.
+  { key: 'problems', label: 'Problem reports', needs: 'platform.health.read' },
   { key: 'rates', label: 'Rates', needs: 'platform.rates.manage' },
   { key: 'founding', label: 'Founding', needs: 'platform.founding.manage' },
   { key: 'replies', label: 'Saved replies' },

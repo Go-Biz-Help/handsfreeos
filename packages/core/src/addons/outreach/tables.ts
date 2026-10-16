@@ -27,7 +27,6 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
-import type { ReportFound } from './reports';
 import type {
   MessageKind,
   OtherPlatform,
@@ -943,9 +942,9 @@ export const asks = addonOutreach.table(
 );
 
 /**
- * What the extension saw on a page a job read (./reports.ts, decision 74): its kind and masked address, whether its
- * window was in front, what the readers found (counts, never words), and the page's outline when something was
- * missing. Each person's own; it goes with its ask, and the day's steps' after a week.
+ * What extension 0.48.0 saw on a page a job read (decision 74). Its notes are core's problem reports now
+ * (20261027008100 copied these there); nothing writes here, the worker's prune empties it within a week, and a later
+ * migration drops it.
  */
 export const reports = addonOutreach.table(
   'reports',
@@ -965,7 +964,7 @@ export const reports = addonOutreach.table(
     found: jsonb('found')
       .notNull()
       .default(sql`'{}'::jsonb`)
-      .$type<ReportFound>(),
+      .$type<Record<string, unknown>>(),
     note: text('note'),
     outline: text('outline'),
     createdAt: ts('created_at').notNull().defaultNow(),

@@ -7077,26 +7077,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/commands/outreach.report.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * The browser extension saves a note of a page a job read: its kind and address with people’s parts hidden, whether its window was in front, what it found there (counts, never words), and the page’s outline when something was missing. The person’s own; kept a week.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.report.saved.
-         */
-        post: operations["command_outreach_report_save"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/commands/outreach.request.set_aside": {
         parameters: {
             query?: never;
@@ -8071,6 +8051,46 @@ export interface paths {
          * @description Risk level 2. Requires records.write. Emits portal.access_revoked.
          */
         post: operations["command_portal_access_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/problem_report.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One of HandsFreeOS’s own tools (the browser extension) sends what it saw when something didn’t go: what it was doing and where, what it found (counts, never words), and the page’s outline with everything a person wrote masked. Read by HandsFreeOS staff; kept 30 days.
+         * @description Risk level 0. Requires workspace.read. Emits problem_report.sent.
+         */
+        post: operations["command_problem_report_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/problem_report.set_handled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: mark problem reports handled, or open again. One already as asked is left alone.
+         * @description Risk level 1. Requires platform.health.read. Emits problem_report.handled, problem_report.reopened.
+         */
+        post: operations["command_problem_report_set_handled"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18131,6 +18151,46 @@ export interface paths {
          * @description Requires platform.businesses.read.
          */
         post: operations["query_platform_onboarding_counts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.problem_report.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: one problem report, with what the tool found and the page’s outline (everything a person wrote masked).
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_problem_report_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.problem_report.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_problem_report_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -37665,57 +37725,6 @@ export interface operations {
             };
         };
     };
-    command_outreach_report_save: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    report: {
-                        /** @default null */
-                        askId?: string | null;
-                        /** @default {} */
-                        found?: {
-                            [key: string]: number | boolean | string[];
-                        };
-                        job: string;
-                        /** @default null */
-                        note?: string | null;
-                        /** @default null */
-                        outline?: string | null;
-                        page: string;
-                        path: string;
-                        /** @enum {string} */
-                        platform: "facebook" | "linkedin";
-                        /** @default null */
-                        shown?: boolean | null;
-                        /** @default null */
-                        version?: string | null;
-                    };
-                    /** Format: uuid */
-                    workspaceId: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Default Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** Format: uuid */
-                        reportId: string;
-                    };
-                };
-            };
-        };
-    };
     command_outreach_request_set_aside: {
         parameters: {
             query?: never;
@@ -39743,6 +39752,90 @@ export interface operations {
                         accessId: string;
                         /** Format: date-time */
                         revokedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_problem_report_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    report: {
+                        /** @default null */
+                        addonId?: string | null;
+                        area: string;
+                        /** @default {} */
+                        found?: {
+                            [key: string]: number | boolean | string[];
+                        };
+                        job: string;
+                        /** @default null */
+                        note?: string | null;
+                        /** @default null */
+                        outline?: string | null;
+                        page: string;
+                        /** @default  */
+                        path?: string;
+                        /** @default null */
+                        ref?: string | null;
+                        /** @default null */
+                        shown?: boolean | null;
+                        /** @enum {string} */
+                        source: "extension" | "web" | "phone";
+                        /** @default null */
+                        version?: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        reportId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_problem_report_set_handled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    handled: boolean;
+                    reportIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
                     };
                 };
             };
@@ -69128,6 +69221,122 @@ export interface operations {
                             skipped: number;
                         }[];
                         turnedOff: number;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_problem_report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    reportId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string | null;
+                        area: string;
+                        /** Format: date-time */
+                        at: string;
+                        business: string;
+                        found: {
+                            [key: string]: unknown;
+                        };
+                        handledAt: string | null;
+                        handledBy: string | null;
+                        job: string;
+                        note: string | null;
+                        outline: string | null;
+                        page: string;
+                        path: string;
+                        ref: string | null;
+                        /** Format: uuid */
+                        reportId: string;
+                        shown: boolean | null;
+                        /** @enum {string} */
+                        source: "extension" | "web" | "phone";
+                        version: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_problem_report_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    area?: string | null;
+                    /** @default null */
+                    before?: string | null;
+                    /** @default 25 */
+                    limit?: number;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    state?: "open" | "handled" | "all";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        areas: {
+                            area: string;
+                            open: number;
+                        }[];
+                        nextBefore: string | null;
+                        reports: {
+                            addonId: string | null;
+                            area: string;
+                            /** Format: date-time */
+                            at: string;
+                            business: string;
+                            handledAt: string | null;
+                            hasOutline: boolean;
+                            job: string;
+                            note: string | null;
+                            page: string;
+                            path: string;
+                            ref: string | null;
+                            /** Format: uuid */
+                            reportId: string;
+                            shown: boolean | null;
+                            /** @enum {string} */
+                            source: "extension" | "web" | "phone";
+                            version: string | null;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
                     };
                 };
             };

@@ -735,9 +735,12 @@ describe('notes of what it saw, and Check LinkedIn', () => {
     const [noted] = sentOf(sent, 'hfos-report');
     expect(noted!.input).toMatchObject({
       workspaceId: BUSINESS,
+      // A problem report on the support desk: the add-on's, from the extension, on LinkedIn, for this ask.
       report: {
-        platform: 'linkedin',
-        askId,
+        addonId: 'outreach',
+        source: 'extension',
+        area: 'linkedin',
+        ref: askId,
         job: 'profile_read',
         version: '0.48.0',
         shown: true,

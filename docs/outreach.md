@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.48.0 now.
+    Built in 0.44.0; the extension is 0.49.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1186,7 +1186,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 
 74. **The extension says what it saw** (Chris, 16 Oct 2026: "build all three"). Testing LinkedIn took a round trip
     for every miss: the person tried, said what went wrong, pasted an outline, and waited for a fix. Now the person's
-    computer reports for itself (core's `reports.ts`, the extension's `src/jobs/report.ts`, extension 0.48.0):
+    computer reports for itself (the extension's `src/jobs/report.ts`, extension 0.48.0; core's problem reports since
+    0.49.0, decision 75):
     - **A note of each page a job read** (`outreach.report.save`, table `reports`): the page's kind and its address
       as the outline masks it ({1}, {2}… for people's and groups' parts), whether Chrome showed the page (it draws
       nothing in a window hidden behind another), what the readers found (counts, yes or no, and the network's own
@@ -1203,6 +1204,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **What's blocking, on screen**: the extension says with its beat which networks Chrome lets it on
       (`computers.allowed`). An ask on a network it isn't allowed on waits, and says what to press (Allow on the
       network in the extension's panel, then Allow in Chrome's box); so does that network's page in Settings.
+
+75. **The notes are problem reports on HandsFreeOS's support desk** (Chris, 16 Oct 2026: "it should work for the
+    entire extension, all the platforms, future ones included… maybe they also go to the HFOS admin area, so that if I
+    wanted to get something done before the morning it can be addressed when I want"; he chose to build it in core).
+    From extension 0.49.0 the notes of decision 74 are core's **problem reports** (`app.problem_reports`, migration
+    20261027008100), sent with `problem_report.send` with the add-on's id as a label, `extension` as the source and
+    the network as the area, so any network the extension works on, and any other add-on's tool, sends to the same
+    place. HandsFreeOS's staff with Health read them on the support desk's **Problem reports** page (`/admin/problems`
+    on the web, the desk's Problem reports on the phone): open or handled, by area, each with its outline, **Copy
+    for Claude** (the phone shares it) and **Mark handled**. The person who sent one reads only their own; they go
+    after 30 days, handled or not. The add-on's own `outreach.report.save` is gone; the notes 0.48.0 saved were
+    copied across, and its table `reports` is dropped in a later migration.
 
 ## Rules worth knowing before changing anything
 
@@ -1739,11 +1752,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   a request, a comment, a post) checks `readinessFor` first, as `outreach.today`, `outreach.day.start` and
   `outreach.helpful.next` do; a reply to someone who wrote first is never held. The tests' fixture gets a business
   ready before those three (`getReady` in `outreach-fixture.ts`); one made with `{ ready: false }` isn't.
-- **A note of what the extension saw keeps the page's shape, never its words** (decision 74): `reports` holds counts,
-  yes or no, the network's own section names, the masked address and the outline, in which everything a person
-  wrote is "[2 words]" and people's and groups' links are {1}, {2}…; never anything read off the page as text.
-  It's the person's own, never their business's, and goes after a week. A note that can't be made or sent never
-  stops a job.
+- **A note of what the extension saw keeps the page's shape, never its words** (decisions 74 and 75): a problem
+  report holds counts, yes or no, the network's own section names, the masked address and the outline, in which
+  everything a person wrote is "[2 words]" and people's and groups' links are {1}, {2}…; never anything read off the
+  page as text. In the business it's the person's own, never their business's; HandsFreeOS's staff read it on the
+  support desk, and it goes after 30 days. A note that can't be made or sent never stops a job.
 - **The profile's check keeps the AI's answer, never the page** (decision 64): what the extension read goes to the
   worker's `outreach.profile.check` and no further. The check is saved by `outreach.profile.check_save`, which only
   the system runs, after `checkedProfileCheck`: an item with nothing read is never right, and a bio over 101

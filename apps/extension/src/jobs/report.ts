@@ -1,7 +1,8 @@
 /**
- * What a job saw (docs/outreach.md, decision 74; core's reports.ts): a note of the page its tab shows, saved in
- * HandsFreeOS for the person, so a reader that misses something on a network's real pages is found from what this
- * computer sent rather than from the person describing it.
+ * What a job saw (docs/outreach.md, decision 74): a note of the page its tab shows, sent to HandsFreeOS as a problem
+ * report (core's schemas/problem-report.ts), which staff read on the support desk's Problem reports page, so a reader
+ * that misses something on a network's real pages is found from what this computer sent rather than from the person
+ * describing it.
  *
  * A note has the page's kind and its address as the outline masks it (people's and groups' parts as {1}, {2}…),
  * whether Chrome showed the page, what the readers found (counts, yes or no, and the network's own section names
@@ -9,7 +10,7 @@
  * roles and the network's own words, with everything a person wrote as "[2 words]". A note that can't be made or
  * sent is let go: it never stops or slows the job past the read.
  */
-import { REPORT_OUTLINE_MOST } from '@hfos/core/addons/outreach/reports';
+import { PROBLEM_OUTLINE_MOST } from '@hfos/core/problem-report';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { PageRead } from '../networks/kit';
@@ -120,8 +121,10 @@ export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
         input: {
           workspaceId: at.businessId,
           report: {
-            platform: at.platform,
-            askId: at.askId,
+            addonId: 'outreach',
+            source: 'extension',
+            area: at.platform,
+            ref: at.askId,
             job: at.job.slice(0, 40),
             version: chrome.runtime.getManifest().version.slice(0, 20),
             page: String(answer.result.kind).slice(0, 40),
@@ -133,7 +136,7 @@ export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
               ...note.found,
             },
             note: note.note?.slice(0, 300) ?? null,
-            outline: note.outline && outline ? outline.slice(0, REPORT_OUTLINE_MOST) : null,
+            outline: note.outline && outline ? outline.slice(0, PROBLEM_OUTLINE_MOST) : null,
           },
         },
       });

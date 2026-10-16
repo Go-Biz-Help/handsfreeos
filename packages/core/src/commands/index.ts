@@ -427,6 +427,7 @@ import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
+import { problemReportCommands } from './problem-report';
 import { ownBusinessCommands } from './own-business';
 import { mailFolderCommands } from './mail-folder';
 import { aiProviderCommands } from './ai-provider';
@@ -1051,6 +1052,8 @@ export const commands: readonly CommandDef[] = [
   ...ownBusinessCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
   ...aiProviderCommands,
+  // What our own tools saw when something didn't go, and staff marking it handled (20261027008100).
+  ...problemReportCommands,
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
@@ -1221,6 +1224,7 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
+export * from './problem-report';
 export * from './own-business';
 export * from './mail-folder';
 export * from './ai-provider';
