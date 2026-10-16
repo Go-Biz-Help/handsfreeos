@@ -34,7 +34,8 @@ connected" — which is exactly what the first TestFlight build did. See "The ph
 
 In order, because some need the one before.
 
-1. **Seed the demo business.** Not done: the hosted project has one user, and it isn't `app-review@handsfreeos.com`.
+1. **Seed the demo business.** Not done, checked again on 2026-10-16: the hosted project has no
+   `app-review@handsfreeos.com` user.
    Both stores refuse an app they can't sign into, so this blocks submission on both. Run the seed with
    `HFOS_DEMO_PASSWORD` set — see [`reviewer-demo.md`](reviewer-demo.md) — then sign into that account from a real
    build with the password a reviewer will type.

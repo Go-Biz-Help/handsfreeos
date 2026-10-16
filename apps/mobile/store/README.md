@@ -17,6 +17,7 @@ accounts. It is one app, not a white label per client.
 | [`reviewer-demo.md`](reviewer-demo.md)         | The demo business a reviewer signs into, and how to seed it            |
 | [`screenshots.md`](screenshots.md)             | Which screenshots each store wants, which exist, and which are missing |
 | [`release-checklist.md`](release-checklist.md) | What to do once the developer accounts exist, in order                 |
+| [`claude-in-chrome.md`](claude-in-chrome.md)   | Prompts for Claude in Chrome that fill both consoles from these files  |
 | `assets/`                                      | The listing icons and the feature graphic                              |
 
 ## The assets
