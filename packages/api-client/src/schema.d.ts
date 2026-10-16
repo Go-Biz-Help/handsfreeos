@@ -12377,6 +12377,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/salescoach.call.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a coached call for good: what was said, the cards and the write-up. Its notes on the customer’s timeline and its tasks stay.
+         * @description Risk level 4. Requires salescoach.delete. Emits salescoach.call.deleted.
+         */
+        post: operations["command_salescoach_call_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/salescoach.call.stop": {
         parameters: {
             query?: never;
@@ -48774,6 +48794,37 @@ export interface operations {
                         checkInId: string;
                         kept: boolean;
                         open: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_salescoach_call_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    coachedCallId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: boolean;
                     };
                 };
             };

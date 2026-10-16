@@ -93,6 +93,7 @@ export default async function SalescoachPage({
         shown={shown}
         canManage={can('salescoach.manage')}
         reviews={can('salescoach.review')}
+        canDelete={can('salescoach.delete')}
       />
     );
   });

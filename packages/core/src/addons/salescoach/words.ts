@@ -106,6 +106,13 @@ export const SALESCOACH_WORDS = {
     live: 'On the call now',
     noCustomer: 'A caller nobody knows yet',
     openConversation: 'Open the conversation',
+    delete: 'Delete',
+    deleteTitle: 'Delete this coached call?',
+    deleteAbout:
+      'What was said, the cards and the write-up go for good, and can’t be brought back. Its notes on the customer’s timeline and its tasks stay.',
+    deleteConfirm: 'Delete for good',
+    deleting: 'Deleting…',
+    cancel: 'Cancel',
     /** Shown beside a call that wasn't in English (round four's Spanish). */
     inLanguage: (code: string) => ({ es: 'In Spanish' })[code] ?? `In ${code.toUpperCase()}`,
   },

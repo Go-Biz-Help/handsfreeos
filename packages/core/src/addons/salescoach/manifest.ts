@@ -88,6 +88,14 @@ export const salescoachAddon = defineAddon({
       defaultRoles: ['admin'],
       requires: ['salescoach.use'],
     },
+    {
+      // Owners only, until an owner gives it (Chris, 2026-10-16), as with records.delete.
+      key: 'salescoach.delete',
+      label: 'Delete coached calls',
+      description: 'Delete a coached call for good: what was said, the cards and the write-up.',
+      defaultRoles: [],
+      requires: ['salescoach.review'],
+    },
   ],
   tables: ['playbooks', 'calls', 'cards', 'suggestions', 'lessons'],
   events: {
@@ -99,6 +107,7 @@ export const salescoachAddon = defineAddon({
       'salescoach.card.dismissed',
       'salescoach.call.ended',
       'salescoach.call.stopped',
+      'salescoach.call.deleted',
       'salescoach.call.finished',
       'salescoach.suggestions.ready',
       'salescoach.conversation.finished',

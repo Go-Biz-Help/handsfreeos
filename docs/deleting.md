@@ -42,6 +42,8 @@ And the defaults kept:
   again. Social Outreach keeps the Facebook profile and its Don't pitch mark, no longer linked to a contact.
 - **Can't be deleted:** anything on a legal hold. Real Estate deals stay archive-only (2026-10-03), and so does every
   add-on's record, and anything an add-on keeps that needs it (a company that's one of Real Estate's vendors).
+  One exception (2026-10-16): AI Sales Coach's coached calls can be deleted for good, at once and without the bin,
+  by owners or whoever an owner gives `salescoach.delete` (see "Rules worth knowing" in `docs/salescoach.md`).
 - **A deleted customer who writes again** comes in as a new customer.
 - **Outside services keep their own copies:** Facebook and Instagram their chats, Twilio its logs, Stripe and Square
   their payments.
