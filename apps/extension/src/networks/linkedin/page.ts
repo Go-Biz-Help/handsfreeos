@@ -7,6 +7,7 @@
 import type { ChatOptions } from '../facebook/chat';
 import { readChat } from './chat';
 import { readChats } from './chats';
+import { readCompany } from './company';
 import { inTopBar, mainOf, shownText } from './dom';
 import { readInvitations } from './invitations';
 import { readNotices } from './notifications';
@@ -129,6 +130,12 @@ export function readPage(
     case 'notifications':
       found = { notices: readNotices(main, base) };
       break;
+    case 'company': {
+      const company = readCompany(main, base);
+      found = { company };
+      if (!company.name) notes.push('Couldn’t find the company’s name on this page.');
+      break;
+    }
     case 'other':
       notes.push('The extension doesn’t read this kind of page yet.');
       break;

@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  An approximation of the box LinkedIn opens over your profile when you press the pencil by your name (Edit intro), as
+  it draws it in 2026, written by hand: not a saved LinkedIn page, and nobody real. It's a dialog outside the page's
+  main column, with a field for each part of the intro, each named by a label of its own: First name, Last name,
+  Additional name, Pronouns, Headline (a box to write in, with the headline as it is), Current position, Industry,
+  Location; and Save at its foot. Only Headline is ever written in.
+-->
+<html lang="en">
+  <head>
+    <title>Edit intro | LinkedIn</title>
+  </head>
+  <body>
+    <div class="_mo0" id="modal-outlet">
+      <div role="dialog" aria-labelledby="edit-intro-title" class="_dl1">
+        <div class="_dh">
+          <h2 id="edit-intro-title">Edit intro</h2>
+          <button type="button" aria-label="Dismiss"><svg aria-hidden="true"></svg></button>
+        </div>
+        <form class="_df">
+          <p><span>* Indicates required</span></p>
+          <div class="_fi">
+            <label for="f-first">First name*</label>
+            <input id="f-first" type="text" value="Chris" />
+          </div>
+          <div class="_fi">
+            <label for="f-last">Last name*</label>
+            <input id="f-last" type="text" value="Gee" />
+          </div>
+          <div class="_fi">
+            <label for="f-additional">Additional name</label>
+            <input id="f-additional" type="text" value="" />
+          </div>
+          <div class="_fi">
+            <label for="f-pronouns">Pronouns</label>
+            <select id="f-pronouns">
+              <option>He/Him</option>
+              <option>She/Her</option>
+              <option>They/Them</option>
+            </select>
+          </div>
+          <div class="_fi">
+            <label for="f-headline">Headline*</label>
+            <textarea id="f-headline">
+Helping home service businesses answer every lead | Founder, Gee Consulting</textarea>
+          </div>
+          <div class="_fi">
+            <h3>Current position</h3>
+            <label for="f-position">Position*</label>
+            <select id="f-position">
+              <option>Founder at Gee Consulting</option>
+            </select>
+          </div>
+          <div class="_fi">
+            <label for="f-industry">Industry*</label>
+            <input id="f-industry" type="text" value="Business Consulting and Services" />
+          </div>
+          <div class="_fi">
+            <label for="f-city">City</label>
+            <input id="f-city" type="text" value="Austin, Texas, United States" />
+          </div>
+        </form>
+        <div class="_ft">
+          <button type="button" class="_sv"><span>Save</span></button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

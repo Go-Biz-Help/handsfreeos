@@ -3,7 +3,7 @@
  * what the extension is doing or does next, and why it isn't working when it isn't (another computer works, noting is
  * off, Facebook warned you today); a warning when their own steps today go past a daily limit; today's steps against
  * the limits; **Start my day** and **Stop for today**, or Get ready's items until the person is ready (decision 63);
- * and what they asked of it from HandsFreeOS while it goes, with
+ * and what they asked of it from HandsFreeOS while it goes, each network's ask under way on its own line, with
  * **Carry on**, **Skip** and **Stop**. Under the list, Done today, the newest of the day's steps; at the foot, the
  * person's settings in one line (the hours and training wheels in it), with **Change in HandsFreeOS**. Everything else
  * is in HandsFreeOS. The background's runner does the work (src/auto/run.ts), and the asks (src/asks/run.ts).
@@ -17,13 +17,14 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import { settingsSummary } from '@hfos/core/addons/outreach/automation';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
 import { REPORTED_STATES, standDownWords, stateTone } from '@hfos/core/addons/outreach/live';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import { AUTO_STATE_KEY, isState } from '../auto/plan';
-import { ASK_KEY, type KeptAsk } from '../hfos/asks';
+import { askKeyOf, type KeptAsk } from '../hfos/asks';
 import { SETTINGS_KEY } from '../hfos/follow';
 import { LIVE_KEY, reportedStatus } from '../hfos/live';
 import type { AutoStatus } from '../hfos/messages';
@@ -42,8 +43,10 @@ let status: AutoStatus | null = null;
 let problem: string | null = null;
 /** Why HandsFreeOS refused Start my day or Stop for today, or a press about the ask, in its words. */
 let refused: string | null = null;
-/** The ask under way here, as the background keeps it. */
-let under: KeptAsk | null = null;
+/** Each network's ask under way here, as the background keeps them: Facebook's first. */
+let unders: KeptAsk[] = [];
+/** Where each network's ask under way is kept. */
+const ASK_KEYS = PLATFORM_KEYS.map(askKeyOf);
 
 /** Asks the background for the person's choices and where the runner is. */
 export async function refreshStatus(): Promise<void> {
@@ -55,10 +58,13 @@ export async function refreshStatus(): Promise<void> {
 
 async function readAsk(): Promise<void> {
   try {
-    const found: unknown = (await chrome.storage.local.get(ASK_KEY))[ASK_KEY];
-    under = found && typeof found === 'object' ? (found as KeptAsk) : null;
+    const found = await chrome.storage.local.get(ASK_KEYS);
+    unders = ASK_KEYS.flatMap((key) => {
+      const kept: unknown = found[key];
+      return kept && typeof kept === 'object' ? [kept as KeptAsk] : [];
+    });
   } catch {
-    under = null;
+    unders = [];
   }
   draw();
 }
@@ -80,26 +86,27 @@ async function act(type: 'hfos-auto-start' | 'hfos-auto-stop'): Promise<void> {
   draw();
 }
 
-async function answerAsk(reply: AskReply | 'stop'): Promise<void> {
+async function answerAsk(askId: string, reply: AskReply | 'stop'): Promise<void> {
   const answer = await ask(
-    reply === 'stop' ? { type: 'hfos-ask-stop' } : { type: 'hfos-ask-reply', reply },
+    reply === 'stop' ? { type: 'hfos-ask-stop', askId } : { type: 'hfos-ask-reply', reply, askId },
   );
   refused = answer.ok ? null : answer.problem.message;
   draw();
 }
 
-/** What the person asked from HandsFreeOS, while it goes. */
+/** What the person asked from HandsFreeOS, while it goes: on a network but Facebook, named. */
 function askView(a: KeptAsk): Child {
   const kind = a.kind as AskKind;
   const stuck = askNeedsYou(a.state);
   const replies = a.state === 'stuck' ? askRepliesFor(kind) : [];
+  const on = a.platform && a.platform !== 'facebook' ? `, on ${PLATFORMS[a.platform]}` : '';
   return h(
     'div',
     { class: stuck ? 'warn-line asked' : 'run-line asked' },
     h(
       'p',
       {},
-      h('strong', {}, 'Asked from HandsFreeOS: '),
+      h('strong', {}, `Asked from HandsFreeOS${on}: `),
       ASK_KINDS[kind] ?? 'Something you asked',
       a.about ? ` · ${a.about}` : '',
     ),
@@ -108,11 +115,11 @@ function askView(a: KeptAsk): Child {
       'div',
       { class: 'actions' },
       ...replies.map((r) =>
-        button(r === 'carry_on' ? 'Carry on' : 'Skip', () => void answerAsk(r), {
+        button(r === 'carry_on' ? 'Carry on' : 'Skip', () => void answerAsk(a.askId, r), {
           primary: r === 'carry_on',
         }),
       ),
-      button('Stop', () => void answerAsk('stop')),
+      button('Stop', () => void answerAsk(a.askId, 'stop')),
     ),
   );
 }
@@ -371,7 +378,7 @@ function draw(): void {
         )
       : null,
     status?.pastLimit ? h('p', { class: 'warn-line', role: 'alert' }, status.pastLimit) : null,
-    under ? askView(under) : null,
+    ...unders.map(askView),
     ...(status ? stateView(status) : []),
     refused ? h('p', { class: 'warn-line', role: 'alert' }, refused) : null,
   ];
@@ -392,8 +399,8 @@ export function startStatus(
   settingsBox = parts.settingsLine ?? null;
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    // The ask's line changes every few seconds: drawn from what's kept, without asking the background.
-    if (ASK_KEY in changes) void readAsk();
+    // An ask's line changes every few seconds: drawn from what's kept, without asking the background.
+    if (ASK_KEYS.some((key) => key in changes)) void readAsk();
     // Changed in HandsFreeOS, a new beat's answer, or a warning: the background has them already.
     if (SETTINGS_KEY in changes || LIVE_KEY in changes || WARNED_KEY in changes)
       return void refreshStatus();

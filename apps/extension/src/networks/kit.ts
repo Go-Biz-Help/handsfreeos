@@ -33,6 +33,10 @@ export function isWholeAddress(href: string): boolean {
 export const isLinkedInRead = (read: PageRead): read is LinkedInRead =>
   'platform' in read && read.platform === 'linkedin';
 
+/** The network a read is of: Facebook's say none, as they never had to. */
+export const platformOf = (read: PageRead): Platform =>
+  'platform' in read ? read.platform : 'facebook';
+
 /**
  * What one of the person's clicks or keys was: a step, an answer to a request, someone opened from a group; or a step
  * the page shows only a moment later whether it went (`maybe`): looked at again after `afterMs`, and noted only when
@@ -101,8 +105,8 @@ export interface Kit {
   /** The page's outline, with names and words hidden. */
   outline(doc: Document, href: string, options?: KitOutlineOptions): string;
   /**
-   * What else the background may ask a tab of this network: the runner's and the asks' steps. Only Facebook's for
-   * now; a network without it answers none of them. Null for an ask that isn't one of its own.
+   * What else the background may ask a tab of this network: the runner's and the asks' steps, each network its own (a
+   * network without it answers none of them). Null for an ask that isn't one of its own.
    */
   readonly work?: (ask: { readonly type: string }) => Promise<unknown> | null;
 }

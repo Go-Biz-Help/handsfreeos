@@ -3,8 +3,9 @@
  * packages/core/src/addons/outreach/asks.ts), HandsFreeOS's side: taking the next ask, saying how it's going, and how
  * it ended. ../asks/run.ts does them.
  *
- * - **Taking:** only the computer that works for the person gets one, the oldest first. It says which ask it has
- *   under way, so HandsFreeOS ends any other it handed here before (Chrome restarted mid-way) as lost.
+ * - **Taking:** only the computer that works for the person gets one, the oldest first, each network's line its own
+ *   (`platform`). It says which ask it has under way on that line, so HandsFreeOS ends any other it handed here before
+ *   on that network (Chrome restarted mid-way) as lost, and never another network's.
  * - **How it's going:** a new state (working, needs you, typing) goes at once; a new line alone at most every
  *   `ASK_LINE_SECONDS`. The answer says whether the person pressed Stop, and their answer to a step handed to them.
  * - **The end** goes with its own id and moment. With no connection it waits here (at most 20) and goes with the next
@@ -19,20 +20,26 @@ import {
   type AskTakeOutput,
   type TAKEN_ASK_STATES,
 } from '@hfos/core/addons/outreach/asks';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { APP_HEADERS } from '@hfos/core/mobile';
 import { samePlace } from './live';
 import { ASK_EVENTS } from './messages';
 import { outcomeOf } from './noting';
 import { api, call, savingTo, type Place } from './session';
 
-/** The ask under way here, for the panel; left at a restart, it's ended as lost. */
+/** Facebook's ask under way here, for the panel; left at a restart, it's ended as lost. */
 export const ASK_KEY = 'hfos.ask';
+/** Each network's ask under way: Facebook's where it always was, another network's beside it. */
+export const askKeyOf = (platform: Platform): string =>
+  platform === 'facebook' ? ASK_KEY : `${ASK_KEY}.${platform}`;
 /** Ends HandsFreeOS hasn't taken yet. */
 export const ASK_ENDS_KEY = 'hfos.ask.ends';
 export const ASK_ENDS_MOST = 20;
 
 export interface KeptAsk extends Place {
   readonly askId: string;
+  /** Its network: Facebook's when an older build kept it. */
+  readonly platform?: Platform;
   readonly kind: string;
   readonly about: string | null;
   readonly state: (typeof TAKEN_ASK_STATES)[number];
@@ -82,17 +89,22 @@ export function withEnd(ends: readonly WaitingEnd[], end: WaitingEnd): WaitingEn
 const write = (values: Record<string, unknown>) =>
   chrome.storage.local.set(values).catch(() => undefined);
 
-export async function keptAsk(): Promise<KeptAsk | null> {
+/** A network's ask under way, as kept (Facebook's unless said). */
+export async function keptAsk(platform: Platform = 'facebook'): Promise<KeptAsk | null> {
+  const key = askKeyOf(platform);
   try {
-    const found: unknown = (await chrome.storage.local.get(ASK_KEY))[ASK_KEY];
+    const found: unknown = (await chrome.storage.local.get(key))[key];
     return found && typeof found === 'object' ? (found as KeptAsk) : null;
   } catch {
     return null;
   }
 }
 
-export const keepAsk = (ask: KeptAsk | null) =>
-  ask ? write({ [ASK_KEY]: ask }) : chrome.storage.local.remove(ASK_KEY).catch(() => undefined);
+/** Keeps a network's ask under way (Facebook's unless said), or forgets it with null. */
+export const keepAsk = (ask: KeptAsk | null, platform: Platform = 'facebook') => {
+  const key = askKeyOf(platform);
+  return ask ? write({ [key]: ask }) : chrome.storage.local.remove(key).catch(() => undefined);
+};
 
 async function endsNow(): Promise<WaitingEnd[]> {
   try {
@@ -105,15 +117,19 @@ async function endsNow(): Promise<WaitingEnd[]> {
 
 // ------------------------------------------------------------------------------------------------- HandsFreeOS
 
-/** The next ask for this computer: null when there's none, or another computer of theirs works. */
+/**
+ * The next ask for this computer on a network's line: null when there's none, or another computer of theirs works.
+ * Each network's line takes only its own.
+ */
 export async function take(
   place: Place,
   installId: string,
   underway: string | null,
+  platform: Platform = 'facebook',
 ): Promise<AskTakeOutput> {
   return call(
     api().POST('/v1/commands/outreach.ask.take', {
-      body: { workspaceId: place.businessId, installId, underway },
+      body: { workspaceId: place.businessId, installId, underway, platform },
     }),
     place.businessId,
   );

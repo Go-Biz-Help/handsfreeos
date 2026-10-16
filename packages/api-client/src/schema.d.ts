@@ -34737,6 +34737,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     installId: string;
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin";
                     /** @default null */
                     underway?: string | null;
                     /** Format: uuid */
@@ -34828,6 +34830,8 @@ export interface operations {
                                 }[] | null;
                                 /** @enum {string} */
                                 kind: "posts";
+                                /** @default [] */
+                                words: string[];
                             } | {
                                 /** @enum {string} */
                                 kind: "cancel";

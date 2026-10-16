@@ -85694,6 +85694,13 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin"
+                    ]
                   }
                 },
                 "required": [
@@ -86107,11 +86114,19 @@
                                           "type": "null"
                                         }
                                       ]
+                                    },
+                                    "words": {
+                                      "default": [],
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
                                     }
                                   },
                                   "required": [
                                     "kind",
-                                    "groups"
+                                    "groups",
+                                    "words"
                                   ],
                                   "additionalProperties": false
                                 },

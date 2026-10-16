@@ -9,8 +9,8 @@
 import { elementsIn } from '../facebook/dom';
 import { CONTROLS, inTopBar, wordsOf } from './dom';
 import { aboutWhom, controlWords, peopleLinked, rowLines, type LinkedPerson } from './people';
-import type { Direction, Invitation } from './types';
-import { linkedinUrl, pathParts, profileKey } from './urls';
+import type { Direction, Invitation, ProfileRef } from './types';
+import { linkedinUrl, pathParts, profileKey, sameMember } from './urls';
 import { ACCEPT, IGNORE, WITHDRAW } from './vocabulary';
 
 /** How far up from an invitation's button the row it's on can be. */
@@ -70,6 +70,21 @@ export function notToConnect(box: Element, base: string): boolean {
     const url = linkedinUrl(anchor.getAttribute('href') ?? '', base);
     return url !== null && NOT_A_MEMBER.has(pathParts(url)[0]?.toLowerCase() ?? '');
   });
+}
+
+/**
+ * The Withdraw on the row of an invitation you sent to this member, by the link to their profile on it (never by a
+ * name alone): null when no row on the page is theirs.
+ */
+export function withdrawFor(root: Element, base: string, who: ProfileRef): Element | null {
+  const marks = marksIn(root);
+  for (const mark of marks) {
+    if (mark.direction !== 'sent') continue;
+    const row = rowOf(mark, marks, root, base);
+    if (row && !notToConnect(row.box, base) && sameMember(row.person.profile, who))
+      return mark.element;
+  }
+  return null;
 }
 
 /** The invitations to connect a part of the page lists, in page order, each member once. */

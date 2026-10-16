@@ -1,7 +1,7 @@
 /**
  * Facebook's kit (../kit.ts): the network the extension has always worked on, on from the start, on the sites the
  * manifest asks for at install. Its readers, the person's steps there, what to look at as they go and its outline are
- * the files beside this one; so are the runner's and the asks' steps (./work.ts), which only Facebook has for now.
+ * the files beside this one; so are the runner's and the asks' steps (./work.ts).
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import { isWholeAddress, type Kit, type Noticed } from '../kit';
