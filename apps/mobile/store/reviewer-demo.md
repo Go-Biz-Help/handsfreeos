@@ -65,8 +65,10 @@ seed's own data through the live API, command by command, exactly as the app wou
 
 - **The inbox is empty.** The seed writes its conversations straight into the tables, which needs the admin
   connection; the API rightly has no way to make a text arrive. The review notes say so.
-- **The appointments are dated the week of 2026-10-18**, and nothing restages them. If a review comes after that,
-  book a few more from the app, or ask Claude to, with the reviewer's password for that session only.
+- **The appointments run from 2026-10-18 to 2026-11-01**, 21 of them, and nothing restages them. If a review comes
+  after that, book a few more from the app, or ask Claude to, with the reviewer's password for that session only.
+- **Appointment reminders are off** in this business's Settings → Automations (day before, and on the day). Every
+  customer is an `example.com` address, so each reminder would only fail and sit in the inbox.
 
 Recording Dana's cash payment made the worker email her a receipt, as it does for any business. Postmark refused it
 (`example.com` can't receive mail), and that one failed thread was closed. A reviewer who records a payment will see
