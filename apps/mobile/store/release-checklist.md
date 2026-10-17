@@ -43,11 +43,9 @@ Filled with Claude in Chrome from [`claude-in-chrome.md`](claude-in-chrome.md). 
 
 In order, because some need the one before.
 
-1. **Seed the demo business.** Not done, checked again on 2026-10-16: the hosted project has no
-   `app-review@handsfreeos.com` user.
-   Both stores refuse an app they can't sign into, so this blocks submission on both. Run the seed with
-   `HFOS_DEMO_PASSWORD` set — see [`reviewer-demo.md`](reviewer-demo.md) — then sign into that account from a real
-   build with the password a reviewer will type.
+1. ~~**Seed the demo business.**~~ Done on 2026-10-17, by signing up and filling it through the API rather than the
+   seed: see "How the hosted one was made" in [`reviewer-demo.md`](reviewer-demo.md). Still to do: sign into it from
+   a real build with the password a reviewer will type.
 2. **A real mailbox at `app-review@handsfreeos.com`**, and a phone number for the demo business (a dollar or two a
    month) so the reviewer's inbox isn't empty. The password path never needs the inbox, but the address should be one
    that exists.

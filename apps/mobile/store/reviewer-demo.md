@@ -57,6 +57,21 @@ The two gaps are honest and both are said out loud in the review notes in
 [`listing-app-store.md`](listing-app-store.md). **The inbox is the one worth closing before the first submission**, and
 it is the only thing about the demo that costs money: see the checklist.
 
+## How the hosted one was made
+
+On 2026-10-17 Chris signed up as `app-review@handsfreeos.com` in the app and created Bright Path Home Services
+himself, so no secret key or database password ever left his Mac. Claude then signed in as that account and sent the
+seed's own data through the live API, command by command, exactly as the app would. Two differences from the seed:
+
+- **The inbox is empty.** The seed writes its conversations straight into the tables, which needs the admin
+  connection; the API rightly has no way to make a text arrive. The review notes say so.
+- **The appointments are dated the week of 2026-10-18**, and nothing restages them. If a review comes after that,
+  book a few more from the app, or ask Claude to, with the reviewer's password for that session only.
+
+Recording Dana's cash payment made the worker email her a receipt, as it does for any business. Postmark refused it
+(`example.com` can't receive mail), and that one failed thread was closed. A reviewer who records a payment will see
+the same, so the review notes say every address is made up rather than that nothing leaves the servers.
+
 ## Seeding it
 
 ```sh

@@ -97,9 +97,10 @@ Sign-in: this app is for businesses that already use HandsFreeOS, so a demo busi
 Email and password are in the App Review sign-in fields above. On the sign-in screen, enter the email,
 then tap Use my password.
 
-The demo business is "Bright Path Home Services". It has customers, leads, appointments, conversations,
-invoices and payments already in it, so every tab has something to look at. No real phone number and no real
-card are involved: nothing the demo business sends leaves our servers.
+The demo business is "Bright Path Home Services". It has customers, leads, appointments, tasks, estimates,
+invoices and a payment already in it, so most tabs have something to look at. It has no phone number of its
+own, so its inbox is empty. Every customer has a made-up 555 number and an example.com email, so nothing the
+demo business sends can reach a real person.
 
 Notes for review:
 • Face ID is offered to unlock the app and to confirm anything that reaches a customer. Skip is always
