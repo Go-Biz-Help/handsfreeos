@@ -2,6 +2,7 @@ import {
   fmtTime,
   PushData,
   SAFETY_DEFAULTS,
+  SAFETY_LIMITS,
   safetyAskWords,
   type PushData as PushDataType,
 } from '@hfos/core';
@@ -155,13 +156,16 @@ const QUARTER = 15 * 60_000;
 
 /**
  * The planned ends to choose from when checking in: the appointment's end and a quarter and half an hour after it
- * (board 90: 4:30, 4:45, 5:00), or, with no appointment or one already over, the next quarter hour at least half an
- * hour away and the two after it. The second is chosen first: a little time to spare.
+ * (board 90: 4:30, 4:45, 5:00), or, with no appointment, one already over, or one ending further off than a check-in
+ * may last (checking in a day early), the next quarter hour at least half an hour away and the two after it. The
+ * second is chosen first: a little time to spare. Every choice stays inside the 12 hours `safety.check_in` allows, so
+ * none of them is refused.
  */
 export function checkOutChoices(endsAt: string | null, now: number): string[] {
   const end = endsAt ? Date.parse(endsAt) : NaN;
-  const base =
-    Number.isFinite(end) && end > now ? end : Math.ceil((now + 30 * 60_000) / QUARTER) * QUARTER;
+  const longest = SAFETY_LIMITS.longestMinutes * 60_000;
+  const fits = Number.isFinite(end) && end > now && end + 2 * QUARTER - now <= longest;
+  const base = fits ? end : Math.ceil((now + 30 * 60_000) / QUARTER) * QUARTER;
   return [0, 1, 2].map((n) => new Date(base + n * QUARTER).toISOString());
 }
 

@@ -79,6 +79,11 @@ describe('checking in', () => {
     // No appointment, or one already over: the next quarter hour at least 30 minutes away.
     expect(checkOutChoices(null, now)[0]).toBe('2026-10-01T21:30:00.000Z');
     expect(checkOutChoices('2026-10-01T20:30:00.000Z', now)[0]).toBe('2026-10-01T21:30:00.000Z');
+    // An appointment ending further off than a check-in may last (checked in days early): counted from now instead,
+    // so the server's 12-hour limit never refuses what was offered.
+    expect(checkOutChoices('2026-10-03T15:30:00.000Z', now)[0]).toBe('2026-10-01T21:30:00.000Z');
+    expect(checkOutChoices('2026-10-02T08:30:00.000Z', now)[2]).toBe('2026-10-01T22:00:00.000Z');
+    expect(checkOutChoices('2026-10-02T08:00:00.000Z', now)[2]).toBe('2026-10-02T08:30:00.000Z');
     expect(laterChoices(now)).toEqual([
       '2026-10-01T22:00:00.000Z',
       '2026-10-01T22:30:00.000Z',
