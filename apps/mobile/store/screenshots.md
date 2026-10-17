@@ -58,6 +58,17 @@ one appearance.
   Google's maximum.
 - **No Assistant screenshot**, for the same reason.
 
+## The marketing versions
+
+`assets/marketing/` has each of the sixteen set in a phone on the brand's blue, under a two-line headline and a line
+saying what it shows, at the same sizes as the plain ones; and a Play feature graphic with the name, "Run your day
+from your truck." and a phone on it. `node scripts/store-marketing.mjs` makes them all from the plain screenshots, so
+retaking a screenshot or changing a headline (its `SLIDES` list) is followed by running it again.
+
+They are what goes in the listing, in the same order; the plain ones stay as their source. In App Store Connect they
+go in the **iPhone 6.9" Display** slot: dropped into the 6.1"/6.3" slot, Apple refuses them as "File dimensions are
+invalid", because that slot wants 1206 × 2622.
+
 ## If these are ever retaken
 
 Take them on **iPhone 17 Pro Max (1320 × 2868)** and an **Android emulator at 1080 × 1920**, in **light mode**, from
