@@ -426,7 +426,7 @@ Notes for review:
 • Face ID is offered to unlock the app and to confirm anything that reaches a customer. Skip is always offered, and the demo login has no unlock set, so the reviewer is never stopped by it.
 • Background location is used only while the person is checked in for their safety (More → Settings → My safety; Check in on an appointment) with Share where I am on, and stops when they check out. The blue location indicator shows throughout. The app never requests Always authorization.
 • The microphone is used only while the person talks out loud to the Assistant or records a voice note.
-• Anything you ask the Assistant is sent to Anthropic's Claude, or to OpenAI as a backup when Claude is unavailable. The first use explains that and asks for permission; the demo login has not yet given it, so the consent screen can be seen.
+• Anything you ask the Assistant is sent to Anthropic's Claude, or to OpenAI as a backup when Claude is unavailable. The first use explains that and asks for permission; the demo login has already said yes.
 • The app never takes a card number. Payments happen on the payment provider's own hosted page in the browser.
 • Some desk work — workflow editors, business settings, members, payment connections — opens the web app in Safari on purpose. It is the same account.
 • Account deletion is in More → Settings → Delete my account. If you try it, please use a new account (Create an account on the sign-in screen), so the demo account stays for later reviews.

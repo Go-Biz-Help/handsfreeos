@@ -119,8 +119,7 @@ Notes for review:
   blue location indicator shows throughout. The app never requests Always authorization.
 • The microphone is used only while the person talks out loud to the Assistant or records a voice note.
 • Anything you ask the Assistant is sent to Anthropic's Claude, or to OpenAI as a backup when Claude is
-  unavailable. The first use explains that and asks for permission; the demo login has not yet given it, so
-  the consent screen can be seen.
+  unavailable. The first use explains that and asks for permission; the demo login has already said yes.
 • The app never takes a card number. Payments happen on the payment provider's own hosted page in the
   browser.
 • Some desk work — workflow editors, business settings, members, payment connections — opens the web app in

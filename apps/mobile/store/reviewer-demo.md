@@ -44,14 +44,13 @@ never reach a real person.
 
 ## What a reviewer can and can't do
 
-| Can                                                                        | Can't, and why                                                                                                       |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Open every tab, read every record, move a lead, complete a task            | See a conversation or a call — the business has no phone number yet                                                  |
-| Make and reschedule an appointment                                         | Book through the public booking page: the demo calendar is a draft, which is all staff booking needs                 |
-| Write an estimate or an invoice, and record cash against one               | Take a card payment: that happens on the provider's own page, and the demo business has no payment account connected |
-| Turn the phone to airplane mode and watch changes queue and then send      | —                                                                                                                    |
-| See the Assistant's consent screen, because this account hasn't agreed yet | —                                                                                                                    |
-| Delete the account from More → Settings, which is what Apple checks for    | —                                                                                                                    |
+| Can                                                                     | Can't, and why                                                                                                       |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Open every tab, read every record, move a lead, complete a task         | See a conversation or a call — the business has no phone number yet                                                  |
+| Make and reschedule an appointment                                      | Book through the public booking page: the demo calendar is a draft, which is all staff booking needs                 |
+| Write an estimate or an invoice, and record cash against one            | Take a card payment: that happens on the provider's own page, and the demo business has no payment account connected |
+| Turn the phone to airplane mode and watch changes queue and then send   | —                                                                                                                    |
+| Delete the account from More → Settings, which is what Apple checks for | —                                                                                                                    |
 
 The two gaps are honest and both are said out loud in the review notes in
 [`listing-app-store.md`](listing-app-store.md). **The inbox is the one worth closing before the first submission**, and
@@ -69,6 +68,9 @@ seed's own data through the live API, command by command, exactly as the app wou
   after that, book a few more from the app, or ask Claude to, with the reviewer's password for that session only.
 - **Appointment reminders are off** in this business's Settings → Automations (day before, and on the day). Every
   customer is an `example.com` address, so each reminder would only fail and sit in the inbox.
+
+The demo login said yes to the Assistant's consent screen on 2026-10-17, from the iPhone app. There is no way to take
+that back, so a reviewer won't see the screen, and the review notes no longer promise it.
 
 Recording Dana's cash payment made the worker email her a receipt, as it does for any business. Postmark refused it
 (`example.com` can't receive mail), and that one failed thread was closed. A reviewer who records a payment will see
