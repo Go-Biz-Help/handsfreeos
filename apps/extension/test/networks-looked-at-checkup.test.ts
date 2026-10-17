@@ -46,7 +46,10 @@ const INSTAGRAM_PAGES: Record<string, string> = {
   [`${IG}/explore/search/keyword/?q=small%20business`]: html(
     `${IG_MENU}<main role="main"><a href="/sam.carter/">sam.carter</a><a href="/p/D1aBc34DeFg/">post</a></main>`,
   ),
-  [`${IG}/dana.reyes/`]: igProfile('dana.reyes', 'Follow', 'E2bCd45EfGh'),
+  [`${IG}/dana.reyes/`]: igProfile('dana.reyes', 'Follow', 'E2bCd45EfGh').replace(
+    '<a href="/p/',
+    '<a href="/dana.reyes/reel/R0aBc12XyZq/">a reel</a><a href="/p/',
+  ),
   [`${IG}/p/E2bCd45EfGh/`]: html(`<main role="main"><article>
     <div role="button"><svg aria-label="Like"><title>Like</title></svg></div>
     <form><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></article></main>`),

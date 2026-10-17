@@ -103,7 +103,8 @@ function kindOf(url: URL): string {
             ? 'suggested'
             : 'explore';
   if (first === 'p' || first === 'reel' || first === 'tv') return 'post';
-  if (first === 'reels') return 'reels';
+  // A reel opens in the reels player, at /reels/<code>/: its own page still.
+  if (first === 'reels') return second ? 'post' : 'reels';
   if (first === 'direct') return second === 't' ? 'chat' : 'inbox';
   if (first === 'accounts')
     return second === 'edit'
@@ -130,14 +131,14 @@ function postOf(url: URL): string | null {
   const parts = partsOf(url);
   // /p/<code>/, /reel/<code>/, and newer links with the account's name first: /<name>/p/<code>/.
   const at =
-    parts[0] === 'p' || parts[0] === 'reel' || parts[0] === 'tv'
+    parts[0] === 'p' || parts[0] === 'reel' || parts[0] === 'reels' || parts[0] === 'tv'
       ? 0
       : parts[1] === 'p' || parts[1] === 'reel'
         ? 1
         : -1;
   const code = at >= 0 ? parts[at + 1] : undefined;
   if (!code || !/^[A-Za-z0-9_-]{5,64}$/.test(code)) return null;
-  return `https://${HOST}/${parts[at] === 'reel' ? 'reel' : 'p'}/${code}/`;
+  return `https://${HOST}/${parts[at] === 'reel' || parts[at] === 'reels' ? 'reel' : 'p'}/${code}/`;
 }
 
 /** Instagram's own words on its pages, as the outline keeps them. */

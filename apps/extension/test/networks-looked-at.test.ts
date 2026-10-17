@@ -44,6 +44,9 @@ describe('Instagram’s addresses', () => {
     expect(kind('/p/C9xYz12AbCd/')).toBe('post');
     expect(kind('/dana.reyes/p/C9xYz12AbCd/')).toBe('post');
     expect(kind('/reel/C9xYz12AbCd/')).toBe('post');
+    // Where a reel's link opens: the reels player, a reel's own page still.
+    expect(kind('/reels/C9xYz12AbCd/')).toBe('post');
+    expect(kind('/reels/')).toBe('reels');
     expect(kind('/explore/tags/smallbusiness/')).toBe('tag');
     expect(kind('/explore/search/keyword/?q=small%20business')).toBe('search');
     expect(kind('/explore/people/')).toBe('suggested');

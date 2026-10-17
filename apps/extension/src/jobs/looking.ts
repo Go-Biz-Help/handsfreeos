@@ -103,7 +103,11 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
   }
 
   // One of their posts, or one from your feed or the search: Like and the box to comment in looked for.
-  const post = [...theirPosts, ...feed.posts, ...search.posts][0]?.url ?? null;
+  // A photo's page before a reel's: a reel opens in the reels player, which shows no box to comment in till Comment
+  // is pressed (the owner's second Check, 17 Oct 2026).
+  const posts = [...theirPosts, ...feed.posts, ...search.posts];
+  const post =
+    (posts.find((p) => new URL(p.url).pathname.startsWith('/p/')) ?? posts[0])?.url ?? null;
   if (post) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const page = await c.open(post, 'a post');
