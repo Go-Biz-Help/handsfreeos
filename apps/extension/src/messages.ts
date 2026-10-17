@@ -6,6 +6,7 @@
  * chat, read the person's own profile, put the bio or headline in), and a tab answers only its own network's.
  */
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
+import type { ProfileLoad } from './networks/linkedin/own-profile';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { LinkedInFilePart } from './hfos/files';
@@ -119,7 +120,8 @@ export type OwnProfileAsk =
   { readonly type: 'hfos-own-profile' } | { readonly type: 'hfos-write-bio'; readonly bio: string };
 
 export type OwnProfileAnswer =
-  | { readonly ok: true; readonly read: ProfileRead }
+  /** `load`: how loading the whole profile went, where the network draws it as it comes into view (LinkedIn). */
+  | { readonly ok: true; readonly read: ProfileRead; readonly load?: ProfileLoad }
   | { readonly ok: true; readonly result: BioResult }
   | { readonly ok: false; readonly error: string };
 

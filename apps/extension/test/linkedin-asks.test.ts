@@ -111,7 +111,7 @@ describe('your own LinkedIn profile, loaded to its foot before it’s read', () 
         if (top + 800 >= height && height < 3000) height = 3000;
       },
     });
-    await loadWholeProfile(doc, 0);
+    await loadWholeProfile(doc, { pauseMs: 0 });
     // The foot of the page as it grew, then back at the top for the read.
     expect(Math.max(...tops)).toBe(2200);
     expect(top).toBe(0);
@@ -199,6 +199,14 @@ describe('putting the headline in', () => {
       expect(typed).toEqual(['f-headline']);
     },
   );
+
+  it('finds the pencil by its link to the intro’s box when its label says something else', async () => {
+    // The owner's Check LinkedIn of 17 Oct 2026: the pencil's label wasn't "Edit intro"; its link still was.
+    const { doc, typed } = editable(false);
+    doc.querySelector('[aria-label="Edit intro"]')!.setAttribute('aria-label', 'Edit profile');
+    expect(await writeHeadline(doc, OWN, NEW)).toBe('done');
+    expect(typed).toEqual(['f-headline']);
+  });
 
   it('presses nothing with no Edit intro, and says so for the person to do it', async () => {
     const doc = load('linkedin-own-profile-full.html', OWN);

@@ -92,8 +92,8 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
   if (!onProfile(location.href)) return { ok: false, error: 'LinkedIn didn’t open your profile.' };
   if (ask.type === 'hfos-own-profile') {
     // LinkedIn draws the parts below the top only as they come into view.
-    await loadWholeProfile(document);
-    return { ok: true, read: readOwnProfile(document, location.href) };
+    const load = await loadWholeProfile(document);
+    return { ok: true, read: readOwnProfile(document, location.href), load };
   }
   return { ok: true, result: await writeHeadline(document, location.href, ask.bio) };
 }

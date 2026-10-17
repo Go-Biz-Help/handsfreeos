@@ -13,7 +13,8 @@
  * - reading the feed's posts, with their authors, headlines, words, links and counts; the runner's like, its comment
  *   and who engaged on the newer layout;
  * - your own profile: its name, headline, photo and banner, the whole About, every role under Experience, and no
- *   Featured or posts;
+ *   Featured or posts; and, as LinkedIn drew it for the owner's Check LinkedIn of 17 Oct 2026, its About and
+ *   Experience as empty places it fills only a moment after each comes into view, waited on before the read;
  * - the outline: LinkedIn's words for the controls the readers now rely on, and never a name.
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -22,7 +23,8 @@ import type { Noticed } from '../src/networks/kit';
 import { ENTER_LOOK_MS, LIKE_LOOK_MS, linkedInNoticer } from '../src/networks/linkedin/actions';
 import { likeTheirPost, theirPosts, writeComment } from '../src/networks/linkedin/auto';
 import { readComments, readReactions } from '../src/networks/linkedin/compose';
-import { readOwnProfile } from '../src/networks/linkedin/own-profile';
+import { loadNote, ownProfileNote } from '../src/jobs/report';
+import { loadWholeProfile, readOwnProfile } from '../src/networks/linkedin/own-profile';
 import { readPage } from '../src/networks/linkedin/page';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { boxEverything, load } from './load';
@@ -678,6 +680,62 @@ describe.each(SHAPES)('your own profile in LinkedIn’s newer layout, %s', (_, b
       .querySelector('main div[aria-label="Chris Gee"] img')!
       .setAttribute('src', 'https://static.licdn.com/aero-v1/sc/h/ghost-person.svg');
     expect(readOwnProfile(doc, OWN)).toMatchObject({ picture: null });
+  });
+});
+
+// ------------------------------------------------------------------------- your own profile, drawn as it's seen
+
+describe('your own profile in LinkedIn’s newer layout, drawn only as its places come into view', () => {
+  const headingOf = (doc: Document, words: string) =>
+    [...doc.querySelectorAll('h2')].find((h) => h.textContent!.trim() === words)!;
+
+  /**
+   * The owner's Check LinkedIn of 17 Oct 2026: the top and Activity drawn, and an empty place where About goes and one
+   * where Experience goes, each filled `fillMs` after it comes into view (never, with null).
+   */
+  function drawnAsSeen(fillMs: number | null) {
+    const doc = load(OWN_PAGE, OWN);
+    const parts = [
+      headingOf(doc, 'About').closest('section')!.parentElement!,
+      headingOf(doc, 'Experience').closest('section')!,
+    ];
+    const seen: Element[] = [];
+    for (const part of parts) {
+      const place = doc.createElement('section');
+      place.innerHTML = '<div><div></div><div><div></div></div><div><div></div></div></div>';
+      part.replaceWith(place);
+      (place as HTMLElement).scrollIntoView = () => {
+        seen.push(place);
+        if (fillMs !== null) setTimeout(() => place.isConnected && place.replaceWith(part), fillMs);
+      };
+    }
+    return { doc, seen };
+  }
+  const waits = { pauseMs: 0, lookMs: 5, placeMs: 400, totalMs: 2_000 };
+
+  it('keeps each place in view till LinkedIn draws it, then reads the whole About and every role', async () => {
+    const { doc, seen } = drawnAsSeen(30);
+    // Read straight away, the places are all there is.
+    expect(readOwnProfile(doc, OWN)).toMatchObject({ about: null, intro: [] });
+    const load = await loadWholeProfile(doc, waits);
+    expect(seen).toHaveLength(2);
+    expect(load).toMatchObject({ places: 2, left: 0 });
+    const read = readOwnProfile(doc, OWN);
+    expect(read.about).toMatch(/^I help plumbers, roofers, cleaners/);
+    expect(read.intro).toHaveLength(6);
+    expect(loadNote(ownProfileNote(read), load).note).not.toMatch(/empty/);
+  });
+
+  it('gives up on a place that’s never drawn, says so in its note, and keeps the outline', async () => {
+    const { doc } = drawnAsSeen(null);
+    const load = await loadWholeProfile(doc, waits);
+    expect(load).toMatchObject({ places: 2, left: 2 });
+    const note = loadNote(ownProfileNote(readOwnProfile(doc, OWN)), load);
+    expect(note).toMatchObject({
+      found: { roles: 0, placesBefore: 2, placesLeft: 2 },
+      note: 'Not read: About, Experience, Featured, any posts. LinkedIn left 2 parts of the page empty.',
+      outline: true,
+    });
   });
 });
 
