@@ -10,14 +10,12 @@
  * as Chrome draws nothing in a window hidden behind another, and then the person's own comes back. It stops on any
  * LinkedIn warning.
  */
-import { REPORT_WORDS, type TryStepName } from '@hfos/core/addons/outreach/reports';
 import type { LinkedInRead } from '../../networks';
 import { DATA_PAGE } from '../../networks/linkedin/data';
-import type { StepTry, TryStep } from '../../networks/linkedin/tries';
-import type { Post, ProfileRef } from '../../networks/linkedin/types';
+import type { Post } from '../../networks/linkedin/types';
 import { sameMember } from '../../networks/linkedin/urls';
-import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
-import { loadNote, ownProfileNote, tryNote } from '../report';
+import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from '../checkup';
+import type { Job, JobEnd } from '../job';
 import {
   CONNECTIONS,
   INVITATIONS_SENT,
@@ -27,103 +25,8 @@ import {
   readLinkedIn,
 } from './read';
 
-/** What the searches look for: everyday words, to see how LinkedIn draws its results. */
-const SEARCH_WORDS = 'small business';
-/** Between pages: a person going from one to the next. */
-const BETWEEN_MS = [2_500, 5_000] as const;
-
-const isEnd = (got: LinkedInRead | JobEnd): got is JobEnd => 'warned' in got;
-
-/**
- * A profile, every part drawn: LinkedIn draws Experience and what's below only as it comes into view, so the tab's
- * script scrolls it to its foot and back first (the own profile's read, which does that on any profile), and what it
- * read is noted.
- */
-async function wholeProfile(job: Job, own: boolean): Promise<void> {
-  const read = await job.tab.ask({ type: 'hfos-own-profile' });
-  const got = read.ok && 'read' in read ? read : null;
-  const note = loadNote(own && got ? ownProfileNote(got.read) : {}, got?.load);
-  await job.report?.({ ...note, outline: true });
-}
-
-/** The person's work in the job's window: pages read and steps tried, as it goes. */
-class Checkup {
-  pages = 0;
-  readonly nothingOn: string[] = [];
-  readonly tries: StepTry[] = [];
-
-  constructor(private readonly job: Job) {}
-
-  /** Opens a page and reads it, at a person's pace after the first; a LinkedIn warning ends the job. */
-  async open(url: string, name: string): Promise<LinkedInRead | JobEnd> {
-    if (this.pages > 0) await pause(paced(BETWEEN_MS));
-    this.job.progress(`Checking ${name}…`);
-    await this.job.tab.open(url);
-    const page = await readLinkedIn(this.job.tab);
-    const warned = await warnedOn(this.job, page);
-    if (warned) return warned;
-    this.pages++;
-    return page;
-  }
-
-  /** Notes the page with its outline, and says when its readers found nothing on it. */
-  async note(name: string, count: number): Promise<void> {
-    await this.job.report?.({ outline: true });
-    if (count === 0) this.nothingOn.push(name);
-  }
-
-  /** Tries a step on the page the tab shows, notes how it went, and says. */
-  async tryHere(step: TryStep, profile?: ProfileRef): Promise<StepTry> {
-    this.job.progress(`Trying ${REPORT_WORDS_STEP[step]}…`);
-    const answer = await this.job.tab.ask({
-      type: 'hfos-try',
-      step,
-      ...(profile ? { profile } : {}),
-    });
-    const tried: StepTry = answer.ok
-      ? answer.tried
-      : { step, tried: true, works: false, found: {}, missing: [answer.error] };
-    this.tries.push(tried);
-    await this.job.report?.(tryNote(tried));
-    return tried;
-  }
-
-  /**
-   * The steps as the end's line counts them: one tried two ways (messaging, on the profile and on the page its Message
-   * links to) works when either does.
-   */
-  steps(): StepTry[] {
-    const each = new Map<TryStep, StepTry>();
-    for (const tried of this.tries) {
-      const before = each.get(tried.step);
-      if (!before || (tried.works && !before.works) || (tried.tried && !before.tried))
-        each.set(tried.step, tried);
-    }
-    return [...each.values()];
-  }
-
-  /** A step with nothing to try it on: noted as such, nothing opened. */
-  async nothingFor(step: TryStep, why: string): Promise<void> {
-    const tried: StepTry = { step, tried: false, works: false, found: {}, missing: [why] };
-    this.tries.push(tried);
-    await this.job.report?.({ ...tryNote(tried), outline: false });
-  }
-}
-
-/** The step's name, as the progress line says it. */
-const REPORT_WORDS_STEP: Readonly<Record<TryStep, string>> = {
-  headline: 'your headline',
-  post: 'a post',
-  comment: 'a comment',
-  connect: 'connecting',
-  message: 'a message',
-  like: 'a like',
-  withdraw: 'withdrawing',
-  file: 'the data file',
-};
-
 async function checkup(job: Job): Promise<JobEnd> {
-  const c = new Checkup(job);
+  const c = new Checkup<LinkedInRead>(job, 'linkedin', readLinkedIn);
   const stopped = (): JobEnd | null => (job.stopped() ? { line: 'Stopped.', warned: false } : null);
 
   // Your profile: read whole, then putting the headline in tried.
@@ -225,7 +128,7 @@ async function checkup(job: Job): Promise<JobEnd> {
     await c.nothingFor('message', 'no connection to try it with');
     await c.nothingFor('like', 'no connection whose posts to try it on');
   }
-  if (!c.tries.some((t) => t.step === 'comment'))
+  if (!c.has('comment'))
     await c.nothingFor(
       'comment',
       'no person’s post with its own page, on your feed, the search or a connection’s activity',
@@ -241,26 +144,7 @@ async function checkup(job: Job): Promise<JobEnd> {
   if (isEnd(data)) return data;
   await c.tryHere('file');
 
-  const steps = c.steps();
-  const names = (pick: (t: StepTry) => boolean) =>
-    steps.filter(pick).map((t) => t.step as TryStepName);
-  const broken = names((t) => t.tried && !t.works);
-  const untried = names((t) => !t.tried);
-  const line = REPORT_WORDS.checkupTried('LinkedIn', c.pages, broken, untried, steps.length);
-  await job.report?.({
-    job: 'checkup.summary',
-    found: {
-      pages: c.pages,
-      steps: steps.length,
-      working: steps.filter((t) => t.works).length,
-      ...(broken.length ? { notWorking: broken } : {}),
-      ...(untried.length ? { nothingToTry: untried } : {}),
-      ...(c.nothingOn.length ? { nothingRead: c.nothingOn } : {}),
-    },
-    note: line,
-    outline: false,
-  });
-  return { line, warned: false };
+  return c.end();
 }
 
 /** Check LinkedIn: with its window in front the whole time, then the person's own back. */

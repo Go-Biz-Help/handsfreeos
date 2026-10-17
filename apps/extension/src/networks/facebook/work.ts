@@ -12,6 +12,8 @@
  * - A good group: Join group, and its questions answered with the AI's answers (./join.ts, decision 48).
  * - A helpful post put up on a group's page, and who engaged with one of theirs (./compose.ts, decision 50).
  * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64).
+ * - Check Facebook's tries: each step taken up to its last press, never that one, on the page it's for (./tries.ts,
+ *   decision 77).
  *
  * Runs in the tab, on the page in front of it: it uses the tab's own document and address.
  */
@@ -29,6 +31,8 @@ import type {
   OwnProfileAnswer,
   OwnProfileAsk,
   PostsAnswer,
+  TryAnswer,
+  TryAsk,
 } from '../../messages';
 import { likeTheirPost, readTheirPosts, writeComment, writeMessage } from './auto';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
@@ -38,7 +42,21 @@ import { requestsPage } from './friends';
 import { answerJoin, pressJoin } from './join';
 import { readOwnProfile, writeBio } from './own-profile';
 import { tidyPage } from './tidy';
+import {
+  tryBio,
+  tryCancel,
+  tryComment,
+  tryConfirm,
+  tryFile,
+  tryJoin,
+  tryLike,
+  tryMessage,
+  tryPost,
+  tryRequest,
+  tryUnfriend,
+} from './tries';
 import { classifyUrl } from './urls';
+import type { StepTry } from '../tries';
 
 /** One of the panel's steps on a download page, looked for until it shows or `waitMs` is up. */
 async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
@@ -112,6 +130,58 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
   return { ok: true, result: await writeBio(document, ask.bio) };
 }
 
+/** Check Facebook's tries (./tries.ts), each only on the kind of page its step is for. */
+async function tryStep(ask: TryAsk): Promise<TryAnswer> {
+  const kind = classifyUrl(location.href).kind;
+  const wrong = (page: string): TryAnswer => ({
+    ok: false,
+    error: `Facebook didn’t open ${page}.`,
+  });
+  const tried = (step: StepTry | Promise<StepTry>) =>
+    Promise.resolve(step).then((t): TryAnswer => ({ ok: true, tried: t }));
+  switch (ask.step) {
+    case 'bio':
+      return kind === 'profile' ? tried(tryBio(document)) : wrong('your profile');
+    case 'confirm':
+      return requestsPage(location.href)
+        ? tried(tryConfirm(document, location.href))
+        : wrong('your friend requests');
+    case 'post':
+      return kind === 'group' ? tried(tryPost(document)) : wrong('the group');
+    case 'comment':
+      return kind === 'post' ? tried(tryComment(document)) : wrong('the post');
+    case 'request':
+      return kind === 'profile'
+        ? tried(tryRequest(document, location.href))
+        : wrong('their profile');
+    case 'join':
+      return kind === 'group' ? tried(tryJoin(document)) : wrong('the group');
+    case 'like':
+      return kind === 'profile' && ask.profile
+        ? tried(tryLike(document, location.href, ask.profile, window))
+        : wrong('their profile');
+    case 'unfriend':
+      return kind === 'profile'
+        ? tried(tryUnfriend(document, location.href))
+        : wrong('their profile');
+    case 'message':
+      return kind === 'profile'
+        ? tried(tryMessage(document, location.href))
+        : wrong('their profile');
+    case 'cancel':
+      return kind === 'profile'
+        ? tried(tryCancel(document, location.href))
+        : wrong('their profile');
+    case 'file':
+      return fetchPage(location.href)
+        ? tried(tryFile(document))
+        : wrong('its Download your information page');
+    default:
+      // A step of another network's Check: said, never left unanswered.
+      return { ok: false, error: 'The extension doesn’t try that on Facebook.' };
+  }
+}
+
 /** Opening a chat from Messenger's list, or scrolling a list for more (./browse.ts): whether it could. */
 function browseStep(ask: BrowseAsk): BrowseAnswer {
   const ok =
@@ -146,9 +216,10 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-engaged',
   'hfos-own-profile',
   'hfos-write-bio',
+  'hfos-try',
 ]);
 
-type WorkAsk = FetchAsk | BrowseAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk;
+type WorkAsk = FetchAsk | BrowseAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | TryAsk;
 
 /** Does one of the background's asks in this tab, and answers how it went; null for one that isn't Facebook's work. */
 export function work(ask: { readonly type: string }): Promise<unknown> | null {
@@ -178,5 +249,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':
       return fetchStep(known);
+    case 'hfos-try':
+      return tryStep(known);
   }
 }

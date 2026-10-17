@@ -111,7 +111,7 @@ export type AutoResult =
   | 'not_sent';
 
 /** A post's own Like button, not one of its comments': "Like", or "Remove Like" once liked. */
-function likeButton(box: Element): Element | null {
+export function likeButton(box: Element): Element | null {
   return (
     [...box.querySelectorAll('[role="button"], button')].find((button) => {
       if (!LIKE.test(clean(button.getAttribute('aria-label'))) || !shown(button)) return false;
@@ -152,7 +152,7 @@ export interface TheirPost {
 }
 
 /** The posts on the page by the person, as far as the page has drawn, the latest first. */
-function theirPosts(
+export function theirPosts(
   doc: Document,
   href: string,
   profile: ProfileRef,
@@ -220,7 +220,7 @@ export async function likeTheirPost(
 }
 
 /** The post's own box to comment in, never a reply's. */
-function commentBox(doc: Document): HTMLElement | null {
+export function commentBox(doc: Document): HTMLElement | null {
   const label = (box: Element) =>
     clean(box.getAttribute('aria-label')) || clean(box.getAttribute('aria-placeholder'));
   const dialog = [...doc.querySelectorAll('[role="dialog"]')].filter(shown).at(-1);
@@ -232,7 +232,7 @@ function commentBox(doc: Document): HTMLElement | null {
 }
 
 /** The button beside a box that sends what's in it, once Facebook shows it. */
-function sendButton(box: Element): HTMLElement | null {
+export function sendButton(box: Element): HTMLElement | null {
   let up = box.parentElement;
   for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
     const send = [...up.querySelectorAll('[role="button"], button')].find(
@@ -247,6 +247,15 @@ function sendButton(box: Element): HTMLElement | null {
   return null;
 }
 
+/** The post's Comment, which some posts need pressed before they show their box to comment in. */
+export function commentOpener(doc: Document): HTMLElement | null {
+  return (
+    [...mainOf(doc).querySelectorAll<HTMLElement>('[role="button"], button')].find(
+      (b) => /^(leave a comment|comment)$/i.test(labelOf(b)) && shown(b),
+    ) ?? null
+  );
+}
+
 /**
  * Writes a comment under the post the page shows, and sends it (decision 26): types it into the post's box to
  * comment in, presses the button that sends it (or Enter), and waits for the box to empty.
@@ -254,11 +263,7 @@ function sendButton(box: Element): HTMLElement | null {
 export async function writeComment(doc: Document, text: string): Promise<AutoResult> {
   let box = commentBox(doc);
   if (!box) {
-    // Some posts open the box only once Comment is pressed.
-    const opener = [...mainOf(doc).querySelectorAll('[role="button"], button')].find(
-      (b) => /^(leave a comment|comment)$/i.test(labelOf(b)) && shown(b),
-    );
-    (opener as HTMLElement | undefined)?.click();
+    commentOpener(doc)?.click();
     await pause(1_200);
     box = commentBox(doc);
   }
@@ -270,13 +275,17 @@ export async function writeComment(doc: Document, text: string): Promise<AutoRes
  * The box to write a message in: the open chat's in Messenger, else the chat window's over the page that opened last.
  * Never a box to comment in.
  */
-function messageBox(doc: Document): HTMLElement | null {
+export function messageBox(doc: Document): HTMLElement | null {
+  return messageBoxes(doc).at(-1) ?? null;
+}
+
+/** Every box to write a message in on the page, in page order: Messenger's open chat, and each chat window's. */
+export function messageBoxes(doc: Document): HTMLElement[] {
   const label = (box: Element) =>
     clean(box.getAttribute('aria-label')) || clean(box.getAttribute('aria-placeholder'));
-  const boxes = [...doc.querySelectorAll(WRITING)].filter(
+  return [...doc.querySelectorAll<HTMLElement>(WRITING)].filter(
     (b) => shown(b) && !inTopBar(b) && MESSAGE_BOX.test(label(b)) && !COMMENT_BOX.test(label(b)),
   );
-  return (boxes.at(-1) as HTMLElement | undefined) ?? null;
 }
 
 /**

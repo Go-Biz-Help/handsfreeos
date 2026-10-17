@@ -335,7 +335,7 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.56.0.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.57.0.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
    **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
    turns one off there. Its daily limits for each person are below it, and start at the ones below.
@@ -402,7 +402,8 @@ Connect; 0.53.0 fixes the three, looks inside the interop box, and outlines it. 
 messaging: Message opens the new conversation's own page in the interop frame, whose Send stays off till something's
 written; 0.54.0 counts a Send that's still off and writes on that page. On 0.54.0 Message opened a window over the
 profile instead, linking to them by member id; 0.55.0 takes that id from their profile's own Message. On 0.55.0 every
-step tried worked; 0.56.0 tries commenting on a connection's own post when his feed and the search link none. The
+step tried worked; 0.56.0 tries commenting on a connection's own post when his feed and the search link none, and
+0.57.0 adds **Check Facebook** on Facebook's page in Settings, which does the same on Facebook (decision 77). The
 outlines are no longer pasted. Outlines that would settle the rest: a post with words typed in
 its comment box, post search results and a post's own page, someone else's profile, a conversation with words typed,
 and a post with the reactions menu open.

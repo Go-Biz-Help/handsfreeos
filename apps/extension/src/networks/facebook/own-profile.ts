@@ -90,7 +90,7 @@ function picturesOf(
 }
 
 /** The Edit bio (or Add bio) button, where it shows. */
-function bioButton(doc: Document): HTMLElement | null {
+export function bioButton(doc: Document): HTMLElement | null {
   return (
     [...mainOf(doc).querySelectorAll<HTMLElement>('[role="button"], button')].find(
       (b) => EDIT_BIO.test(labelOf(b)) && shown(b),
@@ -174,7 +174,7 @@ export type BioResult =
   | 'not_saved';
 
 /** The box Facebook opens to write the bio in: a plain box, or one to write in, where Edit bio was. */
-function bioBox(doc: Document): HTMLElement | null {
+export function bioBox(doc: Document): HTMLElement | null {
   return (
     [
       ...mainOf(doc).querySelectorAll<HTMLElement>(

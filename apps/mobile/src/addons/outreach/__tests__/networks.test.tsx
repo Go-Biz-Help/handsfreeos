@@ -483,8 +483,8 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
   });
 });
 
-describe('LinkedIn’s page and the person’s computer (decision 74)', () => {
-  const asks = (allowed: ('facebook' | 'linkedin')[] | null): AsksOutput => ({
+describe('A network’s page and the person’s computer (decisions 74 and 77)', () => {
+  const asks = (allowed: ('facebook' | 'linkedin')[] | null, version = '0.48.0'): AsksOutput => ({
     now: new Date().toISOString(),
     timezone: TZ,
     computer: {
@@ -493,7 +493,7 @@ describe('LinkedIn’s page and the person’s computer (decision 74)', () => {
       online: true,
       signedOut: false,
       lastSeenAt: new Date().toISOString(),
-      version: '0.48.0',
+      version,
       allowed,
     },
     warnedToday: false,
@@ -519,6 +519,44 @@ describe('LinkedIn’s page and the person’s computer (decision 74)', () => {
     );
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-checkup-ask'));
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'linkedin');
+  });
+
+  it('checks Facebook when asked, with no line about Chrome, whose Facebook is the extension’s own (decision 77)', async () => {
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    await render(
+      <SettingsPartBody
+        part="facebook"
+        automation={AUTOMATION}
+        {...partProps()}
+        asks={asks(['facebook'], '0.57.0')}
+        askActions={actions}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-facebook-chrome')).toBeNull();
+    expect(screen.queryByTestId('settings-networks-facebook-chrome-blocked')).toBeNull();
+    expect(screen.getByTestId('settings-networks-facebook-checkup')).toHaveTextContent(
+      /^Check FacebookIf something on Facebook isn’t working, press this once\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-checkup-ask'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'facebook');
+  });
+
+  it('says how to update a build before Check Facebook, and asks nothing of it', async () => {
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    await render(
+      <SettingsPartBody
+        part="facebook"
+        automation={AUTOMATION}
+        {...partProps()}
+        asks={asks(['facebook'], '0.56.0')}
+        askActions={actions}
+      />,
+    );
+    expect(screen.getByTestId('outreach-ask-too-old')).toHaveTextContent(
+      /^HandsFreeOS Social on Chrome on Mac 12 is an older build \(0\.56\.0\) that can’t do this yet\. Download the newest one/,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-checkup-ask'));
+    expect(actions.ask).not.toHaveBeenCalled();
   });
 
   it('says only how to allow it once Chrome has, and asks nothing on someone else’s settings', async () => {

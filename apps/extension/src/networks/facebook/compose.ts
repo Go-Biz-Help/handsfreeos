@@ -22,7 +22,7 @@ const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ??
 /** The box at the top of a group that starts a post, and the button that puts it up. */
 const START =
   /^(write something|create a public post|start a discussion|what's on your mind|what’s on your mind)/i;
-const POST = /^post$/i;
+export const POST = /^post$/i;
 /** What a group whose admins approve posts first says once one is sent. */
 const PENDING = /\b(pending|waiting for (admin )?approval|admins? (will )?review)\b/i;
 const REACTED = /^see who reacted to this$/i;
@@ -42,7 +42,7 @@ export type PostResult =
   | 'not_sent';
 
 /** The box over the page Facebook opens to write a post in, while it's open. */
-function composer(doc: Document): Element | null {
+export function composer(doc: Document): Element | null {
   return (
     [...doc.querySelectorAll('[role="dialog"]')]
       .filter(shown)
@@ -55,15 +55,22 @@ function composer(doc: Document): Element | null {
   );
 }
 
+/** The box at the top of a group that starts a post: "Write something…". */
+export function startButton(doc: Document): HTMLElement | null {
+  return (
+    [...mainOf(doc).querySelectorAll<HTMLElement>('[role="button"], button')].find(
+      (b) => START.test(labelOf(b)) && shown(b),
+    ) ?? null
+  );
+}
+
 /** Puts a post up in the group the page shows: opens the box to write it, types it, and presses Post. */
 export async function writeGroupPost(doc: Document, text: string): Promise<PostResult> {
   let box = composer(doc);
   if (!box) {
-    const start = [...mainOf(doc).querySelectorAll('[role="button"], button')].find(
-      (b) => START.test(labelOf(b)) && shown(b),
-    );
+    const start = startButton(doc);
     if (!start) return 'none';
-    (start as HTMLElement).click();
+    start.click();
     for (let waited = 0; !box && waited < WAIT_MS; waited += LOOK_MS) {
       await pause(LOOK_MS);
       box = composer(doc);

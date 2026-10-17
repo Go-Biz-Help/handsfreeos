@@ -560,7 +560,7 @@ function NetworkPage({
             <Part
               card
               title={REPORT_WORDS.checkupTitle(name)}
-              about={REPORT_WORDS.checkupAbout(name)}
+              about={REPORT_WORDS.checkupAbout(platform)}
               testId={`${testId}-checkup`}
             >
               <AskButton

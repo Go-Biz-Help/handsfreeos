@@ -116,9 +116,7 @@ export function NetworkMine({
       ) : (
         <>
           {wheels.on ? <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note> : null}
-          {p === 'facebook' ? null : (
-            <NetworkComputer platform={p} asks={asks} actions={askActions} testID={testID} />
-          )}
+          <NetworkComputer platform={p} asks={asks} actions={askActions} testID={testID} />
           <NetworkModes
             platform={p}
             value={choices}
@@ -178,8 +176,9 @@ export function NetworkMine({
 }
 
 /**
- * The person's computer on a network but Facebook (decision 74): what to press when Chrome hasn't let the extension on
- * it, and Check LinkedIn, which reads its main pages and sends a note of each.
+ * The person's computer on a network (decisions 74 and 77): off Facebook, what to press when Chrome hasn't let the
+ * extension on it (Facebook's sites are the extension's own); and Check LinkedIn or Check Facebook, which reads the
+ * network's main pages, tries each step up to its last press, and sends a note of each.
  */
 function NetworkComputer({
   platform,
@@ -196,7 +195,7 @@ function NetworkComputer({
   const computer = asks?.computer ?? null;
   return (
     <>
-      {computer && !allowedOn(computer.allowed, platform) ? (
+      {platform === 'facebook' ? null : computer && !allowedOn(computer.allowed, platform) ? (
         <Card className="bg-warning-soft px-4 py-3" testID={`${testID}-chrome-blocked`}>
           <Text className="text-[13px] leading-[18px] text-warning-text">
             {REPORT_WORDS.notAllowed(computer.name, platform)}
@@ -209,7 +208,7 @@ function NetworkComputer({
         <Section
           boxed
           title={REPORT_WORDS.checkupTitle(name)}
-          about={REPORT_WORDS.checkupAbout(name)}
+          about={REPORT_WORDS.checkupAbout(platform)}
           testID={`${testID}-checkup`}
         >
           <AskButton

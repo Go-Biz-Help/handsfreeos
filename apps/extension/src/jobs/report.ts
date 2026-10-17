@@ -15,7 +15,7 @@ import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
 import type { PageRead } from '../networks/kit';
-import type { StepTry } from '../networks/linkedin/tries';
+import type { StepTry } from '../networks/tries';
 import {
   headlineMissing,
   type HeadlineSteps,
