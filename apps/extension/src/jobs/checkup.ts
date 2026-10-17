@@ -53,6 +53,8 @@ const TRYING: Readonly<Record<TryStep, string>> = {
   unfriend: 'unfriending',
   join: 'joining a group',
   file: 'the data file',
+  follow: 'following',
+  recommend: 'recommending',
 };
 
 /**
@@ -71,6 +73,8 @@ export class Checkup<R extends PageRead> {
   pages = 0;
   readonly nothingOn: string[] = [];
   readonly tries: StepTry[] = [];
+  /** Steps looked for and not noted yet (`look`). */
+  private readonly looked: StepTry[] = [];
 
   constructor(
     private readonly job: Job,
@@ -121,6 +125,40 @@ export class Checkup<R extends PageRead> {
   /** A step the job itself found didn't work on the way to it (View sent requests missing, say): noted as tried. */
   async failed(step: TryStep, why: string, found: Record<string, number | boolean> = {}) {
     return this.noted({ step, tried: true, works: false, found, missing: [why] });
+  }
+
+  /**
+   * Looks for a step's button on the page the tab shows, without noting it yet: a network still looked at (decision 78)
+   * looks for each on several pages, and `noteLooks` notes the best of each once.
+   */
+  async look(step: TryStep): Promise<StepTry> {
+    const answer = await this.job.tab.ask({ type: 'hfos-try', step });
+    const tried: StepTry = answer.ok
+      ? answer.tried
+      : { step, tried: true, works: false, found: {}, missing: [answer.error] };
+    this.looked.push(tried);
+    return tried;
+  }
+
+  /** Whether a step's button was found yet, on any page looked at. */
+  found(step: TryStep): boolean {
+    return this.looked.some((t) => t.step === step && t.works);
+  }
+
+  /**
+   * Notes the best of each step looked for: where it was found, else the last page it wasn't, with what was there
+   * instead. The pages' own notes carry their outlines.
+   */
+  async noteLooks(): Promise<void> {
+    const best = new Map<TryStep, StepTry>();
+    for (const tried of this.looked) {
+      const before = best.get(tried.step);
+      if (!before?.works) best.set(tried.step, tried);
+    }
+    for (const tried of best.values()) {
+      this.tries.push(tried);
+      await this.job.report?.({ ...tryNote(tried), outline: false });
+    }
   }
 
   /** A step with nothing to try it on: noted as such, nothing opened. */

@@ -34629,7 +34629,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -34820,7 +34820,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -34849,7 +34849,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -34960,7 +34960,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -35006,7 +35006,7 @@ export interface operations {
                     /** Format: uuid */
                     installId: string;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default null */
                     underway?: string | null;
                     /** Format: uuid */
@@ -35034,7 +35034,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -35171,12 +35171,96 @@ export interface operations {
                         networks?: {
                             /**
                              * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok"
+                             *     }
+                             */
+                            alignable?: {
+                                /** @default true */
+                                collect?: boolean;
+                                /** @default true */
+                                confirmRequests?: boolean;
+                                /** @default true */
+                                joinGroups?: boolean;
+                                /** @default false */
+                                on?: boolean;
+                                /**
+                                 * @default after_ok
+                                 * @enum {string}
+                                 */
+                                posting?: "copy" | "after_ok" | "own";
+                                /**
+                                 * @default draft
+                                 * @enum {string}
+                                 */
+                                replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @default true */
+                                warmUp?: boolean;
+                                /** @default true */
+                                watchPosts?: boolean;
+                            };
+                            /**
+                             * @default {
                              *       "on": true
                              *     }
                              */
                             facebook?: {
                                 /** @default true */
                                 on?: boolean;
+                            };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok"
+                             *     }
+                             */
+                            instagram?: {
+                                /** @default true */
+                                collect?: boolean;
+                                /** @default true */
+                                confirmRequests?: boolean;
+                                /** @default true */
+                                joinGroups?: boolean;
+                                /** @default false */
+                                on?: boolean;
+                                /**
+                                 * @default after_ok
+                                 * @enum {string}
+                                 */
+                                posting?: "copy" | "after_ok" | "own";
+                                /**
+                                 * @default draft
+                                 * @enum {string}
+                                 */
+                                replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @default true */
+                                warmUp?: boolean;
+                                /** @default true */
+                                watchPosts?: boolean;
                             };
                             /**
                              * @default {
@@ -35274,6 +35358,20 @@ export interface operations {
                         changedBy: string | null;
                         name: string;
                         networkWheels: {
+                            alignable: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                            instagram: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
                             linkedin: {
                                 daysLeft: number;
                                 edits: number;
@@ -35291,6 +35389,20 @@ export interface operations {
                                 like?: number;
                             };
                             networkLimits: {
+                                alignable?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                                instagram?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
                                 linkedin?: {
                                     comment?: number;
                                     first_message?: number;
@@ -35299,7 +35411,7 @@ export interface operations {
                                     like?: number;
                                 };
                             };
-                            networksAllowed: ("facebook" | "linkedin")[];
+                            networksAllowed: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -35335,10 +35447,74 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok"
+                             *       },
+                             *       "instagram": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
+                             *       },
+                             *       "alignable": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
                              *       }
                              *     }
                              */
                             networks: {
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                alignable: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                };
                                 /**
                                  * @default {
                                  *       "on": true
@@ -35347,6 +35523,48 @@ export interface operations {
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                instagram: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
                                 };
                                 /**
                                  * @default {
@@ -35519,7 +35737,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     profile: {
                         id: string | null;
                         url: string;
@@ -35591,7 +35809,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35828,7 +36046,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35869,7 +36087,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35910,7 +36128,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -35983,7 +36201,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36036,7 +36254,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     profile: {
                         id: string | null;
                         url: string;
@@ -36083,7 +36301,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     profile: {
                         id: string | null;
                         url: string;
@@ -36130,7 +36348,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -36195,7 +36413,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36303,7 +36521,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default null */
                     privacy?: ("public" | "private") | null;
                     /** Format: uuid */
@@ -36359,7 +36577,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36395,7 +36613,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36646,7 +36864,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -36688,7 +36906,7 @@ export interface operations {
                     active?: boolean;
                     computer: {
                         /** @default null */
-                        allowed?: ("facebook" | "linkedin")[] | null;
+                        allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
                         /** Format: uuid */
                         id: string;
                         name: string;
@@ -36741,6 +36959,22 @@ export interface operations {
                         };
                         /** @default {} */
                         days: {
+                            alignable?: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
+                            instagram?: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
                             linkedin?: {
                                 at: string | null;
                                 date: string;
@@ -36923,7 +37157,7 @@ export interface operations {
                                 followUps?: number;
                                 messageAfterDays: number;
                             };
-                            platforms: ("facebook" | "linkedin")[];
+                            platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -36998,7 +37232,7 @@ export interface operations {
                             followUps?: number;
                             messageAfterDays: number;
                         };
-                        platforms: ("facebook" | "linkedin")[];
+                        platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                         problem?: string | null;
                         proof?: string[];
                         questions: {
@@ -37072,7 +37306,7 @@ export interface operations {
                                 followUps?: number;
                                 messageAfterDays: number;
                             };
-                            platforms: ("facebook" | "linkedin")[];
+                            platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -37175,7 +37409,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     posts: {
                         author: {
                             id: string | null;
@@ -37282,7 +37516,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     profile: {
                         id: string | null;
                         url: string;
@@ -37376,7 +37610,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -37502,7 +37736,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -37579,7 +37813,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -37634,7 +37868,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -37710,7 +37944,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     seen: {
                         name: string;
                         /** @default null */
@@ -38097,7 +38331,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default null */
                     postText?: string | null;
                     /** @default null */
@@ -38184,7 +38418,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default null */
                     url?: string | null;
                     words: string[];
@@ -38231,7 +38465,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -65566,7 +65800,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             /** Format: uuid */
                             profileId: string;
                             repliedAt: string | null;
@@ -65704,7 +65938,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -65733,7 +65967,7 @@ export interface operations {
                             via: "web" | "mobile" | "extension";
                         }[];
                         computer: {
-                            allowed?: ("facebook" | "linkedin")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
                             /** Format: uuid */
                             computerId: string;
                             /** Format: date-time */
@@ -65780,6 +66014,20 @@ export interface operations {
                         changedBy: string | null;
                         name: string;
                         networkWheels: {
+                            alignable: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                            instagram: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
                             linkedin: {
                                 daysLeft: number;
                                 edits: number;
@@ -65797,6 +66045,20 @@ export interface operations {
                                 like?: number;
                             };
                             networkLimits: {
+                                alignable?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                                instagram?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
                                 linkedin?: {
                                     comment?: number;
                                     first_message?: number;
@@ -65805,7 +66067,7 @@ export interface operations {
                                     like?: number;
                                 };
                             };
-                            networksAllowed: ("facebook" | "linkedin")[];
+                            networksAllowed: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -65841,10 +66103,74 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok"
+                             *       },
+                             *       "instagram": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
+                             *       },
+                             *       "alignable": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok"
                              *       }
                              *     }
                              */
                             networks: {
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                alignable: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                };
                                 /**
                                  * @default {
                                  *       "on": true
@@ -65853,6 +66179,48 @@ export interface operations {
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok"
+                                 *     }
+                                 */
+                                instagram: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
                                 };
                                 /**
                                  * @default {
@@ -66009,7 +66377,7 @@ export interface operations {
                     /** @default 1 */
                     page?: number;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     search?: string;
                     tag?: string;
                     /**
@@ -66047,7 +66415,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             profileId: string | null;
                             prospect: boolean | null;
                             /** @enum {string} */
@@ -66092,7 +66460,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     profileId?: string;
                     /** Format: uuid */
@@ -66187,7 +66555,7 @@ export interface operations {
                     /** @default 1 */
                     page?: number;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     search?: string;
                     /**
                      * @default friends
@@ -66293,7 +66661,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             /** Format: uuid */
                             profileId: string;
                             since: string | null;
@@ -66320,7 +66688,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66407,7 +66775,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     search?: string;
                     /**
                      * @default work
@@ -66537,7 +66905,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66566,7 +66934,7 @@ export interface operations {
                             /** @enum {string} */
                             how: "copy" | "after_ok" | "own";
                             /** @enum {string} */
-                            platform?: "facebook" | "linkedin";
+                            platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                             playbookName: string | null;
                             postedAt: string | null;
                             postUrl: string | null;
@@ -66599,7 +66967,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66694,7 +67062,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66736,7 +67104,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66753,7 +67121,7 @@ export interface operations {
                         canSend: boolean;
                         computer: {
                             activeAt: string | null;
-                            allowed?: ("facebook" | "linkedin")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -66766,7 +67134,7 @@ export interface operations {
                         } | null;
                         computers: {
                             activeAt: string | null;
-                            allowed?: ("facebook" | "linkedin")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -66950,7 +67318,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default [] */
                     profiles?: {
                         id: string | null;
@@ -67155,7 +67523,7 @@ export interface operations {
                             }[];
                             ownerName: string | null;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             savedMessages: number;
                             url: string;
                         }[];
@@ -67169,7 +67537,7 @@ export interface operations {
                             mutualFriends: number | null;
                             name: string;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             url: string;
                         }[];
                     };
@@ -67225,7 +67593,7 @@ export interface operations {
                                     followUps?: number;
                                     messageAfterDays: number;
                                 };
-                                platforms: ("facebook" | "linkedin")[];
+                                platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                                 problem?: string | null;
                                 proof?: string[];
                                 questions: {
@@ -67284,7 +67652,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -67318,7 +67686,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -67373,7 +67741,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -67567,7 +67935,7 @@ export interface operations {
                     /** @default 1 */
                     page?: number;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     search?: string;
                     /**
                      * @default all
@@ -67617,7 +67985,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
@@ -67646,7 +68014,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -67793,7 +68161,7 @@ export interface operations {
                             booked: number;
                             messages: number;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             positive: number;
                         }[];
                         byPlaybook: {
@@ -67902,7 +68270,7 @@ export interface operations {
                                  * @default facebook
                                  * @enum {string}
                                  */
-                                platform: "facebook" | "linkedin";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
                                     drafts: string[];
@@ -68117,7 +68485,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             /** Format: uuid */
                             userId: string;
                             wheels: {

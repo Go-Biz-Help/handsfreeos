@@ -7,7 +7,7 @@
  * (`LINKEDIN_MESSAGING`; src/networks/linkedin/browse.ts), and the chats go as LinkedIn's, with LinkedIn's thread ids.
  */
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
-import { facebook } from '../networks';
+import { facebook, isLookingRead, type FacebookRead, type LinkedInRead } from '../networks';
 import type { ChatPage, ChatSummary } from '../networks/facebook/types';
 import type { ChatsCollected } from '../hfos/messages';
 import { CHATS_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
@@ -22,7 +22,16 @@ import {
   type Hfos,
   type Job,
   type JobEnd,
+  type JobTab,
 } from './job';
+
+/** Reads a page of chats: Facebook's or LinkedIn's, the networks whose chats are read. */
+async function chatsPageIn(tab: JobTab): Promise<FacebookRead | LinkedInRead> {
+  const page = await readPageIn(tab);
+  if (isLookingRead(page))
+    throw new Error('Chats are read on Facebook and LinkedIn only, for now.');
+  return page;
+}
 
 /** Messenger's list of chats. */
 export const MESSENGER = 'https://www.facebook.com/messages/';
@@ -157,12 +166,12 @@ export async function readChats(
   let read = 0;
   job.progress(`Opening ${home.name}…`);
   // A tab not opened yet has nothing to read: the list of chats first.
-  const first = await readPageIn(tab).catch(() => null);
+  const first = await chatsPageIn(tab).catch(() => null);
   if (!first || !home.kinds.includes(first.kind)) await tab.open(home.url);
   const tried = new Set<string>();
   let emptyScrolls = 0;
   while (!job.stopped() && read < options.most) {
-    const page = await readPageIn(tab);
+    const page = await chatsPageIn(tab);
     const warned = await warnedOn(job, page);
     if (warned) return warned;
     let next: ChatSummary | undefined;
@@ -186,10 +195,10 @@ export async function readChats(
     if (!(await tab.ask({ type: 'hfos-open-chat', threadId: next.thread.id })).ok)
       await tab.open(next.thread.url);
     await pause(OPEN_MS);
-    let opened = await readPageIn(tab);
+    let opened = await chatsPageIn(tab);
     if (opened.chat?.thread?.id !== next.thread.id) {
       await pause(OPEN_MS);
-      opened = await readPageIn(tab);
+      opened = await chatsPageIn(tab);
     }
     if (opened.chat?.thread?.id === next.thread.id) {
       const said = await sendChat(

@@ -28,7 +28,8 @@ vi.mock('../src/hfos/session', () => ({
   }),
 }));
 
-const { facebook, KIT_LIST, kitFor, kitHere, kitOf, linkedin } = await import('../src/networks');
+const { alignable, facebook, instagram, KIT_LIST, kitFor, kitHere, kitOf, linkedin } =
+  await import('../src/networks');
 const { isWorking, NETWORKS_KEY, networkStates } = await import('../src/networks/on');
 const { scriptId, syncNetworks } = await import('../src/networks/scripts');
 const { keepWarning, warnedNow, warningInput, WARNED_KEY } = await import('../src/hfos/warned');
@@ -119,7 +120,16 @@ describe('a kit per network', () => {
       '',
     ])
       expect(kitHere(elsewhere)).toBeNull();
-    expect(KIT_LIST.map((kit) => kit.platform)).toEqual(['facebook', 'linkedin']);
+    expect(KIT_LIST.map((kit) => kit.platform)).toEqual([
+      'facebook',
+      'linkedin',
+      'instagram',
+      'alignable',
+    ]);
+    expect(kitOf('https://www.instagram.com/dana.reyes/')).toBe(instagram);
+    expect(kitOf('https://instagram.com/p/C9xYz12AbCd/')).toBe(instagram);
+    expect(kitOf('https://www.alignable.com/austin-tx/acme-plumbing')).toBe(alignable);
+    expect(kitOf('https://www.instagram.com.example.com/')).toBeNull();
     expect(kitFor('linkedin')).toBe(linkedin);
   });
 
@@ -191,6 +201,9 @@ describe('LinkedIn’s script', () => {
     expect(store.get(NETWORKS_KEY)).toEqual({
       facebook: { on: true, allowed: true },
       linkedin: { on: true, allowed: false },
+      // Off for them, and not allowed by Chrome: never asked for till they're turned on.
+      instagram: { on: false, allowed: false },
+      alignable: { on: false, allowed: false },
     });
     granted = true;
     await syncNetworks();

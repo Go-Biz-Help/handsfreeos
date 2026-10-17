@@ -17,6 +17,7 @@ import {
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import {
+  isLooking,
   NETWORKS,
   networkLimitsNow,
   PLATFORMS,
@@ -115,60 +116,69 @@ export function NetworkMine({
         <Note testID={`${testID}-off`}>{NW.off(name)}</Note>
       ) : (
         <>
-          {wheels.on ? <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note> : null}
-          <NetworkComputer platform={p} asks={asks} actions={askActions} testID={testID} />
-          <NetworkModes
-            platform={p}
-            value={choices}
-            onChange={set}
-            sendingAllowed={automation.rules.sendingAllowed}
-            repliesAllowed={automation.rules.repliesAllowed}
-            postingAllowed={automation.rules.postingAllowed}
-            wheelsFrom={wheels.from}
-            boxed
-            disabled={disabled}
-            testID={testID}
-          />
-          <NetworkTicks
-            platform={p}
-            value={choices}
-            onChange={set}
-            boxed
-            disabled={disabled}
-            testID={testID}
-          />
-          {p === 'facebook' ? (
-            <ExtensionTicks
-              value={value}
-              onChange={form.change}
-              boxed
-              disabled={disabled}
-              testID={testID}
-            />
+          {wheels.on && !isLooking(p) ? (
+            <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note>
           ) : null}
-          <Section
-            boxed
-            title={SETTINGS_WORDS.yourLimits(name)}
-            about={NW.limitsAbout(name)}
-            testID={`${testID}-limits`}
-          >
-            <View className="flex-row flex-wrap gap-2">
-              {DAILY_STEPS.map((step) => (
-                <View
-                  key={step}
-                  className="min-w-[96px] flex-1 gap-0.5 rounded-menu bg-card-2 px-3 py-2.5"
-                  testID={`${testID}-limit-${step}`}
-                >
-                  <Text className="text-xl font-semibold tabular-nums">
-                    {limits[step].toLocaleString('en-US')}
-                  </Text>
-                  <Text className="text-[12.5px] leading-[16px] text-text-2">
-                    {words[step].label}
-                  </Text>
+          <NetworkComputer platform={p} asks={asks} actions={askActions} testID={testID} />
+          {isLooking(p) ? (
+            // Still looked at (decision 78): nothing to choose yet, only Chrome's say and its Check.
+            <Note testID={`${testID}-looking`}>{NW.looking(name)}</Note>
+          ) : (
+            <>
+              <NetworkModes
+                platform={p}
+                value={choices}
+                onChange={set}
+                sendingAllowed={automation.rules.sendingAllowed}
+                repliesAllowed={automation.rules.repliesAllowed}
+                postingAllowed={automation.rules.postingAllowed}
+                wheelsFrom={wheels.from}
+                boxed
+                disabled={disabled}
+                testID={testID}
+              />
+              <NetworkTicks
+                platform={p}
+                value={choices}
+                onChange={set}
+                boxed
+                disabled={disabled}
+                testID={testID}
+              />
+              {p === 'facebook' ? (
+                <ExtensionTicks
+                  value={value}
+                  onChange={form.change}
+                  boxed
+                  disabled={disabled}
+                  testID={testID}
+                />
+              ) : null}
+              <Section
+                boxed
+                title={SETTINGS_WORDS.yourLimits(name)}
+                about={NW.limitsAbout(name)}
+                testID={`${testID}-limits`}
+              >
+                <View className="flex-row flex-wrap gap-2">
+                  {DAILY_STEPS.map((step) => (
+                    <View
+                      key={step}
+                      className="min-w-[96px] flex-1 gap-0.5 rounded-menu bg-card-2 px-3 py-2.5"
+                      testID={`${testID}-limit-${step}`}
+                    >
+                      <Text className="text-xl font-semibold tabular-nums">
+                        {limits[step].toLocaleString('en-US')}
+                      </Text>
+                      <Text className="text-[12.5px] leading-[16px] text-text-2">
+                        {words[step].label}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </Section>
+              </Section>
+            </>
+          )}
         </>
       )}
     </>
@@ -299,7 +309,7 @@ export function NetworkTeam({
           testID={`settings-rules-network-${p}`}
         />
       </Card>
-      {allowed ? (
+      {allowed && !isLooking(p) ? (
         <Section boxed title={W.sections.limits} about={NW.limitsAbout(name)}>
           <View className="gap-2">
             {DAILY_STEPS.map((step) => {

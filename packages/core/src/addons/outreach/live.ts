@@ -232,7 +232,10 @@ export const LiveBeatOutput = z.object({
    * runner works only while LinkedIn's is started, and a stop there ends only LinkedIn's work. Empty from a HandsFreeOS
    * before networks.
    */
-  days: z.object({ linkedin: LiveDay }).partial().default({}),
+  days: z
+    .object({ linkedin: LiveDay, instagram: LiveDay, alignable: LiveDay })
+    .partial()
+    .default({}),
   /** The ids of the lines sent that are kept now: the extension lets them go. */
   stepsKept: z.array(z.uuid()),
   /** Asks from HandsFreeOS waiting for this computer (./asks.ts): 0 when it isn't the one that works. */
@@ -445,6 +448,12 @@ export const warningPushWords = (
 /** Why Start my day can't start on a network the person doesn't work: where to turn it on, its page in Settings. */
 export const networkOffWords = (platform: Platform): string =>
   `${PLATFORMS[platform]} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → ${PLATFORMS[platform]}.`;
+
+/** Why a network still looked at (decision 78) has no day to start: only its Check runs there, for now. */
+export const networkLookingWords = (platform: Platform): string => {
+  const name = PLATFORMS[platform];
+  return `There’s no day to start on ${name} yet: the extension only reads it for now. Press Check ${name} under Social Outreach → Settings → ${name}, and its steps get built from what it reads.`;
+};
 
 /** Why Start my day stays refused after a warning: on the network that showed it, until tomorrow. */
 export const warnedTodayWords = (platform: Platform = 'facebook'): string => {

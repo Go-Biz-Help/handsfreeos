@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.57.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.58.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -48,10 +48,12 @@ A tab's kit is found by its address (`kitOf`), so the tab reads and notes by its
 background takes a tab's notes only from a network it knows, as that network's. What differs from one network to the
 next is in its kit, never in an `if`.
 
-| Network  | Folder                   | From install? | What it does there                                                                                                                             |
-| -------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Facebook | `src/networks/facebook/` | Yes           | Everything below                                                                                                                               |
-| LinkedIn | `src/networks/linkedin/` | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it |
+| Network   | Folder                    | From install? | What it does there                                                                                                                                                        |
+| --------- | ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                          |
+| LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                            |
+| Instagram | `src/networks/instagram/` | No: asked for | Still looked at (decision 78): reads only its warnings as you go, and its main pages for **Check Instagram** (0.58.0), looking for each step's button without pressing it |
+| Alignable | `src/networks/alignable/` | No: asked for | Still looked at (decision 78): the same, for **Check Alignable**, following Alignable's own menu by its words                                                             |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -62,7 +64,18 @@ is on, and both must:
 - **Chrome:** LinkedIn's site (`https://www.linkedin.com/*`) is an optional host permission, asked for only once you
   turn LinkedIn on, never at install, so an update never asks everyone again and the extension never runs on a site
   you don't use. While LinkedIn is on in HandsFreeOS and Chrome hasn't allowed it yet, the panel says so in a line
-  with **Allow on LinkedIn**, which asks Chrome (Chrome asks only from your own click).
+  with **Allow on LinkedIn**, which asks Chrome (Chrome asks only from your own click). Instagram's and Alignable's
+  sites (`https://www.instagram.com/*`, `https://www.alignable.com/*`) are the same, with **Allow on Instagram** and
+  **Allow on Alignable**.
+
+**A network still looked at** (Instagram and Alignable, decision 78) is read only for its Check, from one reader for
+both (`src/networks/looking/`) and each network's site (its addresses, its own words, its warnings and the buttons each
+step needs: `src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`). Its script notes none of your steps
+and reads nothing as you go but its warnings; HandsFreeOS asks it nothing but its Check (`src/jobs/looking.ts`), which
+reads its main pages and sends a problem report of each with its outline, and looks for each step's button, pressing
+none: Instagram's bio box and Submit, Follow, Message, Like and the box to comment in; Alignable's Connect, Message,
+Recommend, Like and a box to comment in. Check Alignable opens the places Alignable's own menu leads to by their words,
+never one that signs out, pays, invites, deletes or changes settings. Each is built out from what its Check sends back.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script

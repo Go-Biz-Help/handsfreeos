@@ -83,6 +83,8 @@ export const KEPT_FOR_BUSINESS = [
   'hfos.linkedinFile',
   'hfos.ask',
   'hfos.ask.linkedin',
+  'hfos.ask.instagram',
+  'hfos.ask.alignable',
   'hfos.ask.ends',
   'hfos.waitingFor',
   'hfos.waitingFor.told',

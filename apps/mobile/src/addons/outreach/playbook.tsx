@@ -1,5 +1,5 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
@@ -515,7 +515,7 @@ function SectionEditor({
       return (
         <View className="gap-3">
           <Note>{NW.playbookAbout}</Note>
-          {PLATFORM_KEYS.map((p) => {
+          {WORKING_PLATFORMS.map((p) => {
             const on = d.platforms.includes(p);
             return (
               <View key={p} className="flex-row items-center gap-3">

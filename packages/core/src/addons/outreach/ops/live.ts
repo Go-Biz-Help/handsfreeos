@@ -31,6 +31,7 @@ import {
   LiveTeamOutput,
   numberedName,
   sendingOffWords,
+  networkLookingWords,
   networkOffWords,
   shownState,
   warnedTodayWords,
@@ -41,7 +42,7 @@ import {
 } from '../live';
 import { dailyLimitsNow, WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
-import { networkLimitsNow } from '../networks';
+import { isLooking, networkLimitsNow } from '../networks';
 import type { Platform } from '../playbooks';
 import { notReadyWords } from '../readiness';
 import { computers, days, liveSteps } from '../tables';
@@ -286,6 +287,9 @@ async function setDay(
     // A network the person doesn't work has no day to start.
     const { choices: settings, rules } = await automationOf(ctx, me, Date.now(), platform);
     if (!settings.on) throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
+    // A network still looked at (decision 78) has no day yet: only its Check runs there.
+    if (isLooking(platform))
+      throw HfosError.rule('outreach_network_looking', 409, networkLookingWords(platform));
     // Nothing outreach-like until they're ready (decision 63): the first item left says where to finish it.
     const ready = await readinessFor(ctx, me, platform);
     if (!ready.ready) throw HfosError.rule('outreach_not_ready', 409, notReadyWords(ready));

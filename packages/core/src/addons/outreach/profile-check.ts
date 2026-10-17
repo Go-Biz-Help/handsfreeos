@@ -35,10 +35,19 @@ export type AnyProfileItem = (typeof ALL_PROFILE_ITEMS)[number];
 export const PROFILE_ITEMS_ON: Readonly<Record<Platform, readonly AnyProfileItem[]>> = {
   facebook: PROFILE_ITEMS,
   linkedin: ['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts'],
+  // Looked at first (decision 78): what a stranger sees there, as far as it's known before Check reads a real one.
+  // Instagram's featured are its highlights; Alignable's work, the business it's for.
+  instagram: ['picture', 'bio', 'featured', 'posts'],
+  alignable: ['picture', 'cover', 'bio', 'work', 'posts'],
 };
 
-/** The most a bio the AI writes may be: Facebook's short bio, LinkedIn's headline. */
-export const BIO_MOST_ON: Readonly<Record<Platform, number>> = { facebook: 101, linkedin: 220 };
+/** The most a bio the AI writes may be: Facebook's short bio, LinkedIn's headline, Instagram's bio. */
+export const BIO_MOST_ON: Readonly<Record<Platform, number>> = {
+  facebook: 101,
+  linkedin: 220,
+  instagram: 150,
+  alignable: 150,
+};
 /** The longest bio any network takes: what a kept check allows. */
 export const PROFILE_BIO_MOST = Math.max(...Object.values(BIO_MOST_ON));
 /** The opening of an About the AI writes, on a network that has one. */
@@ -52,6 +61,8 @@ export const ABOUT_DRAFT_MOST = 1200;
 export const PROFILE_CHECK_MAX_TOKENS: Readonly<Record<Platform, number>> = {
   facebook: 2500,
   linkedin: 4000,
+  instagram: 4000,
+  alignable: 4000,
 };
 
 /** What the extension reads off the person's own profile, each cut to fit before it's sent. */

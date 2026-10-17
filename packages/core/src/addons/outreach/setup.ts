@@ -20,7 +20,7 @@ import { localDateOf } from '../../calendar/engine/zoned';
 import { fmtMonthDay, fmtTime, localDayOf } from '../../calendar/when';
 import { settingsSummary, type AutomationSettings } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
-import { PLATFORM_KEYS, PLATFORMS } from './networks';
+import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from './networks';
 
 /**
  * The steps, in order. The team's rules come before the person's own, so a rule never quietly steps theirs back; the
@@ -278,7 +278,7 @@ export const SETUP_WORDS = {
     playbooks: 'Who you’re looking for, how you sound, and what you offer',
     ready: 'Your main offer, a niche, your profile and your goal, for your best results',
     rules: 'What your team may do on its own, and how much a day',
-    networks: `Where you reach people: ${PLATFORM_KEYS.map((p) => PLATFORMS[p]).join(' or ')}`,
+    networks: `Where you reach people: ${WORKING_PLATFORMS.map((p) => PLATFORMS[p]).join(' or ')}`,
     settings: 'What the extension does for you, how the AI writes, and when',
     extension: 'Put the extension in Chrome and sign in',
     groups: 'Bring in the Facebook groups you’re in',

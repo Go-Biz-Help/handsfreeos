@@ -20,18 +20,20 @@ import {
 import { DAILY_WORDS, type DailyStep, type TidyKind } from './limits';
 import {
   inNetworkWords,
+  isLooking,
   networkOfLink,
   NETWORKS,
   PLATFORM_KEYS,
   PLATFORMS,
+  WORKING_PLATFORMS,
   type Platform,
 } from './networks';
 import { TODAY_KINDS, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
 
-/** The networks a filter offers: every one, then each network. */
-export const NETWORK_FILTERS = ['all', ...PLATFORM_KEYS] as const;
+/** The networks a filter offers: every one, then each network that works (one still looked at has nothing to show). */
+export const NETWORK_FILTERS = ['all', ...WORKING_PLATFORMS] as const;
 export type NetworkFilter = (typeof NETWORK_FILTERS)[number];
 
 /** A network named in an address (`?net=`), or null when it names none. */
@@ -51,13 +53,13 @@ export function networksOn(
 
 /**
  * The networks Today shows: those the person works, or Facebook's alone when they work none (its Start my day then
- * says it's off, and where to turn it on).
+ * says it's off, and where to turn it on). A network still looked at (decision 78) has no day yet, so isn't among them.
  */
 export function networksShown(
   settings: Pick<AutomationSettings, 'networks'>,
   allowed: readonly Platform[] = PLATFORM_KEYS,
 ): Platform[] {
-  const on = networksOn(settings, allowed);
+  const on = networksOn(settings, allowed).filter((p) => !isLooking(p));
   return on.length ? on : [PLATFORM_KEYS[0]];
 }
 
@@ -185,6 +187,75 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       why: 'LinkedIn limits how many invitations can wait, so withdrawing old ones makes room for new ones.',
     },
   },
+  // Looked at first (decision 78): nothing below shows till their steps are built from what Check reads, and they're
+  // checked against it then.
+  instagram: {
+    confirm: 'Confirm their follow request',
+    chatUrl: (key) => `https://www.instagram.com/direct/t/${encodeURIComponent(key)}/`,
+    ticks: {
+      warmUp: [
+        'Like one of their posts a day before following them',
+        'A like first makes a follow feel less out of the blue.',
+      ],
+      confirmRequests: [
+        'Confirm follow requests from people who fit a playbook',
+        'The rest wait for you.',
+      ],
+      collect: [
+        'Once a day, first: check follow requests and read my messages',
+        'These fill the list it works from.',
+      ],
+      joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
+      watchPosts: [
+        'Look for new posts asking for what I offer, every hour or two',
+        'In your working hours, it looks at your playbook’s hashtags for posts asking for what you offer.',
+      ],
+    },
+    where: 'In hashtags, places, and the followers of accounts like yours.',
+    helpful: false,
+    postingAbout: 'Instagram has no helpful post yet.',
+    oldRequests: {
+      title: 'Old follow requests',
+      button: 'Withdraw the ticked follow requests',
+      done: 'follow requests withdrawn',
+      why: 'A follow request to a private account waits till they answer; old ones are best withdrawn.',
+    },
+  },
+  alignable: {
+    confirm: 'Accept their connection request',
+    chatUrl: (key) => `https://www.alignable.com/inbox/${encodeURIComponent(key)}`,
+    ticks: {
+      warmUp: [
+        'Look at their profile and like a post before each connection request',
+        'A look and a like first make a request feel less out of the blue.',
+      ],
+      confirmRequests: [
+        'Accept connection requests from people who fit a playbook',
+        'The rest wait for you.',
+      ],
+      collect: [
+        'Once a day, first: check connection requests and read my messages',
+        'These fill the list it works from.',
+      ],
+      joinGroups: [
+        'Join good groups when my groups run low',
+        'Alignable’s groups are its local communities.',
+      ],
+      watchPosts: [
+        'Look for new questions asking for what I offer, every hour or two',
+        'In your working hours, it looks at Alignable’s forum for owners asking for what you offer.',
+      ],
+    },
+    where: 'In your town’s community, and the forum where owners ask for referrals.',
+    helpful: false,
+    postingAbout: 'Alignable has no helpful post yet.',
+    oldRequests: {
+      title: 'Old connection requests',
+      button: 'Withdraw the ticked requests',
+      done: 'requests withdrawn',
+      why: 'Old requests that were never answered are best withdrawn.',
+    },
+  },
 };
 
 /** The daily steps' names on a network: "Invitations to connect" on LinkedIn, "Friend requests" on Facebook. */
@@ -300,6 +371,12 @@ export const NETWORK_WORDS = {
   facebookChoices: 'What it does on Facebook is set in your main settings.',
   /** A network that's off for the person. */
   off: (name: string) => `${name} is off for you: nothing runs, reads or shows there.`,
+  /**
+   * A network still looked at (decision 78), on its page in Settings: what the extension does there for now, and what
+   * the person can do to move it on.
+   */
+  looking: (name: string) =>
+    `${name} is new to HandsFreeOS. For now the extension only reads it, and does nothing on its own there. Allow it on ${name} in Chrome, then press Check ${name} below once: its steps are built from what it reads on your own account.`,
   /**
    * Beside a network's On for you switch once its save is done (Chris, 2026-10-16): at the top of its page in
    * Settings, where every change saves as it's made.

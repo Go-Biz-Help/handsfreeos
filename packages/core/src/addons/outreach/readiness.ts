@@ -674,7 +674,9 @@ export interface ProfileRowWords {
  */
 export function profileWordsOn(platform: Platform = 'facebook') {
   const P = READY_WORDS.profile;
-  const on = platform === 'facebook' ? null : P.on[platform];
+  // A network with no words of its own here (one still looked at, decision 78) has Facebook's.
+  const ons: Readonly<Partial<Record<Platform, (typeof P.on)['linkedin']>>> = P.on;
+  const on = platform === 'facebook' ? null : (ons[platform] ?? null);
   const words: Readonly<Partial<Record<AnyProfileItem, { label: string; tip: string }>>> =
     on?.items ?? P.items;
   return {

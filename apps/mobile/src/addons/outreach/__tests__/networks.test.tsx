@@ -279,7 +279,11 @@ const AUTOMATION: AutomationOutput = {
   startedAt: null,
   saved: true,
   wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
-  networkWheels: { linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 } },
+  networkWheels: {
+    linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+  },
   userId: ME,
   name: 'Dana Reyes',
   changedBy: null,
@@ -370,7 +374,10 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     await render(
       <SettingsPartBody
         part="linkedin"
-        automation={{ ...automation, networkWheels: { linkedin: wheels } }}
+        automation={{
+          ...automation,
+          networkWheels: { ...automation.networkWheels, linkedin: wheels },
+        }}
         {...partProps()}
       />,
     );
@@ -541,6 +548,44 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'facebook');
   });
 
+  it('shows a network still looked at only Chrome’s say, what it does there for now, and its Check (decision 78)', async () => {
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const instagramOn: AutomationOutput = {
+      ...AUTOMATION,
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          instagram: { ...NETWORKS_DEFAULTS.instagram, on: true },
+        },
+      },
+      rules: { ...AUTOMATION.rules, networksAllowed: ['facebook', 'linkedin', 'instagram'] },
+    };
+    await render(
+      <SettingsPartBody
+        part="instagram"
+        automation={instagramOn}
+        {...partProps()}
+        asks={asks(['facebook'], '0.58.0')}
+        askActions={actions}
+      />,
+    );
+    expect(screen.getByTestId('settings-networks-instagram-chrome-blocked')).toHaveTextContent(
+      'Chrome on Mac 12 isn’t allowed on Instagram yet. Open the extension’s panel on an Instagram page and press Allow on Instagram, then Allow in Chrome’s box.',
+    );
+    expect(screen.getByTestId('settings-networks-instagram-looking')).toHaveTextContent(
+      /^Instagram is new to HandsFreeOS\. For now the extension only reads it/,
+    );
+    // Nothing to choose yet, and no limits to show.
+    expect(screen.queryByTestId('settings-networks-instagram-sending-steps')).toBeNull();
+    expect(screen.queryByTestId('settings-networks-instagram-limits')).toBeNull();
+    expect(screen.getByTestId('settings-networks-instagram-checkup')).toHaveTextContent(
+      /^Check InstagramPress this once, so the extension can learn Instagram from your own account\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-checkup-ask'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'instagram');
+  });
+
   it('says how to update a build before Check Facebook, and asks nothing of it', async () => {
     const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
     await render(
@@ -602,9 +647,9 @@ describe('For your team on a network, for owners and admins', () => {
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeChecked();
     await fireEvent.press(screen.getByTestId('settings-rules-network-linkedin'));
     expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
-    // Only LinkedIn's say changes: General's rules stay as they're kept.
+    // Only LinkedIn's say changes: General's rules stay as they're kept, every other network still allowed.
     expect(savedOn(p, kept).rules).toMatchObject({
-      networksAllowed: ['facebook'],
+      networksAllowed: ['facebook', 'instagram', 'alignable'],
       sendingAllowed: ['off', 'steps'],
     });
     expect(savedOn(p, kept).weeklyReport).toBeUndefined();

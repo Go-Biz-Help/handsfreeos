@@ -319,7 +319,10 @@ What each needs that LinkedIn won't have built:
 4. **LinkedIn, parts 1 to 6** above, one PR each (decision 35's way).
 5. **The owner tries LinkedIn** on their own account; the readers are tuned from outlines.
 6. **The next networks**, in Chris's order: Instagram, Alignable, Threads, X, then TikTok. Each starts with a look
-   at a real account and a kit.
+   at a real account and a kit. Instagram and Alignable are in (17 Oct 2026, extension 0.58.0, decision 78 in
+   docs/outreach.md): each can be turned on and allowed in Chrome, and **Check Instagram** and **Check Alignable**
+   read their main pages from the owner's own account and look for each step's button, pressing none, while they're
+   looked at (`stage: 'looking'`). Their readers and steps are built from what those send back.
 
 Each step's migration goes on the hosted database before `main` (CLAUDE.md, "Database migrations").
 
@@ -335,7 +338,7 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.57.0.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.58.0.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
    **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
    turns one off there. Its daily limits for each person are below it, and start at the ones below.

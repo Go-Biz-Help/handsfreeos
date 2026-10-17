@@ -34,7 +34,12 @@ import {
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import { askableOn } from '@hfos/core/addons/outreach/asks';
-import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  isLooking,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
 import { allowedOn, REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
 import {
   isNetworkPart,
@@ -433,6 +438,8 @@ function NetworkPage({
   const wheels = wheelsOf(me, platform);
   // Facebook's choices are the settings' own fields, and its extension's switches are the person's.
   const facebook = !OTHER_PLATFORMS.includes(platform as OtherPlatform);
+  // A network still looked at (decision 78) has nothing to choose yet: only Chrome's say and its Check.
+  const looking = isLooking(platform);
   const testId = `outreach-my-networks-${platform}`;
   const flip = (next: boolean) => {
     setSwitching(true);
@@ -505,57 +512,74 @@ function NetworkPage({
               {S.allowInChrome(name)}
             </p>
           )}
-          {wheels.on ? (
+          {looking ? (
             <p
-              className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
-              data-testid={`${testId}-wheels`}
+              className="rounded-card border border-dashed border-border-strong px-5 py-4 text-[13px] text-text-2"
+              data-testid={`${testId}-looking`}
             >
-              {wheelsWords(wheels)}
+              {NW.looking(name)}
             </p>
-          ) : null}
-          <NetworkModes
-            card
-            platform={platform}
-            value={choices}
-            onChange={set}
-            sendingAllowed={rules.sendingAllowed}
-            repliesAllowed={rules.repliesAllowed}
-            postingAllowed={rules.postingAllowed}
-            wheelsStart={!wheels.from}
-            testId={testId}
-          />
-          <NetworkTicks card platform={platform} value={choices} onChange={set} testId={testId} />
-          {facebook ? (
-            <ExtensionTicks
-              card
-              switches
-              value={value}
-              onChange={person.set}
-              testId="outreach-my"
-            />
-          ) : null}
-          <Part
-            card
-            title={S.yourLimits(name)}
-            about={NW.limitsAbout(name)}
-            testId={`${testId}-limits`}
-          >
-            <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-              {limitsShownOn(platform, rules, wheels.on).map((l) => (
-                <li
-                  key={l.key}
-                  className="min-w-0 rounded-[10px] bg-card-2 p-3"
-                  data-testid={`${testId}-limit-${l.key}`}
+          ) : (
+            <>
+              {wheels.on ? (
+                <p
+                  className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
+                  data-testid={`${testId}-wheels`}
                 >
-                  <div className="text-xl font-semibold tabular-nums">
-                    {l.most.toLocaleString('en-US')}
-                  </div>
-                  <div className="text-[12.5px] text-text-2">{l.label}</div>
-                  {l.note ? <div className="text-[12px] text-text-3">{l.note}</div> : null}
-                </li>
-              ))}
-            </ul>
-          </Part>
+                  {wheelsWords(wheels)}
+                </p>
+              ) : null}
+              <NetworkModes
+                card
+                platform={platform}
+                value={choices}
+                onChange={set}
+                sendingAllowed={rules.sendingAllowed}
+                repliesAllowed={rules.repliesAllowed}
+                postingAllowed={rules.postingAllowed}
+                wheelsStart={!wheels.from}
+                testId={testId}
+              />
+              <NetworkTicks
+                card
+                platform={platform}
+                value={choices}
+                onChange={set}
+                testId={testId}
+              />
+              {facebook ? (
+                <ExtensionTicks
+                  card
+                  switches
+                  value={value}
+                  onChange={person.set}
+                  testId="outreach-my"
+                />
+              ) : null}
+              <Part
+                card
+                title={S.yourLimits(name)}
+                about={NW.limitsAbout(name)}
+                testId={`${testId}-limits`}
+              >
+                <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  {limitsShownOn(platform, rules, wheels.on).map((l) => (
+                    <li
+                      key={l.key}
+                      className="min-w-0 rounded-[10px] bg-card-2 p-3"
+                      data-testid={`${testId}-limit-${l.key}`}
+                    >
+                      <div className="text-xl font-semibold tabular-nums">
+                        {l.most.toLocaleString('en-US')}
+                      </div>
+                      <div className="text-[12.5px] text-text-2">{l.label}</div>
+                      {l.note ? <div className="text-[12px] text-text-3">{l.note}</div> : null}
+                    </li>
+                  ))}
+                </ul>
+              </Part>
+            </>
+          )}
           {asks && askableOn(platform, 'checkup') ? (
             <Part
               card
@@ -615,7 +639,7 @@ function TeamOnNetwork({ platform, team }: { platform: Platform; team: Autosave<
           />
         )}
       </div>
-      {allowed ? (
+      {allowed && !isLooking(platform) ? (
         <div className="border-t border-border pt-4">
           <LimitsFields
             platform={platform}

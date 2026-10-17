@@ -55,10 +55,12 @@ import {
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import {
+  isLooking,
   NETWORKS,
+  type Platform,
   PLATFORM_KEYS,
   PLATFORMS,
-  type Platform,
+  WORKING_PLATFORMS,
 } from '@hfos/core/addons/outreach/networks';
 import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -547,7 +549,8 @@ export function NetworksPart({
   return (
     <Part title={NW.title} about={NW.about}>
       <ul className="divide-y divide-border rounded-card border border-border" data-testid={testId}>
-        {PLATFORM_KEYS.map((p) => {
+        {/* A network still looked at (decision 78) is turned on from its own page, for its Check. */}
+        {WORKING_PLATFORMS.map((p) => {
           const name = PLATFORMS[p];
           const may = allowed.includes(p);
           const on = may && networksOn(value, allowed).includes(p);
@@ -850,9 +853,11 @@ export function RulesForm({
           );
         })}
       </Part>
-      {OTHER_PLATFORMS.filter((p) => rules.networksAllowed.includes(p)).map((p) => (
-        <LimitsFields key={p} platform={p} rules={rules} onChange={setRules} />
-      ))}
+      {OTHER_PLATFORMS.filter((p) => rules.networksAllowed.includes(p) && !isLooking(p)).map(
+        (p) => (
+          <LimitsFields key={p} platform={p} rules={rules} onChange={setRules} />
+        ),
+      )}
       <DefaultsFold rules={rules} onChange={setRules} timezone={timezone} />
       <Button
         size={carryOn ? 'lg' : 'sm'}

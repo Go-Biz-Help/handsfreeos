@@ -11,13 +11,14 @@ import type { LookingSwitches, Looking } from './facebook/looking';
 import type { ReplySighting } from './facebook/replies';
 import type { ProfileRef, ReadResult as FacebookRead } from './facebook/types';
 import type { ReadResult as LinkedInRead } from './linkedin/types';
+import type { LookingRead } from './looking/site';
 import type { OutlineOptions } from './outline';
 
 export type { Answered, Looking, LookingSwitches, ProfileRef, ReplySighting, Seen, Step };
-export type { FacebookRead, LinkedInRead };
+export type { FacebookRead, LinkedInRead, LookingRead };
 
-/** What one read of a page found, on any network. */
-export type PageRead = FacebookRead | LinkedInRead;
+/** What one read of a page found, on any network: Instagram's and Alignable's while they're looked at (decision 78). */
+export type PageRead = FacebookRead | LinkedInRead | LookingRead;
 
 /** Whether an address is whole (a tab's always is): a part of one is never any network's page. */
 export function isWholeAddress(href: string): boolean {
@@ -29,9 +30,13 @@ export function isWholeAddress(href: string): boolean {
   }
 }
 
-/** Whether a read is LinkedIn's: only LinkedIn's say their network. */
+/** Whether a read is LinkedIn's: Facebook's say no network. */
 export const isLinkedInRead = (read: PageRead): read is LinkedInRead =>
   'platform' in read && read.platform === 'linkedin';
+
+/** Whether a read is of a network still looked at (decision 78): Instagram's or Alignable's. */
+export const isLookingRead = (read: PageRead): read is LookingRead =>
+  'platform' in read && (read.platform === 'instagram' || read.platform === 'alignable');
 
 /** The network a read is of: Facebook's say none, as they never had to. */
 export const platformOf = (read: PageRead): Platform =>

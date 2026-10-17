@@ -146,6 +146,8 @@ export const OTHER_PLATFORMS = PLATFORM_KEYS.filter((p) => p !== 'facebook') as 
 export const NetworksSettings = z.object({
   facebook: z.object({ on: z.boolean().default(true) }).default({ on: true }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
+  instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
+  alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
 });
 export type NetworksSettings = z.output<typeof NetworksSettings>;
 export const NETWORKS_DEFAULTS: NetworksSettings = NetworksSettings.parse({});
@@ -249,7 +251,13 @@ const limitsOn = (platform: Platform) =>
       ) as Record<DailyStep, z.ZodNumber>,
     )
     .partial();
-export const NetworkLimits = z.object({ linkedin: limitsOn('linkedin') }).partial();
+export const NetworkLimits = z
+  .object({
+    linkedin: limitsOn('linkedin'),
+    instagram: limitsOn('instagram'),
+    alignable: limitsOn('alignable'),
+  })
+  .partial();
 export type NetworkLimits = z.output<typeof NetworkLimits>;
 
 /**
@@ -325,6 +333,8 @@ export function withinRules(
     networks: {
       facebook: settings.networks.facebook,
       linkedin: choicesWithin(settings.networks.linkedin, rules, 'linkedin'),
+      instagram: choicesWithin(settings.networks.instagram, rules, 'instagram'),
+      alignable: choicesWithin(settings.networks.alignable, rules, 'alignable'),
     },
   };
 }
@@ -494,7 +504,11 @@ export const AutomationOutput = z.object({
   /** Their training wheels on Facebook. */
   wheels: WheelsState,
   /** Their training wheels on each other network: each network's own, as its choices are. */
-  networkWheels: z.object({ linkedin: WheelsState }),
+  networkWheels: z.object({
+    linkedin: WheelsState,
+    instagram: WheelsState,
+    alignable: WheelsState,
+  }),
   /** Whose they are. */
   userId: z.uuid(),
   name: z.string(),

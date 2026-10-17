@@ -1,0 +1,48 @@
+/**
+ * The kit of a network still looked at (../kit.ts; ./site.ts): Instagram's and Alignable's, built from their sites.
+ * Their sites are asked for when the person turns the network on (an optional host permission), and their script runs
+ * only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads only the
+ * network's warnings as the person goes, notes none of their steps, and answers only Check <network>'s asks: a page
+ * read and outlined, and a look for a step's button, never pressed.
+ */
+import { NETWORKS } from '@hfos/core/addons/outreach/networks';
+import type { TryAnswer, TryAsk } from '../../messages';
+import { isWholeAddress, type Kit } from '../kit';
+import { outlineLooking, readLooking, readWarnings } from './read';
+import type { LookingSite } from './site';
+
+/** Answers a look (`hfos-try`), only on the kinds of page its step is for. */
+async function look(site: LookingSite, ask: TryAsk): Promise<TryAnswer> {
+  const step = site.looks[ask.step];
+  if (!step) return { ok: false, error: `The extension doesn’t look for that on ${site.name}.` };
+  const url = site.url(location.href);
+  const kind = url ? site.kindOf(url) : 'other';
+  if (!step.on.includes('*') && !step.on.includes(kind))
+    return { ok: false, error: `${site.name} didn’t open the page that step is on.` };
+  return { ok: true, tried: await step.look(document, location.href) };
+}
+
+export function lookingKit(site: LookingSite): Kit {
+  return {
+    platform: site.platform,
+    network: NETWORKS[site.platform],
+    hosts: site.hosts,
+    optional: true,
+    startsOn: false,
+    owns: (href) => isWholeAddress(href) && site.url(href) !== null,
+    workUrl: (href) => site.url(href)?.toString() ?? null,
+    kindOf: (href) => {
+      const url = site.url(href);
+      return url ? site.kindOf(url) : 'other';
+    },
+    profileKey: (profile) =>
+      `${site.platform}:${(profile.username ?? profile.id ?? profile.url).toLowerCase()}`,
+    readPage: (doc, href) => readLooking(doc, href, site),
+    readWarnings: (doc, href) => readWarnings(doc, href, site),
+    readReplies: () => [],
+    lookFor: () => 'warnings',
+    noticer: () => ({ click: () => null, enter: () => null }),
+    outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
+    work: (ask) => (ask.type === 'hfos-try' ? look(site, ask as TryAsk) : null),
+  };
+}

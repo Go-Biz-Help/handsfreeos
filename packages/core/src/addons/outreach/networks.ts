@@ -18,8 +18,16 @@ import {
   type TidyKind,
 } from './limits';
 
-/** The networks it knows. Facebook works; LinkedIn is being built. */
-export const PLATFORMS = { facebook: 'Facebook', linkedin: 'LinkedIn' } as const;
+/**
+ * The networks it knows, in Chris's order (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): Facebook and LinkedIn
+ * work; Instagram and Alignable are looked at first (`stage`).
+ */
+export const PLATFORMS = {
+  facebook: 'Facebook',
+  linkedin: 'LinkedIn',
+  instagram: 'Instagram',
+  alignable: 'Alignable',
+} as const;
 export type Platform = keyof typeof PLATFORMS;
 export const PLATFORM_KEYS = Object.keys(PLATFORMS) as [Platform, ...Platform[]];
 
@@ -39,6 +47,13 @@ export interface NetworkWords {
 
 export interface NetworkKit {
   readonly name: string;
+  /**
+   * Where its build is (the plan's build order, 6: "Each starts with a look at a real account and a kit"): `working`, as
+   * Facebook and LinkedIn are; or `looking`, while the extension only reads its pages, for Check <network> (decision
+   * 78), and its steps are built from what that reads. A network that's looking has no day, no list for today and no
+   * choices to make yet; it can be turned on, allowed in Chrome and checked.
+   */
+  readonly stage: 'working' | 'looking';
   /** The start of every link to its own pages, over https. */
   readonly link: RegExp;
   /** A profile's id in its links: Facebook's number, LinkedIn's member id. */
@@ -63,6 +78,7 @@ export interface NetworkKit {
 export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   facebook: {
     name: PLATFORMS.facebook,
+    stage: 'working',
     link: /^https:\/\/www\.facebook\.com\//,
     profileId: PROFILE_ID,
     username: USERNAME,
@@ -83,6 +99,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   },
   linkedin: {
     name: PLATFORMS.linkedin,
+    stage: 'working',
     link: /^https:\/\/www\.linkedin\.com\//,
     // A member's id as LinkedIn's links carry it (ACoAA…), and the name in /in/<this>/.
     profileId: /^[A-Za-z0-9_-]{1,64}$/,
@@ -106,7 +123,65 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
       messageLike: 'the way people message someone they know from work',
     },
   },
+  // A follow network (the plan's "The networks after LinkedIn"): follow, like, comment, then a message, which waits in
+  // Requests till they follow back. Instagram blocks fast, so its limits start low. Its steps are built from what
+  // Check Instagram reads.
+  instagram: {
+    name: PLATFORMS.instagram,
+    stage: 'looking',
+    link: /^https:\/\/www\.instagram\.com\//,
+    // An account's number, and its name in instagram.com/<this>/: letters, numbers, dots and underscores.
+    profileId: /^[0-9]{1,30}$/,
+    username: /^[A-Za-z0-9._]{1,30}$/,
+    // A conversation's id in /direct/t/<this>/.
+    threadKey: /^[0-9]{1,64}$/,
+    // How many accounts it lets someone follow.
+    friendsCap: 7_500,
+    dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 10, like: 30 },
+    weeklyRequests: null,
+    checksPerDay: 20,
+    tidyLimits: { cancel_request: 20, unfriend: 0 },
+    words: {
+      friend: 'follower',
+      friends: 'followers',
+      friendRequest: 'follow',
+      friendRequests: 'follows',
+      messaging: 'Instagram messages',
+      messageLike: 'the way people message someone they follow',
+    },
+  },
+  // Made for small businesses, by town (the plan): connect, message, recommend, and a forum where owners ask for
+  // referrals. Close to LinkedIn in shape; little is published, so its steps are built from what Check Alignable reads.
+  alignable: {
+    name: PLATFORMS.alignable,
+    stage: 'looking',
+    link: /^https:\/\/www\.alignable\.com\//,
+    profileId: /^[A-Za-z0-9_-]{1,64}$/,
+    username: /^[A-Za-z0-9%_-]{1,100}$/,
+    threadKey: /^[A-Za-z0-9._=+-]{1,128}$/,
+    friendsCap: 10_000,
+    dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
+    weeklyRequests: null,
+    checksPerDay: 30,
+    tidyLimits: { cancel_request: 20, unfriend: 0 },
+    words: {
+      friend: 'connection',
+      friends: 'connections',
+      friendRequest: 'connection request',
+      friendRequests: 'connection requests',
+      messaging: 'Alignable messages',
+      messageLike: 'the way local business owners message each other',
+    },
+  },
 };
+
+/** The networks the extension works on, past their look: Facebook and LinkedIn. */
+export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
+  (p) => NETWORKS[p].stage === 'working',
+);
+
+/** Whether a network is still being looked at: Check <network> reads it, and nothing else runs there yet. */
+export const isLooking = (platform: Platform): boolean => NETWORKS[platform].stage === 'looking';
 
 /**
  * A network's daily limits as they stand for the person: the business's own on that network, each at most the
@@ -127,6 +202,10 @@ export function networkLimitsNow(
     ]),
   ) as Record<DailyStep, number>;
 }
+
+/** A network's name after "a" or "an", as it's said: "a LinkedIn page", "an Instagram page". */
+export const withArticle = (name: string): string =>
+  `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 
 /** The network a link is on, or null when it's on none the add-on knows. */
 export function networkOfLink(url: string): Platform | null {
@@ -150,11 +229,11 @@ export function profileMisfit(
 ): string | null {
   const kit = NETWORKS[platform];
   if (!kit.link.test(profile.url))
-    return `That profile’s address isn’t a ${kit.name} one. Send the ${kit.name} address the page links to.`;
+    return `That profile’s address isn’t ${withArticle(kit.name)} one. Send the ${kit.name} address the page links to.`;
   if (profile.id !== null && !kit.profileId.test(profile.id))
-    return `That isn’t a ${kit.name} profile’s id. Send the id its ${kit.name} links show.`;
+    return `That isn’t ${withArticle(kit.name)} profile’s id. Send the id its ${kit.name} links show.`;
   if (profile.username !== null && !kit.username.test(profile.username))
-    return `That isn’t a ${kit.name} profile’s name. Send the name in its ${kit.name} address.`;
+    return `That isn’t ${withArticle(kit.name)} profile’s name. Send the name in its ${kit.name} address.`;
   return null;
 }
 

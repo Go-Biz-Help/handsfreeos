@@ -78545,7 +78545,9 @@
                           "type": "string",
                           "enum": [
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "instagram",
+                            "alignable"
                           ]
                         }
                       },
@@ -79029,7 +79031,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           }
                         },
@@ -79587,7 +79591,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           }
                         },
@@ -79881,7 +79887,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "profile": {
@@ -80028,7 +80036,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "thread": {
@@ -80327,7 +80337,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "kind": {
@@ -80595,7 +80607,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "answer": {
@@ -80734,7 +80748,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "list": {
@@ -80887,7 +80903,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "profileId": {
@@ -81073,7 +81091,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "importId": {
@@ -81343,7 +81363,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "chats": {
@@ -81508,7 +81530,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "groups": {
@@ -81777,7 +81801,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "people": {
@@ -81927,7 +81953,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "kind": {
@@ -82043,7 +82071,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "words": {
@@ -82160,7 +82190,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "group": {
@@ -82500,7 +82532,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "seen": {
@@ -82726,7 +82760,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "profileId": {
@@ -83035,6 +83071,142 @@
                                 ]
                               }
                             }
+                          },
+                          "instagram": {
+                            "default": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            },
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "default": "off",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "default": "draft",
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "default": "after_ok",
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              }
+                            }
+                          },
+                          "alignable": {
+                            "default": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            },
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "default": "off",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "default": "draft",
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "default": "after_ok",
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              }
+                            }
                           }
                         }
                       }
@@ -83215,6 +83387,28 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok"
+                            },
+                            "instagram": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            },
+                            "alignable": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
                             }
                           },
                           "type": "object",
@@ -83314,11 +83508,173 @@
                                 "posting"
                               ],
                               "additionalProperties": false
+                            },
+                            "instagram": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "alignable": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "instagram",
+                            "alignable"
                           ],
                           "additionalProperties": false
                         }
@@ -83450,10 +83806,98 @@
                             "edits"
                           ],
                           "additionalProperties": false
+                        },
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "daysLeft": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "edits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "ok",
+                            "daysLeft",
+                            "edits"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "alignable": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "daysLeft": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "edits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "ok",
+                            "daysLeft",
+                            "edits"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
-                        "linkedin"
+                        "linkedin",
+                        "instagram",
+                        "alignable"
                       ],
                       "additionalProperties": false
                     },
@@ -83545,7 +83989,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           }
                         },
@@ -83553,6 +83999,68 @@
                           "type": "object",
                           "properties": {
                             "linkedin": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "instagram": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "alignable": {
                               "type": "object",
                               "properties": {
                                 "friend_request": {
@@ -83707,7 +84215,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -84361,13 +84871,15 @@
                         "default": null,
                         "anyOf": [
                           {
-                            "maxItems": 2,
+                            "maxItems": 4,
                             "type": "array",
                             "items": {
                               "type": "string",
                               "enum": [
                                 "facebook",
-                                "linkedin"
+                                "linkedin",
+                                "instagram",
+                                "alignable"
                               ]
                             }
                           },
@@ -84664,6 +85176,136 @@
                             "at"
                           ],
                           "additionalProperties": false
+                        },
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "date": {
+                              "type": "string"
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "started",
+                                "stopped"
+                              ]
+                            },
+                            "why": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "person",
+                                    "warning"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "via": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "web",
+                                    "mobile",
+                                    "extension"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "date",
+                            "state",
+                            "why",
+                            "via",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "alignable": {
+                          "type": "object",
+                          "properties": {
+                            "date": {
+                              "type": "string"
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "started",
+                                "stopped"
+                              ]
+                            },
+                            "why": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "person",
+                                    "warning"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "via": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "web",
+                                    "mobile",
+                                    "extension"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "date",
+                            "state",
+                            "why",
+                            "via",
+                            "at"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false
@@ -84725,7 +85367,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "installId": {
@@ -84842,7 +85486,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "installId": {
@@ -85028,7 +85674,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "list": {
@@ -85440,7 +86088,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "ask": {
@@ -85928,7 +86578,9 @@
                           "type": "string",
                           "enum": [
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "instagram",
+                            "alignable"
                           ]
                         },
                         "kind": {
@@ -86220,7 +86872,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -86255,7 +86909,9 @@
                               "type": "string",
                               "enum": [
                                 "facebook",
-                                "linkedin"
+                                "linkedin",
+                                "instagram",
+                                "alignable"
                               ]
                             },
                             "kind": {
@@ -87229,7 +87885,9 @@
                           "type": "string",
                           "enum": [
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "instagram",
+                            "alignable"
                           ]
                         },
                         "kind": {
@@ -87530,7 +88188,9 @@
                           "type": "string",
                           "enum": [
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "instagram",
+                            "alignable"
                           ]
                         },
                         "kind": {
@@ -88146,7 +88806,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "item": {
@@ -88186,7 +88848,9 @@
                       "type": "string",
                       "enum": [
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "instagram",
+                        "alignable"
                       ]
                     },
                     "ready": {
@@ -88898,7 +89562,9 @@
                       "type": "string",
                       "enum": [
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "instagram",
+                        "alignable"
                       ]
                     },
                     "ready": {
@@ -89593,7 +90259,9 @@
                       "type": "string",
                       "enum": [
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "instagram",
+                        "alignable"
                       ]
                     },
                     "ready": {
@@ -90854,7 +91522,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "groupId": {
@@ -172215,7 +172885,9 @@
                                   "type": "string",
                                   "enum": [
                                     "facebook",
-                                    "linkedin"
+                                    "linkedin",
+                                    "instagram",
+                                    "alignable"
                                   ]
                                 }
                               },
@@ -172516,7 +173188,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "profiles": {
@@ -172937,7 +173611,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "url": {
@@ -173000,7 +173676,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "url": {
@@ -173424,7 +174102,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "group": {
@@ -173839,7 +174519,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -174042,7 +174724,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "state": {
@@ -174514,7 +175198,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -174612,7 +175298,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "personId": {
@@ -174782,7 +175470,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   },
                   "view": {
@@ -175183,7 +175873,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -175794,7 +176486,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -176137,7 +176831,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -176499,6 +177195,28 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok"
+                            },
+                            "instagram": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
+                            },
+                            "alignable": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok"
                             }
                           },
                           "type": "object",
@@ -176598,11 +177316,173 @@
                                 "posting"
                               ],
                               "additionalProperties": false
+                            },
+                            "instagram": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "alignable": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "instagram",
+                            "alignable"
                           ],
                           "additionalProperties": false
                         }
@@ -176734,10 +177614,98 @@
                             "edits"
                           ],
                           "additionalProperties": false
+                        },
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "daysLeft": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "edits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "ok",
+                            "daysLeft",
+                            "edits"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "alignable": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "daysLeft": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "edits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "ok",
+                            "daysLeft",
+                            "edits"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
-                        "linkedin"
+                        "linkedin",
+                        "instagram",
+                        "alignable"
                       ],
                       "additionalProperties": false
                     },
@@ -176829,7 +177797,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           }
                         },
@@ -176837,6 +177807,68 @@
                           "type": "object",
                           "properties": {
                             "linkedin": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "instagram": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 15
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "alignable": {
                               "type": "object",
                               "properties": {
                                 "friend_request": {
@@ -176956,7 +177988,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "wheels": {
@@ -177406,7 +178440,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -177570,7 +178606,9 @@
                                     "type": "string",
                                     "enum": [
                                       "facebook",
-                                      "linkedin"
+                                      "linkedin",
+                                      "instagram",
+                                      "alignable"
                                     ]
                                   }
                                 },
@@ -177656,7 +178694,9 @@
                                   "type": "string",
                                   "enum": [
                                     "facebook",
-                                    "linkedin"
+                                    "linkedin",
+                                    "instagram",
+                                    "alignable"
                                   ]
                                 }
                               },
@@ -178441,7 +179481,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -178788,7 +179830,9 @@
                                     "type": "string",
                                     "enum": [
                                       "facebook",
-                                      "linkedin"
+                                      "linkedin",
+                                      "instagram",
+                                      "alignable"
                                     ]
                                   },
                                   "kind": {
@@ -179833,7 +180877,9 @@
                                     "type": "string",
                                     "enum": [
                                       "facebook",
-                                      "linkedin"
+                                      "linkedin",
+                                      "instagram",
+                                      "alignable"
                                     ]
                                   }
                                 },
@@ -179876,7 +180922,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "kind": {
@@ -180375,7 +181423,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -180398,7 +181448,9 @@
                       "type": "string",
                       "enum": [
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "instagram",
+                        "alignable"
                       ]
                     },
                     "ready": {
@@ -181195,7 +182247,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -181324,7 +182378,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -181438,7 +182494,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "stage": {
@@ -181847,7 +182905,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -181880,7 +182940,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           },
                           "groupId": {
@@ -182067,7 +183129,9 @@
                     "type": "string",
                     "enum": [
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "instagram",
+                      "alignable"
                     ]
                   }
                 },
@@ -182618,7 +183682,9 @@
                             "type": "string",
                             "enum": [
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "instagram",
+                              "alignable"
                             ]
                           }
                         },
