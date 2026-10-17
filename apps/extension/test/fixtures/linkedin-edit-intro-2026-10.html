@@ -1,0 +1,178 @@
+<!doctype html>
+<!--
+  The box LinkedIn's newer layout opens over your profile when you press the pencil by your name (its label is
+  "Edit profile"; its link /in/<you>/edit/intro/), as it drew it for the owner on 17 Oct 2026: rebuilt by hand from
+  the page outline his Put this one in sent (its elements, nesting, attributes and data-testids), with made-up words in
+  place of the hidden ones. Not a saved LinkedIn page, and nobody real. A <dialog> with a header, a Premium offer, then
+  its fields: First name and Last name each named by a line above a text box with an empty label; Additional name and
+  Pronouns by a <label> beside theirs; Headline by a line above a writing box (role="textbox", contenteditable, the
+  headline in a paragraph inside), with a button for suggestions and a count below; Position and the rest; and Save,
+  a plain button, at the dialog's foot, outside its content. The words the outline hid ("First name", "Headline*",
+  "Save"…) are a best guess.
+-->
+<html lang="en">
+  <head>
+    <title>Chris Gee | LinkedIn</title>
+  </head>
+  <body>
+    <div id="modal-outlet">
+      <dialog data-testid="dialog" open>
+        <button aria-label="Dismiss" type="button"><svg aria-hidden="true"></svg></button>
+        <div>
+          <header><h2>Edit intro</h2></header>
+          <div data-testid="dialog-content">
+            <div>
+              <div data-testid="lazy-column">
+                <div>
+                  <div>
+                    <div>
+                      <svg aria-hidden="true"></svg>
+                      <p>Stand out with Premium today</p>
+                    </div>
+                    <p>
+                      Members with Premium get more profile views from people hiring in their
+                      industry each week.
+                    </p>
+                    <a href="/premium/products/?upsellOrderOrigin=profile">
+                      <span>Try Premium for free</span>
+                    </a>
+                  </div>
+                  <button aria-label="Dismiss Premium offer" type="button">
+                    <svg aria-hidden="true"></svg>
+                  </button>
+                </div>
+                <div>
+                  <div>
+                    <p>First name*</p>
+                    <div><input aria-label="" dir="auto" type="text" value="Chris" /></div>
+                  </div>
+                  <div>
+                    <p>Last name*</p>
+                    <div><input aria-label="" dir="auto" type="text" value="Gee" /></div>
+                  </div>
+                </div>
+                <div>
+                  <div>
+                    <div>
+                      <label><div>Additional name</div></label>
+                      <input dir="auto" type="text" value="" />
+                    </div>
+                  </div>
+                  <div>
+                    <div>
+                      <label><div>Pronouns</div></label>
+                      <div>
+                        <select>
+                          <option>Please select</option>
+                          <option>He/Him</option>
+                          <option>She/Her</option>
+                          <option>They/Them</option>
+                          <option>Custom</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button aria-label="Learn about pronouns" aria-expanded="false" type="button">
+                      <svg aria-hidden="true"></svg>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p>Headline*</p>
+                  <div>
+                    <div data-testid="ui-core-tiptap-text-editor-wrapper">
+                      <div role="textbox" dir="auto" contenteditable="true">
+                        <p>
+                          Helping home service businesses answer every lead and book more jobs |
+                          Founder at Gee Consulting | Speaker on missed calls, follow-up and local
+                          growth
+                        </p>
+                      </div>
+                      <div data-testid="ui-core-tiptap-text-editor-cursor"></div>
+                    </div>
+                    <hr role="presentation" />
+                    <div>
+                      <svg aria-hidden="true"></svg>
+                      <div role="button"><p>Write with AI</p></div>
+                      <p>151/220</p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div role="status"></div>
+                  <div>
+                    <label><div>Industry*</div></label>
+                    <div>
+                      <svg aria-hidden="true"></svg>
+                      <input
+                        aria-label="Industry"
+                        dir="auto"
+                        data-testid="typeahead-input"
+                        value="Business Consulting and Services"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div>
+                    <div>
+                      <label><div>Current position</div></label>
+                      <input dir="auto" type="text" value="Founder" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label><div>Position*</div></label>
+                  <div>
+                    <select>
+                      <option>Founder at Gee Consulting LLC</option>
+                      <option>Board Member and Advisor at Callwise</option>
+                      <option>None</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label><div>Education</div></label>
+                  <div>
+                    <select>
+                      <option>Texas State University</option>
+                      <option>None</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <div>
+                    <div role="status"></div>
+                    <div>
+                      <label><div>City</div></label>
+                      <div>
+                        <svg aria-hidden="true"></svg>
+                        <input
+                          aria-label="City"
+                          dir="auto"
+                          data-testid="typeahead-input"
+                          value="Round Rock, Texas, United States"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <p>Use your location to help people find you and see where you work and live.</p>
+                </div>
+                <div>
+                  <p>Contact info</p>
+                  <p>Add or edit your profile URL, email, and more</p>
+                  <a href="/in/chris-gee-12/edit/forms/contact-info/new/">
+                    <span><svg aria-hidden="true"></svg><span>Edit contact info</span></span>
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div>
+              <hr role="presentation" />
+              <button type="button"><span>Save</span></button>
+            </div>
+          </div>
+        </div>
+      </dialog>
+    </div>
+  </body>
+</html>

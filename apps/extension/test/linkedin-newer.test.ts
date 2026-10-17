@@ -14,7 +14,8 @@
  *   and who engaged on the newer layout;
  * - your own profile: its name, headline, photo and banner, the whole About, every role under Experience, and no
  *   Featured or posts; and, as LinkedIn drew it for the owner's Check LinkedIn of 17 Oct 2026, its About and
- *   Experience as empty places it fills only a moment after each comes into view, waited on before the read;
+ *   Experience as empty places it fills only a moment after each comes into view, waited on before the read; and the
+ *   headline put in through its newer box (Edit profile's link, Headline a writing box named by the line above it);
  * - the outline: LinkedIn's words for the controls the readers now rely on, and never a name.
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -24,7 +25,12 @@ import { ENTER_LOOK_MS, LIKE_LOOK_MS, linkedInNoticer } from '../src/networks/li
 import { likeTheirPost, theirPosts, writeComment } from '../src/networks/linkedin/auto';
 import { readComments, readReactions } from '../src/networks/linkedin/compose';
 import { loadNote, ownProfileNote } from '../src/jobs/report';
-import { loadWholeProfile, readOwnProfile } from '../src/networks/linkedin/own-profile';
+import {
+  headlineOf,
+  loadWholeProfile,
+  readOwnProfile,
+  writeHeadline,
+} from '../src/networks/linkedin/own-profile';
 import { readPage } from '../src/networks/linkedin/page';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { boxEverything, load } from './load';
@@ -683,6 +689,56 @@ describe.each(SHAPES)('your own profile in LinkedIn’s newer layout, %s', (_, b
   });
 });
 
+// --------------------------------------------------------------------- putting the headline in, the newer box
+
+describe('putting the headline in through LinkedIn’s newer box', () => {
+  const NEW = 'I help plumbers and roofers answer every lead | Founder, Gee Consulting';
+  const OLD =
+    'Helping home service businesses answer every lead and book more jobs | Founder at Gee Consulting | Speaker on missed calls, follow-up and local growth';
+
+  /**
+   * The owner's Put this one in of 17 Oct 2026: the pencil (Edit profile) opens the box over the page; Headline is a
+   * writing box named by the line above it, which takes typing as Chrome does; Save puts it under the name and closes
+   * the box.
+   */
+  function editable() {
+    const doc = load(OWN_PAGE, OWN);
+    const typed: string[] = [];
+    doc.querySelector('[aria-label="Edit profile"]')!.addEventListener('click', (event) => {
+      event.preventDefault();
+      const from = load('linkedin-edit-intro-2026-10.html', OWN);
+      const outlet = doc.importNode(from.getElementById('modal-outlet')!, true);
+      doc.body.append(outlet);
+      const writing = outlet.querySelector('[role="textbox"]')!;
+      for (const field of outlet.querySelectorAll('input'))
+        field.addEventListener('input', () => typed.push('an input'));
+      doc.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+        typed.push('headline');
+        writing.textContent = text ?? '';
+        return true;
+      };
+      [...outlet.querySelectorAll('button')]
+        .find((b) => b.textContent?.trim() === 'Save')!
+        .addEventListener('click', () => {
+          const under = [...doc.querySelectorAll('main *')].find(
+            (e) => e.children.length === 0 && e.textContent?.replace(/\s+/g, ' ').trim() === OLD,
+          )!;
+          under.textContent = writing.textContent;
+          outlet.remove();
+        });
+    });
+    return { doc, typed };
+  }
+
+  it('presses Edit profile, writes only in the box named Headline, presses Save and sees it under the name', async () => {
+    const { doc, typed } = editable();
+    expect(headlineOf(doc, OWN)).toBe(OLD);
+    expect(await writeHeadline(doc, OWN, NEW)).toBe('done');
+    expect(headlineOf(doc, OWN)).toBe(NEW);
+    expect(typed).toEqual(['headline']);
+  });
+});
+
 // ------------------------------------------------------------------------- your own profile, drawn as it's seen
 
 describe('your own profile in LinkedIn’s newer layout, drawn only as its places come into view', () => {
@@ -764,7 +820,7 @@ describe('the outline of LinkedIn’s newer pages', () => {
     ])
       expect(feed).toContain(words);
     for (const words of [
-      'a aria-label="Edit intro" href="/in/{1}/edit/intro/"',
+      'a aria-label="Edit profile" href="/in/{1}/edit/intro/"',
       'svg role="img" aria-label="Background image" aria-hidden="false"',
       'h2 "Experience"',
       'p "You haven’t posted yet"',
