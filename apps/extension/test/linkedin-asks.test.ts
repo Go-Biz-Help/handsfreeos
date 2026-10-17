@@ -1042,6 +1042,41 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       }
     });
 
+    it('tries commenting on one of a connection’s own posts when the feed and the search link none', async () => {
+      // The owner's Check LinkedIn on 0.55.0: no person's post on his feed or the search had a page of its own. Dana's
+      // own first, not the one she reposted.
+      const THEIR_POST = `${LI}/feed/update/urn:li:activity:7380000000000000302/`;
+      pages[THEIR_POST] = 'linkedin-post.html';
+      try {
+        const { tab, opened, tried } = fakeTab(linkedIn, {
+          onOpen: (doc, url) => {
+            if (url !== `${LI}/feed/` && !url.includes('/search/results/content/')) return;
+            // Every way a post links to its own page: its address, a group's link to it, a share link.
+            for (const link of doc.querySelectorAll('a[href]'))
+              if (/activity|\/posts\//i.test(link.getAttribute('href')!)) link.remove();
+            for (const post of doc.querySelectorAll('[data-urn], [data-id]')) {
+              post.removeAttribute('data-urn');
+              post.removeAttribute('data-id');
+            }
+          },
+        });
+        const notes: ReportNote[] = [];
+        const { hfos } = fakeHfos();
+        const { job } = jobWith(tab, hfos, { report: async (note = {}) => void notes.push(note) });
+        const end = await onLinkedIn({ kind: 'checkup' }, job);
+        expect(opened).not.toContain(POST);
+        expect(opened.slice(opened.indexOf(ACTIVITY), opened.indexOf(ACTIVITY) + 2)).toEqual([
+          ACTIVITY,
+          THEIR_POST,
+        ]);
+        expect(tried).toContainEqual(['comment', THEIR_POST]);
+        expect(notes.filter((n) => n.job === 'checkup.comment')).toHaveLength(1);
+        expect(end.line).toMatch(/Everything works\.$/);
+      } finally {
+        delete pages[THEIR_POST];
+      }
+    });
+
     it('notes a step with nothing to try it on without opening anything for it', async () => {
       const { tab, opened, tried } = fakeTab(linkedIn, {
         // Nobody on your connections page.
