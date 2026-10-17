@@ -13,7 +13,9 @@
  * - reading the feed's posts, with their authors, headlines, words, links and counts; the runner's like, its comment
  *   and who engaged on the newer layout;
  * - your own profile: its name, headline, photo and banner, the whole About, every role under Experience, and no
- *   Featured or posts;
+ *   Featured or posts; and, as LinkedIn drew it for the owner's Check LinkedIn of 17 Oct 2026, its About and
+ *   Experience as empty places it fills only a moment after each comes into view, waited on before the read; and the
+ *   headline put in through its newer box (Edit profile's link, Headline a writing box named by the line above it);
  * - the outline: LinkedIn's words for the controls the readers now rely on, and never a name.
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -22,7 +24,13 @@ import type { Noticed } from '../src/networks/kit';
 import { ENTER_LOOK_MS, LIKE_LOOK_MS, linkedInNoticer } from '../src/networks/linkedin/actions';
 import { likeTheirPost, theirPosts, writeComment } from '../src/networks/linkedin/auto';
 import { readComments, readReactions } from '../src/networks/linkedin/compose';
-import { readOwnProfile } from '../src/networks/linkedin/own-profile';
+import { loadNote, ownProfileNote } from '../src/jobs/report';
+import {
+  headlineOf,
+  loadWholeProfile,
+  readOwnProfile,
+  writeHeadline,
+} from '../src/networks/linkedin/own-profile';
 import { readPage } from '../src/networks/linkedin/page';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { boxEverything, load } from './load';
@@ -681,6 +689,112 @@ describe.each(SHAPES)('your own profile in LinkedIn’s newer layout, %s', (_, b
   });
 });
 
+// --------------------------------------------------------------------- putting the headline in, the newer box
+
+describe('putting the headline in through LinkedIn’s newer box', () => {
+  const NEW = 'I help plumbers and roofers answer every lead | Founder, Gee Consulting';
+  const OLD =
+    'Helping home service businesses answer every lead and book more jobs | Founder at Gee Consulting | Speaker on missed calls, follow-up and local growth';
+
+  /**
+   * The owner's Put this one in of 17 Oct 2026: the pencil (Edit profile) opens the box over the page; Headline is a
+   * writing box named by the line above it, which takes typing as Chrome does; Save puts it under the name and closes
+   * the box.
+   */
+  function editable() {
+    const doc = load(OWN_PAGE, OWN);
+    const typed: string[] = [];
+    doc.querySelector('[aria-label="Edit profile"]')!.addEventListener('click', (event) => {
+      event.preventDefault();
+      const from = load('linkedin-edit-intro-2026-10.html', OWN);
+      const outlet = doc.importNode(from.getElementById('modal-outlet')!, true);
+      doc.body.append(outlet);
+      const writing = outlet.querySelector('[role="textbox"]')!;
+      for (const field of outlet.querySelectorAll('input'))
+        field.addEventListener('input', () => typed.push('an input'));
+      doc.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+        typed.push('headline');
+        writing.textContent = text ?? '';
+        return true;
+      };
+      [...outlet.querySelectorAll('button')]
+        .find((b) => b.textContent?.trim() === 'Save')!
+        .addEventListener('click', () => {
+          const under = [...doc.querySelectorAll('main *')].find(
+            (e) => e.children.length === 0 && e.textContent?.replace(/\s+/g, ' ').trim() === OLD,
+          )!;
+          under.textContent = writing.textContent;
+          outlet.remove();
+        });
+    });
+    return { doc, typed };
+  }
+
+  it('presses Edit profile, writes only in the box named Headline, presses Save and sees it under the name', async () => {
+    const { doc, typed } = editable();
+    expect(headlineOf(doc, OWN)).toBe(OLD);
+    expect(await writeHeadline(doc, OWN, NEW)).toBe('done');
+    expect(headlineOf(doc, OWN)).toBe(NEW);
+    expect(typed).toEqual(['headline']);
+  });
+});
+
+// ------------------------------------------------------------------------- your own profile, drawn as it's seen
+
+describe('your own profile in LinkedIn’s newer layout, drawn only as its places come into view', () => {
+  const headingOf = (doc: Document, words: string) =>
+    [...doc.querySelectorAll('h2')].find((h) => h.textContent!.trim() === words)!;
+
+  /**
+   * The owner's Check LinkedIn of 17 Oct 2026: the top and Activity drawn, and an empty place where About goes and one
+   * where Experience goes, each filled `fillMs` after it comes into view (never, with null).
+   */
+  function drawnAsSeen(fillMs: number | null) {
+    const doc = load(OWN_PAGE, OWN);
+    const parts = [
+      headingOf(doc, 'About').closest('section')!.parentElement!,
+      headingOf(doc, 'Experience').closest('section')!,
+    ];
+    const seen: Element[] = [];
+    for (const part of parts) {
+      const place = doc.createElement('section');
+      place.innerHTML = '<div><div></div><div><div></div></div><div><div></div></div></div>';
+      part.replaceWith(place);
+      (place as HTMLElement).scrollIntoView = () => {
+        seen.push(place);
+        if (fillMs !== null) setTimeout(() => place.isConnected && place.replaceWith(part), fillMs);
+      };
+    }
+    return { doc, seen };
+  }
+  const waits = { pauseMs: 0, lookMs: 5, placeMs: 400, totalMs: 2_000 };
+
+  it('keeps each place in view till LinkedIn draws it, then reads the whole About and every role', async () => {
+    const { doc, seen } = drawnAsSeen(30);
+    // Read straight away, the places are all there is.
+    expect(readOwnProfile(doc, OWN)).toMatchObject({ about: null, intro: [] });
+    const load = await loadWholeProfile(doc, waits);
+    expect(seen).toHaveLength(2);
+    expect(load).toMatchObject({ places: 2, left: 0 });
+    const read = readOwnProfile(doc, OWN);
+    expect(read.about).toMatch(/^I help plumbers, roofers, cleaners/);
+    expect(read.intro).toHaveLength(6);
+    expect(loadNote(ownProfileNote(read), load).note).not.toMatch(/empty/);
+  });
+
+  it('gives up on a place that’s never drawn, says so in its note, and keeps the outline', async () => {
+    const { doc } = drawnAsSeen(null);
+    const load = await loadWholeProfile(doc, waits);
+    expect(load).toMatchObject({ places: 2, left: 2 });
+    const note = loadNote(ownProfileNote(readOwnProfile(doc, OWN)), load);
+    expect(note).toMatchObject({
+      found: { roles: 0, placesBefore: 2, placesLeft: 2 },
+      note: 'Not read: About, Experience, Featured, any posts. LinkedIn left 2 parts of the page empty.',
+      outline: true,
+    });
+  });
+});
+
 // ------------------------------------------------------------------------------------------------ the outline
 
 describe('the outline of LinkedIn’s newer pages', () => {
@@ -706,7 +820,7 @@ describe('the outline of LinkedIn’s newer pages', () => {
     ])
       expect(feed).toContain(words);
     for (const words of [
-      'a aria-label="Edit intro" href="/in/{1}/edit/intro/"',
+      'a aria-label="Edit profile" href="/in/{1}/edit/intro/"',
       'svg role="img" aria-label="Background image" aria-hidden="false"',
       'h2 "Experience"',
       'p "You haven’t posted yet"',

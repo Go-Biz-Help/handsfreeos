@@ -9,7 +9,7 @@
 import { REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
 import type { LinkedInRead } from '../../networks';
 import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
-import { ownProfileNote } from '../report';
+import { loadNote, ownProfileNote } from '../report';
 import { CONNECTIONS, LINKEDIN, OWN_PROFILE, postSearchUrl, readLinkedIn } from './read';
 
 /** What the searches look for: everyday words, to see how LinkedIn draws its results. */
@@ -57,7 +57,8 @@ const isEnd = (got: LinkedInRead | JobEnd): got is JobEnd => 'warned' in got;
  */
 async function wholeProfile(job: Job, own: boolean): Promise<void> {
   const read = await job.tab.ask({ type: 'hfos-own-profile' });
-  const note = own && read.ok && 'read' in read ? ownProfileNote(read.read) : {};
+  const got = read.ok && 'read' in read ? read : null;
+  const note = loadNote(own && got ? ownProfileNote(got.read) : {}, got?.load);
   await job.report?.({ ...note, outline: true });
 }
 

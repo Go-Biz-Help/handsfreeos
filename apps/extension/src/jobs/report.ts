@@ -14,6 +14,7 @@ import { PROBLEM_OUTLINE_MOST } from '@hfos/core/problem-report';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { PageRead } from '../networks/kit';
+import type { ProfileLoad } from '../networks/linkedin/own-profile';
 import type { Hfos, JobTab } from './job';
 
 /** What a job adds to its note of a page. */
@@ -103,6 +104,29 @@ export function ownProfileNote(read: ProfileRead): ReportNote {
     note: missing.length ? `Not read: ${missing.join(', ')}.` : null,
     // Featured and posts are often none at all; the outline is kept when what nearly everyone has wasn't read.
     outline: !read.bio || roles === 0,
+  };
+}
+
+/**
+ * How loading a whole profile went, added to its note: the steps down, the parts LinkedIn held a place for and those
+ * still empty when it was read, and whether the page itself scrolled. Parts left empty are said, and keep the outline.
+ */
+export function loadNote(note: ReportNote, load: ProfileLoad | undefined): ReportNote {
+  if (!load) return note;
+  const left =
+    load.left > 0
+      ? `LinkedIn left ${load.left === 1 ? 'a part' : `${load.left} parts`} of the page empty.`
+      : null;
+  return {
+    found: {
+      ...note.found,
+      loadSteps: load.steps,
+      placesBefore: load.places,
+      placesLeft: load.left,
+      pageScrolled: load.page,
+    },
+    note: [note.note, left].filter(Boolean).join(' ') || null,
+    outline: Boolean(note.outline) || load.left > 0,
   };
 }
 
