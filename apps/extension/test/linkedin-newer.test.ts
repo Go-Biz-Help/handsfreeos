@@ -32,6 +32,7 @@ import {
   tryHeadline,
   writeHeadline,
 } from '../src/networks/linkedin/own-profile';
+import { tryHeadlineStep } from '../src/networks/linkedin/tries';
 import { readPage } from '../src/networks/linkedin/page';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { boxEverything, load } from './load';
@@ -702,13 +703,16 @@ describe('putting the headline in through LinkedIn’s newer box', () => {
    * writing box named by the line above it, which takes typing as Chrome does (or, `typing: 'ignored'`, only a paste,
    * as an editor that keeps its own idea of what's selected may); Save puts it under the name and closes the box;
    * Dismiss closes it, asking to be sure first with `asksDiscard`. `emptyFirst` puts an empty box before the writing box
-   * and has it named by a label that isn't there, as a real page might and its outline wouldn't show.
+   * and has it named by a label that isn't there, as a real page might and its outline wouldn't show; `boxed` puts a
+   * bare box around everything in the box, as LinkedIn's own page has more of them than its outline shows.
    */
   function editable(
     more: {
       typing?: 'takes' | 'ignored';
       emptyFirst?: boolean;
       asksDiscard?: boolean;
+      boxed?: boolean;
+      headlineAs?: string;
     } = {},
   ) {
     const doc = load(OWN_PAGE, OWN);
@@ -717,6 +721,10 @@ describe('putting the headline in through LinkedIn’s newer box', () => {
     doc.querySelector('[aria-label="Edit profile"]')!.addEventListener('click', (event) => {
       event.preventDefault();
       const from = load('linkedin-edit-intro-2026-10.html', OWN);
+      if (more.boxed) boxEverything(from);
+      if (more.headlineAs)
+        [...from.querySelectorAll('p')].find((p) => p.textContent === 'Headline*')!.textContent =
+          more.headlineAs;
       const outlet = doc.importNode(from.getElementById('modal-outlet')!, true);
       doc.body.append(outlet);
       const writing = outlet.querySelector<HTMLElement>('[role="textbox"]')!;
@@ -805,6 +813,34 @@ describe('putting the headline in through LinkedIn’s newer box', () => {
     const { doc } = editable({ emptyFirst: true });
     expect((await writeHeadline(doc, OWN, NEW)).result).toBe('done');
     expect(headlineOf(doc, OWN)).toBe(NEW);
+  });
+
+  it('finds Headline by the line above it however many boxes are around it, as on the owner’s page', async () => {
+    // His Check LinkedIn of 17 Oct 2026 on 0.52.0: seven fields in the box, Headline's with no name.
+    const { doc } = editable({ boxed: true });
+    const { result, steps } = await writeHeadline(doc, OWN, NEW);
+    expect(steps).toMatchObject({ fields: 7, headlineFields: 1 });
+    expect(steps.names).not.toContain('(no name)');
+    expect(result).toBe('done');
+  });
+
+  it('outlines the box while it’s open when there’s no Headline in it, then closes it', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const { doc, pressed } = editable({ headlineAs: 'Tagline' });
+      const trying = tryHeadlineStep(doc);
+      await vi.advanceTimersByTimeAsync(30_000);
+      const tried = await trying;
+      expect(tried).toMatchObject({
+        works: false,
+        found: { box: true, headlineFields: 0, closed: true },
+        missing: ['no field named Headline in the box'],
+      });
+      expect(tried.outline).toContain('h2 "Edit intro"');
+      expect(pressed).toEqual(['Dismiss']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('pastes the headline in when the box ignores typing, as an editor may', async () => {

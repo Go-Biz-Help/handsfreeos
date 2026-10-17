@@ -71,8 +71,8 @@ class Checkup {
     if (count === 0) this.nothingOn.push(name);
   }
 
-  /** Tries a step on the page the tab shows, and notes how it went. */
-  async tryHere(step: TryStep, profile?: ProfileRef): Promise<void> {
+  /** Tries a step on the page the tab shows, notes how it went, and says. */
+  async tryHere(step: TryStep, profile?: ProfileRef): Promise<StepTry> {
     this.job.progress(`Trying ${REPORT_WORDS_STEP[step]}…`);
     const answer = await this.job.tab.ask({
       type: 'hfos-try',
@@ -84,6 +84,21 @@ class Checkup {
       : { step, tried: true, works: false, found: {}, missing: [answer.error] };
     this.tries.push(tried);
     await this.job.report?.(tryNote(tried));
+    return tried;
+  }
+
+  /**
+   * The steps as the end's line counts them: one tried two ways (messaging, on the profile and on the page its Message
+   * links to) works when either does.
+   */
+  steps(): StepTry[] {
+    const each = new Map<TryStep, StepTry>();
+    for (const tried of this.tries) {
+      const before = each.get(tried.step);
+      if (!before || (tried.works && !before.works) || (tried.tried && !before.tried))
+        each.set(tried.step, tried);
+    }
+    return [...each.values()];
   }
 
   /** A step with nothing to try it on: noted as such, nothing opened. */
@@ -176,7 +191,14 @@ async function checkup(job: Job): Promise<JobEnd> {
     const theirs = await c.open(connection.url, 'one connection’s profile');
     if (isEnd(theirs)) return theirs;
     await wholeProfile(job, false);
-    await c.tryHere('message', connection);
+    const messaged = await c.tryHere('message', connection);
+    // Nothing opened on the profile, and its Message leads to a page of its own: tried there too.
+    if (!messaged.works && messaged.next) {
+      if (stopped()) return stopped()!;
+      const page = await c.open(messaged.next, 'the page Message leads to');
+      if (isEnd(page)) return page;
+      await c.tryHere('message', connection);
+    }
     if (stopped()) return stopped()!;
     const activity = await c.open(`${connection.url}recent-activity/all/`, 'their posts');
     if (isEnd(activity)) return activity;
@@ -196,17 +218,18 @@ async function checkup(job: Job): Promise<JobEnd> {
   if (isEnd(data)) return data;
   await c.tryHere('file');
 
+  const steps = c.steps();
   const names = (pick: (t: StepTry) => boolean) =>
-    c.tries.filter(pick).map((t) => t.step as TryStepName);
+    steps.filter(pick).map((t) => t.step as TryStepName);
   const broken = names((t) => t.tried && !t.works);
   const untried = names((t) => !t.tried);
-  const line = REPORT_WORDS.checkupTried('LinkedIn', c.pages, broken, untried, c.tries.length);
+  const line = REPORT_WORDS.checkupTried('LinkedIn', c.pages, broken, untried, steps.length);
   await job.report?.({
     job: 'checkup.summary',
     found: {
       pages: c.pages,
-      steps: c.tries.length,
-      working: c.tries.filter((t) => t.works).length,
+      steps: steps.length,
+      working: steps.filter((t) => t.works).length,
       ...(broken.length ? { notWorking: broken } : {}),
       ...(untried.length ? { nothingToTry: untried } : {}),
       ...(c.nothingOn.length ? { nothingRead: c.nothingOn } : {}),

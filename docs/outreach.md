@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.52.0 now.
+    Built in 0.44.0; the extension is 0.53.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1241,6 +1241,23 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     and the page's outline when it doesn't work. A step with nothing to try on (no connection, no invitation sent)
     says so. A last report (`checkup.summary`) and the ask's line name the steps that don't work. **Put this one in**
     says which of its steps failed the same way. Its window is in front for about three minutes.
+
+    His first Check LinkedIn on 0.52.0 (17 Oct 2026) found posting, commenting, liking and the data file working,
+    nobody to connect with or withdraw from, and three faults, which 0.53.0 fixes:
+    - **The headline's field had no name.** LinkedIn wraps it in more boxes than the outline shows, and the line above
+      it was further up than the extension looked. A field is now named by the nearest line above it however many
+      boxes it's in, within the box over the page, passing over what isn't shown and stopping at another field's row.
+    - **Message on a profile opened nothing the page could see.** LinkedIn's newer pages draw their older parts in a box
+      of their own at the foot of every page (`interop-shadowdom`, and the iframe `interop-iframe` beside it), out of
+      the page's own look-ups; its conversations are likely there. The extension now looks there too, opening the box
+      as Chrome lets an extension (`src/networks/shadow.ts`), and the outline shows what's inside it ("#shadow-root",
+      "#document"). When nothing opens and Message is a link to a page of its own (`/messaging/compose/…`), Check
+      LinkedIn opens that page and tries there too; messaging counts as working when either way does.
+    - **Someone the search offered Connect to read as a connection.** Their top card said "· 1st" beside the real
+      "· 2nd". With Connect there, a "1st" no longer counts.
+
+    A try that opens something (the headline's box, a conversation) now takes the page's outline before it closes it
+    again, so its report shows what it saw.
 
 ## Rules worth knowing before changing anything
 

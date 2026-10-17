@@ -28,7 +28,7 @@ import {
   wordsOf,
 } from './dom';
 import { bestName, connectionOf, isNameLike } from './people';
-import type { CompanyLink, PageAddress, ProfilePage, ProfileRef, Role } from './types';
+import type { CompanyLink, Degree, PageAddress, ProfilePage, ProfileRef, Role } from './types';
 import {
   companyFromUrl,
   linkedinUrl,
@@ -39,6 +39,7 @@ import {
   profilePageOf,
 } from './urls';
 import {
+  CONNECT,
   degreeOnly,
   FOLLOW,
   FOLLOWING,
@@ -357,12 +358,16 @@ export function readProfile(
     nameFromLinks(root, profile, base);
 
   const lines = shownLines(root, { max: 40, after: heading, before: end, exclude: CONTROLS });
-  // "· 2nd" beside the name, or "She/Her · 2nd": a part of a line that says only that.
-  const degree =
-    lines
-      .flatMap((line) => line.split(/\s*[·•]\s*/))
-      .map(degreeOnly)
-      .find(Boolean) ?? null;
+  const labels = controls.flatMap(wordsOf);
+  // "· 2nd" beside the name, or "She/Her · 2nd": a part of a line that says only that. LinkedIn's newer top card can
+  // say "· 1st" beside the real one (the owner's Check LinkedIn of 17 Oct 2026, on someone it offered Connect to):
+  // with Connect there, they aren't a connection.
+  const degrees = lines
+    .flatMap((line) => line.split(/\s*[·•]\s*/))
+    .map(degreeOnly)
+    .filter((found): found is Degree => found !== null);
+  const canConnect = labels.some((label) => CONNECT.test(label));
+  const degree = (canConnect ? degrees.find((found) => found !== '1st') : degrees[0]) ?? null;
   // Their headline: the first line about them that isn't a link ("Add a verification badge" beside the name).
   const headline =
     shownLines(root, {
@@ -387,7 +392,6 @@ export function readProfile(
   const place = beforeContact[beforeContact.length - 1]?.replace(/\s*[·•]\s*$/, '') ?? null;
   const location = place && place !== headline && aboutThem(place) ? place : null;
 
-  const labels = controls.flatMap(wordsOf);
   const connection = connectionOf(labels, degree);
   // The main buttons: shown, not in a menu, and LinkedIn's actions (not a link to their company or connections).
   const main = controls.filter(

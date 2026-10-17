@@ -246,6 +246,28 @@ describe('writing a message only in the conversation with them', () => {
     },
   );
 
+  it('in the window LinkedIn draws in its interop box, out of the page’s reach', async () => {
+    const doc = load('linkedin-profile.html', DANA);
+    const host = doc.createElement('div');
+    host.setAttribute('data-testid', 'interop-shadowdom');
+    doc.body.append(host);
+    const inside = host.attachShadow({ mode: 'open' });
+    const from = load('linkedin-chat-window.html', DANA);
+    inside.append(doc.importNode(from.querySelector('aside[aria-label="Messaging"]')!, true));
+    const box = inside.querySelector('[role="textbox"]')!;
+    doc.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+      box.textContent = text ?? '';
+      return true;
+    };
+    const sent: string[] = [];
+    inside.querySelector('button[type="submit"]')!.addEventListener('click', () => {
+      sent.push(box.textContent ?? '');
+      box.textContent = '';
+    });
+    expect(await writeMessage(doc, DANA, 'Glad to help, Dana.', dana)).toBe('done');
+    expect(sent).toEqual(['Glad to help, Dana.']);
+  });
+
   it('writes nothing when the window is someone else’s', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     const doc = load('linkedin-chat-window.html', `${LI}/feed/`);

@@ -57,6 +57,7 @@ import {
   tryHeadlineStep,
   tryLike,
   tryMessage,
+  tryMessagePage,
   tryPost,
   tryWithdraw,
 } from './tries';
@@ -134,7 +135,11 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
         ? { ok: true, tried: await tryConnect(document, location.href) }
         : wrong('their profile');
     case 'message':
-      return onProfile && ask.profile
+      if (!ask.profile) return wrong('their profile');
+      // The second way: the page their profile's Message links to.
+      if (kind === 'messaging' || kind === 'chat')
+        return { ok: true, tried: tryMessagePage(document, location.href, ask.profile) };
+      return onProfile
         ? { ok: true, tried: await tryMessage(document, location.href, ask.profile) }
         : wrong('their profile');
     case 'like':

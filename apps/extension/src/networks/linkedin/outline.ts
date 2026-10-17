@@ -14,6 +14,7 @@ import {
   type OutlineSite,
 } from '../outline';
 import { DATA_WORDS } from './data';
+import { INTEROP } from './dom';
 import type { ReadResult } from './types';
 import { linkedinUrl } from './urls';
 import { degreeOnly, isSentWhen, isWhen, UI_WORDS } from './vocabulary';
@@ -322,6 +323,8 @@ export const LINKEDIN_OUTLINE: OutlineSite = {
         null),
   // A post's and a comment's own names (urn:li:activity:…), their numbers hidden as anything long is.
   alsoKept: ['aria-pressed', 'aria-placeholder', 'type', 'data-urn', 'data-id'],
+  // Where the newer pages draw their older parts, its messaging windows likely among them (./dom.ts).
+  shadowHosts: INTEROP,
 };
 
 export interface OutlineOptions extends Omit<BaseOptions, 'found'> {
@@ -332,4 +335,20 @@ export interface OutlineOptions extends Omit<BaseOptions, 'found'> {
 /** The whole outline as text, with a heading that says which page it was and what the readers found there. */
 export function outlinePage(doc: Document, href: string, options: OutlineOptions = {}): string {
   return outlineWith(LINKEDIN_OUTLINE, doc, href, options);
+}
+
+/**
+ * The page's outline as it is this moment, as the tab's own is made (../../content.ts) but for what the readers found:
+ * for one of Check LinkedIn's tries (./tries.ts) to take while what it opened is still open, before it closes it again.
+ */
+export function outlineNow(doc: Document): string {
+  const view = doc.defaultView;
+  const runtime = (
+    globalThis as { chrome?: { runtime?: { getManifest?: () => { version: string } } } }
+  ).chrome?.runtime;
+  const version = runtime?.getManifest?.().version;
+  return outlinePage(doc, doc.location.href, {
+    ...(version ? { version } : {}),
+    ...(view ? { window: { width: view.innerWidth, height: view.innerHeight } } : {}),
+  });
 }

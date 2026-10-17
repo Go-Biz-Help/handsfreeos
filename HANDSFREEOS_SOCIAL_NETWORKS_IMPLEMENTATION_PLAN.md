@@ -335,7 +335,7 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.52.0.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.53.0.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
    **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
    turns one off there. Its daily limits for each person are below it, and start at the ones below.
@@ -395,7 +395,10 @@ named by the line above it, not by a label, so 0.51.0 names a field by the words
 does. His Put this one in on 0.51.0 still didn't put it in, and its report couldn't say which step failed. So 0.52.0's
 says (the box's fields, as the outline names them), looks a little further up for a field's name, and pastes the
 words when typing doesn't take; and **Check LinkedIn** now tries every step up to its last press, so one press finds
-all that doesn't work rather than one step at a time (decision 76). The
+all that doesn't work rather than one step at a time (decision 76). Its first run found the headline's field still
+unnamed (it sits deeper than the extension looked), Message opening nothing the page could see (LinkedIn's newer pages
+draw their older parts in an interop box out of the page's reach), and a "1st" beside the real "2nd" on someone with
+Connect; 0.53.0 fixes the three, looks inside the interop box, and outlines it. The
 outlines are no longer pasted. Outlines that would settle the rest: a post with words typed in
 its comment box, post search results and a post's own page, someone else's profile, a conversation with words typed,
 and a post with the reactions menu open.

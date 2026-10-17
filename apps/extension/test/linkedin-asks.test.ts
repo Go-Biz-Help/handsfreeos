@@ -365,7 +365,8 @@ function fakeTab(
     scrolls?: Record<string, boolean[]>;
     headline?: 'done' | 'none';
     headlineSteps?: HeadlineSteps;
-    tries?: Partial<Record<TryStep, StepTry>>;
+    /** What each step's try says, or each of its tries in turn. */
+    tries?: Partial<Record<TryStep, StepTry | StepTry[]>>;
     onOpen?: (doc: Document, url: string) => void;
   } = {},
 ) {
@@ -420,7 +421,8 @@ function fakeTab(
           const step = message.step as TryStep;
           tried.push([step, reading]);
           const works: StepTry = { step, tried: true, works: true, found: {}, missing: [] };
-          return { ok: true, tried: more.tries?.[step] ?? works };
+          const planned = more.tries?.[step];
+          return { ok: true, tried: (Array.isArray(planned) ? planned.shift() : planned) ?? works };
         }
         default:
           return { ok: more.scrolls?.[message.type]?.shift() ?? false };
@@ -795,6 +797,32 @@ describe('notes of what it saw, and Check LinkedIn', () => {
     expect(JSON.stringify(report)).not.toMatch(/chris|gee/i);
   });
 
+  it('keeps the outline a step took while its box was open, in place of the page’s as it is after', async () => {
+    const { tab } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }));
+    const { hfos, sent } = fakeHfos();
+    const report = reporter(tab, hfos, {
+      businessId: BUSINESS,
+      platform: 'linkedin',
+      askId: null,
+      job: 'checkup',
+    });
+    await tab.open(`${LI}/in/me/`);
+    await report({
+      job: 'checkup.headline',
+      note: 'Your headline: no field named Headline in the box.',
+      outline: true,
+      outlineText:
+        'HandsFreeOS Social 0.53.0 · page outline\nPage: profile /in/{1}/edit/intro/\n\nbody\n  dialog\n    h2 "Edit intro"',
+    });
+    const [noted] = sentOf(sent, 'hfos-report');
+    expect(noted!.input.report).toMatchObject({
+      job: 'checkup.headline',
+      path: '/in/{1}/edit/intro/',
+      outline: expect.stringContaining('h2 "Edit intro"'),
+      found: expect.objectContaining({ sections: ['Edit intro'] }),
+    });
+  });
+
   it('keeps the outline when Experience wasn’t read, and saying so never stops the job', async () => {
     const { tab } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }), {
       // As a window hidden behind another had it: nothing drawn from Experience down.
@@ -852,7 +880,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       return page;
     };
 
-    async function checkWith(tries: Partial<Record<TryStep, StepTry>> = {}) {
+    async function checkWith(tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {}) {
       const { tab, opened, asked, tried } = fakeTab(linkedIn, { tries });
       const order: string[] = [];
       tab.inFront = async (work) => {
@@ -974,6 +1002,44 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       expect(end.line).toBe(
         'Read 12 LinkedIn pages and tried 8 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
       );
+    });
+
+    it('tries messaging on the page Message leads to when nothing opens on the profile, and counts it once', async () => {
+      const COMPOSE = `${LI}/messaging/compose/?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAFakeDanaReyes123&recipient=ACoAAFakeDanaReyes123`;
+      pages[COMPOSE] = 'linkedin-chat.html';
+      try {
+        const { end, notes, opened, tried } = await checkWith({
+          message: [
+            {
+              step: 'message',
+              tried: true,
+              works: false,
+              found: { message: true, link: true, opened: false },
+              missing: ['Message opened no conversation to write in'],
+              next: COMPOSE,
+            },
+            { step: 'message', tried: true, works: true, found: { page: true }, missing: [] },
+          ],
+        });
+        expect(opened.slice(8, 11)).toEqual([DANA, COMPOSE, ACTIVITY]);
+        expect(tried.filter(([step]) => step === 'message')).toEqual([
+          ['message', DANA],
+          ['message', COMPOSE],
+        ]);
+        const messaging = notes.filter((n) => n.job === 'checkup.message');
+        expect(messaging.map((n) => n.note)).toEqual([
+          'Messaging: Message opened no conversation to write in.',
+          null,
+        ]);
+        // The address it was handed is the job's alone: never in a note.
+        expect(JSON.stringify(notes)).not.toContain('compose');
+        expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 8, working: 8 });
+        expect(end.line).toBe(
+          'Read 13 LinkedIn pages and tried 8 steps up to their last press. Everything works.',
+        );
+      } finally {
+        delete pages[COMPOSE];
+      }
     });
 
     it('notes a step with nothing to try it on without opening anything for it', async () => {
