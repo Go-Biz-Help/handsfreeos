@@ -204,6 +204,7 @@ const OWN_WORDS = new Set(
     'reposted by',
     'promoted by',
     'edit intro',
+    'edit profile',
     'edit about',
     'edit experience',
     'add experience',

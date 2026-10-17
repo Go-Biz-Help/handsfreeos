@@ -15,7 +15,7 @@
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import { valueOf, warnedOn, type Job, type JobEnd } from '../job';
-import { ownProfileNote } from '../report';
+import { loadNote, ownProfileNote } from '../report';
 import { OWN_PROFILE, readLinkedIn, SIGNED_IN } from './read';
 
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
@@ -43,7 +43,8 @@ async function readAndCheck(job: Job): Promise<JobEnd> {
   // there too, with what was and wasn't read (decision 74).
   const read = async () => {
     const answer = await job.tab.ask({ type: 'hfos-own-profile' });
-    if (answer.ok && 'read' in answer) await job.report?.(ownProfileNote(answer.read));
+    if (answer.ok && 'read' in answer)
+      await job.report?.(loadNote(ownProfileNote(answer.read), answer.load));
     return answer;
   };
   const answer = await (job.tab.inFront ? job.tab.inFront(read) : read());
