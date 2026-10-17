@@ -25,6 +25,7 @@ import {
   lookFor,
   mainOf,
   namesIn,
+  pause,
   waitFor,
   writingIn,
 } from '../looking/looks';
@@ -351,6 +352,21 @@ const headerOf = (doc: Document): ParentNode => mainOf(doc).querySelector('heade
 /** The boxes to write a message in, anywhere on the page: a chat opened over it, or the chat's own page. */
 const chatBoxes = (doc: Document): HTMLElement[] => boxesSaying(doc, CHAT_BOX);
 
+/**
+ * Writes in a box as typing does (Chrome's own insertText, whose events the page takes as a person's), or empties it;
+ * a plain box's value set by hand only where that can't be done. From the owner's third Check (0.60.0): a value set by
+ * hand showed Post but didn't stay in Instagram's box.
+ */
+function writeIn(doc: Document, box: HTMLElement, text: string): void {
+  box.focus();
+  if (box instanceof doc.defaultView!.HTMLTextAreaElement) box.select();
+  else if (typeof doc.execCommand === 'function') doc.execCommand('selectAll');
+  const typed =
+    typeof doc.execCommand === 'function' &&
+    (text ? doc.execCommand('insertText', false, text) : doc.execCommand('delete'));
+  if (!typed) typeInto(doc, box, text, true);
+}
+
 /** Closes a chat opened over the page by its own Close: the nearest one around its box. */
 async function closeChat(box: HTMLElement): Promise<boolean> {
   for (let up = box.parentElement, steps = 0; up && steps < 20; up = up.parentElement, steps++) {
@@ -514,12 +530,16 @@ export const INSTAGRAM: LookingSite = {
           return untried('comment', 'writing in the comment box already, left alone', {
             box: true,
           });
-        const form = box.closest('form') ?? main;
-        typeInto(doc, box, TRY_WORD, true);
+        // Instagram redraws the form once its box has the focus (Post shows), so the box is found again after.
+        box.focus();
+        await pause(400);
+        const live = boxesSaying(main, COMMENT_BOX)[0] ?? box;
+        const form = live.closest('form') ?? main;
+        writeIn(doc, live, TRY_WORD);
+        const typed = (await waitFor(() => (writingIn(live) ? true : null), 1_500)) === true;
         const post = await waitFor(() => controlsSaying(form, POST, true)[0], 3_000);
-        const typed = writingIn(box);
-        typeInto(doc, box, '', true);
-        const emptied = (await waitFor(() => (writingIn(box) ? null : true), 2_000)) === true;
+        writeIn(doc, live, '');
+        const emptied = (await waitFor(() => (writingIn(live) ? null : true), 2_000)) === true;
         const missing = missingOf([
           !typed && 'writing in the comment box didn’t take',
           typed && !post && 'no Post by the box to comment in, with a word written in it',

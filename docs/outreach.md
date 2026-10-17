@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.60.0 now.
+    Built in 0.44.0; the extension is 0.61.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1350,6 +1350,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the bio, Message (its chat opened over the page and closed) and Follow (on an account it suggests), but the post
       it opened was a reel, which opens in the reels player (/reels/<code>/) with no box to comment in till Comment is
       pressed. 0.60.0 takes the reels player for a post's page and opens a photo's post before a reel.
+    - **His third Check Instagram** (0.60.0) found four of five: the comment box showed Post, but the word set in it
+      by hand didn't stay, as Instagram redraws the box once it has the focus. 0.61.0 writes there as typing does
+      (Chrome's insertText, after the redraw), as Check Facebook's comment does.
     - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
       were from his (0.46.0 to 0.56.0).
 

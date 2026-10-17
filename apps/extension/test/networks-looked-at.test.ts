@@ -274,6 +274,34 @@ describe('Instagram’s looks, which never press a step’s last button', () => 
     expect(still.querySelector('textarea')!.value).toBe('');
   }, 15_000);
 
+  it('writes as typing does, after Instagram redraws the box it focused', async () => {
+    const doc = page(
+      `${IG}/p/C9xYz12AbCd/`,
+      `<main role="main"><form><textarea aria-label="Add a comment…"></textarea></form></main>`,
+    );
+    const box = doc.querySelector('textarea')!;
+    // As the owner's third Check found it: a value set by hand on focus is reset as the form redraws.
+    box.addEventListener('focus', () => {
+      box.value = '';
+      if (!doc.querySelector('[data-post]'))
+        box.insertAdjacentHTML('afterend', '<div role="button" data-post>Post</div>');
+    });
+    const typed: string[] = [];
+    doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
+      if (command === 'insertText') box.value += text ?? '';
+      else if (command === 'delete') box.value = '';
+      else return false;
+      typed.push(command);
+      return true;
+    };
+    expect(await look(INSTAGRAM, 'comment', doc)).toMatchObject({
+      works: true,
+      found: { box: true, typed: true, post: 1, emptied: true },
+    });
+    expect(typed).toEqual(['insertText', 'delete']);
+    expect(box.value).toBe('');
+  }, 15_000);
+
   it('finds the bio’s box and Submit on their own profile’s form', async () => {
     const doc = page(
       `${IG}/accounts/edit/`,
