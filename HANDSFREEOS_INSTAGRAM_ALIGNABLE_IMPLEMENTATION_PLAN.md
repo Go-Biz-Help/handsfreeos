@@ -28,7 +28,7 @@ each network on its own.
 | 4   | When does the first Instagram message go? | **Once they follow back, or answer your comment.** If they do neither within 3 days, send one short message with no link. Instagram passes only one text message to someone who doesn't follow you, until they accept it.                                                                                            |
 | 5   | Unfollow on Instagram?                    | **Yes, slowly.** Unfollow people who didn't follow back within 3 weeks, at most 20 a day. Never someone who wrote back, a customer, or anyone you followed yourself. This keeps you well under Instagram's 7,500 cap.                                                                                                |
 | 6   | Posts on Instagram?                       | **The AI drafts the caption and says what picture to use; you post it.** The extension can't choose your photos. Stories are tips only, to start.                                                                                                                                                                    |
-| 7   | Who to look for on Alignable?             | **Each playbook says: customers, referral partners, or both.** Referral partners are businesses whose customers need you, such as a realtor for a home inspector. Alignable is built for referrals.                                                                                                                  |
+| 7   | Who to look for on Alignable?             | **Each playbook says: customers, referral partners, or both.** Referral partners are businesses whose customers need you, such as a realtor for a home inspector. Alignable is built for referrals. With a partner, the call booked is one to swap referrals, on the same booking link.                              |
 | 8   | Recommend on Alignable?                   | **Only by hand,** for a business you really know. Never on its own. A recommendation is your name vouching for them, and it often earns one back.                                                                                                                                                                    |
 | 9   | Answer questions in Alignable's forum?    | **Yes, after your OK each time.** When someone asks for what you offer, the AI drafts a helpful answer and you OK it before it posts. It's public writing, so it always waits for you.                                                                                                                               |
 | 10  | Starting daily limits?                    | **As in the tables below,** and half for a new or small account, as on the other networks.                                                                                                                                                                                                                           |
@@ -359,6 +359,34 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
 6. **Growing:**
    - Instagram: the hashtag and place looks, and your post's warm leads.
    - Alignable: the forum's questions and the town's businesses.
+
+**What the code says about it** (read for this plan, 17 Oct 2026):
+
+- **Today's steps aren't kept per network.** Every network gets the same kinds (`today.ts`). What differs is where
+  its people come from, and what its runner does: each network has a runner of its own (`auto/linkedin.ts` is LinkedIn's).
+- **New people come only from groups.** For a friend request or invitation, Today reads group members
+  (`group_people`) besides warm leads. Hashtags, places, towns and search results need a source of their own, and a
+  playbook needs fields to say where to look on each network; today it has signs and group words only.
+- **A follow isn't a request.** Following a public account is at once, and private accounts are the only ones with
+  requests. So Instagram needs follow states, a follow-back that counts as accepting, and a cap on whom you follow
+  (7,500), not on your followers.
+- **Instagram's Requests have no reader yet** (`/direct/requests/`), and a message waiting there can't take a
+  follow-up.
+- **Recommend and forum answers are new everywhere:** a kind on Today, a daily limit, a kind of touch, the words and
+  a migration widening the database's checks.
+- **Several database checks are still Facebook's:**
+  - the kinds of touch (`touches.kind`), friendship states (`profiles.friendship`, `friends.state`), and what waits
+    for the person (`needs.step`);
+  - what a computer is doing (`computers.doing`), and the kinds of ask (`asks.kind`);
+  - a group's id, digits only (`groups.platform_id`): Alignable's communities have names in their addresses.
+  - Each new kind widens these in a migration, on the hosted database before `main`.
+- **Get ready's profile check knows only Facebook and LinkedIn** (`profileCheckSystem`, and the worker's schema, which
+  wants an About). Each network needs its own parts, lengths and words.
+- **The helpful post's prompt** gives every network but Facebook LinkedIn's. Instagram's needs a picture to take, and
+  Alignable's a forum or feed of its own.
+- **Turning a network to `working` comes last.** That alone lets its day start, and puts it on Today's strip, the
+  filters, the setup and the playbook's networks.
+- **A small slip to fix on the way:** "a Alignable group" in Today's words (`withArticle` is the fix).
 
 ## Build order
 
