@@ -69,10 +69,20 @@ They are what goes in the listing, in the same order; the plain ones stay as the
 for two iPhone slots now: the `ios-` set goes in **iPhone 6.9" Display**, and the `ios63-` set, the same design drawn
 at 1206 × 2622, in **iPhone 6.1"/6.3" Display** (which also takes 1179 × 2556: that is the `ios61-` set). Each slot refuses the other's size as "File dimensions are invalid".
 
-The script also makes the App Store's **product page header** (App Store Connect → Header and Search Results), new in
-2026: `app-store-header-3840x1646.png` is the 21:9 header alone, and `app-store-header-5244x2950.png` is Apple's one
-16:9 image for both the header and search results, which it crops to 21:9 and to 3:2; everything in it sits in the
-middle part both crops keep.
+The script also makes the App Store's two creative assets (App Store Connect → Header and Search Results), drawn the
+way Apple's asset best practices and its own examples show them
+(`https://developer.apple.com/app-store/asset-best-practices/`):
+
+- **Product page header**, `app-store-header-3840x1646.png`. It is 21:9, but an iPhone shows only its middle, about
+  3:2 at full height, with the status bar and the Back and Share buttons over the top ~40%. So it carries one idea,
+  the headline and one line under it, centred just below the middle; the two phones sit at the far ends, which only
+  an iPad or a Mac shows. No logo or name, because the app's icon and name are right under it.
+- **Search results**, `app-store-search-3840x2560.png`. It is 3:2 and shown whole, as a card under the app's name,
+  so it says what the app is for at a glance: the headline and its answer beside the Home screen.
+
+Apple also takes one 16:9 image (5244 × 2950) for both. A first version used one, with the words on the left and
+phones on the right, and an iPhone cut both off; the crop that suits a header suits a search card badly, so the two are
+kept apart. Check both in App Store Connect's Preview before saving.
 
 ## If these are ever retaken
 

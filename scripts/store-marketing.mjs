@@ -12,9 +12,8 @@
  *
  * It draws each image as a web page in Chromium and saves it at exactly the size its store asks for: 1320×2868 for
  * the App Store's 6.9" iPhone slot (`ios-`), 1206×2622 or 1179×2556 for its 6.1"/6.3" slot (`ios63-`, `ios61-`),
- * 1080×1920 for Play's
- * phone screenshots (`android-`), 1024×500 for Play's feature graphic, and the App Store's product page header in
- * both its sizes (`app-store-header-`).
+ * 1080×1920 for Play's phone screenshots (`android-`), 1024×500 for Play's feature graphic, and the App Store's
+ * product page header (`app-store-header-`, 3840×1646) and search results asset (`app-store-search-`, 3840×2560).
  * Playwright comes from apps/web (`@playwright/test`, after `pnpm install`; `pnpm --filter @hfos/web exec playwright
  * install chromium` if it has no browser yet), or from a global `playwright`. The brand font, Hanken Grotesk, is
  * fetched from Google Fonts with curl into the system's temp folder, each weight from its own file, so the 800
@@ -253,46 +252,57 @@ function featureGraphic(font) {
 }
 
 /**
- * The App Store's product page header (App Store Connect → Header and Search Results). Apple takes either a 21:9
- * header alone, 3840×1646, or one 16:9 image, 5244×2950, that it crops to 21:9 for the header and to 3:2 for search
- * results. So the design is drawn once in a 3840×1646 box, and for the 16:9 image that box is scaled into the part
- * both crops keep (the middle 4425×2247), with the blue running out to the edges. Its bottom is left quiet, because
- * the App Store puts the app's name over the bottom of the header.
+ * The App Store's creative assets (App Store Connect → Header and Search Results), drawn the way Apple's asset best
+ * practices and its own examples show them (developer.apple.com/app-store/asset-best-practices):
+ *
+ * - The product page header is 21:9, but an iPhone shows only its middle, about 3:2 at full height, with the status
+ *   bar and the Back and Share buttons over the top ~40%. So it carries one idea, the headline, centred and just
+ *   below the middle; the phones sit at the far ends, which only an iPad or a Mac shows. No logo or name: the app's
+ *   icon and name are right under the header.
+ * - The search results asset is 3:2 and shown whole, as a card under the app's name, so it says what the app is for
+ *   at a glance: the headline and its answer, beside the app itself.
+ *
+ * Apple also takes one 16:9 image for both, but a crop that suits one suits the other badly, so these are two.
  */
-const ART = { W: 3840, H: 1646 };
-function productPageHeader(font, W, H) {
-  const k = W === ART.W ? 1 : Math.min(4425 / ART.W, 2247 / ART.H);
-  const x = Math.round((W - ART.W * k) / 2),
-    y = Math.round((H - ART.H * k) / 2);
-  const phone = (file, left, top, width, turn, z) => {
-    const bezel = Math.round(width * 0.027),
-      screenW = width - bezel * 2;
-    const screenH = Math.round((screenW * 2868) / 1320);
-    return `<div class="phone" style="left:${left}px;top:${top}px;width:${width}px;height:${screenH + bezel * 2}px;
-      padding:${bezel}px;border-radius:${Math.round(width * 0.15)}px;transform:rotate(${turn}deg);z-index:${z}">
-      <div class="screen" style="width:${screenW}px;height:${screenH}px;border-radius:${Math.round(width * 0.125)}px">
-      <img src="${pathToFileURL(join(SHOTS, file)).href}">${camera('island', screenW / 1320)}</div></div>`;
-  };
+const phoneHtml = (file, left, top, width, turn, z = 1) => {
+  const bezel = Math.round(width * 0.027),
+    screenW = width - bezel * 2;
+  const screenH = Math.round((screenW * 2868) / 1320);
+  return `<div class="phone" style="left:${left}px;top:${top}px;width:${width}px;height:${screenH + bezel * 2}px;
+    padding:${bezel}px;border-radius:${Math.round(width * 0.15)}px;transform:rotate(${turn}deg);z-index:${z}">
+    <div class="screen" style="width:${screenW}px;height:${screenH}px;border-radius:${Math.round(width * 0.125)}px">
+    <img src="${pathToFileURL(join(SHOTS, file)).href}">${camera('island', screenW / 1320)}</div></div>`;
+};
+const PHONE_CSS = `.phone { position:absolute; background:#0c0f15;
+  box-shadow: 0 0 0 4px #2b313c inset, 0 90px 160px rgba(6,22,70,0.42), 0 20px 50px rgba(6,22,70,0.3); }`;
+
+function productPageHeader(font) {
+  const W = 3840,
+    H = 1646;
   const css = `
-    .art { position:absolute; left:${x}px; top:${y}px; width:${ART.W}px; height:${ART.H}px; transform:scale(${k}); transform-origin:0 0; }
-    .brand { position:absolute; left:300px; top:290px; display:flex; align-items:center; gap:40px; }
-    .chip { width:150px; height:150px; border-radius:40px; background:#fff; display:grid; place-items:center;
-            box-shadow:0 16px 48px rgba(6,22,70,0.25); }
-    .chip img { width:108px; height:108px; }
-    .name { font-weight:700; font-size:96px; letter-spacing:-0.01em; }
-    h1 { position:absolute; left:300px; top:510px; width:1620px; font-weight:800; font-size:190px; line-height:1.04; letter-spacing:-0.03em; }
-    p { position:absolute; left:300px; top:930px; width:1560px; font-weight:500; font-size:72px; line-height:1.3;
-        color:rgba(255,255,255,0.88); text-wrap:balance; }
-    .phone { position:absolute; background:#0c0f15;
-             box-shadow: 0 0 0 4px #2b313c inset, 0 90px 160px rgba(6,22,70,0.42), 0 20px 50px rgba(6,22,70,0.3); }`;
-  const body = `<div class="art">
-    <div class="brand"><div class="chip"><img src="${pathToFileURL(MARK).href}"></div><div class="name">HandsFreeOS</div></div>
-    <h1>The CRM that doesn’t<br>want you to use it.</h1>
-    <p>It answers leads, books jobs and keeps the records. Works from your truck, even with no signal.</p>
-    ${phone('ios-4-calendar.png', 2130, 330, 520, -7, 1)}
-    ${phone('ios-7-money-list.png', 3070, 330, 520, 7, 1)}
-    ${phone('ios-1-home.png', 2560, 190, 600, 0, 2)}
-  </div>`;
+    .text { position:absolute; left:50%; top:760px; width:2100px; transform:translateX(-50%); text-align:center; }
+    h1 { font-weight:800; font-size:190px; line-height:1.04; letter-spacing:-0.03em; }
+    p { margin-top:44px; font-weight:500; font-size:80px; line-height:1.25; color:rgba(255,255,255,0.9); }
+    ${PHONE_CSS}`;
+  const body = `
+    <div class="text"><h1>The CRM that doesn’t<br>want you to use it.</h1><p>It does the work. You step in when it matters.</p></div>
+    ${phoneHtml('ios-4-calendar.png', 60, 300, 480, -8)}
+    ${phoneHtml('ios-1-home.png', 3300, 300, 480, 8)}`;
+  return page(W, H, font, css, body);
+}
+
+function searchResults(font) {
+  const W = 3840,
+    H = 2560;
+  const css = `
+    .text { position:absolute; left:300px; top:640px; width:1950px; }
+    h1 { font-weight:800; font-size:230px; line-height:1.03; letter-spacing:-0.03em; }
+    p { margin-top:70px; width:1750px; font-weight:500; font-size:100px; line-height:1.3; color:rgba(255,255,255,0.9); text-wrap:balance; }
+    ${PHONE_CSS}`;
+  const body = `
+    <div class="text"><h1>The CRM that<br>doesn’t want you<br>to use it.</h1>
+      <p>It answers the leads, books the jobs and keeps the records. You step in when it matters.</p></div>
+    ${phoneHtml('ios-1-home.png', 2420, 330, 1120, -4)}`;
   return page(W, H, font, css, body);
 }
 
@@ -307,14 +317,11 @@ for (const [platform, p] of Object.entries(PLATFORMS))
   }
 if (!only || 'play-feature-graphic'.startsWith(only))
   jobs.push({ name: 'play-feature-graphic', W: 1024, H: 500, html: featureGraphic });
-for (const [W, H] of [
-  [3840, 1646],
-  [5244, 2950],
-]) {
-  const name = `app-store-header-${W}x${H}`;
-  if (!only || name.startsWith(only))
-    jobs.push({ name, W, H, html: (f) => productPageHeader(f, W, H) });
-}
+for (const [name, W, H, html] of [
+  ['app-store-header-3840x1646', 3840, 1646, productPageHeader],
+  ['app-store-search-3840x2560', 3840, 2560, searchResults],
+])
+  if (!only || name.startsWith(only)) jobs.push({ name, W, H, html });
 for (const job of jobs)
   if (job.shot && !existsSync(join(SHOTS, job.shot)))
     throw new Error(`There is no screenshot ${job.shot} in ${SHOTS}.`);
