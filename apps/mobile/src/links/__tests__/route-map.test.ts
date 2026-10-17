@@ -45,6 +45,8 @@ describe('the route map', () => {
       settings: { href: 'settings', later: false },
       // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
       'settings/usage': { href: 'settings/usage', later: false },
+      // Settings → Main offer: its Review step and the live version are on the phone too.
+      'settings/main-offer': { href: 'settings/main-offer', later: false },
       // Add-ons: owners and admins manage them on the phone too. It was a Settings tab once.
       'add-ons': { href: 'add-ons', later: false },
       'settings/add-ons': { href: 'add-ons', later: false },

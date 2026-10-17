@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A member reads the live version</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* Copied from apps/web/src/app/globals.css. Light is default; dark via <html data-theme="dark">. */
+:root {
+  --bg: #f9fafd;
+  --card: #ffffff;
+  --card-2: #f2f4f8;
+  --card-3: #e4e8ee;
+  --border: #e4e8ee;
+  --border-strong: #d2d6dd;
+  --text: #191d25;
+  --text-2: #5b616a;
+  --text-3: #676c75;
+  --placeholder: #a0a5ae;
+  --accent: #2d69d8;
+  --accent-hover: #2355b0;
+  --accent-text: var(--accent);
+  --accent-soft: #e9f0fd;
+  --accent-soft-2: #d8e5fb;
+  --ring: #2d69d847;
+  --success: #008743;
+  --success-soft: #e0f7e5;
+  --success-text: #005d2d;
+  --warning: #996300;
+  --warning-soft: #ffedd8;
+  --warning-text: #6b4300;
+  --danger: #c43335;
+  --danger-soft: #ffebe9;
+  --danger-text: #862726;
+  --scrim: rgba(25, 29, 37, 0.45);
+  --toast-bg: #191d25;
+  --toast-text: #f2f4f8;
+  --on-solid: #ffffff;
+  /* AI teammate (violet) and branch (teal) tints: fixed hues mixed into card/text. */
+  --ai-hue: #7c3aed;
+  --branch-hue: #0e7490;
+  --ai-soft: color-mix(in oklab, var(--ai-hue) 13%, var(--card));
+  --ai-text: color-mix(in oklab, var(--ai-hue) 72%, var(--text));
+  --branch-soft: color-mix(in oklab, var(--branch-hue) 13%, var(--card));
+  --branch-text: color-mix(in oklab, var(--branch-hue) 70%, var(--text));
+  /* Avatar palette (seeded by name). */
+  --avatar-1: #2d69d8;
+  --avatar-2: #008743;
+  --avatar-3: #996300;
+  --avatar-4: #5b616a;
+  --avatar-5: #1950b5;
+  --avatar-6: #862726;
+  /* Calendar off-hours wash. */
+  --offh: rgba(91, 97, 106, 0.075);
+
+  /* Semantic aliases */
+  --surface-page: var(--bg);
+  --surface-card: var(--card);
+  --surface-sunken: var(--card-2);
+  --surface-pressed: var(--card-3);
+  --text-body: var(--text);
+  --text-muted: var(--text-2);
+  --text-subtle: var(--text-3);
+  --border-default: var(--border);
+  --border-control: var(--border-strong);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0f131a;
+  --card: #191d25;
+  --card-2: #20252e;
+  --card-3: #2c3139;
+  --border: #2c3139;
+  --border-strong: #3a4049;
+  --text: #f2f4f8;
+  --text-2: #a0a5ae;
+  --text-3: #8a909a;
+  --placeholder: #5b616a;
+  --accent-hover: #4f83e0;
+  --accent-text: #7ca4eb;
+  --accent-soft: #1f2d48;
+  --accent-soft-2: #22365d;
+  --ring: #2d69d873;
+  --success: #3ccf7a;
+  --success-soft: #10291b;
+  --success-text: #7fe0a5;
+  --warning: #f0a93b;
+  --warning-soft: #2d2210;
+  --warning-text: #f5c97a;
+  --danger: #ff7b73;
+  --danger-soft: #301816;
+  --danger-text: #ffaaa3;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --toast-bg: #f2f4f8;
+  --toast-text: #191d25;
+  --on-solid: #191d25;
+  --offh: rgba(0, 0, 0, 0.34);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}
+/* The main offer on the phone. Builds on the HandsFreeOS tokens (tokens/colors.css), at the phone app's sizes. */
+.ph{font-family:var(--font-sans,"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif);font-size:15px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;width:390px;display:flex;flex-direction:column;position:relative}
+.ph *{box-sizing:border-box}
+.ph h1,.ph h2,.ph h3,.ph p,.ph ul{margin:0}
+.ph ul{padding:0;list-style:none}
+.ph a{color:var(--accent-text);text-decoration:none}
+.ph-ico{width:18px;height:18px;flex:none}
+.ph-ico-sm{width:16px;height:16px;flex:none}
+.ph-ico-xs{width:13px;height:13px;flex:none}
+.ph-muted{color:var(--text-2)}
+.ph-faint{color:var(--text-3)}
+.ph-small{font-size:13.5px}
+.ph-xs{font-size:12.5px}
+.ph-tnum{font-variant-numeric:tabular-nums}
+.ph-row{display:flex;align-items:center;gap:10px}
+.ph-stack{display:flex;flex-direction:column}
+.ph-grow{flex:1;min-width:0}
+.ph-over{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+
+/* The top bar and the tab bar */
+.ph-bar{height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;background:var(--card);border-bottom:1px solid var(--border)}
+.ph-bar h1{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.ph-iconbtn{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;color:var(--text-2);background:transparent;border:0;cursor:pointer}
+.ph-iconbtn:focus-visible,.ph-btn:focus-visible,.ph-pick:focus-visible,.ph-part-head:focus-visible,.ph-switch:focus-visible,.ph-tabbar a:focus-visible,.ph-listrow:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.ph-tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);background:var(--card);padding:6px 4px 22px;flex:none}
+.ph-tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-2);padding:6px 0;border-radius:8px}
+.ph-tabbar a.on{color:var(--accent-text)}
+
+/* Content */
+.ph-body{display:flex;flex-direction:column;gap:14px;padding:16px}
+.ph-card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.ph-pad{padding:14px 16px}
+.ph-banner{display:flex;align-items:flex-start;gap:10px;border-radius:10px;background:var(--accent-soft);padding:12px 14px}
+.ph-banner .ph-ico-sm{color:var(--accent-text);margin-top:2px}
+.ph-line{font-size:16px;line-height:1.5}
+.ph-h2{font-size:18px;font-weight:600;letter-spacing:-.01em}
+
+/* Scores */
+.ph-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ph-chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 5px 0 11px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500}
+.ph-chip.low{border-color:color-mix(in oklab,var(--warning) 50%,var(--border))}
+.ph-chip b{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.ph-ok{background:var(--success-soft);color:var(--success-text)}
+.ph-low{background:var(--warning-soft);color:var(--warning-text)}
+.ph-badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;flex:none}
+.ph-checks{display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--border);padding-top:12px}
+.ph-dot{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border-radius:999px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.ph-scorebar{display:block;height:6px;border-radius:999px;background:var(--card-3);overflow:hidden}
+.ph-scorebar span{display:block;height:100%;border-radius:999px}
+
+/* A part's card */
+.ph-part{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.ph-part.low{border-color:color-mix(in oklab,var(--warning) 45%,var(--border))}
+.ph-part-head{display:grid;grid-template-columns:minmax(0,1fr) 32px 18px;align-items:center;gap:12px;width:100%;min-height:64px;padding:13px 14px 13px 16px;background:transparent;border:0;border-radius:12px;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.ph-part-head .ph-chev{color:var(--text-3);transition:transform .15s}
+.ph-part-head[aria-expanded="true"] .ph-chev{transform:rotate(180deg)}
+.ph-part-name{font-size:15px;font-weight:600}
+.ph-part-why{font-size:13px;color:var(--text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ph-part-body{display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--border);padding:14px 16px 16px}
+.ph-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ph-tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap}
+.ph-tag.plain{background:var(--card-2);color:var(--text-2)}
+.ph-tag.accent{background:var(--accent-soft);color:var(--accent-text)}
+.ph-tag.ai{background:var(--ai-soft);color:var(--ai-text)}
+.ph-says{display:flex;flex-direction:column;gap:5px;border-radius:10px;background:var(--card-2);padding:12px 14px}
+.ph-says p{font-size:15px;line-height:1.55}
+.ph-lines{display:flex;flex-direction:column;gap:8px}
+.ph-lines li{display:flex;align-items:flex-start;gap:8px;font-size:14px}
+.ph-lines .ph-ico-sm{margin-top:2px}
+.ph-lines-title{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.ph-fix{display:flex;align-items:flex-start;gap:9px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text);padding:12px 14px;font-size:14px}
+.ph-fix .ph-ico-sm{margin-top:2px}
+
+/* Fields */
+.ph-label{font-size:14px;font-weight:500;color:var(--text)}
+.ph-field{display:flex;flex-direction:column;gap:8px}
+.ph-textarea,.ph-input{width:100%;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:16px;line-height:1.45;padding:10px 12px}
+.ph-textarea{min-height:96px;resize:none}
+.ph-input{height:44px}
+.ph-textarea::placeholder,.ph-input::placeholder{color:var(--placeholder)}
+.ph-textarea:focus,.ph-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.ph-picks{display:flex;flex-wrap:wrap;gap:8px}
+.ph-pick{display:inline-flex;align-items:center;gap:5px;height:40px;padding:0 13px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);color:var(--text-2);font:inherit;font-size:13.5px;cursor:pointer}
+.ph-switchrow{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:48px}
+.ph-switch{position:relative;width:51px;height:31px;flex:none;border-radius:999px;border:0;background:var(--card-3);cursor:pointer;transition:background .15s}
+.ph-switch span{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+.ph-switch[aria-checked="true"]{background:var(--accent)}
+.ph-switch[aria-checked="true"] span{left:22px}
+
+/* Buttons */
+.ph-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:inherit;font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.ph a.ph-btn{text-decoration:none}
+.ph-btn.primary,.ph a.ph-btn.primary{background:var(--accent);color:#fff}
+.ph-btn.secondary,.ph a.ph-btn.secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}
+.ph-btn.ghost,.ph a.ph-btn.ghost{background:transparent;color:var(--text-2)}
+.ph-btn.sm{height:36px;padding:0 12px;font-size:13.5px;border-radius:8px}
+.ph-btn.block{width:100%}
+.ph-btn[disabled]{opacity:.5;cursor:not-allowed}
+.ph-foot{position:sticky;bottom:0;display:flex;gap:10px;padding:10px 16px;background:var(--card);border-top:1px solid var(--border);flex:none}
+.ph-foot .ph-btn{flex:1;padding:0 10px}
+
+/* The direction */
+.ph-direction{display:flex;flex-direction:column;gap:14px;border-radius:12px;background:var(--card);border:1px solid color-mix(in oklab,var(--accent) 45%,var(--border));box-shadow:0 0 0 3px color-mix(in oklab,var(--accent) 12%,transparent),var(--shadow-1);padding:16px}
+.ph-tile{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;border-radius:10px;background:var(--accent-soft);color:var(--accent-text)}
+.ph-going{display:flex;flex-direction:column;gap:8px;border-radius:10px;background:var(--card-2);padding:12px 14px}
+
+/* Settings' list */
+.ph-listlabel{font-size:13px;font-weight:600;color:var(--text-3);padding:6px 4px 0}
+.ph-list{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.ph-listrow{display:flex;align-items:center;gap:14px;min-height:56px;padding:10px 14px 10px 16px;color:var(--text);text-decoration:none}
+.ph a.ph-listrow{color:var(--text)}
+.ph-listrow + .ph-listrow{border-top:1px solid var(--border)}
+.ph-listrow .ph-ico{color:var(--text-2)}
+.ph-listrow.new{background:color-mix(in oklab,var(--accent) 6%,var(--card))}
+
+/* A sheet over the screen */
+.ph-scrim{position:absolute;inset:0;background:var(--scrim);display:flex;flex-direction:column;justify-content:flex-end}
+.ph-sheet{background:var(--card);border-radius:14px 14px 0 0;box-shadow:0 -8px 30px rgba(25,29,37,.18);padding:8px 16px 28px;display:flex;flex-direction:column;gap:14px}
+.ph-handle{width:36px;height:5px;border-radius:999px;background:var(--card-3);align-self:center;margin-bottom:4px}
+.ph-warn{display:flex;align-items:flex-start;gap:9px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text);padding:12px 14px;font-size:14px}
+.ph-warn .ph-ico-sm{margin-top:2px}
+.mb-part{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:13px 16px;border-top:1px solid var(--border)}
+</style>
+</helmet>
+<div class="ph" data-theme="{{ theme }}" style="min-height: 1500px; font-family: var(--font-sans, 'Hanken Grotesk', system-ui, sans-serif); color: var(--text);">
+
+<header class="ph-bar">
+<a class="ph-iconbtn" href="#" aria-label="Back to Settings"><svg class="ph-ico" style="width: 22px; height: 22px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+<h1 class="ph-grow">Main offer</h1>
+</header>
+
+<main class="ph-body" style="flex: 1;">
+
+<section class="ph-card ph-pad ph-stack" style="gap: 10px;" aria-label="The live version">
+<div class="ph-row" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+<span class="ph-over">Live · version 3 · published Oct 12 by Chris</span>
+<span class="ph-badge ph-ok"><svg class="ph-ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Every part 7 or more</span>
+</div>
+<p style="font-size: 17px; font-weight: 500; line-height: 1.45;">We help owners of businesses that live on leads answer every lead in 30 seconds and book them on its own, live within 2 weeks. If a lead waits longer, that month is free. It’s $97 a month.</p>
+<div class="ph-row" style="flex-wrap: wrap; gap: 6px;">
+<span class="ph-small ph-faint">In messages:</span>
+<span class="ph-tag plain">every lead answered in 30 seconds</span>
+<span class="ph-tag plain">a free month if one waits</span>
+</div>
+</section>
+
+<section class="ph-card" aria-labelledby="by-part">
+<h2 id="by-part" style="font-size: 16px; font-weight: 600; padding: 14px 16px;">Your offer, part by part</h2>
+<sc-for list="{{ parts }}" as="p" hint-placeholder-count="6">
+<div class="mb-part">
+<div class="ph-stack" style="gap: 6px; min-width: 0;">
+<span style="font-weight: 600;">{{ p.label }}</span>
+<span class="ph-small">{{ p.says }}</span>
+<span class="ph-row ph-xs ph-muted" style="align-items: flex-start; gap: 6px;"><svg class="ph-ico-xs" style="color: var(--success); margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Working"><path d="M20 6 9 17l-5-5"></path></svg>{{ p.good }}</span>
+<span class="ph-row ph-xs ph-muted" style="align-items: flex-start; gap: 6px;"><svg class="ph-ico-xs" style="color: var(--warning); margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Holding it back"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></svg>{{ p.holding }}</span>
+<sc-if value="{{ p.dir }}" hint-placeholder-val="{{ false }}">
+<span><span class="ph-tag ai">Scored with your direction</span></span>
+</sc-if>
+</div>
+<span class="ph-badge ph-ok ph-tnum" aria-label="{{ p.scoreLabel }}">{{ p.score }}</span>
+</div>
+</sc-for>
+</section>
+
+<section class="ph-card ph-pad ph-stack" style="gap: 8px;" aria-labelledby="dir-title">
+<span class="ph-row" style="gap: 8px;"><svg class="ph-ico-sm" style="color: var(--accent-text);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path><circle cx="12" cy="12" r="10"></circle></svg><h2 id="dir-title" style="font-size: 15px; font-weight: 600;">Your direction is kept</h2></span>
+<p class="ph-small">HandsFreeOS isn’t just a CRM. It uses AI and automation to make every part of running the business easier. It’s for any business that lives on leads. Lead with that, not with CRM features.</p>
+<p class="ph-xs ph-faint">The AI reads it every time it scores or writes this offer, so the next change starts from what you meant.</p>
+</section>
+
+<section class="ph-card ph-pad ph-stack" style="gap: 8px;" aria-labelledby="used-title">
+<h2 id="used-title" style="font-size: 15px; font-weight: 600;">Who uses it</h2>
+<span class="ph-row" style="gap: 8px;"><svg class="ph-ico-sm ph-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg><span style="font-weight: 500;">Social Outreach</span></span>
+<p class="ph-xs ph-faint">Owners and admins change it. Everyone on the team can see it.</p>
+</section>
+</main>
+
+<nav class="ph-tabbar" aria-label="Main">
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Inbox</a>
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"></rect><rect x="14" y="3" width="7" height="11" rx="1"></rect></svg>Pipeline</a>
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Calendar</a>
+<a class="on" href="#" aria-current="page"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>More</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const parts = [
+      { label: 'Who', score: 7, dir: true, says: 'Owners of businesses that live on leads, like home services, real estate and insurance, past $100k a year with 1 to 3 locations.', good: 'Ties three lines of work together by the problem they share.', holding: 'Still wide, so messages need something real about each person.' },
+      { label: 'Outcome', score: 8, dir: true, says: 'An AI teammate that answers every lead in 30 seconds, follows up and books the ones who are ready.', good: 'Leads with what it does for the owner.', holding: 'Nothing yet shows it working for someone like them.' },
+      { label: 'Timeframe', score: 7, dir: false, says: 'Answering your leads within 3 days, and tuned to your team within 2 weeks.', good: 'A quick first win, then fully tuned.', holding: 'Three days is still a wait for a busy owner.' },
+      { label: 'Method', score: 8, dir: false, says: 'Sign up, set your number, plug in your leads, attach your calendar, and we tune the AI to sound like you.', good: 'Five clear steps anyone can follow.', holding: 'The steps are about setup, not what changes for them.' },
+      { label: 'Guarantee', score: 7, dir: false, says: 'If a lead that calls, texts or fills a form on your number waits more than 30 seconds, that month is free.', good: 'Says which leads count, so they can check it.', holding: 'No proof behind it yet.' },
+      { label: 'Price', score: 7, dir: false, says: '$97 a month plus phone and AI use, usually $20 to $30, less than one missed job.', good: 'Next to what one lost lead costs.', holding: 'Usage still varies month to month.' }
+    ].map((p) => Object.assign({}, p, { scoreLabel: p.label + ': ' + p.score + ' out of 10' }));
+    return { theme: this.props.theme ?? 'light', parts: parts };
+  }
+}
+</script>
+</body>
+</html>

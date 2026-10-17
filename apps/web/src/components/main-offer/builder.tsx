@@ -13,6 +13,7 @@ import {
   offerLineFrom,
   OFFER_STEP_WORDS,
   OFFER_STEPS,
+  offerStepOf,
   partWords,
   sameOffer,
   SCORED_PART_LABELS,
@@ -122,13 +123,6 @@ function stepAnswer(step: OfferStep, p: Parts): string | null {
     score: undefined,
   };
   return filled(answer[step]) ? answer[step]!.trim() : null;
-}
-
-/** The step a missing box is on: `who.work` on Who, `inAFewWords.outcome` on Put it together. */
-function stepOf(path: string): OfferStep {
-  const first = path.split('.')[0]!;
-  if (first === 'line' || first === 'inAFewWords') return 'line';
-  return (OFFER_STEPS as readonly string[]).includes(first) ? (first as OfferStep) : 'who';
 }
 
 /**
@@ -833,7 +827,7 @@ function WeakestButton({
 }) {
   const missing = missingParts(parts)[0];
   const [lowest] = underBar(score);
-  const target: OfferStep = missing ? stepOf(missing.path) : (lowest ?? score.weakest);
+  const target: OfferStep = missing ? offerStepOf(missing.path) : (lowest ?? score.weakest);
   return (
     <Button size="lg" onClick={() => onGo(target)} data-testid="offer-change-weakest">
       {missing
@@ -1255,7 +1249,7 @@ function ScoreStep({ parts, onGo }: { parts: Parts; onGo: (step: OfferStep) => v
                 <button
                   type="button"
                   className="text-[13px] text-accent-text hover:underline"
-                  onClick={() => onGo(stepOf(m.path))}
+                  onClick={() => onGo(offerStepOf(m.path))}
                 >
                   {m.label}
                 </button>

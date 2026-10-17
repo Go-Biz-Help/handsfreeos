@@ -23,7 +23,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | A business's own kinds of records, and links | `docs/relationships.md`                                                                                           |
 | Deleting for good, and the Deleted bin       | `docs/deleting.md`                                                                                                |
 | Forms, surveys and quizzes                   | `docs/forms.md`                                                                                                   |
-| The business's main offer                    | `docs/main-offer.md`, then `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md` and the tries plan beside it           |
+| The business's main offer                    | `docs/main-offer.md`, then `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md` and the plans beside it                |
 | What the phone keeps offline                 | `apps/sync/README.md`                                                                                             |
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
 | The web app                                  | `apps/web/AGENTS.md`: this Next.js has breaking changes, so read its docs in `node_modules/next/dist/docs/` first |

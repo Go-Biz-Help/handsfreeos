@@ -113,6 +113,12 @@ import {
   LookSetOutput,
   LookUseUploadInput,
   LookUseUploadOutput,
+  MainOfferPublishInput,
+  MainOfferPublishOutput,
+  MainOfferSaveDirectionInput,
+  MainOfferSaveDirectionOutput,
+  MainOfferSaveDraftInput,
+  MainOfferSaveDraftOutput,
   MessageCancelScheduledInput,
   MessageCancelScheduledOutput,
   MessageRetryInput,
@@ -513,6 +519,15 @@ export const PHONE_COMMANDS = {
   'look.find': command(ONLINE, LookFindInput, LookFindOutput),
   'look.set': command(ONLINE, LookSetInput, LookSetOutput),
   'look.use_upload': command(ONLINE, LookUseUploadInput, LookUseUploadOutput),
+  // Settings → Main offer: a part edited, the direction, and going live. Online, since each is for the draft as the
+  // server has it now (its revision) and the score the worker gave it.
+  'main_offer.publish': command(ONLINE, MainOfferPublishInput, MainOfferPublishOutput),
+  'main_offer.save_direction': command(
+    ONLINE,
+    MainOfferSaveDirectionInput,
+    MainOfferSaveDirectionOutput,
+  ),
+  'main_offer.save_draft': command(ONLINE, MainOfferSaveDraftInput, MainOfferSaveDraftOutput),
   'message.cancel_scheduled': command(
     ANYTIME,
     MessageCancelScheduledInput,

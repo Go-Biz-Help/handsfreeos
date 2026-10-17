@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Main offer: review your draft</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* Copied from apps/web/src/app/globals.css. Light is default; dark via <html data-theme="dark">. */
+:root {
+  --bg: #f9fafd;
+  --card: #ffffff;
+  --card-2: #f2f4f8;
+  --card-3: #e4e8ee;
+  --border: #e4e8ee;
+  --border-strong: #d2d6dd;
+  --text: #191d25;
+  --text-2: #5b616a;
+  --text-3: #676c75;
+  --placeholder: #a0a5ae;
+  --accent: #2d69d8;
+  --accent-hover: #2355b0;
+  --accent-text: var(--accent);
+  --accent-soft: #e9f0fd;
+  --accent-soft-2: #d8e5fb;
+  --ring: #2d69d847;
+  --success: #008743;
+  --success-soft: #e0f7e5;
+  --success-text: #005d2d;
+  --warning: #996300;
+  --warning-soft: #ffedd8;
+  --warning-text: #6b4300;
+  --danger: #c43335;
+  --danger-soft: #ffebe9;
+  --danger-text: #862726;
+  --scrim: rgba(25, 29, 37, 0.45);
+  --toast-bg: #191d25;
+  --toast-text: #f2f4f8;
+  --on-solid: #ffffff;
+  /* AI teammate (violet) and branch (teal) tints: fixed hues mixed into card/text. */
+  --ai-hue: #7c3aed;
+  --branch-hue: #0e7490;
+  --ai-soft: color-mix(in oklab, var(--ai-hue) 13%, var(--card));
+  --ai-text: color-mix(in oklab, var(--ai-hue) 72%, var(--text));
+  --branch-soft: color-mix(in oklab, var(--branch-hue) 13%, var(--card));
+  --branch-text: color-mix(in oklab, var(--branch-hue) 70%, var(--text));
+  /* Avatar palette (seeded by name). */
+  --avatar-1: #2d69d8;
+  --avatar-2: #008743;
+  --avatar-3: #996300;
+  --avatar-4: #5b616a;
+  --avatar-5: #1950b5;
+  --avatar-6: #862726;
+  /* Calendar off-hours wash. */
+  --offh: rgba(91, 97, 106, 0.075);
+
+  /* Semantic aliases */
+  --surface-page: var(--bg);
+  --surface-card: var(--card);
+  --surface-sunken: var(--card-2);
+  --surface-pressed: var(--card-3);
+  --text-body: var(--text);
+  --text-muted: var(--text-2);
+  --text-subtle: var(--text-3);
+  --border-default: var(--border);
+  --border-control: var(--border-strong);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0f131a;
+  --card: #191d25;
+  --card-2: #20252e;
+  --card-3: #2c3139;
+  --border: #2c3139;
+  --border-strong: #3a4049;
+  --text: #f2f4f8;
+  --text-2: #a0a5ae;
+  --text-3: #8a909a;
+  --placeholder: #5b616a;
+  --accent-hover: #4f83e0;
+  --accent-text: #7ca4eb;
+  --accent-soft: #1f2d48;
+  --accent-soft-2: #22365d;
+  --ring: #2d69d873;
+  --success: #3ccf7a;
+  --success-soft: #10291b;
+  --success-text: #7fe0a5;
+  --warning: #f0a93b;
+  --warning-soft: #2d2210;
+  --warning-text: #f5c97a;
+  --danger: #ff7b73;
+  --danger-soft: #301816;
+  --danger-text: #ffaaa3;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --toast-bg: #f2f4f8;
+  --toast-text: #191d25;
+  --on-solid: #191d25;
+  --offh: rgba(0, 0, 0, 0.34);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}
+/* The main offer on the phone. Builds on the HandsFreeOS tokens (tokens/colors.css), at the phone app's sizes. */
+.ph{font-family:var(--font-sans,"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif);font-size:15px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;width:390px;display:flex;flex-direction:column;position:relative}
+.ph *{box-sizing:border-box}
+.ph h1,.ph h2,.ph h3,.ph p,.ph ul{margin:0}
+.ph ul{padding:0;list-style:none}
+.ph a{color:var(--accent-text);text-decoration:none}
+.ph-ico{width:18px;height:18px;flex:none}
+.ph-ico-sm{width:16px;height:16px;flex:none}
+.ph-ico-xs{width:13px;height:13px;flex:none}
+.ph-muted{color:var(--text-2)}
+.ph-faint{color:var(--text-3)}
+.ph-small{font-size:13.5px}
+.ph-xs{font-size:12.5px}
+.ph-tnum{font-variant-numeric:tabular-nums}
+.ph-row{display:flex;align-items:center;gap:10px}
+.ph-stack{display:flex;flex-direction:column}
+.ph-grow{flex:1;min-width:0}
+.ph-over{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+
+/* The top bar and the tab bar */
+.ph-bar{height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;background:var(--card);border-bottom:1px solid var(--border)}
+.ph-bar h1{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.ph-iconbtn{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;color:var(--text-2);background:transparent;border:0;cursor:pointer}
+.ph-iconbtn:focus-visible,.ph-btn:focus-visible,.ph-pick:focus-visible,.ph-part-head:focus-visible,.ph-switch:focus-visible,.ph-tabbar a:focus-visible,.ph-listrow:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.ph-tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);background:var(--card);padding:6px 4px 22px;flex:none}
+.ph-tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-2);padding:6px 0;border-radius:8px}
+.ph-tabbar a.on{color:var(--accent-text)}
+
+/* Content */
+.ph-body{display:flex;flex-direction:column;gap:14px;padding:16px}
+.ph-card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.ph-pad{padding:14px 16px}
+.ph-banner{display:flex;align-items:flex-start;gap:10px;border-radius:10px;background:var(--accent-soft);padding:12px 14px}
+.ph-banner .ph-ico-sm{color:var(--accent-text);margin-top:2px}
+.ph-line{font-size:16px;line-height:1.5}
+.ph-h2{font-size:18px;font-weight:600;letter-spacing:-.01em}
+
+/* Scores */
+.ph-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ph-chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 5px 0 11px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500}
+.ph-chip.low{border-color:color-mix(in oklab,var(--warning) 50%,var(--border))}
+.ph-chip b{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.ph-ok{background:var(--success-soft);color:var(--success-text)}
+.ph-low{background:var(--warning-soft);color:var(--warning-text)}
+.ph-badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;flex:none}
+.ph-checks{display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--border);padding-top:12px}
+.ph-dot{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border-radius:999px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.ph-scorebar{display:block;height:6px;border-radius:999px;background:var(--card-3);overflow:hidden}
+.ph-scorebar span{display:block;height:100%;border-radius:999px}
+
+/* A part's card */
+.ph-part{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.ph-part.low{border-color:color-mix(in oklab,var(--warning) 45%,var(--border))}
+.ph-part-head{display:grid;grid-template-columns:minmax(0,1fr) 32px 18px;align-items:center;gap:12px;width:100%;min-height:64px;padding:13px 14px 13px 16px;background:transparent;border:0;border-radius:12px;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.ph-part-head .ph-chev{color:var(--text-3);transition:transform .15s}
+.ph-part-head[aria-expanded="true"] .ph-chev{transform:rotate(180deg)}
+.ph-part-name{font-size:15px;font-weight:600}
+.ph-part-why{font-size:13px;color:var(--text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ph-part-body{display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--border);padding:14px 16px 16px}
+.ph-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ph-tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap}
+.ph-tag.plain{background:var(--card-2);color:var(--text-2)}
+.ph-tag.accent{background:var(--accent-soft);color:var(--accent-text)}
+.ph-tag.ai{background:var(--ai-soft);color:var(--ai-text)}
+.ph-says{display:flex;flex-direction:column;gap:5px;border-radius:10px;background:var(--card-2);padding:12px 14px}
+.ph-says p{font-size:15px;line-height:1.55}
+.ph-lines{display:flex;flex-direction:column;gap:8px}
+.ph-lines li{display:flex;align-items:flex-start;gap:8px;font-size:14px}
+.ph-lines .ph-ico-sm{margin-top:2px}
+.ph-lines-title{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.ph-fix{display:flex;align-items:flex-start;gap:9px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text);padding:12px 14px;font-size:14px}
+.ph-fix .ph-ico-sm{margin-top:2px}
+
+/* Fields */
+.ph-label{font-size:14px;font-weight:500;color:var(--text)}
+.ph-field{display:flex;flex-direction:column;gap:8px}
+.ph-textarea,.ph-input{width:100%;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:16px;line-height:1.45;padding:10px 12px}
+.ph-textarea{min-height:96px;resize:none}
+.ph-input{height:44px}
+.ph-textarea::placeholder,.ph-input::placeholder{color:var(--placeholder)}
+.ph-textarea:focus,.ph-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.ph-picks{display:flex;flex-wrap:wrap;gap:8px}
+.ph-pick{display:inline-flex;align-items:center;gap:5px;height:40px;padding:0 13px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);color:var(--text-2);font:inherit;font-size:13.5px;cursor:pointer}
+.ph-switchrow{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:48px}
+.ph-switch{position:relative;width:51px;height:31px;flex:none;border-radius:999px;border:0;background:var(--card-3);cursor:pointer;transition:background .15s}
+.ph-switch span{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+.ph-switch[aria-checked="true"]{background:var(--accent)}
+.ph-switch[aria-checked="true"] span{left:22px}
+
+/* Buttons */
+.ph-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:inherit;font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.ph a.ph-btn{text-decoration:none}
+.ph-btn.primary,.ph a.ph-btn.primary{background:var(--accent);color:#fff}
+.ph-btn.secondary,.ph a.ph-btn.secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}
+.ph-btn.ghost,.ph a.ph-btn.ghost{background:transparent;color:var(--text-2)}
+.ph-btn.sm{height:36px;padding:0 12px;font-size:13.5px;border-radius:8px}
+.ph-btn.block{width:100%}
+.ph-btn[disabled]{opacity:.5;cursor:not-allowed}
+.ph-foot{position:sticky;bottom:0;display:flex;gap:10px;padding:10px 16px;background:var(--card);border-top:1px solid var(--border);flex:none}
+.ph-foot .ph-btn{flex:1;padding:0 10px}
+
+/* The direction */
+.ph-direction{display:flex;flex-direction:column;gap:14px;border-radius:12px;background:var(--card);border:1px solid color-mix(in oklab,var(--accent) 45%,var(--border));box-shadow:0 0 0 3px color-mix(in oklab,var(--accent) 12%,transparent),var(--shadow-1);padding:16px}
+.ph-tile{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;border-radius:10px;background:var(--accent-soft);color:var(--accent-text)}
+.ph-going{display:flex;flex-direction:column;gap:8px;border-radius:10px;background:var(--card-2);padding:12px 14px}
+
+/* Settings' list */
+.ph-listlabel{font-size:13px;font-weight:600;color:var(--text-3);padding:6px 4px 0}
+.ph-list{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.ph-listrow{display:flex;align-items:center;gap:14px;min-height:56px;padding:10px 14px 10px 16px;color:var(--text);text-decoration:none}
+.ph a.ph-listrow{color:var(--text)}
+.ph-listrow + .ph-listrow{border-top:1px solid var(--border)}
+.ph-listrow .ph-ico{color:var(--text-2)}
+.ph-listrow.new{background:color-mix(in oklab,var(--accent) 6%,var(--card))}
+
+/* A sheet over the screen */
+.ph-scrim{position:absolute;inset:0;background:var(--scrim);display:flex;flex-direction:column;justify-content:flex-end}
+.ph-sheet{background:var(--card);border-radius:14px 14px 0 0;box-shadow:0 -8px 30px rgba(25,29,37,.18);padding:8px 16px 28px;display:flex;flex-direction:column;gap:14px}
+.ph-handle{width:36px;height:5px;border-radius:999px;background:var(--card-3);align-self:center;margin-bottom:4px}
+.ph-warn{display:flex;align-items:flex-start;gap:9px;border-radius:10px;background:var(--warning-soft);color:var(--warning-text);padding:12px 14px;font-size:14px}
+.ph-warn .ph-ico-sm{margin-top:2px}
+</style>
+</helmet>
+<div class="ph" data-theme="{{ theme }}" style="min-height: 3700px; font-family: var(--font-sans, 'Hanken Grotesk', system-ui, sans-serif); color: var(--text);">
+
+<header class="ph-bar">
+<a class="ph-iconbtn" href="PhoneSettings.dc.html" aria-label="Back to Settings"><svg class="ph-ico" style="width: 22px; height: 22px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+<div class="ph-stack ph-grow">
+<h1>Main offer</h1>
+<span class="ph-xs ph-faint">Review and go live</span>
+</div>
+</header>
+
+<main class="ph-body" style="flex: 1;">
+
+<div class="ph-banner">
+<svg class="ph-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>
+<div class="ph-stack" style="gap: 2px;">
+<span style="font-weight: 500;">Chris is changing your offer</span>
+<span class="ph-small ph-muted">Saved 2:14 PM · scored · Version 3 keeps running until it’s published.</span>
+</div>
+</div>
+
+<section class="ph-card ph-pad ph-stack" style="gap: 6px;" aria-label="Your offer">
+<span class="ph-over">Your offer</span>
+<p class="ph-line">We help busy owners of home service businesses, realtors and insurance agents get a CRM that replies to every lead in 30 seconds and books them on its own, live within 2 weeks. If one lead ever slips past 30 seconds, you skip that month’s payment. It’s $97 a month.</p>
+</section>
+
+<section class="ph-card ph-pad ph-stack" style="gap: 12px;" aria-labelledby="glance-title">
+<div class="ph-stack" style="gap: 4px;">
+<h2 id="glance-title" style="font-size: 16px; font-weight: 600;">{{ underTitle }}</h2>
+<p class="ph-small ph-muted">Pick one line of work, or tie them together by the problem they share.</p>
+<span class="ph-xs ph-faint ph-tnum">Scored 2:16 PM</span>
+</div>
+<div class="ph-chips">
+<sc-for list="{{ parts }}" as="p" hint-placeholder-count="6">
+<span class="{{ p.chipCls }}">{{ p.label }}<b class="{{ p.tone }}">{{ p.score }}</b></span>
+</sc-for>
+</div>
+<div class="ph-checks">
+<div class="ph-row" style="gap: 8px;"><span class="ph-badge ph-ok">Yes</span><span class="ph-small">A stranger sees the result in 3 seconds</span></div>
+<div class="ph-row" style="gap: 8px;"><span class="ph-badge ph-ok">Yes</span><span class="ph-small">Specific, not vague</span></div>
+<div class="ph-row" style="gap: 8px;"><span class="ph-badge ph-low">Not yet</span><span class="ph-small">Stands out from others like you</span></div>
+<div class="ph-row" style="gap: 8px;"><span class="ph-badge ph-low">Not yet</span><span class="ph-small">Easy to believe</span></div>
+</div>
+</section>
+
+<div class="ph-stack" style="gap: 4px; padding-top: 4px;">
+<h2 class="ph-h2">Each part</h2>
+<p class="ph-small ph-muted">Tell the AI what it got wrong, or what you really mean. Turn on Keep this part as is for anything you’re happy with, so the next try leaves it alone.</p>
+</div>
+
+<div class="ph-stack" style="gap: 10px;">
+<sc-for list="{{ parts }}" as="p" hint-placeholder-count="6">
+<section class="{{ p.cardCls }}">
+<button type="button" class="ph-part-head" aria-expanded="{{ p.expanded }}" aria-controls="{{ p.bodyId }}" onClick="{{ p.toggle }}">
+<span class="ph-stack" style="gap: 5px; min-width: 0;">
+<span class="ph-part-name">{{ p.label }}</span>
+<span class="ph-part-why">{{ p.why }}</span>
+<sc-if value="{{ p.hasTags }}" hint-placeholder-val="{{ false }}">
+<span class="ph-tags">
+<sc-if value="{{ p.kept }}" hint-placeholder-val="{{ false }}">
+<span class="ph-tag plain"><svg class="ph-ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Kept as is</span>
+</sc-if>
+<sc-if value="{{ p.hasNote }}" hint-placeholder-val="{{ false }}">
+<span class="ph-tag accent"><svg class="ph-ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Your note</span>
+</sc-if>
+</span>
+</sc-if>
+</span>
+<span class="{{ p.dotCls }}" aria-label="{{ p.scoreLabel }}">{{ p.score }}</span>
+<svg class="ph-ico ph-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+<div class="ph-part-body" id="{{ p.bodyId }}">
+<div class="ph-says">
+<span class="ph-over">What it says now</span>
+<p>{{ p.says }}</p>
+</div>
+<div class="ph-stack" style="gap: 8px;">
+<span class="ph-lines-title" style="color: var(--success-text);">Working</span>
+<ul class="ph-lines">
+<sc-for list="{{ p.working }}" as="w" hint-placeholder-count="2">
+<li><svg class="ph-ico-sm" style="color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span>{{ w }}</span></li>
+</sc-for>
+</ul>
+</div>
+<div class="ph-stack" style="gap: 8px;">
+<span class="ph-lines-title" style="color: var(--warning-text);">Holding it back</span>
+<ul class="ph-lines">
+<sc-for list="{{ p.holding }}" as="h" hint-placeholder-count="1">
+<li><svg class="ph-ico-sm" style="color: var(--warning);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></svg><span>{{ h }}</span></li>
+</sc-for>
+</ul>
+</div>
+<div class="ph-fix">
+<svg class="ph-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path></svg>
+<span><b>The AI’s fix:</b> {{ p.fix }}</span>
+</div>
+<div class="ph-field">
+<label class="ph-label" for="{{ p.noteId }}">Your note for the AI</label>
+<textarea class="ph-textarea" id="{{ p.noteId }}" rows="3" maxlength="500" placeholder="What did it get wrong? What do you really mean?" value="{{ p.note }}" onChange="{{ p.setNote }}"></textarea>
+<div class="ph-picks">
+<sc-for list="{{ p.picks }}" as="k" hint-placeholder-count="5">
+<button type="button" class="ph-pick" onClick="{{ k.add }}"><svg class="ph-ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>{{ k.label }}</button>
+</sc-for>
+</div>
+</div>
+<div class="ph-switchrow">
+<span class="ph-label" id="{{ p.keepId }}">Keep this part as is in the next try</span>
+<button type="button" class="ph-switch" role="switch" aria-checked="{{ p.keptStr }}" aria-labelledby="{{ p.keepId }}" onClick="{{ p.toggleKeep }}"><span></span></button>
+</div>
+<div>
+<a class="ph-btn ghost sm" href="PhoneEditPart.dc.html" style="margin-left: -12px;"><svg class="ph-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>Edit it myself</a>
+</div>
+</div>
+</sc-if>
+</section>
+</sc-for>
+</div>
+
+<section class="ph-direction" aria-labelledby="direction-title">
+<div class="ph-row" style="align-items: flex-start; gap: 12px;">
+<span class="ph-tile"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path><circle cx="12" cy="12" r="10"></circle></svg></span>
+<div class="ph-stack" style="gap: 4px;">
+<h2 id="direction-title" class="ph-h2">Where do you want this offer to go?</h2>
+<p class="ph-small ph-muted">Say it in your own words, like you’d tell a coach. The AI follows this over its own rules, and scores against it from now on.</p>
+</div>
+</div>
+<div class="ph-field">
+<label class="ph-label" for="offer-direction">Your direction for the whole offer</label>
+<textarea class="ph-textarea" id="offer-direction" rows="9" maxlength="2000" placeholder="What is this really? Who is it for? What should it lead with?" value="{{ direction }}" onChange="{{ setDirection }}"></textarea>
+<div class="ph-picks">
+<sc-for list="{{ dirPicks }}" as="k" hint-placeholder-count="4">
+<button type="button" class="ph-pick" onClick="{{ k.add }}"><svg class="ph-ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>{{ k.label }}</button>
+</sc-for>
+</div>
+</div>
+<div class="ph-going">
+<span class="ph-over">Going into Try 1</span>
+<div class="ph-tags">
+<sc-for list="{{ going }}" as="g" hint-placeholder-count="3">
+<span class="{{ g.cls }}">{{ g.text }}</span>
+</sc-for>
+</div>
+</div>
+<a class="ph-btn primary block" href="PhoneTryReady.dc.html">Make Try 1</a>
+<p class="ph-xs ph-faint">Your draft stays as it is. You pick what to use from a try on the web, on a computer or in this phone’s browser.</p>
+</section>
+
+</main>
+
+<footer class="ph-foot">
+<a class="ph-btn secondary" href="PhoneAnyway.dc.html">Use it anyway…</a>
+<a class="ph-btn primary" href="PhoneTryReady.dc.html">Make Try 1</a>
+</footer>
+
+<nav class="ph-tabbar" aria-label="Main">
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Inbox</a>
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"></rect><rect x="14" y="3" width="7" height="11" rx="1"></rect></svg>Pipeline</a>
+<a href="#"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Calendar</a>
+<a class="on" href="#" aria-current="page"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>More</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":3700}}'>
+class Component extends DCLogic {
+  start() {
+    return {
+      ready: true,
+      open: { who: true, guarantee: true },
+      notes: {
+        who: 'This is broad on purpose. HandsFreeOS is for any business that lives on leads. Tie them together by the problem they share, not by the industry.'
+      },
+      keep: { method: true },
+      direction: 'HandsFreeOS isn’t just a CRM. It uses AI and automation to make every part of running the business easier: it answers and follows up with every lead, books the work, makes changes when you ask, and tells you what’s going on and what needs you. It’s for any business that lives on leads, so home services, realtors and insurance agents all belong. Lead with that, not with CRM features.'
+    };
+  }
+
+  cur() {
+    return this.state && this.state.ready ? this.state : this.start();
+  }
+
+  set(patch) {
+    this.setState(Object.assign({}, this.cur(), patch));
+  }
+
+  data() {
+    return [
+      { id: 'who', label: 'Who', score: 4,
+        why: 'Three lines of work with nothing tying them together, so it reads like a broad net.',
+        says: 'Busy owners of home service businesses, realtors and insurance agents past $100k a year, with 1 to 3 locations, who can’t keep up with leads.',
+        working: ['Names a size people can check: past $100k a year, 1 to 3 locations.', 'Names a real problem: they can’t keep up with leads.'],
+        holding: ['Three lines of work with nothing tying them together.'],
+        fix: 'Pick one line of work, like plumbers or HVAC with 1 to 3 crews.' },
+      { id: 'outcome', label: 'Outcome', score: 7,
+        why: 'Specific and easy to check, but it calls itself a CRM.',
+        says: 'A CRM that replies to every lead in 30 seconds, keeps following up until they answer, and books the interested ones on its own.',
+        working: ['30 seconds, follow-up and booking are specific and easy to check.'],
+        holding: ['Calls it a CRM, so it sounds like one more app to manage.'],
+        fix: 'Say what it does for the owner, not just for the lead.' },
+      { id: 'timeframe', label: 'Timeframe', score: 7,
+        why: 'Realistic, but two weeks feels slow next to 30 seconds.',
+        says: 'Live within 2 weeks of saying yes.',
+        working: ['Two weeks is realistic: the software already exists.'],
+        holding: ['Nothing says what they get on day one.'],
+        fix: 'Split it in two: a quick first win, then fully tuned.' },
+      { id: 'method', label: 'Method', score: 8,
+        why: 'Five clear steps anyone can follow.',
+        says: 'You sign up, set your number, plug in your leads, attach your calendar, and we fine-tune the AI to sound like your team.',
+        working: ['Five clear steps anyone can follow.', 'A real difference: built-in AI that acts on its own.'],
+        holding: ['The steps are about setup, not about what changes for them.'],
+        fix: 'Name what each step takes off their plate.' },
+      { id: 'guarantee', label: 'Guarantee', score: 6,
+        why: 'Strong and clear, but it doesn’t say which leads count.',
+        says: 'Once it’s live, if one lead ever slips past 30 seconds without a reply, you skip that month’s payment while we fix it, and you keep every lead and automation already running.',
+        working: ['Strong and clear, and easy for them to check.', 'They keep every lead and automation either way.'],
+        holding: ['“One lead ever” with no proof behind it yet is a big claim to swallow.', 'It doesn’t say which leads count.'],
+        fix: 'Name what counts: leads that call, text or fill a form on their HandsFreeOS number.' },
+      { id: 'price', label: 'Price', score: 7,
+        why: 'Plain, with usage explained, but nothing to compare it to.',
+        says: '$97 a month, plus usage fees for phone and AI, typically $20 to $30.',
+        working: ['Stated plainly, with usage explained up front.'],
+        holding: ['Nothing to compare $97 to, so it gets judged on its own.'],
+        fix: 'Put it next to what one missed lead costs them.' }
+    ];
+  }
+
+  renderVals() {
+    const s = this.cur();
+    const NOTE = [
+      ['Broad on purpose', 'This is broad on purpose.'],
+      ['Undersells it', 'This undersells what it really does.'],
+      ['Not how I’d say it', 'This isn’t how I’d say it.'],
+      ['Say what’s different', 'Say what makes it different from the rest.'],
+      ['Make it shorter', 'Make it shorter.']
+    ];
+    const DIR = [
+      ['It’s more than it sounds', 'It’s more than it sounds like at first. Say what makes it different.'],
+      ['Who it’s really for', 'It’s really for: '],
+      ['What to lead with', 'Lead with: '],
+      ['How it should sound', 'Sound like a calm, plain-spoken person, not a salesperson.']
+    ];
+    const withLine = (was, line) => {
+      const t = (was || '').trim();
+      return t ? t + ' ' + line : line;
+    };
+    const P = this.data();
+    const parts = P.map((p) => {
+      const open = !!s.open[p.id];
+      const note = s.notes[p.id] || '';
+      const kept = !!s.keep[p.id];
+      const low = p.score < 7;
+      const hasNote = note.trim().length > 0;
+      return Object.assign({}, p, {
+        open: open,
+        expanded: open ? 'true' : 'false',
+        bodyId: 'part-' + p.id + '-body',
+        noteId: 'part-' + p.id + '-note',
+        keepId: 'part-' + p.id + '-keep',
+        cardCls: low ? 'ph-part low' : 'ph-part',
+        tone: low ? 'ph-low' : 'ph-ok',
+        dotCls: low ? 'ph-dot ph-low' : 'ph-dot ph-ok',
+        chipCls: low ? 'ph-chip low' : 'ph-chip',
+        scoreLabel: p.label + ': ' + p.score + ' out of 10',
+        note: note,
+        hasNote: hasNote,
+        kept: kept,
+        keptStr: kept ? 'true' : 'false',
+        hasTags: kept || hasNote,
+        toggle: () => this.set({ open: Object.assign({}, s.open, { [p.id]: !open }) }),
+        setNote: (e) => this.set({ notes: Object.assign({}, s.notes, { [p.id]: e.target.value }) }),
+        toggleKeep: () => this.set({ keep: Object.assign({}, s.keep, { [p.id]: !kept }) }),
+        picks: NOTE.map((k) => ({
+          label: k[0],
+          add: () => this.set({ notes: Object.assign({}, s.notes, { [p.id]: withLine(note, k[1]) }) })
+        }))
+      });
+    });
+    const under = parts.filter((p) => p.score < 7).map((p) => p.label.toLowerCase());
+    const andList = (xs) => (xs.length <= 1 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
+    const going = [];
+    if ((s.direction || '').trim()) going.push({ text: 'Your direction', cls: 'ph-tag accent' });
+    parts.forEach((p) => {
+      if (p.hasNote && !p.kept) going.push({ text: 'Your note on ' + p.label.toLowerCase(), cls: 'ph-tag accent' });
+    });
+    parts.forEach((p) => {
+      if (p.kept) going.push({ text: p.label + ' kept as is', cls: 'ph-tag plain' });
+    });
+    return {
+      theme: this.props.theme ?? 'light',
+      parts: parts,
+      underTitle: under.length ? 'Under 7: ' + andList(under) : 'Every part scores 7 or more',
+      direction: s.direction,
+      setDirection: (e) => this.set({ direction: e.target.value }),
+      dirPicks: DIR.map((k) => ({ label: k[0], add: () => this.set({ direction: withLine(s.direction, k[1]) }) })),
+      going: going
+    };
+  }
+}
+</script>
+</body>
+</html>

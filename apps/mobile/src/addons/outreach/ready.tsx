@@ -35,7 +35,8 @@ import { Note, useOutreachAnswer, useOutreachContext } from './kit';
  * Today's card while the person isn't ready, as the web's. Their own three are done right here: the profile, read by
  * their computer and checked by the AI (**Read my profile**, then **Put this one in** for a bio), with a tick for what
  * the AI can't see; their messages, the samples written on their computer, to read and OK; and their goal with the
- * math as it changes. The main offer and the playbooks are written on a computer. It needs signal.
+ * math as it changes. The main offer is built on a computer (core's Settings → Main offer reviews it here), and the
+ * playbooks are written there too. It needs signal.
  *
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines to put
  * in, and an About to start from (selectable, to copy), each asked and ticked on LinkedIn.

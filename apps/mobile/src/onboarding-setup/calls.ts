@@ -10,10 +10,9 @@ import {
 } from '@hfos/core';
 
 import { aiSetupCalls } from '@/ai-setup/calls';
-import { api, ApiError, unwrap } from '@/lib/api';
-import { session } from '@/lib/auth';
+import { api, unwrap } from '@/lib/api';
 import { config } from '@/lib/config';
-import { appFetch } from '@/lib/network';
+import { workerPost } from '@/lib/worker';
 
 /**
  * The onboarding setup's calls from the phone (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8), as the
@@ -47,44 +46,6 @@ export interface AvailableNumber {
 }
 
 export type NumberType = 'local' | 'toll_free';
-
-/**
- * A call to the worker's own routes, with the person's sign-in, refused in the API's shape so it reads the same way.
- * The worker holds what the API may not: the carrier's number search, and the payment providers' sign-in.
- */
-async function workerPost<T>(path: string, body: unknown): Promise<T> {
-  // `accessToken()` is a promise: a token that ran out while the phone was offline is refreshed before it answers.
-  const token = await session.accessToken();
-  if (!token) throw new ApiError('Sign in to continue.', 401, 'unauthenticated', null);
-  let res: Response;
-  try {
-    res = await appFetch(`${config.workerUrl}${path}`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    // No signal, as errorMessage words it.
-    throw new TypeError('Network request failed');
-  }
-  const json = (await res.json().catch(() => null)) as unknown;
-  if (!res.ok) {
-    const err = (
-      json as {
-        error?: { code?: string; message?: string; rule?: string; details?: unknown };
-      } | null
-    )?.error;
-    throw new ApiError(
-      err?.message ?? 'Something went wrong. Try again.',
-      res.status,
-      err?.code ?? 'internal',
-      null,
-      err?.rule ?? null,
-      err?.details,
-    );
-  }
-  return json as T;
-}
 
 /**
  * Makes the business straight after signing up (`organization.create`), with the first screen's name, kind and time
