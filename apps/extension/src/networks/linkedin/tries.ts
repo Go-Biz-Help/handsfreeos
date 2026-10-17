@@ -11,8 +11,10 @@
  * - **Commenting:** the post's Comment opens its box; a word written in it brings the box's own button that sends
  *   it, which isn't pressed; the word is taken out again.
  * - **Connecting:** Connect on someone's profile, in the top card or under More; never pressed.
- * - **Messaging:** Message on a connection's profile opens the conversation, with its box to write in and its Send;
- *   nothing is written (LinkedIn shows the other person someone's typing), and the conversation is closed again.
+ * - **Messaging:** Message on a connection's profile opens the conversation, over the page or (LinkedIn's newer
+ *   profiles) on a page of its own drawn in the interop frame, with its box to write in and its Send, which LinkedIn
+ *   keeps off till something's written; nothing is written (LinkedIn shows the other person someone's typing), and a
+ *   window over the page is closed again.
  * - **Liking:** one of their posts on their activity, and its Like; never pressed.
  * - **Withdrawing:** on Sent invitations, each invitation's Withdraw; never pressed.
  * - **The data file:** on Get a copy of your data, what each step looks for; nothing ticked or pressed.
@@ -300,7 +302,10 @@ export async function tryMessage(doc: Document, href: string, them: ProfileRef):
     );
   const link = message.matches('a[href]') ? linkedinUrl(message.getAttribute('href')!, href) : null;
   message.click();
-  const box = await waitFor(() => messageBoxFor(doc, href, them), 5_000);
+  // LinkedIn's newer profiles take the tab to the new conversation's page (/messaging/thread/new/?recipient=…).
+  const box = await waitFor(() => messageBoxFor(doc, doc.location.href, them), 5_000);
+  const tookTo = classifyUrl(doc.location.href).kind;
+  const onPage = tookTo === 'chat' || tookTo === 'messaging';
   const main = mainOf(doc);
   const places = placesOf(doc);
   const opened = places
@@ -308,25 +313,31 @@ export async function tryMessage(doc: Document, href: string, them: ProfileRef):
     .filter((b) => shown(b) && !main.contains(b));
   const where = box ?? opened[0] ?? null;
   const area = where ? windowAround(where, doc) : null;
-  // Send, whether or not LinkedIn has it on yet: it may stay off till something's written.
-  const sends = area
-    ? [...area.querySelectorAll(CONTROLS)].filter((c) => says(c, SENDS_MESSAGE))
+  // What's around the box it found: its form, or the window it's in.
+  const around = where ? (where.closest('form') ?? area) : null;
+  // Send, whether or not LinkedIn has it on yet: it stays off till something's written.
+  const sends = around
+    ? [...around.querySelectorAll(CONTROLS)].filter((c) => says(c, SENDS_MESSAGE))
     : [];
-  const seen = !box && area ? namesIn(area) : [];
+  const seen = !box && around ? namesIn(around) : [];
   const missing = [
     !opened.length && 'Message opened no conversation to write in',
     opened.length > 0 &&
       !box &&
-      (sends.length
-        ? 'its Send stays off till something’s written, so the box isn’t found'
-        : 'no Send by the box to write in'),
+      (!sends.length
+        ? 'no Send by the box to write in'
+        : onPage
+          ? 'the conversation’s page isn’t plainly theirs, or has more than one box to write in'
+          : 'the conversation that opened doesn’t link to them'),
   ].filter((m): m is string => typeof m === 'string');
   // What's missing shows in what Message opened: the page's outline is taken before it's closed.
   const outline = missing.length ? outlineNow(doc) : undefined;
   const inside = where !== null && where.getRootNode() !== doc;
-  const close = area
-    ? [...area.querySelectorAll<HTMLElement>(CONTROLS)].find((c) => shown(c) && says(c, CLOSE))
-    : null;
+  // A window over the page is closed again; a conversation's own page has nothing to close.
+  const close =
+    area && !onPage
+      ? [...area.querySelectorAll<HTMLElement>(CONTROLS)].find((c) => shown(c) && says(c, CLOSE))
+      : null;
   close?.click();
   const leadsTo = link ? classifyUrl(link.href).kind : null;
   const next =
@@ -337,6 +348,7 @@ export async function tryMessage(doc: Document, href: string, them: ProfileRef):
       {
         message: true,
         link: Boolean(link),
+        page: onPage,
         // LinkedIn's interop box and frame, as far as they can be read: 0 when neither can.
         places: places.length - 1,
         opened: opened.length > 0,

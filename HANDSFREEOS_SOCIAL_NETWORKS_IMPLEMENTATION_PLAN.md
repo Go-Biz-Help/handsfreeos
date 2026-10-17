@@ -335,7 +335,7 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.53.0.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.54.0.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
    **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
    turns one off there. Its daily limits for each person are below it, and start at the ones below.
@@ -398,7 +398,9 @@ words when typing doesn't take; and **Check LinkedIn** now tries every step up t
 all that doesn't work rather than one step at a time (decision 76). Its first run found the headline's field still
 unnamed (it sits deeper than the extension looked), Message opening nothing the page could see (LinkedIn's newer pages
 draw their older parts in an interop box out of the page's reach), and a "1st" beside the real "2nd" on someone with
-Connect; 0.53.0 fixes the three, looks inside the interop box, and outlines it. The
+Connect; 0.53.0 fixes the three, looks inside the interop box, and outlines it. On 0.53.0 every step worked but
+messaging: Message opens the new conversation's own page in the interop frame, whose Send stays off till something's
+written; 0.54.0 counts a Send that's still off and writes on that page. The
 outlines are no longer pasted. Outlines that would settle the rest: a post with words typed in
 its comment box, post search results and a post's own page, someone else's profile, a conversation with words typed,
 and a post with the reactions menu open.

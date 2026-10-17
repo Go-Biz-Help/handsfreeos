@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.53.0 now.
+    Built in 0.44.0; the extension is 0.54.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1258,6 +1258,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 
     A try that opens something (the headline's box, a conversation) now takes the page's outline before it closes it
     again, so its report shows what it saw.
+
+    His Check LinkedIn on 0.53.0 (17 Oct 2026) found every step working but messaging, and the outline inside the
+    interop frame showed why: Message on a profile takes the tab to the new conversation's own page
+    (`/messaging/thread/new/?recipient=…`), drawn in the interop frame, and its Send stays off till something's
+    written, which the extension took for no Send at all. From 0.54.0 a Send that's still off counts for finding the
+    box, that page is one the runner writes on (its address names whom it's to, and a different member there stops
+    it), the box is typed in with the frame's own page, and the try closes nothing on a conversation's own page.
 
 ## Rules worth knowing before changing anything
 

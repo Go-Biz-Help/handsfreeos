@@ -246,6 +246,56 @@ describe('writing a message only in the conversation with them', () => {
     },
   );
 
+  describe('on the new conversation’s page Message opens, drawn in LinkedIn’s interop frame', () => {
+    const NEW = `${LI}/messaging/thread/new/?recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW`;
+
+    /** The page as LinkedIn draws it: its Send off till something's written, and writing in the frame's own page. */
+    function newConversation() {
+      const doc = load('linkedin-profile.html', NEW);
+      const frame = doc.createElement('iframe');
+      frame.setAttribute('data-testid', 'interop-iframe');
+      doc.body.append(frame);
+      const inner = frame.contentDocument!;
+      inner.body.innerHTML = load('linkedin-chat.html', `${LI}/messaging/`).querySelector(
+        'main',
+      )!.outerHTML;
+      const box = inner.querySelector('[role="textbox"]')!;
+      const send = inner.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+      send.disabled = true;
+      inner.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+        box.textContent = text ?? '';
+        send.disabled = !box.textContent;
+        return true;
+      };
+      const sent: string[] = [];
+      send.addEventListener('click', () => {
+        sent.push(box.textContent ?? '');
+        box.textContent = '';
+      });
+      return { doc, sent };
+    }
+
+    it('writes in its box and sends it once Send comes on', async () => {
+      const { doc, sent } = newConversation();
+      expect(await writeMessage(doc, NEW, 'Glad to help, Dana.', dana)).toBe('done');
+      expect(sent).toEqual(['Glad to help, Dana.']);
+    });
+
+    it('writes nothing when its address names someone else', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const { doc, sent } = newConversation();
+      const someoneElse: ProfileRef = {
+        id: 'ACoAAFakeSomeoneElse999',
+        username: null,
+        url: `${LI}/in/ACoAAFakeSomeoneElse999/`,
+      };
+      const writing = writeMessage(doc, NEW, 'Hi', someoneElse);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await writing).toBe('none');
+      expect(sent).toEqual([]);
+    });
+  });
+
   it('in the window LinkedIn draws in its interop box, out of the page’s reach', async () => {
     const doc = load('linkedin-profile.html', DANA);
     const host = doc.createElement('div');

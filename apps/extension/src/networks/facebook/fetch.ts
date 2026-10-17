@@ -270,9 +270,14 @@ const ROWS = 'label, [role="listitem"], [role="row"], [role="option"], li';
 
 /** Shown to the person: not hidden from screen readers, not hidden, not turned off. */
 export function shown(element: Element): boolean {
-  if (element.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
   if (element.getAttribute('aria-disabled') === 'true' || element.hasAttribute('disabled'))
     return false;
+  return visible(element);
+}
+
+/** In sight, whether or not it's turned on: not hidden from screen readers, and not hidden. */
+export function visible(element: Element): boolean {
+  if (element.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
   return !style || (style.display !== 'none' && style.visibility !== 'hidden');
 }
