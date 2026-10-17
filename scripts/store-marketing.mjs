@@ -11,7 +11,8 @@
  * edited in a picture.
  *
  * It draws each image as a web page in Chromium and saves it at exactly the size its store asks for: 1320×2868 for
- * the App Store's 6.9" iPhone slot (`ios-`), 1206×2622 for its 6.1"/6.3" slot (`ios63-`), 1080×1920 for Play's
+ * the App Store's 6.9" iPhone slot (`ios-`), 1206×2622 or 1179×2556 for its 6.1"/6.3" slot (`ios63-`, `ios61-`),
+ * 1080×1920 for Play's
  * phone screenshots (`android-`), 1024×500 for Play's feature graphic, and the App Store's product page header in
  * both its sizes (`app-store-header-`).
  * Playwright comes from apps/web (`@playwright/test`, after `pnpm install`; `pnpm --filter @hfos/web exec playwright
@@ -113,16 +114,24 @@ const PLATFORMS = {
   },
 };
 /**
- * App Store Connect also asks for the 6.1"/6.3" iPhone slot, at 1206×2622. The same 6.9" screenshots fit it (the two
- * are the same shape to within a pixel), so this is the iPhone layout drawn smaller rather than an image shrunk.
+ * App Store Connect also asks for the 6.1"/6.3" iPhone slot, which takes 1206×2622 (`ios63-`) or 1179×2556
+ * (`ios61-`). The 6.9" screenshots are the same shape to within a pixel, so each is the iPhone layout drawn at that
+ * size rather than an image shrunk to it.
  */
-PLATFORMS.ios63 = Object.fromEntries(
-  Object.entries(PLATFORMS.ios).map(([k, v]) => [
-    k,
-    typeof v === 'number' ? Math.round((v * 1206) / 1320) : v,
-  ]),
-);
-Object.assign(PLATFORMS.ios63, { W: 1206, H: 2622, shot: [1320, 2868], source: 'ios' });
+const smallerIphone = (W, H) => ({
+  ...Object.fromEntries(
+    Object.entries(PLATFORMS.ios).map(([k, v]) => [
+      k,
+      typeof v === 'number' ? Math.round((v * W) / PLATFORMS.ios.W) : v,
+    ]),
+  ),
+  W,
+  H,
+  shot: PLATFORMS.ios.shot,
+  source: 'ios',
+});
+PLATFORMS.ios63 = smallerIphone(1206, 2622);
+PLATFORMS.ios61 = smallerIphone(1179, 2556);
 
 /** The mark's own blues (design/brand), deepening from top right to bottom left. */
 const BLUE = `

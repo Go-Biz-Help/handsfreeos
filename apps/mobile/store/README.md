@@ -32,6 +32,7 @@ Don't edit them by hand — change the master and run it again.
 | `assets/play-feature-graphic-1024x500.png`        | 1024×500  | Play Console → Store listing → Feature graphic                             |
 | `assets/marketing/ios-*.png`                      | 1320×2868 | App Store Connect → iPhone 6.9" Display (instead of the plain screenshots) |
 | `assets/marketing/ios63-*.png`                    | 1206×2622 | App Store Connect → iPhone 6.1"/6.3" Display                               |
+| `assets/marketing/ios61-*.png`                    | 1179×2556 | The same slot's other accepted size, if it asks for that one               |
 | `assets/marketing/app-store-header-3840x1646.png` | 3840×1646 | App Store Connect → Header and Search Results → product page header        |
 | `assets/marketing/app-store-header-5244x2950.png` | 5244×2950 | The same, as Apple's one image for both the header and search results      |
 | `assets/marketing/android-*.png`                  | 1080×1920 | Play Console → Phone screenshots (instead of the plain screenshots)        |
