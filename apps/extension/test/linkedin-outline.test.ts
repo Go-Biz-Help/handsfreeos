@@ -3,7 +3,7 @@
  * page's shape, LinkedIn's own words and the words in its addresses, and never holds a name, a headline, a message, a
  * post or an id from any LinkedIn test page.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { linkedin } from '../src/networks';
 import { maskText } from '../src/networks/linkedin/outline';
 import { load } from './load';
@@ -90,6 +90,38 @@ describe('the outline of a LinkedIn page', () => {
       expect(data).toContain(words);
     expect(data).toContain('Page: other /mypreferences/d/download-my-data');
     expect(outlines['linkedin-data-ready.html']).toContain('Download archive');
+  });
+
+  it('shows what LinkedIn draws in its interop box and frame, kept closed or not, as hidden as the rest', () => {
+    // The owner's Check LinkedIn of 17 Oct 2026: Message opened nothing the outline could show.
+    const url = `${LI}/in/dana-reyes-4b2a1c/`;
+    const doc = load('linkedin-profile.html', url);
+    const host = doc.createElement('div');
+    host.setAttribute('data-testid', 'interop-shadowdom');
+    const frame = doc.createElement('iframe');
+    frame.setAttribute('data-testid', 'interop-iframe');
+    doc.body.append(host, frame);
+    const inside = host.attachShadow({ mode: 'closed' });
+    inside.innerHTML =
+      '<aside aria-label="Messaging"><h2><a href="/in/dana-reyes-4b2a1c/">Dana Reyes</a></h2>' +
+      '<form><div role="textbox" contenteditable="true"></div><button type="submit">Send</button></form></aside>';
+    frame.contentDocument!.body.innerHTML = '<div role="dialog"><p>Dana Reyes wrote</p></div>';
+    vi.stubGlobal('chrome', {
+      dom: { openOrClosedShadowRoot: (element: Element) => (element === host ? inside : null) },
+    });
+    try {
+      const outline = linkedin.outline(doc, url);
+      expect(outline).toMatch(
+        /div data-testid="interop-shadowdom"\n\s+#shadow-root\n\s+aside aria-label="Messaging"/,
+      );
+      expect(outline).toMatch(/div role="textbox" contenteditable="true"\n\s+button type="submit"/);
+      expect(outline).toMatch(
+        /iframe data-testid="interop-iframe"\n\s+#document\n\s+div role="dialog"/,
+      );
+      expect(outline).not.toMatch(/Dana|Reyes|dana-reyes/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('leaves out the top bar, which is about the person', () => {

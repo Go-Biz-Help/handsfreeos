@@ -11,6 +11,7 @@
  *   shown "Owen Park • 3rd+"). The readers read what's shown, as the person sees it, and leave the copy out.
  */
 import { clean, elementsIn, labelOf } from '../facebook/dom';
+import { frameDocumentOf, shadowOf } from '../shadow';
 import { linkedinUrl } from './urls';
 import { nameFrom } from './vocabulary';
 
@@ -45,6 +46,32 @@ export function inTopBar(element: Element): boolean {
 /** The page's main column: LinkedIn's rails beside it (your card, suggestions, ads) and its chat windows aren't in it. */
 export function mainOf(doc: Document): Element {
   return doc.querySelector('main, [role="main"]') ?? doc.body;
+}
+
+/** The box where LinkedIn's newer pages draw their older parts, out of reach of the page's look-ups (../shadow.ts). */
+export const INTEROP = '[data-testid="interop-shadowdom"]';
+const INTEROP_FRAME = 'iframe[data-testid="interop-iframe"]';
+
+/**
+ * Everywhere LinkedIn draws on a page: the page, the inside of its interop box (and of any box in that with one of its
+ * own) and its interop frame, those that can be read. Its messaging windows may be in any of them.
+ */
+export function placesOf(doc: Document): (Document | ShadowRoot)[] {
+  const places: (Document | ShadowRoot)[] = [doc];
+  for (const host of doc.querySelectorAll(INTEROP)) {
+    const inside = shadowOf(host, true);
+    if (!inside) continue;
+    places.push(inside);
+    for (const element of inside.querySelectorAll('*')) {
+      const deeper = shadowOf(element);
+      if (deeper) places.push(deeper);
+    }
+  }
+  for (const frame of doc.querySelectorAll(INTEROP_FRAME)) {
+    const inside = frameDocumentOf(frame);
+    if (inside?.body) places.push(inside);
+  }
+  return places;
 }
 
 /** Whether something is hidden from screen readers: the shown half of a line LinkedIn writes twice, or a closed menu. */

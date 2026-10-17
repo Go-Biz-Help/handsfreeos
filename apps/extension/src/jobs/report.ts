@@ -32,6 +32,11 @@ export interface ReportNote {
   readonly note?: string | null;
   /** Keep the page's outline: something was missing, a step was handed over, or the person asked for Check LinkedIn. */
   readonly outline?: boolean;
+  /**
+   * The outline to keep in place of the page's as it is now: the one a step took while what it opened was still open
+   * (Check LinkedIn's tries).
+   */
+  readonly outlineText?: string;
 }
 
 export type Reporter = (note?: ReportNote) => Promise<void>;
@@ -156,7 +161,9 @@ export function headlineNote(steps: HeadlineSteps | undefined, tried = false): R
 
 /**
  * How one of Check LinkedIn's tries went (decision 76), for its note: whether it works, what it found, the names of
- * what it looked among, and what was missing, in the extension's own words. The outline is kept when it doesn't work.
+ * what it looked among, and what was missing, in the extension's own words. The outline is kept when it doesn't work:
+ * the one the try took while what it opened was still open, when it took one. The address it may hand the job to try
+ * again on is never in it.
  */
 export function tryNote(tried: StepTry): ReportNote {
   const name = TRY_STEP_NAMES[tried.step];
@@ -173,6 +180,7 @@ export function tryNote(tried: StepTry): ReportNote {
       ? null
       : `${name[0]!.toUpperCase()}${name.slice(1)}: ${tried.tried ? '' : 'not tried, '}${why}.`,
     outline: !tried.works,
+    ...(tried.outline ? { outlineText: tried.outline } : {}),
   };
 }
 
@@ -184,7 +192,7 @@ export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
     try {
       const answer = await tab.ask({ type: 'hfos-outline' });
       if (!answer.ok) return;
-      const outline = answer.outline ?? '';
+      const outline = note.outlineText ?? answer.outline ?? '';
       const sections = outline ? sectionsIn(outline) : [];
       await hfos({
         type: 'hfos-report',

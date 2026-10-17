@@ -41,11 +41,13 @@ import {
 } from './auto';
 import { composer, startOf } from './compose';
 import { LINKEDIN_FILE_PLANS, PREPARING } from './data';
-import { CONTROLS, controlsIn, mainOf, wordsOf } from './dom';
+import { CONTROLS, controlsIn, mainOf, placesOf, wordsOf } from './dom';
+import { readChat } from './chat';
 import { readInvitations } from './invitations';
-import { maskText } from './outline';
+import { maskText, outlineNow } from './outline';
 import { headlineMissing, tryHeadline } from './own-profile';
 import type { ProfileRef } from './types';
+import { classifyUrl, comparable, linkedinUrl, sameMember } from './urls';
 import { CONNECT, MESSAGE, MORE, WITHDRAW } from './vocabulary';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -76,6 +78,13 @@ export interface StepTry {
   readonly missing: readonly string[];
   /** The names of what it looked among, as the outline shows them. */
   readonly seen?: readonly string[];
+  /** The page's outline the moment it didn't work, while what the try opened was still open. */
+  readonly outline?: string;
+  /**
+   * An address to try the step again on, a second way: the page Message links to when it opened nothing on the profile.
+   * For the job alone; never in a note.
+   */
+  readonly next?: string;
 }
 
 const went = (
@@ -141,9 +150,16 @@ async function emptyBox(doc: Document, box: HTMLElement): Promise<boolean> {
 
 /** Putting the headline in, on their own profile. */
 export async function tryHeadlineStep(doc: Document): Promise<StepTry> {
-  const steps = await tryHeadline(doc);
+  let outline: string | undefined;
+  const steps = await tryHeadline(doc, (sofar) => {
+    // What's missing shows in the box: the page's outline is taken before it's closed.
+    if (headlineMissing({ ...sofar, closed: true }, true).length) outline = outlineNow(doc);
+  });
   const { names, ...found } = steps;
-  return went('headline', found, headlineMissing(steps, true), names);
+  return {
+    ...went('headline', found, headlineMissing(steps, true), names),
+    ...(outline ? { outline } : {}),
+  };
 }
 
 /** Posting, on their feed: the composer opened and closed again, nothing written. */
@@ -267,7 +283,12 @@ function windowAround(box: Element, doc: Document): Element | null {
   return null;
 }
 
-/** Messaging, from a connection's profile: the conversation opened, its box and Send found, nothing written. */
+/**
+ * Messaging, from a connection's profile: the conversation opened, its box and Send found, nothing written. LinkedIn
+ * may draw the conversation inside its interop box rather than on the page (./dom.ts), so it's looked for in each.
+ * When nothing opens and Message is a link to a page of its own, as on LinkedIn's newer profiles, that page's address
+ * comes back for the job to try it there (`tryMessagePage`).
+ */
 export async function tryMessage(doc: Document, href: string, them: ProfileRef): Promise<StepTry> {
   const message = topCardControl(doc, MESSAGE);
   if (!message)
@@ -277,12 +298,14 @@ export async function tryMessage(doc: Document, href: string, them: ProfileRef):
       ['no Message on their profile'],
       namesIn(mainOf(doc)),
     );
+  const link = message.matches('a[href]') ? linkedinUrl(message.getAttribute('href')!, href) : null;
   message.click();
   const box = await waitFor(() => messageBoxFor(doc, href, them), 5_000);
   const main = mainOf(doc);
-  const opened = [...doc.querySelectorAll<HTMLElement>(WRITING)].filter(
-    (b) => shown(b) && !main.contains(b),
-  );
+  const places = placesOf(doc);
+  const opened = places
+    .flatMap((place) => [...place.querySelectorAll<HTMLElement>(WRITING)])
+    .filter((b) => shown(b) && !main.contains(b));
   const where = box ?? opened[0] ?? null;
   const area = where ? windowAround(where, doc) : null;
   // Send, whether or not LinkedIn has it on yet: it may stay off till something's written.
@@ -290,10 +313,6 @@ export async function tryMessage(doc: Document, href: string, them: ProfileRef):
     ? [...area.querySelectorAll(CONTROLS)].filter((c) => says(c, SENDS_MESSAGE))
     : [];
   const seen = !box && area ? namesIn(area) : [];
-  const close = area
-    ? [...area.querySelectorAll<HTMLElement>(CONTROLS)].find((c) => shown(c) && says(c, CLOSE))
-    : null;
-  close?.click();
   const missing = [
     !opened.length && 'Message opened no conversation to write in',
     opened.length > 0 &&
@@ -302,17 +321,73 @@ export async function tryMessage(doc: Document, href: string, them: ProfileRef):
         ? 'its Send stays off till something’s written, so the box isn’t found'
         : 'no Send by the box to write in'),
   ].filter((m): m is string => typeof m === 'string');
+  // What's missing shows in what Message opened: the page's outline is taken before it's closed.
+  const outline = missing.length ? outlineNow(doc) : undefined;
+  const inside = where !== null && where.getRootNode() !== doc;
+  const close = area
+    ? [...area.querySelectorAll<HTMLElement>(CONTROLS)].find((c) => shown(c) && says(c, CLOSE))
+    : null;
+  close?.click();
+  const leadsTo = link ? classifyUrl(link.href).kind : null;
+  const next =
+    !opened.length && link && (leadsTo === 'messaging' || leadsTo === 'chat') ? link.href : null;
+  return {
+    ...went(
+      'message',
+      {
+        message: true,
+        link: Boolean(link),
+        // LinkedIn's interop box and frame, as far as they can be read: 0 when neither can.
+        places: places.length - 1,
+        opened: opened.length > 0,
+        inside,
+        box: Boolean(box),
+        sends: sends.length,
+        closed: Boolean(close),
+      },
+      missing,
+      seen,
+    ),
+    ...(outline ? { outline } : {}),
+    ...(next ? { next } : {}),
+  };
+}
+
+/**
+ * Messaging a second way, on the page their profile's Message links to (`/messaging/compose/…` on LinkedIn's newer
+ * profiles): one box to write in, a Send for it, and nothing plainly saying it's with someone else, as the runner
+ * tells it (./auto.ts). Nothing is written.
+ */
+export function tryMessagePage(doc: Document, href: string, them: ProfileRef): StepTry {
+  const boxes = placesOf(doc)
+    .flatMap((place) => [...place.querySelectorAll<HTMLElement>(WRITING)])
+    .filter((b) => shown(b));
+  const box = boxes.length === 1 ? boxes[0]! : null;
+  const area = box ? (box.closest('form') ?? windowAround(box, doc) ?? mainOf(doc)) : null;
+  const sends = area
+    ? [...area.querySelectorAll(CONTROLS)].filter((c) => says(c, SENDS_MESSAGE))
+    : [];
+  const chat = readChat(doc, classifyUrl(href), href);
+  const withThem = chat.profile !== null && sameMember(chat.profile, them);
+  const someoneElse =
+    chat.profile !== null && comparable(chat.profile, them) && !sameMember(chat.profile, them);
+  const missing = [
+    !boxes.length && 'no box to write in on the page Message leads to',
+    boxes.length > 1 && `${boxes.length} boxes to write in on the page Message leads to`,
+    box && !sends.length && 'no Send by the box on the page Message leads to',
+    someoneElse && 'the page Message leads to is with someone else',
+  ].filter((m): m is string => typeof m === 'string');
   return went(
     'message',
     {
-      message: true,
-      opened: opened.length > 0,
-      box: Boolean(box),
+      page: true,
+      boxes: boxes.length,
       sends: sends.length,
-      closed: Boolean(close),
+      them: withThem,
+      named: chat.name !== null || chat.profile !== null,
     },
     missing,
-    seen,
+    box && !sends.length && area ? namesIn(area) : [],
   );
 }
 

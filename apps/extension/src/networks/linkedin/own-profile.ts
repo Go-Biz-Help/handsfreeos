@@ -308,15 +308,22 @@ function editIntroOf(doc: Document): HTMLElement | null {
   );
 }
 
+/** What a page holds that isn't shown as words: never a field's name. */
+const UNSHOWN = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
+
 /**
  * The words just above a field, where LinkedIn's newer boxes name it: the nearest line with words before the field, or
- * before a box around it (Headline above its writing box, the owner's Put this one in of 17 Oct 2026). Empty boxes and
- * icons between are passed over; a long line isn't a name.
+ * before a box around it, however many boxes it's in (Headline above its writing box: the owner's Check LinkedIn of
+ * 17 Oct 2026 found it unnamed, as his page wraps it in more boxes than its outline shows). Empty boxes, icons and
+ * what isn't shown are passed over; another field's row, or a long line, isn't a name. It looks no further than the
+ * box over the page the field is in.
  */
 function nameAbove(field: Element): string {
-  let at: Element | null = field;
-  for (let up = 0; at && up < 4; up++, at = at.parentElement) {
+  const top = `body, ${OVER_THE_PAGE}`;
+  for (let at: Element | null = field; at && !at.matches(top); at = at.parentElement) {
     for (let before = at.previousElementSibling; before; before = before.previousElementSibling) {
+      if (UNSHOWN.has(before.tagName) || !shown(before)) continue;
+      if (before.matches(FIELDS) || before.querySelector(FIELDS)) return '';
       const words = clean(before.textContent);
       if (!words) continue;
       return words.length <= 40 ? words : '';
@@ -557,9 +564,13 @@ const TRY_WORDS = 'Testing HandsFreeOS';
 /**
  * Putting the headline in, tried up to its last press (Check LinkedIn, decision 76): the pencil, the box, the one
  * field named Headline and the one Save; writing in it (other words, then what was there back), and the box closed
- * again without Save, Discard pressed if LinkedIn asks. Nothing is ever saved.
+ * again without Save, Discard pressed if LinkedIn asks. Nothing is ever saved. `beforeClosing` hears how it went while
+ * the box is still open.
  */
-export async function tryHeadline(doc: Document): Promise<HeadlineSteps> {
+export async function tryHeadline(
+  doc: Document,
+  beforeClosing?: (steps: HeadlineSteps) => void,
+): Promise<HeadlineSteps> {
   const { steps, box, field, save } = await openIntro(doc);
   if (!box) return steps;
   let typed = false;
@@ -568,5 +579,7 @@ export async function tryHeadline(doc: Document): Promise<HeadlineSteps> {
     typed = await writeInto(doc, field, TRY_WORDS);
     if (clean(was)) await writeInto(doc, field, was);
   }
-  return { ...steps, typed, closed: await closeBox(doc, box) };
+  const sofar = { ...steps, typed };
+  beforeClosing?.(sofar);
+  return { ...sofar, closed: await closeBox(doc, box) };
 }

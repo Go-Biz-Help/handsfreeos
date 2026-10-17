@@ -10,6 +10,7 @@
  * names are left out. It is plain text, so the person can read it before sending it.
  */
 import { clean } from './facebook/dom';
+import { frameDocumentOf, shadowOf } from './shadow';
 
 /** What a network's outline keeps, hides and leaves out. */
 export interface OutlineSite {
@@ -33,6 +34,8 @@ export interface OutlineSite {
   readonly isTopBar: (element: Element) => boolean;
   /** Attributes worth seeing on its pages besides the ones every outline keeps. */
   readonly alsoKept?: readonly string[];
+  /** The boxes it draws parts of its pages in out of reach of the page's look-ups, opened even when kept closed. */
+  readonly shadowHosts?: string;
 }
 
 /** The attributes worth seeing. Labels among them go through the same hiding as text. */
@@ -163,16 +166,30 @@ export class SiteOutliner {
     return out;
   }
 
-  /** The outline of everything under `root`, one element a line, `max` lines at most. */
+  /**
+   * What an element draws out of reach of the page's look-ups (./shadow.ts): its shadow root, or a frame's own page
+   * when it can be read.
+   */
+  private insideOf(element: Element): ShadowRoot | Document | null {
+    const hosts = this.site.shadowHosts;
+    return (
+      shadowOf(element, hosts !== undefined && element.matches(hosts)) ?? frameDocumentOf(element)
+    );
+  }
+
+  /**
+   * The outline of everything under `root`, one element a line, `max` lines at most. What's drawn inside a shadow root
+   * or a frame comes under its element, after "#shadow-root" or "#document"; a top bar is only ever the page's own.
+   */
   outline(root: Element, base: string, max: number): string[] {
     const lines: string[] = [];
     const indent = (depth: number) => '  '.repeat(Math.min(depth, 60));
-    const walk = (element: Element, depth: number): void => {
+    const walk = (element: Element, depth: number, inner = false): void => {
       if (lines.length >= max) return;
       const tag = element.tagName.toLowerCase();
       if (LEFT_OUT.has(tag)) return;
       const attributes = this.attributesOf(element, base);
-      if (this.site.isTopBar(element)) {
+      if (!inner && this.site.isTopBar(element)) {
         lines.push(
           `${indent(depth)}${tag} ${attributes.join(' ')} (${this.site.name}'s top bar, left out)`,
         );
@@ -183,17 +200,18 @@ export class SiteOutliner {
         .map((node) => this.site.mask(node.nodeValue ?? ''))
         .filter(Boolean);
       const children = [...element.children];
+      const inside = this.insideOf(element);
       // Pages wrap everything in layers of bare boxes: one with nothing of its own and a single child is skipped.
       if ((tag === 'div' || tag === 'span') && attributes.length === 0 && texts.length === 0) {
-        if (children.length === 0) return;
-        if (children.length === 1) return walk(children[0]!, depth);
+        if (children.length === 0 && !inside) return;
+        if (children.length === 1 && !inside) return walk(children[0]!, depth, inner);
       }
       const head = `${indent(depth)}${[tag, ...attributes].join(' ')}`;
       if (tag === 'svg' || tag === 'img' || tag === 'video') {
         lines.push(head);
         return;
       }
-      if (children.length === 0) {
+      if (children.length === 0 && !inside) {
         lines.push(
           texts.length ? `${head} ${texts.map((t) => JSON.stringify(t)).join(' ')}` : head,
         );
@@ -201,12 +219,17 @@ export class SiteOutliner {
       }
       lines.push(head);
       for (const node of element.childNodes) {
-        if (node.nodeType === 1) walk(node as Element, depth + 1);
+        if (node.nodeType === 1) walk(node as Element, depth + 1, inner);
         else if (node.nodeType === 3) {
           const text = this.site.mask(node.nodeValue ?? '');
           if (text && lines.length < max) lines.push(`${indent(depth + 1)}${JSON.stringify(text)}`);
         }
       }
+      const page = inside?.nodeType === 9;
+      const top: ParentNode | null = page ? (inside as Document).body : inside;
+      if (!top?.children.length || lines.length >= max) return;
+      lines.push(`${indent(depth + 1)}${page ? '#document' : '#shadow-root'}`);
+      for (const child of [...top.children]) walk(child, depth + 2, true);
     };
     walk(root, 0);
     return lines;

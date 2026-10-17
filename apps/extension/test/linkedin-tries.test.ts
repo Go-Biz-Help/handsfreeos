@@ -12,6 +12,7 @@ import {
   tryHeadlineStep,
   tryLike,
   tryMessage,
+  tryMessagePage,
   tryPost,
   tryWithdraw,
 } from '../src/networks/linkedin/tries';
@@ -227,6 +228,20 @@ describe('connecting', () => {
     expect(more.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('finds Connect when the top card says 1st beside the real 2nd, as LinkedIn’s newer one can', async () => {
+    // The owner's Check LinkedIn of 17 Oct 2026: someone from the search, with Connect, read as a connection.
+    const doc = page('linkedin-profile.html', DANA, false);
+    const second = [...doc.querySelectorAll('main span[aria-hidden="true"]')].find(
+      (span) => span.textContent === '· 2nd',
+    )!;
+    second.insertAdjacentHTML('beforebegin', '<p>· 1st</p>');
+    expect(await tryConnect(doc, DANA)).toMatchObject({
+      tried: true,
+      works: true,
+      found: { connect: true, direct: true },
+    });
+  });
+
   it('has nothing to try on someone you’re connected with', async () => {
     const doc = page('linkedin-profile.html', DANA, false);
     for (const degree of doc.querySelectorAll('main span[aria-hidden="true"]'))
@@ -240,9 +255,23 @@ describe('connecting', () => {
 });
 
 describe('messaging', () => {
-  /** Their profile as LinkedIn behaves: Message opens the conversation over the page, and its close closes it. */
-  function profile(boxed: boolean, opens = true) {
+  const COMPOSE = `${LI}/messaging/compose/?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAFakeDanaReyes123&recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW`;
+
+  /**
+   * Their profile as LinkedIn behaves: Message opens the conversation over the page, and its close closes it. With
+   * `into`, it opens in LinkedIn's interop box at the foot of the page, out of reach of the page's look-ups, as the
+   * owner's newer pages may draw it: open, or kept closed (then opened as Chrome lets a content script).
+   */
+  function profile(boxed: boolean, opens = true, into?: 'open' | 'closed') {
     const doc = page('linkedin-profile.html', DANA, boxed);
+    const host = doc.createElement('div');
+    host.setAttribute('data-testid', 'interop-shadowdom');
+    doc.body.append(host);
+    const inside = into ? host.attachShadow({ mode: into }) : null;
+    if (into === 'closed')
+      vi.stubGlobal('chrome', {
+        dom: { openOrClosedShadowRoot: (element: Element) => (element === host ? inside : null) },
+      });
     doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', (event) => {
       event.preventDefault();
       if (!opens) return;
@@ -252,6 +281,7 @@ describe('messaging', () => {
         'aside[aria-label="Messaging"]',
         boxed,
       );
+      inside?.append(window);
       window
         .querySelector('[aria-label="Close your conversation with Dana Reyes"]')!
         .addEventListener('click', () => window.remove());
@@ -270,7 +300,16 @@ describe('messaging', () => {
         step: 'message',
         tried: true,
         works: true,
-        found: { message: true, opened: true, box: true, sends: 1, closed: true },
+        found: {
+          message: true,
+          link: true,
+          places: 0,
+          opened: true,
+          inside: false,
+          box: true,
+          sends: 1,
+          closed: true,
+        },
         missing: [],
       });
       expect(typed).toEqual([]);
@@ -281,16 +320,68 @@ describe('messaging', () => {
     },
   );
 
-  it('says so when Message opens no conversation', async () => {
+  it.each([['open'], ['closed']] as const)(
+    'finds the conversation in LinkedIn’s interop box, kept %s',
+    async (into) => {
+      const { doc, typed } = profile(false, true, into);
+      expect(await tryMessage(doc, DANA, dana)).toMatchObject({
+        works: true,
+        found: { places: 1, opened: true, inside: true, box: true, sends: 1, closed: true },
+      });
+      expect(typed).toEqual([]);
+      vi.unstubAllGlobals();
+    },
+  );
+
+  it('says so when Message opens no conversation, with the page it leads to and the outline as it was', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     const { doc } = profile(false, false);
     const trying = tryMessage(doc, DANA, dana);
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(await trying).toMatchObject({
+    const tried = await trying;
+    expect(tried).toMatchObject({
       works: false,
-      found: { message: true, opened: false, box: false },
+      found: { message: true, link: true, opened: false, box: false },
       missing: ['Message opened no conversation to write in'],
+      next: COMPOSE,
     });
+    expect(tried.outline).toMatch(
+      /^HandsFreeOS Social .*page outline\nPage: unknown \/in\/\{1\}\//,
+    );
+  });
+
+  it('finds the box and Send on the page Message leads to, and that it’s with them, writing nothing', () => {
+    const doc = page('linkedin-chat.html', COMPOSE, false);
+    const typed: string[] = [];
+    doc.execCommand = (command: string) => (typed.push(command), true);
+    // Its header links to Dana by her member id, as the profile's Message does.
+    const byId: ProfileRef = {
+      id: 'ACoAAFakeDanaReyes123',
+      username: null,
+      url: `${LI}/in/ACoAAFakeDanaReyes123/`,
+    };
+    expect(tryMessagePage(doc, COMPOSE, byId)).toEqual({
+      step: 'message',
+      tried: true,
+      works: true,
+      found: { page: true, boxes: 1, sends: 1, them: true, named: true },
+      missing: [],
+    });
+    // By her name on LinkedIn, nothing on the page says it's someone else's.
+    expect(tryMessagePage(doc, COMPOSE, dana)).toMatchObject({
+      works: true,
+      found: { them: false },
+    });
+    const someoneElse: ProfileRef = {
+      id: 'ACoAAFakeSomeoneElse999',
+      username: null,
+      url: `${LI}/in/ACoAAFakeSomeoneElse999/`,
+    };
+    expect(tryMessagePage(doc, COMPOSE, someoneElse)).toMatchObject({
+      works: false,
+      missing: ['the page Message leads to is with someone else'],
+    });
+    expect(typed).toEqual([]);
   });
 });
 

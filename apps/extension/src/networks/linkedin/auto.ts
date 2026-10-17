@@ -22,7 +22,7 @@ import { isAfter } from '../facebook/dom';
 import { shown } from '../facebook/fetch';
 import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
-import { CONTROLS, mainOf, wordsOf } from './dom';
+import { CONTROLS, mainOf, placesOf, wordsOf } from './dom';
 import { peopleLinked } from './people';
 import {
   barOf,
@@ -240,14 +240,17 @@ export function sendFor(box: Element, pattern: RegExp): HTMLElement | null {
   return null;
 }
 
-/** Types into a box to write in, and sends it with its button; it's sent once the box empties. */
-async function typeAndSend(doc: Document, box: HTMLElement, text: string, pattern: RegExp) {
+/**
+ * Types into a box to write in, and sends it with its button; it's sent once the box empties. It types with the box's
+ * own page, which for a box in LinkedIn's interop frame is the frame's.
+ */
+async function typeAndSend(box: HTMLElement, text: string, pattern: RegExp) {
   // Something written there already is the person's: left alone.
   if (hasWriting(box)) return 'not_sent' as const;
   box.focus();
   box.click();
   await pause(300);
-  doc.execCommand('insertText', false, text);
+  box.ownerDocument.execCommand('insertText', false, text);
   await pause(800);
   if (!hasWriting(box)) return 'not_sent' as const;
   const send = sendFor(box, pattern);
@@ -296,7 +299,7 @@ export async function writeComment(doc: Document, text: string): Promise<AutoRes
     box = await waitFor(() => commentBoxOf(post), 3_000);
   }
   if (!box) return 'none';
-  return typeAndSend(doc, box, text, SENDS_COMMENT);
+  return typeAndSend(box, text, SENDS_COMMENT);
 }
 
 /** The boxes to write a message in: in a form with Send. */
@@ -318,7 +321,8 @@ function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
 
 /**
  * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
- * one window over the page that links to them. Null when there's none, or more than one.
+ * one window over the page that links to them, wherever LinkedIn draws it (its interop box among them: ./dom.ts).
+ * Null when there's none, or more than one.
  */
 export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const address = classifyUrl(href);
@@ -332,9 +336,11 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
     const boxes = messageBoxes(main);
     return boxes.length === 1 ? boxes[0]! : null;
   }
-  const theirs = messageBoxes(doc).filter(
-    (box) => !main.contains(box) && windowLinks(box, doc, href).some((p) => sameMember(p, them)),
-  );
+  const theirs = placesOf(doc)
+    .flatMap(messageBoxes)
+    .filter(
+      (box) => !main.contains(box) && windowLinks(box, doc, href).some((p) => sameMember(p, them)),
+    );
   return theirs.length === 1 ? theirs[0]! : null;
 }
 
@@ -355,5 +361,5 @@ export async function writeMessage(
 ): Promise<AutoResult> {
   const box = await waitFor(() => messageBoxFor(doc, href, them), 5_000);
   if (!box) return 'none';
-  return typeAndSend(doc, box, text, SENDS_MESSAGE);
+  return typeAndSend(box, text, SENDS_MESSAGE);
 }
