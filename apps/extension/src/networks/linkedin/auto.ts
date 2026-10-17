@@ -43,9 +43,9 @@ export type { AutoResult, TheirPost };
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** What LinkedIn draws over the page: the invitation's box. */
-const OVER_THE_PAGE = '[role="dialog"], [role="alertdialog"], dialog';
+export const OVER_THE_PAGE = '[role="dialog"], [role="alertdialog"], dialog';
 /** Where a person writes. */
-const WRITING = '[role="textbox"], [contenteditable="true"], textarea';
+export const WRITING = '[role="textbox"], [contenteditable="true"], textarea';
 /** What's inside a post and isn't it: its comments and a link's preview. */
 const NESTED = 'article, [role="article"]';
 /** A post's own Like: "React Like" (or "Like"), not one of its comments'. */
@@ -55,9 +55,9 @@ const WITHOUT_NOTE = /^send without a note$/i;
 /** Its other ways of sending: when it offers no note at all. */
 const SEND_INVITE = /^(send|send now|send invitation)$/i;
 /** What sends a comment, in the comment's own form. */
-const SENDS_COMMENT = /^(comment|post|post comment|submit comment)$/i;
+export const SENDS_COMMENT = /^(comment|post|post comment|submit comment)$/i;
 /** What sends a message. */
-const SENDS_MESSAGE = /^(send|send message)$/i;
+export const SENDS_MESSAGE = /^(send|send message)$/i;
 /** A reply's box, which a comment never goes in. */
 const REPLY_BOX = /^(add a reply|reply to\b|write a reply)/i;
 /** How long a box, a menu and a change are waited on, and how often they're looked at. */
@@ -112,7 +112,7 @@ export function theirPosts(
 }
 
 /** A post's own Like, shown: the older layout's says so; the newer's is its bar's reaction button. */
-function likeOf(box: Element): HTMLElement | null {
+export function likeOf(box: Element): HTMLElement | null {
   const older = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
     (control) => !inNested(control, box) && shown(control) && says(control, OWN_LIKE),
   );
@@ -160,11 +160,11 @@ export type ConnectResult =
   /** Pressed, but the profile doesn't say Pending after. */
   | 'not_sent';
 
-const profileOn = (doc: Document, href: string) =>
+export const profileOn = (doc: Document, href: string) =>
   readProfile(mainOf(doc), classifyUrl(href), href, doc.title);
 
 /** A shown control in the profile's top card that says this. */
-function topCardControl(doc: Document, pattern: RegExp): HTMLElement | null {
+export function topCardControl(doc: Document, pattern: RegExp): HTMLElement | null {
   const main = mainOf(doc);
   return (
     [...main.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].find(
@@ -227,7 +227,7 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
  * it, or (LinkedIn's newer layout has none) the boxes around it that link nowhere. A box that links somewhere holds
  * more than the box's own buttons: a comment and its writer, the next post.
  */
-function sendFor(box: Element, pattern: RegExp): HTMLElement | null {
+export function sendFor(box: Element, pattern: RegExp): HTMLElement | null {
   let up = box.parentElement;
   for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
     if ([...up.querySelectorAll('a[href]')].some((link) => !box.contains(link))) return null;
@@ -257,10 +257,10 @@ async function typeAndSend(doc: Document, box: HTMLElement, text: string, patter
 }
 
 /** The post the page is about: its own page's, the first. */
-const postOnPage = (doc: Document) => postBoxes(mainOf(doc))[0] ?? null;
+export const postOnPage = (doc: Document) => postBoxes(mainOf(doc))[0] ?? null;
 
 /** The post's own box to comment in: in the post, not in a comment, and not a reply's. */
-function commentBoxOf(post: Element): HTMLElement | null {
+export function commentBoxOf(post: Element): HTMLElement | null {
   return (
     [...post.querySelectorAll<HTMLElement>(WRITING)].find(
       (box) =>
@@ -273,21 +273,26 @@ function commentBoxOf(post: Element): HTMLElement | null {
   );
 }
 
+/** What opens a post's own box to comment in: the Comment in its bar, not a form's. */
+export function commentOpener(post: Element): HTMLElement | null {
+  return (
+    [...post.querySelectorAll<HTMLElement>(CONTROLS)].find(
+      (control) =>
+        !inNested(control, post) &&
+        !control.closest('form') &&
+        shown(control) &&
+        says(control, /^comment$/i),
+    ) ?? null
+  );
+}
+
 /** Writes a comment in the post's own box and sends it with that box's button. */
 export async function writeComment(doc: Document, text: string): Promise<AutoResult> {
   const post = postOnPage(doc);
   if (!post) return 'none';
   let box = commentBoxOf(post);
   if (!box) {
-    // The box opens once the post's own Comment is pressed: the one in its bar, not a form's.
-    const opener = [...post.querySelectorAll<HTMLElement>(CONTROLS)].find(
-      (control) =>
-        !inNested(control, post) &&
-        !control.closest('form') &&
-        shown(control) &&
-        says(control, /^comment$/i),
-    );
-    opener?.click();
+    commentOpener(post)?.click();
     box = await waitFor(() => commentBoxOf(post), 3_000);
   }
   if (!box) return 'none';
@@ -315,7 +320,7 @@ function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
  * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
  * one window over the page that links to them. Null when there's none, or more than one.
  */
-function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
+export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const address = classifyUrl(href);
   const main = mainOf(doc);
   if (address.kind === 'chat') {

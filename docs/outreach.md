@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.51.0 now.
+    Built in 0.44.0; the extension is 0.52.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1200,7 +1200,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Check LinkedIn** (`checkup`, on LinkedIn's page in Settings, the person's own): one press opens their profile,
       feed, connections, a people search, a posts search, their messages and one connection's profile, reads each
       without pressing anything, and notes each with its outline. Its window is in front for about a minute, then
-      theirs comes back. It stops on any LinkedIn warning.
+      theirs comes back. It stops on any LinkedIn warning. From 0.52.0 it also tries each step (decision 76).
     - **What's blocking, on screen**: the extension says with its beat which networks Chrome lets it on
       (`computers.allowed`). An ask on a network it isn't allowed on waits, and says what to press (Allow on the
       network in the extension's panel, then Allow in Chrome's box); so does that network's page in Settings.
@@ -1216,6 +1216,31 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     for Claude** (the phone shares it) and **Mark handled**. The person who sent one reads only their own; they go
     after 30 days, handled or not. The add-on's own `outreach.report.save` is gone; the notes 0.48.0 saved were
     copied across, and its table `reports` is dropped in a later migration.
+
+76. **Check LinkedIn tries every step up to its last press** (Chris, 17 Oct 2026: "Lets try to have linkedin do all
+    of the actions it needs to do and give feedback on issues instead of one thing at a time"). From extension 0.52.0
+    Check LinkedIn still reads the pages of decision 74, and on the way takes each of the extension's LinkedIn steps as
+    far as it goes without changing anything (`src/networks/linkedin/tries.ts`), so one press finds every step that
+    doesn't work. Nothing is ever saved, posted, sent, liked, connected or withdrawn:
+    - **Your headline:** the pencil by your name, the box it opens, its one field named Headline and its one Save; a
+      few words written in Headline and its own put back, then the box closed (Dismiss, and Discard if LinkedIn asks).
+    - **Posting:** Start a post on the feed opens the composer, with a box to write in and Post; it's closed again with
+      nothing written.
+    - **Commenting:** on a person's post with a page of its own, from the feed or the posts search: a word written in
+      its comment box, so the button that sends it shows, then taken out again.
+    - **Connecting:** Connect on the profile of someone in the people search you're not connected with, in the top card
+      or under More (pressed again to close it).
+    - **Messaging:** Message on one connection's profile opens the conversation, with its box to write in and Send.
+      Nothing is written, as LinkedIn shows the other person someone's typing; the conversation is closed again.
+    - **Liking:** one of that connection's posts on their activity, and its Like.
+    - **Withdrawing:** on Sent invitations, each invitation's Withdraw.
+    - **The data file:** on Get a copy of your data, the words each step of asking for it looks for; nothing ticked.
+
+    Each step sends a problem report of its own (job `checkup.<step>`): whether it works, what it found (counts, yes or
+    no), what it couldn't find in the extension's words, the names of what it looked among as the outline shows them,
+    and the page's outline when it doesn't work. A step with nothing to try on (no connection, no invitation sent)
+    says so. A last report (`checkup.summary`) and the ask's line name the steps that don't work. **Put this one in**
+    says which of its steps failed the same way. Its window is in front for about three minutes.
 
 ## Rules worth knowing before changing anything
 

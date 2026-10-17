@@ -9,7 +9,7 @@
  * warning. Only the file's steps and tidying press anything on Facebook; the rest open and scroll. LinkedIn's are in
  * ./linkedin/, with the same `Job`, and Read my chats (./chats.ts) works on both.
  */
-import type { Reporter } from './report';
+import type { Reporter, ReportNote } from './report';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import { platformOf, type PageRead } from '../networks/kit';
 import type { ReadResult } from '../networks/facebook/types';
@@ -29,6 +29,8 @@ import type {
   JoinAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  TryAnswer,
+  TryAsk,
   WithdrawAnswer,
   WithdrawAsk,
 } from '../messages';
@@ -55,6 +57,7 @@ export interface JobTab {
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
 }
 
@@ -76,7 +79,8 @@ export interface Job {
    * Hands a step the job can't find to the person, and waits for their answer: Carry on once they've done it, Skip
    * (that person), or Stop. Only what the person asked for has one; the runner's daily jobs never hand over.
    */
-  readonly handOver?: (says: string) => Promise<HandOverReply>;
+  /** `note`: what wasn't found, step by step, for the note of the page that goes with it (decision 74). */
+  readonly handOver?: (says: string, note?: ReportNote) => Promise<HandOverReply>;
   /** The network asks for the person's password (or Facebook's PIN): said while the job waits; null once it's gone on. */
   readonly typing?: (line: string | null) => void;
   /** Notes the page its tab shows in HandsFreeOS (decision 74, ./report.ts): what it found, and what it didn't. */

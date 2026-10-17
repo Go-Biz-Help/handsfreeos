@@ -15,7 +15,7 @@
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import { valueOf, warnedOn, type Job, type JobEnd } from '../job';
-import { loadNote, ownProfileNote } from '../report';
+import { headlineNote, loadNote, ownProfileNote } from '../report';
 import { OWN_PROFILE, readLinkedIn, SIGNED_IN } from './read';
 
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
@@ -73,10 +73,11 @@ export async function linkedInHeadlineEdit(job: Job, task: EditTask): Promise<Jo
   const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio: task.bio });
   const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
   if (result !== 'done') {
-    // Something wasn't as expected: the person puts it in, and says when.
+    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which step it was.
     if (!job.handOver) return failed('LinkedIn didn’t let the extension change your headline.');
     const reply = await job.handOver(
       `Put your new headline in: press the pencil by your name on your LinkedIn profile, write “${task.bio}” under Headline, and press Save. Then press Carry on.`,
+      headlineNote(wrote.ok && 'result' in wrote ? wrote.steps : undefined),
     );
     if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
     const again = await openOwn(job);

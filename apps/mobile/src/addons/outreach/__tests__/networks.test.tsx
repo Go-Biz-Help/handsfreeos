@@ -515,7 +515,7 @@ describe('LinkedIn’s page and the person’s computer (decision 74)', () => {
       'Chrome on Mac 12 isn’t allowed on LinkedIn yet. Open the extension’s panel on a LinkedIn page and press Allow on LinkedIn, then Allow in Chrome’s box.',
     );
     expect(screen.getByTestId('settings-networks-linkedin-checkup')).toHaveTextContent(
-      /^Check LinkedInIf something on LinkedIn isn’t read right, press this once\./,
+      /^Check LinkedInIf something on LinkedIn isn’t working, press this once\./,
     );
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-checkup-ask'));
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'linkedin');

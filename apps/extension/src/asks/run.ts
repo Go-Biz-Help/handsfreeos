@@ -81,7 +81,7 @@ import { checkGroups } from '../jobs/groups-check';
 import { joinGroups } from '../jobs/join';
 import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
-import { reporter, type Reporter } from '../jobs/report';
+import { reporter, type Reporter, type ReportNote } from '../jobs/report';
 import { linkedInAsk } from '../jobs/linkedin';
 import { lookupAndDraft } from '../jobs/lookup';
 import { profileEdit, profileRead } from '../jobs/profile';
@@ -224,12 +224,19 @@ function hearWarnings(): void {
  * Hands a step to the person: their tab to the front, a pop-up here and a push on their phone, and waits for Carry on
  * or Skip (or Stop), looking for their answer in HandsFreeOS every so often. Half an hour with no answer stops it.
  */
-async function handOver(u: Under, says: string, how: 'stuck' | 'typing'): Promise<HandOverReply> {
+async function handOver(
+  u: Under,
+  says: string,
+  how: 'stuck' | 'typing',
+  note?: ReportNote,
+): Promise<HandOverReply> {
   if (u.halted !== null) return 'stop';
-  // What it couldn't find, noted with the page's outline before the person changes the page (decision 74).
+  // What it couldn't find, noted with the page's outline before the person changes the page (decision 74), with the
+  // job's own account of which step it was when it has one.
   if (how === 'stuck')
     await reporterFor(u)({
-      note: 'A step it couldn’t find was handed to the person.',
+      ...note,
+      note: note?.note ?? 'A step it couldn’t find was handed to the person.',
       outline: true,
     });
   const waited = new Promise<HandOverReply>((done) => (u.answered = done));
@@ -292,7 +299,7 @@ function jobFor(u: Under): Job {
     stopped: () => u.halted !== null,
     progress: (line) => void tell(u, 'working', line),
     warn: (words, url) => noteWarnings(u.place.businessId, words, url, u.platform),
-    handOver: (says) => handOver(u, says, 'stuck'),
+    handOver: (says, note) => handOver(u, says, 'stuck', note),
     report: reporterFor(u, hfos),
     typing: (line) => {
       if (line === null) return void tell(u, 'working', 'Carrying on…', true);

@@ -13,13 +13,21 @@
 import { PROBLEM_OUTLINE_MOST } from '@hfos/core/problem-report';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
 import type { PageRead } from '../networks/kit';
-import type { ProfileLoad } from '../networks/linkedin/own-profile';
+import type { StepTry } from '../networks/linkedin/tries';
+import {
+  headlineMissing,
+  type HeadlineSteps,
+  type ProfileLoad,
+} from '../networks/linkedin/own-profile';
 import type { Hfos, JobTab } from './job';
 
 /** What a job adds to its note of a page. */
 export interface ReportNote {
-  readonly found?: Readonly<Record<string, number | boolean>>;
+  /** The step within the job, when there's more than one to tell apart: Check LinkedIn's `checkup.headline`. */
+  readonly job?: string;
+  readonly found?: Readonly<Record<string, number | boolean | readonly string[]>>;
   /** What it couldn't find, in the extension's own words: never anything a person wrote. */
   readonly note?: string | null;
   /** Keep the page's outline: something was missing, a step was handed over, or the person asked for Check LinkedIn. */
@@ -131,6 +139,44 @@ export function loadNote(note: ReportNote, load: ProfileLoad | undefined): Repor
 }
 
 /**
+ * How putting LinkedIn's headline in went, step by step, for its note: each step's count or yes or no, the box's names
+ * for its fields as the outline shows them, and what wasn't there, in the extension's own words.
+ */
+export function headlineNote(steps: HeadlineSteps | undefined, tried = false): ReportNote {
+  if (!steps)
+    return { note: 'The tab didn’t say how putting the headline in went.', outline: true };
+  const missing = headlineMissing(steps, tried);
+  const { names, ...counts } = steps;
+  return {
+    found: { ...counts, ...(names.length ? { seen: names } : {}) },
+    note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
+    outline: missing.length > 0,
+  };
+}
+
+/**
+ * How one of Check LinkedIn's tries went (decision 76), for its note: whether it works, what it found, the names of
+ * what it looked among, and what was missing, in the extension's own words. The outline is kept when it doesn't work.
+ */
+export function tryNote(tried: StepTry): ReportNote {
+  const name = TRY_STEP_NAMES[tried.step];
+  const why = tried.missing.join('; ');
+  return {
+    job: `checkup.${tried.step}`,
+    found: {
+      works: tried.works,
+      tried: tried.tried,
+      ...tried.found,
+      ...(tried.seen?.length ? { seen: tried.seen } : {}),
+    },
+    note: tried.works
+      ? null
+      : `${name[0]!.toUpperCase()}${name.slice(1)}: ${tried.tried ? '' : 'not tried, '}${why}.`,
+    outline: !tried.works,
+  };
+}
+
+/**
  * A job's way to note the page its tab shows: reads it with its outline there, and saves the note in HandsFreeOS.
  */
 export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
@@ -149,7 +195,7 @@ export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
             source: 'extension',
             area: at.platform,
             ref: at.askId,
-            job: at.job.slice(0, 40),
+            job: (note.job ?? at.job).slice(0, 40),
             version: chrome.runtime.getManifest().version.slice(0, 20),
             page: String(answer.result.kind).slice(0, 40),
             path: (PAGE_LINE.exec(outline)?.[1] ?? '').slice(0, 500),
