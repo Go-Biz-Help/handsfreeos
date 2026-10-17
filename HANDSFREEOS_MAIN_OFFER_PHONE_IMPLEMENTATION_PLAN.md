@@ -16,12 +16,12 @@ HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md). The design is on the canva
 (https://claude.ai/artifact/QnVAhcpw5jG2YE9txiXUC4): Settings, Review your draft, Try 1 is ready, Edit it myself, Use
 it anyway, and a member's view.
 
-**Where it stands (2026-10-17):** steps 1 and 2 built, on branch `claude/compassionate-hypatia-62wvlc`. Step 1:
+**Where it stands (2026-10-17):** steps 1 to 3 built, on branch `claude/compassionate-hypatia-62wvlc`. Step 1:
 `coreFeatureHeld`, `underBarTitle`, `offerChecks`, `goingInto`, `offerRowLine` and `MAIN_OFFER_PHONE_WORDS` in core
 with the web on them, the phone's contract with the main offer's queries and commands, and the boards in
-`design/main-offer` (11 to 16). Step 2: Settings' Main offer row, and the screen by state, with Review your draft. Its
-changes (Edit it myself, Score, Make a try, Go live) are step 3; until then Edit it myself opens the builder's step on
-the web, and the bar's buttons wait.
+`design/main-offer` (11 to 16). Step 2: Settings' Main offer row, and the screen by state, with Review your draft.
+Step 3: its changes, Edit it myself, Score my offer, Make a try with Try N is ready and Compare on the web, Go live and
+Use it anyway. Step 4 (docs and the PR) is next.
 Chris approved the boards (2026-10-16: "boards approved") and answered the questions (2026-10-16: "yes to all five").
 
 ## Decisions (Chris, 2026-10-16)
@@ -174,8 +174,9 @@ New in core for the phone, in `words.ts`:
    not in use, not built yet, needs signal, the member's view, and Review your draft (the glance, the parts' cards,
    notes, Keep, the direction and the bottom bar). Also: `offerAiWords` and `offerStepOf` moved from the web into core,
    and a web link to Settings → Main offer opens the phone's screen (`links/route-map.ts`).
-3. **The changes.** Edit it myself, Score my offer, Make a try and Try 1 is ready with Compare on the web, Go live and
-   Use it anyway.
+3. **The changes.** **Built.** Edit it myself (`settings/main-offer-part?part=`), Score my offer, Make a try and Try
+   1 is ready with Compare on the web, Go live and Use it anyway. Coming back from Edit it myself asks for the offer
+   again.
 4. **Tests, docs and the PR.** The tests above; docs/main-offer.md (what the phone does, and off the Not yet list);
    Social Outreach's phone README ("the main offer is built on a computer" stays true of building it); the Settings
    comment and words for the rule's third exception; and the tries plan's "Not in this plan".

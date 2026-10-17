@@ -30,6 +30,9 @@ type In<P extends keyof paths> = paths[P] extends {
   ? B
   : never;
 
+/** Who may change the offer, as the commands check it. */
+export const MAIN_OFFER_MANAGE = 'main_offer.manage';
+
 export type MainOffer = ReturnType<typeof MainOfferGetOutput.parse>;
 export type MainOfferTry = ReturnType<typeof MainOfferTryOut.parse>;
 
@@ -99,3 +102,12 @@ export function offerAiError(e: unknown): string {
 /** Whether someone else changed the draft meanwhile: the screen asks for the offer again. */
 export const draftMoved = (e: unknown): boolean =>
   e instanceof ApiError && e.rule === 'main_offer_draft_moved';
+
+/**
+ * The revision to change the draft at. With no draft yet, the live version's parts are kept as the draft first, so a
+ * score or a try has a draft to read; the live version keeps running until one is published.
+ */
+export async function draftRevision(calls: MainOfferCalls, offer: MainOffer): Promise<number> {
+  if (offer.draft || !offer.live) return offer.revision;
+  return calls.saveDraft(offer.revision, offer.live.parts);
+}

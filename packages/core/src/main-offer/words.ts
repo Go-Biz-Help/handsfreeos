@@ -515,6 +515,10 @@ export const MAIN_OFFER_PHONE_WORDS = {
     `Opens ${name} beside your draft. ${name} is kept, so you can also open it later from a computer.`,
   blankForYou: (blank: string) => `Has a blank for you: ${blank}`,
   scoreFromTo: (part: string, from: number, to: number) => `${part}: ${from} to ${to}`,
+  /** A part's score in a try, when the draft it came from wasn't scored. */
+  tryScored: (part: string, score: number) => `${part}: ${score} in the try`,
+  save: 'Save',
+  saveNote: 'Saving changes your draft, so it’s scored again before it can go live.',
 } as const;
 
 /**
