@@ -11,7 +11,9 @@
  * edited in a picture.
  *
  * It draws each image as a web page in Chromium and saves it at exactly the size its store asks for: 1320×2868 for
- * the App Store's 6.9" iPhone slot, 1080×1920 for Play's phone screenshots, 1024×500 for Play's feature graphic.
+ * the App Store's 6.9" iPhone slot (`ios-`), 1206×2622 for its 6.1"/6.3" slot (`ios63-`), 1080×1920 for Play's
+ * phone screenshots (`android-`), 1024×500 for Play's feature graphic, and the App Store's product page header in
+ * both its sizes (`app-store-header-`).
  * Playwright comes from apps/web (`@playwright/test`, after `pnpm install`; `pnpm --filter @hfos/web exec playwright
  * install chromium` if it has no browser yet), or from a global `playwright`. The brand font, Hanken Grotesk, is
  * fetched from Google Fonts with curl into the system's temp folder, each weight from its own file, so the 800
@@ -106,6 +108,17 @@ const PLATFORMS = {
     camera: 'hole',
   },
 };
+/**
+ * App Store Connect also asks for the 6.1"/6.3" iPhone slot, at 1206×2622. The same 6.9" screenshots fit it (the two
+ * are the same shape to within a pixel), so this is the iPhone layout drawn smaller rather than an image shrunk.
+ */
+PLATFORMS.ios63 = Object.fromEntries(
+  Object.entries(PLATFORMS.ios).map(([k, v]) => [
+    k,
+    typeof v === 'number' ? Math.round((v * 1206) / 1320) : v,
+  ]),
+);
+Object.assign(PLATFORMS.ios63, { W: 1206, H: 2622, shot: [1320, 2868], source: 'ios' });
 
 /** The mark's own blues (design/brand), deepening from top right to bottom left. */
 const BLUE = `
@@ -226,19 +239,72 @@ function featureGraphic(font) {
   return page(W, H, font, css, body);
 }
 
+/**
+ * The App Store's product page header (App Store Connect → Header and Search Results). Apple takes either a 21:9
+ * header alone, 3840×1646, or one 16:9 image, 5244×2950, that it crops to 21:9 for the header and to 3:2 for search
+ * results. So the design is drawn once in a 3840×1646 box, and for the 16:9 image that box is scaled into the part
+ * both crops keep (the middle 4425×2247), with the blue running out to the edges. Its bottom is left quiet, because
+ * the App Store puts the app's name over the bottom of the header.
+ */
+const ART = { W: 3840, H: 1646 };
+function productPageHeader(font, W, H) {
+  const k = W === ART.W ? 1 : Math.min(4425 / ART.W, 2247 / ART.H);
+  const x = Math.round((W - ART.W * k) / 2),
+    y = Math.round((H - ART.H * k) / 2);
+  const phone = (file, left, top, width, turn, z) => {
+    const bezel = Math.round(width * 0.027),
+      screenW = width - bezel * 2;
+    const screenH = Math.round((screenW * 2868) / 1320);
+    return `<div class="phone" style="left:${left}px;top:${top}px;width:${width}px;height:${screenH + bezel * 2}px;
+      padding:${bezel}px;border-radius:${Math.round(width * 0.15)}px;transform:rotate(${turn}deg);z-index:${z}">
+      <div class="screen" style="width:${screenW}px;height:${screenH}px;border-radius:${Math.round(width * 0.125)}px">
+      <img src="${pathToFileURL(join(SHOTS, file)).href}">${camera('island', screenW / 1320)}</div></div>`;
+  };
+  const css = `
+    .art { position:absolute; left:${x}px; top:${y}px; width:${ART.W}px; height:${ART.H}px; transform:scale(${k}); transform-origin:0 0; }
+    .brand { position:absolute; left:300px; top:290px; display:flex; align-items:center; gap:40px; }
+    .chip { width:150px; height:150px; border-radius:40px; background:#fff; display:grid; place-items:center;
+            box-shadow:0 16px 48px rgba(6,22,70,0.25); }
+    .chip img { width:108px; height:108px; }
+    .name { font-weight:700; font-size:96px; letter-spacing:-0.01em; }
+    h1 { position:absolute; left:300px; top:500px; width:1800px; font-weight:800; font-size:214px; line-height:1.02; letter-spacing:-0.03em; }
+    p { position:absolute; left:300px; top:978px; width:1500px; font-weight:500; font-size:78px; line-height:1.3;
+        color:rgba(255,255,255,0.88); text-wrap:balance; }
+    .phone { position:absolute; background:#0c0f15;
+             box-shadow: 0 0 0 4px #2b313c inset, 0 90px 160px rgba(6,22,70,0.42), 0 20px 50px rgba(6,22,70,0.3); }`;
+  const body = `<div class="art">
+    <div class="brand"><div class="chip"><img src="${pathToFileURL(MARK).href}"></div><div class="name">HandsFreeOS</div></div>
+    <h1>Run your day<br>from your truck.</h1>
+    <p>Texts, calls, jobs and invoices in one app. Works with no signal.</p>
+    ${phone('ios-4-calendar.png', 2130, 330, 520, -7, 1)}
+    ${phone('ios-7-money-list.png', 3070, 330, 520, 7, 1)}
+    ${phone('ios-1-home.png', 2560, 190, 600, 0, 2)}
+  </div>`;
+  return page(W, H, font, css, body);
+}
+
 const only = process.argv[2];
 const jobs = [];
 for (const [platform, p] of Object.entries(PLATFORMS))
   for (const [key, head, sub] of SLIDES) {
     const name = `${platform}-${key}`;
+    const shot = `${p.source ?? platform}-${key}.png`;
     if (!only || name.startsWith(only))
-      jobs.push({ name, W: p.W, H: p.H, html: (f) => slide(p, f, `${name}.png`, head, sub) });
+      jobs.push({ name, shot, W: p.W, H: p.H, html: (f) => slide(p, f, shot, head, sub) });
   }
 if (!only || 'play-feature-graphic'.startsWith(only))
   jobs.push({ name: 'play-feature-graphic', W: 1024, H: 500, html: featureGraphic });
+for (const [W, H] of [
+  [3840, 1646],
+  [5244, 2950],
+]) {
+  const name = `app-store-header-${W}x${H}`;
+  if (!only || name.startsWith(only))
+    jobs.push({ name, W, H, html: (f) => productPageHeader(f, W, H) });
+}
 for (const job of jobs)
-  if (job.name !== 'play-feature-graphic' && !existsSync(join(SHOTS, `${job.name}.png`)))
-    throw new Error(`There is no screenshot ${job.name}.png in ${SHOTS}.`);
+  if (job.shot && !existsSync(join(SHOTS, job.shot)))
+    throw new Error(`There is no screenshot ${job.shot} in ${SHOTS}.`);
 
 mkdirSync(OUT, { recursive: true });
 const work = mkdtempSync(join(tmpdir(), 'hfos-marketing-'));

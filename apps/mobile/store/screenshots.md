@@ -65,9 +65,14 @@ saying what it shows, at the same sizes as the plain ones; and a Play feature gr
 from your truck." and a phone on it. `node scripts/store-marketing.mjs` makes them all from the plain screenshots, so
 retaking a screenshot or changing a headline (its `SLIDES` list) is followed by running it again.
 
-They are what goes in the listing, in the same order; the plain ones stay as their source. In App Store Connect they
-go in the **iPhone 6.9" Display** slot: dropped into the 6.1"/6.3" slot, Apple refuses them as "File dimensions are
-invalid", because that slot wants 1206 × 2622.
+They are what goes in the listing, in the same order; the plain ones stay as their source. App Store Connect asks
+for two iPhone slots now: the `ios-` set goes in **iPhone 6.9" Display**, and the `ios63-` set, the same design drawn
+at 1206 × 2622, in **iPhone 6.1"/6.3" Display**. Each slot refuses the other's size as "File dimensions are invalid".
+
+The script also makes the App Store's **product page header** (App Store Connect → Header and Search Results), new in
+2026: `app-store-header-3840x1646.png` is the 21:9 header alone, and `app-store-header-5244x2950.png` is Apple's one
+16:9 image for both the header and search results, which it crops to 21:9 and to 3:2; everything in it sits in the
+middle part both crops keep.
 
 ## If these are ever retaken
 

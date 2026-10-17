@@ -25,14 +25,17 @@ accounts. It is one app, not a white label per client.
 Generated from `design/brand/handsfreeos-icon.png` by `node scripts/mobile-icons.mjs`; that script's header says how.
 Don't edit them by hand — change the master and run it again.
 
-| File                                        | Size      | Where it goes                                                              |
-| ------------------------------------------- | --------- | -------------------------------------------------------------------------- |
-| `assets/app-store-icon-1024.png`            | 1024×1024 | App Store Connect → App Information → App Icon                             |
-| `assets/play-icon-512.png`                  | 512×512   | Play Console → Store listing → App icon                                    |
-| `assets/play-feature-graphic-1024x500.png`  | 1024×500  | Play Console → Store listing → Feature graphic                             |
-| `assets/marketing/ios-*.png`                | 1320×2868 | App Store Connect → iPhone 6.9" Display (instead of the plain screenshots) |
-| `assets/marketing/android-*.png`            | 1080×1920 | Play Console → Phone screenshots (instead of the plain screenshots)        |
-| `assets/marketing/play-feature-graphic.png` | 1024×500  | Play Console → Feature graphic, with words (instead of the plain one)      |
+| File                                              | Size      | Where it goes                                                              |
+| ------------------------------------------------- | --------- | -------------------------------------------------------------------------- |
+| `assets/app-store-icon-1024.png`                  | 1024×1024 | App Store Connect → App Information → App Icon                             |
+| `assets/play-icon-512.png`                        | 512×512   | Play Console → Store listing → App icon                                    |
+| `assets/play-feature-graphic-1024x500.png`        | 1024×500  | Play Console → Store listing → Feature graphic                             |
+| `assets/marketing/ios-*.png`                      | 1320×2868 | App Store Connect → iPhone 6.9" Display (instead of the plain screenshots) |
+| `assets/marketing/ios63-*.png`                    | 1206×2622 | App Store Connect → iPhone 6.1"/6.3" Display                               |
+| `assets/marketing/app-store-header-3840x1646.png` | 3840×1646 | App Store Connect → Header and Search Results → product page header        |
+| `assets/marketing/app-store-header-5244x2950.png` | 5244×2950 | The same, as Apple's one image for both the header and search results      |
+| `assets/marketing/android-*.png`                  | 1080×1920 | Play Console → Phone screenshots (instead of the plain screenshots)        |
+| `assets/marketing/play-feature-graphic.png`       | 1024×500  | Play Console → Feature graphic, with words (instead of the plain one)      |
 
 The `marketing/` images are the same screenshots set in a phone under a headline, plus a feature graphic with words,
 made by `node scripts/store-marketing.mjs`; its header says how. Change a headline there and run it again, never in an
