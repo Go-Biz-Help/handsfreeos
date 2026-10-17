@@ -15,16 +15,20 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { AskTaken } from '@hfos/core/addons/outreach/asks';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { HandOverReply, Hfos, Job, JobTab } from '../src/jobs/job';
+import type { ReportNote } from '../src/jobs/report';
 import { readCompany } from '../src/networks/linkedin/company';
 import { mainOf } from '../src/networks/linkedin/dom';
 import {
   headlineOf,
+  type HeadlineSteps,
   loadWholeProfile,
   readOwnProfile,
   writeHeadline,
 } from '../src/networks/linkedin/own-profile';
 import { linkedin } from '../src/networks';
+import { DATA_PAGE } from '../src/networks/linkedin/data';
 import { readPage } from '../src/networks/linkedin/page';
+import type { StepTry, TryStep } from '../src/networks/linkedin/tries';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { withdraw } from '../src/networks/linkedin/withdraw';
 import { boxEverything, load } from './load';
@@ -194,7 +198,7 @@ describe('putting the headline in', () => {
     'opens Edit intro, types only into Headline, presses Save and sees it under the name, %s',
     async (_, boxed) => {
       const { doc, typed } = editable(boxed);
-      expect(await writeHeadline(doc, OWN, NEW)).toBe('done');
+      expect((await writeHeadline(doc, OWN, NEW)).result).toBe('done');
       expect(headlineOf(doc, OWN)).toBe(NEW);
       expect(typed).toEqual(['f-headline']);
     },
@@ -204,14 +208,17 @@ describe('putting the headline in', () => {
     // The owner's Check LinkedIn of 17 Oct 2026: the pencil's label wasn't "Edit intro"; its link still was.
     const { doc, typed } = editable(false);
     doc.querySelector('[aria-label="Edit intro"]')!.setAttribute('aria-label', 'Edit profile');
-    expect(await writeHeadline(doc, OWN, NEW)).toBe('done');
+    expect((await writeHeadline(doc, OWN, NEW)).result).toBe('done');
     expect(typed).toEqual(['f-headline']);
   });
 
   it('presses nothing with no Edit intro, and says so for the person to do it', async () => {
     const doc = load('linkedin-own-profile-full.html', OWN);
     doc.querySelector('[aria-label="Edit intro"]')!.remove();
-    expect(await writeHeadline(doc, OWN, NEW)).toBe('none');
+    expect(await writeHeadline(doc, OWN, NEW)).toMatchObject({
+      result: 'none',
+      steps: { pencil: false, box: false },
+    });
   });
 
   it('guesses nothing when the box isn’t as expected: two Headline fields, or no Save', async () => {
@@ -236,7 +243,11 @@ describe('putting the headline in', () => {
       });
       const wrote = writeHeadline(doc, OWN, NEW);
       await vi.advanceTimersByTimeAsync(10_000);
-      expect(await wrote).toBe('none');
+      const { result, steps } = await wrote;
+      expect(result).toBe('none');
+      // It says which: two fields named Headline, or no Save.
+      expect([steps.headlineFields, steps.saves]).toEqual(steps.saves === 0 ? [1, 0] : [2, 1]);
+      expect(steps).toMatchObject({ pencil: true, box: true, typed: false, saved: false });
       expect(saved).toBe(false);
       // Nothing was typed: the headline in the box is as it was.
       expect(doc.querySelector<HTMLTextAreaElement>('#f-headline')!.value).toBe(
@@ -250,7 +261,10 @@ describe('putting the headline in', () => {
     const { doc } = editable(false, 'stays');
     const wrote = writeHeadline(doc, OWN, NEW);
     await vi.advanceTimersByTimeAsync(20_000);
-    expect(await wrote).toBe('not_saved');
+    expect(await wrote).toMatchObject({
+      result: 'not_saved',
+      steps: { typed: true, saved: false },
+    });
   });
 });
 
@@ -350,6 +364,8 @@ function fakeTab(
   more: {
     scrolls?: Record<string, boolean[]>;
     headline?: 'done' | 'none';
+    headlineSteps?: HeadlineSteps;
+    tries?: Partial<Record<TryStep, StepTry>>;
     onOpen?: (doc: Document, url: string) => void;
   } = {},
 ) {
@@ -358,6 +374,7 @@ function fakeTab(
   let reading = '';
   const opened: string[] = [];
   const asked: string[] = [];
+  const tried: (readonly [TryStep, string])[] = [];
   let closed = 0;
   const open = (url: string) => {
     at = url;
@@ -395,15 +412,22 @@ function fakeTab(
             shown: true,
           };
         case 'hfos-write-bio':
-          return { ok: true, result: more.headline ?? 'done' };
+          return { ok: true, result: more.headline ?? 'done', steps: more.headlineSteps };
         case 'hfos-withdraw':
           return { ok: true, result: await withdraw(doc, reading, message.profile as ProfileRef) };
+        case 'hfos-try': {
+          // Check LinkedIn's tries are the tab's (test/linkedin-tries.test.ts): here, the page each was tried on.
+          const step = message.step as TryStep;
+          tried.push([step, reading]);
+          const works: StepTry = { step, tried: true, works: true, found: {}, missing: [] };
+          return { ok: true, tried: more.tries?.[step] ?? works };
+        }
         default:
           return { ok: more.scrolls?.[message.type]?.shift() ?? false };
       }
     },
   } as unknown as JobTab;
-  return { tab, opened, asked, closed: () => closed };
+  return { tab, opened, asked, tried, closed: () => closed };
 }
 
 /** HandsFreeOS, answering as it would, and keeping what it was sent. */
@@ -714,13 +738,20 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
     });
     const { hfos, sent } = fakeHfos();
     const handed: string[] = [];
+    const notes: (ReportNote | undefined)[] = [];
     const { job } = jobWith(tab, hfos, {
-      handOver: async (says): Promise<HandOverReply> => (handed.push(says), 'carry_on'),
+      handOver: async (says, note): Promise<HandOverReply> => (
+        handed.push(says),
+        notes.push(note),
+        'carry_on'
+      ),
     });
     const end = await onLinkedIn({ kind: 'profile_edit', bio: 'I help roofers' }, job);
     expect(handed).toEqual([
       'Put your new headline in: press the pencil by your name on your LinkedIn profile, write “I help roofers” under Headline, and press Save. Then press Carry on.',
     ]);
+    // The tab didn't say which step: the note says so, outline and all.
+    expect(notes[0]).toMatchObject({ outline: true });
     expect(sentOf(sent, 'hfos-profile-check')).toHaveLength(1);
     expect(end.line).toBe('Your headline now says “I help roofers”.');
   });
@@ -797,47 +828,174 @@ describe('notes of what it saw, and Check LinkedIn', () => {
     });
   });
 
-  it('Check LinkedIn reads your main pages with its window in front, presses nothing, and notes each', async () => {
-    const pages: Record<string, string> = {
-      [`${LI}/in/me/`]: 'linkedin-own-profile-full.html',
+  describe('Check LinkedIn', () => {
+    // On the newer feed few posts link to their own page; Nina Alvarez's does.
+    const POST = `${LI}/feed/update/urn:li:activity:7380000000000000611/`;
+    const ACTIVITY = `${DANA}recent-activity/all/`;
+    const pages: Record<string, { readonly fixture: string; readonly at?: string } | string> = {
+      [`${LI}/in/me/`]: { fixture: 'linkedin-own-profile-full.html', at: OWN },
       [`${LI}/feed/`]: 'linkedin-feed-2026-10.html',
       [CONNECTIONS]: 'linkedin-connections.html',
+      [POST]: 'linkedin-post.html',
       [MESSAGING]: 'linkedin-chat.html',
+      // Dana is the first of the search you're not connected with, and the first of your connections.
+      [DANA]: 'linkedin-profile.html',
+      [ACTIVITY]: 'linkedin-activity.html',
+      [SENT]: 'linkedin-invitations-sent.html',
+      [DATA_PAGE]: 'linkedin-data.html',
     };
-    const { tab, opened, asked } = fakeTab((url) => {
+    const linkedIn = (url: string) => {
       if (url.includes('/search/results/people/')) return 'linkedin-search-people.html';
       if (url.includes('/search/results/content/')) return 'linkedin-search-posts.html';
-      if (pages[url])
-        return url.endsWith('/in/me/') ? { fixture: pages[url]!, at: OWN } : pages[url]!;
-      return { fixture: 'linkedin-profile.html', at: DANA };
-    });
-    const order: string[] = [];
-    tab.inFront = async (work) => {
-      order.push('in front');
-      const out = await work();
-      order.push('back');
-      return out;
+      const page = pages[url];
+      if (!page) throw new Error(`Not expected: ${url}`);
+      return page;
     };
-    const notes: { outline?: boolean }[] = [];
-    const { hfos } = fakeHfos();
-    const { job } = jobWith(tab, hfos, { report: async (note = {}) => void notes.push(note) });
-    const end = await onLinkedIn({ kind: 'checkup' }, job);
-    expect(opened.slice(0, 6)).toEqual([
-      `${LI}/in/me/`,
-      `${LI}/feed/`,
-      CONNECTIONS,
-      `${LI}/search/results/people/?keywords=small%20business`,
-      expect.stringContaining(`${LI}/search/results/content/?keywords=small%20business`),
-      MESSAGING,
-    ]);
-    // Then one connection's profile, the first on the list.
-    expect(opened[6]).toMatch(/^https:\/\/www\.linkedin\.com\/in\//);
-    expect(notes).toHaveLength(7);
-    expect(notes.every((n) => n.outline === true)).toBe(true);
-    expect(order).toEqual(['in front', 'back']);
-    // Read only: nothing written, sent or pressed.
-    expect(asked.filter((a) => !['hfos-read', 'hfos-own-profile'].includes(a))).toEqual([]);
-    expect(end.line).toMatch(/^Checked 7 LinkedIn pages and sent HandsFreeOS a note of each\./);
+
+    async function checkWith(tries: Partial<Record<TryStep, StepTry>> = {}) {
+      const { tab, opened, asked, tried } = fakeTab(linkedIn, { tries });
+      const order: string[] = [];
+      tab.inFront = async (work) => {
+        order.push('in front');
+        const out = await work();
+        order.push('back');
+        return out;
+      };
+      const notes: ReportNote[] = [];
+      const { hfos } = fakeHfos();
+      const { job } = jobWith(tab, hfos, { report: async (note = {}) => void notes.push(note) });
+      const end = await onLinkedIn({ kind: 'checkup' }, job);
+      return { end, notes, opened, asked, tried, order };
+    }
+
+    it('reads your main pages and tries each step on its own page, with its window in front', async () => {
+      const { end, notes, opened, asked, tried, order } = await checkWith();
+      expect(opened).toEqual([
+        `${LI}/in/me/`,
+        `${LI}/feed/`,
+        CONNECTIONS,
+        `${LI}/search/results/people/?keywords=small%20business`,
+        DANA,
+        expect.stringContaining(`${LI}/search/results/content/?keywords=small%20business`),
+        POST,
+        MESSAGING,
+        DANA,
+        ACTIVITY,
+        SENT,
+        DATA_PAGE,
+      ]);
+      expect(tried).toEqual([
+        ['headline', OWN],
+        ['post', `${LI}/feed/`],
+        ['connect', DANA],
+        ['comment', POST],
+        ['message', DANA],
+        ['like', ACTIVITY],
+        ['withdraw', SENT],
+        ['file', DATA_PAGE],
+      ]);
+      expect(order).toEqual(['in front', 'back']);
+      // The job only reads; the tab tries, and never presses a step's last button.
+      expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-own-profile', 'hfos-try']));
+      // A note of each page it read, one of each step, and the end's.
+      expect(notes.map((n) => n.job ?? 'page')).toEqual([
+        'page',
+        'checkup.headline',
+        'page',
+        'checkup.post',
+        'page',
+        'page',
+        'checkup.connect',
+        'page',
+        'checkup.comment',
+        'page',
+        'page',
+        'checkup.message',
+        'checkup.like',
+        'checkup.withdraw',
+        'checkup.file',
+        'checkup.summary',
+      ]);
+      // Steps that work keep no outline; pages always do.
+      expect(notes.filter((n) => n.job?.startsWith('checkup.')).every((n) => !n.outline)).toBe(
+        true,
+      );
+      expect(notes.filter((n) => !n.job).every((n) => n.outline)).toBe(true);
+      expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 8, working: 8 });
+      expect(end).toEqual({
+        line: 'Read 12 LinkedIn pages and tried 8 steps up to their last press. Everything works.',
+        warned: false,
+      });
+    });
+
+    it('says which steps don’t work, and which had nothing to try on, all in one go', async () => {
+      const { end, notes } = await checkWith({
+        headline: {
+          step: 'headline',
+          tried: true,
+          works: false,
+          found: { pencil: true, box: true, fields: 9, headlineFields: 0 },
+          missing: ['no field named Headline in the box'],
+          seen: ['First name*', '(no name)'],
+        },
+        like: {
+          step: 'like',
+          tried: false,
+          works: false,
+          found: { posts: 0 },
+          missing: ['none of their posts on their activity'],
+        },
+      });
+      expect(notes.find((n) => n.job === 'checkup.headline')).toEqual({
+        job: 'checkup.headline',
+        found: {
+          works: false,
+          tried: true,
+          pencil: true,
+          box: true,
+          fields: 9,
+          headlineFields: 0,
+          seen: ['First name*', '(no name)'],
+        },
+        note: 'Your headline: no field named Headline in the box.',
+        outline: true,
+      });
+      expect(notes.find((n) => n.job === 'checkup.like')).toMatchObject({
+        note: 'Liking: not tried, none of their posts on their activity.',
+        outline: true,
+      });
+      expect(notes.at(-1)!.found).toEqual({
+        pages: 12,
+        steps: 8,
+        working: 6,
+        notWorking: ['headline'],
+        nothingToTry: ['like'],
+      });
+      expect(end.line).toBe(
+        'Read 12 LinkedIn pages and tried 8 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
+      );
+    });
+
+    it('notes a step with nothing to try it on without opening anything for it', async () => {
+      const { tab, opened, tried } = fakeTab(linkedIn, {
+        // Nobody on your connections page.
+        onOpen: (doc, url) => {
+          if (url === CONNECTIONS) for (const row of doc.querySelectorAll('main li')) row.remove();
+        },
+      });
+      const notes: ReportNote[] = [];
+      const { hfos } = fakeHfos();
+      const { job } = jobWith(tab, hfos, { report: async (note = {}) => void notes.push(note) });
+      const end = await onLinkedIn({ kind: 'checkup' }, job);
+      // No connections read: neither their profile nor their posts opened, and messaging and liking say why.
+      expect(opened).not.toContain(ACTIVITY);
+      expect(tried.map(([step]) => step)).not.toContain('message');
+      expect(notes.find((n) => n.job === 'checkup.message')).toMatchObject({
+        note: 'Messaging: not tried, no connection to try it with.',
+        outline: false,
+      });
+      expect(end.line).toContain('Nothing to try on: messaging and liking.');
+    });
   });
 });
 

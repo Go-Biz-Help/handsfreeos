@@ -32,6 +32,37 @@ export const REPORT_WORDS = {
     `Checked ${pages} ${name} pages and sent HandsFreeOS a note of each.${
       nothingOn.length ? ` Nothing was read on ${listed(nothingOn)}.` : ''
     }`,
+  /**
+   * How Check LinkedIn ended, now that it tries each step too (decision 76): the pages it read, the steps that don't
+   * work and those it found nothing to try on, by name. What each found is in its own note; the line fits an ask's 300.
+   */
+  checkupTried: (
+    name: string,
+    pages: number,
+    broken: readonly TryStepName[],
+    untried: readonly TryStepName[],
+    tried: number,
+  ) => {
+    const named = (steps: readonly TryStepName[]) => listed(steps.map((s) => TRY_STEP_NAMES[s]));
+    const parts = [`Read ${pages} ${name} pages and tried ${tried} steps up to their last press.`];
+    if (!broken.length) parts.push(untried.length ? 'Each one tried works.' : 'Everything works.');
+    else parts.push(`Not working: ${named(broken)}.`);
+    if (untried.length) parts.push(`Nothing to try on: ${named(untried)}.`);
+    return parts.join(' ').slice(0, 300);
+  },
   checkupAbout: (name: string) =>
-    `If something on ${name} isn’t read right, press this once. Your computer opens your profile, your feed, your connections, a search, your messages and one connection’s profile, reads each without pressing anything, and sends HandsFreeOS a note of what it found, with names and words left out. Its window comes to the front for about a minute.`,
+    `If something on ${name} isn’t working, press this once. Your computer reads your profile, feed, connections, a search and your messages, then tries each step up to its last press: your headline, a post, a comment, connecting, a message, a like and withdrawing. It never saves, posts, sends, likes or connects anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.`,
 } as const;
+
+/** The steps Check LinkedIn tries (decision 76), as its line names them. */
+export const TRY_STEP_NAMES = {
+  headline: 'your headline',
+  post: 'posting',
+  comment: 'commenting',
+  connect: 'connecting',
+  message: 'messaging',
+  like: 'liking',
+  withdraw: 'withdrawing',
+  file: 'the data file',
+} as const;
+export type TryStepName = keyof typeof TRY_STEP_NAMES;

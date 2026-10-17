@@ -30,6 +30,8 @@ import type {
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  TryAnswer,
+  TryAsk,
   PostsAnswer,
   WithdrawAnswer,
   WithdrawAsk,
@@ -48,6 +50,16 @@ import { readComments, readReactions, writeFeedPost } from './compose';
 import { dataPage } from './data';
 import { loadWholeProfile, readOwnProfile, writeHeadline } from './own-profile';
 import { classifyUrl } from './urls';
+import {
+  tryComment,
+  tryConnect,
+  tryFile,
+  tryHeadlineStep,
+  tryLike,
+  tryMessage,
+  tryPost,
+  tryWithdraw,
+} from './tries';
 import { sentPage, withdraw } from './withdraw';
 
 /** The kinds of ask a LinkedIn tab answers besides reading. */
@@ -68,11 +80,13 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-fetch-path',
   'hfos-feed-post',
   'hfos-engaged',
+  'hfos-try',
 ]);
 
 type WorkAsk =
   | Extract<BrowseAsk, { type: 'hfos-open-chat' | 'hfos-scroll-chats' | 'hfos-scroll-list' }>
   | OwnProfileAsk
+  | TryAsk
   | WithdrawAsk
   | AutoAsk
   | ConnectAsk
@@ -95,7 +109,47 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
     const load = await loadWholeProfile(document);
     return { ok: true, read: readOwnProfile(document, location.href), load };
   }
-  return { ok: true, result: await writeHeadline(document, location.href, ask.bio) };
+  return { ok: true, ...(await writeHeadline(document, location.href, ask.bio)) };
+}
+
+/** Check LinkedIn's tries (./tries.ts), each only on the kind of page its step is for. */
+async function tryStep(ask: TryAsk): Promise<TryAnswer> {
+  const kind = classifyUrl(location.href).kind;
+  const onProfile = kind === 'profile' || kind === 'own-profile';
+  const wrong = (page: string): TryAnswer => ({
+    ok: false,
+    error: `LinkedIn didn’t open ${page}.`,
+  });
+  switch (ask.step) {
+    case 'headline':
+      return onProfile
+        ? { ok: true, tried: await tryHeadlineStep(document) }
+        : wrong('your profile');
+    case 'post':
+      return kind === 'feed' ? { ok: true, tried: await tryPost(document) } : wrong('your feed');
+    case 'comment':
+      return kind === 'post' ? { ok: true, tried: await tryComment(document) } : wrong('the post');
+    case 'connect':
+      return onProfile
+        ? { ok: true, tried: await tryConnect(document, location.href) }
+        : wrong('their profile');
+    case 'message':
+      return onProfile && ask.profile
+        ? { ok: true, tried: await tryMessage(document, location.href, ask.profile) }
+        : wrong('their profile');
+    case 'like':
+      return (onProfile || kind === 'activity') && ask.profile
+        ? { ok: true, tried: tryLike(document, location.href, ask.profile) }
+        : wrong('their posts');
+    case 'withdraw':
+      return sentPage(location.href)
+        ? { ok: true, tried: tryWithdraw(document, location.href) }
+        : wrong('the invitations you’ve sent');
+    case 'file':
+      return dataPage(location.href)
+        ? { ok: true, tried: tryFile(document) }
+        : wrong('its Get a copy of your data page');
+  }
 }
 
 /** Withdrawing an invitation, on Sent invitations alone. */
@@ -196,5 +250,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-feed-post':
     case 'hfos-engaged':
       return postStep(known);
+    case 'hfos-try':
+      return tryStep(known);
   }
 }

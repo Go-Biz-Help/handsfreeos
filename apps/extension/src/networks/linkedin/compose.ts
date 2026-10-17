@@ -54,7 +54,7 @@ export function startsLike(theirs: string, mine: string): boolean {
 }
 
 /** The box over the page LinkedIn opens to write a post in, while it's open: one to write in, with its own Post. */
-function composer(doc: Document): Element | null {
+export function composer(doc: Document): Element | null {
   return (
     [...doc.querySelectorAll(OVER_THE_PAGE)]
       .filter(shown)
@@ -64,6 +64,15 @@ function composer(doc: Document): Element | null {
           [...box.querySelectorAll(WRITING)].some(shown) &&
           [...box.querySelectorAll(CONTROLS)].some((c) => says(c, POST)),
       ) ?? null
+  );
+}
+
+/** The feed's Start a post, which opens the composer. */
+export function startOf(doc: Document): HTMLElement | null {
+  return (
+    [...mainOf(doc).querySelectorAll<HTMLElement>(`${CONTROLS}, ${WRITING}`)].find(
+      (c) => shown(c) && !c.closest(OVER_THE_PAGE) && says(c, START),
+    ) ?? null
   );
 }
 
@@ -103,9 +112,7 @@ export async function writeFeedPost(
   const notSent = { result: 'not_sent', url: null } as const;
   let box = composer(doc);
   if (!box) {
-    const start = [...mainOf(doc).querySelectorAll<HTMLElement>(`${CONTROLS}, ${WRITING}`)].find(
-      (c) => shown(c) && !c.closest(OVER_THE_PAGE) && says(c, START),
-    );
+    const start = startOf(doc);
     if (!start) return none;
     start.click();
     box = await waitFor(() => composer(doc));

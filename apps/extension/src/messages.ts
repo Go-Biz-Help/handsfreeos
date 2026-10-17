@@ -6,7 +6,8 @@
  * chat, read the person's own profile, put the bio or headline in), and a tab answers only its own network's.
  */
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
-import type { ProfileLoad } from './networks/linkedin/own-profile';
+import type { HeadlineSteps, ProfileLoad } from './networks/linkedin/own-profile';
+import type { StepTry, TryStep } from './networks/linkedin/tries';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { LinkedInFilePart } from './hfos/files';
@@ -122,8 +123,21 @@ export type OwnProfileAsk =
 export type OwnProfileAnswer =
   /** `load`: how loading the whole profile went, where the network draws it as it comes into view (LinkedIn). */
   | { readonly ok: true; readonly read: ProfileRead; readonly load?: ProfileLoad }
-  | { readonly ok: true; readonly result: BioResult }
+  /** `steps`: how each step of putting LinkedIn's headline in went. */
+  | { readonly ok: true; readonly result: BioResult; readonly steps?: HeadlineSteps }
   | { readonly ok: false; readonly error: string };
+
+/**
+ * Check LinkedIn's tries (src/networks/linkedin/tries.ts, decision 76): one of the extension's steps on LinkedIn taken
+ * up to its last press, on the page it's for; `profile` is whose page it is, for messaging and liking.
+ */
+export type TryAsk = {
+  readonly type: 'hfos-try';
+  readonly step: TryStep;
+  readonly profile?: ProfileRef;
+};
+export type TryAnswer =
+  { readonly ok: true; readonly tried: StepTry } | { readonly ok: false; readonly error: string };
 
 /**
  * On LinkedIn's Sent invitations, withdraw the one to this member (src/networks/linkedin/withdraw.ts): its row is found

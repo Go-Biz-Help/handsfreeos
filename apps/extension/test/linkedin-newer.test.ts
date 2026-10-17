@@ -29,6 +29,7 @@ import {
   headlineOf,
   loadWholeProfile,
   readOwnProfile,
+  tryHeadline,
   writeHeadline,
 } from '../src/networks/linkedin/own-profile';
 import { readPage } from '../src/networks/linkedin/page';
@@ -698,44 +699,145 @@ describe('putting the headline in through LinkedIn’s newer box', () => {
 
   /**
    * The owner's Put this one in of 17 Oct 2026: the pencil (Edit profile) opens the box over the page; Headline is a
-   * writing box named by the line above it, which takes typing as Chrome does; Save puts it under the name and closes
-   * the box.
+   * writing box named by the line above it, which takes typing as Chrome does (or, `typing: 'ignored'`, only a paste,
+   * as an editor that keeps its own idea of what's selected may); Save puts it under the name and closes the box;
+   * Dismiss closes it, asking to be sure first with `asksDiscard`. `emptyFirst` puts an empty box before the writing box
+   * and has it named by a label that isn't there, as a real page might and its outline wouldn't show.
    */
-  function editable() {
+  function editable(
+    more: {
+      typing?: 'takes' | 'ignored';
+      emptyFirst?: boolean;
+      asksDiscard?: boolean;
+    } = {},
+  ) {
     const doc = load(OWN_PAGE, OWN);
     const typed: string[] = [];
+    const pressed: string[] = [];
     doc.querySelector('[aria-label="Edit profile"]')!.addEventListener('click', (event) => {
       event.preventDefault();
       const from = load('linkedin-edit-intro-2026-10.html', OWN);
       const outlet = doc.importNode(from.getElementById('modal-outlet')!, true);
       doc.body.append(outlet);
-      const writing = outlet.querySelector('[role="textbox"]')!;
+      const writing = outlet.querySelector<HTMLElement>('[role="textbox"]')!;
+      if (more.emptyFirst) {
+        writing.before(doc.createElement('div'));
+        writing.setAttribute('aria-labelledby', 'not-on-the-page');
+      }
       for (const field of outlet.querySelectorAll('input'))
         field.addEventListener('input', () => typed.push('an input'));
-      doc.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+      doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
+        if (command !== 'insertText' || more.typing === 'ignored') return false;
         typed.push('headline');
         writing.textContent = text ?? '';
         return true;
       };
-      [...outlet.querySelectorAll('button')]
-        .find((b) => b.textContent?.trim() === 'Save')!
-        .addEventListener('click', () => {
-          const under = [...doc.querySelectorAll('main *')].find(
-            (e) => e.children.length === 0 && e.textContent?.replace(/\s+/g, ' ').trim() === OLD,
-          )!;
-          under.textContent = writing.textContent;
-          outlet.remove();
-        });
+      writing.addEventListener('paste', (pasted) => {
+        typed.push('pasted');
+        writing.textContent = (pasted as ClipboardEvent).clipboardData!.getData('text/plain');
+      });
+      const button = (words: string) =>
+        [...outlet.querySelectorAll('button')].find(
+          (b) => (b.getAttribute('aria-label') ?? b.textContent)?.trim() === words,
+        )!;
+      button('Save').addEventListener('click', () => {
+        pressed.push('Save');
+        const under = [...doc.querySelectorAll('main *')].find(
+          (e) => e.children.length === 0 && e.textContent?.replace(/\s+/g, ' ').trim() === OLD,
+        )!;
+        under.textContent = writing.textContent;
+        outlet.remove();
+      });
+      button('Dismiss').addEventListener('click', () => {
+        pressed.push('Dismiss');
+        if (!more.asksDiscard) return outlet.remove();
+        const sure = doc.createElement('div');
+        sure.setAttribute('role', 'alertdialog');
+        sure.innerHTML = '<p>Discard changes?</p><button>Cancel</button><button>Discard</button>';
+        doc.body.append(sure);
+        [...sure.querySelectorAll('button')]
+          .find((b) => b.textContent === 'Discard')!
+          .addEventListener('click', () => {
+            pressed.push('Discard');
+            sure.remove();
+            outlet.remove();
+          });
+      });
     });
-    return { doc, typed };
+    return { doc, typed, pressed };
+  }
+
+  /** A paste as Chrome makes one, which jsdom hasn't got. */
+  function pasting(doc: Document) {
+    class DataTransfer {
+      private readonly data = new Map<string, string>();
+      setData(type: string, value: string) {
+        this.data.set(type, value);
+      }
+      getData(type: string) {
+        return this.data.get(type) ?? '';
+      }
+    }
+    const view = doc.defaultView! as unknown as Record<string, unknown>;
+    const Base = doc.defaultView!.Event;
+    view.DataTransfer = DataTransfer;
+    view.ClipboardEvent = class extends Base {
+      readonly clipboardData: DataTransfer;
+      constructor(type: string, init: EventInit & { clipboardData: DataTransfer }) {
+        super(type, init);
+        this.clipboardData = init.clipboardData;
+      }
+    };
   }
 
   it('presses Edit profile, writes only in the box named Headline, presses Save and sees it under the name', async () => {
     const { doc, typed } = editable();
     expect(headlineOf(doc, OWN)).toBe(OLD);
-    expect(await writeHeadline(doc, OWN, NEW)).toBe('done');
+    expect(await writeHeadline(doc, OWN, NEW)).toMatchObject({
+      result: 'done',
+      steps: { pencil: true, box: true, headlineFields: 1, saves: 1, typed: true, saved: true },
+    });
     expect(headlineOf(doc, OWN)).toBe(NEW);
     expect(typed).toEqual(['headline']);
+  });
+
+  it('finds Headline past an empty box, and when what names it isn’t on the page', async () => {
+    const { doc } = editable({ emptyFirst: true });
+    expect((await writeHeadline(doc, OWN, NEW)).result).toBe('done');
+    expect(headlineOf(doc, OWN)).toBe(NEW);
+  });
+
+  it('pastes the headline in when the box ignores typing, as an editor may', async () => {
+    const { doc, typed } = editable({ typing: 'ignored' });
+    pasting(doc);
+    expect((await writeHeadline(doc, OWN, NEW)).result).toBe('done');
+    expect(typed).toEqual(['pasted']);
+  });
+
+  it('says which step it was when writing doesn’t take, the box’s names for its fields with it', async () => {
+    const { doc, pressed } = editable({ typing: 'ignored' });
+    const { result, steps } = await writeHeadline(doc, OWN, NEW);
+    expect(result).toBe('none');
+    expect(steps).toMatchObject({ box: true, headlineFields: 1, saves: 1, typed: false });
+    // LinkedIn's words are shown; anything else, a person's, is hidden.
+    expect(steps.names).toContain('Headline*');
+    expect(pressed).toEqual([]);
+  });
+
+  it('tries it all up to Save: writes other words and puts its own back, never saves, and closes the box', async () => {
+    const { doc, typed, pressed } = editable({ asksDiscard: true });
+    expect(await tryHeadline(doc)).toMatchObject({
+      pencil: true,
+      box: true,
+      headlineFields: 1,
+      saves: 1,
+      typed: true,
+      saved: false,
+      closed: true,
+    });
+    expect(typed).toEqual(['headline', 'headline']);
+    expect(pressed).toEqual(['Dismiss', 'Discard']);
+    expect(headlineOf(doc, OWN)).toBe(OLD);
   });
 });
 

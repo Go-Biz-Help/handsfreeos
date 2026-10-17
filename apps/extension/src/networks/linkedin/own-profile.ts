@@ -30,6 +30,7 @@ import { controlsIn, CONTROLS, mainOf, shownLines, wordsOf } from './dom';
 import { readPosts } from './posts';
 import { inTopCard, readProfile, rolesOf, sectionLines, sectionOf } from './profile';
 import type { Role } from './types';
+import { maskText } from './outline';
 import { classifyUrl } from './urls';
 import { nameFrom } from './vocabulary';
 
@@ -308,36 +309,37 @@ function editIntroOf(doc: Document): HTMLElement | null {
 }
 
 /**
- * The words just above a field, where LinkedIn's newer boxes name it: a line before the field, or before a box around
- * it (Headline above its writing box, the owner's Put this one in of 17 Oct 2026). A long line isn't a name.
+ * The words just above a field, where LinkedIn's newer boxes name it: the nearest line with words before the field, or
+ * before a box around it (Headline above its writing box, the owner's Put this one in of 17 Oct 2026). Empty boxes and
+ * icons between are passed over; a long line isn't a name.
  */
 function nameAbove(field: Element): string {
   let at: Element | null = field;
-  for (let up = 0; at && up < 3; up++, at = at.parentElement) {
-    const before = at.previousElementSibling;
-    if (!before) continue;
-    const words = clean(before.textContent);
-    return words.length <= 40 ? words : '';
+  for (let up = 0; at && up < 4; up++, at = at.parentElement) {
+    for (let before = at.previousElementSibling; before; before = before.previousElementSibling) {
+      const words = clean(before.textContent);
+      if (!words) continue;
+      return words.length <= 40 ? words : '';
+    }
   }
   return '';
 }
 
 /**
- * What labels a field: its label for screen readers, the label that names it, the one around it, or the words just
- * above it.
+ * What labels a field: its label for screen readers, what it says labels it (when that has words), the label that
+ * names it, the one around it, or the words just above it.
  */
 function fieldLabel(field: Element): string {
   const doc = field.ownerDocument;
   const own = clean(field.getAttribute('aria-label'));
   if (own) return own;
-  const by = field.getAttribute('aria-labelledby');
-  if (by)
-    return clean(
-      by
-        .split(/\s+/)
-        .map((id) => doc.getElementById(id)?.textContent ?? '')
-        .join(' '),
-    );
+  const by = clean(
+    (field.getAttribute('aria-labelledby') ?? '')
+      .split(/\s+/)
+      .map((id) => (id ? (doc.getElementById(id)?.textContent ?? '') : ''))
+      .join(' '),
+  );
+  if (by) return by;
   const id = field.getAttribute('id');
   const named = id
     ? [...doc.querySelectorAll('label[for]')].find((label) => label.getAttribute('for') === id)
@@ -345,11 +347,13 @@ function fieldLabel(field: Element): string {
   return clean((named ?? field.closest('label'))?.textContent) || nameAbove(field);
 }
 
+/** The fields shown in a box, to write in. */
+const shownFields = (box: Element) =>
+  [...box.querySelectorAll<HTMLElement>(FIELDS)].filter((field) => shown(field));
+
 /** The fields labelled Headline in a box. */
 const headlineFields = (box: Element) =>
-  [...box.querySelectorAll<HTMLElement>(FIELDS)].filter(
-    (field) => shown(field) && HEADLINE.test(fieldLabel(field)),
-  );
+  shownFields(box).filter((field) => HEADLINE.test(fieldLabel(field)));
 
 /** The intro's box, once it's open: over the page, shown, with a Headline field in it. */
 function introBox(doc: Document): Element | null {
@@ -360,6 +364,12 @@ function introBox(doc: Document): Element | null {
   );
 }
 
+/** A box over the page with fields in it: what the pencil opened when none of them says Headline. */
+const boxWithFields = (doc: Document) =>
+  [...doc.querySelectorAll(OVER_THE_PAGE)].find(
+    (box) => shown(box) && shownFields(box).length > 0,
+  ) ?? null;
+
 /** What's written in a field now. */
 const valueOf = (field: HTMLElement) =>
   clean(
@@ -367,6 +377,58 @@ const valueOf = (field: HTMLElement) =>
       ? (field as HTMLInputElement).value
       : field.textContent,
   );
+
+const isPlain = (field: HTMLElement) => field.tagName === 'TEXTAREA' || field.tagName === 'INPUT';
+
+/**
+ * Writes in a field in place of what's there, and says whether it reads back. A writing box (LinkedIn's newer boxes
+ * are editors that keep their own idea of what's selected) is focused and given a moment first; if typing doesn't
+ * take, everything in it is selected and the words pasted, as an editor takes a paste.
+ */
+async function writeInto(doc: Document, field: HTMLElement, text: string): Promise<boolean> {
+  const wanted = clean(text);
+  field.focus();
+  if (!isPlain(field)) await pause(150);
+  typeInto(doc, field, text, true);
+  await pause(300);
+  if (valueOf(field) === wanted || isPlain(field)) return valueOf(field) === wanted;
+  const view = doc.defaultView;
+  if (!view || typeof view.DataTransfer !== 'function' || typeof view.ClipboardEvent !== 'function')
+    return false;
+  field.focus();
+  doc.execCommand('selectAll');
+  await pause(150);
+  const data = new view.DataTransfer();
+  data.setData('text/plain', text);
+  field.dispatchEvent(
+    new view.ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+  );
+  await pause(300);
+  return valueOf(field) === wanted;
+}
+
+/** The box's way to close, and LinkedIn's way to be sure changes go: Discard. */
+const CLOSE_BOX = /^(dismiss|close)$/i;
+const DISCARD = /^discard( changes)?$/i;
+
+/** Closes a box over the page without saving: its Dismiss, then Discard when LinkedIn asks to be sure. */
+async function closeBox(doc: Document, box: Element): Promise<boolean> {
+  const close = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
+    (control) => shown(control) && wordsOf(control).some((words) => CLOSE_BOX.test(words)),
+  );
+  if (!close) return false;
+  close.click();
+  for (let waited = 0; waited < WAIT_MS; waited += LOOK_MS) {
+    await pause(LOOK_MS);
+    if (!box.isConnected || !shown(box)) return true;
+    const discard = [...doc.querySelectorAll(OVER_THE_PAGE)]
+      .filter((other) => shown(other))
+      .flatMap((other) => [...other.querySelectorAll<HTMLElement>(CONTROLS)])
+      .find((control) => shown(control) && wordsOf(control).some((w) => DISCARD.test(w)));
+    discard?.click();
+  }
+  return false;
+}
 
 /** How putting the headline in went: the same as Facebook's bio (../facebook/own-profile.ts). */
 export type HeadlineResult =
@@ -378,38 +440,133 @@ export type HeadlineResult =
   | 'not_saved';
 
 /**
- * Presses Edit intro, writes the headline in the Headline field in place of what was there, presses Save, and waits
- * for the box to close and the headline to show.
+ * What putting the headline in found, step by step, for the job's note of the page (decision 74), so a step that
+ * goes wrong says which: never a word anyone wrote, only counts, yes or no, and the box's names for its fields as the
+ * outline shows them (LinkedIn's own words, anything else "[2 words]").
  */
-export async function writeHeadline(
-  doc: Document,
-  href: string,
-  headline: string,
-): Promise<HeadlineResult> {
+export interface HeadlineSteps {
+  /** The pencil by the name. */
+  readonly pencil: boolean;
+  /** A box over the page opened, with fields in it. */
+  readonly box: boolean;
+  readonly fields: number;
+  readonly headlineFields: number;
+  readonly saves: number;
+  /** What was written reads back from the Headline field. */
+  readonly typed: boolean;
+  /** Save pressed, the box closed and the headline under the name (never on a try). */
+  readonly saved: boolean;
+  /** A try's box closed again, nothing saved. */
+  readonly closed: boolean;
+  /** The box's names for its fields. */
+  readonly names: readonly string[];
+}
+
+const NOTHING: HeadlineSteps = {
+  pencil: false,
+  box: false,
+  fields: 0,
+  headlineFields: 0,
+  saves: 0,
+  typed: false,
+  saved: false,
+  closed: false,
+  names: [],
+};
+
+/** What's missing, in the extension's own words, for a note: empty when it all went. */
+export function headlineMissing(steps: HeadlineSteps, tried: boolean): string[] {
+  if (!steps.pencil) return ['no pencil by your name'];
+  if (!steps.box) return ['the pencil opened no box to edit'];
+  const missing: string[] = [];
+  if (steps.headlineFields !== 1)
+    missing.push(
+      steps.headlineFields === 0
+        ? 'no field named Headline in the box'
+        : `${steps.headlineFields} fields named Headline in the box`,
+    );
+  if (steps.saves !== 1)
+    missing.push(steps.saves === 0 ? 'no Save in the box' : `${steps.saves} Saves in the box`);
+  if (!missing.length && !steps.typed) missing.push('writing in Headline didn’t take');
+  if (!missing.length && tried && !steps.closed) missing.push('the box didn’t close again');
+  if (!missing.length && !tried && !steps.saved) missing.push('Save didn’t put it under your name');
+  return missing;
+}
+
+/** Opens the intro's box with the pencil, and finds what's in it. */
+async function openIntro(doc: Document) {
   const edit = editIntroOf(doc);
-  if (!edit) return 'none';
+  if (!edit) return { steps: NOTHING, box: null, field: null, save: null };
   edit.click();
   let box: Element | null = null;
   for (let waited = 0; waited < WAIT_MS && !box; waited += LOOK_MS) {
     await pause(LOOK_MS);
     box = introBox(doc);
   }
-  if (!box) return 'none';
-  const fields = headlineFields(box);
+  box ??= boxWithFields(doc);
+  if (!box) return { steps: { ...NOTHING, pencil: true }, box: null, field: null, save: null };
+  const fields = shownFields(box);
+  const heads = headlineFields(box);
   const saves = [...box.querySelectorAll<HTMLElement>(`${CONTROLS}, [type="submit"]`)].filter(
     (control) => shown(control) && wordsOf(control).some((words) => SAVE.test(words)),
   );
-  if (fields.length !== 1 || saves.length !== 1) return 'none';
-  const field = fields[0]!;
+  const steps: HeadlineSteps = {
+    ...NOTHING,
+    pencil: true,
+    box: true,
+    fields: fields.length,
+    headlineFields: heads.length,
+    saves: saves.length,
+    names: fields
+      .slice(0, 12)
+      .map((field) => maskText(fieldLabel(field)).slice(0, 60) || '(no name)'),
+  };
+  const ready = heads.length === 1 && saves.length === 1;
+  return { steps, box, field: ready ? heads[0]! : null, save: ready ? saves[0]! : null };
+}
+
+/**
+ * Presses Edit intro, writes the headline in the Headline field in place of what was there, presses Save, and waits
+ * for the box to close and the headline to show. Says how each step went.
+ */
+export async function writeHeadline(
+  doc: Document,
+  href: string,
+  headline: string,
+): Promise<{ readonly result: HeadlineResult; readonly steps: HeadlineSteps }> {
+  const opened = await openIntro(doc);
+  const { box, field, save } = opened;
+  let steps = opened.steps;
+  if (!box || !field || !save) return { result: 'none', steps };
   const wanted = clean(headline);
-  typeInto(doc, field, headline, true);
-  await pause(300);
-  if (valueOf(field) !== wanted) return 'none';
-  saves[0]!.click();
+  steps = { ...steps, typed: await writeInto(doc, field, headline) };
+  if (!steps.typed) return { result: 'none', steps };
+  save.click();
   for (let waited = 0; waited < WAIT_MS; waited += LOOK_MS) {
     await pause(LOOK_MS);
     const open = box.isConnected && shown(box);
-    if (!open && clean(headlineOf(doc, href)) === wanted) return 'done';
+    if (!open && clean(headlineOf(doc, href)) === wanted)
+      return { result: 'done', steps: { ...steps, saved: true } };
   }
-  return 'not_saved';
+  return { result: 'not_saved', steps };
+}
+
+/** Words to try writing with, then take out again: never saved. */
+const TRY_WORDS = 'Testing HandsFreeOS';
+
+/**
+ * Putting the headline in, tried up to its last press (Check LinkedIn, decision 76): the pencil, the box, the one
+ * field named Headline and the one Save; writing in it (other words, then what was there back), and the box closed
+ * again without Save, Discard pressed if LinkedIn asks. Nothing is ever saved.
+ */
+export async function tryHeadline(doc: Document): Promise<HeadlineSteps> {
+  const { steps, box, field, save } = await openIntro(doc);
+  if (!box) return steps;
+  let typed = false;
+  if (field && save) {
+    const was = isPlain(field) ? (field as HTMLInputElement).value : (field.textContent ?? '');
+    typed = await writeInto(doc, field, TRY_WORDS);
+    if (clean(was)) await writeInto(doc, field, was);
+  }
+  return { ...steps, typed, closed: await closeBox(doc, box) };
 }

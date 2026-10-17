@@ -1,52 +1,35 @@
 /**
- * Check LinkedIn (`checkup`, docs/outreach.md decision 74): one press when something on LinkedIn isn't read right. It
- * opens the person's main LinkedIn pages one at a time (their profile, their feed, their connections, a people search,
- * a posts search, their messages and one connection's profile), reads each as the other jobs do, presses nothing,
- * and notes each in HandsFreeOS with its outline (../report.ts): what a person wrote is never in it. Its window stays
- * in front while it reads, as Chrome draws nothing in a window hidden behind another, and then the person's own comes
- * back. It stops on any LinkedIn warning.
+ * Check LinkedIn (`checkup`, docs/outreach.md decisions 74 and 76): one press when something on LinkedIn isn't working.
+ * It opens the person's main LinkedIn pages one at a time and reads each as the other jobs do (their profile, their
+ * feed, their connections, a people search, a posts search, their messages and one connection's profile), and on the
+ * way tries each of the extension's steps up to its last press (src/networks/linkedin/tries.ts): putting the headline
+ * in, posting, commenting, connecting, messaging, liking, withdrawing and the data file. Nothing is ever saved,
+ * posted, sent, liked, connected or withdrawn. Each page and each step is noted in HandsFreeOS with what it found
+ * (../report.ts), the outline kept when a step doesn't work, so everything that doesn't is found in one go; the end's
+ * line names the steps that don't, and those it found nothing to try on. Its window stays in front while it works,
+ * as Chrome draws nothing in a window hidden behind another, and then the person's own comes back. It stops on any
+ * LinkedIn warning.
  */
-import { REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
+import { REPORT_WORDS, type TryStepName } from '@hfos/core/addons/outreach/reports';
 import type { LinkedInRead } from '../../networks';
+import { DATA_PAGE } from '../../networks/linkedin/data';
+import type { StepTry, TryStep } from '../../networks/linkedin/tries';
+import type { ProfileRef } from '../../networks/linkedin/types';
 import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
-import { loadNote, ownProfileNote } from '../report';
-import { CONNECTIONS, LINKEDIN, OWN_PROFILE, postSearchUrl, readLinkedIn } from './read';
+import { loadNote, ownProfileNote, tryNote } from '../report';
+import {
+  CONNECTIONS,
+  INVITATIONS_SENT,
+  LINKEDIN,
+  OWN_PROFILE,
+  postSearchUrl,
+  readLinkedIn,
+} from './read';
 
 /** What the searches look for: everyday words, to see how LinkedIn draws its results. */
 const SEARCH_WORDS = 'small business';
 /** Between pages: a person going from one to the next. */
 const BETWEEN_MS = [2_500, 5_000] as const;
-
-/** A page it looks at, and how much the readers found there (nothing read is worth saying). */
-interface Look {
-  readonly url: string;
-  readonly name: string;
-  readonly count: (page: LinkedInRead) => number;
-}
-
-const LOOKS: readonly Look[] = [
-  { url: `${LINKEDIN}/feed/`, name: 'your feed', count: (p) => p.posts?.length ?? 0 },
-  { url: CONNECTIONS, name: 'your connections', count: (p) => p.people?.length ?? 0 },
-  {
-    url: `${LINKEDIN}/search/results/people/?keywords=${encodeURIComponent(SEARCH_WORDS)}`,
-    name: 'the people search',
-    count: (p) => p.people?.length ?? 0,
-  },
-  {
-    url: postSearchUrl(SEARCH_WORDS),
-    name: 'the posts search',
-    count: (p) => p.posts?.length ?? 0,
-  },
-  { url: `${LINKEDIN}/messaging/`, name: 'your messages', count: (p) => p.chats?.length ?? 0 },
-];
-
-/** Opens a page and reads it; a LinkedIn warning there ends the job. */
-async function open(job: Job, url: string, name: string): Promise<LinkedInRead | JobEnd> {
-  job.progress(`Checking ${name}…`);
-  await job.tab.open(url);
-  const page = await readLinkedIn(job.tab);
-  return (await warnedOn(job, page)) ?? page;
-}
 
 const isEnd = (got: LinkedInRead | JobEnd): got is JobEnd => 'warned' in got;
 
@@ -62,32 +45,176 @@ async function wholeProfile(job: Job, own: boolean): Promise<void> {
   await job.report?.({ ...note, outline: true });
 }
 
+/** The person's work in the job's window: pages read and steps tried, as it goes. */
+class Checkup {
+  pages = 0;
+  readonly nothingOn: string[] = [];
+  readonly tries: StepTry[] = [];
+
+  constructor(private readonly job: Job) {}
+
+  /** Opens a page and reads it, at a person's pace after the first; a LinkedIn warning ends the job. */
+  async open(url: string, name: string): Promise<LinkedInRead | JobEnd> {
+    if (this.pages > 0) await pause(paced(BETWEEN_MS));
+    this.job.progress(`Checking ${name}…`);
+    await this.job.tab.open(url);
+    const page = await readLinkedIn(this.job.tab);
+    const warned = await warnedOn(this.job, page);
+    if (warned) return warned;
+    this.pages++;
+    return page;
+  }
+
+  /** Notes the page with its outline, and says when its readers found nothing on it. */
+  async note(name: string, count: number): Promise<void> {
+    await this.job.report?.({ outline: true });
+    if (count === 0) this.nothingOn.push(name);
+  }
+
+  /** Tries a step on the page the tab shows, and notes how it went. */
+  async tryHere(step: TryStep, profile?: ProfileRef): Promise<void> {
+    this.job.progress(`Trying ${REPORT_WORDS_STEP[step]}…`);
+    const answer = await this.job.tab.ask({
+      type: 'hfos-try',
+      step,
+      ...(profile ? { profile } : {}),
+    });
+    const tried: StepTry = answer.ok
+      ? answer.tried
+      : { step, tried: true, works: false, found: {}, missing: [answer.error] };
+    this.tries.push(tried);
+    await this.job.report?.(tryNote(tried));
+  }
+
+  /** A step with nothing to try it on: noted as such, nothing opened. */
+  async nothingFor(step: TryStep, why: string): Promise<void> {
+    const tried: StepTry = { step, tried: false, works: false, found: {}, missing: [why] };
+    this.tries.push(tried);
+    await this.job.report?.({ ...tryNote(tried), outline: false });
+  }
+}
+
+/** The step's name, as the progress line says it. */
+const REPORT_WORDS_STEP: Readonly<Record<TryStep, string>> = {
+  headline: 'your headline',
+  post: 'a post',
+  comment: 'a comment',
+  connect: 'connecting',
+  message: 'a message',
+  like: 'a like',
+  withdraw: 'withdrawing',
+  file: 'the data file',
+};
+
 async function checkup(job: Job): Promise<JobEnd> {
-  const nothingOn: string[] = [];
-  let pages = 0;
-  const own = await open(job, OWN_PROFILE, 'your profile');
+  const c = new Checkup(job);
+  const stopped = (): JobEnd | null => (job.stopped() ? { line: 'Stopped.', warned: false } : null);
+
+  // Your profile: read whole, then putting the headline in tried.
+  const own = await c.open(OWN_PROFILE, 'your profile');
   if (isEnd(own)) return own;
   await wholeProfile(job, true);
-  pages++;
-  let connection: string | null = null;
-  for (const look of LOOKS) {
-    if (job.stopped()) return { line: 'Stopped.', warned: false };
-    await pause(paced(BETWEEN_MS));
-    const page = await open(job, look.url, look.name);
-    if (isEnd(page)) return page;
-    await job.report?.({ outline: true });
-    pages++;
-    if (look.count(page) === 0) nothingOn.push(look.name);
-    if (look.url === CONNECTIONS) connection = page.people?.[0]?.profile.url ?? null;
-  }
-  if (connection && !job.stopped()) {
-    await pause(paced(BETWEEN_MS));
-    const theirs = await open(job, connection, 'one connection’s profile');
+  await c.tryHere('headline');
+
+  // Your feed: read, and posting tried.
+  const feed = await c.open(`${LINKEDIN}/feed/`, 'your feed');
+  if (isEnd(feed)) return feed;
+  await c.note('your feed', feed.posts?.length ?? 0);
+  await c.tryHere('post');
+
+  // Your connections, and the first one kept to message and like.
+  if (stopped()) return stopped()!;
+  const connections = await c.open(CONNECTIONS, 'your connections');
+  if (isEnd(connections)) return connections;
+  await c.note('your connections', connections.people?.length ?? 0);
+  const connection = connections.people?.[0]?.profile ?? null;
+
+  // A people search, and someone in it you're not connected with, to try connecting.
+  if (stopped()) return stopped()!;
+  const search = await c.open(
+    `${LINKEDIN}/search/results/people/?keywords=${encodeURIComponent(SEARCH_WORDS)}`,
+    'the people search',
+  );
+  if (isEnd(search)) return search;
+  await c.note('the people search', search.people?.length ?? 0);
+  const stranger =
+    search.people?.find(
+      (p) => p.connection === 'not_connected' || (p.connection === 'unknown' && p.degree !== '1st'),
+    )?.profile ?? null;
+  if (stopped()) return stopped()!;
+  if (stranger) {
+    const theirs = await c.open(stranger.url, 'someone from the search');
+    if (isEnd(theirs)) return theirs;
+    await c.tryHere('connect');
+  } else await c.nothingFor('connect', 'nobody you’re not connected with in the search');
+
+  // A posts search; then a person's post from your feed or the search, on its own page, to try commenting on (LinkedIn's
+  // newer feed links few of its posts).
+  if (stopped()) return stopped()!;
+  const posts = await c.open(postSearchUrl(SEARCH_WORDS), 'the posts search');
+  if (isEnd(posts)) return posts;
+  await c.note('the posts search', posts.posts?.length ?? 0);
+  const theirPost =
+    [...(feed.posts ?? []), ...(posts.posts ?? [])].find((p) => p.url && !p.company)?.url ?? null;
+  if (stopped()) return stopped()!;
+  if (theirPost) {
+    const post = await c.open(theirPost, 'a post');
+    if (isEnd(post)) return post;
+    await c.tryHere('comment');
+  } else
+    await c.nothingFor('comment', 'no person’s post with its own page, on your feed or the search');
+
+  // Your messages.
+  if (stopped()) return stopped()!;
+  const messages = await c.open(`${LINKEDIN}/messaging/`, 'your messages');
+  if (isEnd(messages)) return messages;
+  await c.note('your messages', messages.chats?.length ?? 0);
+
+  // One connection: their profile read whole and messaging tried; their activity, and liking tried.
+  if (stopped()) return stopped()!;
+  if (connection) {
+    const theirs = await c.open(connection.url, 'one connection’s profile');
     if (isEnd(theirs)) return theirs;
     await wholeProfile(job, false);
-    pages++;
+    await c.tryHere('message', connection);
+    if (stopped()) return stopped()!;
+    const activity = await c.open(`${connection.url}recent-activity/all/`, 'their posts');
+    if (isEnd(activity)) return activity;
+    await c.tryHere('like', connection);
+  } else {
+    await c.nothingFor('message', 'no connection to try it with');
+    await c.nothingFor('like', 'no connection whose posts to try it on');
   }
-  return { line: REPORT_WORDS.checkupDone('LinkedIn', pages, nothingOn), warned: false };
+
+  // Invitations you sent, and Get a copy of your data.
+  if (stopped()) return stopped()!;
+  const sent = await c.open(INVITATIONS_SENT, 'the invitations you’ve sent');
+  if (isEnd(sent)) return sent;
+  await c.tryHere('withdraw');
+  if (stopped()) return stopped()!;
+  const data = await c.open(DATA_PAGE, 'Get a copy of your data');
+  if (isEnd(data)) return data;
+  await c.tryHere('file');
+
+  const names = (pick: (t: StepTry) => boolean) =>
+    c.tries.filter(pick).map((t) => t.step as TryStepName);
+  const broken = names((t) => t.tried && !t.works);
+  const untried = names((t) => !t.tried);
+  const line = REPORT_WORDS.checkupTried('LinkedIn', c.pages, broken, untried, c.tries.length);
+  await job.report?.({
+    job: 'checkup.summary',
+    found: {
+      pages: c.pages,
+      steps: c.tries.length,
+      working: c.tries.filter((t) => t.works).length,
+      ...(broken.length ? { notWorking: broken } : {}),
+      ...(untried.length ? { nothingToTry: untried } : {}),
+      ...(c.nothingOn.length ? { nothingRead: c.nothingOn } : {}),
+    },
+    note: line,
+    outline: false,
+  });
+  return { line, warned: false };
 }
 
 /** Check LinkedIn: with its window in front the whole time, then the person's own back. */
