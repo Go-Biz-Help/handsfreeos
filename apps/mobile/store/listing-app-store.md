@@ -18,6 +18,13 @@ Copy into App Store Connect. Character limits are Apple's, and each heading says
 | In-app purchases    | None                                                                               |
 | Account required    | Yes — see [`reviewer-demo.md`](reviewer-demo.md)                                   |
 
+## The line everything leads with
+
+The website's headline, **“The CRM that doesn’t want you to use it.”** (`apps/site/src/app/page.tsx`), leads here too:
+the promotional text, the description, the first screenshot, the header and Play's feature graphic all open with it,
+and each puts the answer to its little puzzle straight after it. It is 40 characters, too long for the 30-character
+subtitle, so the subtitle carries its short form from the pricing page, “The CRM that does the work”.
+
 ## Name (30 characters)
 
 ```
@@ -27,13 +34,13 @@ HandsFreeOS
 ## Subtitle (30 characters)
 
 ```
-Run your day from your truck
+The CRM that does the work
 ```
 
 ## Promotional text (170 characters — editable without review)
 
 ```
-Your texts, calls, jobs, calendar and money in one app, working the same in a basement with no signal as it does at the desk.
+The CRM that doesn’t want you to use it. It answers new leads in seconds, books the job and keeps the record current. Works from your truck, even with no signal.
 ```
 
 ## Keywords (100 characters, comma separated, no spaces)
@@ -45,7 +52,9 @@ crm,home services,hvac,plumbing,roofing,contractor,invoice,estimate,scheduling,l
 ## Description (4000 characters)
 
 ```
-HandsFreeOS keeps a home-services business running while you are on the job.
+The CRM that doesn’t want you to use it.
+
+Other CRMs make you remember, look things up, type it in and follow up. HandsFreeOS answers new leads in seconds, books the job, keeps the record current, and brings you in when something actually needs you. The less you use it, the better it’s working.
 
 Everything in one place
 • Home shows what needs you today, in order, and handles the small things itself.

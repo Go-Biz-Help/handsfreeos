@@ -31,12 +31,16 @@ const SHOTS = join(root, 'apps/mobile/store/assets/screenshots');
 const OUT = join(root, 'apps/mobile/store/assets/marketing');
 const MARK = join(root, 'design/brand/handsfreeos-icon.png');
 
-/** [screenshot key, headline (a <br> where the line breaks, so every slide has two), the line under it]. */
+/**
+ * [screenshot key, headline (a <br> where the line breaks, so every slide has two), the line under it].
+ * The first is the website's own headline (apps/site/src/app/page.tsx), so the store and the site say the same thing
+ * first; it is a small puzzle on purpose, so the line under it always answers it. The rest each show one thing.
+ */
 const SLIDES = [
   [
     '1-home',
-    'Know what<br>needs you first',
-    'Hot leads and waiting customers at the top, with one tap to call or reply.',
+    'The CRM that doesn’t<br>want you to use it',
+    'It answers leads, books jobs and keeps the records. You step in when it matters.',
   ],
   [
     '2-pipeline',
@@ -224,7 +228,7 @@ function featureGraphic(font) {
             box-shadow:0 6px 18px rgba(6,22,70,0.25); }
     .chip img { width:40px; height:40px; }
     .name { font-weight:700; font-size:30px; letter-spacing:-0.01em; }
-    h1 { position:absolute; left:64px; top:172px; width:560px; font-weight:800; font-size:62px; line-height:1.02; letter-spacing:-0.03em; }
+    h1 { position:absolute; left:64px; top:176px; width:560px; font-weight:800; font-size:58px; line-height:1.04; letter-spacing:-0.03em; }
     p { position:absolute; left:64px; top:316px; width:520px; font-weight:500; font-size:24px; line-height:1.35;
         color:rgba(255,255,255,0.88); text-wrap:balance; }
     .phone { position:absolute; left:${W - phoneW - 70}px; top:58px; width:${phoneW}px; height:${screenH + bezel * 2}px;
@@ -233,8 +237,8 @@ function featureGraphic(font) {
     .screen { width:${screenW}px; height:${screenH}px; border-radius:40px; }`;
   const body = `
     <div class="brand"><div class="chip"><img src="${pathToFileURL(MARK).href}"></div><div class="name">HandsFreeOS</div></div>
-    <h1>Run your day from your truck.</h1>
-    <p>Texts, calls, jobs and invoices in one app. Works with no signal.</p>
+    <h1>The CRM that doesn’t<br>want you to use it.</h1>
+    <p>It answers leads, books jobs and keeps the records. Works with no signal.</p>
     <div class="phone"><div class="screen"><img src="${pathToFileURL(join(SHOTS, 'ios-1-home.png')).href}">${camera('island', screenW / 1320)}</div></div>`;
   return page(W, H, font, css, body);
 }
@@ -267,15 +271,15 @@ function productPageHeader(font, W, H) {
             box-shadow:0 16px 48px rgba(6,22,70,0.25); }
     .chip img { width:108px; height:108px; }
     .name { font-weight:700; font-size:96px; letter-spacing:-0.01em; }
-    h1 { position:absolute; left:300px; top:500px; width:1800px; font-weight:800; font-size:214px; line-height:1.02; letter-spacing:-0.03em; }
-    p { position:absolute; left:300px; top:978px; width:1500px; font-weight:500; font-size:78px; line-height:1.3;
+    h1 { position:absolute; left:300px; top:510px; width:1620px; font-weight:800; font-size:190px; line-height:1.04; letter-spacing:-0.03em; }
+    p { position:absolute; left:300px; top:930px; width:1560px; font-weight:500; font-size:72px; line-height:1.3;
         color:rgba(255,255,255,0.88); text-wrap:balance; }
     .phone { position:absolute; background:#0c0f15;
              box-shadow: 0 0 0 4px #2b313c inset, 0 90px 160px rgba(6,22,70,0.42), 0 20px 50px rgba(6,22,70,0.3); }`;
   const body = `<div class="art">
     <div class="brand"><div class="chip"><img src="${pathToFileURL(MARK).href}"></div><div class="name">HandsFreeOS</div></div>
-    <h1>Run your day<br>from your truck.</h1>
-    <p>Texts, calls, jobs and invoices in one app. Works with no signal.</p>
+    <h1>The CRM that doesn’t<br>want you to use it.</h1>
+    <p>It answers leads, books jobs and keeps the records. Works from your truck, even with no signal.</p>
     ${phone('ios-4-calendar.png', 2130, 330, 520, -7, 1)}
     ${phone('ios-7-money-list.png', 3070, 330, 520, 7, 1)}
     ${phone('ios-1-home.png', 2560, 190, 600, 0, 2)}
@@ -321,7 +325,14 @@ try {
     const html = join(work, `${job.name}.html`);
     writeFileSync(html, job.html(font));
     await tab.goto(pathToFileURL(html).href);
-    await tab.evaluate(() => document.fonts.ready);
+    await tab.evaluate(async () => {
+      await document.fonts.ready;
+      for (const h of document.querySelectorAll('h1')) {
+        h.style.whiteSpace = 'nowrap';
+        let size = parseFloat(getComputedStyle(h).fontSize);
+        while (h.scrollWidth > h.clientWidth && size > 10) h.style.fontSize = `${(size -= 1)}px`;
+      }
+    });
     await tab.screenshot({ path: join(OUT, `${job.name}.png`) });
     await tab.close();
     console.log(`wrote apps/mobile/store/assets/marketing/${job.name}.png (${job.W}×${job.H})`);

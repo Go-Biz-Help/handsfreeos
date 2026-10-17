@@ -188,11 +188,13 @@ App name:
 HandsFreeOS
 
 Short description (80 characters at most):
-Texts, calls, jobs and invoices for your business. And it works with no signal.
+The CRM that doesn’t want you to use it. And it works with no signal.
 
 Full description. Type it exactly, keeping each paragraph and each bullet on its own line and a blank line between sections:
 
-HandsFreeOS keeps a home-services business running while you are on the job.
+The CRM that doesn’t want you to use it.
+
+Other CRMs make you remember, look things up, type it in and follow up. HandsFreeOS answers new leads in seconds, books the job, keeps the record current, and brings you in when something actually needs you. The less you use it, the better it’s working.
 
 EVERYTHING IN ONE PLACE
 • Home shows what needs you today, in order, and handles the small things itself.
@@ -298,7 +300,7 @@ Go to https://appstoreconnect.apple.com/apps/6813606312.
 
 1. General → App Information:
    - Name: HandsFreeOS
-   - Subtitle: Run your day from your truck
+   - Subtitle: The CRM that does the work
    - Primary language: English (U.S.)
    - Category: Business. Secondary category: Productivity.
    - Content rights: No, it doesn't contain, show or access third-party content.
@@ -364,11 +366,13 @@ Go to https://appstoreconnect.apple.com/apps/6813606312 and open the iOS app's v
 1. Screenshots, iPhone 6.9" display: stop and tell me to upload them.
 
 2. Promotional text:
-Your texts, calls, jobs, calendar and money in one app, working the same in a basement with no signal as it does at the desk.
+The CRM that doesn’t want you to use it. It answers new leads in seconds, books the job and keeps the record current. Works from your truck, even with no signal.
 
 3. Description. Type it exactly, keeping each paragraph and each bullet on its own line and a blank line between sections:
 
-HandsFreeOS keeps a home-services business running while you are on the job.
+The CRM that doesn’t want you to use it.
+
+Other CRMs make you remember, look things up, type it in and follow up. HandsFreeOS answers new leads in seconds, books the job, keeps the record current, and brings you in when something actually needs you. The less you use it, the better it’s working.
 
 Everything in one place
 • Home shows what needs you today, in order, and handles the small things itself.

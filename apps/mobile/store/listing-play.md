@@ -38,13 +38,15 @@ HandsFreeOS
 ## Short description (80 characters)
 
 ```
-Texts, calls, jobs and invoices for your business. And it works with no signal.
+The CRM that doesn’t want you to use it. And it works with no signal.
 ```
 
 ## Full description (4000 characters)
 
 ```
-HandsFreeOS keeps a home-services business running while you are on the job.
+The CRM that doesn’t want you to use it.
+
+Other CRMs make you remember, look things up, type it in and follow up. HandsFreeOS answers new leads in seconds, books the job, keeps the record current, and brings you in when something actually needs you. The less you use it, the better it’s working.
 
 EVERYTHING IN ONE PLACE
 • Home shows what needs you today, in order, and handles the small things itself.
