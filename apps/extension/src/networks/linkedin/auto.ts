@@ -19,7 +19,7 @@
  */
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import { isAfter } from '../facebook/dom';
-import { shown } from '../facebook/fetch';
+import { shown, visible } from '../facebook/fetch';
 import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
 import { CONTROLS, mainOf, placesOf, wordsOf } from './dom';
@@ -35,7 +35,7 @@ import {
 } from './posts';
 import { inTopCard, readProfile } from './profile';
 import type { ProfileRef } from './types';
-import { classifyUrl, comparable, sameMember } from './urls';
+import { classifyUrl, comparable, linkedinUrl, memberIdFrom, sameMember } from './urls';
 import { CONNECT, MESSAGE, MORE } from './vocabulary';
 
 export type { AutoResult, TheirPost };
@@ -225,14 +225,16 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
 /**
  * The button that sends what's in a box: after the box, saying `pattern`, among its own buttons: in the form around
  * it, or (LinkedIn's newer layout has none) the boxes around it that link nowhere. A box that links somewhere holds
- * more than the box's own buttons: a comment and its writer, the next post.
+ * more than the box's own buttons: a comment and its writer, the next post. With `offToo`, one LinkedIn keeps off till
+ * something's written counts too (a conversation's Send: the owner's Check LinkedIn of 17 Oct 2026, on 0.53.0).
  */
-export function sendFor(box: Element, pattern: RegExp): HTMLElement | null {
+export function sendFor(box: Element, pattern: RegExp, offToo = false): HTMLElement | null {
   let up = box.parentElement;
   for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
     if ([...up.querySelectorAll('a[href]')].some((link) => !box.contains(link))) return null;
     const sends = [...up.querySelectorAll<HTMLElement>(`${CONTROLS}, [type="submit"]`)].filter(
-      (control) => isAfter(control, box) && shown(control) && says(control, pattern),
+      (control) =>
+        isAfter(control, box) && (offToo ? visible : shown)(control) && says(control, pattern),
     );
     if (sends.length) return sends[0]!;
     if (up.matches('form')) return null;
@@ -302,11 +304,15 @@ export async function writeComment(doc: Document, text: string): Promise<AutoRes
   return typeAndSend(box, text, SENDS_COMMENT);
 }
 
-/** The boxes to write a message in: in a form with Send. */
+/** The boxes to write a message in: in a form with Send, on or not yet. */
 const messageBoxes = (root: ParentNode) =>
   [...root.querySelectorAll<HTMLElement>(WRITING)].filter(
-    (box) => shown(box) && sendFor(box, SENDS_MESSAGE) !== null,
+    (box) => shown(box) && sendFor(box, SENDS_MESSAGE, true) !== null,
   );
+
+/** The pages a conversation may be drawn on: the page, and LinkedIn's interop frame's own (./dom.ts). */
+const pagesOf = (doc: Document) =>
+  placesOf(doc).filter((place): place is Document => place.nodeType === 9);
 
 /** The window over the page a box is in: the nearest box around it that links to anyone. */
 function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
@@ -327,13 +333,22 @@ function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
 export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const address = classifyUrl(href);
   const main = mainOf(doc);
-  if (address.kind === 'chat') {
-    // The runner opened their conversation by its id, and checked it's theirs: only a link plainly to someone else
-    // is a reason to stop.
-    const chat = readChat(doc, address, href);
-    if (chat.profile && comparable(chat.profile, them) && !sameMember(chat.profile, them))
-      return null;
-    const boxes = messageBoxes(main);
+  const url = linkedinUrl(href);
+  // The new conversation Message on their profile opens names whom it's to (/messaging/thread/new/?recipient=…).
+  const to = address.kind === 'messaging' && url ? memberIdFrom(url) : null;
+  if (address.kind === 'chat' || to) {
+    // Their conversation's own page: the runner opened it by its id and checked it's theirs, or Message on their
+    // profile opened it for them. Only something plainly saying it's someone else's is a reason to stop. LinkedIn's
+    // newer pages draw it in the interop frame's own page.
+    if (to && them.id && to !== them.id) return null;
+    const boxes = pagesOf(doc).flatMap((page) => {
+      if (address.kind === 'chat') {
+        const chat = readChat(page, address, href);
+        if (chat.profile && comparable(chat.profile, them) && !sameMember(chat.profile, them))
+          return [];
+      }
+      return messageBoxes(page === doc ? main : page);
+    });
     return boxes.length === 1 ? boxes[0]! : null;
   }
   const theirs = placesOf(doc)

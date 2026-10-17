@@ -303,6 +303,7 @@ describe('messaging', () => {
         found: {
           message: true,
           link: true,
+          page: false,
           places: 0,
           opened: true,
           inside: false,
@@ -332,6 +333,36 @@ describe('messaging', () => {
       vi.unstubAllGlobals();
     },
   );
+
+  it('finds the box on the new conversation’s page in LinkedIn’s interop frame, its Send still off, pressing nothing else', async () => {
+    // The owner's Check LinkedIn of 17 Oct 2026 on 0.53.0: Message took the tab to /messaging/thread/new/?recipient=…,
+    // drawn in the interop frame, its Send off till something's written.
+    const doc = page('linkedin-profile.html', DANA, false);
+    const frame = doc.createElement('iframe');
+    frame.setAttribute('data-testid', 'interop-iframe');
+    doc.body.append(frame);
+    doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', (event) => {
+      event.preventDefault();
+      doc.defaultView!.history.pushState(
+        {},
+        '',
+        '/messaging/thread/new/?recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW',
+      );
+      const from = load('linkedin-chat.html', `${LI}/messaging/`);
+      frame.contentDocument!.body.innerHTML = from.querySelector('main')!.outerHTML;
+      frame.contentDocument!.querySelector('button[type="submit"]')!.setAttribute('disabled', '');
+    });
+    const typed: string[] = [];
+    frame.contentDocument!.execCommand = (command: string) => (typed.push(command), true);
+    const pressed = presses(doc);
+    expect(await tryMessage(doc, DANA, dana)).toMatchObject({
+      works: true,
+      found: { page: true, inside: true, opened: true, box: true, sends: 1, closed: false },
+      missing: [],
+    });
+    expect(pressed).toEqual(['Message Dana Reyes']);
+    expect(typed).toEqual([]);
+  });
 
   it('says so when Message opens no conversation, with the page it leads to and the outline as it was', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] });

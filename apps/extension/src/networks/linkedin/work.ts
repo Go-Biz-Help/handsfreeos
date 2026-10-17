@@ -215,7 +215,8 @@ async function autoStep(
       if (kind !== 'post') return { ok: false, error: 'LinkedIn didn’t open the post.' };
       return { ok: true, result: await writeComment(document, ask.text) };
     case 'hfos-message':
-      if ((kind !== 'chat' && kind !== 'profile') || !ask.profile)
+      // On their conversation's page, a new one Message opened for them, or their profile with its window over it.
+      if ((kind !== 'chat' && kind !== 'messaging' && kind !== 'profile') || !ask.profile)
         return { ok: false, error: 'LinkedIn didn’t open a conversation with them.' };
       return {
         ok: true,
