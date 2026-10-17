@@ -1,0 +1,428 @@
+/**
+ * Instagram, still looked at (../looking/site.ts; docs/outreach.md decision 78): a follow network, where people are
+ * found by hashtags, places and the followers of accounts like the business's (the plan's "The networks after
+ * LinkedIn"). Check Instagram reads its pages and looks for Follow, Message, Like, the box to comment in and the bio's
+ * box, pressing none of them; its steps are built from what that reads. Instagram's terms forbid automated collection
+ * and it blocks fast ("Action blocked"), so the extension reads only what the person asks, at a person's pace, and
+ * stops on any warning there.
+ *
+ * Its addresses as they've long been: instagram.com/<name>/ for an account (its followers and following under it),
+ * /p/<code>/ and /reel/<code>/ for a post (newer links put the account's name first), /explore/tags/<tag>/ for a
+ * hashtag, /explore/search/keyword/?q= for a search, /direct/inbox/ and /direct/t/<id>/ for messages, and
+ * /accounts/edit/ for the person's own profile's form.
+ */
+import { clean } from '../facebook/dom';
+import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
+import type { LookingSite } from '../looking/site';
+import { went, untried } from '../tries';
+
+const HOST = 'www.instagram.com';
+const HOSTS = new Set(['www.instagram.com', 'instagram.com']);
+
+/** First parts of its addresses that are Instagram's own places, never an account's name. */
+const NOT_NAMES = new Set([
+  'about',
+  'accounts',
+  'api',
+  'challenge',
+  'developer',
+  'direct',
+  'emails',
+  'explore',
+  'graphql',
+  'legal',
+  'lite',
+  'locations',
+  'login',
+  'logout',
+  'meta-verified',
+  'nametag',
+  'notifications',
+  'oauth',
+  'p',
+  'press',
+  'privacy',
+  'reel',
+  'reels',
+  'session',
+  'static',
+  'stories',
+  'terms',
+  'threads',
+  'topics',
+  'tv',
+  'web',
+  'your_activity',
+]);
+/** An account's name: letters, numbers, dots and underscores, 30 at most. */
+const NAME = /^[A-Za-z0-9._]{1,30}$/;
+/** The tabs under an account: its own page still. */
+const ACCOUNT_TABS = new Set(['', 'reels', 'tagged', 'saved', 'guides', 'igtv', 'featured']);
+
+const partsOf = (url: URL) => url.pathname.split('/').filter(Boolean);
+
+function instagramUrl(href: string, base?: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(href, base);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || !HOSTS.has(url.hostname.toLowerCase())) return null;
+  url.hostname = HOST;
+  url.hash = '';
+  return url;
+}
+
+function kindOf(url: URL): string {
+  const [first = '', second = ''] = partsOf(url).map((p) => p.toLowerCase());
+  if (!first) return 'feed';
+  if (first === 'explore')
+    return second === 'tags'
+      ? 'tag'
+      : second === 'search'
+        ? 'search'
+        : second === 'locations'
+          ? 'place'
+          : 'explore';
+  if (first === 'p' || first === 'reel' || first === 'tv') return 'post';
+  if (first === 'reels') return 'reels';
+  if (first === 'direct') return second === 't' ? 'chat' : 'inbox';
+  if (first === 'accounts')
+    return second === 'edit'
+      ? 'edit-profile'
+      : second === 'activity'
+        ? 'notifications'
+        : 'settings';
+  if (first === 'stories') return 'story';
+  if (first === 'challenge') return 'check';
+  if (NOT_NAMES.has(first) || !NAME.test(first)) return 'other';
+  if (second === 'p' || second === 'reel') return 'post';
+  if (second === 'followers' || second === 'following') return second;
+  return 'profile';
+}
+
+function profileOf(url: URL): { username: string; url: string } | null {
+  const [first = '', second = ''] = partsOf(url);
+  if (!first || NOT_NAMES.has(first.toLowerCase()) || !NAME.test(first)) return null;
+  if (!ACCOUNT_TABS.has(second.toLowerCase())) return null;
+  return { username: first, url: `https://${HOST}/${first}/` };
+}
+
+function postOf(url: URL): string | null {
+  const parts = partsOf(url);
+  // /p/<code>/, /reel/<code>/, and newer links with the account's name first: /<name>/p/<code>/.
+  const at =
+    parts[0] === 'p' || parts[0] === 'reel' || parts[0] === 'tv'
+      ? 0
+      : parts[1] === 'p' || parts[1] === 'reel'
+        ? 1
+        : -1;
+  const code = at >= 0 ? parts[at + 1] : undefined;
+  if (!code || !/^[A-Za-z0-9_-]{5,64}$/.test(code)) return null;
+  return `https://${HOST}/${parts[at] === 'reel' ? 'reel' : 'p'}/${code}/`;
+}
+
+/** Instagram's own words on its pages, as the outline keeps them. */
+const WORDS = new Set(
+  [
+    'Instagram',
+    'Home',
+    'Search',
+    'Explore',
+    'Reels',
+    'Messages',
+    'Notifications',
+    'Create',
+    'Profile',
+    'More',
+    'Threads',
+    'Also from Meta',
+    'Follow',
+    'Following',
+    'Follow Back',
+    'Requested',
+    'Unfollow',
+    'Message',
+    'Like',
+    'Unlike',
+    'Comment',
+    'Share',
+    'Share Post',
+    'Save',
+    'Remove',
+    'Post',
+    'Posts',
+    'posts',
+    'followers',
+    'following',
+    'Followers',
+    'Edit profile',
+    'Edit Profile',
+    'View archive',
+    'Bio',
+    'Website',
+    'Gender',
+    'Submit',
+    'Suggested for you',
+    'Suggested for You',
+    'See all',
+    'See All',
+    'Switch',
+    'Log in',
+    'Sign up',
+    'Your messages',
+    'Send message',
+    'Send',
+    'Primary',
+    'General',
+    'Requests',
+    'Recent',
+    'Clear all',
+    'Tagged',
+    'Saved',
+    'Highlights',
+    'New',
+    'Options',
+    'Close',
+    'Back',
+    'Next',
+    'Cancel',
+    'Done',
+    'More options',
+    'Original audio',
+    'Sponsored',
+    'Paid partnership',
+    'Liked by',
+    'others',
+    'and',
+    'View all comments',
+    'View replies',
+    'Hide replies',
+    'Reply',
+    'See translation',
+    'Verified',
+    'Meta',
+    'About',
+    'Help',
+    'Privacy',
+    'Terms',
+    'Locations',
+    'Language',
+    'Meta Verified',
+    'Add a comment…',
+    'Add a comment...',
+    'Emoji',
+    'Comment as',
+    'Top posts',
+    'Most recent',
+    'Not now',
+    'Turn on',
+    'Turn on Notifications',
+    'Dismiss',
+    'Audio',
+    'Accounts',
+    'Tags',
+    'Places',
+    'Log out',
+    'Settings',
+    'Your activity',
+    'Report a problem',
+    'Switch accounts',
+    'Professional dashboard',
+    'Insights',
+    'Edit',
+    'Story',
+    'Stories',
+    'Notes',
+    'Your note',
+    'Active now',
+    'Seen',
+  ].map((w) => w.toLowerCase()),
+);
+
+/** Instagram's own words in its addresses. */
+const PATH_WORDS = new Set([
+  'p',
+  'reel',
+  'reels',
+  'tv',
+  'explore',
+  'tags',
+  'search',
+  'keyword',
+  'locations',
+  'direct',
+  'inbox',
+  't',
+  'new',
+  'requests',
+  'accounts',
+  'edit',
+  'activity',
+  'stories',
+  'highlights',
+  'followers',
+  'following',
+  'tagged',
+  'saved',
+  'guides',
+  'featured',
+  'notifications',
+  'challenge',
+  'about',
+  'legal',
+  'privacy',
+  'terms',
+  'your_activity',
+  'audio',
+  'liked_by',
+  'comments',
+]);
+
+/** Instagram's warnings, as its pages word them. */
+const WARNINGS: readonly RegExp[] = [
+  /\baction blocked\b/i,
+  /\btry again later\b/i,
+  /\bwe restrict certain activity\b/i,
+  /\bwe limit how often\b/i,
+  /\byour account (has been|was|is) (temporarily )?(locked|restricted|suspended|disabled)\b/i,
+  /\bwe suspect automated behavior\b/i,
+  /\b(confirm|verify) (it['’]s you|your identity|your account)\b/i,
+  /\bhelp us confirm\b/i,
+  /\bsuspicious (login|activity)\b/i,
+];
+
+const FOLLOW = /^(follow|follow back)$/i;
+const FOLLOWING = /^(following|requested|unfollow)$/i;
+const MESSAGE = /^message$/i;
+const LIKE = /^(like|unlike)$/i;
+const COMMENT_BOX = /^add a comment/i;
+const POST = /^post$/i;
+const BIO = /^bio$|^biography$|^pepbio$/i;
+const SUBMIT = /^(submit|save)$/i;
+
+/** The profile's own header: its name, its counts and its buttons. */
+const headerOf = (doc: Document): ParentNode => mainOf(doc).querySelector('header') ?? mainOf(doc);
+
+export const INSTAGRAM: LookingSite = {
+  platform: 'instagram',
+  name: 'Instagram',
+  hosts: ['https://www.instagram.com/*'],
+  host: HOST,
+  url: instagramUrl,
+  kindOf,
+  profileOf,
+  postOf,
+  pathWords: PATH_WORDS,
+  words: WORDS,
+  warnings: WARNINGS,
+  warnedAt: (url) =>
+    partsOf(url)[0]?.toLowerCase() === 'challenge'
+      ? 'Instagram is asking you to confirm it’s you before you go on.'
+      : null,
+  // The menu's Profile, which links to the person's own account.
+  ownLink: (doc, href) => {
+    for (const anchor of doc.querySelectorAll('a[href]')) {
+      const words = clean(anchor.textContent) || clean(anchor.getAttribute('aria-label'));
+      if (
+        !/^profile$/i.test(words) &&
+        !/['’]s profile picture$/i.test(
+          clean(anchor.querySelector('img[alt]')?.getAttribute('alt')),
+        )
+      )
+        continue;
+      const url = instagramUrl(anchor.getAttribute('href') ?? '', href);
+      const own = url ? profileOf(url) : null;
+      if (own) return own.url;
+    }
+    return null;
+  },
+  looks: {
+    // On their own profile's form: the bio's box and its Submit, neither written in nor pressed.
+    bio: {
+      on: ['edit-profile'],
+      look: (doc) => {
+        const main = mainOf(doc);
+        const box =
+          boxesSaying(main, BIO)[0] ??
+          main.querySelector<HTMLElement>('textarea#pepBio, textarea[name="biography"]');
+        const submit = controlsSaying(main, SUBMIT, true);
+        return went(
+          'bio',
+          { box: Boolean(box), submit: submit.length },
+          [
+            !box && 'no box for the bio on the form',
+            !submit.length && 'no Submit on the form',
+          ].filter((m): m is string => typeof m === 'string'),
+          box && submit.length ? [] : namesIn(main, INSTAGRAM),
+        );
+      },
+    },
+    // On someone's account: Follow (or Follow Back), never pressed; one they follow already isn't tried.
+    follow: {
+      on: ['profile'],
+      look: (doc) =>
+        lookFor(
+          'follow',
+          headerOf(doc),
+          INSTAGRAM,
+          { words: FOLLOW, name: 'Follow' },
+          {
+            words: FOLLOWING,
+            why: 'you follow them already, or asked to',
+          },
+        ),
+    },
+    message: {
+      on: ['profile'],
+      look: (doc) =>
+        lookFor('message', headerOf(doc), INSTAGRAM, { words: MESSAGE, name: 'Message' }),
+    },
+    // On a post's own page: its Like (an icon labelled Like, or Unlike once liked), never pressed.
+    like: {
+      on: ['post'],
+      look: (doc) => {
+        const main = mainOf(doc);
+        const likes = controlsSaying(main, LIKE, true);
+        if (!likes.length)
+          return went('like', { like: 0 }, ['no Like on the post'], namesIn(main, INSTAGRAM));
+        return went(
+          'like',
+          {
+            like: likes.length,
+            liked: likes.some((l) =>
+              /^unlike$/i.test(l.getAttribute('aria-label') ?? l.textContent ?? ''),
+            ),
+          },
+          [],
+        );
+      },
+    },
+    // On a post's own page: its box to comment in and its Post, which stays off till something's written. Nothing
+    // is written.
+    comment: {
+      on: ['post'],
+      look: (doc) => {
+        const main = mainOf(doc);
+        const box = boxesSaying(main, COMMENT_BOX)[0] ?? null;
+        if (!box) {
+          const off = /\bcomments? (on this post )?(have been|are) (limited|turned off)\b/i.test(
+            clean(main.textContent),
+          );
+          if (off) return untried('comment', 'comments are off on that post', { box: false });
+        }
+        const post = box ? controlsSaying(box.closest('form') ?? main, POST, true) : [];
+        return went(
+          'comment',
+          { box: Boolean(box), post: post.length },
+          [
+            !box && 'no box to comment in on the post',
+            box && !post.length && 'no Post by the box to comment in',
+          ].filter((m): m is string => typeof m === 'string'),
+          box && post.length ? [] : namesIn(main, INSTAGRAM),
+        );
+      },
+    },
+  },
+};

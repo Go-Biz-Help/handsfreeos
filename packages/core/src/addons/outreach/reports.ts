@@ -6,7 +6,7 @@
  * (schemas/problem-report.ts, sent with `problem_report.send`, read on the support desk); this add-on keeps none.
  * Browser-safe: the extension, the web, the phone and the server read these.
  */
-import { NETWORKS, type Platform } from './networks';
+import { NETWORKS, withArticle, type Platform } from './networks';
 
 /**
  * Whether a computer may work a network as it last said: Chrome lets the extension on it (Facebook always: its sites
@@ -24,7 +24,7 @@ export const REPORT_WORDS = {
   /** Under an ask its computer can't do yet, and on the computer's card. */
   notAllowed: (computer: string, platform: Platform) => {
     const name = NETWORKS[platform].name;
-    return `${computer} isn’t allowed on ${name} yet. Open the extension’s panel on a ${name} page and press Allow on ${name}, then Allow in Chrome’s box.`;
+    return `${computer} isn’t allowed on ${name} yet. Open the extension’s panel on ${withArticle(name)} page and press Allow on ${name}, then Allow in Chrome’s box.`;
   },
   /** Check LinkedIn or Check Facebook, on the network's page in Settings. */
   checkupTitle: (name: string) => `Check ${name}`,
@@ -60,6 +60,10 @@ const CHECKUP_ABOUT: Readonly<Record<Platform, string>> = {
     'If something on Facebook isn’t working, press this once. Your computer reads your profile, feed, friends, friend requests, groups, searches and chats, then tries each step up to its last press: your bio, a post in a group, a comment, a friend request, a message, a like, confirming and cancelling requests, unfriending, joining a group and your Facebook file. It never saves, posts, sends, likes, adds, joins or removes anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about four minutes.',
   linkedin:
     'If something on LinkedIn isn’t working, press this once. Your computer reads your profile, feed, connections, a search and your messages, then tries each step up to its last press: your headline, a post, a comment, connecting, a message, a like and withdrawing. It never saves, posts, sends, likes or connects anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.',
+  instagram:
+    'Press this once, so the extension can learn Instagram from your own account. Your computer reads your feed, your profile, a search, someone’s profile and one of their posts, and your messages, and looks for each step’s button: Follow, Like, the box to comment in, and Message. It never presses any of them, and it tells HandsFreeOS what it found, with names and words left out. Its window comes to the front for about two minutes.',
+  alignable:
+    'Press this once, so the extension can learn Alignable from your own account. Your computer reads your home page and each page its menu leads to (your network, messages, the forum and the rest), your profile and a member’s, and looks for each step’s button: Connect, Message, Recommend, Like and the box to comment in. It never presses any of them, and it tells HandsFreeOS what it found, with names and words left out. Its window comes to the front for about two minutes.',
 };
 
 /** The steps Check LinkedIn (decision 76) and Check Facebook (decision 77) try, as their lines name them. */
@@ -78,5 +82,7 @@ export const TRY_STEP_NAMES = {
   unfriend: 'unfriending',
   join: 'joining groups',
   file: 'the data file',
+  follow: 'following',
+  recommend: 'recommending',
 } as const;
 export type TryStepName = keyof typeof TRY_STEP_NAMES;

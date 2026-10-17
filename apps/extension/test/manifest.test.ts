@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { facebook, linkedin } from '../src/networks';
+import { alignable, facebook, instagram, linkedin } from '../src/networks';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
@@ -53,10 +53,15 @@ describe('the manifest', () => {
     ]);
   });
 
-  it('asks for LinkedIn only when it’s turned on: optional, and never its script or a file it shows', () => {
-    expect(manifest.optional_host_permissions).toEqual([...linkedin.hosts]);
+  it('asks for LinkedIn, Instagram and Alignable only when each is turned on: optional, and never their script or a file it shows', () => {
+    expect(manifest.optional_host_permissions).toEqual([
+      ...linkedin.hosts,
+      ...instagram.hosts,
+      ...alignable.hosts,
+    ]);
     const everywhere = JSON.stringify([manifest.host_permissions, manifest.content_scripts]);
-    expect(everywhere).not.toContain('linkedin');
+    for (const site of ['linkedin', 'instagram', 'alignable'])
+      expect(everywhere).not.toContain(site);
     expect(manifest.web_accessible_resources).toBeUndefined();
     // Registering its script while it's on needs this, which Facebook's tabs already did.
     expect(manifest.permissions).toContain('scripting');

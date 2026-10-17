@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.57.0 now.
+    Built in 0.44.0; the extension is 0.58.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1304,6 +1304,34 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     the job's own steps (`src/jobs/checkup.ts`), each network's tries are its own, and every try finds what it needs
     with its step's own functions, so a try fails where the step itself would. Its window is in front for about four
     minutes.
+
+78. **Instagram and Alignable, looked at first** (Chris, 17 Oct 2026: "lets add ... instagram and alignable as
+    platforms", and whether a browser of Claude's could look at how those sites are built). They're networks now, in
+    Chris's order after LinkedIn (core's `PLATFORMS`, migration 20261027008300), each in its kit's `stage: 'looking'`:
+    the plan's "Each starts with a look at a real account and a kit". The look is the person's own Check, not a
+    browser of anyone else's: signed out, both sites show little but their sign-in, Instagram's terms forbid
+    automated collection, Alignable's robots.txt turns crawlers away, and signing in to the person's account from a
+    server would put it at risk. So:
+    - **Each has its page in Settings:** On for you, Your team may use it (every network allowed to start), what to
+      press in Chrome (its site is an optional host permission, asked for once it's turned on), a note of what the
+      extension does there for now (`NETWORK_WORDS.looking`), and **Check Instagram** or **Check Alignable**, the
+      one ask either takes (`ASK_KINDS_ON`), of extension 0.58.0 or later (`ASK_NETWORK_SINCE`). No choices, limits
+      or training wheels show there yet.
+    - **It has no day yet:** `outreach.day.start` refuses one (`outreach_network_looking`), and it isn't on Today's
+      strip, the network filters, the setup's networks step or a playbook's (`WORKING_PLATFORMS`).
+    - **In the extension** one reader serves both (`src/networks/looking/`), from each network's site
+      (`src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`): its addresses, its own words, its
+      warnings and the buttons it looks for. As the person goes its script reads only warnings, and notes none of
+      their steps. Check reads the network's main pages one at a time, at a person's pace, with its window in front,
+      sends a problem report of each with its outline (names and words hidden), and looks for each step's button
+      without pressing it: on Instagram the bio's box and Submit (on its own profile's form), Follow and Message (on
+      someone's account), Like and the box to comment in (on one of their posts); on Alignable Connect, Message,
+      Recommend, Like and a box to comment in, on each page it opens till each is found. Check Alignable follows
+      Alignable's own menu by its words (its network, messages, the forum, its communities and the rest), never to
+      anything that signs out, pays, invites, deletes or changes settings, since its signed-in addresses aren't
+      published.
+    - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
+      were from his (0.46.0 to 0.56.0).
 
 ## Rules worth knowing before changing anything
 

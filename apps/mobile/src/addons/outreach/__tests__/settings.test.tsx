@@ -57,7 +57,11 @@ const AUTOMATION: AutomationOutput = {
   startedAt: null,
   saved: true,
   wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
-  networkWheels: { linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 } },
+  networkWheels: {
+    linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+  },
   userId: ME,
   name: 'Dana Reyes',
   changedBy: null,
@@ -98,8 +102,10 @@ describe('The Settings menu on the phone', () => {
     // A screen reader says it too.
     expect(screen.getByTestId('settings-open-linkedin')).toHaveAccessibleName('LinkedIn. Off');
     // The networks still to come, on one line nobody can open.
+    expect(screen.getByTestId('settings-open-instagram-badge')).toHaveTextContent('Off');
+    expect(screen.getByTestId('settings-open-alignable-badge')).toHaveTextContent('Off');
     expect(screen.getByTestId('settings-networks-coming')).toHaveTextContent(
-      'Instagram, Alignable, Threads, X and TikTok are coming',
+      'Threads, X and TikTok are coming',
     );
     expect(screen.getByText('Changes save as you make them.')).toBeTruthy();
     // No Save button anywhere: each page saves as it's changed.

@@ -29,6 +29,7 @@ import { dayWords } from '../../src/addons/outreach/live';
 import {
   chatUrlOn,
   dailyWordsOn,
+  NETWORK_FILTERS,
   NETWORK_WORDS,
   networkShown,
   networksOn,
@@ -41,6 +42,13 @@ import {
   todayKindsOn,
   withNetwork,
 } from '../../src/addons/outreach/network-words';
+import {
+  isLooking,
+  networkOfLink,
+  PLATFORM_KEYS,
+  WORKING_PLATFORMS,
+} from '../../src/addons/outreach/networks';
+import { REPORT_WORDS } from '../../src/addons/outreach/reports';
 import { setupSteps, setupSummary, SETUP_WORDS } from '../../src/addons/outreach/setup';
 import type { StagesOutput } from '../../src/addons/outreach/stages';
 import { TODAY_KINDS } from '../../src/addons/outreach/today';
@@ -136,6 +144,22 @@ describe('the networks a person works', () => {
     expect(networkShown(['facebook'], 'linkedin')).toBe('facebook');
     expect(readNetwork('linkedin')).toBe('linkedin');
     expect(readNetwork('myspace')).toBeNull();
+  });
+
+  it('keeps a network still looked at off Today and the filters, while it can be turned on (decision 78)', () => {
+    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin']);
+    expect(PLATFORM_KEYS.filter(isLooking)).toEqual(['instagram', 'alignable']);
+    const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });
+    expect(networksOn(instagram)).toEqual(['facebook', 'instagram']);
+    expect(networksShown(instagram)).toEqual(['facebook']);
+    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin']);
+    expect(networkOfLink('https://www.instagram.com/dana.reyes/')).toBe('instagram');
+    expect(networkOfLink('https://www.alignable.com/austin-tx/acme-plumbing')).toBe('alignable');
+    expect(NETWORK_WORDS.looking('Instagram')).toContain('press Check Instagram below once');
+    expect(REPORT_WORDS.notAllowed('Chrome on Mac 12', 'instagram')).toContain(
+      'on an Instagram page',
+    );
+    expect(SETUP_WORDS.stepAbout.networks).toBe('Where you reach people: Facebook or LinkedIn');
   });
 
   it('changes one network’s choices, Facebook’s being the settings’ own', () => {

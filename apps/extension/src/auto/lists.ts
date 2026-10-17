@@ -51,6 +51,21 @@ interface ListsOn {
   readonly tidied: (cancel: number, unfriend: number) => string;
 }
 
+/** A network still looked at (decision 78): it saves and checks nothing before a day it doesn't have yet. */
+function notYet(name: string): ListsOn {
+  const why = `The extension only reads ${name} for now, so there’s nothing to do before a day there.`;
+  return {
+    save: {},
+    doing: {},
+    names: {},
+    checks: async () => ({ line: why, warned: false, failed: true }),
+    checking: why,
+    checkName: `Check ${name}`,
+    tidying: why,
+    tidied: () => why,
+  };
+}
+
 const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
   facebook: {
     save: {
@@ -95,6 +110,9 @@ const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
         ? `Suggested ${counted(cancel, 'old invitation')} to withdraw. Tick the ones to go under Friends → Tidy up in HandsFreeOS, on LinkedIn.`
         : 'No old invitations to withdraw for now.',
   },
+  // Still looked at (decision 78): no day yet, so nothing to do before one.
+  instagram: notYet('Instagram'),
+  alignable: notYet('Alignable'),
 };
 
 /** What to do before the day: save a list, check the groups, work out Tidy up, or check friends once. */

@@ -58,12 +58,17 @@ const FACEBOOK = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
 const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
 /**
  * The networks whose sites Chrome lets the extension on only once the person allows them, from the panel, after
- * turning the network on in HandsFreeOS (src/networks/linkedin/kit.ts): optional, so an update never asks everyone
- * again, and the extension never runs on a site they don't use. Their script is registered while each is on
- * (src/networks/scripts.ts), never listed in `content_scripts`, and nothing of the extension's is ever web-accessible:
- * LinkedIn's pages look for extensions by the files they show.
+ * turning the network on in HandsFreeOS (src/networks/linkedin/kit.ts, src/networks/looking/kit.ts): optional, so an
+ * update never asks everyone again, and the extension never runs on a site they don't use. Their script is registered
+ * while each is on (src/networks/scripts.ts), never listed in `content_scripts`, and nothing of the extension's is ever
+ * web-accessible: LinkedIn's pages look for extensions by the files they show. In the add-on's order: LinkedIn, then
+ * Instagram and Alignable, still looked at (decision 78).
  */
-const OPTIONAL = ['https://www.linkedin.com/*'];
+const OPTIONAL = [
+  'https://www.linkedin.com/*',
+  'https://www.instagram.com/*',
+  'https://www.alignable.com/*',
+];
 /**
  * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:
  * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).

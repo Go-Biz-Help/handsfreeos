@@ -7100,7 +7100,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "ask": {
             "oneOf": [
@@ -7659,6 +7659,116 @@
                         "enum": ["copy", "after_ok", "own"]
                       }
                     }
+                  },
+                  "instagram": {
+                    "default": {
+                      "on": false,
+                      "sending": "off",
+                      "replies": "draft",
+                      "warmUp": true,
+                      "confirmRequests": true,
+                      "collect": true,
+                      "joinGroups": true,
+                      "watchPosts": true,
+                      "posting": "after_ok"
+                    },
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "default": "off",
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      }
+                    }
+                  },
+                  "alignable": {
+                    "default": {
+                      "on": false,
+                      "sending": "off",
+                      "replies": "draft",
+                      "warmUp": true,
+                      "confirmRequests": true,
+                      "collect": true,
+                      "joinGroups": true,
+                      "watchPosts": true,
+                      "posting": "after_ok"
+                    },
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "default": "off",
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      }
+                    }
                   }
                 }
               }
@@ -7681,7 +7791,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "installId": {
             "type": "string",
@@ -7703,7 +7813,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "installId": {
             "type": "string",
@@ -7725,7 +7835,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "profileId": {
             "type": "string",
@@ -7771,7 +7881,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "profileId": {
             "type": "string",
@@ -7823,7 +7933,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "groupId": {
             "type": "string",
@@ -8197,7 +8307,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook", "linkedin"]
+                  "enum": ["facebook", "linkedin", "instagram", "alignable"]
                 }
               },
               "groupWords": {
@@ -8500,7 +8610,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "item": {
             "type": "string",
@@ -8635,7 +8745,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId", "userId"]
@@ -14074,7 +14184,7 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]
@@ -14091,7 +14201,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "view": {
             "default": "work",
@@ -14123,7 +14233,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]
@@ -14140,7 +14250,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]
@@ -14169,7 +14279,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           },
           "profiles": {
             "default": [],
@@ -14233,7 +14343,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]
@@ -14286,7 +14396,7 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]
@@ -14303,7 +14413,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]

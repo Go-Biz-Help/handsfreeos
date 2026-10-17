@@ -10,7 +10,7 @@ import { businessLimitsOn, type BusinessRules } from './automation';
 import { HELPFUL_PER_DAY } from './helpful';
 import { DAILY_STEPS, limitNow } from './limits';
 import { dailyWordsOn, helpfulOn, tidyWordsOn } from './network-words';
-import { networkLimitsNow, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
+import { networkLimitsNow, NETWORKS, PLATFORM_KEYS, withArticle, type Platform } from './networks';
 
 /** The parts, in the menu's order. */
 export const SETTINGS_PART_KEYS = ['general', ...PLATFORM_KEYS, 'computer', 'fresh'] as const;
@@ -35,7 +35,7 @@ export const isNetworkPart = (part: SettingsPart): part is Platform =>
  * The networks still to come, in the plan's order (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): shown in the
  * menu as coming, never opened. Each moves to `PLATFORMS` with its kit.
  */
-export const NEXT_NETWORKS = ['Instagram', 'Alignable', 'Threads', 'X', 'TikTok'] as const;
+export const NEXT_NETWORKS = ['Threads', 'X', 'TikTok'] as const;
 
 /** The Settings pages' own words, on the web and the phone. */
 export const SETTINGS_WORDS = {
@@ -69,7 +69,7 @@ export const SETTINGS_WORDS = {
   yourLimits: (name: string) => `Your daily limits on ${name}`,
   /** A network Chrome has to let the extension on, the first time. */
   allowInChrome: (name: string) =>
-    `The first time, open the extension’s panel on a ${name} page and press Allow on ${name}, then Allow in Chrome’s box.`,
+    `The first time, open the extension’s panel on ${withArticle(name)} page and press Allow on ${name}, then Allow in Chrome’s box.`,
   /** Your computer's page. */
   computerAbout: 'The computers you’re signed in on, and the extension to download.',
   /** Under a network's daily friend requests, when it also caps them in any 7 days (LinkedIn's 80). */

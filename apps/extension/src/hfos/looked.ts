@@ -14,7 +14,7 @@
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { chatMemory, sendChat } from '../jobs/chats';
-import { facebook, isLinkedInRead, type FacebookRead } from '../networks';
+import { facebook, isLinkedInRead, isLookingRead, type FacebookRead } from '../networks';
 import type { Hfos } from '../jobs/job';
 import type { TabNote } from '../messages';
 import { postsSave } from './saves';
@@ -91,7 +91,7 @@ export async function looked(note: Looked, platform: Platform = facebook.platfor
     if (!place || !note.result || (await warnedNow(platform))) return;
     const page = note.result;
     // Only Facebook's tabs read a chat or a group's posts as the person goes, for now.
-    if (isLinkedInRead(page)) return;
+    if (isLinkedInRead(page) || isLookingRead(page)) return;
     if (page.kind === 'chat' && page.chat) {
       const listed = page.chats?.find((c) => c.thread.id === page.chat?.thread?.id) ?? null;
       await sendChat(answer as Hfos, place.businessId, chatMemory, page.chat, listed);

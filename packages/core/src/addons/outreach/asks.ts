@@ -63,7 +63,8 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
  * part"): Facebook's every kind, Check Facebook among them (decision 77); LinkedIn's its invitations and connections,
  * checking connections for fits, reading chats, looking someone up, researching one person, reading the profile and
  * putting the headline in, withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn
- * (decision 74). A kind a network can't be asked is refused (`outreach_ask_not_on_network`).
+ * (decision 74); Instagram's and Alignable's their Check alone, while they're looked at (decision 78). A kind a network
+ * can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   facebook: ASK_KIND_KEYS,
@@ -86,6 +87,9 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'post',
     'checkup',
   ],
+  // Looked at first (decision 78): Check Instagram and Check Alignable, till their steps are built from what they read.
+  instagram: ['checkup'],
+  alignable: ['checkup'],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
   ASK_KINDS_ON[platform].includes(kind);
@@ -105,7 +109,12 @@ export const askNameOn = (kind: AskKind, platform: Platform = 'facebook'): strin
   ASK_NAMES_ON[platform]?.[kind] ?? inNetworkWords(ASK_KINDS[kind], platform);
 
 /** What a profile's bio is called on a network: LinkedIn's is its headline. */
-const BIO_NAME_ON: Readonly<Record<Platform, string>> = { facebook: 'bio', linkedin: 'headline' };
+const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
+  facebook: 'bio',
+  linkedin: 'headline',
+  instagram: 'bio',
+  alignable: 'bio',
+};
 
 /**
  * Why a bio can't go in on a network: longer than it takes (Facebook's short bio 101 characters, LinkedIn's headline
@@ -125,6 +134,8 @@ export function bioTooLongWords(platform: Platform, bio: string): string | null 
  */
 export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
   linkedin: '0.40.0',
+  instagram: '0.58.0',
+  alignable: '0.58.0',
 };
 
 /**

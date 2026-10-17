@@ -35,11 +35,16 @@ export type ListMark = (typeof LIST_MARK_KEYS)[number];
 export const LIST_SAVES_ON: Readonly<Record<Platform, readonly ListSave[]>> = {
   facebook: LIST_SAVE_KEYS,
   linkedin: ['friends', 'requests', 'sent'],
+  // Looked at first (decision 78): no day yet, so nothing saved before it.
+  instagram: [],
+  alignable: [],
 };
 /** What each network notes as done before its first day, in order. */
 export const LIST_MARKS_ON: Readonly<Record<Platform, readonly ListMark[]>> = {
   facebook: LIST_MARK_KEYS,
   linkedin: ['friends', 'requests', 'sent', 'tidy', 'checks'],
+  instagram: [],
+  alignable: [],
 };
 
 /** The friends list, and the groups, are saved again once their last full save is this old. */
@@ -184,6 +189,24 @@ const WAIT_NAMES_ON: Readonly<
     },
     all: 'your connections and invitations',
   },
+  instagram: {
+    each: {
+      friends: 'your followers',
+      requests: 'the follow requests you’ve got',
+      sent: 'the ones you’ve sent',
+      groups: 'your groups',
+    },
+    all: 'your followers and follow requests',
+  },
+  alignable: {
+    each: {
+      friends: 'your connections',
+      requests: 'the connection requests you’ve got',
+      sent: 'the ones you’ve sent',
+      groups: 'your groups',
+    },
+    all: 'your connections and connection requests',
+  },
 };
 
 /** "a, b and c". */
@@ -230,6 +253,22 @@ export const PRE_DAY_WORDS_ON: Readonly<Record<Platform, Readonly<Record<ListMar
     requests: 'Save invitations you got',
     sent: 'Save invitations you sent',
     tidy: 'Work out which old invitations to withdraw',
+    checks: 'Check your connections for good fits',
+  },
+  instagram: {
+    ...PRE_DAY_WORDS,
+    friends: 'Save your followers',
+    requests: 'Save follow requests you got',
+    sent: 'Save follow requests you sent',
+    tidy: 'Work out which old follow requests to withdraw',
+    checks: 'Check your followers for good fits',
+  },
+  alignable: {
+    ...PRE_DAY_WORDS,
+    friends: 'Save your connections',
+    requests: 'Save connection requests you got',
+    sent: 'Save connection requests you sent',
+    tidy: 'Work out which old requests to withdraw',
     checks: 'Check your connections for good fits',
   },
 };

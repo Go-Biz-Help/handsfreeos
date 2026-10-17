@@ -539,6 +539,34 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 
+  it('ask only Check of a network still looked at, of a build that knows it, and start no day there (decision 78)', async () => {
+    const dana = await teammate('Rowan Ellis');
+    const pc = randomUUID();
+    const instagramOn = {
+      ...AUTOMATION_DEFAULTS,
+      networks: { ...NETWORKS_DEFAULTS, instagram: { ...NETWORK_CHOICES_DEFAULTS, on: true } },
+    };
+    // Every network is allowed to start, Instagram among them.
+    await runAs(dana, ws, 'outreach.automation.save', { settings: instagramOn });
+    // A build from before Instagram isn't asked anything there.
+    await beat(dana, pc, '0.57.0');
+    expect(await refused(ask(dana, 'instagram', { kind: 'checkup' }))).toBe(
+      'outreach_extension_too_old',
+    );
+    await beat(dana, pc, '0.58.0');
+    expect(await ask(dana, 'instagram', { kind: 'checkup' })).toMatchObject({
+      fresh: true,
+      ask: { platform: 'instagram', kind: 'checkup' },
+    });
+    // Nothing else is asked there yet, and it has no day to start.
+    expect(await refused(ask(dana, 'instagram', { kind: 'friends' }))).toBe(
+      'outreach_ask_not_on_network',
+    );
+    expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'instagram' }))).toBe(
+      'outreach_network_looking',
+    );
+  });
+
   it('ask for LinkedIn’s data file and post only of a build that does them there', async () => {
     expect(tooOldFor('0.41.0', 'file_in', 'linkedin')).toBe(true);
     expect(tooOldFor('0.42.0', 'file_in', 'linkedin')).toBe(false);

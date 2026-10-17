@@ -7,7 +7,7 @@
  * step with a problem on it doesn't carry on.
  */
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { NICHE_FIT_WORDS, type NicheFitOutput } from '@hfos/core/addons/outreach/niche-fit';
 import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
 import type {
@@ -973,7 +973,7 @@ export function PlaybookBuilder({
             <legend className="text-[14px] font-semibold">{NW.playbookTitle}</legend>
             <p className="text-[13px] text-text-2">{NW.playbookAbout}</p>
             <div className="divide-y divide-border rounded-card border border-border bg-card">
-              {PLATFORM_KEYS.map((p) => {
+              {WORKING_PLATFORMS.map((p) => {
                 const on = draft.platforms.includes(p);
                 return (
                   <div key={p} className="flex items-start justify-between gap-3 p-3.5">
