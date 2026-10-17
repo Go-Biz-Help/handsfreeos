@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.55.0 now.
+    Built in 0.44.0; the extension is 0.56.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1269,6 +1269,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     On 0.54.0 Message opened its window over the profile instead, in the interop box, and the window links to them by
     member id while his connections list gives only their name in LinkedIn's address. From 0.55.0, on their profile,
     the member id its own Message carries counts too when telling their window.
+
+    On 0.55.0 every step tried worked (17 Oct 2026). Commenting had nothing to try on that time: no person's post on
+    his feed or the search had a page of its own. From 0.56.0 it's tried on one of the connection's own posts from
+    their activity when the feed and the search have none.
 
 ## Rules worth knowing before changing anything
 

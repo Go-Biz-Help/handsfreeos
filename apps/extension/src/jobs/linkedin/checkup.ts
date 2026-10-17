@@ -14,7 +14,8 @@ import { REPORT_WORDS, type TryStepName } from '@hfos/core/addons/outreach/repor
 import type { LinkedInRead } from '../../networks';
 import { DATA_PAGE } from '../../networks/linkedin/data';
 import type { StepTry, TryStep } from '../../networks/linkedin/tries';
-import type { ProfileRef } from '../../networks/linkedin/types';
+import type { Post, ProfileRef } from '../../networks/linkedin/types';
+import { sameMember } from '../../networks/linkedin/urls';
 import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
 import { loadNote, ownProfileNote, tryNote } from '../report';
 import {
@@ -164,20 +165,24 @@ async function checkup(job: Job): Promise<JobEnd> {
   } else await c.nothingFor('connect', 'nobody you’re not connected with in the search');
 
   // A posts search; then a person's post from your feed or the search, on its own page, to try commenting on (LinkedIn's
-  // newer feed links few of its posts).
+  // newer feed links few of its posts: with none, one of a connection's own, below).
   if (stopped()) return stopped()!;
   const posts = await c.open(postSearchUrl(SEARCH_WORDS), 'the posts search');
   if (isEnd(posts)) return posts;
   await c.note('the posts search', posts.posts?.length ?? 0);
   const theirPost =
     [...(feed.posts ?? []), ...(posts.posts ?? [])].find((p) => p.url && !p.company)?.url ?? null;
-  if (stopped()) return stopped()!;
-  if (theirPost) {
-    const post = await c.open(theirPost, 'a post');
+  const commentOn = async (url: string): Promise<JobEnd | null> => {
+    if (stopped()) return stopped();
+    const post = await c.open(url, 'a post');
     if (isEnd(post)) return post;
     await c.tryHere('comment');
-  } else
-    await c.nothingFor('comment', 'no person’s post with its own page, on your feed or the search');
+    return null;
+  };
+  if (theirPost) {
+    const ended = await commentOn(theirPost);
+    if (ended) return ended;
+  }
 
   // Your messages.
   if (stopped()) return stopped()!;
@@ -203,10 +208,28 @@ async function checkup(job: Job): Promise<JobEnd> {
     const activity = await c.open(`${connection.url}recent-activity/all/`, 'their posts');
     if (isEnd(activity)) return activity;
     await c.tryHere('like', connection);
+    // Nothing on your feed or the search to try commenting on: one of their own posts, on its own page, as the runner
+    // comments on (else anything on their activity a person posted).
+    const own = (p: Post) => (p.author?.profile ? sameMember(p.author.profile, connection) : false);
+    const ofTheirs = theirPost
+      ? null
+      : ((
+          activity.posts?.find((p) => p.url && own(p)) ??
+          activity.posts?.find((p) => p.url && !p.company)
+        )?.url ?? null);
+    if (ofTheirs) {
+      const ended = await commentOn(ofTheirs);
+      if (ended) return ended;
+    }
   } else {
     await c.nothingFor('message', 'no connection to try it with');
     await c.nothingFor('like', 'no connection whose posts to try it on');
   }
+  if (!c.tries.some((t) => t.step === 'comment'))
+    await c.nothingFor(
+      'comment',
+      'no person’s post with its own page, on your feed, the search or a connection’s activity',
+    );
 
   // Invitations you sent, and Get a copy of your data.
   if (stopped()) return stopped()!;
