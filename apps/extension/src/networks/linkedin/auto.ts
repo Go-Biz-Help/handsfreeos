@@ -351,10 +351,14 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
     });
     return boxes.length === 1 ? boxes[0]! : null;
   }
+  // On their profile, the member id its own Message carries (./profile.ts): a window that links to them by it, as
+  // LinkedIn's in its interop box does (the owner's Check LinkedIn of 17 Oct 2026, on 0.54.0), is known as theirs.
+  const page = address.kind === 'profile' ? profileOn(doc, href).profile : null;
+  const known = page?.id && !them.id && sameMember(page, them) ? { ...them, id: page.id } : them;
   const theirs = placesOf(doc)
     .flatMap(messageBoxes)
     .filter(
-      (box) => !main.contains(box) && windowLinks(box, doc, href).some((p) => sameMember(p, them)),
+      (box) => !main.contains(box) && windowLinks(box, doc, href).some((p) => sameMember(p, known)),
     );
   return theirs.length === 1 ? theirs[0]! : null;
 }
