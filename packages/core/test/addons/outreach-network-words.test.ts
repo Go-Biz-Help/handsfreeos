@@ -133,9 +133,9 @@ describe('each network’s words for the AI', () => {
     );
     expect(Object.keys(check.items)).toEqual([...PROFILE_ITEMS_ON.linkedin]);
     // Nothing read for the banner or About: never right, whatever the AI says.
-    expect(check.items.cover.ok).toBe(false);
+    expect(check.items.cover?.ok).toBe(false);
     expect(check.items.about?.ok).toBe(false);
-    expect(check.items.bio.ok).toBe(true);
+    expect(check.items.bio?.ok).toBe(true);
     // Headlines up to LinkedIn's 220 characters, and an About with no long dashes.
     expect(check.bios).toEqual(['h'.repeat(200)]);
     expect(check.aboutDraft).not.toContain('—');

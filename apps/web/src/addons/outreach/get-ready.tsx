@@ -8,7 +8,9 @@
  * and their goal with the math worked as they change it.
  *
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines up to
- * 220 characters to put in, and an About to start from, each asked and ticked on LinkedIn.
+ * 220 characters to put in, and its whole About, each asked and ticked on LinkedIn; Instagram's its bio to put in and a
+ * name to use (decision 80). What the AI wrote can be changed before it goes in, nothing still in [brackets] goes in,
+ * and **Put them all in** puts the picked headline and the About in with one press, the person's OK for both.
  */
 import { bioEditShown } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
@@ -24,7 +26,12 @@ import {
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
 import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
-import { checkCounts, type AnyProfileItem } from '@hfos/core/addons/outreach/profile-check';
+import {
+  ABOUT_MOST,
+  checkCounts,
+  hasPlaceholder,
+  type AnyProfileItem,
+} from '@hfos/core/addons/outreach/profile-check';
 import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -250,7 +257,7 @@ export function GetReadyCard({
   );
 }
 
-function ProfileSheet({
+export function ProfileSheet({
   workspaceId,
   readiness,
   asks,
@@ -275,6 +282,18 @@ function ProfileSheet({
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
   const right = (item: AnyProfileItem) => on(item) || check?.items[item]?.ok === true;
   const edit = bioEditShown(asks, platform, readiness.profileCheck?.at ?? null);
+  // The headline picked for Put them all in, and the About as the person changed it (decision 80).
+  const [picked, setPicked] = useState(0);
+  const [about, setAbout] = useState(check?.aboutDraft ?? '');
+  useEffect(() => setAbout(check?.aboutDraft ?? ''), [check?.aboutDraft]);
+  const bio = check?.bios[picked] ?? check?.bios[0] ?? null;
+  const aboutWhy = !about.trim()
+    ? null
+    : about.trim().length > ABOUT_MOST
+      ? P.tooLong(about.trim().length, ABOUT_MOST)
+      : hasPlaceholder(about)
+        ? P.fillIn
+        : null;
   const ticked = P.items.filter((i) => right(i.item)).length;
   const again = readiness.items.find((i) => i.item === 'profile')?.state === 'look_again';
   const tick = async (item: AnyProfileItem) => {
@@ -400,14 +419,36 @@ function ProfileSheet({
                 <p className="font-semibold">{P.bios}</p>
                 <p className="text-[13px] text-text-2">{P.biosHint}</p>
               </div>
-              {check.bios.map((bio, i) => (
-                <div key={bio} className="grid gap-2 rounded-menu border border-border p-3">
-                  <p className="text-[14px]">“{bio}”</p>
-                  {asks ? (
+              {check.bios.map((option, i) => (
+                <div
+                  key={option}
+                  className={cn(
+                    'grid gap-2 rounded-menu border p-3',
+                    check.aboutDraft && i === picked ? 'border-accent' : 'border-border',
+                  )}
+                >
+                  {check.aboutDraft ? (
+                    // The one Put them all in puts in beside the About.
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={i === picked}
+                      onClick={() => setPicked(i)}
+                      className="text-left text-[14px]"
+                      data-testid={`ready-bio-pick-${i}`}
+                    >
+                      “{option}”
+                    </button>
+                  ) : (
+                    <p className="text-[14px]">“{option}”</p>
+                  )}
+                  {hasPlaceholder(option) ? (
+                    <p className="text-[12.5px] text-warning-text">{P.fillIn}</p>
+                  ) : asks ? (
                     <AskButton
                       workspaceId={workspaceId}
                       asks={asks}
-                      ask={{ kind: 'profile_edit', bio }}
+                      ask={{ kind: 'profile_edit', bio: option }}
                       platform={platform}
                       label={P.useBio}
                       showLine={false}
@@ -443,19 +484,80 @@ function ProfileSheet({
                 <p className="font-semibold">{P.about}</p>
                 <p className="text-[13px] text-text-2">{P.aboutHint}</p>
               </div>
-              <p className="whitespace-pre-wrap rounded-menu border border-border p-3 text-[14px]">
-                {check.aboutDraft}
-              </p>
-              <div>
+              <textarea
+                value={about}
+                onChange={(e) => setAbout(e.target.value)}
+                rows={8}
+                aria-label={P.about}
+                className="w-full rounded-menu border border-border bg-card p-3 text-[14px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                data-testid="ready-about-text"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p
+                  className={cn('text-[12.5px]', aboutWhy ? 'text-warning-text' : 'text-text-3')}
+                  data-testid="ready-about-why"
+                >
+                  {aboutWhy ?? P.length(about.trim().length, ABOUT_MOST)}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void copyText(about, P.aboutCopied ?? 'Copied.')}
+                    data-testid="ready-about-copy"
+                  >
+                    Copy
+                  </Button>
+                  {asks ? (
+                    <AskButton
+                      workspaceId={workspaceId}
+                      asks={asks}
+                      ask={{ kind: 'profile_edit', about: about.trim() }}
+                      platform={platform}
+                      label={P.useBio}
+                      showLine={false}
+                      disabled={aboutWhy !== null || !about.trim()}
+                      testId="ready-about-use"
+                    />
+                  ) : null}
+                </div>
+              </div>
+              {asks && bio && !hasPlaceholder(bio) ? (
+                // Both in one press: the headline picked above, and this About (decision 80).
+                <div className="grid gap-1 rounded-menu bg-card-2 p-3" data-testid="ready-all">
+                  <p className="text-[13px] text-text-2">{P.useAllHint}</p>
+                  <div>
+                    <AskButton
+                      workspaceId={workspaceId}
+                      asks={asks}
+                      ask={{ kind: 'profile_edit', bio, about: about.trim() }}
+                      platform={platform}
+                      label={P.useAll}
+                      variant="primary"
+                      showLine={false}
+                      disabled={aboutWhy !== null || !about.trim()}
+                      testId="ready-all-use"
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {check?.nameDraft ? (
+            <div className="grid gap-1" data-testid="ready-name">
+              <p className="font-semibold">{P.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[14px]">“{check.nameDraft}”</p>
                 <Button
                   size="sm"
-                  variant="secondary"
-                  onClick={() => void copyText(check.aboutDraft!, P.aboutCopied ?? 'Copied.')}
-                  data-testid="ready-about-copy"
+                  variant="ghost"
+                  onClick={() => void copyText(check.nameDraft!, P.nameCopied)}
+                  data-testid="ready-name-copy"
                 >
                   Copy
                 </Button>
               </div>
+              <p className="text-[12.5px] text-text-3">{P.nameHint}</p>
             </div>
           ) : null}
           {check?.feature.length ? (

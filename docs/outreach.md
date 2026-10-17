@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.61.0 now.
+    Built in 0.44.0; the extension is 0.62.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1355,6 +1355,37 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       (Chrome's insertText, after the redraw), as Check Facebook's comment does.
     - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
       were from his (0.46.0 to 0.56.0).
+
+79. **Finding customers on Instagram and Alignable** (Chris, 17 Oct 2026: "go with your recommendations except for
+    the instagram profile"; HANDSFREEOS_INSTAGRAM_ALIGNABLE_IMPLEMENTATION_PLAN.md, its decisions 1 to 10). Fix
+    LinkedIn's gaps first (people found by post search get invitations; each network's Settings show only the
+    switches its runner does). Alignable first, then Instagram. On Instagram: Chris's personal account, optimized as
+    his LinkedIn is; the first message once they follow back or answer, else one short message with no link after 3
+    days; unfollow those who didn't follow back within 3 weeks, 20 a day at most; the AI drafts posts and the person
+    puts them up. On Alignable: each playbook says customers, referral partners or both; Recommend only by hand;
+    forum answers after an OK each time. The plan's starting limits.
+80. **Optimize your profile, on every network** (Chris, 17 Oct 2026: "need to have an AI and automated optimize
+    feature for all platforms"). Decision 64 grows from Facebook's bio and LinkedIn's headline to every part of the
+    profile a person writes, on every network, Instagram and Alignable among them: the AI checks each part against
+    the main offer and writes it again at the network's own length; the person sees each as it is and as written,
+    and **Put them all in** (or **Put this one in**) is their OK, as their profile is public; the extension writes
+    each in, hands over what a site won't let it, and reads the profile again. Pictures and covers stay tips. It's
+    checked again when the main offer changes and once a month, and a new check only suggests.
+    - **Built in 0.62.0:**
+      - **LinkedIn:** the AI writes the whole About (at most 2,000 characters; LinkedIn takes 2,600) beside the
+        headlines. The person can change either, and **Put them all in** puts the picked headline and the About in
+        with one press. Check LinkedIn tries the About's pencil too.
+      - **Instagram:** its own list (a photo, a name that says what you do, the bio, the link, highlights and posts).
+        The extension reads the account's own page and its form, and puts the bio in on the form, or hands that to the
+        person. The AI writes a name for the person to put in, as Instagram changes names only in its app or Accounts
+        Center.
+      - **Alignable:** its own list, ticked by the person for now. Check Alignable opens the profile's pages and its
+        edit form, so its reader and writer get built from what it sends.
+      - **Nothing in [brackets] goes in.** That's how the AI marks what it can't know, and the screen asks for it to be
+        filled in first.
+      - **Each network's page of Settings has Your profile,** with Get ready's sheet, so a network still looked at has
+        it too.
+      - **An About needs 0.62.0 or later**; an older build says to update first.
 
 ## Rules worth knowing before changing anything
 

@@ -171,6 +171,8 @@ export type OutreachShown =
       readonly extensionLink: string | null;
       /** On a network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74). */
       readonly asks?: Asks | null;
+      /** On a network's page, the person's own profile there, read and checked (decision 80). */
+      readonly readiness?: Readiness | null;
     };
 
 /** A row of links that looks like a segmented control: People's three lists. */
@@ -536,6 +538,7 @@ export function OutreachHome({
                 live={shown.live}
                 extensionLink={shown.extensionLink}
                 asks={shown.asks ?? null}
+                readiness={shown.readiness ?? null}
               />
             ) : shown.view === 'playbooks' ? (
               <PlaybooksView

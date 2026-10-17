@@ -6,7 +6,7 @@
  * chat, read the person's own profile, put the bio or headline in), and a tab answers only its own network's.
  */
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
-import type { HeadlineSteps, ProfileLoad } from './networks/linkedin/own-profile';
+import type { AboutSteps, HeadlineSteps, ProfileLoad } from './networks/linkedin/own-profile';
 import type { StepTry, TryStep } from './networks/tries';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
@@ -115,16 +115,24 @@ export type FeedPostAnswer =
 
 /**
  * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
- * LinkedIn is their headline (src/networks/facebook/own-profile.ts, src/networks/linkedin/own-profile.ts).
+ * LinkedIn is their headline, or LinkedIn's About (decision 80; src/networks/facebook/own-profile.ts,
+ * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts).
  */
 export type OwnProfileAsk =
-  { readonly type: 'hfos-own-profile' } | { readonly type: 'hfos-write-bio'; readonly bio: string };
+  | { readonly type: 'hfos-own-profile' }
+  | { readonly type: 'hfos-write-bio'; readonly bio: string }
+  | { readonly type: 'hfos-write-about'; readonly about: string };
 
 export type OwnProfileAnswer =
   /** `load`: how loading the whole profile went, where the network draws it as it comes into view (LinkedIn). */
   | { readonly ok: true; readonly read: ProfileRead; readonly load?: ProfileLoad }
-  /** `steps`: how each step of putting LinkedIn's headline in went. */
-  | { readonly ok: true; readonly result: BioResult; readonly steps?: HeadlineSteps }
+  /** `steps`: how each step of putting LinkedIn's headline in went, or its About. */
+  | {
+      readonly ok: true;
+      readonly result: BioResult;
+      readonly steps?: HeadlineSteps;
+      readonly aboutSteps?: AboutSteps;
+    }
   | { readonly ok: false; readonly error: string };
 
 /**

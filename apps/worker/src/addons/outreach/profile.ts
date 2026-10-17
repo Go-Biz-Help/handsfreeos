@@ -8,11 +8,8 @@
 import { profileCheckSave } from '@hfos/core/addons/outreach/ops/readiness';
 import {
   checkedProfileCheck,
-  LINKEDIN_PROFILE_CHECK_SCHEMA,
-  LinkedInProfileCheckAnswer,
   PROFILE_CHECK_MAX_TOKENS,
-  PROFILE_CHECK_SCHEMA,
-  ProfileCheckAnswer,
+  profileCheckAsk,
   profileCheckPrompt,
   profileCheckSystem,
   ProfileRead,
@@ -32,26 +29,18 @@ export const profileCheck: AddonWorkerAction<ProfileRead> = {
     const read = ProfileRead.parse(raw);
     const live = await liveMainOffer(ctx);
     let check: ProfileCheck;
-    // Each network's own checklist: LinkedIn's has its headline and About, and an About to start from.
-    const asked = {
-      system: profileCheckSystem(read.platform),
-      messages: [{ role: 'user' as const, content: profileCheckPrompt(read, live?.offer ?? null) }],
-      maxTokens: PROFILE_CHECK_MAX_TOKENS[read.platform],
-      usage: { source: 'addon' as const, addonId: ctx.manifest.id },
-    };
+    // Each network's own checklist (decision 80): LinkedIn's has its headline and its whole About, Instagram's its
+    // name and link.
     try {
-      const { value } =
-        read.platform === 'facebook'
-          ? await askStructured(ctx, ctx.scope, {
-              ...asked,
-              schema: PROFILE_CHECK_SCHEMA,
-              zod: ProfileCheckAnswer,
-            })
-          : await askStructured(ctx, ctx.scope, {
-              ...asked,
-              schema: LINKEDIN_PROFILE_CHECK_SCHEMA,
-              zod: LinkedInProfileCheckAnswer,
-            });
+      const { value } = await askStructured(ctx, ctx.scope, {
+        system: profileCheckSystem(read.platform),
+        messages: [
+          { role: 'user' as const, content: profileCheckPrompt(read, live?.offer ?? null) },
+        ],
+        maxTokens: PROFILE_CHECK_MAX_TOKENS[read.platform],
+        usage: { source: 'addon' as const, addonId: ctx.manifest.id },
+        ...profileCheckAsk(read.platform),
+      });
       check = checkedProfileCheck(value, read, new Date().toISOString(), live?.version ?? null);
     } catch (e) {
       throw aiFailure(e);

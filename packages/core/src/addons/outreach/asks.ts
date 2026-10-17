@@ -21,7 +21,7 @@ import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
 import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
-import { BIO_MOST_ON, PROFILE_BIO_MOST } from './profile-check';
+import { ABOUT_MOST, BIO_MOST_ON, hasPlaceholder, PROFILE_BIO_MOST } from './profile-check';
 import { allowedOn, REPORT_WORDS } from './reports';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
@@ -87,8 +87,9 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'post',
     'checkup',
   ],
-  // Looked at first (decision 78): Check Instagram and Check Alignable, till their steps are built from what they read.
-  instagram: ['checkup'],
+  // Looked at first (decision 78): Check Instagram and Check Alignable, till their steps are built from what they read;
+  // and Instagram's profile, read and checked, and its bio put in (decision 80), before its steps.
+  instagram: ['checkup', 'profile_read', 'profile_edit'],
   alignable: ['checkup'],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
@@ -100,7 +101,7 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     cancel: 'Withdraw old invitations',
     posts: 'Find posts on LinkedIn',
     post: 'Put up your helpful post on your feed',
-    profile_edit: 'Put your new headline in',
+    profile_edit: 'Update your profile',
   },
 };
 
@@ -120,6 +121,34 @@ const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
  * Why a bio can't go in on a network: longer than it takes (Facebook's short bio 101 characters, LinkedIn's headline
  * 220). Null when it fits.
  */
+/**
+ * Why what's to go in a profile can't (decision 80): an About anywhere but LinkedIn, one longer than LinkedIn takes,
+ * or a part still in [brackets], which the AI writes where it can't know something. Null when it can go in.
+ */
+export function profileEditWords(
+  platform: Platform,
+  edit: { readonly bio?: string | null; readonly about?: string | null },
+): string | null {
+  if (edit.about && platform !== 'linkedin')
+    return `${PLATFORMS[platform]} has no About to put in. Put in the bio only.`;
+  if (edit.bio) {
+    const tooLong = bioTooLongWords(platform, edit.bio);
+    if (tooLong) return tooLong;
+  }
+  if (edit.about && edit.about.trim().length > ABOUT_MOST)
+    return `LinkedIn’s About takes up to ${ABOUT_MOST.toLocaleString('en-US')} characters, and this one has ${edit.about.trim().length.toLocaleString('en-US')}. Cut it to fit, then put it in.`;
+  const unfilled = [
+    edit.bio && hasPlaceholder(edit.bio) && `your ${BIO_NAME_ON[platform]}`,
+    edit.about && hasPlaceholder(edit.about) && 'your About',
+  ].filter((w): w is string => typeof w === 'string');
+  if (unfilled.length)
+    return `Fill in the parts in [brackets] in ${unfilled.join(' and ')} first: the AI writes them where it can’t know what’s true for you.`;
+  return null;
+}
+
+/** The first build that writes LinkedIn's About beside its headline (decision 80). */
+export const PROFILE_ABOUT_SINCE = '0.62.0';
+
 export function bioTooLongWords(platform: Platform, bio: string): string | null {
   const most = BIO_MOST_ON[platform];
   const length = bio.trim().length;
@@ -154,6 +183,8 @@ export const ASK_KIND_SINCE_ON: Readonly<
     post: '0.43.0',
     checkup: '0.48.0',
   },
+  // Instagram's profile, read and its bio put in (decision 80).
+  instagram: { profile_read: '0.62.0', profile_edit: '0.62.0' },
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
@@ -196,7 +227,7 @@ export const ASK_KINDS_FOR = {
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
   chats: ['chats'],
   today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit'],
-  settings: ['checkup'],
+  settings: ['checkup', 'profile_read', 'profile_edit'],
 } as const satisfies Record<string, readonly AskKind[]>;
 
 export const ASK_STATES = {
@@ -376,12 +407,16 @@ export const AskInput = z.discriminatedUnion('kind', [
   plain('profile_read'),
   /**
    * Put a bio in on their own profile, one the AI wrote and they picked or changed: then read it again. On LinkedIn
-   * it's the headline. Each network's own length (`BIO_MOST_ON`) is held when it's asked.
+   * it's the headline, and its About may go in beside it, or on its own (decision 80). Each network's own length
+   * (`BIO_MOST_ON`) is held when it's asked, and nothing still in [brackets] goes in (`profileEditWords`).
    */
-  z.object({
-    kind: z.literal('profile_edit'),
-    bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST),
-  }),
+  z
+    .object({
+      kind: z.literal('profile_edit'),
+      bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST).optional(),
+      about: z.string().trim().min(1, 'Write your About first.').max(ABOUT_MOST).optional(),
+    })
+    .refine((e) => e.bio !== undefined || e.about !== undefined, 'Pick a bio first.'),
   /**
    * Open the network's main pages, read each, try each step up to its last press, and send a note of what was found
    * (decisions 74, 76 and 77, ./reports.ts): Check LinkedIn, and Check Facebook.
@@ -442,7 +477,12 @@ export const AskTask = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
   plain('profile_read'),
-  z.object({ kind: z.literal('profile_edit'), bio: z.string() }),
+  // What goes in: the bio (LinkedIn's headline), the About, or both. Builds before 0.62.0 read only a bio.
+  z.object({
+    kind: z.literal('profile_edit'),
+    bio: z.string().nullable().default(null),
+    about: z.string().nullable().default(null),
+  }),
   plain('checkup'),
 ]);
 export type AskTask = z.output<typeof AskTask>;

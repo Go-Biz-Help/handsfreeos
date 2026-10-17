@@ -59,7 +59,7 @@ const CHECKUP_ABOUT: Readonly<Record<Platform, string>> = {
   facebook:
     'If something on Facebook isn’t working, press this once. Your computer reads your profile, feed, friends, friend requests, groups, searches and chats, then tries each step up to its last press: your bio, a post in a group, a comment, a friend request, a message, a like, confirming and cancelling requests, unfriending, joining a group and your Facebook file. It never saves, posts, sends, likes, adds, joins or removes anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about four minutes.',
   linkedin:
-    'If something on LinkedIn isn’t working, press this once. Your computer reads your profile, feed, connections, a search and your messages, then tries each step up to its last press: your headline, a post, a comment, connecting, a message, a like and withdrawing. It never saves, posts, sends, likes or connects anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.',
+    'If something on LinkedIn isn’t working, press this once. Your computer reads your profile, feed, connections, a search and your messages, then tries each step up to its last press: your headline, your About, a post, a comment, connecting, a message, a like and withdrawing. It never saves, posts, sends, likes or connects anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.',
   instagram:
     'Press this once, so the extension can learn Instagram from your own account. Your computer reads your feed, your profile, a search, someone’s profile and one of their posts, the accounts Instagram suggests and your messages, then tries each step up to its last press: your bio, Follow, Message, Like and a comment. It never follows, sends, likes or posts anything: Message’s chat opens and closes with nothing written, and a word goes in the comment box only to see Post show, then comes out again. It tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.',
   alignable:
@@ -69,6 +69,7 @@ const CHECKUP_ABOUT: Readonly<Record<Platform, string>> = {
 /** The steps Check LinkedIn (decision 76) and Check Facebook (decision 77) try, as their lines name them. */
 export const TRY_STEP_NAMES = {
   headline: 'your headline',
+  about: 'your About',
   bio: 'your bio',
   post: 'posting',
   comment: 'commenting',

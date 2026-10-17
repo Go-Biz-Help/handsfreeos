@@ -9,6 +9,8 @@
  * warnings and the steps it looks for. Everything else is ./kit.ts, ./read.ts and ./looks.ts, the same for each.
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
+import type { BioResult } from '../facebook/own-profile';
 import type { StepTry, TryStep } from '../tries';
 
 /** A network looked at: Instagram or Alignable. */
@@ -36,6 +38,8 @@ export interface LookingRead {
   }[];
   /** The person's own profile, from the menu's link to it, when the page has one. */
   readonly own: string | null;
+  /** The page's links to a form the person edits their own profile on, in page order (`editLink`). */
+  readonly edits: readonly string[];
   /** The network's warnings on the page: a block, a limit, a check of the account. */
   readonly warnings: readonly string[];
   /** A box for a password on the page: the network is asking the person to sign in. */
@@ -80,11 +84,21 @@ export interface LookingSite {
   readonly warnedAt?: (url: URL) => string | null;
   /** The person's own profile on the page: the menu's link to it. */
   readonly ownLink: (doc: Document, href: string) => string | null;
+  /** Whether a link leads to a form the person edits their own profile on: Alignable's /biz/…/edit. */
+  readonly editLink?: (url: URL) => boolean;
   /**
    * Whether Check opens a place its menus lead to, by the place's real words and address (the read hides the words, so
    * this is decided in the tab). Without it, every place is maybe.
    */
   readonly placeOpening?: (name: string, url: URL) => PlaceOpening;
+  /**
+   * The person's own profile, before the network's steps are (decision 80): read for the AI's check, and the bio put
+   * in. Instagram's; none on a network whose own profile isn't read yet.
+   */
+  readonly ownProfile?: {
+    readonly read: (doc: Document, href: string) => ProfileRead;
+    readonly writeBio: (doc: Document, bio: string) => Promise<BioResult>;
+  };
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */
   readonly looks: Readonly<
     Partial<Record<TryStep, { readonly on: readonly string[]; readonly look: Look }>>

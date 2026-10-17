@@ -77,6 +77,9 @@ export const SETTINGS_WORDS = {
   /** The kit's other limits a day, beside the daily steps. */
   profilesRead: 'Profiles read',
   helpfulPost: 'Helpful post',
+  /** The person's own profile on a network, read by their computer and checked by the AI (decision 80). */
+  yourProfile: (name: string) => `Your ${name} profile`,
+  profileRight: (n: number, of: number) => `${n} of ${of} ${n === 1 ? 'looks' : 'look'} right.`,
   // The phone's
   /** The phone's menu: the networks still to come, on one muted line under the others. */
   comingLine: (names: readonly string[]) =>

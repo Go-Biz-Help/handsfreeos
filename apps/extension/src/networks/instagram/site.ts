@@ -31,6 +31,7 @@ import {
 } from '../looking/looks';
 import type { LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, went, untried } from '../tries';
+import { readOwnProfile, writeBio } from './own-profile';
 
 const HOST = 'www.instagram.com';
 const HOSTS = new Set(['www.instagram.com', 'instagram.com']);
@@ -411,6 +412,8 @@ export const INSTAGRAM: LookingSite = {
     }
     return null;
   },
+  // Their own account, read for the AI's check, and the bio put in on its form (decision 80).
+  ownProfile: { read: readOwnProfile, writeBio },
   looks: {
     // On their own profile's form: the bio's box and its Submit, neither written in nor pressed.
     bio: {

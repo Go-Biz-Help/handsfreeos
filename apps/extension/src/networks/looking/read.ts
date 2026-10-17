@@ -101,10 +101,15 @@ export function readLooking(
   const posts = new Map<string, { url: string }>();
   const places = new Map<string, { name: string; url: string; worth: boolean }>();
   const never = new Set<string>();
+  const edits = new Set<string>();
   const mask = maskOn(site);
   for (const anchor of doc.querySelectorAll('a[href]')) {
     const url = site.url(anchor.getAttribute('href') ?? '', href);
     if (!url) continue;
+    if (site.editLink?.(url)) {
+      if (edits.size < 5) edits.add(`${url.origin}${url.pathname}`);
+      continue;
+    }
     const post = site.postOf(url);
     if (post) {
       if (posts.size < MOST) posts.set(post, { url: post });
@@ -139,6 +144,7 @@ export function readLooking(
     posts: [...posts.values()],
     places: [...places.values()],
     own,
+    edits: [...edits],
     warnings: readWarnings(doc, href, site),
     signedOut: doc.querySelector('input[type="password"]') !== null,
     notes: [

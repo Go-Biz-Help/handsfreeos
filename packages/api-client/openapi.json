@@ -86525,11 +86525,15 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 220
+                          },
+                          "about": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2600
                           }
                         },
                         "required": [
-                          "kind",
-                          "bio"
+                          "kind"
                         ]
                       },
                       {
@@ -87495,12 +87499,24 @@
                                       ]
                                     },
                                     "bio": {
-                                      "type": "string"
+                                      "default": null,
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "about": {
+                                      "default": null,
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "kind",
-                                    "bio"
+                                    "bio",
+                                    "about"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -88820,7 +88836,9 @@
                       "work",
                       "featured",
                       "posts",
-                      "about"
+                      "about",
+                      "name",
+                      "link"
                     ]
                   },
                   "done": {
@@ -88962,7 +88980,9 @@
                           "work",
                           "featured",
                           "posts",
-                          "about"
+                          "about",
+                          "name",
+                          "link"
                         ]
                       },
                       "additionalProperties": {
@@ -89203,16 +89223,66 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "link": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
-                              "required": [
-                                "picture",
-                                "cover",
-                                "bio",
-                                "work",
-                                "featured",
-                                "posts"
-                              ],
                               "additionalProperties": false
                             },
                             "bios": {
@@ -89227,7 +89297,18 @@
                               "anyOf": [
                                 {
                                   "type": "string",
-                                  "maxLength": 1200
+                                  "maxLength": 2000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nameDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 64
                                 },
                                 {
                                   "type": "null"
@@ -89676,7 +89757,9 @@
                           "work",
                           "featured",
                           "posts",
-                          "about"
+                          "about",
+                          "name",
+                          "link"
                         ]
                       },
                       "additionalProperties": {
@@ -89917,16 +90000,66 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "link": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
-                              "required": [
-                                "picture",
-                                "cover",
-                                "bio",
-                                "work",
-                                "featured",
-                                "posts"
-                              ],
                               "additionalProperties": false
                             },
                             "bios": {
@@ -89941,7 +90074,18 @@
                               "anyOf": [
                                 {
                                   "type": "string",
-                                  "maxLength": 1200
+                                  "maxLength": 2000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nameDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 64
                                 },
                                 {
                                   "type": "null"
@@ -90373,7 +90517,9 @@
                           "work",
                           "featured",
                           "posts",
-                          "about"
+                          "about",
+                          "name",
+                          "link"
                         ]
                       },
                       "additionalProperties": {
@@ -90614,16 +90760,66 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "link": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
-                              "required": [
-                                "picture",
-                                "cover",
-                                "bio",
-                                "work",
-                                "featured",
-                                "posts"
-                              ],
                               "additionalProperties": false
                             },
                             "bios": {
@@ -90638,7 +90834,18 @@
                               "anyOf": [
                                 {
                                   "type": "string",
-                                  "maxLength": 1200
+                                  "maxLength": 2000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nameDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 64
                                 },
                                 {
                                   "type": "null"
@@ -181562,7 +181769,9 @@
                           "work",
                           "featured",
                           "posts",
-                          "about"
+                          "about",
+                          "name",
+                          "link"
                         ]
                       },
                       "additionalProperties": {
@@ -181803,16 +182012,66 @@
                                     "fix"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "link": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "why": {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    "fix": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ok",
+                                    "why",
+                                    "fix"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
-                              "required": [
-                                "picture",
-                                "cover",
-                                "bio",
-                                "work",
-                                "featured",
-                                "posts"
-                              ],
                               "additionalProperties": false
                             },
                             "bios": {
@@ -181827,7 +182086,18 @@
                               "anyOf": [
                                 {
                                   "type": "string",
-                                  "maxLength": 1200
+                                  "maxLength": 2000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nameDraft": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 64
                                 },
                                 {
                                   "type": "null"

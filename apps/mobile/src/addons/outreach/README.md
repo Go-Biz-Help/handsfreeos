@@ -62,7 +62,8 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
 - **Get ready** (decision 63, `ready.tsx`) shows above Today's list until the person is ready, as the web's card,
   and Start my day waits. Their profile list and their goal are done right there, with signal
   (`outreach.readiness.profile`, `.numbers`); the main offer is built on a computer (core's Settings → Main offer
-  reviews it on the phone) and the playbooks are written there too.
+  reviews it on the phone) and the playbooks are written there too. The same profile list is **Your profile** on each
+  network's page of Settings (decision 80, `useProfileProps`), a network still looked at among them.
 - **Everything else** asks HandsFreeOS (`useOutreachAnswer`, on `@/lib/live-answer`), and with no signal says
   "… needs signal. Try again when you're back online." The Live screen asks again every minute
   (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM".

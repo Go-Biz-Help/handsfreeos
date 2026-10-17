@@ -8,9 +8,10 @@ import {
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
+import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
 
 import { SAVE_PAUSE_MS } from '../autosave';
@@ -491,7 +492,10 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
 });
 
 describe('A network’s page and the person’s computer (decisions 74 and 77)', () => {
-  const asks = (allowed: ('facebook' | 'linkedin')[] | null, version = '0.48.0'): AsksOutput => ({
+  const asks = (
+    allowed: ('facebook' | 'linkedin' | 'instagram')[] | null,
+    version = '0.48.0',
+  ): AsksOutput => ({
     now: new Date().toISOString(),
     timezone: TZ,
     computer: {
@@ -584,6 +588,66 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     );
     await fireEvent.press(screen.getByTestId('settings-networks-instagram-checkup-ask'));
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'instagram');
+  });
+
+  it('reads and checks the person’s profile there, on a network still looked at too (decision 80)', async () => {
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const instagramOn: AutomationOutput = {
+      ...AUTOMATION,
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          instagram: { ...NETWORKS_DEFAULTS.instagram, on: true },
+        },
+      },
+      rules: { ...AUTOMATION.rules, networksAllowed: ['facebook', 'linkedin', 'instagram'] },
+    };
+    const readiness: ReadinessOutput = {
+      ready: false,
+      next: 'profile',
+      changed: [],
+      platform: 'instagram',
+      items: [{ item: 'profile', state: 'todo', whose: 'person', left: null }],
+      offer: { version: 1, line: 'We help roofers get booked inspections.' },
+      profile: {},
+      profileCheck: null,
+      messages: { at: null, version: null, samples: null },
+      numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
+    };
+    const onTick = jest.fn(async () => undefined);
+    await render(
+      <SettingsPartBody
+        part="instagram"
+        automation={instagramOn}
+        {...partProps()}
+        asks={asks(['facebook', 'instagram'], '0.62.0')}
+        askActions={actions}
+        profile={{ readiness, onTick }}
+      />,
+    );
+    const part = screen.getByTestId('settings-networks-instagram-profile');
+    expect(within(part).getByText('Your Instagram profile')).toBeTruthy();
+    expect(screen.getByTestId('settings-networks-instagram-profile-state')).toHaveTextContent(
+      'Have the extension read your Instagram profile, and the AI says what to change.',
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-profile-open'));
+    await fireEvent.press(screen.getByTestId('ready-profile-read-ask'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'profile_read' }, 'instagram');
+    // Ticked here, as on Get ready.
+    await fireEvent.press(screen.getByTestId('ready-profile-name'));
+    await waitFor(() => expect(onTick).toHaveBeenCalledWith('name', true));
+    // Someone else's settings: no profile of theirs to read.
+    await render(
+      <SettingsPartBody
+        part="instagram"
+        automation={instagramOn}
+        {...partProps()}
+        mine={false}
+        profile={{ readiness, onTick }}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-instagram-profile')).toBeNull();
   });
 
   it('says how to update a build before Check Facebook, and asks nothing of it', async () => {

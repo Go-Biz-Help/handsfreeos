@@ -1,6 +1,7 @@
 import { ASK_KINDS_FOR } from '@hfos/core/addons/outreach/asks';
 import { networkShown, networksShown } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { isNetworkPart } from '@hfos/core/addons/outreach/settings-parts';
 import { outreachSetupPath } from '@hfos/core/addons/outreach/setup';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -96,9 +97,9 @@ export default async function OutreachPage({
       // Only Your computer shows the person's computers and the extension's download.
       const computer = shown.part === 'computer' && !whose;
       // A network's page asks the person's own computer to check it (decision 74), and says what to press when
-      // Chrome hasn't let the extension on it.
-      const network = shown.part !== 'general' && !computer && shown.part !== 'fresh' && !whose;
-      const [me, people, business, live, setup, asks] = await Promise.all([
+      // Chrome hasn't let the extension on it. It has their profile there too, read and checked (decision 80).
+      const network = isNetworkPart(shown.part) && !whose ? shown.part : null;
+      const [me, people, business, live, setup, asks, readiness] = await Promise.all([
         api
           .POST('/v1/queries/outreach.automation', {
             body: { workspaceId, ...(whose ? { userId: whose } : {}) },
@@ -124,7 +125,15 @@ export default async function OutreachPage({
           : null,
         network
           ? api
-              .POST('/v1/queries/outreach.asks', { body: { workspaceId, kinds: ['checkup'] } })
+              .POST('/v1/queries/outreach.asks', {
+                body: { workspaceId, kinds: [...ASK_KINDS_FOR.settings] },
+              })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
+        network
+          ? api
+              .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: network } })
               .then((r) => r.data ?? null)
               .catch(() => null)
           : null,
@@ -148,6 +157,7 @@ export default async function OutreachPage({
             live,
             extensionLink: setup?.extensionLink ?? null,
             asks,
+            readiness,
           }}
         />
       );

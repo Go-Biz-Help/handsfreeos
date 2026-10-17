@@ -17,7 +17,9 @@ import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
 import type { PageRead } from '../networks/kit';
 import type { StepTry } from '../networks/tries';
 import {
+  aboutMissing,
   headlineMissing,
+  type AboutSteps,
   type HeadlineSteps,
   type ProfileLoad,
 } from '../networks/linkedin/own-profile';
@@ -151,6 +153,18 @@ export function headlineNote(steps: HeadlineSteps | undefined, tried = false): R
   if (!steps)
     return { note: 'The tab didn’t say how putting the headline in went.', outline: true };
   const missing = headlineMissing(steps, tried);
+  const { names, ...counts } = steps;
+  return {
+    found: { ...counts, ...(names.length ? { seen: names } : {}) },
+    note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
+    outline: missing.length > 0,
+  };
+}
+
+/** How putting LinkedIn's About in went, step by step, for its note: as the headline's. */
+export function aboutNote(steps: AboutSteps | undefined): ReportNote {
+  if (!steps) return { note: 'The tab didn’t say how putting the About in went.', outline: true };
+  const missing = aboutMissing(steps, false);
   const { names, ...counts } = steps;
   return {
     found: { ...counts, ...(names.length ? { seen: names } : {}) },

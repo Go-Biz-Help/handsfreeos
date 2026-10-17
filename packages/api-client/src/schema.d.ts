@@ -34809,7 +34809,8 @@ export interface operations {
                         /** @enum {string} */
                         kind: "profile_read";
                     } | {
-                        bio: string;
+                        about?: string;
+                        bio?: string;
                         /** @enum {string} */
                         kind: "profile_edit";
                     } | {
@@ -35130,7 +35131,10 @@ export interface operations {
                                 /** @enum {string} */
                                 kind: "profile_read";
                             } | {
-                                bio: string;
+                                /** @default null */
+                                about: string | null;
+                                /** @default null */
+                                bio: string | null;
                                 /** @enum {string} */
                                 kind: "profile_edit";
                             } | {
@@ -37631,37 +37635,48 @@ export interface operations {
                                     ok: boolean;
                                     why: string;
                                 };
-                                bio: {
+                                bio?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                cover: {
+                                cover?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                featured: {
+                                featured?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                picture: {
+                                link?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                posts: {
+                                name?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                work: {
+                                picture?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
                             };
+                            nameDraft?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -37757,37 +37772,48 @@ export interface operations {
                                     ok: boolean;
                                     why: string;
                                 };
-                                bio: {
+                                bio?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                cover: {
+                                cover?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                featured: {
+                                featured?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                picture: {
+                                link?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                posts: {
+                                name?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                work: {
+                                picture?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
                             };
+                            nameDraft?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -37808,7 +37834,7 @@ export interface operations {
                 "application/json": {
                     done: boolean;
                     /** @enum {string} */
-                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts" | "about";
+                    item: "picture" | "cover" | "bio" | "work" | "featured" | "posts" | "about" | "name" | "link";
                     /**
                      * @default facebook
                      * @enum {string}
@@ -37889,37 +37915,48 @@ export interface operations {
                                     ok: boolean;
                                     why: string;
                                 };
-                                bio: {
+                                bio?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                cover: {
+                                cover?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                featured: {
+                                featured?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                picture: {
+                                link?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                posts: {
+                                name?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                work: {
+                                picture?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
                             };
+                            nameDraft?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -67762,37 +67799,48 @@ export interface operations {
                                     ok: boolean;
                                     why: string;
                                 };
-                                bio: {
+                                bio?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                cover: {
+                                cover?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                featured: {
+                                featured?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                picture: {
+                                link?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                posts: {
+                                name?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
-                                work: {
+                                picture?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work?: {
                                     fix: string | null;
                                     ok: boolean;
                                     why: string;
                                 };
                             };
+                            nameDraft?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;

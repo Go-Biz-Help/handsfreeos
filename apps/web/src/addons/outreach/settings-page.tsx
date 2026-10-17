@@ -8,8 +8,10 @@
  *   choices people may pick, where a new person starts, where the team gets the extension (./extension-link.tsx),
  *   and the business's other Social Outreach settings (./business-settings.tsx).
  * - **Each network**: On for you; what the extension does there on its own and along the way, in the network's words;
- *   on Facebook, the extension's switches; the person's daily limits there as they stand; and for owners and admins,
- *   **For your team on** it: whether the team may use it, and its daily limits for each person.
+ *   on Facebook, the extension's switches; the person's daily limits there as they stand; **Your profile** there, read
+ *   by their computer and checked by the AI, with the words to put in (./get-ready.tsx's sheet, decision 80), on a
+ *   network still looked at too; and for owners and admins, **For your team on** it: whether the team may use it, and
+ *   its daily limits for each person.
  * - **Your computer** (./live-view.tsx) and **Start fresh**, for owners (./start-fresh.tsx).
  *
  * Owners and admins pick whose settings they see, above every part; the person sees who changed theirs last. Every
@@ -47,13 +49,15 @@ import {
   SETTINGS_WORDS as S,
   type SettingsPart,
 } from '@hfos/core/addons/outreach/settings-parts';
+import { profileWordsOn, READY_WORDS as R, tickCounts } from '@hfos/core/addons/outreach/readiness';
+import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
 import { outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { START_FRESH_WORDS as F, OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { AlertCircle, Check, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { ButtonLink } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -64,6 +68,7 @@ import { countriesProblem, TeamSettingsFields, type TeamSettings } from './busin
 import { AskButton } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
+import { ProfileSheet } from './get-ready';
 import { ComputersCard, useServerNow } from './live-view';
 import {
   AllowedPicks,
@@ -80,7 +85,7 @@ import {
   wheelsOf,
 } from './settings-view';
 import { StartFresh } from './start-fresh';
-import type { Asks, Automation, AutomationPeople, Live } from './types';
+import type { Asks, Automation, AutomationPeople, Live, Readiness } from './types';
 import { useAutosave, type Autosave, type SaveStatus } from './use-autosave';
 
 /** The business's settings the Settings pages change, as they read them: the extension's link has its own box. */
@@ -120,6 +125,8 @@ interface Props {
   extensionLink?: string | null;
   /** On a network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74). */
   asks?: Asks | null;
+  /** On a network's page, the person's own profile there, read and checked (decision 80). */
+  readiness?: Readiness | null;
 }
 
 export function SettingsView(props: Props) {
@@ -140,6 +147,7 @@ function SettingsPages({
   live = null,
   extensionLink = null,
   asks = null,
+  readiness = null,
 }: Props) {
   const router = useRouter();
   const person = useAutosave<AutomationSettings>(
@@ -217,6 +225,7 @@ function SettingsPages({
           statuses={statuses}
           workspaceId={workspaceId}
           asks={mine ? asks : null}
+          readiness={mine ? readiness : null}
         />
       ) : shown === 'computer' ? (
         <>
@@ -414,6 +423,7 @@ function NetworkPage({
   statuses,
   workspaceId,
   asks,
+  readiness,
 }: {
   platform: Platform;
   me: Automation;
@@ -425,6 +435,8 @@ function NetworkPage({
   workspaceId: string;
   /** The person's own: Check LinkedIn's ask, and their computer; null on someone else's settings. */
   asks: Asks | null;
+  /** The person's own profile on the network, read and checked: null on someone else's settings. */
+  readiness: Readiness | null;
 }) {
   const [switching, setSwitching] = useState(false);
   const [said, setSaid] = useState<{ readonly ok: boolean; readonly words: string } | null>(null);
@@ -580,6 +592,15 @@ function NetworkPage({
               </Part>
             </>
           )}
+          {asks && readiness ? (
+            <ProfilePart
+              workspaceId={workspaceId}
+              platform={platform}
+              readiness={readiness}
+              asks={asks}
+              testId={`${testId}-profile`}
+            />
+          ) : null}
           {asks && askableOn(platform, 'checkup') ? (
             <Part
               card
@@ -601,6 +622,61 @@ function NetworkPage({
       )}
       {team ? <TeamOnNetwork platform={platform} team={team} /> : null}
     </>
+  );
+}
+
+/**
+ * The person's profile on the network (decision 80): how far it is, and Get ready's sheet to read it, see the AI's check
+ * and put its words in, here on every network, one still looked at too. What their computer reads or puts in shows as
+ * it ends.
+ */
+function ProfilePart({
+  workspaceId,
+  platform,
+  readiness: start,
+  asks,
+  testId,
+}: {
+  workspaceId: string;
+  platform: Platform;
+  readiness: Readiness;
+  asks: Asks;
+  testId: string;
+}) {
+  useLiveRefresh(['outreach_setup', 'outreach_ask'], 800);
+  const [readiness, setReadiness] = useState(start);
+  useEffect(() => setReadiness(start), [start]);
+  const [open, setOpen] = useState(false);
+  const P = profileWordsOn(platform);
+  const live = readiness.offer?.version ?? null;
+  const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
+  const right = P.items.filter(
+    (i) => tickCounts(readiness.profile[i.item], live) || check?.items[i.item]?.ok === true,
+  ).length;
+  return (
+    <Part card title={S.yourProfile(PLATFORMS[platform])} about={P.hint} testId={testId}>
+      <p className="text-[13px] text-text-2" data-testid={`${testId}-state`}>
+        {check || right ? S.profileRight(right, P.items.length) : P.notRead}
+      </p>
+      <div>
+        <Button
+          size="sm"
+          variant={check ? 'secondary' : 'primary'}
+          onClick={() => setOpen(true)}
+          data-testid={`${testId}-open`}
+        >
+          {R.items.profile.go}
+        </Button>
+      </div>
+      <ProfileSheet
+        workspaceId={workspaceId}
+        readiness={readiness}
+        asks={asks}
+        open={open}
+        onClose={() => setOpen(false)}
+        onChange={setReadiness}
+      />
+    </Part>
   );
 }
 

@@ -17,6 +17,11 @@
  *   Save, the words not in the field, the box still open after Save) and it stops and says so; the job hands the step
  *   to the person, and never guesses.
  *
+ * - **Putting the About in** (decision 80): the pencil by the About section (**Edit about**, or its link to the About's
+ *   box), the one field there for the About (named About, Description or Summary, or the box's only one to write in),
+ *   the About written in place of what was there, the box's **Save**, and the About on the profile starting as it
+ *   was written. The same care as the headline: anything it doesn't expect, it stops and says so.
+ *
  * Like the rest of the readers it goes by what a person sees (words, labels, page order), never LinkedIn's class
  * names. It's tuned from the owner's outline of his own profile of 16 Oct 2026 (LinkedIn's newer layout:
  * test/fixtures/linkedin-own-profile-2026-10.html), and still reads the older one.
@@ -572,6 +577,184 @@ export async function tryHeadline(
   beforeClosing?: (steps: HeadlineSteps) => void,
 ): Promise<HeadlineSteps> {
   const { steps, box, field, save } = await openIntro(doc);
+  if (!box) return steps;
+  let typed = false;
+  if (field && save) {
+    const was = isPlain(field) ? (field as HTMLInputElement).value : (field.textContent ?? '');
+    typed = await writeInto(doc, field, TRY_WORDS);
+    if (clean(was)) await writeInto(doc, field, was);
+  }
+  const sofar = { ...steps, typed };
+  beforeClosing?.(sofar);
+  return { ...sofar, closed: await closeBox(doc, box) };
+}
+
+// ------------------------------------------------------------------------------------------------ the About
+
+/** The pencil by the About section, as LinkedIn labels it, and its address for the About's box. */
+const EDIT_ABOUT = /^edit about$/i;
+const ABOUT_ADDRESS = /\/in\/[^/]+\/edit\/(about|forms\/summary)(\/|$)/i;
+/** The About's field, as its box names it. */
+const ABOUT_FIELD = /^(about|description|summary)\b/i;
+/** Where a person writes a long text: never a one-line input. */
+const LONG_FIELDS = 'textarea, [role="textbox"], [contenteditable="true"]';
+
+/** What putting the About in found, step by step, for the job's note (as `HeadlineSteps` is for the headline). */
+export interface AboutSteps {
+  /** The pencil by About. */
+  readonly pencil: boolean;
+  /** A box over the page opened, with fields in it. */
+  readonly box: boolean;
+  readonly fields: number;
+  readonly aboutFields: number;
+  readonly saves: number;
+  /** What was written reads back from the About's field. */
+  readonly typed: boolean;
+  /** Save pressed, the box closed and the About on the profile (never on a try). */
+  readonly saved: boolean;
+  /** A try's box closed again, nothing saved. */
+  readonly closed: boolean;
+  /** The box's names for its fields, as the outline shows them. */
+  readonly names: readonly string[];
+}
+
+const NO_ABOUT: AboutSteps = {
+  pencil: false,
+  box: false,
+  fields: 0,
+  aboutFields: 0,
+  saves: 0,
+  typed: false,
+  saved: false,
+  closed: false,
+  names: [],
+};
+
+/** What's missing putting the About in, in the extension's own words: empty when it all went. */
+export function aboutMissing(steps: AboutSteps, tried: boolean): string[] {
+  if (!steps.pencil) return ['no pencil by About'];
+  if (!steps.box) return ['the pencil by About opened no box to edit'];
+  const missing: string[] = [];
+  if (steps.aboutFields !== 1)
+    missing.push(
+      steps.aboutFields === 0
+        ? 'no field for the About in the box'
+        : `${steps.aboutFields} fields for the About in the box`,
+    );
+  if (steps.saves !== 1)
+    missing.push(steps.saves === 0 ? 'no Save in the box' : `${steps.saves} Saves in the box`);
+  if (!missing.length && !steps.typed) missing.push('writing in the About didn’t take');
+  if (!missing.length && tried && !steps.closed) missing.push('the box didn’t close again');
+  if (!missing.length && !tried && !steps.saved) missing.push('Save didn’t put it on your profile');
+  return missing;
+}
+
+/** The pencil by About: labelled Edit about, or leading to LinkedIn's box for it. */
+function editAboutOf(doc: Document): HTMLElement | null {
+  const pencils = controlsIn(mainOf(doc)).filter((control): control is HTMLElement =>
+    shown(control),
+  );
+  return (
+    pencils.find((control) => wordsOf(control).some((words) => EDIT_ABOUT.test(words))) ??
+    pencils.find((control) => {
+      const href = control.getAttribute('href');
+      if (!href) return false;
+      try {
+        return ABOUT_ADDRESS.test(new URL(href, doc.baseURI).pathname);
+      } catch {
+        return false;
+      }
+    }) ??
+    null
+  );
+}
+
+/** The fields for the About in a box: named so, else the box's only one to write a long text in. */
+function aboutFields(box: Element): HTMLElement[] {
+  const fields = shownFields(box);
+  const named = fields.filter((field) => ABOUT_FIELD.test(fieldLabel(field)));
+  if (named.length) return named;
+  const long = fields.filter((field) => field.matches(LONG_FIELDS));
+  return long.length === 1 ? long : [];
+}
+
+/** Opens the About's box with its pencil, and finds what's in it. */
+async function openAbout(doc: Document) {
+  const edit = editAboutOf(doc);
+  if (!edit) return { steps: NO_ABOUT, box: null, field: null, save: null };
+  edit.click();
+  let box: Element | null = null;
+  for (let waited = 0; waited < WAIT_MS && !box; waited += LOOK_MS) {
+    await pause(LOOK_MS);
+    box =
+      [...doc.querySelectorAll(OVER_THE_PAGE)].find(
+        (over) => shown(over) && aboutFields(over).length > 0,
+      ) ?? null;
+  }
+  box ??= boxWithFields(doc);
+  if (!box) return { steps: { ...NO_ABOUT, pencil: true }, box: null, field: null, save: null };
+  const fields = shownFields(box);
+  const abouts = aboutFields(box);
+  const saves = [...box.querySelectorAll<HTMLElement>(`${CONTROLS}, [type="submit"]`)].filter(
+    (control) => shown(control) && wordsOf(control).some((words) => SAVE.test(words)),
+  );
+  const steps: AboutSteps = {
+    ...NO_ABOUT,
+    pencil: true,
+    box: true,
+    fields: fields.length,
+    aboutFields: abouts.length,
+    saves: saves.length,
+    names: fields
+      .slice(0, 12)
+      .map((field) => maskText(fieldLabel(field)).slice(0, 60) || '(no name)'),
+  };
+  const ready = abouts.length === 1 && saves.length === 1;
+  return { steps, box, field: ready ? abouts[0]! : null, save: ready ? saves[0]! : null };
+}
+
+/** Whether the profile's About starts as it was written: LinkedIn shows its first lines, then "…more". */
+function aboutShows(doc: Document, href: string, about: string): boolean {
+  const shownNow = clean(readProfile(mainOf(doc), classifyUrl(href), href, doc.title).about);
+  const start = clean(about).slice(0, 60);
+  return start.length > 0 && shownNow.startsWith(start.slice(0, Math.min(start.length, 40)));
+}
+
+/**
+ * Presses the pencil by About, writes the About in its field in place of what was there, presses Save, and waits
+ * for the box to close and the About to show. Says how each step went.
+ */
+export async function writeAbout(
+  doc: Document,
+  href: string,
+  about: string,
+): Promise<{ readonly result: HeadlineResult; readonly steps: AboutSteps }> {
+  const opened = await openAbout(doc);
+  const { box, field, save } = opened;
+  let steps = opened.steps;
+  if (!box || !field || !save) return { result: 'none', steps };
+  steps = { ...steps, typed: await writeInto(doc, field, about) };
+  if (!steps.typed) return { result: 'none', steps };
+  save.click();
+  for (let waited = 0; waited < WAIT_MS; waited += LOOK_MS) {
+    await pause(LOOK_MS);
+    const open = box.isConnected && shown(box);
+    if (!open && aboutShows(doc, href, about))
+      return { result: 'done', steps: { ...steps, saved: true } };
+  }
+  return { result: 'not_saved', steps };
+}
+
+/**
+ * Putting the About in, tried up to its last press (Check LinkedIn): the pencil, the box, its one field for the
+ * About and its one Save; writing in it (other words, then what was there back), and the box closed again without
+ * Save. Nothing is ever saved.
+ */
+export async function tryAbout(
+  doc: Document,
+  beforeClosing?: (steps: AboutSteps) => void,
+): Promise<AboutSteps> {
+  const { steps, box, field, save } = await openAbout(doc);
   if (!box) return steps;
   let typed = false;
   if (field && save) {
