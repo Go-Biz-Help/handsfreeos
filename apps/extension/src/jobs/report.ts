@@ -167,7 +167,8 @@ export function headlineNote(steps: HeadlineSteps | undefined, tried = false): R
  */
 export function tryNote(tried: StepTry): ReportNote {
   const name = TRY_STEP_NAMES[tried.step];
-  const why = tried.missing.join('; ');
+  // Its own full stop, when a reason brought one ("…the page that step is on."), never doubled.
+  const why = tried.missing.join('; ').replace(/[.\s]+$/, '');
   return {
     job: `checkup.${tried.step}`,
     found: {

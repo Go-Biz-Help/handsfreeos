@@ -6,10 +6,15 @@
  * and recommendations), and Check Alignable follows the site's own menus rather than addresses written here. On every
  * page it opens it looks for Connect, Message, Recommend, Like and a box to comment in, pressing none of them, and its
  * steps are built from what that reads.
+ *
+ * From the owner's Check Alignable (17 Oct 2026): alignable.com/ is its public home page even signed in, its menus'
+ * words all its own (none of them known yet), with a button into the signed-in pages at alignable.com/biz, which its
+ * robots.txt keeps every search engine out of, with its dashboard, its claims and its onboarding. So Check starts at
+ * /biz, and which of its menus' places it opens is decided in the tab, on their real words (`placeOpening`).
  */
 import { clean } from '../facebook/dom';
 import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
-import type { LookingSite } from '../looking/site';
+import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
 
 const HOST = 'www.alignable.com';
@@ -35,46 +40,92 @@ function alignableUrl(href: string, base?: string): URL | null {
   return url;
 }
 
-/** Its places by the first word of their addresses, as far as they're known: the rest are learned from Check. */
+/**
+ * Its places by a word of their addresses (the first, or the one after /biz), as far as they're known: the rest are
+ * learned from Check.
+ */
 const PLACES: Readonly<Record<string, string>> = {
   dashboard: 'home',
   home: 'home',
   feed: 'home',
   inbox: 'inbox',
   messages: 'inbox',
+  message: 'inbox',
   conversations: 'inbox',
   network: 'network',
   connections: 'network',
+  contacts: 'network',
   my_network: 'network',
   'my-network': 'network',
   contact_requests: 'network',
+  requests: 'network',
+  invitations: 'network',
+  suggestions: 'network',
   forum: 'forum',
   questions: 'forum',
+  answers: 'forum',
   discussions: 'forum',
+  topics: 'forum',
+  polls: 'forum',
   posts: 'post',
   notifications: 'notifications',
+  activity: 'notifications',
+  alerts: 'notifications',
   search: 'search',
+  people: 'search',
+  members: 'search',
+  businesses: 'search',
+  directory: 'search',
   communities: 'community',
   community: 'community',
   groups: 'community',
   events: 'events',
+  referrals: 'referrals',
   profile: 'own-profile',
   my_profile: 'own-profile',
   me: 'own-profile',
-  biz: 'business',
-  biz_users: 'settings',
+  biz_users: 'account',
+  account: 'account',
   settings: 'settings',
   profile_recommendations: 'recommendations',
   recommendations: 'recommendations',
+  claims: 'account',
+  onboarding: 'account',
+  start: 'account',
 };
 
 function kindOf(url: URL): string {
-  const [first = '', second] = partsOf(url);
-  if (!first) return 'home';
-  const place = PLACES[first.toLowerCase()];
+  const [first = '', second] = partsOf(url).map((p) => p.toLowerCase());
+  // Its public home page, signed in or not; its signed-in pages are under /biz.
+  if (!first) return 'front';
+  if (first === 'biz') return second ? (PLACES[second] ?? 'app') : 'home';
+  const place = PLACES[first];
   if (place) return place;
   if (TOWN.test(first)) return second ? 'business' : 'town';
   return 'other';
+}
+
+/** The places worth opening, by their words or their address's: where people, messages and posts are. */
+const WORTH =
+  /\b(home|feed|dashboard|network|connections?|contacts?|messages?|inbox|conversations?|forum|q\s*&\s*a|questions?|answers?|discussions?|communit(y|ies)|groups?|events?|notifications?|alerts?|profile|recommendations?|referrals?|search|people|members?|businesses|local|nearby|requests?|invitations?|suggest(ed|ions)?|discover|polls?)\b/i;
+/** Never opened, whatever the menu calls them: signing out, paying, inviting, deleting, settings. */
+const NEVER =
+  /\b(log ?out|sign ?out|upgrade|premium|plus|billing|pay(ment)?s?|subscri(be|ption)s?|checkout|buy|delete|deactivate|close (your )?account|cancel (your )?(account|membership|subscription)|invite|settings|preferences|password|unsubscribe)\b/i;
+const NEVER_AT =
+  /(log_?out|sign_?out|sign_?in|log_?in|destroy|delete|deactivate|billing|upgrade|payment|checkout|subscri|invite|settings|password|unsubscribe|^\/(biz_users|claims|onboarding|start|l|r|forward_referral_card)(\/|$))/i;
+/** The company's own pages, never where a step is: about it, its blog, its prices, its help. */
+const DULL =
+  /\b(about|blog|careers?|jobs|press|news(room)?|privacy|terms|cookies?|legal|accessibility|sitemap|pricing|features|products?|resources|company|help|support|faq|contact us|partners?|advertis(e|ing)|ambassadors?|research|webinars?|podcasts?|guides?|app store|google play|download)\b/i;
+
+/** Whether Check opens a place its menus lead to, by its real words and its address. */
+function placeOpening(name: string, url: URL): PlaceOpening {
+  const path = url.pathname;
+  const pathWords = path.replace(/[/_-]+/g, ' ');
+  // Its public home page is never where a step is, and signing out, paying and deleting never are.
+  if (path === '/' || NEVER.test(name) || NEVER_AT.test(path)) return 'never';
+  if (WORTH.test(name) || WORTH.test(pathWords)) return 'worth';
+  if (DULL.test(name) || DULL.test(pathWords)) return 'never';
+  return 'maybe';
 }
 
 function profileOf(url: URL): { username: string; url: string } | null {
@@ -189,18 +240,179 @@ const WORDS = new Set(
     'Help',
     'Privacy',
     'Terms',
+    // Words it may use, kept when its pages say them: its menus' words weren't known when Check first read it.
+    'Feed',
+    'Home Feed',
+    'Activity',
+    'My Community',
+    'Q&A Forum',
+    'Ask a Question',
+    'Ask Question',
+    'Post a Question',
+    'Polls',
+    'Poll',
+    'Referrals',
+    'Refer',
+    'Ask for Referrals',
+    'Request a Referral',
+    'Give a Referral',
+    'Recommend Me',
+    'Get Recommended',
+    'Ask for Recommendations',
+    'Request Recommendations',
+    'Write a Recommendation',
+    'Endorse',
+    'Add to Network',
+    'Remove Connection',
+    'Disconnect',
+    'Connection Requests',
+    'Pending Requests',
+    'Sent Requests',
+    'Received Requests',
+    'Requests',
+    'Invite Connections',
+    'Find Connections',
+    'Businesses Near You',
+    'Local Businesses',
+    'Your Town',
+    'Town',
+    'Find Businesses',
+    'Find People',
+    'Search Alignable',
+    'New Message',
+    'Compose',
+    'Write a message...',
+    'Write a message…',
+    'Type a message...',
+    'Type a message…',
+    'Create a Post',
+    'Write a Post',
+    'Share an Update',
+    'Post an Update',
+    'Start a Discussion',
+    "What's on your mind?",
+    'What’s on your mind?',
+    'Unfollow',
+    'Unlike',
+    'Replies',
+    'Report',
+    'Delete',
+    'Save',
+    'Submit',
+    'Continue',
+    'Skip',
+    'Menu',
+    'Open menu',
+    'Close menu',
+    'Previous',
+    'Show More',
+    'Read More',
+    'Learn More',
+    'View All',
+    'Get Started',
+    'Your Business',
+    'Business Profile',
+    'Edit Business Profile',
+    'My Dashboard',
+    'Go to Dashboard',
+    'Go to My Dashboard',
+    'Back to Alignable',
+    'Go to Alignable',
+    'Visit Alignable',
+    'Account',
+    'Account Settings',
+    'Help Center',
+    'Log In',
+    'Sign Up',
+    'Join Free',
+    'Join Now',
+    'Alignable Plus',
+    'Plus',
+    'Go Premium',
+    'Pricing',
+    'Features',
+    'Products',
+    'Resources',
+    'Company',
+    'Why Alignable',
+    'How It Works',
+    'About',
+    'About Us',
+    'Blog',
+    'Careers',
+    'Press',
+    'Research',
+    'Contact Us',
+    'Support',
+    'FAQ',
+    'Partners',
+    'Advertise',
+    'Ambassadors',
+    'Local Business of the Year',
+    'Awards',
+    'Leaderboard',
+    'Webinars',
+    'Privacy Policy',
+    'Terms of Service',
+    'Terms of Use',
+    'Cookie Policy',
+    'Accessibility',
+    'Sitemap',
+    'Community Guidelines',
+    'Do Not Sell or Share My Personal Information',
+    'Page not found',
+    'Not Found',
+    'Sorry',
+    'Oops',
   ].map((w) => w.toLowerCase()),
 );
 
-/** Its own words in its addresses, as far as they're known. */
+/** Its own words in its addresses, as far as they're known: its robots.txt's, and those it may use. */
 const PATH_WORDS = new Set([
   ...Object.keys(PLACES),
+  'biz',
   'new',
   'edit',
   'sent',
   'received',
   'pending',
   'all',
+  'l',
+  'r',
+  'forward_referral_card',
+  'profile_services',
+  'social_actions',
+  'sign_in',
+  'sign_up',
+  'sign_out',
+  'login',
+  'logout',
+  'about',
+  'blog',
+  'pricing',
+  'features',
+  'plus',
+  'premium',
+  'upgrade',
+  'help',
+  'support',
+  'privacy',
+  'terms',
+  'careers',
+  'press',
+  'research',
+  'rpi',
+  'lboy',
+  'awards',
+  'local',
+  'town',
+  'towns',
+  'invite',
+  'invites',
+  'suggested',
+  'view',
+  'show',
+  'page',
 ]);
 
 /** Alignable's warnings: what any site says when it holds an account back, till Check reads its own. */
@@ -233,13 +445,19 @@ export const ALIGNABLE: LookingSite = {
   pathWords: PATH_WORDS,
   words: WORDS,
   warnings: WARNINGS,
+  placeOpening,
   // The menu's link to the person's own profile, by its words.
   ownLink: (doc, href) => {
     for (const anchor of doc.querySelectorAll(
       'nav a[href], header a[href], [role="navigation"] a[href]',
     )) {
       const words = clean(anchor.textContent) || clean(anchor.getAttribute('aria-label'));
-      if (!/^(my profile|profile|me|view profile)$/i.test(words)) continue;
+      if (
+        !/^(my profile|profile|me|view profile|view my profile|my business|your business|business profile)$/i.test(
+          words,
+        )
+      )
+        continue;
       const url = alignableUrl(anchor.getAttribute('href') ?? '', href);
       if (url) return url.toString();
     }

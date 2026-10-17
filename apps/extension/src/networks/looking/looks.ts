@@ -1,32 +1,40 @@
 /**
  * Looking for a step's button on a network still looked at (./site.ts): what each network's looks share. A look finds
  * the controls a person would press by their words, as the network's own pages label them, and says what it found;
- * it never presses anything, writes anything or opens anything. Where what's wanted isn't there, it names what was, as
- * the outline would (the network's own words kept, anything else hidden), so the step can be built from it.
+ * it never presses a step's last button (./site.ts's `Look` says what a few do before it). Where what's wanted isn't
+ * there, it names what was, as the outline would (the network's own words kept, anything else hidden), so the step can
+ * be built from it.
  */
 import { clean } from '../facebook/dom';
 import { shown, visible } from '../facebook/fetch';
 import { went, untried, type StepTry, type TryStep } from '../tries';
-import { maskOn } from './read';
+import { maskOn, nameOf } from './read';
 import type { LookingSite } from './site';
+
+export { nameOf };
+
+export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+/** Looks for something till it shows, or `ms` is up. */
+export async function waitFor<T>(find: () => T | null | undefined, ms = 5_000): Promise<T | null> {
+  for (let waited = 0; ; waited += 300) {
+    const found = find();
+    if (found) return found;
+    if (waited >= ms) return null;
+    await pause(300);
+  }
+}
+
+/** Whether something's written in a box: a plain box's value, or the words in one drawn to write in. */
+export const writingIn = (box: Element): boolean =>
+  'value' in box && typeof box.value === 'string'
+    ? box.value.trim() !== ''
+    : clean(box.textContent) !== '';
 
 /** What a person presses: buttons, links drawn as buttons, and menu rows. */
 const CONTROLS = 'button, [role="button"], a[href], [role="link"], [role="menuitem"], [role="tab"]';
 /** Where a person writes: a plain box, or one drawn to write in. */
 const BOXES = 'textarea, input[type="text"], [role="textbox"], [contenteditable="true"]';
-
-/**
- * What a control is called, as a person hears it: its label, the label of the picture inside it (Instagram's Like is
- * an icon labelled "Like"), or its words.
- */
-export function nameOf(element: Element): string {
-  return (
-    clean(element.getAttribute('aria-label')) ||
-    clean(element.querySelector('svg[aria-label], img[alt]')?.getAttribute('aria-label')) ||
-    clean(element.querySelector('img[alt]')?.getAttribute('alt')) ||
-    clean(element.textContent)
-  );
-}
 
 /** What a box to write in is for: its label, its placeholder, or the label tied to it. */
 export function boxName(box: Element): string {
