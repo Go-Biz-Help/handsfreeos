@@ -321,6 +321,20 @@ describe('messaging', () => {
     },
   );
 
+  it('knows the window in the interop box as theirs when it links to them by member id', async () => {
+    // The owner's Check LinkedIn on 0.54.0: the window's links were by id; their connections list had their name.
+    const { doc } = profile(false, true, 'open');
+    const host = doc.querySelector('[data-testid="interop-shadowdom"]')!;
+    doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', () => {
+      for (const link of host.shadowRoot!.querySelectorAll('a[href*="dana-reyes"]'))
+        link.setAttribute('href', `${LI}/in/ACoAAFakeDanaReyes123`);
+    });
+    expect(await tryMessage(doc, DANA, dana)).toMatchObject({
+      works: true,
+      found: { inside: true, box: true, sends: 1, closed: true },
+    });
+  });
+
   it.each([['open'], ['closed']] as const)(
     'finds the conversation in LinkedIn’s interop box, kept %s',
     async (into) => {
