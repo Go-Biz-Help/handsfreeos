@@ -335,7 +335,7 @@ or a message, and the readers are tuned from it.
 ### Get set up
 
 1. **Update the extension.** Download it again from Social Outreach → Settings → Your computer, unzip it over the
-   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.50.0.
+   same folder, and press the reload arrow on its card in `chrome://extensions`. The card shows 0.51.0.
 2. **Check the business allows LinkedIn.** Social Outreach → Settings → LinkedIn, under For your team on LinkedIn:
    **Your team may use LinkedIn** is on, as it is to start. A business allows every network unless an owner or admin
    turns one off there. Its daily limits for each person are below it, and start at the ones below.
@@ -389,7 +389,10 @@ LinkedIn** on LinkedIn's page in Settings reads the main pages in one press. Fro
 reports on HandsFreeOS's support desk (`/admin/problems`, decision 75), for every network. His first Check LinkedIn
 (17 Oct 2026) showed why Experience was never read: below Activity, LinkedIn's newer layout leaves empty places it
 fills only a moment after each is seen, and the read came first; and the pencil's label isn't "Edit intro" any more.
-So 0.50.0 keeps each empty place in view till it's drawn, and finds the pencil by its link to the intro's box. The
+So 0.50.0 keeps each empty place in view till it's drawn, and finds the pencil by its link to the intro's box. His
+Put this one in on 0.50.0 pressed the pencil (it says "Edit profile"), but the box's Headline is now a writing box
+named by the line above it, not by a label, so 0.51.0 names a field by the words just above it when nothing else
+does. The
 outlines are no longer pasted. Outlines that would settle the rest: a post with words typed in
 its comment box, post search results and a post's own page, someone else's profile, a conversation with words typed,
 and a post with the reactions menu open.

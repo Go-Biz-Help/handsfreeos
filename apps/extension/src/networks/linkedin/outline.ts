@@ -205,6 +205,9 @@ const OWN_WORDS = new Set(
     'promoted by',
     'edit intro',
     'edit profile',
+    'headline',
+    'headline*',
+    'save',
     'edit about',
     'edit experience',
     'add experience',
@@ -311,9 +314,12 @@ export const LINKEDIN_OUTLINE: OutlineSite = {
     'associationType',
   ]),
   queryDropped: /^(trk|trkInfo|lipi|lici|midToken|midSig|eid|otpToken|trackingId|refId|nis)$/,
+  // A box over the page has a header of its own (Edit intro's title), which is kept.
   isTopBar: (element) =>
     element.getAttribute('role') === 'banner' ||
-    (element.tagName === 'HEADER' && element.closest('main, [role="main"]') === null),
+    (element.tagName === 'HEADER' &&
+      element.closest('main, [role="main"], dialog, [role="dialog"], [role="alertdialog"]') ===
+        null),
   // A post's and a comment's own names (urn:li:activity:…), their numbers hidden as anything long is.
   alsoKept: ['aria-pressed', 'aria-placeholder', 'type', 'data-urn', 'data-id'],
 };

@@ -9,9 +9,10 @@
  *   top shows them: a picture there labelled with their name or as a profile photo (its own label, or the label of
  *   the box around it, as LinkedIn's newer layout draws it), and one labelled as a background or banner. It reads it
  *   all from the page as it is, pressing nothing: an About's or a role's "…more" only shows words already there.
- * - **Putting the headline in:** it presses the pencil on the top card (**Edit intro**), waits for the box it opens,
- *   writes the headline in the one field there labelled **Headline**, in place of what was there, presses that box's
- *   **Save**, and waits for the box to close and the line under the name to say it. It types in no other field and
+ * - **Putting the headline in:** it presses the pencil on the top card (**Edit intro**, or **Edit profile** as its
+ *   newer layout labels it, by its link to the intro's box), waits for the box it opens, writes the headline in the
+ *   one field there named **Headline** (by a label, or by the line just above it, where the newer box names its writing
+ *   box), in place of what was there, presses that box's **Save**, and waits for the box to close and the line under the name to say it. It types in no other field and
  *   presses nothing else. Anything it doesn't expect (no Edit intro, no box, no Headline field or more than one, no
  *   Save, the words not in the field, the box still open after Save) and it stops and says so; the job hands the step
  *   to the person, and never guesses.
@@ -306,7 +307,25 @@ function editIntroOf(doc: Document): HTMLElement | null {
   );
 }
 
-/** What labels a field: its label for screen readers, the label that names it, or the one around it. */
+/**
+ * The words just above a field, where LinkedIn's newer boxes name it: a line before the field, or before a box around
+ * it (Headline above its writing box, the owner's Put this one in of 17 Oct 2026). A long line isn't a name.
+ */
+function nameAbove(field: Element): string {
+  let at: Element | null = field;
+  for (let up = 0; at && up < 3; up++, at = at.parentElement) {
+    const before = at.previousElementSibling;
+    if (!before) continue;
+    const words = clean(before.textContent);
+    return words.length <= 40 ? words : '';
+  }
+  return '';
+}
+
+/**
+ * What labels a field: its label for screen readers, the label that names it, the one around it, or the words just
+ * above it.
+ */
 function fieldLabel(field: Element): string {
   const doc = field.ownerDocument;
   const own = clean(field.getAttribute('aria-label'));
@@ -323,7 +342,7 @@ function fieldLabel(field: Element): string {
   const named = id
     ? [...doc.querySelectorAll('label[for]')].find((label) => label.getAttribute('for') === id)
     : null;
-  return clean((named ?? field.closest('label'))?.textContent);
+  return clean((named ?? field.closest('label'))?.textContent) || nameAbove(field);
 }
 
 /** The fields labelled Headline in a box. */
