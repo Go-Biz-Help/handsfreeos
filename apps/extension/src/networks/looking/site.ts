@@ -25,18 +25,34 @@ export interface LookingRead {
   readonly people: readonly { readonly url: string }[];
   /** Links to posts on the page, each once, in page order. */
   readonly posts: readonly { readonly url: string }[];
-  /** The places the site's own menus lead to, each once, by their own words (anything else hidden). */
-  readonly places: readonly { readonly name: string; readonly url: string }[];
+  /**
+   * The places the site's own menus lead to, each once, by their own words (anything else hidden); `worth` when their
+   * real words say people, messages or posts are there. Never one that signs out, pays or deletes.
+   */
+  readonly places: readonly {
+    readonly name: string;
+    readonly url: string;
+    readonly worth: boolean;
+  }[];
   /** The person's own profile, from the menu's link to it, when the page has one. */
   readonly own: string | null;
   /** The network's warnings on the page: a block, a limit, a check of the account. */
   readonly warnings: readonly string[];
+  /** A box for a password on the page: the network is asking the person to sign in. */
+  readonly signedOut: boolean;
   /** What the person should know about this read. */
   readonly notes: readonly string[];
 }
 
-/** One look for a step's button: on the page the tab shows, never pressing anything. */
+/**
+ * One look for a step's button, on the page the tab shows. It never presses the step's last button; where a step's
+ * button shows only once something's written (Instagram's Post), it writes a word and takes it out again, as Check
+ * Facebook's tries do, and where the step starts with opening something (Message's chat), it opens it and closes it.
+ */
 export type Look = (doc: Document, href: string) => StepTry | Promise<StepTry>;
+
+/** Whether Check opens a place a menu leads to: worth a look, maybe, or never (and then it isn't even listed). */
+export type PlaceOpening = 'worth' | 'maybe' | 'never';
 
 export interface LookingSite {
   readonly platform: LookingPlatform;
@@ -64,6 +80,11 @@ export interface LookingSite {
   readonly warnedAt?: (url: URL) => string | null;
   /** The person's own profile on the page: the menu's link to it. */
   readonly ownLink: (doc: Document, href: string) => string | null;
+  /**
+   * Whether Check opens a place its menus lead to, by the place's real words and address (the read hides the words, so
+   * this is decided in the tab). Without it, every place is maybe.
+   */
+  readonly placeOpening?: (name: string, url: URL) => PlaceOpening;
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */
   readonly looks: Readonly<
     Partial<Record<TryStep, { readonly on: readonly string[]; readonly look: Look }>>

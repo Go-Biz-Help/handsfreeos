@@ -44,8 +44,42 @@ export const maskOn = (site: LookingSite) => (text: string) =>
 
 /** Where a page's menus are: its navigation and its banner. */
 const MENUS = 'nav, [role="navigation"], header, [role="banner"]';
+/** Where a page's menus aren't the site's: its foot (About, Privacy, Terms…). */
+const FOOT = 'footer, [role="contentinfo"]';
 /** How many of each a read keeps: enough to go on with, never a whole page's worth. */
 const MOST = 40;
+
+/** An element's own words, without those inside its pictures: an icon's title says what its label already does. */
+function wordsOf(element: Element): string {
+  let words = '';
+  const walker = element.ownerDocument.createTreeWalker(element, 4 /* NodeFilter.SHOW_TEXT */);
+  for (let text = walker.nextNode(); text; text = walker.nextNode())
+    if (!text.parentElement?.closest('svg')) words += text.textContent ?? '';
+  return clean(words);
+}
+
+/**
+ * What a control is called, as a person hears it: its label, its own words (Instagram's Following, beside an arrow
+ * labelled "Down chevron icon"), or the label of the picture inside it (Instagram's Like is an icon labelled "Like").
+ */
+export function nameOf(element: Element): string {
+  return (
+    clean(element.getAttribute('aria-label')) ||
+    wordsOf(element) ||
+    clean(element.querySelector('svg[aria-label]')?.getAttribute('aria-label')) ||
+    clean(element.querySelector('img[alt]')?.getAttribute('alt'))
+  );
+}
+
+/**
+ * The menu a link is in, when it's the site's: never a profile's own header on the page (Instagram draws an account's
+ * name, counts and buttons in one), and never the page's foot.
+ */
+function inMenu(anchor: Element): boolean {
+  const menu = anchor.closest(MENUS);
+  if (!menu || anchor.closest(FOOT)) return false;
+  return !(menu.matches('header, [role="banner"]') && menu.closest('main, [role="main"]'));
+}
 
 /** Reads a whole page on a network still looked at. */
 export function readLooking(
@@ -56,10 +90,17 @@ export function readLooking(
 ): LookingRead {
   const page = site.url(href);
   const own = site.ownLink(doc, href);
-  const ownKey = own ? site.url(own)?.pathname.toLowerCase() : null;
+  // Never among the people: the person, nor the account whose page this is (its own tabs link to it).
+  const notThem = new Set(
+    [own, page ? site.profileOf(page)?.url : null].flatMap((link) => {
+      const url = link ? site.url(link) : null;
+      return url ? [url.pathname.toLowerCase()] : [];
+    }),
+  );
   const people = new Map<string, { url: string }>();
   const posts = new Map<string, { url: string }>();
-  const places = new Map<string, { name: string; url: string }>();
+  const places = new Map<string, { name: string; url: string; worth: boolean }>();
+  const never = new Set<string>();
   const mask = maskOn(site);
   for (const anchor of doc.querySelectorAll('a[href]')) {
     const url = site.url(anchor.getAttribute('href') ?? '', href);
@@ -70,19 +111,24 @@ export function readLooking(
       continue;
     }
     const profile = site.profileOf(url);
-    const inMenu = anchor.closest(MENUS) !== null;
-    if (profile && !inMenu) {
-      if (people.size < MOST && new URL(profile.url).pathname.toLowerCase() !== ownKey)
+    const menu = inMenu(anchor);
+    if (profile && !menu) {
+      if (people.size < MOST && !notThem.has(new URL(profile.url).pathname.toLowerCase()))
         people.set(profile.url.toLowerCase(), { url: profile.url });
       continue;
     }
-    if (inMenu && url.pathname !== page?.pathname) {
+    if (menu && url.pathname !== page?.pathname) {
       const key = `${url.pathname}${url.search}`;
-      const name = mask(clean(anchor.getAttribute('aria-label')) || clean(anchor.textContent));
-      if (name && !places.has(key) && places.size < MOST)
-        places.set(key, { name, url: url.toString() });
+      const words = nameOf(anchor);
+      if (!words) continue;
+      // Whether it's worth opening is decided here, on its real words: the read carries them hidden.
+      const opening = site.placeOpening?.(words, url) ?? 'maybe';
+      if (opening === 'never') never.add(key);
+      else if (!places.has(key) && !never.has(key) && places.size < MOST)
+        places.set(key, { name: mask(words), url: url.toString(), worth: opening === 'worth' });
     }
   }
+  for (const key of never) places.delete(key);
   const kind = page ? site.kindOf(page) : 'other';
   return {
     platform: site.platform,
@@ -94,6 +140,7 @@ export function readLooking(
     places: [...places.values()],
     own,
     warnings: readWarnings(doc, href, site),
+    signedOut: doc.querySelector('input[type="password"]') !== null,
     notes: [
       `The extension only reads ${site.name} for now: its steps are built from what Check ${site.name} reads.`,
     ],
@@ -121,6 +168,24 @@ export function outlineSiteOf(site: LookingSite): OutlineSite {
     // and a name is hidden like any other.
     isTopBar: () => false,
   };
+}
+
+/**
+ * The page's outline the moment a look didn't work, while what it opened is still open: with what a read finds, the
+ * extension's version and the window's size, as Check Facebook's tries take it.
+ */
+export function outlineNow(doc: Document, site: LookingSite): string {
+  const view = doc.defaultView;
+  const runtime = (
+    globalThis as { chrome?: { runtime?: { getManifest?: () => { version: string } } } }
+  ).chrome?.runtime;
+  const version = runtime?.getManifest?.().version;
+  const href = doc.location.href;
+  return outlineLooking(doc, href, site, {
+    found: readLooking(doc, href, site),
+    ...(version ? { version } : {}),
+    ...(view ? { window: { width: view.innerWidth, height: view.innerHeight } } : {}),
+  });
 }
 
 /** The whole outline of a page on a network still looked at. */

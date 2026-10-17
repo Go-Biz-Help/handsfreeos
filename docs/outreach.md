@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.58.0 now.
+    Built in 0.44.0; the extension is 0.59.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1310,8 +1310,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     Chris's order after LinkedIn (core's `PLATFORMS`, migration 20261027008300), each in its kit's `stage: 'looking'`:
     the plan's "Each starts with a look at a real account and a kit". The look is the person's own Check, not a
     browser of anyone else's: signed out, both sites show little but their sign-in, Instagram's terms forbid
-    automated collection, Alignable's robots.txt turns crawlers away, and signing in to the person's account from a
-    server would put it at risk. So:
+    automated collection, Alignable's robots.txt keeps every robot out of its signed-in pages, and signing in to the
+    person's account from a server would put it at risk. So:
     - **Each has its page in Settings:** On for you, Your team may use it (every network allowed to start), what to
       press in Chrome (its site is an optional host permission, asked for once it's turned on), a note of what the
       extension does there for now (`NETWORK_WORDS.looking`), and **Check Instagram** or **Check Alignable**, the
@@ -1327,9 +1327,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       without pressing it: on Instagram the bio's box and Submit (on its own profile's form), Follow and Message (on
       someone's account), Like and the box to comment in (on one of their posts); on Alignable Connect, Message,
       Recommend, Like and a box to comment in, on each page it opens till each is found. Check Alignable follows
-      Alignable's own menu by its words (its network, messages, the forum, its communities and the rest), never to
+      Alignable's own menus by their words (its network, messages, the forum, its communities and the rest), never to
       anything that signs out, pays, invites, deletes or changes settings, since its signed-in addresses aren't
       published.
+    - **What his first Checks found** (0.58.0, 17 Oct 2026), and what 0.59.0 does about it:
+      - **Instagram:** the bio, Message and Like were found. Follow wasn't: the account was one he follows, and its
+        Following was read by the arrow beside it ("Down chevron icon"), so a control's own words now come before its
+        picture's label (`nameOf`), and Check looks for Follow on the accounts Instagram suggests (`/explore/people/`,
+        three at most) when the first is followed already. The box to comment in had no Post: Instagram shows it only
+        once something's written, so a word is written and taken out again, as Check Facebook's comment does. And
+        Message now opens its chat, finds its box, writes nothing (Instagram shows the other person when someone's
+        writing) and closes it again, as Check Facebook's does.
+      - **Alignable:** alignable.com/ was its public home page though he was signed in, with a button into
+        alignable.com/biz, which its robots.txt keeps every robot out of beside its dashboard, claims and onboarding.
+        Every word of its menus was hidden, and the job chose its menu's places by those words, so it opened none.
+        Check now starts at /biz, chooses the places its menus lead to in the tab, on their real words
+        (`placeOpening`: never its public home page, its company's pages, signing out, paying or deleting), and opens
+        the public home page only when /biz's menus have nothing worth a look. Words it may use are kept in outlines
+        now, so the next Check shows its menus.
     - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
       were from his (0.46.0 to 0.56.0).
 

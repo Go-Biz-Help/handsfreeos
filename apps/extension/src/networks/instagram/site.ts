@@ -8,13 +8,28 @@
  *
  * Its addresses as they've long been: instagram.com/<name>/ for an account (its followers and following under it),
  * /p/<code>/ and /reel/<code>/ for a post (newer links put the account's name first), /explore/tags/<tag>/ for a
- * hashtag, /explore/search/keyword/?q= for a search, /direct/inbox/ and /direct/t/<id>/ for messages, and
- * /accounts/edit/ for the person's own profile's form.
+ * hashtag, /explore/search/keyword/?q= for a search, /explore/people/ for the accounts it suggests, /direct/inbox/ and
+ * /direct/t/<id>/ for messages, and /accounts/edit/ for the person's own profile's form.
+ *
+ * From the owner's Check Instagram (17 Oct 2026): an account's Following is its word beside an arrow labelled "Down
+ * chevron icon" (so a control's own words come before its picture's label, ../looking/read.ts), and a post's box to
+ * comment in has no Post till something's written in it.
  */
 import { clean } from '../facebook/dom';
-import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
+import { visible } from '../facebook/fetch';
+import { typeInto } from '../facebook/join';
+import { outlineNow } from '../looking/read';
+import {
+  boxesSaying,
+  controlsSaying,
+  lookFor,
+  mainOf,
+  namesIn,
+  waitFor,
+  writingIn,
+} from '../looking/looks';
 import type { LookingSite } from '../looking/site';
-import { went, untried } from '../tries';
+import { missingOf, TRY_WORD, went, untried } from '../tries';
 
 const HOST = 'www.instagram.com';
 const HOSTS = new Set(['www.instagram.com', 'instagram.com']);
@@ -84,7 +99,9 @@ function kindOf(url: URL): string {
         ? 'search'
         : second === 'locations'
           ? 'place'
-          : 'explore';
+          : second === 'people'
+            ? 'suggested'
+            : 'explore';
   if (first === 'p' || first === 'reel' || first === 'tv') return 'post';
   if (first === 'reels') return 'reels';
   if (first === 'direct') return second === 't' ? 'chat' : 'inbox';
@@ -238,6 +255,26 @@ const WORDS = new Set(
     'Your note',
     'Active now',
     'Seen',
+    'Down chevron icon',
+    'Similar accounts',
+    'Discover people',
+    'Suggested',
+    'New post',
+    'Reposts',
+    'Message requests',
+    'Message...',
+    'Message…',
+    'Write a message...',
+    'Write a message…',
+    'Close chat',
+    'Minimize chat',
+    'Conversation information',
+    'Voice clip',
+    'Add photo or video',
+    'Choose an emoji',
+    'Audio call',
+    'Video call',
+    'View profile',
   ].map((w) => w.toLowerCase()),
 );
 
@@ -278,6 +315,8 @@ const PATH_WORDS = new Set([
   'audio',
   'liked_by',
   'comments',
+  'people',
+  'reposts',
 ]);
 
 /** Instagram's warnings, as its pages word them. */
@@ -299,11 +338,28 @@ const MESSAGE = /^message$/i;
 const LIKE = /^(like|unlike)$/i;
 const COMMENT_BOX = /^add a comment/i;
 const POST = /^post$/i;
+/** A chat's box to write in, as Message opens it. */
+const CHAT_BOX = /^(message|write a message)/i;
+const CLOSE_CHAT = /^(close|close chat|minimi[sz]e|minimi[sz]e chat)$/i;
 const BIO = /^bio$|^biography$|^pepbio$/i;
 const SUBMIT = /^(submit|save)$/i;
 
 /** The profile's own header: its name, its counts and its buttons. */
 const headerOf = (doc: Document): ParentNode => mainOf(doc).querySelector('header') ?? mainOf(doc);
+
+/** The boxes to write a message in, anywhere on the page: a chat opened over it, or the chat's own page. */
+const chatBoxes = (doc: Document): HTMLElement[] => boxesSaying(doc, CHAT_BOX);
+
+/** Closes a chat opened over the page by its own Close: the nearest one around its box. */
+async function closeChat(box: HTMLElement): Promise<boolean> {
+  for (let up = box.parentElement, steps = 0; up && steps < 20; up = up.parentElement, steps++) {
+    const close = controlsSaying(up, CLOSE_CHAT)[0];
+    if (!close) continue;
+    close.click();
+    return (await waitFor(() => (!box.isConnected || !visible(box) ? true : null), 4_000)) === true;
+  }
+  return false;
+}
 
 export const INSTAGRAM: LookingSite = {
   platform: 'instagram',
@@ -374,10 +430,45 @@ export const INSTAGRAM: LookingSite = {
           },
         ),
     },
+    // Message opens a chat, and nothing more: its box is looked for, nothing is written in it (Instagram shows the
+    // other person when someone's writing), and a chat opened over the page is closed again.
     message: {
       on: ['profile'],
-      look: (doc) =>
-        lookFor('message', headerOf(doc), INSTAGRAM, { words: MESSAGE, name: 'Message' }),
+      look: async (doc, href) => {
+        const header = headerOf(doc);
+        const message = controlsSaying(header, MESSAGE)[0];
+        if (!message)
+          return went(
+            'message',
+            { message: false },
+            ['no Message on their account'],
+            namesIn(header, INSTAGRAM),
+          );
+        const before = new Set(chatBoxes(doc));
+        message.click();
+        const box = await waitFor(() => chatBoxes(doc).find((b) => !before.has(b)), 8_000);
+        const at = doc.defaultView?.location.href ?? href;
+        if (!box)
+          return {
+            ...went(
+              'message',
+              { message: true, box: false },
+              ['Message opened no chat to write in'],
+              namesIn(mainOf(doc), INSTAGRAM),
+            ),
+            outline: outlineNow(doc, INSTAGRAM),
+          };
+        // A chat on its own page (/direct/t/…) is left as it is: the Check opens its next page anyway.
+        const own = INSTAGRAM.url(at);
+        const onItsPage = own !== null && kindOf(own) === 'chat';
+        const closed = onItsPage || (await closeChat(box));
+        return went(
+          'message',
+          { message: true, box: true, chatPage: onItsPage, closed },
+          closed ? [] : ['the chat Message opened didn’t close again'],
+          closed ? [] : namesIn(box.parentElement ?? mainOf(doc), INSTAGRAM),
+        );
+      },
     },
     // On a post's own page: its Like (an icon labelled Like, or Unlike once liked), never pressed.
     like: {
@@ -399,11 +490,11 @@ export const INSTAGRAM: LookingSite = {
         );
       },
     },
-    // On a post's own page: its box to comment in and its Post, which stays off till something's written. Nothing
-    // is written.
+    // On a post's own page: its box to comment in, and its Post, which Instagram shows only once something's written:
+    // a word written in the box, Post looked for (never pressed), and the box emptied again.
     comment: {
       on: ['post'],
-      look: (doc) => {
+      look: async (doc) => {
         const main = mainOf(doc);
         const box = boxesSaying(main, COMMENT_BOX)[0] ?? null;
         if (!box) {
@@ -411,17 +502,37 @@ export const INSTAGRAM: LookingSite = {
             clean(main.textContent),
           );
           if (off) return untried('comment', 'comments are off on that post', { box: false });
+          return went(
+            'comment',
+            { box: false },
+            ['no box to comment in on the post'],
+            namesIn(main, INSTAGRAM),
+          );
         }
-        const post = box ? controlsSaying(box.closest('form') ?? main, POST, true) : [];
-        return went(
-          'comment',
-          { box: Boolean(box), post: post.length },
-          [
-            !box && 'no box to comment in on the post',
-            box && !post.length && 'no Post by the box to comment in',
-          ].filter((m): m is string => typeof m === 'string'),
-          box && post.length ? [] : namesIn(main, INSTAGRAM),
-        );
+        if (writingIn(box))
+          return untried('comment', 'writing in the comment box already, left alone', {
+            box: true,
+          });
+        const form = box.closest('form') ?? main;
+        typeInto(doc, box, TRY_WORD, true);
+        const post = await waitFor(() => controlsSaying(form, POST, true)[0], 3_000);
+        const typed = writingIn(box);
+        typeInto(doc, box, '', true);
+        const emptied = (await waitFor(() => (writingIn(box) ? null : true), 2_000)) === true;
+        const missing = missingOf([
+          !typed && 'writing in the comment box didn’t take',
+          typed && !post && 'no Post by the box to comment in, with a word written in it',
+          !emptied && 'the comment box didn’t empty again',
+        ]);
+        return {
+          ...went(
+            'comment',
+            { box: true, typed, post: post ? 1 : 0, emptied },
+            missing,
+            missing.length ? namesIn(form, INSTAGRAM) : [],
+          ),
+          ...(missing.length ? { outline: outlineNow(doc, INSTAGRAM) } : {}),
+        };
       },
     },
   },
