@@ -1,13 +1,14 @@
 'use client';
-import type {
-  MainOfferNotes,
-  MainOfferParts,
-  MainOfferScore,
-  OfferAssistMode,
-  OfferAssistOutput,
-  OfferAssistPath,
-  OfferNicheOption,
-  ScoredPart,
+import {
+  offerAiWords,
+  type MainOfferNotes,
+  type MainOfferParts,
+  type MainOfferScore,
+  type OfferAssistMode,
+  type OfferAssistOutput,
+  type OfferAssistPath,
+  type OfferNicheOption,
+  type ScoredPart,
 } from '@hfos/core';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { ApiError, errorMessage } from '@/lib/api/errors';
@@ -97,15 +98,7 @@ export function scoreOffer(
   return workerPost('/v1/main-offer/score', { workspaceId, revision });
 }
 
-/** Why the AI didn't help, in plain words. */
+/** Why the AI didn't help, in plain words (core's, so the phone says the same). */
 export function offerAiError(e: unknown): string {
-  if (!(e instanceof ApiError)) return errorMessage(e);
-  const why = e.rule ?? e.code;
-  if (e.status === 0) return 'The AI isn’t reachable right now. Try again in a minute.';
-  if (e.status === 403) return 'Only owners and admins can build the main offer.';
-  if (why === 'budget_reached')
-    return 'That’s today’s AI limit for this business. It resets at midnight.';
-  if (why === 'ai_not_configured')
-    return 'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
-  return e.message;
+  return e instanceof ApiError ? offerAiWords(e) : errorMessage(e);
 }

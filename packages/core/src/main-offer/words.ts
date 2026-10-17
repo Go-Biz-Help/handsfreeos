@@ -29,6 +29,13 @@ export const OFFER_STEPS = [
 ] as const;
 export type OfferStep = (typeof OFFER_STEPS)[number];
 
+/** The step a box is on: `who.work` on Who, `inAFewWords.outcome` on Put it together. */
+export function offerStepOf(path: string): OfferStep {
+  const first = path.split('.')[0] ?? '';
+  if (first === 'line' || first === 'inAFewWords') return 'line';
+  return (OFFER_STEPS as readonly string[]).includes(first) ? (first as OfferStep) : 'who';
+}
+
 /** A box on a step: what it asks, and a hint under it. */
 export interface OfferBox {
   readonly path: OfferAssistPath | `niche.${string}`;
@@ -481,6 +488,13 @@ export function goingInto(
 export const MAIN_OFFER_PHONE_WORDS = {
   rowOffline: 'Your offer, scored part by part',
   needsSignal: 'The main offer needs signal. Try again when you’re back online.',
+  tryAgain: 'Try again',
+  notInUse: (addons: string) =>
+    `The main offer comes with ${addons}. Ask an owner or admin of this business to turn it on in More → Add-ons.`,
+  nothingLive: 'Nothing is live yet.',
+  notScoredHint:
+    'Score it to see what’s working and what’s holding each part back, with the AI’s fix for each.',
+  scoreOutOf: (part: string, score: number) => `${part}: ${score} out of 10`,
   buildTitle: 'Build your main offer on a computer',
   buildHint:
     'Finding your niche and the first steps are long forms, so they’re on the web. Once it’s built, you can review it, improve it and put it live here.',
@@ -491,6 +505,8 @@ export const MAIN_OFFER_PHONE_WORDS = {
   stepsOnWeb: 'Add, take out or move a step on the web.',
   liveOnly: (version: number) =>
     `Version ${version} is live. A change here starts a draft, and version ${version} keeps running until it’s published.`,
+  draftStays:
+    'Your draft stays as it is. You pick what to use from a try on the web, on a computer or in this phone’s browser.',
   tryReady: (name: string) => `${name} is ready`,
   tryReadyHint:
     'Compare it with your draft on the web and pick what to keep. Your draft stays as it is until you do.',
@@ -500,6 +516,26 @@ export const MAIN_OFFER_PHONE_WORDS = {
   blankForYou: (blank: string) => `Has a blank for you: ${blank}`,
   scoreFromTo: (part: string, from: number, to: number) => `${part}: ${from} to ${to}`,
 } as const;
+
+/**
+ * Why the AI didn't help with the main offer, in plain words: the worker's own words, except where the web and the
+ * phone say it better (no answer at all, today's limit, no AI set up).
+ */
+export function offerAiWords(e: {
+  readonly status: number;
+  readonly rule?: string | null;
+  readonly code: string;
+  readonly message: string;
+}): string {
+  const why = e.rule ?? e.code;
+  if (e.status === 0) return 'The AI isn’t reachable right now. Try again in a minute.';
+  if (e.status === 403) return 'Only owners and admins can build the main offer.';
+  if (why === 'budget_reached')
+    return 'That’s today’s AI limit for this business. It resets at midnight.';
+  if (why === 'ai_not_configured')
+    return 'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
+  return e.message;
+}
 
 /** What Settings' Main offer row says under its name, from `main_offer.get`. */
 export function offerRowLine(offer: {

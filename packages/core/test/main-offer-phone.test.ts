@@ -1,13 +1,21 @@
 /**
  * What the web and the phone both show of the main offer's review (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md,
- * step 1), worked out once: the score at a glance, the quick checks, what goes into the next try, Settings' line on
- * the phone, and whether the phone shows the offer at all with no signal. Pure.
+ * steps 1 and 2), worked out once: the score at a glance, the quick checks, what goes into the next try, Settings' line
+ * on the phone, whether the phone shows the offer at all with no signal, the step a box is on, and the AI's refusals.
+ * Pure.
  */
 import { describe, expect, it } from 'vitest';
 import { ADDON_CATALOG } from '../src/addons/catalog';
 import { coreFeatureHeld } from '../src/addons/capabilities';
 import type { MainOfferScore, ScoredPart } from '../src/main-offer/parts';
-import { goingInto, offerChecks, offerRowLine, underBarTitle } from '../src/main-offer/words';
+import {
+  goingInto,
+  offerAiWords,
+  offerChecks,
+  offerRowLine,
+  offerStepOf,
+  underBarTitle,
+} from '../src/main-offer/words';
 
 function scoreOf(each: number, low: Partial<Record<ScoredPart, number>> = {}): MainOfferScore {
   const part = (p: ScoredPart) => ({ score: low[p] ?? each, why: 'Clear and specific.' });
@@ -103,5 +111,38 @@ describe('Settings’ Main offer row on the phone', () => {
       coreFeatureHeld(ADDON_CATALOG, ['main_offer.manage', 'records.read'], 'main_offer'),
     ).toBe(false);
     expect(coreFeatureHeld(ADDON_CATALOG, ['realestate.use'], 'main_offer')).toBe(false);
+  });
+});
+
+describe('the builder’s steps and the AI’s refusals', () => {
+  it('names the step a box is on', () => {
+    expect(offerStepOf('who.work')).toBe('who');
+    expect(offerStepOf('method.steps')).toBe('method');
+    expect(offerStepOf('line')).toBe('line');
+    expect(offerStepOf('inAFewWords.outcome')).toBe('line');
+    expect(offerStepOf('proof')).toBe('proof');
+    expect(offerStepOf('nothing.here')).toBe('who');
+  });
+
+  it('says why the AI didn’t help, in its own words unless they can be plainer', () => {
+    const refusal = (status: number, rule: string | null, code = 'refused') => ({
+      status,
+      rule,
+      code,
+      message: 'The worker’s words.',
+    });
+    expect(offerAiWords(refusal(0, null))).toBe(
+      'The AI isn’t reachable right now. Try again in a minute.',
+    );
+    expect(offerAiWords(refusal(403, null))).toBe(
+      'Only owners and admins can build the main offer.',
+    );
+    expect(offerAiWords(refusal(429, 'budget_reached'))).toBe(
+      'That’s today’s AI limit for this business. It resets at midnight.',
+    );
+    expect(offerAiWords({ ...refusal(503, null, 'ai_not_configured'), rule: undefined })).toMatch(
+      /isn’t set up/,
+    );
+    expect(offerAiWords(refusal(422, 'main_offer_all_kept'))).toBe('The worker’s words.');
   });
 });

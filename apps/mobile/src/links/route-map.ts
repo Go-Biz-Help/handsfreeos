@@ -106,6 +106,10 @@ export const ROUTES: readonly Rule[] = [
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
   // how the payment provider sends somebody back to the app once they have typed a card.
   { web: 'settings/usage', phone: 'settings/usage', query: ['card'] },
+  // Settings → Main offer: the phone has its Review step and the live version too
+  // (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md), so a link to the page opens it here. The builder
+  // (`main-offer/build`) stays the web's.
+  { web: 'settings/main-offer', phone: 'settings/main-offer' },
   // Add-ons (0108): owners and admins manage them on the phone too, so a link to the page opens the phone's own
   // screen, and `?addon=` (the web's link to one add-on) opens that add-on's. Anyone else who follows one is told who
   // looks after add-ons. It was a Settings tab once, and links sent then still open it.
