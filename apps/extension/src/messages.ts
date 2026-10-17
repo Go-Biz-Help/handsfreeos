@@ -7,7 +7,7 @@
  */
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { HeadlineSteps, ProfileLoad } from './networks/linkedin/own-profile';
-import type { StepTry, TryStep } from './networks/linkedin/tries';
+import type { StepTry, TryStep } from './networks/tries';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { LinkedInFilePart } from './hfos/files';
@@ -128,8 +128,9 @@ export type OwnProfileAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
- * Check LinkedIn's tries (src/networks/linkedin/tries.ts, decision 76): one of the extension's steps on LinkedIn taken
- * up to its last press, on the page it's for; `profile` is whose page it is, for messaging and liking.
+ * Check LinkedIn's and Check Facebook's tries (src/networks/linkedin/tries.ts, src/networks/facebook/tries.ts,
+ * decisions 76 and 77): one of the extension's steps on the network taken up to its last press, on the page it's for;
+ * `profile` is whose page it is, for messaging and liking.
  */
 export type TryAsk = {
   readonly type: 'hfos-try';

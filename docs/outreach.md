@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.56.0 now.
+    Built in 0.44.0; the extension is 0.57.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1273,6 +1273,37 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     On 0.55.0 every step tried worked (17 Oct 2026). Commenting had nothing to try on that time: no person's post on
     his feed or the search had a page of its own. From 0.56.0 it's tried on one of the connection's own posts from
     their activity when the feed and the search have none.
+
+77. **Check Facebook, the same way** (Chris, 17 Oct 2026: "ok lets add a check for facebook"). From extension 0.57.0
+    Facebook's page in Settings has **Check Facebook** too (`checkup` on Facebook; `ASK_KIND_SINCE_ON.facebook`, so an
+    older build isn't asked it and the button says how to update). One press reads the person's profile, feed, friend
+    requests (and, after View sent requests, the ones they've sent), friends, groups and one of them, a people search,
+    a groups search, their chats, one friend's profile, the profile of someone they sent a request to, their
+    notifications and Download your information, and on the way takes each of the extension's Facebook steps as far as
+    it goes without changing anything (`src/networks/facebook/tries.ts`). Nothing is ever saved, posted, sent, liked,
+    added, confirmed, cancelled, unfriended or joined:
+    - **Your bio:** Edit bio (or Add bio) opens its box; a word written in it and their own put back, its Save found,
+      then its Cancel closes it. Nothing is written in a box with no Cancel to close it.
+    - **Confirming:** Confirm by the friend requests they've got.
+    - **Posting:** Write something… in one of their groups opens the composer, with a box to write in and Post; it's
+      closed again, nothing written.
+    - **Commenting:** on a person's post from that group (else from their feed), on its own page: a word written in its
+      comment box and taken out again, and the button that sends it looked for (Enter sends it without one).
+    - **A friend request:** Add friend on the profile of someone from the people search they aren't friends with (the
+      first three looked at, one at a time).
+    - **Joining:** Join group on a group from the groups search they aren't in.
+    - **Liking, unfriending and messaging,** on one friend's profile: one of their posts and its Like; Friends' menu,
+      with Unfriend in it, closed again; and, last, as it may open Messenger, Message opening a chat with its box to
+      write in, nothing written (Messenger shows the other person someone's typing), a window over the page closed
+      again.
+    - **Cancelling:** Cancel request on the profile of someone they sent one to.
+    - **The file:** on Download your information, its first step (Create export); nothing pressed.
+
+    Each step sends its own problem report as Check LinkedIn's do (job `checkup.<step>`, the outline kept when it
+    doesn't work), and the ask's last line names what doesn't work and what had nothing to try on. The two Checks share
+    the job's own steps (`src/jobs/checkup.ts`), each network's tries are its own, and every try finds what it needs
+    with its step's own functions, so a try fails where the step itself would. Its window is in front for about four
+    minutes.
 
 ## Rules worth knowing before changing anything
 

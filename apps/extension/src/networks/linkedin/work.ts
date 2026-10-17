@@ -154,6 +154,9 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
       return dataPage(location.href)
         ? { ok: true, tried: tryFile(document) }
         : wrong('its Get a copy of your data page');
+    default:
+      // A step of another network's Check: said, never left unanswered.
+      return { ok: false, error: 'The extension doesn’t try that on LinkedIn.' };
   }
 }
 

@@ -1,6 +1,6 @@
 /**
- * Check LinkedIn (docs/outreach.md, decision 74; ./src/addons/outreach/reports.ts), asked only on LinkedIn and of a
- * build that does it; and what an ask on a network Chrome hasn't allowed says to press. What the extension saw is
+ * Check LinkedIn and Check Facebook (docs/outreach.md, decisions 74 and 77; ./src/addons/outreach/reports.ts), each
+ * asked of a build that does it there; and what an ask on a network Chrome hasn't allowed says to press. What the extension saw is
  * core's problem reports now (../problem-reports.test.ts).
  */
 import { randomUUID } from 'node:crypto';
@@ -17,14 +17,30 @@ import {
 import { allowedOn, REPORT_WORDS } from '../../src/addons/outreach/reports';
 import { outreachBusiness, runAs, runWith } from './outreach-fixture';
 
-describe('Check LinkedIn', () => {
-  it('is LinkedIn’s alone, named for it, asked from Settings, of 0.48.0 or later', () => {
+describe('Check LinkedIn and Check Facebook', () => {
+  it('is each network’s, named for it, asked from Settings, of the build that first does it there', () => {
     expect(askableOn('linkedin', 'checkup')).toBe(true);
-    expect(askableOn('facebook', 'checkup')).toBe(false);
+    expect(askableOn('facebook', 'checkup')).toBe(true);
     expect(askNameOn('checkup', 'linkedin')).toBe('Check LinkedIn');
+    expect(askNameOn('checkup', 'facebook')).toBe('Check Facebook');
     expect(ASK_KINDS_FOR.settings).toEqual(['checkup']);
     expect(tooOldFor('0.47.0', 'checkup', 'linkedin')).toBe(true);
     expect(tooOldFor('0.48.0', 'checkup', 'linkedin')).toBe(false);
+    // Check Facebook came nine builds after Check LinkedIn: a build between them is never asked it.
+    expect(tooOldFor('0.56.0', 'checkup', 'facebook')).toBe(true);
+    expect(tooOldFor('0.57.0', 'checkup', 'facebook')).toBe(false);
+  });
+
+  it('says on each network what it reads and tries there, and that it never presses the last button', () => {
+    expect(REPORT_WORDS.checkupAbout('facebook')).toContain(
+      'your bio, a post in a group, a comment, a friend request, a message, a like',
+    );
+    expect(REPORT_WORDS.checkupAbout('linkedin')).toContain('your headline, a post, a comment');
+    for (const words of [
+      REPORT_WORDS.checkupAbout('facebook'),
+      REPORT_WORDS.checkupAbout('linkedin'),
+    ])
+      expect(words).toMatch(/It never saves, posts, sends, likes/);
   });
 });
 

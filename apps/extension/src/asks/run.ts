@@ -74,6 +74,7 @@ import { POPUP_ID, popUp, waitingSoon } from '../hfos/waiting';
 import { WARNED_KEY, warnedNow } from '../hfos/warned';
 import { chatMemory, readChats } from '../jobs/chats';
 import { checkFriends, research } from '../jobs/checks';
+import { checkFacebook } from '../jobs/checkup';
 import { getFile } from '../jobs/file';
 import { bringIn } from '../jobs/file-in';
 import { saveGroups } from '../jobs/groups';
@@ -370,6 +371,8 @@ async function facebookAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
       return profileRead(job);
     case 'profile_edit':
       return profileEdit(job, task);
+    case 'checkup':
+      return checkFacebook(job);
     default:
       // A kind HandsFreeOS knows and this build doesn't: it ends saying so, never left hanging at its start.
       return {

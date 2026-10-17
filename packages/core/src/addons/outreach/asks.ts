@@ -60,13 +60,13 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
 
 /**
  * The kinds each network's pages can be asked (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "LinkedIn, part by
- * part"): Facebook's every kind but Check LinkedIn; LinkedIn's its invitations and connections, checking connections for
- * fits, reading chats, looking someone up, researching one person, reading the profile and putting the headline in,
- * withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn (decision 74). A kind a network
- * can't be asked is refused (`outreach_ask_not_on_network`).
+ * part"): Facebook's every kind, Check Facebook among them (decision 77); LinkedIn's its invitations and connections,
+ * checking connections for fits, reading chats, looking someone up, researching one person, reading the profile and
+ * putting the headline in, withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn
+ * (decision 74). A kind a network can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
-  facebook: ASK_KIND_KEYS.filter((kind) => kind !== 'checkup'),
+  facebook: ASK_KIND_KEYS,
   linkedin: [
     // LinkedIn's own copy of the person's data ("Get a copy of your data"): asked for, downloaded, brought in
     // (./linkedin-export.ts). It has no chat backup.
@@ -128,13 +128,14 @@ export const ASK_NETWORK_SINCE: Readonly<Partial<Record<Platform, string>>> = {
 };
 
 /**
- * On a network but Facebook, the first build that does a kind there when it came after the network's first: LinkedIn's
- * data file (asked for, downloaded and brought in) came in 0.42.0, its helpful post on the person's feed in 0.43.0,
- * and Check LinkedIn in 0.48.0.
+ * On a network, the first build that does a kind there when it came after the kind's first (`ASK_KIND_SINCE`) or the
+ * network's: Check Facebook came in 0.57.0, nine builds after Check LinkedIn; LinkedIn's data file (asked for,
+ * downloaded and brought in) in 0.42.0, its helpful post on the person's feed in 0.43.0, and Check LinkedIn in 0.48.0.
  */
 export const ASK_KIND_SINCE_ON: Readonly<
   Partial<Record<Platform, Readonly<Partial<Record<AskKind, string>>>>>
 > = {
+  facebook: { checkup: '0.57.0' },
   linkedin: {
     file_request: '0.42.0',
     file_download: '0.42.0',
@@ -371,8 +372,8 @@ export const AskInput = z.discriminatedUnion('kind', [
     bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST),
   }),
   /**
-   * Open the network's main pages, read each without pressing anything, and send a note of what was found (decision
-   * 74, ./reports.ts): LinkedIn's.
+   * Open the network's main pages, read each, try each step up to its last press, and send a note of what was found
+   * (decisions 74, 76 and 77, ./reports.ts): Check LinkedIn, and Check Facebook.
    */
   plain('checkup'),
 ]);

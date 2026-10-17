@@ -70,14 +70,29 @@ export type JoinStep =
   /** It asks something to pick from a list: the person answers that one. */
   | { readonly result: 'choices' };
 
+/** Where the person stands with the group the page shows: in it, asked, or with Join group to press; or none of them. */
+export function joinState(
+  doc: Document,
+):
+  | { readonly state: 'joined' | 'asked' | 'none' }
+  | { readonly state: 'join'; readonly join: HTMLElement } {
+  const buttons = [...mainOf(doc).querySelectorAll<HTMLElement>('[role="button"], button')].filter(
+    shown,
+  );
+  if (buttons.some((b) => JOINED.test(labelOf(b)))) return { state: 'joined' };
+  if (buttons.some((b) => ASKED.test(labelOf(b)))) return { state: 'asked' };
+  const join = buttons.find((b) => JOIN.test(labelOf(b)));
+  return join ? { state: 'join', join } : { state: 'none' };
+}
+
 /** Presses Join group on the group's page, and waits a moment for the questions Facebook asks first. */
 export async function pressJoin(doc: Document): Promise<JoinStep> {
-  const buttons = [...mainOf(doc).querySelectorAll('[role="button"], button')].filter(shown);
-  if (buttons.some((b) => JOINED.test(labelOf(b)))) return { result: 'already', joined: true };
-  if (buttons.some((b) => ASKED.test(labelOf(b)))) return { result: 'already', joined: false };
-  const join = buttons.find((b) => JOIN.test(labelOf(b)));
-  if (!join) return { result: 'none' };
-  (join as HTMLElement).click();
+  const now = joinState(doc);
+  if (now.state !== 'join')
+    return now.state === 'none'
+      ? { result: 'none' }
+      : { result: 'already', joined: now.state === 'joined' };
+  now.join.click();
   for (let waited = 0; waited < WAIT_MS; waited += LOOK_MS) {
     await pause(LOOK_MS);
     const box = questionsBox(doc);
