@@ -26,6 +26,24 @@ export const PLAYBOOK_GOALS = {
 export type PlaybookGoal = keyof typeof PLAYBOOK_GOALS;
 export const PLAYBOOK_GOAL_KEYS = Object.keys(PLAYBOOK_GOALS) as [PlaybookGoal, ...PlaybookGoal[]];
 
+/**
+ * The goal that makes a playbook a partner playbook (decision 81, ./partners.ts): its audience, niche, area, signs and
+ * skip words say whose audience it wants, the business's customers, and it looks for people who have them. Every step
+ * for customers leaves it out.
+ */
+export const PARTNER_GOAL = 'partner' satisfies PlaybookGoal;
+export const forPartners = (details: Pick<PlaybookDetails, 'goal'>): boolean =>
+  details.goal === PARTNER_GOAL;
+
+/** The kinds of partner a partner playbook looks for: all three unless it says (./partners.ts). */
+export const PARTNER_KINDS = {
+  group_admin: 'Group admin',
+  creator: 'Creator',
+  business: 'Business',
+} as const;
+export type PartnerKind = keyof typeof PARTNER_KINDS;
+export const PARTNER_KIND_KEYS = Object.keys(PARTNER_KINDS) as [PartnerKind, ...PartnerKind[]];
+
 /** The steps a playbook takes with people, in the order it takes them. */
 export const PLAYBOOK_STEPS = {
   connect: { label: 'Send friend requests', hint: 'To people who fit, found in your groups.' },
@@ -207,6 +225,15 @@ export const PlaybookDetails = z
      * business changed it (./video.ts). Left out of a save, it keeps what's saved; null clears it.
      */
     videoScript: VideoScript.nullable().optional(),
+    /**
+     * The kinds of partner a partner playbook looks for (data version 6, decision 81): group admins, creators, and
+     * businesses with the same customers. Left out of a save, it keeps what's saved, like the parts version 3 added.
+     */
+    partnerKinds: z
+      .array(z.enum(PARTNER_KIND_KEYS))
+      .min(1, 'Pick at least one kind of partner.')
+      .refine(distinct, 'Each kind once.')
+      .optional(),
     /** Who it's for, in plain words. */
     audience: words(PLAYBOOK_LIMITS.audience),
     /** What says someone fits: "Owner" in their intro, posts about missed calls. */
@@ -332,6 +359,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   usefulLink: null,
   videoLink: null,
   videoScript: null,
+  partnerKinds: [...PARTNER_KIND_KEYS],
   audience: null,
   signs: [],
   skip: [],
@@ -450,11 +478,13 @@ export const PLAYBOOK_V3_KEYS = ['niche', 'problem', 'proof', 'usefulWhat', 'use
 /** The parts data versions 4 and 5 added, kept the same way. */
 export const PLAYBOOK_V4_KEYS = ['videoLink'] as const;
 export const PLAYBOOK_V5_KEYS = ['videoScript'] as const;
+export const PLAYBOOK_V6_KEYS = ['partnerKinds'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
   ...PLAYBOOK_V4_KEYS,
   ...PLAYBOOK_V5_KEYS,
+  ...PLAYBOOK_V6_KEYS,
 ] as const;
 
 /** The days before follow-ups when they were one number (before data version 4) and the business changed it. */
@@ -491,7 +521,7 @@ export function paceOf(pace: unknown): Pace {
  * A playbook's details as an earlier version saved them, in today's shape. Before data version 2 its questions were
  * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send;
  * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link; before 5, no
- * video script. Anything else passes through for the schema to judge.
+ * video script; before 6, no kinds of partner (every kind). Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;

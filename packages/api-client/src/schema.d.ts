@@ -6877,6 +6877,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.partner.look": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What someone who could partner with the business says on their profile, and how many follow them, as the person’s computer just read it, for the AI to see whether their audience is the business’s customers; or that the network showed someone else. What their profile said is kept only until the AI has read it.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.looked.
+         */
+        post: operations["command_outreach_partner_look"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.partner.mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks someone on the person’s Partners list: interested, call booked, a partner now, not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked.
+         */
+        post: operations["command_outreach_partner_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.playbook.archive": {
         parameters: {
             query?: never;
@@ -17651,6 +17691,46 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_openers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s Partners list: everyone the AI found could send the business its customers, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit and a first warm-up. The best fits with the biggest audiences first; a page at a time.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_partners"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.partners.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: admins of the biggest groups the business’s customers are in, then people with the biggest followings, then businesses. Only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_partners_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -37111,6 +37191,81 @@ export interface operations {
             };
         };
     };
+    command_outreach_partner_look: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    followers?: number | null;
+                    /** @enum {string} */
+                    kind: "group_admin" | "creator" | "business";
+                    /** @default [] */
+                    lines?: string[];
+                    /** @default false */
+                    missing?: boolean;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        fit: "waiting" | "good" | "maybe" | "not" | "failed";
+                        /** Format: uuid */
+                        partnerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_partner_mark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mark: "interested" | "call_booked" | "partner" | "not_now" | "again" | "not_partner";
+                    /** Format: uuid */
+                    partnerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_playbook_archive: {
         parameters: {
             query?: never;
@@ -37161,6 +37316,7 @@ export interface operations {
                                 followUps?: number;
                                 messageAfterDays: number;
                             };
+                            partnerKinds?: ("group_admin" | "creator" | "business")[];
                             platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                             problem?: string | null;
                             proof?: string[];
@@ -37236,6 +37392,7 @@ export interface operations {
                             followUps?: number;
                             messageAfterDays: number;
                         };
+                        partnerKinds?: ("group_admin" | "creator" | "business")[];
                         platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                         problem?: string | null;
                         proof?: string[];
@@ -37310,6 +37467,7 @@ export interface operations {
                                 followUps?: number;
                                 messageAfterDays: number;
                             };
+                            partnerKinds?: ("group_admin" | "creator" | "business")[];
                             platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                             problem?: string | null;
                             proof?: string[];
@@ -67519,6 +67677,126 @@ export interface operations {
             };
         };
     };
+    query_outreach_partners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 1 */
+                    page?: number;
+                    /** @default null */
+                    platform?: ("facebook" | "linkedin" | "instagram" | "alignable") | null;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    view?: "all" | "found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            asked: number;
+                            call_booked: number;
+                            found: number;
+                            interested: number;
+                            not_now: number;
+                            partner: number;
+                            warming: number;
+                        };
+                        more: boolean;
+                        partners: {
+                            audience: string | null;
+                            audienceSize: number | null;
+                            /** @enum {string} */
+                            fit: "good" | "maybe";
+                            followers: number | null;
+                            /** @enum {string} */
+                            kind: "group_admin" | "creator" | "business";
+                            name: string;
+                            nextStep: string | null;
+                            /** Format: uuid */
+                            partnerId: string;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            playbook: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            /** @enum {string} */
+                            stage: "found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now";
+                            /** Format: date-time */
+                            stageAt: string;
+                            url: string;
+                            why: string[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_partners_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 15 */
+                    most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** @enum {string} */
+                            kind: "group_admin" | "creator" | "business";
+                            name: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            url: string;
+                        }[];
+                        perDay: number;
+                        today: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_person: {
         parameters: {
             query?: never;
@@ -67630,6 +67908,7 @@ export interface operations {
                                     followUps?: number;
                                     messageAfterDays: number;
                                 };
+                                partnerKinds?: ("group_admin" | "creator" | "business")[];
                                 platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                                 problem?: string | null;
                                 proof?: string[];

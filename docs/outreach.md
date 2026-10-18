@@ -79,6 +79,21 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   They go at the day's pace, and what the AI said stays on show until it answers again. A page linked from their
   profile counts as their business only when the line naming it says they own or founded it; otherwise the AI is
   told it's where they work. Nobody goes in Contacts.
+- **Partners** (decision 81, `partners.ts`, `ops/partners.ts`, the worker's `partners.ts`): a playbook whose goal is
+  **Find partners** is a partner playbook, and every step for customers leaves it out (`playbooksInUse`,
+  `FOR_CUSTOMERS`); its `partnerKinds` say which kinds of partner it looks for (data version 6). HandsFreeOS says who
+  the person's computer reads next for the AI's partner check (`outreach.partners.next`: admins of groups of at least
+  200 members the AI didn't call not the business's people, the biggest first; then people with at least 1,000
+  followers; then businesses, by their intro's words or on Alignable; never anyone on Don't pitch or Never contact,
+  anyone found already, anyone sent a customer message in the last 30 days, nor anyone marked Not interested), at most
+  half the network's profiles read a day, which the customer checks share. The extension reads each profile and how
+  many follow them (`outreach.partner.look`); the AI (the worker's `outreach.check_partners`) says good, maybe or not,
+  what kind of partner, who their audience is and how big, why and a first warm-up (`outreach.partner.save`). A good
+  or maybe goes on the person's **Partners** list (`outreach.partners`) at Found, and `profiles.partner_found_at` keeps
+  them and their twins out of every step for customers from then (`pitchable`); a friend request from them is still
+  confirmed. The person marks them (`outreach.partner.mark`): Interested, Call booked, Make partner, Not now, back on
+  the list, or not a partner after all, which takes them off the list so they may be pitched again. Each person's own,
+  like their checks.
 - **Research one person** (decision 46a, `researchShown` and `RESEARCH_WORDS` in `checks.ts`, the ask kind `research`
   in `asks.ts`, the web's `research.tsx`, the extension's `research` in `src/jobs/checks.ts`): a **Research** button
   on each row of the Friends tab (friends, good fits, requests received and sent, kept) and the People tab's pipeline

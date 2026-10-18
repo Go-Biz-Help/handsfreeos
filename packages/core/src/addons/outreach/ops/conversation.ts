@@ -28,22 +28,26 @@ import {
   type Answer,
 } from '../conversation';
 import { outreachAddon } from '../manifest';
-import { paceOf, type Pace } from '../playbooks';
+import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
 import { followUps, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
 import { numbersIn } from './tracking';
 
 /**
- * The pace a conversation keeps: the first playbook in use with one, by name, as Today's demo link is picked; the
- * starting pace with none.
+ * The pace a conversation keeps: the first playbook in use for customers with one, by name, as Today's demo link is
+ * picked; the starting pace with none.
  */
 export async function conversationPace(ctx: Ctx): Promise<Pace> {
   const [first] = await ctx.tx
     .select({ details: playbooks.details })
     .from(playbooks)
     .where(
-      and(eq(playbooks.workspaceId, ctx.scope.workspaceId!), sql`${playbooks.archivedAt} is null`),
+      and(
+        eq(playbooks.workspaceId, ctx.scope.workspaceId!),
+        sql`${playbooks.archivedAt} is null`,
+        sql`(${playbooks.details} ->> 'goal') is distinct from ${PARTNER_GOAL}`,
+      ),
     )
     .orderBy(asc(playbooks.name))
     .limit(1);

@@ -25,7 +25,7 @@ beforeAll(async () => {
 
 afterAll(closeTestDbs);
 
-describe('Social Outreach’s data versions 2 to 5', () => {
+describe('Social Outreach’s data versions 2 to 6', () => {
   it('gives an older playbook’s questions answers, a pace, follow-ups and empty newer parts, and leaves today’s alone', async () => {
     const before = {
       goal: 'demo',
@@ -56,6 +56,7 @@ describe('Social Outreach’s data versions 2 to 5', () => {
       usefulLink: null,
       videoLink: null,
       videoScript: null,
+      partnerKinds: ['group_admin', 'creator', 'business'],
     });
     const [old, current] = await rows<{ id: string }>(
       admin(),
@@ -65,7 +66,7 @@ describe('Social Outreach’s data versions 2 to 5', () => {
           returning id`,
     );
 
-    for (const v of [2, 3, 4, 5]) {
+    for (const v of [2, 3, 4, 5, 6]) {
       const step = outreachAddonWorker.dataMigrations![v]!;
       await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
         step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
@@ -89,6 +90,7 @@ describe('Social Outreach’s data versions 2 to 5', () => {
       usefulLink: null,
       videoLink: null,
       videoScript: null,
+      partnerKinds: ['group_admin', 'creator', 'business'],
     });
     expect(got(current!.id)).toMatchObject({ details: today, updated: false });
   });

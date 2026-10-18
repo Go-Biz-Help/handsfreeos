@@ -23,7 +23,7 @@ import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
 import { profileMisfit } from '../networks';
-import { PLATFORMS, type Platform } from '../playbooks';
+import { PARTNER_GOAL, PLATFORMS, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
 import { friends, profiles } from '../tables';
@@ -97,12 +97,46 @@ const customerNever = (p: string) =>
   sql`(${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${neverPeople}))`;
 
 /**
- * A profile that's pitched: neither it nor a twin of it (`neverTwins`) is marked never pitched, nor on Never contact.
- * Once it isn't marked itself, any profile marked never pitched under its name, or on its customer, is a twin. `p` is
- * its alias.
+ * A profile that may be reached at all as Don't pitch allows: neither it nor a twin of it (`neverTwins`) is marked
+ * never pitched, nor on Never contact. Once it isn't marked itself, any profile marked never pitched under its name, or
+ * on its customer, is a twin. A partner (`partnered`) is one, and is asked to partner, never pitched. `p` is its alias.
  */
-export const pitchable = (p: string) =>
+export const notNever = (p: string) =>
   sql`(not ${markedNever(p)} and not ${namedNever(p)} and not ${customerNever(p)})`;
+
+/**
+ * Every profile found as a partner (decision 81), as its workspace, network and name, and every customer with one,
+ * read once for the whole query (`neverNames`).
+ */
+const partnerNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
+  where m.partner_found_at is not null`;
+const partnerPeople = sql`select m.person_id from addon_outreach.profiles m
+  where m.person_id is not null and m.partner_found_at is not null`;
+
+/**
+ * Whether a profile, or a twin of it, was found as a partner (decision 81): a profile kept under its name on its
+ * network, or another profile on its customer, on any network, as Don't pitch's twins are (`neverTwins`). `p` is its
+ * alias.
+ */
+export const partnered = (p: string) =>
+  sql`(${sql.raw(p)}.partner_found_at is not null
+    or (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${partnerNames})
+    or (${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${partnerPeople})))`;
+
+/**
+ * A profile that's pitched as a customer: one that may be reached (`notNever`), and neither it nor a twin was found as
+ * a partner, who's asked to partner instead (decision 81). `p` is its alias.
+ */
+export const pitchable = (p: string) => sql`(${notNever(p)} and not ${partnered(p)})`;
+
+/**
+ * A playbook that's after customers: any but a partner playbook (decision 81), whose audience is reached through
+ * partners. `pb` is its alias.
+ */
+export const forCustomers = (pb: string) =>
+  sql`(${sql.raw(pb)}.details ->> 'goal') is distinct from ${PARTNER_GOAL}`;
+/** The same, where `addon_outreach.playbooks` is read with no alias (the worker's reads). */
+export const FOR_CUSTOMERS = sql`(details ->> 'goal') is distinct from ${PARTNER_GOAL}`;
 
 /** Every profile on Never contact, as its workspace, network and name, read once for the whole query (`neverNames`). */
 const offNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m

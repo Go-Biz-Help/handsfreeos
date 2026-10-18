@@ -17,6 +17,7 @@ import { VIDEO_SCRIPT_ACTION, videoScript } from './video';
 import { PROFILE_CHECK_ACTION, profileCheck } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
+import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners';
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
@@ -100,12 +101,13 @@ export const outreachAddonWorker: AddonWorkerModule = {
   dataMigrations: {
     // 2: a playbook's questions have answers, and it has a pace. 3: a niche, its problem and proof, and something
     // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
-    // link. 5: the video's script. Reading upgrades an older one too (outreach.playbook.list), so these only tidy what
-    // a reinstall brings back.
+    // link. 5: the video's script. 6: the kinds of partner a partner playbook looks for. Reading upgrades an older one
+    // too (outreach.playbook.list), so these only tidy what a reinstall brings back.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
     4: upgradePlaybooks,
     5: upgradePlaybooks,
+    6: upgradePlaybooks,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
@@ -143,11 +145,14 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.day.started': armDayReportFor,
     'outreach.automation.saved': armDayReportFor,
     'main_offer.published': offerPublished,
+    // Someone who could partner, read off their profile, waits for the AI's partner check (./partners.ts).
+    'outreach.partner.looked': partnerLooked,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
+    [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,
     [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
     // The morning push arms the day's reports of whoever noted a step this week (./tracking.ts).

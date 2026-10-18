@@ -14,6 +14,7 @@
  * hands it to `outreach.send.queue`.
  */
 import { stepAfterYes, type ConversationStep } from '@hfos/core/addons/outreach/conversation';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
@@ -136,7 +137,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       const playbooks = await rows<{ id: string; name: string; details: unknown }>(
         tx,
         sql`select id, name, details from addon_outreach.playbooks
-            where workspace_id = ${ws} and archived_at is null`,
+            where workspace_id = ${ws} and archived_at is null and ${FOR_CUSTOMERS}`,
       );
       // What the AI made of them when it checked them (decision 46): the person's own.
       const [check] = profileId
