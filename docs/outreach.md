@@ -1396,6 +1396,17 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         it too.
       - **An About needs 0.62.0 or later**; an older build says to update first.
 
+81. **Partners: reaching customers through someone else's audience** (Chris, 18 Oct 2026: "identify people with large
+    followings of our target audience, or admins and moderators of fb groups and ask them if they'd be interested in a
+    partnership"; HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, its decisions 1 to 15). A playbook whose goal is
+    **Find partners** looks for group admins and moderators, creators and businesses whose audience is the
+    playbook's, the AI judging fit first and size second. It warms them up, then asks only whether they're open to a
+    partnership, and every partner message waits for the person's OK. Someone asked to partner is never pitched as a
+    customer. A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
+    paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe. Each
+    partner has their own page. Alignable's referral swap stays beside the commission. Social Outreach finds and asks;
+    partners, commissions and payouts are core's, as money is.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
