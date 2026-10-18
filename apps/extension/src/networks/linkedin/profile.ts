@@ -46,6 +46,7 @@ import {
   isAction,
   isLinkedInText,
   MORE,
+  followerCount,
   mutualCount,
   PRONOUNS,
   UI_WORDS,
@@ -430,6 +431,7 @@ export function readProfile(
   const companyName = atTop ?? role?.company ?? (linked?.name || null);
 
   const mutualConnections = lines.map(mutualCount).find((count) => count !== null) ?? null;
+  const followers = lines.map(followerCount).find((count) => count !== null) ?? null;
   return {
     name: name || null,
     profile,
@@ -442,5 +444,6 @@ export function readProfile(
     connection,
     followFirst,
     mutualConnections,
+    ...(followers !== null ? { followers } : {}),
   };
 }

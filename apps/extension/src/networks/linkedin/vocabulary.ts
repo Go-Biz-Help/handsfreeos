@@ -202,6 +202,12 @@ export function mutualCount(line: string): number | null {
   return match ? namesCount(match[1]!) : null;
 }
 
+/** "1,234 followers", "12K followers": how many follow someone, as their profile's top says (decision 81). */
+export function followerCount(line: string): number | null {
+  const match = /^([\d.,]+\s*[km]?)\+?\s+followers?$/i.exec(line.trim());
+  return match ? parseCount(match[1]!) : null;
+}
+
 /** "500+ connections", "1,234 followers": counts about someone, never about them in their words. */
 const COUNTS = /^[\d.,]+\+?\s*[km]?\s+(connections?|followers?|reactions?|comments?|reposts?)$/i;
 /** "She/Her", "(They/Them)": what a member says to call them, beside their name. */

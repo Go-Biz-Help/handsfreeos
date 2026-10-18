@@ -349,6 +349,14 @@ let commentsLeft = 0;
  * short comment under it too, while the day's comments have room (the main offer plan's warm-up).
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
+  // A partner's warm-up comes before the ask about partnering (decision 81), not a friend request.
+  const after =
+    item.kind === 'partner_warm_up'
+      ? { without: 'the ask about partnering goes without', next: 'the ask comes tomorrow' }
+      : {
+          without: 'their friend request goes without',
+          next: 'their friend request comes tomorrow',
+        };
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const theirs = await tab.ask({
@@ -366,8 +374,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     );
     return { done: false, line };
   };
-  if (!theirs.posts.length)
-    return missed(`No post of ${item.name}’s to like: their friend request goes without`);
+  if (!theirs.posts.length) return missed(`No post of ${item.name}’s to like: ${after.without}`);
   const posts = theirs.posts.map((p) => ({
     text: p.text,
     pictures: [...p.pictures],
@@ -389,9 +396,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       : fallbackLikePick(LikePickInput.parse({ profileId: item.profileId!, posts }).posts);
   }
   if (pick.pick === null)
-    return missed(
-      `None of ${item.name}’s posts were right to like: their friend request goes without`,
-    );
+    return missed(`None of ${item.name}’s posts were right to like: ${after.without}`);
   const chosen = theirs.posts[pick.pick]!;
   const liked = await tab.ask({
     type: 'hfos-like-post',
@@ -401,7 +406,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
   });
   if (!liked.ok) throw new Error(liked.error);
   if (liked.result === 'none' || liked.result === 'not_sent')
-    return missed(`Couldn’t like ${item.name}’s post: their friend request goes without`);
+    return missed(`Couldn’t like ${item.name}’s post: ${after.without}`);
   await pause(SETTLE_MS);
   const stop = await warnedOn(await read(), businessId);
   if (stop) return { stop };
@@ -434,10 +439,10 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     done: true,
     line:
       liked.result === 'already'
-        ? `${item.name}’s post was liked already: their friend request comes tomorrow`
+        ? `${item.name}’s post was liked already: ${after.next}`
         : commented
-          ? `Liked and commented on a post of ${item.name}’s${about}: their friend request comes tomorrow`
-          : `Liked a post of ${item.name}’s${about}: their friend request comes tomorrow`,
+          ? `Liked and commented on a post of ${item.name}’s${about}: ${after.next}`
+          : `Liked a post of ${item.name}’s${about}: ${after.next}`,
   };
 }
 
@@ -588,7 +593,7 @@ async function bringInChat(
  * comes back as the next step, the video or the link, and goes as that.
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'reply') {
+  if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
   }
@@ -732,7 +737,7 @@ async function sendMessage(
       group: null,
       postUrl: null,
       thread: chat.thread,
-      replying: item.kind === 'reply',
+      replying: item.kind === 'reply' || item.kind === 'partner_reply',
       auto: true,
     },
     at: now(),
@@ -751,6 +756,7 @@ function doItem(item: TodayListItem, businessId: string): Promise<Outcome> {
     case 'friend_request':
       return onProfile(item, 'friend_request', businessId);
     case 'warm_up':
+    case 'partner_warm_up':
       return warmUp(item, businessId);
     default:
       return comment(item, businessId);
@@ -764,16 +770,20 @@ const DOING: Record<AutoKind, string> = {
   comment: 'Commenting on a post of',
 };
 
+/** A step's kind as the day counts it: a partner's warm-up is a like (decision 81). */
+const stepKind = (kind: TodayListItem['kind']): AutoKind =>
+  kind === 'partner_warm_up' ? 'warm_up' : (kind as AutoKind);
+
 const doing = (work: Work) =>
   work.do === 'step'
-    ? `${DOING[work.item.kind as AutoKind]} ${work.item.name}…`
+    ? `${DOING[stepKind(work.item.kind)]} ${work.item.name}…`
     : work.do === 'draft'
       ? `Writing a message to ${work.item.name}…`
       : `Sending ${work.item.name} a message…`;
 
 /** What a piece of work counts as, done. */
 const doneAs = (work: Work): DoneKind =>
-  work.do === 'step' ? (work.item.kind as AutoKind) : work.do === 'draft' ? 'drafted' : 'sent';
+  work.do === 'step' ? stepKind(work.item.kind) : work.do === 'draft' ? 'drafted' : 'sent';
 
 function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
   if (work.do === 'draft') return draftMessage(work.item, businessId);

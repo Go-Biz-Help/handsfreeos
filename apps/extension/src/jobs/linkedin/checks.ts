@@ -15,18 +15,12 @@ import { profileLines } from '../../networks/linkedin/lookup';
 import type { ProfilePage, ProfileRef } from '../../networks/linkedin/types';
 import { profileRefOf, sameMember } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
+import type { ReadThem, Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { readLinkedIn } from './read';
 
 /** Between people, a steady pace like a person's: never the same twice. */
 const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
-
-/** Who HandsFreeOS listed to check. */
-interface Who {
-  readonly profileId: string;
-  readonly name: string;
-  readonly url: string;
-}
 
 /**
  * Whether the profile shown is the one opened: the same member by their address's name or LinkedIn's id. A link with
@@ -47,22 +41,23 @@ export function isThem(
 }
 
 /**
- * What their profile says, as lines for the AI; `missing` when LinkedIn showed someone else or no profile at all. A
- * warning ends it.
+ * What their profile says, as lines for the AI, and how many follow them; `missing` when LinkedIn showed someone else
+ * or no profile at all. A warning ends it. The partner check reads people the same way (../partners.ts).
  */
-async function readThem(
-  job: Job,
-  who: Who,
-): Promise<{ readonly lines: string[]; readonly missing: boolean } | { readonly end: JobEnd }> {
+export async function readThemOnLinkedIn(job: Job, who: Who): Promise<ReadThem> {
   const want = profileRefOf(who.url);
-  if (!want) return { lines: [], missing: true };
+  if (!want) return { lines: [], missing: true, followers: null };
   await job.tab.open(want.url);
   const page = await readLinkedIn(job.tab);
   const warned = await warnedOn(job, page);
   if (warned) return { end: warned };
   if (page.kind !== 'profile' || !page.profile || !isThem(page.profile, want, who.name))
-    return { lines: [], missing: true };
-  return { lines: profileLines(page.profile).slice(0, LOOKUP_LINES), missing: false };
+    return { lines: [], missing: true, followers: null };
+  return {
+    lines: profileLines(page.profile).slice(0, LOOKUP_LINES),
+    missing: false,
+    followers: page.profile.followers ?? null,
+  };
 }
 
 /** How it went, in words for the person. */
@@ -137,12 +132,12 @@ export async function checkConnections(
   for (const [i, who] of next.people.entries()) {
     if (job.stopped()) return { line: `Stopped. ${summary(sent, missing)}`, warned: false };
     job.progress(`${i + 1} of ${next.people.length}: reading ${who.name}’s profile…`);
-    let read: Awaited<ReturnType<typeof readThem>>;
+    let read: ReadThem;
     try {
-      read = await readThem(job, who);
+      read = await readThemOnLinkedIn(job, who);
     } catch {
       // LinkedIn went elsewhere: tried again another week.
-      read = { lines: [], missing: true };
+      read = { lines: [], missing: true, followers: null };
     }
     if ('end' in read) return { ...read.end, line: `${read.end.line} ${summary(sent, missing)}` };
     valueOf(

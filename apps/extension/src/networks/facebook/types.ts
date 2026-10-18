@@ -84,6 +84,8 @@ export interface ProfilePage {
   readonly friendship:
     'self' | 'friends' | 'request_sent' | 'request_received' | 'not_friends' | 'unknown';
   readonly mutualFriends: number | null;
+  /** How many follow them, when the top says ("12K followers"): for the AI's partner check (decision 81). */
+  readonly followers?: number;
 }
 
 export interface GroupLink {

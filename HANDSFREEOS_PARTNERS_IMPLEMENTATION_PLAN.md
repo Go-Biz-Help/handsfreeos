@@ -224,7 +224,9 @@ working a profile:
    partner steps on Today, the message kinds and the stages they move, their answers, and the partner call's ref
    (migration 20261027008500).
 2. **Stage 1, the extension:** followers read on each network's profiles, partners found from groups and searches,
-   partner warm-ups and asks run as Today's other steps are.
+   partner warm-ups and asks run as Today's other steps are. Built in 0.64.0 on Facebook and LinkedIn: followers read
+   off the top of a profile, Find partners once a day after Check my friends, and the partner steps on the runner's
+   list. Searches for creators and businesses beyond the groups and friends saved come later.
 3. **Stage 1, the apps:** Partners on the web and the phone, and Today's partner items.
 4. **Stage 2:** partners, referrals and commissions in core, and the partner's page.
 5. **Stage 3:** payouts, after the open questions.
