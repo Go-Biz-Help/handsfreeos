@@ -25,7 +25,8 @@ function searchWordsOf(list: PlaybookList | null): string {
  * Today (the bare page, `?view=today`, and the old `?view=waiting`), with what the person's computer is doing,
  * everything that needs them and their list; the full day of their computer and the team's for owners and admins
  * (`?view=live`); People, everyone reached by where they stand (`?view=pipeline`, a board for everyone in play),
- * their friends and the Don't pitch list (`?view=friends`) and their chats as the AI read them (`?view=chats`); the
+ * their friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`) and their
+ * Partners list (`?view=partners`, decision 81); the
  * groups saved (`?view=groups`); Results (`?view=results`, and the old `?view=activity`); and Settings, every setting
  * the extension follows, a page for each part (`?view=settings&part=`, decision 73), with anyone's for owners and
  * admins (`&for=`), and the business's playbooks with how each opener did (`?view=playbooks`). The Today tab's label
@@ -345,6 +346,31 @@ export default async function OutreachPage({
             tag: shown.tag,
             search: shown.search,
             net: shown.net,
+          }}
+        />
+      );
+    }
+    if (shown.view === 'partners') {
+      const [got, partners] = await Promise.all([
+        workspace,
+        api
+          .POST('/v1/queries/outreach.partners', {
+            body: { workspaceId, view: shown.partners, page: shown.page, ...onNetwork },
+          })
+          .then(unwrapPage),
+      ]);
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          waitingCount={await waitingCount}
+          businessName={got.workspace.name}
+          canManage={got.workspace.permissions.includes('outreach.manage')}
+          shown={{
+            view: 'partners',
+            partners,
+            show: shown.partners,
+            net: shown.net,
+            page: shown.page,
           }}
         />
       );

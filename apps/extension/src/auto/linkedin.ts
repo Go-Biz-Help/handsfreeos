@@ -45,7 +45,9 @@ import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { reporter } from '../jobs/report';
-import { checkConnections, isThem } from '../jobs/linkedin/checks';
+import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
+import { checkPartners } from '../jobs/partners';
+import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
 import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
 import { checkInvitations } from '../jobs/linkedin/people';
@@ -96,6 +98,7 @@ export const LINKEDIN_DAILY = [
   'checks',
   'chats',
   'posts',
+  'partners',
   'helpful',
 ] as const satisfies readonly DailyJob[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
@@ -105,6 +108,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
   posts: 'Finding posts with LinkedIn’s post search…',
+  partners: 'Reading people on LinkedIn who could partner with you…',
   helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
@@ -112,6 +116,7 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   checks: 'Check my connections',
   chats: 'Read my chats',
   posts: 'Find posts',
+  partners: 'Find partners',
   helpful: 'Helpful posts',
 };
 
@@ -244,6 +249,11 @@ async function missed(item: TodayListItem, businessId: string, line: string): Pr
  * nothing rules out (never one about grief, illness or trouble), not liked yet. One liked already counts.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
+  // A partner's warm-up comes before the ask about partnering (decision 81), not an invitation.
+  const after =
+    item.kind === 'partner_warm_up'
+      ? { without: 'the ask about partnering goes without', next: 'the ask comes tomorrow' }
+      : { without: 'the invitation goes without', next: 'the invitation comes tomorrow' };
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   await pause(SETTLE_MS);
@@ -258,11 +268,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
   });
   if (!theirs.ok) throw new Error(theirs.error);
   if (!theirs.posts.length)
-    return missed(
-      item,
-      businessId,
-      `No post of ${item.name}’s to like: the invitation goes without`,
-    );
+    return missed(item, businessId, `No post of ${item.name}’s to like: ${after.without}`);
   const likedAlready = theirs.posts.findIndex((p) => p.liked);
   const pick =
     likedAlready >= 0
@@ -273,7 +279,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     return missed(
       item,
       businessId,
-      `None of ${item.name}’s posts were right to like: the invitation goes without`,
+      `None of ${item.name}’s posts were right to like: ${after.without}`,
     );
   const chosen = theirs.posts[pick]!;
   let postUrl = chosen.url;
@@ -286,11 +292,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     });
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent')
-      return missed(
-        item,
-        businessId,
-        `Couldn’t like ${item.name}’s post: the invitation goes without`,
-      );
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`);
     postUrl = liked.postUrl ?? chosen.url;
     await pause(SETTLE_MS);
     const stop = await warnedOn(await read(), businessId);
@@ -317,8 +319,8 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     done: true,
     line:
       likedAlready >= 0
-        ? `${item.name}’s post was liked already: the invitation comes tomorrow`
-        : `Looked at ${item.name}’s profile and liked a post of theirs: the invitation comes tomorrow`,
+        ? `${item.name}’s post was liked already: ${after.next}`
+        : `Looked at ${item.name}’s profile and liked a post of theirs: ${after.next}`,
   };
 }
 
@@ -512,7 +514,7 @@ async function bringInChat(
 
 /** Drafts a message with the AI after looking them up on LinkedIn, and hands it to HandsFreeOS to wait or go. */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'reply') {
+  if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
   }
@@ -617,7 +619,7 @@ async function sendMessage(
         group: null,
         postUrl: null,
         thread: chat.thread ?? null,
-        replying: item.kind === 'reply',
+        replying: item.kind === 'reply' || item.kind === 'partner_reply',
         auto: true,
       },
       at: now(),
@@ -637,6 +639,7 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
   if (work.do === 'send') return sendMessage(work.item, businessId, split);
   switch (work.item.kind) {
     case 'warm_up':
+    case 'partner_warm_up':
       return warmUp(work.item, businessId);
     case 'friend_request':
       return invite(work.item, businessId);
@@ -647,6 +650,7 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
 
 const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the profile of',
+  partner_warm_up: 'Looking at the profile of',
   friend_request: 'Inviting',
   comment: 'Commenting on a post of',
 };
@@ -659,11 +663,19 @@ const doing = (work: Work) =>
       : `Sending ${work.item.name} a message…`;
 
 const doneAs = (work: Work): DoneKind =>
-  work.do === 'step' ? (work.item.kind as DoneKind) : work.do === 'draft' ? 'drafted' : 'sent';
+  work.do === 'step'
+    ? work.item.kind === 'partner_warm_up'
+      ? 'warm_up'
+      : (work.item.kind as DoneKind)
+    : work.do === 'draft'
+      ? 'drafted'
+      : 'sent';
 
 /** What's left on LinkedIn's list for it today: only the kinds it does there. */
 export function linkedInWorkLeft(
-  list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'>,
+  list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
+    readonly partners?: readonly TodayListItem[];
+  },
   tried: readonly string[],
 ): Work[] {
   return workLeft({ ...list, auto: list.auto.filter((k) => LINKEDIN_AUTO.includes(k)) }, tried);
@@ -682,6 +694,11 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       return checkInvitations(job);
     case 'checks':
       return checkConnections(job, CHECKS_PER_DAY);
+    case 'partners':
+      return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
+        platform: PLATFORM,
+        read: readThemOnLinkedIn,
+      });
     case 'chats':
       return readChats(job, {
         most: DAILY_CHATS,

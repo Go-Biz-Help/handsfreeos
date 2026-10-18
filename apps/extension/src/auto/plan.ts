@@ -38,6 +38,7 @@ export const DAILY_JOBS = [
   'posts',
   'chats',
   'checks',
+  'partners',
   'helpful',
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
@@ -196,24 +197,41 @@ export const workKey = (work: Work): string =>
       ? `send:${work.item.send?.sendId ?? itemKey(work.item)}`
       : `draft:${itemKey(work.item)}`;
 
+/** The messages on a list it drafts and sends: a kind it writes, to someone kept, with their chat or profile. */
+const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =>
+  items.filter(
+    (item) =>
+      kinds.includes(item.kind) &&
+      item.profileId !== null &&
+      (item.profileUrl !== null || item.threadKey !== null),
+  );
+
 /**
  * What's left for it to do today, in its order: messages OK'd first; then, with Approve all, every message to draft
  * before the steps, else the steps before them. A message needs the person kept, and their chat or profile to send in.
+ * A partner's steps (decision 81) come after the customers' of each sort: a like while it may like on its own, and
+ * messages that each wait for an OK of their own.
  */
 export function workLeft(
-  list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'>,
+  list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
+    readonly partners?: readonly TodayListItem[];
+  },
   tried: readonly string[],
 ): Work[] {
   const done = new Set(tried);
   const steps = itemsLeft(list.items, list.auto, tried).map(
     (item) => ({ do: 'step', item }) as const,
   );
-  const messages = list.items.filter(
-    (item) =>
-      (list.messages as readonly string[]).includes(item.kind) &&
-      item.profileId !== null &&
-      (item.profileUrl !== null || item.threadKey !== null),
-  );
+  const partners = list.partners ?? [];
+  const partnerSteps = list.auto.includes('warm_up')
+    ? partners
+        .filter((item) => item.kind === 'partner_warm_up' && item.profileUrl !== null)
+        .map((item) => ({ do: 'step', item }) as const)
+    : [];
+  const messages = [
+    ...messagesOn(list.items, list.messages),
+    ...messagesOn(partners, list.messages),
+  ];
   const sends = messages
     .filter((item) => item.send?.state === 'approved')
     .map((item) => ({ do: 'send', item }) as const);
@@ -222,8 +240,8 @@ export function workLeft(
     .map((item) => ({ do: 'draft', item }) as const);
   const all: Work[] =
     list.sending === 'approve_all'
-      ? [...sends, ...drafts, ...steps]
-      : [...sends, ...steps, ...drafts];
+      ? [...sends, ...drafts, ...steps, ...partnerSteps]
+      : [...sends, ...steps, ...partnerSteps, ...drafts];
   return all.filter((work) => !done.has(workKey(work)));
 }
 

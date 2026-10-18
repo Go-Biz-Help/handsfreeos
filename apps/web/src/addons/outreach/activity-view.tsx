@@ -4,7 +4,8 @@
  * people worked on Facebook (apps/extension/README.md, "What it notes"), over a stretch of days. It leads with the three
  * numbers to watch every day and the week's review (./tracking-view.tsx), then what came of it: demos booked, then each step from reached to booked with how many of the step before made it, then what was
  * done along the way, by the group people were found in and person by person, and the posts liked and commented on
- * (./touched-posts.tsx). The day against the daily limits is on
+ * (./touched-posts.tsx). The person's own Partners list has a card of its own: who was asked to partner, said they're
+ * interested, booked a call and was made a partner (decision 81). The day against the daily limits is on
  * Today. Owners and admins can see the whole team's. The stretch and whose are in the address (./address.ts), so the
  * page asks HandsFreeOS for them and Back still works.
  */
@@ -14,6 +15,7 @@ import {
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
 import { NETWORKS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { PARTNER_WORDS } from '@hfos/core/addons/outreach/partners';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -30,6 +32,7 @@ import { TrackingSection } from './tracking-view';
 import type { Activity, Tracking } from './types';
 
 type Numbers = Activity['numbers'];
+type PartnerNumbers = NonNullable<Activity['partners']>;
 type Group = Activity['groups'][number];
 type Person = Activity['people'][number];
 
@@ -134,6 +137,9 @@ export function ActivityView({
       >
         <TrackingSection tracking={tracking} period={period} />
         {nothing ? null : <Funnel numbers={activity.numbers} />}
+        {activity.partners ? (
+          <PartnersCard workspaceId={workspaceId} numbers={activity.partners} />
+        ) : null}
         {nothing ? (
           <Card data-testid="activity-empty">
             <EmptyState title={`Nothing noted ${within(period)}`}>
@@ -159,6 +165,34 @@ export function ActivityView({
         )}
       </div>
     </div>
+  );
+}
+
+/** The person's own Partners list in the stretch: asked, interested, calls booked and partners made. */
+function PartnersCard({ workspaceId, numbers }: { workspaceId: string; numbers: PartnerNumbers }) {
+  const R = PARTNER_WORDS.results;
+  return (
+    <Card className="p-4" data-testid="activity-partners">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h3 className="text-[15px] font-semibold">{R.title}</h3>
+        <Link
+          href={outreachHref(workspaceId, { view: 'partners' })}
+          className="text-[13px] text-accent-text hover:underline"
+        >
+          {R.open}
+        </Link>
+      </div>
+      <dl className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))]">
+        {(['asked', 'interested', 'calls', 'partners'] as const).map((key) => (
+          <div key={key} data-testid={`activity-partners-${key}`}>
+            <dt className="text-[13px] text-text-2">{R[key]}</dt>
+            <dd className="text-[22px] font-semibold leading-tight tabular-nums">
+              {numbers[key].toLocaleString()}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
   );
 }
 

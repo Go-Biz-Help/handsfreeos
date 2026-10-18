@@ -49,3 +49,6 @@ export type Asks = Ok<'/v1/queries/outreach.asks'>;
 export type Ask = Asks['asks'][number];
 /** The person's own Social Outreach setup (packages/core/src/addons/outreach/setup.ts). */
 export type Setup = Ok<'/v1/queries/outreach.setup'>;
+/** The person's Partners list, by stage (packages/core/src/addons/outreach/partners.ts, decision 81). */
+export type Partners = Ok<'/v1/queries/outreach.partners'>;
+export type PartnerListRow = Partners['partners'][number];

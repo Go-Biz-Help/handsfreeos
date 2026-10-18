@@ -8058,6 +8058,27 @@
         "required": ["workspaceId", "needId", "how"]
       }
     },
+    "outreach.partner.mark": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partnerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mark": {
+            "type": "string",
+            "enum": ["interested", "call_booked", "partner", "not_now", "again", "not_partner"]
+          }
+        },
+        "required": ["workspaceId", "partnerId", "mark"]
+      }
+    },
     "outreach.playbook.archive": {
       "offline": "online",
       "input": {

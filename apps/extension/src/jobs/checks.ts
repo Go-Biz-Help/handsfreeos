@@ -25,34 +25,38 @@ import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from '
 const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
 
 /** Who HandsFreeOS listed to check. */
-interface Who {
+export interface Who {
   readonly profileId: string;
   readonly name: string;
   readonly url: string;
 }
 
+/** What a read of someone's pages found: lines for the AI, and how many follow them when the page said. */
+export type ReadThem =
+  | { readonly lines: string[]; readonly missing: boolean; readonly followers: number | null }
+  | { readonly end: JobEnd };
+
 /**
- * What their profile and business page say, as lines for the AI; `missing` when Facebook showed someone else or no
- * profile at all. A warning ends it.
+ * What their profile and business page say, as lines for the AI, and how many follow them; `missing` when Facebook
+ * showed someone else or no profile at all. A warning ends it. The partner check reads people the same way
+ * (./partners.ts).
  */
-async function readThem(
-  job: Job,
-  who: Who,
-): Promise<{ readonly lines: string[]; readonly missing: boolean } | { readonly end: JobEnd }> {
+export async function readThem(job: Job, who: Who): Promise<ReadThem> {
   let want;
   try {
     want = profileFromUrl(new URL(who.url));
   } catch {
     want = null;
   }
-  if (!want) return { lines: [], missing: true };
+  if (!want) return { lines: [], missing: true, followers: null };
   await job.tab.open(want.url);
   const profile = await readIn(job.tab);
   const warned = await warnedOn(job, profile);
   if (warned) return { end: warned };
   const shown = profile.profile?.profile ?? null;
   if (!profile.profile || !shown || !samePerson(shown, profile.profile.name, want, who.name))
-    return { lines: [], missing: true };
+    return { lines: [], missing: true, followers: null };
+  const followers = profile.profile.followers ?? null;
   const lines = linesOf(profile, null, POSTS_READ);
   const business = profile.pages?.[0];
   // Only a Facebook page of theirs: a link read off their profile never takes the window anywhere else.
@@ -64,7 +68,11 @@ async function readThem(
     if (warnedThere) return { end: warnedThere };
     lines.push(pageHeading(profile, business), ...linesOf(page, business.name, 1));
   }
-  return { lines: [...new Set(lines.filter(Boolean))].slice(0, LOOKUP_LINES), missing: false };
+  return {
+    lines: [...new Set(lines.filter(Boolean))].slice(0, LOOKUP_LINES),
+    missing: false,
+    followers,
+  };
 }
 
 /** How it went, in words for the person. */
@@ -134,12 +142,12 @@ export async function checkFriends(
   for (const [i, who] of next.people.entries()) {
     if (job.stopped()) return { line: `Stopped. ${summary(sent, missing)}`, warned: false };
     job.progress(`${i + 1} of ${next.people.length}: reading ${who.name}’s profile…`);
-    let read: Awaited<ReturnType<typeof readThem>>;
+    let read: ReadThem;
     try {
       read = await readThem(job, who);
     } catch {
       // Facebook went elsewhere: tried again in a week.
-      read = { lines: [], missing: true };
+      read = { lines: [], missing: true, followers: null };
     }
     if ('end' in read) return { ...read.end, line: `${read.end.line} ${summary(sent, missing)}` };
     valueOf(

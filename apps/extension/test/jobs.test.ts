@@ -114,7 +114,7 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, then groups, joins, members, posts, chats and friends, each once a day', () => {
+  it('checks requests, then groups, joins, members, posts, chats, friends and partners, each once a day', () => {
     expect(DAILY_JOBS).toEqual([
       'requests',
       'group_checks',
@@ -123,6 +123,7 @@ describe('the once-a-day jobs, in order', () => {
       'posts',
       'chats',
       'checks',
+      'partners',
       'helpful',
     ]);
     const fresh = freshState('2026-10-10');
@@ -145,10 +146,26 @@ describe('the once-a-day jobs, in order', () => {
           posts: '',
           chats: '',
           checks: '',
+          partners: '',
           helpful: '',
         },
       }),
     ).toBeNull();
+    // A state kept before partners (0.63) reads them next, after the checks.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          chats: '',
+          checks: '',
+          helpful: '',
+        },
+      }),
+    ).toBe('partners');
     // A state kept by 0.11 has none: it starts from the first.
     expect(nextDaily({})).toBe('requests');
   });

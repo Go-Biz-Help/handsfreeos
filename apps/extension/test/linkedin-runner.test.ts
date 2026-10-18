@@ -312,8 +312,14 @@ describe('what it does on LinkedIn’s list', () => {
     ]);
     expect(nextLinkedInDaily({ daily: {} })).toBe('requests');
     expect(nextLinkedInDaily({ daily: { requests: 'x', checks: 'y' } })).toBe('chats');
+    // People who could partner (decision 81) are read after the posts, before the helpful post.
     expect(
       nextLinkedInDaily({ daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w' } }),
+    ).toBe('partners');
+    expect(
+      nextLinkedInDaily({
+        daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v' },
+      }),
     ).toBe('helpful');
   });
 

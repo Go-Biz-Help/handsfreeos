@@ -37,6 +37,7 @@ export type OutreachTab =
   | 'groups'
   | 'chats'
   | 'never_contact'
+  | 'partners'
   | 'results'
   | 'playbooks'
   | 'settings';

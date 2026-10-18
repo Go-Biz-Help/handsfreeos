@@ -4,6 +4,7 @@ import {
   type ActivityOutput,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
+import { PARTNER_WORDS } from '@hfos/core/addons/outreach/partners';
 import type { TrackingOutput } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
@@ -23,6 +24,7 @@ import {
   Note,
   openOutreach,
   Part,
+  switchOutreach,
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
@@ -31,8 +33,9 @@ import {
  * Results on the phone (decisions 59 and 70): the three numbers to watch every day and the week's review
  * (./numbers.tsx), then what came of it over a stretch, as the web's tab has it: demos booked,
  * then each step from reached to booked with how many of the step before made it, what was done along the way, and the
- * groups that brought the most, and the posts liked and commented on (./posted.tsx). Person by person stays on the
- * web, which has room for it. It needs signal.
+ * groups that brought the most, and the posts liked and commented on (./posted.tsx); and the person's own Partners
+ * list: asked, interested, calls booked and partners made (decision 81). Person by person stays on the web, which has
+ * room for it. It needs signal.
  */
 
 type Numbers = ActivityOutput['numbers'];
@@ -80,6 +83,7 @@ export function ResultsScreen() {
       onPeriod={setPeriod}
       onRetry={activity.reload}
       onWeb={() => openOutreach(ws, 'activity', `period=${period}`)}
+      onPartners={() => switchOutreach(ws, 'partners')}
       posts={<TouchedPostsPart workspaceId={ws} period={period} />}
     />
   );
@@ -93,6 +97,7 @@ export function ResultsBody({
   onPeriod,
   onRetry,
   onWeb,
+  onPartners,
   posts,
 }: {
   activity: ActivityOutput | null;
@@ -104,6 +109,8 @@ export function ResultsBody({
   onRetry: () => void;
   /** Person by person, on the web. */
   onWeb: () => void;
+  /** The Partners list, from its card. */
+  onPartners?: () => void;
   /** The posts liked and commented on (./posted.tsx), under the numbers. */
   posts?: React.ReactNode;
 }) {
@@ -194,6 +201,34 @@ export function ResultsBody({
                   </View>
                 ))}
               </Card>
+            </Part>
+          ) : null}
+          {activity.partners ? (
+            <Part title={PARTNER_WORDS.results.title} testID="results-partners">
+              <Card className="flex-row flex-wrap gap-x-5 gap-y-2 px-4 py-3.5">
+                {(['asked', 'interested', 'calls', 'partners'] as const).map((key) => (
+                  <Text
+                    key={key}
+                    className="text-[14px] text-text-2"
+                    testID={`results-partners-${key}`}
+                  >
+                    {PARTNER_WORDS.results[key]}{' '}
+                    <Text className="font-semibold text-text">
+                      {activity.partners![key].toLocaleString('en-US')}
+                    </Text>
+                  </Text>
+                ))}
+              </Card>
+              {onPartners ? (
+                <Text
+                  role="link"
+                  onPress={onPartners}
+                  className="px-1 text-[14px] font-medium text-accent-text"
+                  testID="results-partners-open"
+                >
+                  {PARTNER_WORDS.results.open}
+                </Text>
+              ) : null}
             </Part>
           ) : null}
           {posts}

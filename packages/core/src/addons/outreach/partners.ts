@@ -17,6 +17,7 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
+import { relativeTimeAgo } from '../../workflows/approval-words';
 import { inNetworkWords, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import {
   PARTNER_GOAL,
@@ -391,6 +392,28 @@ export const PartnerMarkOutput = z.object({
 });
 export type PartnerMarkOutput = z.output<typeof PartnerMarkOutput>;
 
+/**
+ * The marks a row of the Partners list offers at each stage, the web's and the phone's: the stages still ahead, Not
+ * now, and Not a partner while the AI may have been wrong; back on the list once set aside. A partner has none yet:
+ * stage 2 keeps them in core.
+ */
+export function partnerMarksFor(stage: PartnerStage): readonly PartnerMark[] {
+  switch (stage) {
+    case 'found':
+    case 'warming':
+    case 'asked':
+      return ['interested', 'call_booked', 'not_now', 'not_partner'];
+    case 'interested':
+      return ['call_booked', 'partner', 'not_now'];
+    case 'call_booked':
+      return ['partner', 'not_now'];
+    case 'partner':
+      return [];
+    case 'not_now':
+      return ['again', 'not_partner'];
+  }
+}
+
 // ------------------------------------------------------------------------------------------------- reaching them
 
 /** Asks a day, counted in the day's first messages, after the customers' (decision 81): theirs still go. */
@@ -550,9 +573,17 @@ export const PARTNER_WORDS = {
   title: 'Partners',
   about:
     'People who already have your customers’ attention: group admins, creators and businesses with the same customers. Your computer finds them, the AI checks their audience, and you OK every message.',
+  emptyTitle: 'No partners yet',
   empty:
     'Nobody yet. Write a playbook whose goal is Find partners, and your computer starts finding them as it works.',
   emptyStage: (stage: PartnerStage) => `Nobody is at ${PARTNER_STAGES[stage]} yet.`,
+  /** When they reached their stage, as a row says it: "Asked · 3 d ago". */
+  since: (stage: PartnerStage, at: string, now = Date.now()) =>
+    `${PARTNER_STAGES[stage]} · ${relativeTimeAgo(at, now)}`,
+  /** Why they could send the business its customers, over the AI's reasons. */
+  whyTitle: 'Why they fit',
+  /** The AI's first warm-up for them, while they're still to be asked. */
+  next: (step: string) => `Next: ${step}`,
   /** Their audience, as a row says it, from what's known. */
   audienceLine: (row: Pick<PartnerRow, 'audience' | 'audienceSize' | 'followers'>) =>
     row.audience ??
@@ -561,6 +592,18 @@ export const PARTNER_WORDS = {
       : row.followers !== null
         ? `${count(row.followers)} followers`
         : null),
+  /** Results' card for the person's own Partners list, in the stretch (../activity.ts `partners`). */
+  results: {
+    title: 'Partners',
+    asked: 'Asked to partner',
+    interested: 'Interested',
+    calls: 'Calls booked',
+    partners: 'Partners made',
+    open: 'Open your Partners list',
+  },
+  /** Today's part for partners, under its title. */
+  todayAbout:
+    'People who could send you customers, from your Partners list. Each message to them waits for your OK, one at a time.',
   /** Why a partner's message waits for its own OK (../sends.ts `needsYou`). */
   needsYou: 'it’s a message to a partner',
   /** Why a partner's step is on Today, in a line. */

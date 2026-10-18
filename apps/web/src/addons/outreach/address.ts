@@ -6,8 +6,9 @@
  *   their computer is doing, under the same tab.
  * - **People**: everyone reached by where they stand (`?view=pipeline`, `?show=ready`… for one stage, else the board),
  *   their friends (`?view=friends`, `?show=fits`, `requests`, `sent`, `keep`, `dont_pitch` or
- *   `never_contact`) and their chats
- *   (`?view=chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`).
+ *   `never_contact`), their chats
+ *   (`?view=chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`), and their Partners list (`?view=partners`,
+ *   `?show=asked`… for one stage, else everyone).
  * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these).
  * - **Results** (`?view=results`, and the old `?view=activity`): the stretch of days (`?period=today`, `week` or
  *   `month`) and whose steps (`?who=everyone`, for owners and admins).
@@ -16,8 +17,8 @@
  *   for owners and admins; and the business's playbooks (`?view=playbooks`).
  *
  * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today and Live take the network whose day they show, and
- * the pipeline, friends and chats the network they're narrowed to (`?net=linkedin`): Today's first network, and every
- * network, when left out. A plain module, so the page reads it on the server and the tabs build their links from it.
+ * the pipeline, friends, chats and partners the network they're narrowed to (`?net=linkedin`): Today's first network,
+ * and every network, when left out. A plain module, so the page reads it on the server and the tabs build their links from it.
  */
 import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import { CHAT_VIEW_KEYS, type ChatView } from '@hfos/core/addons/outreach/chat-read';
@@ -25,6 +26,7 @@ import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/fr
 import { GROUP_VIEWS, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { readNetwork } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { PARTNER_VIEW_KEYS, type PartnerView } from '@hfos/core/addons/outreach/partners';
 import { settingsPartOf, type SettingsPart } from '@hfos/core/addons/outreach/settings-parts';
 import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stages';
 
@@ -39,6 +41,7 @@ export type OutreachView =
   | 'pipeline'
   | 'friends'
   | 'chats'
+  | 'partners'
   | 'groups'
   | 'results'
   | 'settings'
@@ -49,6 +52,7 @@ const VIEWS: readonly OutreachView[] = [
   'pipeline',
   'friends',
   'chats',
+  'partners',
   'groups',
   'results',
   'settings',
@@ -79,6 +83,7 @@ export function tabOf(view: OutreachView): OutreachTab {
     case 'pipeline':
     case 'friends':
     case 'chats':
+    case 'partners':
       return 'people';
     case 'groups':
       return 'groups';
@@ -117,11 +122,13 @@ export interface OutreachAddress {
   readonly groups: GroupView;
   /** Which of the pipeline: everyone in play (the board), or one stage. */
   readonly stages: StageView;
+  /** Which of the Partners list: everyone on it, or one stage. */
+  readonly partners: PartnerView;
   /** One of the tags, for chats. */
   readonly tag: string;
   /** Part of a name, for the pipeline, groups, friends and chats. */
   readonly search: string;
-  /** Which page of the pipeline, groups, friends or chats, from 1. */
+  /** Which page of the pipeline, groups, friends, chats or partners, from 1. */
   readonly page: number;
   /** Whose settings, for an owner or admin: someone's id, or empty for their own. */
   readonly for: string;
@@ -147,6 +154,7 @@ export function readOutreachAddress(
     chats: CHAT_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'prospects',
     groups: GROUP_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'work',
     stages: STAGE_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'all',
+    partners: PARTNER_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'all',
     tag: one(sp.tag).trim().slice(0, 40),
     search: one(sp.q).trim().slice(0, 100),
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
@@ -158,7 +166,7 @@ export function readOutreachAddress(
 
 /**
  * A view's address: for the results their stretch and whose; for the pipeline, groups, friends and chats which, the
- * name searched for and the page; for settings, the part and whose.
+ * name searched for and the page; for partners which and the page; for settings, the part and whose.
  */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
@@ -170,7 +178,8 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
       view === 'live' ||
       view === 'pipeline' ||
       view === 'friends' ||
-      view === 'chats')
+      view === 'chats' ||
+      view === 'partners')
   )
     params.set('net', to.net);
   if (view === 'settings') {
@@ -192,6 +201,9 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
     if (to.chats && to.chats !== 'prospects') params.set('show', to.chats);
     if (to.tag) params.set('tag', to.tag);
     if (to.search) params.set('q', to.search);
+    if (to.page && to.page > 1) params.set('page', String(to.page));
+  } else if (view === 'partners') {
+    if (to.partners && to.partners !== 'all') params.set('show', to.partners);
     if (to.page && to.page > 1) params.set('page', String(to.page));
   } else if (view === 'results') {
     if (to.period && to.period !== DEFAULT_PERIOD) params.set('period', to.period);

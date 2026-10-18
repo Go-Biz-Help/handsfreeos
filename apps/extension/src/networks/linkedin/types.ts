@@ -135,6 +135,8 @@ export interface ProfilePage {
   /** Follow is the main button, with Connect under More: LinkedIn does this for people who post a lot. */
   readonly followFirst: boolean;
   readonly mutualConnections: number | null;
+  /** How many follow them, when the top says ("1,234 followers"): for the AI's partner check (decision 81). */
+  readonly followers?: number;
 }
 
 /**

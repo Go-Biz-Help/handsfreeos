@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.63.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.64.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -463,10 +463,12 @@ groups); while **Join good groups when my groups run low** is on and your groups
 to reach, asks to join up to 3 good groups (the only thing it presses here); the admins and moderators of up to 3 of your Work these
 groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
-my chats, up to 60 a day; Check my friends, the day's 40; and, last, it asks for today's helpful post and reads who
-commented on and reacted to yours up in the last fortnight (`helpfulDaily` in `src/jobs/helpful.ts`): each a warm
-lead on your list. Its line says what each found. They only read and save, as the same asks from HandsFreeOS
-do, but for asking to join.
+my chats, up to 60 a day; Check my friends, the day's 40; Find partners (0.64.0, decision 81), up to 15 people who
+could partner with you, read as the checks read friends with how many follow them, for the AI's partner check
+(`src/jobs/partners.ts`), while your business has a playbook whose goal is Find partners; and, last, it asks for
+today's helpful post and reads who commented on and reacted to yours up in the last fortnight (`helpfulDaily` in
+`src/jobs/helpful.ts`): each a warm lead on your list. Its line says what each found. They only read and save, as the
+same asks from HandsFreeOS do, but for asking to join.
 
 Then, in your hours, every hour or two at random, it opens up to 5 of your best groups sorted by new posts, reads two
 screens of each and sends them for the AI (`watchPosts` in `src/jobs/posts.ts`), between the day's steps. One the AI
@@ -485,6 +487,13 @@ only while Chrome is open, you're signed in and noting is on (`src/auto/run.ts`,
 `src/networks/facebook/auto.ts`, `src/panel/status.ts`). On Today in HandsFreeOS what it does says **Done on its own**, and
 your phone's morning push leaves those out. What you ask of it from HandsFreeOS goes first: the runner waits for it
 and carries on after.
+
+Your partners' steps (0.64.0, decision 81) come from Today's own part for them (`partners`), after your customers' of
+each sort: a like on a post of theirs while it may like on its own (**Warm up a partner**, as a like before a friend
+request, with no friend request after it), then their messages, which it drafts and which each wait for your OK on
+their own, never **Approve all**: the ask about partnering, follow-ups, the details with your partner link after a
+yes, and replies. Once you OK one, it sends it like any message (`workLeft` in `src/auto/plan.ts`); LinkedIn's runner
+does the same there.
 
 ### On its own on LinkedIn (0.41.0)
 

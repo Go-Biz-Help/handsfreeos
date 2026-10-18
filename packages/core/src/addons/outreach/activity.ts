@@ -148,6 +148,12 @@ export const ActivityOutput = z.object({
   /** A warning Facebook showed the person lately. */
   warning: WarningState.nullable(),
   /**
+   * The person's own Partners list in the stretch (./partners.ts, decision 81): how many were asked to partner, said
+   * they're interested, booked a call and were made partners. Each person's list is their own, so it's left out of
+   * the team's results, and for someone with nobody on theirs.
+   */
+  partners: z.object({ asked: count, interested: count, calls: count, partners: count }).nullable(),
+  /**
    * The people below by the group they were found in, the ones that brought demos and replies first (./results.ts):
    * how many, and how many of them were sent a friend request, liked or commented on, sent a first message, wrote
    * back and booked a demo in the stretch.

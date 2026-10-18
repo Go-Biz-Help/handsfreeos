@@ -4,8 +4,8 @@ Chris (18 Oct 2026): "add a feature where we can also identify people with large
 or admins and moderators of fb groups and ask them if they'd be interested in a partnership so instead of only
 reaching out to our target audience we can take advantage of another user's audience."
 
-**Where it stands (18 Oct 2026):** Chris answered every question below the same day and said to build it. Nothing is
-built yet. Stage 1 starts now.
+**Where it stands (18 Oct 2026):** Chris answered every question below the same day and said to build it. Stage 1 is
+built: in core, the extension (0.64.0) and the apps (see "Build order"). Stage 2, partners in core, is next.
 
 Social Outreach today finds the people who might buy (docs/outreach.md). This adds a second kind of person to find:
 someone who already has your customers' attention, asked to send them your way for a share of what they pay.
@@ -224,8 +224,13 @@ working a profile:
    partner steps on Today, the message kinds and the stages they move, their answers, and the partner call's ref
    (migration 20261027008500).
 2. **Stage 1, the extension:** followers read on each network's profiles, partners found from groups and searches,
-   partner warm-ups and asks run as Today's other steps are.
-3. **Stage 1, the apps:** Partners on the web and the phone, and Today's partner items.
+   partner warm-ups and asks run as Today's other steps are. Built in 0.64.0 on Facebook and LinkedIn: followers read
+   off the top of a profile, Find partners once a day after Check my friends, and the partner steps on the runner's
+   list. Searches for creators and businesses beyond the groups and friends saved come later.
+3. **Stage 1, the apps:** Partners on the web and the phone, and Today's partner items. Built: the Partners list
+   under People on both (a chip for each stage, each row's marks by its stage), Today's Partners part, the partner
+   numbers in Results (the person's own), copying a partner's draft noted as sent, and the morning push counting
+   partner steps.
 4. **Stage 2:** partners, referrals and commissions in core, and the partner's page.
 5. **Stage 3:** payouts, after the open questions.
 6. **Chris tries each,** in Stripe's test mode first for payouts.

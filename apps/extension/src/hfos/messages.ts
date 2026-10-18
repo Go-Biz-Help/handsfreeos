@@ -84,6 +84,11 @@ export type ChecksNextInput = Body<'/v1/queries/outreach.checks.next'>;
 export type ChecksNext = Ok<'/v1/queries/outreach.checks.next'>;
 export type CheckLookInput = Body<'/v1/commands/outreach.check.look'>;
 export type CheckLooked = Ok<'/v1/commands/outreach.check.look'>;
+/** Who could partner with the business, for the AI's partner check (decision 81). */
+export type PartnersNextInput = Body<'/v1/queries/outreach.partners.next'>;
+export type PartnersNext = Ok<'/v1/queries/outreach.partners.next'>;
+export type PartnerLookInput = Body<'/v1/commands/outreach.partner.look'>;
+export type PartnerLooked = Ok<'/v1/commands/outreach.partner.look'>;
 /** Groups to check and to join, what a group's About page said, and how an ask to join went (decision 48). */
 export type GroupsToCheckInput = Body<'/v1/queries/outreach.groups.to_check'>;
 export type GroupsToCheck = Ok<'/v1/queries/outreach.groups.to_check'>;
@@ -267,6 +272,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
   | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
   | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
+  | { readonly type: 'hfos-partners-next'; readonly input: PartnersNextInput }
+  | { readonly type: 'hfos-partner-look'; readonly input: PartnerLookInput }
   | { readonly type: 'hfos-groups-to-check'; readonly input: GroupsToCheckInput }
   | { readonly type: 'hfos-group-look'; readonly input: GroupLookInput }
   | { readonly type: 'hfos-joins-next'; readonly input: JoinsNextInput }
@@ -323,6 +330,8 @@ export interface HfosValues {
   readonly 'hfos-save-posts': PostsSaved;
   readonly 'hfos-checks-next': ChecksNext;
   readonly 'hfos-check-look': CheckLooked;
+  readonly 'hfos-partners-next': PartnersNext;
+  readonly 'hfos-partner-look': PartnerLooked;
   readonly 'hfos-groups-to-check': GroupsToCheck;
   readonly 'hfos-group-look': GroupLooked;
   readonly 'hfos-joins-next': JoinsNext;

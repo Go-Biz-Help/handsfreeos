@@ -543,7 +543,7 @@ const todayCount = (column: 'kind' | 'step', value: string, me: string, since: s
 export const activity = defineAddonQuery(outreachAddon, {
   name: 'outreach.activity',
   description:
-    'What the person did on social media in a stretch of days, as the extension noted it: the people reached, friend requests, likes, comments, chats started, follow-ups and replies, by group and person; and their day so far against the daily limits. Owners and admins can see everyone’s.',
+    'What the person did on social media in a stretch of days, as the extension noted it: the people reached, friend requests, likes, comments, chats started, follow-ups and replies, by group and person; their day so far against the daily limits; and their Partners list’s asks, yeses, calls and partners made. Owners and admins can see everyone’s.',
   input: ActivityInput,
   output: ActivityOutput,
   permission: 'outreach.use',
@@ -588,6 +588,25 @@ export const activity = defineAddonQuery(outreachAddon, {
 
     const listed = await reachedPeople(ctx, { from, me, everyone: input.everyone });
     const c = counts!;
+    // The person's own Partners list: each person's is their own (decision 81).
+    const [partnered] = input.everyone
+      ? []
+      : await rows<{
+          listed: number;
+          asked: number;
+          interested: number;
+          calls: number;
+          partners: number;
+        }>(
+          ctx.tx,
+          sql`select count(*) filter (where pa.stage is not null)::int as listed,
+                count(*) filter (where pa.asked_at >= ${from}::timestamptz)::int as asked,
+                count(*) filter (where pa.interested_at >= ${from}::timestamptz)::int as interested,
+                count(*) filter (where pa.call_at >= ${from}::timestamptz)::int as calls,
+                count(*) filter (where pa.partner_at >= ${from}::timestamptz)::int as partners
+              from addon_outreach.partners pa
+              where pa.workspace_id = ${ws} and pa.user_id = ${me}`,
+        );
     return {
       from,
       timezone,
@@ -611,6 +630,15 @@ export const activity = defineAddonQuery(outreachAddon, {
       },
       limits: await limitsFor(ctx, me, slowsNow(warning)),
       warning,
+      partners:
+        partnered && (partnered.listed || partnered.asked)
+          ? {
+              asked: partnered.asked,
+              interested: partnered.interested,
+              calls: partnered.calls,
+              partners: partnered.partners,
+            }
+          : null,
       groups: [...resultsByGroup(listed).values()]
         .sort(
           (a, b) =>

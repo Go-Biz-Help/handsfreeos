@@ -210,17 +210,25 @@ export function readProfile(
   }
   const friendship = friendshipIn(top.flatMap(buttonLabels));
   let mutualFriends: number | null = null;
+  let followers: number | null = null;
   for (const line of top.flatMap((box) => textLines(box, 40))) {
     // "45 mutual friends", or "1.2K friends · 45 mutual" under the name.
-    const match = /([\d.,]+\s*[km]?)\s+mutual\b/i.exec(line);
-    if (match?.[1]) {
-      mutualFriends = parseCount(match[1]);
-      break;
-    }
+    const mutual = /([\d.,]+\s*[km]?)\s+mutual\b/i.exec(line);
+    if (mutual?.[1] && mutualFriends === null) mutualFriends = parseCount(mutual[1]);
+    // "12K followers", or "1.2K friends · 3.4K followers".
+    const following = /([\d.,]+\s*[km]?)\s+followers\b/i.exec(line);
+    if (following?.[1] && followers === null) followers = parseCount(following[1]);
   }
   const intro = [...new Set([...topLines(top, name), ...introLines(root)])].slice(0, 12);
   return {
-    profile: { name, profile: address.profile, intro, friendship, mutualFriends },
+    profile: {
+      name,
+      profile: address.profile,
+      intro,
+      friendship,
+      mutualFriends,
+      ...(followers !== null ? { followers } : {}),
+    },
     posts: readPosts(root, base),
     pages: pagesIn(root, address, base, name, intro),
   };

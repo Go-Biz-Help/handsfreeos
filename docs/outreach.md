@@ -101,7 +101,16 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   (`partnerDraftPrompt`), and always waits for an OK of its own, never Approve all; once it goes it moves them along
   (`notePartnerSent`). The AI reads their answer while drafting a reply (`outreach.partner.answer`): a yes makes them
   Interested and drafts the details, not now or no sets them aside. A call booked through the partner link (its ref
-  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo.
+  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo. The extension (0.64.0) reads up to
+  15 candidates a day on Facebook and LinkedIn after checking friends (**Find partners**, its `src/jobs/partners.ts`),
+  with how many follow them off the top of their profile, and does Today's partner steps after the customers' of each
+  sort (`workLeft`). On the web and the phone, the Partners list is one of People's lists (`?view=partners`, `?show=`
+  a stage, `?net=` a network): a chip for each stage with how many are at it, and each row's kind, network,
+  audience, when they reached their stage and why they fit, with the marks its stage offers (`partnerMarksFor`).
+  Today has a Partners part of its own below the list, each message with an OK of its own; copying a partner's draft
+  moves them along as one the extension sent does (`outreach.conversation.note`). Results has the person's own asks,
+  yeses, calls and partners made (`ActivityOutput.partners`, left out of the team's), and the morning push counts a
+  partner's steps, but not a like the extension gives on its own (`doneOnItsOwn`).
 - **Research one person** (decision 46a, `researchShown` and `RESEARCH_WORDS` in `checks.ts`, the ask kind `research`
   in `asks.ts`, the web's `research.tsx`, the extension's `research` in `src/jobs/checks.ts`): a **Research** button
   on each row of the Friends tab (friends, good fits, requests received and sent, kept) and the People tab's pipeline

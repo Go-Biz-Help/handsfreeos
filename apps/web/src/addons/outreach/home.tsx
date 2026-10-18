@@ -6,7 +6,7 @@
  * - **Today**: what the person's computer is doing with Start my day and Stop for today, everything that needs them
  *   (decision 42's list), and their list for the day; `?view=live` is the full detail of their computer's day.
  * - **People**: everyone reached by where they stand (the board, or one stage), their friends and the Don't pitch list,
- *   and their chats as the AI read them.
+ *   their chats as the AI read them, and their Partners list (decision 81).
  * - **Groups**: the groups saved and how they fit.
  * - **Results**: from reached to booked, by group and by person.
  * - **Settings**: a menu beside a page for each part (decision 73): General, then each network (its On or Off for the
@@ -23,6 +23,7 @@ import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
 import { networksOn } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import type { PartnerView } from '@hfos/core/addons/outreach/partners';
 import {
   NEXT_NETWORKS,
   SETTINGS_WORDS as S,
@@ -54,6 +55,7 @@ import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
 import { LiveView } from './live-view';
 import type { Board } from './board';
+import { PartnersView } from './partners-view';
 import { PipelineView } from './pipeline-view';
 import { PlaybooksView } from './playbooks-page';
 import { SettingsView } from './settings-page';
@@ -72,6 +74,7 @@ import type {
   Live,
   LiveTeam,
   Openers,
+  Partners,
   Pipeline,
   PlaybookList,
   Readiness,
@@ -154,6 +157,14 @@ export type OutreachShown =
       readonly net: Platform | null;
       readonly asks: Asks;
     }
+  | {
+      readonly view: 'partners';
+      readonly partners: Partners;
+      readonly show: PartnerView;
+      /** The network it's narrowed to: null for every network. */
+      readonly net: Platform | null;
+      readonly page: number;
+    }
   | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers }
   | {
       readonly view: 'settings';
@@ -175,7 +186,7 @@ export type OutreachShown =
       readonly readiness?: Readiness | null;
     };
 
-/** A row of links that looks like a segmented control: People's three lists. */
+/** A row of links that looks like a segmented control: People's lists. */
 function LinkSegments({
   label,
   items,
@@ -491,7 +502,7 @@ export function OutreachHome({
         <div className="mb-4">
           <LinkSegments
             label={W.tabs.people}
-            items={(['pipeline', 'friends', 'chats'] as const).map((v) => ({
+            items={(['pipeline', 'friends', 'chats', 'partners'] as const).map((v) => ({
               href: outreachHref(workspaceId, { view: v }),
               label: W.peopleParts[v],
               active: shown.view === v,
@@ -619,6 +630,14 @@ export function OutreachHome({
           net={shown.net}
           canManage={canManage}
           asks={shown.asks}
+        />
+      ) : shown.view === 'partners' ? (
+        <PartnersView
+          workspaceId={workspaceId}
+          partners={shown.partners}
+          show={shown.show}
+          net={shown.net}
+          page={shown.page}
         />
       ) : null}
     </div>

@@ -6387,7 +6387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched.
+         * The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched. A message to a partner moves them along the Partners list.
          * @description Risk level 0. Requires outreach.use. Emits .
          */
         post: operations["command_outreach_conversation_note"];
@@ -17287,7 +17287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person did on social media in a stretch of days, as the extension noted it: the people reached, friend requests, likes, comments, chats started, follow-ups and replies, by group and person; and their day so far against the daily limits. Owners and admins can see everyone’s.
+         * What the person did on social media in a stretch of days, as the extension noted it: the people reached, friend requests, likes, comments, chats started, follow-ups and replies, by group and person; their day so far against the daily limits; and their Partners list’s asks, yeses, calls and partners made. Owners and admins can see everyone’s.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_activity"];
@@ -36026,7 +36026,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    kind: "opener" | "video" | "follow_up" | "check_in" | "reply";
+                    kind: "opener" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                     /** Format: uuid */
                     profileId: string;
                     /** Format: uuid */
@@ -65979,6 +65979,12 @@ export interface operations {
                             people: number;
                             replies: number;
                         };
+                        partners: {
+                            asked: number;
+                            calls: number;
+                            interested: number;
+                            partners: number;
+                        } | null;
                         people: {
                             commentedAt: string | null;
                             group: {
