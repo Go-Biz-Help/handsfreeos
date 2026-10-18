@@ -31,6 +31,7 @@ import { partnerSettingsOf, type PartnerSettings } from '../partners/settings';
 import {
   PartnerAddInput,
   PartnerAddOutput,
+  PartnerCommissionDisputeNoteInput,
   PartnerCommissionNoteInput,
   PartnerCommissionNoteOutput,
   PartnerCommissionTakeBackInput,
@@ -478,7 +479,8 @@ export const partnerReferralNote = defineCommand({
 /**
  * A client's payment earns their partner a share: their first payment after they were sent starts their 12 months,
  * and each payment in them earns an active partner their share of what the client paid, free to pay out 30 days later.
- * A refund already noted on the payment takes its share back at once, so it doesn't matter which is noted first.
+ * A refund or a lost dispute already noted on the payment takes its share back at once, so it doesn't matter which
+ * is noted first.
  */
 async function earnOn(ctx: CommandContext, paymentId: string): Promise<boolean> {
   const ws = ctx.scope.workspaceId!;
@@ -564,23 +566,29 @@ async function earnOn(ctx: CommandContext, paymentId: string): Promise<boolean> 
         order by r.refunded_at, r.id`,
   );
   for (const r of refunded) await takeBackOn(ctx, r.id);
+  const lost = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select d.id from app.payment_disputes d
+        where d.workspace_id = ${ws} and d.payment_id = ${paymentId} and d.status = 'lost'
+        order by d.closed_at, d.id`,
+  );
+  for (const d of lost) await disputeLostOn(ctx, d.id);
   return true;
 }
 
-/** A refund takes back the partner's share of what went back, never more than they earned on that payment. */
-async function takeBackOn(ctx: CommandContext, refundId: string): Promise<boolean> {
+/** What comes off a partner's share of a payment: a refund's share, or a lost dispute's. */
+interface TakenBy {
+  readonly paymentId: string;
+  /** What went back: refunded, or taken by the customer's bank. */
+  readonly baseCents: number;
+  readonly at: Date;
+  readonly refundId: string | null;
+  readonly disputeId: string | null;
+}
+
+/** Takes back the partner's share of what went back on a payment, never more than they earned on it. */
+async function takeBack(ctx: CommandContext, by: TakenBy): Promise<boolean> {
   const ws = ctx.scope.workspaceId!;
-  const [refund] = await rows<{
-    payment_id: string;
-    amount_cents: string | number;
-    status: string;
-    refunded_at: Date | string | null;
-  }>(
-    ctx.tx,
-    sql`select r.payment_id, r.amount_cents, r.status::text as status, r.refunded_at from app.refunds r
-        where r.workspace_id = ${ws} and r.id = ${refundId}`,
-  );
-  if (!refund || refund.status !== 'succeeded') return false;
   const [earned] = await rows<{
     id: string;
     partner_id: string;
@@ -593,31 +601,29 @@ async function takeBackOn(ctx: CommandContext, refundId: string): Promise<boolea
     ctx.tx,
     sql`select c.id, c.partner_id, c.referral_id, c.amount_cents, c.rate_bp, c.payable_at, c.test
         from app.partner_commissions c
-        where c.workspace_id = ${ws} and c.payment_id = ${refund.payment_id} and c.kind = 'earned'
+        where c.workspace_id = ${ws} and c.payment_id = ${by.paymentId} and c.kind = 'earned'
         for update`,
   );
   if (!earned) return false;
   const [taken] = await rows<{ cents: string | number | null }>(
     ctx.tx,
     sql`select coalesce(sum(amount_cents), 0) as cents from app.partner_commissions
-        where payment_id = ${refund.payment_id} and kind = 'taken_back'`,
+        where payment_id = ${by.paymentId} and kind = 'taken_back'`,
   );
   const left = Number(earned.amount_cents) + Number(taken?.cents ?? 0);
-  const baseCents = Number(refund.amount_cents);
-  const back = Math.min(commissionCents(baseCents, earned.rate_bp), left);
+  const back = Math.min(commissionCents(by.baseCents, earned.rate_bp), left);
   if (back <= 0) return false;
-  const at = refund.refunded_at ? new Date(refund.refunded_at) : changeMoment(ctx.meta);
   // It comes off what it takes back from: while that still waits its 30 days, so does this.
-  const payable = new Date(Math.max(at.getTime(), new Date(earned.payable_at).getTime()));
+  const payable = new Date(Math.max(by.at.getTime(), new Date(earned.payable_at).getTime()));
   const [row] = await rows<{ id: string }>(
     ctx.tx,
     sql`insert into app.partner_commissions
-          (workspace_id, partner_id, referral_id, payment_id, refund_id, kind, base_cents, rate_bp,
+          (workspace_id, partner_id, referral_id, payment_id, refund_id, dispute_id, kind, base_cents, rate_bp,
            amount_cents, earned_at, payable_at, test)
-        values (${ws}, ${earned.partner_id}, ${earned.referral_id}, ${refund.payment_id}, ${refundId},
-          'taken_back', ${baseCents}, ${earned.rate_bp}, ${-back}, ${at.toISOString()}::timestamptz,
-          ${payable.toISOString()}::timestamptz, ${earned.test})
-        on conflict (refund_id) where refund_id is not null do nothing
+        values (${ws}, ${earned.partner_id}, ${earned.referral_id}, ${by.paymentId}, ${by.refundId},
+          ${by.disputeId}, 'taken_back', ${by.baseCents}, ${earned.rate_bp}, ${-back},
+          ${by.at.toISOString()}::timestamptz, ${payable.toISOString()}::timestamptz, ${earned.test})
+        on conflict do nothing
         returning id`,
   );
   if (!row) return false;
@@ -629,12 +635,57 @@ async function takeBackOn(ctx: CommandContext, refundId: string): Promise<boolea
       commissionId: row.id,
       partnerId: earned.partner_id,
       referralId: earned.referral_id,
-      paymentId: refund.payment_id,
-      refundId,
+      paymentId: by.paymentId,
+      refundId: by.refundId,
+      disputeId: by.disputeId,
       amountCents: -back,
     },
   });
   return true;
+}
+
+/** A refund that went back takes back the partner's share of it. */
+async function takeBackOn(ctx: CommandContext, refundId: string): Promise<boolean> {
+  const [refund] = await rows<{
+    payment_id: string;
+    amount_cents: string | number;
+    status: string;
+    refunded_at: Date | string | null;
+  }>(
+    ctx.tx,
+    sql`select r.payment_id, r.amount_cents, r.status::text as status, r.refunded_at from app.refunds r
+        where r.workspace_id = ${ctx.scope.workspaceId!} and r.id = ${refundId}`,
+  );
+  if (!refund || refund.status !== 'succeeded') return false;
+  return takeBack(ctx, {
+    paymentId: refund.payment_id,
+    baseCents: Number(refund.amount_cents),
+    at: refund.refunded_at ? new Date(refund.refunded_at) : changeMoment(ctx.meta),
+    refundId,
+    disputeId: null,
+  });
+}
+
+/** A dispute the business lost takes back the partner's share of what the customer's bank took. */
+async function disputeLostOn(ctx: CommandContext, disputeId: string): Promise<boolean> {
+  const [dispute] = await rows<{
+    payment_id: string;
+    amount_cents: string | number;
+    status: string;
+    closed_at: Date | string | null;
+  }>(
+    ctx.tx,
+    sql`select d.payment_id, d.amount_cents, d.status, d.closed_at from app.payment_disputes d
+        where d.workspace_id = ${ctx.scope.workspaceId!} and d.id = ${disputeId}`,
+  );
+  if (!dispute || dispute.status !== 'lost') return false;
+  return takeBack(ctx, {
+    paymentId: dispute.payment_id,
+    baseCents: Number(dispute.amount_cents),
+    at: dispute.closed_at ? new Date(dispute.closed_at) : changeMoment(ctx.meta),
+    refundId: null,
+    disputeId,
+  });
 }
 
 export const partnerCommissionNote = defineCommand({
@@ -666,5 +717,21 @@ export const partnerCommissionTakeBack = defineCommand({
   emits: ['partner.commission_taken_back'],
   async handler(ctx, input) {
     return { takenBack: await takeBackOn(ctx, input.refundId) };
+  },
+});
+
+export const partnerCommissionDisputeNote = defineCommand({
+  name: 'partner.commission_dispute_note',
+  description:
+    'Worker: a dispute on a payment closed. A lost one takes back the partner’s share of what the customer’s bank took, never more than they earned; won or closed, what they earned is free to pay out again.',
+  risk: 0,
+  input: PartnerCommissionDisputeNoteInput,
+  output: PartnerCommissionTakeBackOutput,
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['partner.commission_taken_back'],
+  async handler(ctx, input) {
+    return { takenBack: await disputeLostOn(ctx, input.disputeId) };
   },
 });

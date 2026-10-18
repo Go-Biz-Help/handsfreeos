@@ -15,6 +15,7 @@ import {
   executeCommand,
   invoiceRecordPayment,
   paymentConnectionRevoked,
+  paymentRecordDispute,
   paymentRecordRefund,
   subscriptionRecordCycle,
 } from '@hfos/core/server';
@@ -217,28 +218,55 @@ const onRefundEvent: DeliveryProcessor = async (ctx) => {
   );
 };
 
+const isoOrNull = (v: string | null): string | null =>
+  v && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null;
+
 /**
- * The customer's bank took the money back. There is nowhere to put a dispute in M9 — and marking the payment
- * failed would un-pay an invoice that really was paid — so the delivery row **is** the record, and it is
- * logged loudly enough for a person to find. Turning it into something the business is told about belongs
- * with the rest of the money messages.
+ * The customer's bank took the money back, or is asking to. The dispute is kept with how it stands
+ * (`payment.record_dispute`), and settles once: a late "still open" after it's won or lost changes nothing. The
+ * payment was made all the same, so the invoice stays paid: the business answers the dispute at the provider.
  */
 const onDisputeEvent: DeliveryProcessor = async (ctx) => {
   const r = routed(ctx);
   if (!r) return 'ignored';
   const facts = disputeFactsOf(r.event);
-  ctx.log.warn(
+  if (!facts.providerDisputeId || !facts.providerPaymentId) return 'ignored';
+  const { output } = await executeCommand(
+    ctx.db,
+    paymentRecordDispute,
     {
       workspaceId: r.scope.workspaceId,
       provider: r.provider,
-      type: r.event.type,
+      providerDisputeId: facts.providerDisputeId,
       providerPaymentId: facts.providerPaymentId,
-      amountCents: facts.amountCents,
-      reason: facts.reason,
-      state: facts.state,
+      amountCents: facts.amountCents && facts.amountCents > 0 ? facts.amountCents : null,
+      reason: facts.reason?.slice(0, 200) ?? null,
+      status: facts.status,
+      providerStatus: facts.state?.slice(0, 80) ?? null,
+      respondBy: facts.respondBy,
+      at: isoOrNull(r.event.createdAt),
     },
-    'a payment was disputed: the business needs to answer it at the provider',
+    systemActor(r.scope),
+    workerMeta(),
   );
+  if (!output.disputeId) {
+    ctx.log.info(
+      { provider: r.provider, providerPaymentId: facts.providerPaymentId },
+      'a dispute on a payment HandsFreeOS never took',
+    );
+    return 'ignored';
+  }
+  if (output.changed && output.status === 'open')
+    ctx.log.warn(
+      {
+        workspaceId: r.scope.workspaceId,
+        provider: r.provider,
+        disputeId: output.disputeId,
+        amountCents: facts.amountCents,
+        reason: facts.reason,
+      },
+      'a payment was disputed: the business needs to answer it at the provider',
+    );
 };
 
 // ---------- plans ----------

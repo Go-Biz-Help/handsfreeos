@@ -279,7 +279,7 @@ describe('partners', () => {
       linkPath: `/book/c/${calendarId}?ref=pa-${added.code}`,
       clients: 0,
       termsAccepted: false,
-      earnings: { earnedCents: 0, waitingCents: 0, payableCents: 0 },
+      earnings: { earnedCents: 0, waitingCents: 0, payableCents: 0, heldCents: 0 },
     });
   });
 
@@ -325,6 +325,7 @@ describe('partners', () => {
       earnedCents: 15_000,
       waitingCents: 15_000,
       payableCents: 0,
+      heldCents: 0,
     });
 
     // A refund takes back its share, and never more than was earned, from what it comes off: while that waits its
@@ -338,6 +339,7 @@ describe('partners', () => {
       earnedCents: 9_000,
       waitingCents: 9_000,
       payableCents: 0,
+      heldCents: 0,
     });
     // …and once it's free to pay out, what's taken back comes off at once.
     await rows(
@@ -350,7 +352,12 @@ describe('partners', () => {
     expect((await commissionsOn(paymentId)).map((c) => c.amount_cents)).toEqual([
       15_000, -6_000, -9_000,
     ]);
-    expect(await earnings(partnerId)).toEqual({ earnedCents: 0, waitingCents: 0, payableCents: 0 });
+    expect(await earnings(partnerId)).toEqual({
+      earnedCents: 0,
+      waitingCents: 0,
+      payableCents: 0,
+      heldCents: 0,
+    });
 
     const got = await ask(partnerGet, { ...ws(), partnerId }, t.owner);
     expect(got.partner.clients).toBe(1);

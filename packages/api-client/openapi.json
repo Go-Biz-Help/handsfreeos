@@ -128020,12 +128020,18 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
+                              },
+                              "heldCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
                               }
                             },
                             "required": [
                               "earnedCents",
                               "waitingCents",
-                              "payableCents"
+                              "payableCents",
+                              "heldCents"
                             ],
                             "additionalProperties": false
                           },
@@ -128179,12 +128185,18 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "heldCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
                             }
                           },
                           "required": [
                             "earnedCents",
                             "waitingCents",
-                            "payableCents"
+                            "payableCents",
+                            "heldCents"
                           ],
                           "additionalProperties": false
                         },
@@ -128339,6 +128351,9 @@
                           "test": {
                             "type": "boolean"
                           },
+                          "held": {
+                            "type": "boolean"
+                          },
                           "clientName": {
                             "type": "string"
                           },
@@ -128358,6 +128373,7 @@
                           "earnedAt",
                           "payableAt",
                           "test",
+                          "held",
                           "clientName",
                           "invoiceNumber"
                         ],

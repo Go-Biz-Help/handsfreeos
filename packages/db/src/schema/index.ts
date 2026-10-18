@@ -4166,6 +4166,34 @@ export const refunds = app.table('refunds', {
 });
 
 /**
+ * A customer's bank taking a payment back (20261027008700), as Stripe and Square tell the worker: open while the
+ * business answers it, then won, lost, or closed (an inquiry that ended with no money taken). It never un-pays the
+ * invoice; a lost one takes back what a partner earned on the payment.
+ */
+export const paymentDisputes = app.table('payment_disputes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  paymentId: uuid('payment_id')
+    .notNull()
+    .references(() => payments.id, { onDelete: 'cascade' }),
+  invoiceId: uuid('invoice_id')
+    .notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  provider: paymentProvider('provider').notNull(),
+  providerDisputeId: text('provider_dispute_id').notNull(),
+  amountCents: cents('amount_cents').notNull(),
+  currency: currency(),
+  reason: text('reason'),
+  status: text('status').$type<'open' | 'won' | 'lost' | 'closed'>().notNull().default('open'),
+  providerStatus: text('provider_status'),
+  /** When the business's answer is due at the provider. */
+  respondBy: ts('respond_by'),
+  openedAt: ts('opened_at').notNull(),
+  closedAt: ts('closed_at'),
+  ...timestamps(),
+});
+
+/**
  * A partner of the business (20261027008600, HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md stage 2): someone who sends
  * it customers for a share of what they pay. One a contact; `code` is what their link carries (`?ref=pa-<code>`).
  */
@@ -4212,19 +4240,22 @@ export const partnerCommissions = app.table('partner_commissions', {
   partnerId: uuid('partner_id')
     .notNull()
     .references(() => partners.id, { onDelete: 'cascade' }),
+  /** Never cascades: a client who earned their partner something stays theirs. */
   referralId: uuid('referral_id')
     .notNull()
-    .references(() => partnerReferrals.id, { onDelete: 'cascade' }),
+    .references(() => partnerReferrals.id),
   paymentId: uuid('payment_id')
     .notNull()
     .references(() => payments.id, { onDelete: 'cascade' }),
   refundId: uuid('refund_id').references(() => refunds.id, { onDelete: 'cascade' }),
+  /** For one taken back by a lost dispute (20261027008700). */
+  disputeId: uuid('dispute_id').references(() => paymentDisputes.id, { onDelete: 'cascade' }),
   kind: text('kind').$type<'earned' | 'taken_back'>().notNull(),
   baseCents: cents('base_cents').notNull(),
   rateBp: integer('rate_bp').notNull(),
   amountCents: cents('amount_cents').notNull(),
   earnedAt: ts('earned_at').notNull(),
-  /** Free to pay out 30 days after it's earned; one taken back counts at once. */
+  /** Free to pay out 30 days after it's earned; one taken back comes off with what it takes from. */
   payableAt: ts('payable_at').notNull(),
   /** A payment in a provider's test mode: shown, never paid out. */
   test: boolean('test').notNull().default(false),
@@ -7582,6 +7613,10 @@ export const tables = {
   paymentConnections,
   payments,
   refunds,
+  paymentDisputes,
+  partners,
+  partnerReferrals,
+  partnerCommissions,
   subscriptions,
   attentionItems,
   aiTeammates,

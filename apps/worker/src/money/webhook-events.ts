@@ -294,22 +294,48 @@ export function subscriptionOutcomeOf(
 
 /** A dispute, as much of it as both providers agree on. */
 export interface DisputeEventFacts {
+  /** The provider's own id for the dispute: Stripe's `dp_…`, Square's dispute id. */
+  readonly providerDisputeId: string | null;
   readonly providerPaymentId: string | null;
   readonly amountCents: number | null;
   readonly reason: string | null;
+  /** The provider's own word for where it stands. */
   readonly state: string | null;
+  /** Where it stands in our words (`payment.record_dispute`). */
+  readonly status: 'open' | 'won' | 'lost' | 'closed';
+  /** When the business's answer is due at the provider. */
+  readonly respondBy: string | null;
 }
+
+/**
+ * What a provider's dispute state means here. Stripe says `needs_response`, `under_review`, `won`, `lost`, and
+ * `warning_*` for an inquiry that comes before one; Square says `EVIDENCE_REQUIRED`, `PROCESSING`, `WON`, `LOST`,
+ * `ACCEPTED` (the seller let it go) and `INQUIRY_*`. Anything not settled, or not said, is still open.
+ */
+const DISPUTE_SETTLED: Readonly<Record<string, 'won' | 'lost' | 'closed'>> = {
+  won: 'won',
+  lost: 'lost',
+  accepted: 'lost',
+  warning_closed: 'closed',
+  inquiry_closed: 'closed',
+  prevented: 'closed',
+};
 
 export function disputeFactsOf(event: PaymentEvent): DisputeEventFacts {
   const data = unwrap(event.data, 'dispute');
   const money = isRecord(data['amount_money']) ? data['amount_money'] : null;
   // Square keeps the payment one level down, in `disputed_payment`; Stripe names it on the dispute itself.
   const disputed = isRecord(data['disputed_payment']) ? data['disputed_payment'] : {};
+  const evidence = isRecord(data['evidence_details']) ? data['evidence_details'] : {};
+  const state = str(data['state']) ?? str(data['status']);
   return {
+    providerDisputeId: str(data['id']) ?? str(data['dispute_id']),
     providerPaymentId:
       str(data['payment_intent']) ?? str(disputed['payment_id']) ?? str(data['payment_id']),
     amountCents: centsOf(money ? money['amount'] : data['amount']),
     reason: str(data['reason']),
-    state: str(data['state']) ?? str(data['status']),
+    state,
+    status: (state && DISPUTE_SETTLED[state.toLowerCase()]) || 'open',
+    respondBy: isoOf(evidence['due_by']) ?? isoOf(data['due_at']),
   };
 }
