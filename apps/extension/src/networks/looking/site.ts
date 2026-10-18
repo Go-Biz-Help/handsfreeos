@@ -44,6 +44,8 @@ export interface LookingRead {
   readonly warnings: readonly string[];
   /** A box for a password on the page: the network is asking the person to sign in. */
   readonly signedOut: boolean;
+  /** The boxes to write in on the page, in sight: a form drawn after its page opens has none till it's drawn. */
+  readonly boxes: number;
   /** What the person should know about this read. */
   readonly notes: readonly string[];
 }
@@ -93,11 +95,11 @@ export interface LookingSite {
   readonly placeOpening?: (name: string, url: URL) => PlaceOpening;
   /**
    * The person's own profile, before the network's steps are (decision 80): read for the AI's check, and the bio put
-   * in. Instagram's; none on a network whose own profile isn't read yet.
+   * in where the extension can. Instagram's both; Alignable's read only, till Check has read its editors.
    */
   readonly ownProfile?: {
     readonly read: (doc: Document, href: string) => ProfileRead;
-    readonly writeBio: (doc: Document, bio: string) => Promise<BioResult>;
+    readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
   };
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */
   readonly looks: Readonly<

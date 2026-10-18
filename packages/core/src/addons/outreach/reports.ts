@@ -63,7 +63,7 @@ const CHECKUP_ABOUT: Readonly<Record<Platform, string>> = {
   instagram:
     'Press this once, so the extension can learn Instagram from your own account. Your computer reads your feed, your profile, a search, someone’s profile and one of their posts, the accounts Instagram suggests and your messages, then tries each step up to its last press: your bio, Follow, Message, Like and a comment. It never follows, sends, likes or posts anything: Message’s chat opens and closes with nothing written, and a word goes in the comment box only to see Post show, then comes out again. It tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.',
   alignable:
-    'Press this once, so the extension can learn Alignable from your own account. Your computer reads your Alignable pages and each page their menus lead to (your network, messages, the forum and the rest), your profile and a member’s, and looks for each step’s button: Connect, Message, Recommend, Like and the box to comment in. It never presses any of them, and it tells HandsFreeOS what it found, with names and words left out. Its window comes to the front for about two minutes.',
+    'Press this once, so the extension can learn Alignable from your own account. Your computer reads your Alignable pages and each page their menus lead to (your network, messages, the forum and the rest), your profile and a member’s, and looks for each step’s button: Connect, Message, Recommend, Like and the box to comment in. On your profile it opens your elevator pitch and your ideal customer to see where they’re written, and closes them again, then opens the pages your About Us and your details are changed on. It never presses a step’s button, and writes or saves nothing. It tells HandsFreeOS what it found, with names and words left out. Its window comes to the front for about three minutes.',
 };
 
 /** The steps Check LinkedIn (decision 76) and Check Facebook (decision 77) try, as their lines name them. */
@@ -85,5 +85,7 @@ export const TRY_STEP_NAMES = {
   file: 'the data file',
   follow: 'following',
   recommend: 'recommending',
+  pitch: 'your elevator pitch',
+  ideal: 'your ideal customer',
 } as const;
 export type TryStepName = keyof typeof TRY_STEP_NAMES;

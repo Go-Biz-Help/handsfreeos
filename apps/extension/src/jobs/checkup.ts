@@ -56,6 +56,8 @@ const TRYING: Readonly<Record<TryStep, string>> = {
   file: 'the data file',
   follow: 'following',
   recommend: 'recommending',
+  pitch: 'your elevator pitch',
+  ideal: 'your ideal customer',
 };
 
 /**
@@ -89,6 +91,20 @@ export class Checkup<R extends PageRead> {
     this.job.progress(`Checking ${name}…`);
     await this.job.tab.open(url);
     return this.readHere();
+  }
+
+  /**
+   * Reads the page the tab shows again, a few times a moment apart, till it shows what's wanted: a form drawn after its
+   * page opens (Alignable's). Not a page more.
+   */
+  async readTill(page: R, ready: (page: R) => boolean, looks = 4): Promise<R | JobEnd> {
+    for (let look = 0; look < looks && !ready(page); look++) {
+      await pause(1_500);
+      page = await this.read(this.job.tab);
+      const warned = await warnedOn(this.job, page);
+      if (warned) return warned;
+    }
+    return page;
   }
 
   /** Reads the page the tab shows now, as `open` does: what a press there opened. */

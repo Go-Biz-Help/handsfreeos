@@ -356,17 +356,23 @@ const chatBoxes = (doc: Document): HTMLElement[] => boxesSaying(doc, CHAT_BOX);
 /**
  * Writes in a box as typing does (Chrome's own insertText, whose events the page takes as a person's), or empties it;
  * a plain box's value set by hand only where that can't be done. From the owner's third Check (0.60.0): a value set by
- * hand showed Post but didn't stay in Instagram's box.
+ * hand showed Post but didn't stay in Instagram's box. Typing goes where the focus is, so it's never done unless the box
+ * has it.
  */
 function writeIn(doc: Document, box: HTMLElement, text: string): void {
   box.focus();
-  if (box instanceof doc.defaultView!.HTMLTextAreaElement) box.select();
-  else if (typeof doc.execCommand === 'function') doc.execCommand('selectAll');
+  const focused = doc.activeElement === box;
+  if (focused && box instanceof doc.defaultView!.HTMLTextAreaElement) box.select();
+  else if (focused && typeof doc.execCommand === 'function') doc.execCommand('selectAll');
   const typed =
+    focused &&
     typeof doc.execCommand === 'function' &&
     (text ? doc.execCommand('insertText', false, text) : doc.execCommand('delete'));
   if (!typed) typeInto(doc, box, text, true);
 }
+
+/** Whether a box is there with something written in it. */
+const written = (box: Element | null): boolean => box !== null && writingIn(box);
 
 /** Closes a chat opened over the page by its own Close: the nearest one around its box. */
 async function closeChat(box: HTMLElement): Promise<boolean> {
@@ -533,16 +539,26 @@ export const INSTAGRAM: LookingSite = {
           return untried('comment', 'writing in the comment box already, left alone', {
             box: true,
           });
-        // Instagram redraws the form once its box has the focus (Post shows), so the box is found again after.
+        // Instagram redraws the form once its box has the focus (Post shows), and again once something's written in it,
+        // so each look finds the box as it is now (the owner's Check, 0.62.0: the word stayed in the box drawn after it
+        // was written, while the one it was written in read empty).
+        const now = () => boxesSaying(main, COMMENT_BOX)[0] ?? null;
         box.focus();
         await pause(400);
-        const live = boxesSaying(main, COMMENT_BOX)[0] ?? box;
-        const form = live.closest('form') ?? main;
-        writeIn(doc, live, TRY_WORD);
-        const typed = (await waitFor(() => (writingIn(live) ? true : null), 1_500)) === true;
-        const post = await waitFor(() => controlsSaying(form, POST, true)[0], 3_000);
-        writeIn(doc, live, '');
-        const emptied = (await waitFor(() => (writingIn(live) ? null : true), 2_000)) === true;
+        writeIn(doc, now() ?? box, TRY_WORD);
+        const typed = (await waitFor(() => (written(now()) ? true : null), 1_500)) === true;
+        const post = await waitFor(() => {
+          const live = now();
+          return live ? controlsSaying(live.closest('form') ?? main, POST, true)[0] : null;
+        }, 3_000);
+        const live = now();
+        if (live) writeIn(doc, live, '');
+        const emptied =
+          (await waitFor(() => {
+            const after = now();
+            return after && !writingIn(after) ? true : null;
+          }, 2_000)) === true;
+        const form = now()?.closest('form') ?? main;
         const missing = missingOf([
           !typed && 'writing in the comment box didn’t take',
           typed && !post && 'no Post by the box to comment in, with a word written in it',

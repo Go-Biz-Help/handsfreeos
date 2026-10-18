@@ -7,14 +7,17 @@
  * liked, connected, recommended, posted or sent. It stops on any warning of the network's, and ends at once when the
  * network asks the person to sign in.
  *
- * - **Instagram:** the feed, the person's own account and its form (the bio), a search, someone from their feed
+ * - **Instagram:** the feed, the person's own account (read as the AI's check reads it) and its form (the bio), a
+ *   search, someone from their feed
  *   (Follow, which isn't tried on someone they follow, and Message, whose chat is opened and closed), one of their posts
  *   (Like, and the box to comment in, where a word is written and taken out to see Post show), the accounts Instagram
  *   suggests and up to three of them (Follow, on someone they don't follow), and their messages.
  * - **Alignable:** its signed-in pages at /biz (alignable.com/ is its public home page, signed in or not; the owner's
  *   first Check, 17 Oct 2026), then the places its menus lead to, those whose words say people, messages or posts
  *   first (never anything that signs out, pays or deletes), the person's own profile and a business's or a member's,
- *   looking for Connect, Message, Recommend, Like and a box to comment in on each until each is found.
+ *   looking for Connect, Message, Recommend, Like and a box to comment in on each until each is found. On their own
+ *   profile (decision 80) it reads it as the AI's check would, opens its Elevator Pitch and My Ideal Customer and closes
+ *   them with nothing written, and reads the pages About Us and their details are changed on, once they're drawn.
  */
 import type { AskTaken, AskTask } from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
@@ -24,7 +27,7 @@ import {
 } from '@hfos/core/addons/outreach/profile-check';
 import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
-import { Checkup, isEnd, SEARCH_WORDS } from './checkup';
+import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
 import { ownProfileNote } from './report';
 
@@ -77,6 +80,8 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
     const own = await c.open(feed.own, 'your profile');
     if (isEnd(own)) return own;
     await c.note('your profile', null);
+    // Read as the AI's check reads it (decision 80): what was found is noted, never what it says.
+    await wholeProfile(job, true);
   }
   if (stoppedEnd(job)) return stoppedEnd(job)!;
   const form = await c.open(`${INSTAGRAM}/accounts/edit/`, 'your profile’s form');
@@ -226,27 +231,25 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
     await lookHere();
   }
 
-  // Your own profile, your business's, and the form they're edited on, each read with its outline, so its parts can
-  // be written for you (decision 80): its pitch, your ideal customer and partner, the business's description.
-  const own = reads.find((r) => r.own)?.own ?? null;
-  for (const [url, name] of [
-    [own ?? `${ALIGNABLE}/biz/profile`, 'your profile'],
-    [`${ALIGNABLE}/biz/businesses/my_profile`, 'your business’s profile'],
-  ] as const) {
-    if (seen.has(new URL(url).pathname)) continue;
-    seen.add(new URL(url).pathname);
+  // Your own profile (decision 80), at its business's address: read as the AI's check reads it, its Elevator Pitch and
+  // My Ideal Customer opened to see where they're written and closed again with nothing written, then the pages its
+  // Edit links open, About Us's and your details', each read once it's drawn its boxes (the owner's Check, 0.62.0,
+  // read your details' page before it had), About Us's looked at for its box and Save.
+  if (stoppedEnd(job)) return stoppedEnd(job)!;
+  const mine = await c.open(`${ALIGNABLE}/biz/businesses/my_profile`, 'your profile');
+  if (isEnd(mine)) return mine;
+  await c.note('your profile', null);
+  await wholeProfile(job, true);
+  await c.tryHere('pitch');
+  await c.tryHere('ideal');
+  for (const [url, name] of formsOf(mine.edits)) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
-    const page = await c.open(url, name);
-    if (isEnd(page)) return page;
-    await c.note(name, null);
-    const edit = page.edits[0];
-    if (edit && !seen.has(new URL(edit).pathname)) {
-      seen.add(new URL(edit).pathname);
-      if (stoppedEnd(job)) return stoppedEnd(job)!;
-      const form = await c.open(edit, 'its form');
-      if (isEnd(form)) return form;
-      await c.note('its form', null);
-    }
+    const opened = await c.open(url, name);
+    if (isEnd(opened)) return opened;
+    const form = await c.readTill(opened, (page) => page.boxes > 0);
+    if (isEnd(form)) return form;
+    await c.note(name, form.boxes);
+    if (name === ABOUT_FORM) await c.tryHere('about');
   }
   const someone = people[0]?.url ?? null;
   if (someone) {
@@ -259,6 +262,19 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
 
   await c.noteLooks();
   return c.end();
+}
+
+const ABOUT_FORM = 'your About Us’s page';
+
+/** The pages their profile's Edit links open, one of each: About Us's, then their own details'. */
+function formsOf(edits: readonly string[]): (readonly [string, string])[] {
+  const at = (path: RegExp) => edits.find((edit) => path.test(new URL(edit).pathname));
+  const about = at(/^\/biz\/profile\/[^/]+\/?$/i);
+  const details = at(/^\/biz\/users\/[^/]+\/edit\/?$/i);
+  return [
+    ...(about ? [[about, ABOUT_FORM] as const] : []),
+    ...(details ? [[details, 'your details’ page'] as const] : []),
+  ];
 }
 
 // ------------------------------------------------------------------------------------------------ your profile

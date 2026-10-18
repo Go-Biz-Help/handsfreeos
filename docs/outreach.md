@@ -1143,7 +1143,7 @@ decisions 42, 43, 52 and 59 that put Needs you, with its chat bubbles, in the ex
     - **The icon's number and Chrome's pop-ups stay.** A click on a pop-up, or its button, opens Needs you in
       HandsFreeOS in a tab, never the side panel.
 
-    Built in 0.44.0; the extension is 0.62.0 now.
+    Built in 0.44.0; the extension is 0.63.0 now.
 
 The owner asked on 16 Oct 2026 to "separate the settings per platform: a settings menu with general settings and then
 all the platforms, and each one has the settings related to that platform", saw it drawn in the HandsFreeOS design
@@ -1353,6 +1353,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **His third Check Instagram** (0.60.0) found four of five: the comment box showed Post, but the word set in it
       by hand didn't stay, as Instagram redraws the box once it has the focus. 0.61.0 writes there as typing does
       (Chrome's insertText, after the redraw), as Check Facebook's comment does.
+    - **His fourth Checks** (0.62.0, 18 Oct 2026): LinkedIn's nine steps all work, its About among them; Alignable's
+      five; Instagram's four of five again. The word did go in Instagram's comment box and Post showed, but Instagram
+      draws the box again once something's written in it, so the box Check had found read empty, and the word stayed
+      in the new one. 0.63.0 looks at the box as it is each time, empties that one, and types only into a box that has
+      the focus. His Alignable profile's outline showed its parts (About Us with its own page, the Elevator Pitch's
+      button, My Ideal Customer and the ideal partner, the services), but its details' page was read before it had
+      drawn anything. 0.63.0 reads that profile as the AI's check would, opens the Elevator Pitch and My Ideal Customer
+      and closes them with nothing written, and reads About Us's page and his details' once each has drawn its boxes.
     - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
       were from his (0.46.0 to 0.56.0).
 
@@ -1380,7 +1388,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         person. The AI writes a name for the person to put in, as Instagram changes names only in its app or Accounts
         Center.
       - **Alignable:** its own list, ticked by the person for now. Check Alignable opens the profile's pages and its
-        edit form, so its reader and writer get built from what it sends.
+        edit form, so its reader and writer get built from what it sends. 0.63.0 reads the profile (About Us, the
+        ideal customer and partner, the services) and opens its editors; the AI's check and the writer follow.
       - **Nothing in [brackets] goes in.** That's how the AI marks what it can't know, and the screen asks for it to be
         filled in first.
       - **Each network's page of Settings has Your profile,** with Get ready's sheet, so a network still looked at has

@@ -30,6 +30,8 @@ async function ownProfile(site: LookingSite, ask: OwnProfileAsk): Promise<OwnPro
   if (ask.type === 'hfos-own-profile') return { ok: true, read: own.read(document, location.href) };
   if (ask.type === 'hfos-write-about')
     return { ok: false, error: `${site.name} has no About to put in.` };
+  if (!own.writeBio)
+    return { ok: false, error: `The extension doesn’t put your ${site.name} bio in yet.` };
   return { ok: true, result: await own.writeBio(document, ask.bio) };
 }
 
