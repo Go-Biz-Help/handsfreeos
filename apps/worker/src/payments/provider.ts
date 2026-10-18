@@ -195,6 +195,8 @@ export interface PaymentResult {
    */
   readonly cardBrand: string | null;
   readonly cardLast4: string | null;
+  /** Stripe's charge behind the payment (`ch_…`), which a transfer to a partner is tied to. Not every provider says. */
+  readonly chargeRef?: string | null;
 }
 
 export interface RefundInput {
@@ -492,8 +494,68 @@ export interface CheckoutEvent {
   readonly amountTotal: number | null;
 }
 
+/** A partner's Stripe Express account, as Stripe describes it (the partners plan's stage 3). */
+export interface PayoutAccountState {
+  /** Stripe's `acct_…`. */
+  readonly accountRef: string;
+  /** Made with a test key: it only ever takes test money. */
+  readonly livemode: boolean;
+  /** They finished Stripe's form. */
+  readonly detailsSubmitted: boolean;
+  /** Stripe pays what's in their Stripe balance out to their bank. */
+  readonly payoutsEnabled: boolean;
+  /** We can send them money: the account's `transfers` capability is active. */
+  readonly transfersActive: boolean;
+  /** Why Stripe stopped it, in Stripe's own words (`requirements.past_due`), when it has. */
+  readonly disabledReason: string | null;
+  /** What Stripe still needs from them, by its own field names. */
+  readonly due: readonly string[];
+}
+
+/** Money from our balance to a partner's, once the charge that brought it in has landed. */
+export interface PayoutTransferInput {
+  readonly accountRef: string;
+  readonly amountCents: number;
+  /** The business's charge (`ch_…`) the money came in on: Stripe sends it once that charge's money is ours. */
+  readonly sourceChargeRef: string;
+  /** Every transfer of one month's payout, and its charge, under one name in Stripe's dashboard. */
+  readonly transferGroup: string;
+  readonly description: string;
+  readonly metadata: Readonly<Record<string, string>>;
+  readonly idempotencyKey: string;
+}
+
+/**
+ * Paying partners for the businesses they send customers to (the partners plan's stage 3): each partner's bank is
+ * a Stripe Express account of HandsFreeOS's platform, set up on Stripe's own form, and paid by transfers from what
+ * the business's card was charged. Stripe holds and moves the money, and files the partners' 1099s.
+ */
+export interface PayoutAccounts {
+  /** One account for a partner, made the first time they set up payouts. */
+  create(input: {
+    readonly email: string | null;
+    readonly metadata: Readonly<Record<string, string>>;
+    readonly idempotencyKey: string;
+  }): Promise<PayoutAccountState>;
+  read(accountRef: string): Promise<PayoutAccountState>;
+  /** Stripe's own form for it: their bank, tax and identity details go to Stripe, never to us. */
+  onboardingLink(input: {
+    readonly accountRef: string;
+    /** Where Stripe sends them when the link has run out, for a fresh one. */
+    readonly refreshUrl: string;
+    readonly returnUrl: string;
+  }): Promise<{ url: string }>;
+  /** Their Stripe Express page, where they see their payouts and change their bank. */
+  loginLink(accountRef: string): Promise<{ url: string }>;
+  /** A refusal (an account that can't take it) is a permanent `PaymentError`; a provider that's down retries. */
+  transfer(input: PayoutTransferInput): Promise<{ transferRef: string }>;
+}
+
 export interface PlatformPayments {
   readonly supported: boolean;
+  /** Our own key moves real money. A test key's partner payouts pay only payments taken in a test mode. */
+  readonly livemode: boolean;
+  readonly payouts: PayoutAccounts;
   /** Us, as a customer of the provider, for one business. Their id for it is kept on the wallet. */
   ensureCustomer(input: CustomerInput): Promise<{ customerRef: string }>;
   /**

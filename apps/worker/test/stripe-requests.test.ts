@@ -239,3 +239,133 @@ describe('a business Stripe is waiting on', () => {
     expect(caps.card).toBe(true);
   });
 });
+
+describe('paying partners', () => {
+  const ready = {
+    id: 'acct_partner',
+    details_submitted: true,
+    payouts_enabled: true,
+    capabilities: { transfers: 'active' },
+    requirements: { currently_due: [], past_due: [], disabled_reason: null },
+  };
+
+  it('makes an Express account on our own platform that only ever receives transfers', async () => {
+    const { provider, calls } = stripeWatching(ready);
+    const made = await provider.platform.payouts.create({
+      email: 'pia@example.com',
+      metadata: { partner_id: 'p1' },
+      idempotencyKey: 'partner-payout-account:p1',
+    });
+    const call = calls[0]!;
+    expect(call.url).toBe('https://api.stripe.com/v1/accounts');
+    expect(call.headers['stripe-account']).toBeUndefined();
+    expect(call.headers['idempotency-key']).toBeTruthy();
+    expect(call.body.get('type')).toBe('express');
+    expect(call.body.get('country')).toBe('US');
+    expect(call.body.get('capabilities[transfers][requested]')).toBe('true');
+    expect(call.body.get('capabilities[card_payments][requested]')).toBeNull();
+    expect(call.body.get('metadata[partner_id]')).toBe('p1');
+    expect(made).toEqual({
+      accountRef: 'acct_partner',
+      livemode: true,
+      detailsSubmitted: true,
+      payoutsEnabled: true,
+      transfersActive: true,
+      disabledReason: null,
+      due: [],
+    });
+  });
+
+  it('reads what Stripe still needs from them, and that it can’t pay them yet', async () => {
+    const { provider } = stripeWatching({
+      id: 'acct_partner',
+      details_submitted: true,
+      payouts_enabled: false,
+      capabilities: { transfers: 'inactive' },
+      requirements: {
+        past_due: ['external_account'],
+        currently_due: ['external_account', 'individual.ssn_last_4'],
+        disabled_reason: 'requirements.past_due',
+      },
+    });
+    expect(await provider.platform.payouts.read('acct_partner')).toMatchObject({
+      payoutsEnabled: false,
+      transfersActive: false,
+      disabledReason: 'requirements.past_due',
+      due: ['external_account', 'individual.ssn_last_4'],
+    });
+  });
+
+  it('opens Stripe’s own form, asking for everything it will ever need up front', async () => {
+    const { provider, calls } = stripeWatching({ url: 'https://connect.stripe.com/setup/e/x' });
+    const link = await provider.platform.payouts.onboardingLink({
+      accountRef: 'acct_partner',
+      refreshUrl: 'https://app.example/c/t/partner?payouts=again',
+      returnUrl: 'https://app.example/c/t/partner?payouts=back',
+    });
+    expect(link.url).toBe('https://connect.stripe.com/setup/e/x');
+    const body = calls[0]!.body;
+    expect(calls[0]!.url).toBe('https://api.stripe.com/v1/account_links');
+    expect(body.get('type')).toBe('account_onboarding');
+    expect(body.get('collection_options[fields]')).toBe('eventually_due');
+    expect(body.get('return_url')).toBe('https://app.example/c/t/partner?payouts=back');
+    expect(body.get('refresh_url')).toBe('https://app.example/c/t/partner?payouts=again');
+  });
+
+  it('ties each transfer to the charge the money came in on', async () => {
+    const { provider, calls } = stripeWatching({ id: 'tr_1' });
+    const sent = await provider.platform.payouts.transfer({
+      accountRef: 'acct_partner',
+      amountCents: 10_000,
+      sourceChargeRef: 'ch_month',
+      transferGroup: 'partner-payout-1',
+      description: 'Partner share',
+      metadata: { partner_payout_line_id: 'l1' },
+      idempotencyKey: 'partner-payout-line:l1:acct_partner',
+    });
+    expect(sent).toEqual({ transferRef: 'tr_1' });
+    const call = calls[0]!;
+    expect(call.url).toBe('https://api.stripe.com/v1/transfers');
+    expect(call.headers['stripe-account']).toBeUndefined();
+    expect(call.headers['idempotency-key']).toBeTruthy();
+    expect(Object.fromEntries(call.body)).toMatchObject({
+      amount: '10000',
+      currency: 'usd',
+      destination: 'acct_partner',
+      source_transaction: 'ch_month',
+      transfer_group: 'partner-payout-1',
+    });
+  });
+
+  it('keeps the charge behind our own charge, for the transfers to come from', async () => {
+    const { provider } = stripeWatching({
+      id: 'pi_month',
+      status: 'succeeded',
+      amount: 10_588,
+      latest_charge: 'ch_month',
+    });
+    const charged = await provider.platform.charge({
+      amountCents: 10_588,
+      method: 'card',
+      sourceToken: 'pm_1',
+      customerRef: 'cus_1',
+      description: 'Partner payouts',
+      metadata: {},
+      idempotencyKey: 'partner-payout:p1:1',
+    });
+    expect(charged).toMatchObject({ status: 'succeeded', chargeRef: 'ch_month' });
+  });
+
+  it('reads a test key as test money, and anything else as live', () => {
+    const keyed = (secretKey: string) =>
+      createStripePayments({
+        clientId: 'ca_test',
+        secretKey,
+        publishableKey: null,
+        webhookSecret: null,
+      }).platform.livemode;
+    expect(keyed('sk_test_abc')).toBe(false);
+    expect(keyed('rk_test_abc')).toBe(false);
+    expect(keyed('sk_live_abc')).toBe(true);
+  });
+});

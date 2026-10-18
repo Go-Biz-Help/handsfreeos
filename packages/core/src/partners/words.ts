@@ -53,6 +53,8 @@ export const PARTNER_PAGE_WORDS = {
     waiting: 'Waiting 30 days',
     payable: 'Free to pay out',
     held: 'Held by a dispute',
+    paying: 'On its way',
+    paid: 'Paid you',
     about:
       'Each share is free to pay out 30 days after the client pays, so a refund never has to come back from you. A share on a payment the client’s bank is disputing waits until that’s settled.',
   },

@@ -35,6 +35,10 @@ export interface Portal {
   ) => Promise<{ fileId: string; accepted: boolean; refusal: string | null }>;
   /** Opens one of the files in their portal in a new tab. */
   readonly openFile: (fileId: string) => Promise<void>;
+  /** A partner's bank at Stripe (partners stage 3): Stripe's form or page to go to, or whether it's ready. */
+  readonly partnerPayouts: (
+    action: 'start' | 'check' | 'stripe',
+  ) => Promise<{ url?: string; ready?: boolean }>;
 }
 
 const PortalContext = createContext<Portal | null>(null);

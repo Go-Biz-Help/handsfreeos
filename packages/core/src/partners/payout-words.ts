@@ -9,6 +9,14 @@ import type { PayoutLineStatus, PayoutStatus } from '../schemas/partner-payouts'
 
 const partners = (n: number) => (n === 1 ? '1 partner' : `${n} partners`);
 
+/** A payout's status, as staff read it in a sentence. */
+const PAYOUT_STATUS_PLAIN: Record<PayoutStatus, string> = {
+  charging: 'Charging the card',
+  paying: 'Paying partners',
+  paid: 'Paid',
+  failed: 'Not charged',
+};
+
 const MONTHS = [
   'January',
   'February',
@@ -118,6 +126,33 @@ export const PAYOUT_WORDS = {
     empty: 'Nothing paid to them yet.',
   },
 
+  // ---------- staff, on a business's page in /admin ----------
+  staff: {
+    title: 'Partner payouts',
+    explain:
+      'Whether HandsFreeOS charges this business’s card each month for what it owes its partners, and pays them through Stripe. One business at a time, once the terms have been checked.',
+    open: 'Open',
+    closed: 'Closed',
+    card: (has: boolean) => (has ? 'A card is on.' : 'No card yet.'),
+    payouts: (n: number, latest: PayoutStatus | null) =>
+      n === 0
+        ? 'No payouts yet.'
+        : `${n === 1 ? '1 payout' : `${n} payouts`}; the latest is ${(latest ? PAYOUT_STATUS_PLAIN[latest] : 'unknown').toLowerCase()}.`,
+    openIt: 'Open partner payouts',
+    closeIt: 'Close partner payouts',
+    openTitle: (business: string) => `Open partner payouts for ${business}?`,
+    openBody:
+      'Within the hour, HandsFreeOS works out what this business owes its partners each month, charges its card once there is one, and pays them through Stripe.',
+    closeTitle: (business: string) => `Close partner payouts for ${business}?`,
+    closeBody:
+      'Nothing more is charged. A payout already charged still pays its partners, and what they’re owed is kept.',
+    why: 'Why',
+    whyPlaceholder: 'The terms are checked, trying it on our own business first…',
+    sayWhy: 'Say why, in a few words.',
+    confirm: (open: boolean) => (open ? 'Open them' : 'Close them'),
+    cancel: 'Cancel',
+  },
+
   // ---------- the worker's reasons, stored on a payout ----------
   declined: 'Your card was declined.',
   stopped: {
@@ -139,8 +174,6 @@ export const PAYOUT_WORDS = {
     ready: 'You’re set up. Payouts go to your bank through Stripe.',
     openStripe: 'Open your Stripe page',
     smallest: (amount: string) => `Less than ${amount} waits for the next month.`,
-    paying: 'On its way',
-    paid: 'Paid you',
     history: 'Your payouts',
     lineStatus: {
       pending: 'On its way',

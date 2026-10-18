@@ -1,4 +1,4 @@
-import { PARTNERS_WORDS as W } from '@hfos/core';
+import { PARTNERS_WORDS as W, PAYOUT_WORDS as P } from '@hfos/core';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -11,7 +11,7 @@ import { api } from '@/lib/api';
 import type { Business, Me } from '@/lib/businesses';
 import { openWeb } from '@/lib/open-web';
 
-import type { PartnerGetOut, PartnerRow, PartnersSettingsOut } from '../calls';
+import type { PartnerGetOut, PartnerPayoutsOut, PartnerRow, PartnersSettingsOut } from '../calls';
 import { parseRate, PartnerBody, PartnersBody } from '../screens';
 
 /**
@@ -152,6 +152,66 @@ const GOT: PartnerGetOut = {
   payouts: { account: null, lines: [] },
 };
 
+const NO_PAYOUTS: PartnerPayoutsOut = {
+  open: false,
+  card: null,
+  next: {
+    month: '2026-11-01',
+    soon: true,
+    lines: [],
+    waiting: [],
+    totals: {
+      owedCents: 0,
+      accountFeesCents: 0,
+      payoutFeesCents: 0,
+      cardFeeCents: 0,
+      chargeCents: 0,
+    },
+  },
+  payouts: [],
+};
+const PAYOUTS: PartnerPayoutsOut = {
+  open: true,
+  card: { brand: 'Visa', last4: '4242', expiryMonth: 12, expiryYear: 2030 },
+  next: {
+    month: '2026-12-01',
+    soon: false,
+    lines: [{ partnerId: PIA, name: 'Pia Partner', amountCents: 10_000 }],
+    waiting: [],
+    totals: {
+      owedCents: 10_000,
+      accountFeesCents: 200,
+      payoutFeesCents: 50,
+      cardFeeCents: 338,
+      chargeCents: 10_588,
+    },
+  },
+  payouts: [
+    {
+      payoutId: '13131313-1313-4313-8313-131313131313',
+      month: '2026-11-01',
+      livemode: true,
+      status: 'paid',
+      totals: {
+        owedCents: 10_000,
+        accountFeesCents: 200,
+        payoutFeesCents: 50,
+        cardFeeCents: 338,
+        chargeCents: 10_588,
+      },
+      card: { brand: 'Visa', last4: '4242' },
+      partners: 1,
+      attempts: 1,
+      nextTryAt: null,
+      failureMessage: null,
+      chargedAt: '2026-11-01T15:00:00.000Z',
+      paidAt: '2026-11-01T15:01:00.000Z',
+      failedAt: null,
+      createdAt: '2026-11-01T15:00:00.000Z',
+    },
+  ],
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(toast, 'show').mockImplementation(() => 1);
@@ -161,7 +221,15 @@ beforeEach(() => {
 
 describe('Settings → Partners on the phone', () => {
   it('shows how partners are paid to read, with the way to change it on the web, and the partners', async () => {
-    await wrap(<PartnersBody workspaceId={LONE_STAR} settings={SETTINGS} partners={[PARTNER]} />);
+    await wrap(
+      <PartnersBody
+        workspaceId={LONE_STAR}
+        settings={SETTINGS}
+        partners={[PARTNER]}
+        payouts={NO_PAYOUTS}
+      />,
+    );
+    expect(screen.getByTestId('partners-payouts-closed')).toHaveTextContent(P.notOpen);
     const paid = screen.getByTestId('partners-paid');
     expect(within(paid).getByText('12%')).toBeTruthy();
     expect(within(paid).getByText('$25')).toBeTruthy();
@@ -179,8 +247,35 @@ describe('Settings → Partners on the phone', () => {
   });
 
   it('says so when there are no partners yet', async () => {
-    await wrap(<PartnersBody workspaceId={LONE_STAR} settings={SETTINGS} partners={[]} />);
+    await wrap(
+      <PartnersBody
+        workspaceId={LONE_STAR}
+        settings={SETTINGS}
+        partners={[]}
+        payouts={NO_PAYOUTS}
+      />,
+    );
     expect(screen.getByTestId('partners-empty')).toHaveTextContent(W.list.empty);
+  });
+
+  it('shows paying partners through HandsFreeOS to read: the card, the next payout and the latest', async () => {
+    await wrap(
+      <PartnersBody
+        workspaceId={LONE_STAR}
+        settings={SETTINGS}
+        partners={[PARTNER]}
+        payouts={PAYOUTS}
+      />,
+    );
+    expect(screen.getByTestId('partners-payouts-card')).toHaveTextContent(/Visa ending 4242/);
+    const next = screen.getByTestId('partners-payouts-next');
+    expect(next).toHaveTextContent(/Pays 1 partner · Charged to your card \$105\.88/);
+    expect(next).toHaveTextContent(/On Dec 1/);
+    expect(screen.getByTestId('partners-payout')).toHaveTextContent(
+      /November 2026.*Paid · 1 partner/,
+    );
+    await fireEvent.press(screen.getByTestId('partners-payouts-on-web'));
+    expect(openWeb).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/partners`);
   });
 });
 

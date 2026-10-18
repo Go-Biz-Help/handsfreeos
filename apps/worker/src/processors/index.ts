@@ -5,6 +5,7 @@ import type { ProcessorMap } from '../deliveries';
 import { foundingProcessors } from '../founding/checkout';
 import { rcsBillingProcessors } from '../telephony/rcs-billing';
 import { textingFeeProcessors } from '../telephony/texting-fees';
+import { partnerPayoutProcessors } from '../partners/payouts';
 import { paymentProcessors } from '../money/processors';
 import { workflowProcessors } from '../workflows/index';
 import { onSupportInboundEmail } from '../support/inbound';
@@ -47,6 +48,8 @@ export const processors: ProcessorMap = {
   ...foundingProcessors,
   ...rcsBillingProcessors,
   ...textingFeeProcessors,
+  // A partner's Stripe account changing: what Stripe says of it, read back and kept (partners/payouts.ts).
+  ...partnerPayoutProcessors,
   // What the services add-ons connect to tell them (round five), each handed to its add-on's receiver.
   'addon:*': addonDeliveryProcessor(ADDON_CATALOG, ADDON_WORKER_MODULES),
 };

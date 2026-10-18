@@ -377,3 +377,8 @@ export type PartnerGetOut = Ok<'/v1/queries/partner.get'>;
 export type PartnerClientRow = PartnerGetOut['clients'][number];
 export type PartnerCommissionRow = PartnerGetOut['commissions'][number];
 export type PartnerOfPersonOut = Ok<'/v1/queries/partner.of_person'>;
+// Paying partners (stage 3): the business's card, the next payout and each month's statement; what staff see.
+export type PartnerPayoutsOut = Ok<'/v1/queries/partner.payouts'>;
+export type PartnerPayoutRow = PartnerPayoutsOut['payouts'][number];
+export type PartnerPayoutGetOut = Ok<'/v1/queries/partner.payout_get'>;
+export type PlatformPartnerPayoutsOut = Ok<'/v1/queries/platform.partner_payouts.get'>;

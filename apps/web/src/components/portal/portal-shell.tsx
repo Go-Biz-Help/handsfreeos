@@ -22,6 +22,7 @@ import {
   portalFileUrl,
   portalLink,
   portalOp,
+  portalPartnerPayouts,
   saveBearer,
   savedBearer,
   sendPortalCode,
@@ -117,6 +118,7 @@ export function PortalShell({ token, children }: { token: string; children: Reac
         const f = await portalFileUrl(bearer, fileId);
         window.open(f.url, '_blank', 'noopener');
       },
+      partnerPayouts: (action) => portalPartnerPayouts(token, bearer, action),
     };
   }, [state, token, enter]);
 

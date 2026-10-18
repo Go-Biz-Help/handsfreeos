@@ -1,12 +1,20 @@
 'use client';
 /**
- * A partner, under Settings → Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2d): their share (their own,
- * or the business's), pausing or ending them, their link, sending them their page in the portal, the clients they
- * sent, and each share they earned or had taken back. Everything comes from `partner.get`; changes are
- * `partner.update`, and sending their page is `portal_access.give`.
+ * A partner, under Settings → Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stages 2d and 3): their share
+ * (their own, or the business's), pausing or ending them, their link, sending them their page in the portal, each
+ * share they earned or had taken back, their bank at Stripe and their part of each payout, and the clients they sent.
+ * Everything comes from `partner.get`; changes are `partner.update`, and sending their page is `portal_access.give`.
  */
-import { formatDate, money, PARTNERS_WORDS as W, rateWords, type PartnerStatus } from '@hfos/core';
-import { ArrowLeft, Link2, Mail, Receipt, Users, Wallet } from 'lucide-react';
+import {
+  earningsTotals,
+  formatDate,
+  money,
+  PARTNERS_WORDS as W,
+  PAYOUT_WORDS as P,
+  rateWords,
+  type PartnerStatus,
+} from '@hfos/core';
+import { ArrowLeft, Banknote, Link2, Mail, Receipt, Users, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -93,12 +101,8 @@ export function PartnerDetail({
 
   const link = p.linkPath && origin ? `${origin}${p.linkPath}` : null;
   const statusLine = W.partner.statusLine[p.status];
-  const totals: [string, number][] = [
-    [W.earnings.earned, p.earnings.earnedCents],
-    [W.earnings.waiting, p.earnings.waitingCents],
-    [W.earnings.payable, p.earnings.payableCents],
-  ];
-  if (p.earnings.heldCents) totals.push([W.earnings.held, p.earnings.heldCents]);
+  const totals = earningsTotals(p.earnings);
+  const account = got.payouts.account;
 
   return (
     <div className="flex flex-col gap-4" data-testid="partner-detail">
@@ -295,6 +299,60 @@ export function PartnerDetail({
           </ul>
         ) : (
           <p className="mt-3 text-[13px] text-text-2">{W.partner.commissions.empty}</p>
+        )}
+      </Section>
+
+      <Section
+        title={P.partner.title}
+        description={
+          account?.ready ? P.partner.ready : account ? P.partner.needsMore : P.partner.noAccount
+        }
+        icon={Banknote}
+        testId="partner-payouts-of-partner"
+      >
+        {got.payouts.lines.length ? (
+          <ul className="mt-3 divide-y divide-border border-t border-border">
+            {got.payouts.lines.map((l) => (
+              <li
+                key={l.lineId}
+                className="flex items-start justify-between gap-3 py-2.5"
+                data-testid="partner-payout-line"
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium">
+                    {P.history.month(l.month)}
+                    {l.livemode ? null : (
+                      <span className="font-normal text-text-3"> · {P.history.test}</span>
+                    )}
+                  </p>
+                  <p
+                    className={cn(
+                      'text-[12.5px]',
+                      l.status === 'held' ? 'text-warning-text' : 'text-text-2',
+                    )}
+                  >
+                    {l.status === 'paid' && l.paidAt
+                      ? P.line.paid(formatDate(l.paidAt))
+                      : l.status === 'held'
+                        ? P.line.held
+                        : l.status === 'cancelled'
+                          ? P.line.cancelled
+                          : P.line.pending}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    'shrink-0 text-[14px] font-semibold tabular-nums',
+                    l.status === 'cancelled' && 'text-text-3 line-through',
+                  )}
+                >
+                  {money(l.amountCents)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-[13px] text-text-2">{P.partner.empty}</p>
         )}
       </Section>
 

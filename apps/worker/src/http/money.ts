@@ -104,6 +104,7 @@ import {
 import { systemActor, type TenantScope } from '../services';
 import { type PublicBusiness } from './booking';
 import { header, parseBody, recordDelivery, type HttpDeps } from './common';
+import { PARTNER_PAYOUT_ACCOUNT_KIND } from '../partners/payouts';
 
 const MIN = 60_000;
 
@@ -1416,16 +1417,31 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
               ),
             )
           : [];
-        if (!route) {
+        // A partner's own Stripe account, not a business's (the partners plan's stage 3): its changes are kept
+        // for their payouts (partners/payouts.ts).
+        const partner =
+          !route && name === 'stripe' && kind === 'account.updated' && event.accountRef
+            ? (
+                await asWorker(deps.httpDb, {}, (tx) =>
+                  rows<{ workspace_id: string; organization_id: string }>(
+                    tx,
+                    sql`select workspace_id, organization_id
+                        from private.partner_payout_account_by_ref(${event.accountRef})`,
+                  ),
+                )
+              )[0]
+            : undefined;
+        if (!route && !partner) {
           deps.log.info(
             { provider: name, type: event.type, accountRef: event.accountRef },
             'a payment webhook for an account nobody here has connected',
           );
           return reply.code(200).send({ received: true, ignored: true });
         }
+        const to = (route ?? partner)!;
         await recordDelivery(deps, {
           provider: name,
-          kind,
+          kind: route ? kind : PARTNER_PAYOUT_ACCOUNT_KIND,
           // The provider's own event id: a replay is stored once and handled once.
           dedupeKey: event.id,
           accountRef: event.accountRef,
@@ -1439,8 +1455,8 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             createdAt: event.createdAt ?? '',
             body: rawBody,
           },
-          workspaceId: route.workspace_id,
-          organizationId: route.organization_id,
+          workspaceId: to.workspace_id,
+          organizationId: to.organization_id,
         });
         return reply.code(200).send({ received: true });
       });

@@ -41,6 +41,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { portalCodeEmail } from '../emails/templates';
 import { resolvePortalToken, type PortalTokenResult } from '../portal/links';
+import { PartnerPayoutsBody, partnerPayoutsAction } from '../partners/payout-routes';
 import { systemActor, type TenantScope } from '../services';
 import { header, parseBody, type HttpDeps } from './common';
 
@@ -354,6 +355,19 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
         };
         if (cmd) return (await executeCommand(deps.httpDb, cmd, input, actor, meta(req))).output;
         return executeQuery(deps.httpDb, query!, input, actor, meta(req));
+      },
+    );
+
+    // A partner setting up their bank at Stripe from their page (partners/payout-routes.ts): on their own link only.
+    pub.post<{ Params: { token: string } }>(
+      '/public/portal/:token/partner/payouts',
+      { config: { rateLimit: perDevice } },
+      async (req) => {
+        const link = await linked(req.params.token);
+        const session = await portalSessionOf(deps, req);
+        if (!session || session.accessId !== link.accessId) throw signedOut();
+        const body = parseBody(PartnerPayoutsBody, req.body ?? {});
+        return partnerPayoutsAction(deps, session, req.params.token, body.action);
       },
     );
 

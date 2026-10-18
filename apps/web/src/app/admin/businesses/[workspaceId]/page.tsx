@@ -9,6 +9,7 @@ import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
 import { SupportAccessAsk } from '@/components/admin/support-access-ask';
 import { ViewAsButton } from '@/components/admin/view-as';
 import { OwnBusinessBlock } from '@/components/admin/own-business-block';
+import { PartnerPayoutsBlock } from '@/components/admin/partner-payouts-block';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
 import { WalletBlock } from '@/components/admin/wallet-block';
 import { STATUS_WORD, whenWords } from '@/components/admin/ticket-bits';
@@ -22,9 +23,12 @@ export default async function BusinessPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [detail, wallet] = await Promise.all([
+  const [detail, wallet, partnerPayouts] = await Promise.all([
     api.POST('/v1/queries/platform.business.get', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/platform.wallet.get', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/platform.partner_payouts.get', { body: { workspaceId } })
+      .then(unwrapPage),
   ]);
   const me = unwrap(await api.POST('/v1/queries/platform.me', { body: {} }));
   const b = detail.business;
@@ -105,6 +109,13 @@ export default async function BusinessPage({
         businessName={b.name}
         wallet={wallet}
         canChange={me.staff?.permissions.includes('platform.wallets.adjust') ?? false}
+      />
+
+      <PartnerPayoutsBlock
+        workspaceId={workspaceId}
+        businessName={b.name}
+        payouts={partnerPayouts}
+        canChange={me.staff?.permissions.includes('platform.partner_payouts.manage') ?? false}
       />
 
       <PhoneModelBlock
