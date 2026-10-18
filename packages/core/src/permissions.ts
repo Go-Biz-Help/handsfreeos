@@ -175,6 +175,8 @@ export const ROLE_PERMISSIONS = {
     'platform.addons.manage',
     // Marking HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
     'platform.own_business.manage',
+    // Opening partner payouts for a business: HandsFreeOS charging its card and paying its partners (partners stage 3).
+    'platform.partner_payouts.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 

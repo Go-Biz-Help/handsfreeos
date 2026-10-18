@@ -81,6 +81,13 @@ import type { TenantScope } from '../services';
 /** Asks one address may make a minute. The daily AI limit applies on top. */
 export const MAIN_OFFER_PER_MINUTE = 20;
 
+/**
+ * The most one ask may write, its thinking included: the model thinks before it answers (docs/operations.md, "Change
+ * the model"), and both count. A cap sized for the answer alone cut a try off before it finished, which reads as the
+ * AI failing. A finished answer costs only what it wrote.
+ */
+export const MAIN_OFFER_MAX_TOKENS = 16_000;
+
 const workspaceId = z.uuid();
 const NicheBody = OfferNicheInput.extend({ workspaceId });
 const AssistBody = OfferAssistInput.extend({ workspaceId });
@@ -175,7 +182,7 @@ export async function offerNiche(
       ],
       schema: OFFER_NICHE_SCHEMA,
       zod: OfferNicheAnswer,
-      maxTokens: 1200,
+      maxTokens: MAIN_OFFER_MAX_TOKENS,
       usage: { source: 'main_offer', userId: actor.userId },
     });
     return { options: checkedOfferNiche(value) };
@@ -198,7 +205,7 @@ export async function offerAssist(
       messages: [{ role: 'user', content: offerAssistPrompt(business, input, offer.direction) }],
       schema: OFFER_ASSIST_SCHEMA,
       zod: OfferAssistAnswer,
-      maxTokens: 1500,
+      maxTokens: MAIN_OFFER_MAX_TOKENS,
       usage: { source: 'main_offer', userId: actor.userId },
     });
     return checkedOfferAssist(value, input);
@@ -222,7 +229,7 @@ async function scored(
       messages: [{ role: 'user', content: offerScorePrompt(business, parts, direction) }],
       schema: OFFER_SCORE_SCHEMA,
       zod: OfferScoreAnswer,
-      maxTokens: 3000,
+      maxTokens: MAIN_OFFER_MAX_TOKENS,
       usage: { source: 'main_offer', userId: actor.userId },
     });
     return checkedOfferScore(value, { direction: !!direction });
@@ -281,7 +288,7 @@ export async function offerTry(
       ],
       schema: OFFER_TRY_SCHEMA,
       zod: OfferTryAnswer,
-      maxTokens: 5000,
+      maxTokens: MAIN_OFFER_MAX_TOKENS,
       usage: { source: 'main_offer', userId: actor.userId },
     });
     written = checkedOfferTry(value, draft, input.keep);

@@ -1,8 +1,11 @@
 import {
+  earningsTotals,
   formatDate,
+  formatDateOnly,
   holds,
   money,
   PARTNERS_WORDS as W,
+  PAYOUT_WORDS as P,
   rateWords,
   type PartnerEarnings,
   type PartnerStatus,
@@ -32,16 +35,18 @@ import {
   partnerCalls,
   type PartnerCommissionRow,
   type PartnerGetOut,
+  type PartnerPayoutsOut,
   type PartnerRow,
   type PartnersSettingsOut,
 } from './calls';
 
 /**
- * Settings → Partners on the phone (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2d), in the web's words: how
- * partners are paid, to read (the share, the smallest payout, the calendar and the terms are set up on the web, as the
- * business's other settings are), the partners with what they've earned, and each one's page, where the owner pauses,
- * ends or brings them back, gives them their own share, shares their link and sends them their page. It all needs
- * signal; nothing of it is kept on the phone.
+ * Settings → Partners on the phone (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stages 2d and 3), in the web's words:
+ * how partners are paid and paying them through HandsFreeOS, to read (the share, the smallest payout, the calendar,
+ * the terms and the payout card are set up on the web, as the business's other settings are), the partners with what
+ * they've earned, and each one's page, where the owner pauses, ends or brings them back, gives them their own share,
+ * shares their link and sends them their page, and sees their payouts. It all needs signal; nothing of it is kept on
+ * the phone.
  */
 
 const partnerHref = (workspaceId: string, partnerId: string) =>
@@ -50,14 +55,9 @@ const partnerHref = (workspaceId: string, partnerId: string) =>
 const badgeOf = (status: PartnerStatus) =>
   status === 'active' ? 'ok' : status === 'paused' ? 'pending' : 'gray';
 
-/** Earned, waiting and free to pay out, with what a dispute holds only while one does. */
+/** Earned, waiting and free to pay out, then what a dispute holds, what's on its way and what's paid while there's some. */
 function Totals({ earnings, testID }: { earnings: PartnerEarnings; testID?: string }) {
-  const totals: [string, number][] = [
-    [W.earnings.earned, earnings.earnedCents],
-    [W.earnings.waiting, earnings.waitingCents],
-    [W.earnings.payable, earnings.payableCents],
-  ];
-  if (earnings.heldCents) totals.push([W.earnings.held, earnings.heldCents]);
+  const totals = earningsTotals(earnings);
   return (
     <View className="flex-row flex-wrap gap-2" testID={testID}>
       {totals.map(([label, cents]) => (
@@ -83,14 +83,20 @@ const sumOf = (partners: readonly PartnerRow[]): PartnerEarnings => ({
   waitingCents: partners.reduce((t, p) => t + p.earnings.waitingCents, 0),
   payableCents: partners.reduce((t, p) => t + p.earnings.payableCents, 0),
   heldCents: partners.reduce((t, p) => t + p.earnings.heldCents, 0),
+  payingCents: partners.reduce((t, p) => t + p.earnings.payingCents, 0),
+  paidCents: partners.reduce((t, p) => t + p.earnings.paidCents, 0),
 });
 
 export function PartnersScreen() {
   const { business } = useBusiness();
   const load = React.useCallback(async () => {
     const calls = partnerCalls(business.id);
-    const [settings, partners] = await Promise.all([calls.settings(), calls.list()]);
-    return { settings, partners };
+    const [settings, partners, payouts] = await Promise.all([
+      calls.settings(),
+      calls.list(),
+      calls.payouts(),
+    ]);
+    return { settings, partners, payouts };
   }, [business.id]);
   const answer = useLiveAnswer(load, business.id, W.phone.needsSignal);
   const data = answer.data;
@@ -103,7 +109,12 @@ export function PartnersScreen() {
       contentClassName="gap-2"
     >
       {data ? (
-        <PartnersBody workspaceId={business.id} settings={data.settings} partners={data.partners} />
+        <PartnersBody
+          workspaceId={business.id}
+          settings={data.settings}
+          partners={data.partners}
+          payouts={data.payouts}
+        />
       ) : (
         <Missing words={answer.loading ? null : answer.error} testID="partners-missing" />
       )}
@@ -115,10 +126,12 @@ export function PartnersBody({
   workspaceId,
   settings,
   partners,
+  payouts,
 }: {
   workspaceId: string;
   settings: PartnersSettingsOut;
   partners: readonly PartnerRow[];
+  payouts: PartnerPayoutsOut;
 }) {
   const s = settings.settings;
   return (
@@ -145,6 +158,7 @@ export function PartnersBody({
           testID="partners-change-on-web"
         />
       </List>
+      <Payouts workspaceId={workspaceId} payouts={payouts} />
       <ListLabel>{W.list.title}</ListLabel>
       {partners.length ? (
         <>
@@ -173,6 +187,67 @@ export function PartnersBody({
       ) : (
         <Text className="px-1 text-[13.5px] text-text-2" testID="partners-empty">
           {W.list.empty}
+        </Text>
+      )}
+    </>
+  );
+}
+
+/**
+ * Paying partners through HandsFreeOS (stage 3), to read: the card, the next payout as it stands and the latest
+ * payouts. The card goes on through Stripe's own page, on the web.
+ */
+function Payouts({ workspaceId, payouts }: { workspaceId: string; payouts: PartnerPayoutsOut }) {
+  const next = payouts.next;
+  const card = payouts.card;
+  return (
+    <>
+      <ListLabel>{P.title}</ListLabel>
+      {payouts.open ? (
+        <List testID="partners-payouts">
+          <ListRow
+            label={P.card.title}
+            detail={card ? P.card.ends(card.brand, card.last4) : P.card.none}
+            chevron={false}
+            testID="partners-payouts-card"
+          />
+          <ListRow
+            label={P.next.title}
+            detail={
+              next.lines.length
+                ? `${P.next.pays(next.lines.length)} · ${P.totals.charge} ${money(next.totals.chargeCents)}`
+                : P.next.none
+            }
+            end={next.soon ? P.next.soon : P.next.on(formatDateOnly(next.month))}
+            chevron={false}
+            testID="partners-payouts-next"
+          />
+          {payouts.payouts.slice(0, 6).map((p) => (
+            <ListRow
+              key={p.payoutId}
+              label={P.history.month(p.month)}
+              detail={[
+                P.status[p.status],
+                P.history.pays(p.partners),
+                p.livemode ? null : P.history.test,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              end={money(p.totals.chargeCents)}
+              chevron={false}
+              testID="partners-payout"
+            />
+          ))}
+          <ListRow
+            label={W.phone.changeOnWeb}
+            external
+            onPress={() => void openWeb(`/app/w/${workspaceId}/settings/partners`)}
+            testID="partners-payouts-on-web"
+          />
+        </List>
+      ) : (
+        <Text className="px-1 text-[13px] text-text-2" testID="partners-payouts-closed">
+          {P.notOpen}
         </Text>
       )}
     </>
@@ -399,6 +474,36 @@ export function PartnerBody({
       ) : (
         <Text className="px-1 text-[13px] text-text-2">{W.partner.commissions.empty}</Text>
       )}
+
+      <ListLabel>{P.partner.title}</ListLabel>
+      <Text className="px-1 text-[13px] text-text-2" testID="partner-payouts-account">
+        {got.payouts.account?.ready
+          ? P.partner.ready
+          : got.payouts.account
+            ? P.partner.needsMore
+            : P.partner.noAccount}
+      </Text>
+      {got.payouts.lines.length ? (
+        <List testID="partner-payout-lines">
+          {got.payouts.lines.map((l) => (
+            <ListRow
+              key={l.lineId}
+              label={P.history.month(l.month)}
+              detail={
+                l.status === 'paid' && l.paidAt
+                  ? P.line.paid(formatDate(l.paidAt))
+                  : l.status === 'held'
+                    ? P.line.held
+                    : l.status === 'cancelled'
+                      ? P.line.cancelled
+                      : P.line.pending
+              }
+              end={money(l.amountCents)}
+              chevron={false}
+            />
+          ))}
+        </List>
+      ) : null}
 
       <ListLabel>{W.partner.clients.title}</ListLabel>
       {got.clients.length ? (

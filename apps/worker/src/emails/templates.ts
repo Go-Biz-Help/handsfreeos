@@ -2002,3 +2002,37 @@ export function outreachWeeklyEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * A business's partner payout couldn't charge its card (the partners plan's stage 3), to its owners and admins: tried
+ * again on a date while the ladder lasts, or given up on for this month.
+ */
+export function partnerPayoutDeclinedEmail(input: {
+  business: string;
+  amount: string;
+  month: string;
+  reason: string;
+  /** When the card is tried again; null once it's been given up on for this month. */
+  retryOn: string | null;
+  link: string;
+}): EmailContent {
+  const subject = input.retryOn
+    ? `Your partners’ payout for ${input.business} didn’t go through`
+    : `Your partners weren’t paid this month by ${input.business}`;
+  const lines = input.retryOn
+    ? [
+        `We couldn’t charge your card ${input.amount} to pay your partners for ${input.month}: ${input.reason}`,
+        `We’ll try it again ${input.retryOn}. To use another card, change it under Paying your partners in Settings → Partners, and we’ll try that one at once.`,
+      ]
+    : [
+        `We couldn’t charge your card ${input.amount} to pay your partners for ${input.month}: ${input.reason}`,
+        'Nothing was charged. What your partners are owed is kept for them and paid with next month’s payout, once there’s a card that works under Paying your partners in Settings → Partners.',
+      ];
+  const text = `${lines.join('\n\n')}\n\nChange the card: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Change the card') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}

@@ -1,13 +1,14 @@
 'use client';
 /**
- * Settings → Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2d): how partners are paid, the terms they
- * accept on their page, and the partners with what each has earned.
+ * Settings → Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stages 2d and 3): how partners are paid, the terms
+ * they accept on their page, paying them through HandsFreeOS (payouts-section.tsx), and the partners with what each
+ * has earned.
  *
  * The share, the smallest payout and the calendar save the moment they're changed (`partners.save_settings`), as
  * Settings → Payments does. The terms wait for Save the terms: saving new terms asks every partner to accept them
  * again, so a half-typed sentence never goes out.
  */
-import { money, PARTNERS_WORDS as W, rateWords } from '@hfos/core';
+import { earningsTotals, money, PARTNERS_WORDS as W, rateWords } from '@hfos/core';
 import { ChevronRight, FileText, Handshake, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -21,7 +22,13 @@ import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { PartnerRow, PartnerSettingsValue, PartnersSettingsOut } from '@/lib/api/types';
+import { PayoutsSection } from '@/components/partners/payouts-section';
+import type {
+  PartnerPayoutsOut,
+  PartnerRow,
+  PartnerSettingsValue,
+  PartnersSettingsOut,
+} from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 
 type Change = Partial<
@@ -61,11 +68,16 @@ export function PartnersSettings({
   workspaceId,
   initial,
   partners,
+  payouts,
+  canManageMoney,
   calendars,
 }: {
   workspaceId: string;
   initial: PartnersSettingsOut;
   partners: readonly PartnerRow[];
+  payouts: PartnerPayoutsOut;
+  /** `money.manage`: putting on or taking off the card partner payouts are charged to. */
+  canManageMoney: boolean;
   /** The calendars that take bookings on the booking page: the ones a partner's link can book. */
   calendars: readonly { id: string; name: string }[];
 }) {
@@ -228,6 +240,8 @@ export function PartnersSettings({
         </div>
       </Section>
 
+      <PayoutsSection workspaceId={workspaceId} payouts={payouts} canManageMoney={canManageMoney} />
+
       <PartnersList workspaceId={workspaceId} partners={partners} />
     </div>
   );
@@ -241,13 +255,14 @@ function PartnersList({
   partners: readonly PartnerRow[];
 }) {
   const sum = (pick: (p: PartnerRow) => number) => partners.reduce((t, p) => t + pick(p), 0);
-  const totals: [string, number][] = [
-    [W.earnings.earned, sum((p) => p.earnings.earnedCents)],
-    [W.earnings.waiting, sum((p) => p.earnings.waitingCents)],
-    [W.earnings.payable, sum((p) => p.earnings.payableCents)],
-  ];
-  const held = sum((p) => p.earnings.heldCents);
-  if (held) totals.push([W.earnings.held, held]);
+  const totals = earningsTotals({
+    earnedCents: sum((p) => p.earnings.earnedCents),
+    waitingCents: sum((p) => p.earnings.waitingCents),
+    payableCents: sum((p) => p.earnings.payableCents),
+    heldCents: sum((p) => p.earnings.heldCents),
+    payingCents: sum((p) => p.earnings.payingCents),
+    paidCents: sum((p) => p.earnings.paidCents),
+  });
   return (
     <Section title={W.list.title} icon={Handshake} testId="partners-list">
       {partners.length ? (

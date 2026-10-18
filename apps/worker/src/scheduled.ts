@@ -111,6 +111,7 @@ import { NUMBER_MONTH_JOBS, NUMBER_MONTHS_KEY, runNumberMonths } from './money/n
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
 import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
 import { TEXTING_FEE_JOBS, TEXTING_MONTHS_KEY, textingFeeJobs } from './telephony/texting-fees';
+import { PAYOUT_JOBS, PAYOUT_PLAN_KEY, partnerPayoutJobs } from './partners/payouts';
 import { opinlyJobs } from './opinly';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -593,6 +594,8 @@ export const jobs: JobMap = {
   ...moneyDocumentJobs,
   ...RECONCILE_JOB_HANDLERS,
   ...RECHARGE_JOB_HANDLERS,
+  // Paying partners (the partners plan's stage 3): each business's month, its charge and its transfers.
+  ...partnerPayoutJobs,
   // The AI's hearing and voice, billed from its running totals every quarter of an hour.
   [SPEECH_JOBS.charge]: runSpeechCharge,
   // Retired: the campaign's month went on the balance before the card paid it (telephony/texting-fees.ts). A row
@@ -786,6 +789,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: RCS_BILLING_JOBS.renewals,
       dedupeKey: RCS_RENEWALS_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Partner payouts (the partners plan's stage 3), hourly: each business's month once it starts, where staff
+    // have opened payouts and there's a card, and every payout with a card to try or partners to pay.
+    await scheduleJob(tx, {
+      kind: PAYOUT_JOBS.plan,
+      dedupeKey: PAYOUT_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

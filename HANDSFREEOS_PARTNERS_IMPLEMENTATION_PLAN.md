@@ -311,6 +311,88 @@ if the business says, decision 17), and the calendar the referral link books.
 - **Tax forms:** Stripe files each partner's 1099 for HandsFreeOS, the platform paying them.
 - **docs/operations.md** gets a section: turning on Express accounts and tax forms in Stripe.
 
+### How stage 3 is built (18 Oct 2026)
+
+**Opened one business at a time.** Nothing is charged or paid for a business until staff open partner payouts for
+it (`partner.set_payouts_open`, the new staff permission `platform.partner_payouts.manage`), as the usage wallet's
+stages are moved one business at a time. That waits on "Before stage 3 goes live" below. Closing them stops what
+hasn't been charged yet; a payout already charged still pays its partners.
+
+**The tables** (migration 20261027009000):
+
+- `app.partner_payout_billing`: one row a business. Whether payouts are open, the card on HandsFreeOS's own Stripe
+  account (a card of its own, beside the usage wallet's, on the same Stripe customer), and the last month its
+  payout was worked out. Only the worker and staff write it; a person with Manage money may only take the card off
+  (`partner.payout_forget_card`).
+- `app.partner_payout_accounts`: a partner's Stripe Express account, and what Stripe says of it: whether they
+  finished its form, whether Stripe can send their money to their bank, and what it still needs.
+- `app.partner_payouts`: a month's payout. What the partners are owed, Stripe's three fees, the charge, its tries
+  and what the card company said.
+- `app.partner_payout_lines`: each partner's part of it, and the transfer that paid them. Each commission names
+  the line that pays it (`payout_line_id`).
+
+**How a month is worked out** (`partner.payout_build`, `packages/core/src/partners/payouts.ts`):
+
+- **Once a month, in the business's own time zone.** The worker asks for the businesses whose month hasn't been
+  worked out (`private.partner_payouts_due`): open, with a card, and something earned that no payout has taken. A
+  business that adds its card mid-month has that month's payout within the hour, then one on each first.
+- **Who's paid:** each partner owed at least the smallest payout whose bank at Stripe can take it. What's owed is
+  what's free to pay out that no payout has taken, not held by a dispute, less what was taken back. Ended and
+  paused partners are paid what they earned before. The rest wait, with nothing charged for them: less than the
+  smallest payout carries to the next month, and a partner without a bank has it kept until they set one up.
+- **Live pays live, test pays test.** A worker with a live Stripe key pays live payments only; one with a test key
+  pays only payments taken in a provider's test mode. So Chris can try it all in Stripe's test mode first.
+- **Stripe's fees, each on its own line** (decision 16): $2 for each partner's account paid that month, 0.25% +
+  25¢ for each payout to their bank, then the card fee of 2.9% + 30¢ on the whole charge. The charge is the least
+  that leaves everything else once Stripe takes its card fee, each fee rounded up to the cent. A card from outside
+  the US costs Stripe more, and HandsFreeOS takes the difference.
+- **A declined card** (`partner.payout_record_charge`) is tried again on the usage wallet's ladder: six hours, a
+  day, three days. A new card tries at once. When the ladder gives up, or payouts were closed or the card taken off
+  before the try, the payout fails: its lines are cancelled and what they held is free to pay out in next month's.
+- **Each partner** is paid by a transfer tied to the charge (`partner.payout_record_transfer`). One Stripe won't
+  take for them yet is held, and sent once their account can take it. A payout is paid once every partner on it
+  is.
+
+**What's shown:** what a partner earned now says what's on its way in a payout and what's been paid, on the
+business's screens and the partner's page; payable leaves both out. `partner.payouts` gives the business its card,
+the next payout as it stands (who it would pay, who waits and why, and what it would charge), and its payouts;
+`partner.payout_get` gives a month's statement; `partner.get` gives a partner's bank and their payout lines. The
+partner's page (`portal.partner`) gives their bank, what they've been paid and what's on its way, through three new
+look-ups; a cancelled line isn't theirs to see. The words are core's (`partners/payout-words.ts`).
+
+**Build order:**
+
+1. **3a (built):** decision 19, refunds made in Stripe's or Square's own dashboard (stage 2b's note).
+2. **3b (built):** the tables, the rules, the commands and the look-ups above, in core.
+3. **3c (built):** the worker (`apps/worker/src/partners/payouts.ts`, `payout-routes.ts`):
+   - The payout card goes on through Stripe's own page (`POST /v1/partners/payout-card`, Manage money), on the
+     business's Stripe customer at HandsFreeOS, only once payouts are open.
+   - A partner sets up their bank from their page (`POST /public/portal/:token/partner/payouts`): the first press
+     makes their Express account (US, transfers only) and opens Stripe's form, asking for everything up front; the
+     way back reads the account from Stripe; once it's set up, their Stripe page opens from there.
+   - Stripe's `account.updated` and `capability.updated` for a partner's account come on the Connect webhook, are
+     routed to the partner, and the account is read back from Stripe.
+   - The hourly `partner_payouts.plan` works out each business's month and arms a job for each payout with work
+     left. `partner_payouts.charge` charges the card once per try by its key; anything but a success is a decline,
+     as the wallet's top-ups have it. `partner_payouts.pay` sends each partner their part by a transfer tied to the
+     charge, once per line and account by its key. A new card tries a waiting payout at once.
+   - The owners and admins are emailed when the card is declined, with when it's tried again, and when the month
+     is given up on; a partner hears from the business when they're paid.
+4. **3d (built):** the screens and docs:
+   - **The web:** Settings → Partners has **Paying your partners**: the card (added through Stripe's page, taken
+     off after a confirm, both for whoever manages money), the next payout as it stands (who it pays, who waits
+     and why, and what it charges, with each of Stripe's fees), and each month's payout, whose statement opens
+     beneath it. A partner's page has their bank's state and their part of each payout. A partner's own page in
+     the portal has **Getting paid**: Set up payouts, Finish with Stripe, or Open your Stripe page, and what
+     they've been paid. Earnings everywhere add what's on its way and what's been paid (`earningsTotals`).
+   - **The phone:** the same to read, with **Change these on the web**.
+   - **/admin:** a business's page opens or closes partner payouts, with a reason (`platform.partner_payouts.get`,
+     `partner.set_payouts_open`).
+   - **docs/operations.md:** "Paying partners: Stripe Express": turning on Express accounts and 1099s, trying it in
+     test mode, opening payouts for a business, and what goes wrong.
+   - Still open: Stripe's fees for filing 1099s aren't passed on; a line held for a partner deleted for good is
+     sorted out by staff in Stripe.
+
 ## Before stage 3 goes live
 
 - **Chris, with his accountant or lawyer:** HandsFreeOS charging businesses and paying their partners makes it the

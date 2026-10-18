@@ -13,6 +13,11 @@ import {
   onPartnerPayment,
   onPartnerRefund,
 } from '../partners/handlers';
+import {
+  onPartnerPayoutCardSaved,
+  onPartnerPayoutDeclined,
+  onPartnerPayoutLinePaid,
+} from '../partners/payouts';
 import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladder';
 import { onChatReplySent } from '../chat/followup';
 import { onDomainServing } from '../chat/own-domain';
@@ -303,6 +308,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'refund.recorded': [onInvoiceChanged, onPartnerRefund],
     // A dispute the business lost takes back what a partner earned on the payment (partners/handlers.ts).
     'dispute.closed': onPartnerDispute,
+    // Paying partners (partners/payouts.ts): a new card is tried at once; the owners hear when the card is
+    // declined, or given up on for the month; a partner hears when they're paid.
+    'partner.payout_card_saved': onPartnerPayoutCardSaved,
+    'partner.payout_declined': onPartnerPayoutDeclined,
+    'partner.payout_failed': onPartnerPayoutDeclined,
+    'partner.payout_line_paid': onPartnerPayoutLinePaid,
     'invoice.paid': onInvoicePaid,
     // A plan: the provider is made to match what it says here (money/subscriptions.ts), and the cycle job
     // watches it from then on.

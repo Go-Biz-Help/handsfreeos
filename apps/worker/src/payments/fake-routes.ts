@@ -156,8 +156,8 @@ export function registerFakePaymentRoutes(app: FastifyInstance, deps: HttpDeps):
           'Add a card',
           `<h1 style="font-size: 18px; margin: 0 0 6px;">Add a card</h1>` +
             `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">` +
-            `A stand-in for Stripe’s page on this development server. The card tops up this business’s ` +
-            `HandsFreeOS balance. No real money moves.</p>` +
+            `A stand-in for Stripe’s page on this development server. The card is kept on HandsFreeOS’s own ` +
+            `account for this business: its balance, or its partner payouts. No real money moves.</p>` +
             `<form method="post" action="/payments/fake/card">` +
             hidden('session', sessionRef) +
             (q.return ? hidden('return', q.return) : '') +
@@ -192,6 +192,58 @@ export function registerFakePaymentRoutes(app: FastifyInstance, deps: HttpDeps):
     return returnUrl
       ? back(reply, returnUrl, { card: sessionRef })
       : problem(reply, 'The card was saved, but there is nowhere to go back to.');
+  });
+
+  /**
+   * A partner setting up payouts, in place of Stripe's Express form (the partners plan's stage 3): finishing it
+   * makes their account ready, or not, and Stripe's `account.updated` goes to our Connect endpoint as it would.
+   */
+  app.get('/payments/fake/express', async (req, reply) => {
+    const q = req.query as { account?: string; return?: string; dashboard?: string };
+    const account = fake.page.payoutAccount(q.account ?? '');
+    if (!account) return problem(reply, 'Go back and start setting up payouts again.');
+    if (q.dashboard)
+      return reply
+        .type('text/html; charset=utf-8')
+        .header('cache-control', 'no-store')
+        .send(
+          shell(
+            'Your payouts',
+            `<h1 style="font-size: 18px; margin: 0 0 6px;">Your payouts</h1>` +
+              `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0;">` +
+              `A stand-in for Stripe’s Express dashboard on this development server. No real money moves.</p>`,
+          ),
+        );
+    return reply
+      .type('text/html; charset=utf-8')
+      .header('cache-control', 'no-store')
+      .send(
+        shell(
+          'Set up payouts',
+          `<h1 style="font-size: 18px; margin: 0 0 6px;">Set up payouts</h1>` +
+            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">` +
+            `A stand-in for Stripe’s form on this development server. Nothing is asked for and no real money ` +
+            `moves.</p>` +
+            `<form method="post" action="/payments/fake/express">` +
+            hidden('account', account.accountRef) +
+            (q.return ? hidden('return', q.return) : '') +
+            `<div style="display: flex; gap: 8px;">` +
+            `<button type="submit" name="decision" value="ready" data-testid="fake-finish-payouts" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Finish</button>` +
+            `<button type="submit" name="decision" value="later" data-testid="fake-later-payouts" style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Finish later</button>` +
+            `</div></form>`,
+        ),
+      );
+  });
+
+  app.post('/payments/fake/express', async (req, reply) => {
+    const b = (req.body ?? {}) as { account?: string; return?: string; decision?: string };
+    if (!fake.page.payoutAccount(b.account ?? ''))
+      return problem(reply, 'Go back and start setting up payouts again.');
+    if (b.decision === 'ready') await fake.finishPayoutAccount(b.account!);
+    const returnUrl = safeReturn(b.return);
+    return returnUrl
+      ? back(reply, returnUrl, {})
+      : problem(reply, 'Done, but there is nowhere to go back to.');
   });
 
   app.post('/payments/fake/pay', async (req, reply) => {

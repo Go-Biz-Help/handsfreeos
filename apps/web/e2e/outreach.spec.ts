@@ -1117,6 +1117,10 @@ test('the business sets how partners are paid, makes a customer a partner, marks
   await page.goto(`/app/w/${workspaceId}/settings/partners`);
   const settings = page.getByTestId('partners-settings');
   await expect(settings.getByTestId('partners-empty')).toContainText('No partners yet.');
+  // Paying partners through HandsFreeOS waits until HandsFreeOS opens it for the business.
+  await expect(settings.getByTestId('partner-payouts')).toContainText(
+    'HandsFreeOS doesn’t pay your partners for you yet.',
+  );
   await settings.getByTestId('partners-rate').fill('12');
   await settings.getByTestId('partners-rate').blur();
   await expect(page.getByText('Saved.')).toBeVisible();
@@ -1189,6 +1193,9 @@ test('the business sets how partners are paid, makes a customer a partner, marks
   await expect(commission).toContainText('12% of $1,000 paid');
   await expect(commission).toContainText('Free to pay out');
   await expect(detail.getByTestId('partner-clients')).toContainText('Earning them a share until');
+  await expect(detail.getByTestId('partner-payouts-of-partner')).toContainText(
+    'Hasn’t set up payouts yet.',
+  );
   await detail.getByTestId('partner-pause').click();
   await expect(detail.getByTestId('partner-status')).toHaveText('Paused');
   await expect(detail.getByTestId('partner-status-line')).toContainText('Pia Partner is paused.');

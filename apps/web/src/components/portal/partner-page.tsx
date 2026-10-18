@@ -1,19 +1,24 @@
 'use client';
 /**
- * A partner's own page in the business's portal (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2c): the terms to
- * accept first, then their link to share, what they've earned, and the clients they sent by first name and last
- * initial. Everything comes from `portal.partner`; accepting is `portal.partner_accept_terms`.
+ * A partner's own page in the business's portal (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stages 2c and 3): the
+ * terms to accept first, then their link to share, what they've earned, getting paid through Stripe, and the clients
+ * they sent by first name and last initial. Everything comes from `portal.partner`; accepting is
+ * `portal.partner_accept_terms`, and setting up their bank goes through the worker (`usePortal().partnerPayouts`).
  */
 import {
+  earningsTotals,
   formatDate,
   money,
   PARTNER_PAGE_WORDS as W,
+  PAYOUT_WORDS,
+  payoutMonthWords,
   rateWords,
   type PartnerEarnings,
 } from '@hfos/core';
 import { Check, Copy } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { errorMessage } from '@/lib/api/errors';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { usePortal, usePortalAct, usePortalQuery } from './context';
@@ -42,8 +47,27 @@ interface PortalPartner {
     };
     readonly earnings: PartnerEarnings;
     readonly clients: readonly PortalPartnerClient[];
+    readonly payouts: {
+      readonly open: boolean;
+      readonly smallestPayoutCents: number;
+      readonly account: {
+        readonly ready: boolean;
+        readonly detailsSubmitted: boolean;
+        readonly needsMore: boolean;
+      } | null;
+      readonly lines: readonly {
+        readonly lineId: string;
+        readonly month: string;
+        readonly amountCents: number;
+        readonly status: 'pending' | 'paid' | 'held';
+        readonly paidAt: string | null;
+        readonly livemode: boolean;
+      }[];
+    };
   } | null;
 }
+
+const G = PAYOUT_WORDS.portal;
 
 /** A date on their own clock, with its year when it isn't this one: a client's 12 months end next year. */
 const day = (at: string) => formatDate(at);
@@ -72,13 +96,8 @@ export function PortalPartnerPage() {
     toast.success(W.link.copied);
     setTimeout(() => setCopied(false), 2_000);
   };
-  const totals: [string, number][] = [
-    [W.earnings.earned, p.earnings.earnedCents],
-    [W.earnings.waiting, p.earnings.waitingCents],
-    [W.earnings.payable, p.earnings.payableCents],
-  ];
-  // A dispute's hold shows only while one is open.
-  if (p.earnings.heldCents) totals.push([W.earnings.held, p.earnings.heldCents]);
+  // A dispute's hold, what's on its way and what's been paid show only while there's some.
+  const totals = earningsTotals(p.earnings, W.earnings);
   return (
     <div className="space-y-4" data-testid="portal-partner">
       <div className="space-y-1">
@@ -156,6 +175,10 @@ export function PortalPartnerPage() {
         <p className="mt-3 text-[13px] text-text-2">{W.earnings.about}</p>
       </Card>
 
+      {p.payouts.open || p.payouts.lines.length ? (
+        <GettingPaid business={business} payouts={p.payouts} onChecked={reload} />
+      ) : null}
+
       <Card className="p-4" data-testid="portal-partner-clients">
         <PortalCardHead>{W.clients.title}</PortalCardHead>
         {p.clients.length ? (
@@ -182,5 +205,121 @@ export function PortalPartnerPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * Getting paid (stage 3): setting up their bank on Stripe's own form, Stripe's page once they have, and what they've
+ * been paid. On the way back from Stripe the account is read from Stripe at once (`?payouts=back`); a link that ran
+ * out asks for a fresh one (`?payouts=again`). Either mark comes off the address, so a refresh asks nothing twice.
+ */
+function GettingPaid({
+  business,
+  payouts,
+  onChecked,
+}: {
+  business: string;
+  payouts: NonNullable<PortalPartner['partner']>['payouts'];
+  onChecked: () => void;
+}) {
+  const { partnerPayouts } = usePortal();
+  const [busy, setBusy] = useState<'start' | 'stripe' | null>(null);
+  const go = async (action: 'start' | 'stripe') => {
+    setBusy(action);
+    try {
+      const out = await partnerPayouts(action);
+      if (out.url) window.location.assign(out.url);
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setBusy(null);
+    }
+  };
+  const returned = useRef(false);
+  useEffect(() => {
+    const mark = new URLSearchParams(window.location.search).get('payouts');
+    if (!mark || returned.current) return;
+    returned.current = true;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (mark === 'again') {
+      void go('start');
+      return;
+    }
+    void partnerPayouts('check').then(
+      (out) => {
+        if (!out.ready) toast.info(G.back);
+        onChecked();
+      },
+      (e: unknown) => toast.error(errorMessage(e)),
+    );
+    // Once, on the way back.
+  }, []);
+  const a = payouts.account;
+  return (
+    <Card className="p-4" data-testid="portal-partner-payouts">
+      <PortalCardHead>{G.title}</PortalCardHead>
+      {payouts.open ? (
+        <>
+          <p className="text-[14px] text-text-2">{G.about(business)}</p>
+          {a?.ready ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[14px] font-medium text-success-text">{G.ready}</p>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => void go('stripe')}
+                data-testid="portal-partner-stripe"
+              >
+                {G.openStripe}
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              <p className="text-[13px] text-text-2">{a ? G.finishHint : G.setUpHint}</p>
+              <Button
+                className="w-full"
+                disabled={busy !== null}
+                onClick={() => void go('start')}
+                data-testid="portal-partner-set-up"
+              >
+                {a ? G.finish : G.setUp}
+              </Button>
+            </div>
+          )}
+          <p className="mt-3 text-[13px] text-text-2">
+            {G.smallest(money(payouts.smallestPayoutCents))}
+          </p>
+        </>
+      ) : null}
+      {payouts.lines.length ? (
+        <>
+          <p className="mt-4 text-[13px] font-semibold">{G.history}</p>
+          <ul className="divide-y divide-border" data-testid="portal-partner-payout-lines">
+            {payouts.lines.map((l) => (
+              <li key={l.lineId} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium">
+                    {payoutMonthWords(l.month)}
+                    {l.livemode ? null : (
+                      <span className="font-normal text-text-3"> · {G.test}</span>
+                    )}
+                  </p>
+                  <p className="text-[12px] text-text-2">
+                    {l.status === 'paid' && l.paidAt
+                      ? G.lineStatus.paid(day(l.paidAt))
+                      : l.status === 'held'
+                        ? G.lineStatus.held
+                        : G.lineStatus.pending}
+                  </p>
+                </div>
+                <span className="shrink-0 text-[14px] font-semibold tabular-nums">
+                  {money(l.amountCents)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </Card>
   );
 }

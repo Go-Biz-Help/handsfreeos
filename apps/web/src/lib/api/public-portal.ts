@@ -106,6 +106,17 @@ export const signOutPortal = (token: string, bearer: string) =>
 export const portalOp = <T>(bearer: string, name: string, input: Record<string, unknown> = {}) =>
   post<T>(`/public/portal/op/${encodeURIComponent(name)}`, input, bearer);
 
+/**
+ * A partner setting up their bank at Stripe from their page (the partners plan's stage 3): Stripe's form to go to,
+ * what Stripe says of it on their way back, or their Stripe page. On their own link only.
+ */
+export const portalPartnerPayouts = (
+  token: string,
+  bearer: string,
+  action: 'start' | 'check' | 'stripe',
+) =>
+  post<{ url?: string; ready?: boolean }>(`${linkPath(token)}/partner/payouts`, { action }, bearer);
+
 /** A file of theirs, kept on one of their records (or on them): reserved, put in place, then checked. */
 export async function uploadPortalFile(
   bearer: string,
