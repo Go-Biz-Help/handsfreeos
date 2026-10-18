@@ -15,7 +15,7 @@ import { PARTNER_WORDS, partnerDraftPrompt } from '../../src/addons/outreach/par
 import { blankPlaybook, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { goesAsItIs } from '../../src/addons/outreach/sends';
 import { doneOnItsOwn } from '../../src/addons/outreach/today';
-import { outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -477,6 +477,14 @@ describe('reaching partners', () => {
   it('shows the person’s own asks, yeses, calls and partners made in Results', async () => {
     const gwen = await partnerOf(await idOf('gwen.group.1'));
     await runAs(owner, ws, 'outreach.partner.mark', { partnerId: gwen, mark: 'partner' });
+    // A partner of the business now too, with a link of their own (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, 2a).
+    const core = await rows<{ code: string; status: string }>(
+      admin(),
+      sql`select pa.code, pa.status from app.partners pa
+          join addon_outreach.profiles p on p.person_id = pa.person_id
+          where p.workspace_id = ${ws} and p.username = 'gwen.group.1'`,
+    );
+    expect(core).toEqual([{ code: expect.stringMatching(/^[A-Za-z0-9]{10}$/), status: 'active' }]);
     // Gwen asked 8 days ago, Hal and Ida today; Gwen said yes, booked her call, and is a partner now.
     expect((await runAs(owner, ws, 'outreach.activity', { period: 'month' })).partners).toEqual({
       asked: 3,
@@ -494,5 +502,28 @@ describe('reaching partners', () => {
     expect(
       (await runAs(owner, ws, 'outreach.activity', { period: 'month', everyone: true })).partners,
     ).toBeNull();
+  });
+
+  it('makes a partner only for someone who holds Manage partners, and leaves the list as it was otherwise', async () => {
+    const member = await createTestUser('outps-member', { fullName: 'Mo Member' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${ws}, ${member.id}, 'member')`,
+    );
+    const [mine] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.partners (workspace_id, user_id, profile_id, kind, fit, stage, found_at,
+            interested_at, looked_at, checked_at)
+          values (${ws}, ${member.id}, ${await idOf('jo.jams.4')}, 'creator', 'good', 'interested', now(), now(),
+            now(), now())
+          returning id`,
+    );
+    expect(
+      await refused(
+        runAs(member, ws, 'outreach.partner.mark', { partnerId: mine!.id, mark: 'partner' }),
+      ),
+    ).toBe('partner_needs_manage');
+    expect((await row(mine!.id)).stage).toBe('interested');
   });
 });

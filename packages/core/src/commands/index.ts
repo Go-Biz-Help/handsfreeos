@@ -300,6 +300,15 @@ import {
   mainOfferTryApply,
   mainOfferTrySave,
 } from './main-offer';
+import {
+  partnerAdd,
+  partnerCommissionNote,
+  partnerCommissionTakeBack,
+  partnerReferralNote,
+  partnerReferralSet,
+  partnersSaveSettings,
+  partnerUpdate,
+} from './partners';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
 import {
   portalAccessGive,
@@ -933,6 +942,14 @@ export const commands: readonly CommandDef[] = [
   mainOfferSaveDirection,
   mainOfferTrySave,
   mainOfferTryApply,
+  // Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2).
+  partnersSaveSettings,
+  partnerAdd,
+  partnerUpdate,
+  partnerReferralSet,
+  partnerReferralNote,
+  partnerCommissionNote,
+  partnerCommissionTakeBack,
   knowledgeItemImportFaqs,
   knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,
@@ -1179,6 +1196,7 @@ export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';
 export * from './main-offer';
+export * from './partners';
 export * from './chat-verify';
 export * from './portal-access';
 export * from './portal-files';

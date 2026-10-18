@@ -166,6 +166,14 @@ export const CORE_CAPABILITIES: readonly CoreCapability[] = [
     permission: 'workspace.read',
     feature: 'main_offer',
   },
+  {
+    id: 'sales.partners',
+    label: 'Partners',
+    description:
+      'People who send the business its customers for a share of what they pay: their links, the clients they sent and what they earned.',
+    permission: 'partners.manage',
+    feature: 'partners',
+  },
 ];
 
 /** The first segments of core's capability ids. No add-on may use one as its id. */

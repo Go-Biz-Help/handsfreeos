@@ -7,6 +7,7 @@ import { withAttention } from '../attention/index';
 import { onSweepStarted, withContactAi } from '../contact-ai/index';
 import { onPortalReplySent } from '../portal/replies';
 import { onPortalAccessGiven } from '../portal/invite';
+import { onPartnerBooking, onPartnerPayment, onPartnerRefund } from '../partners/handlers';
 import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladder';
 import { onChatReplySent } from '../chat/followup';
 import { onDomainServing } from '../chat/own-domain';
@@ -290,10 +291,11 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'estimate.accepted': onPipelineEvidence,
     'invoice.sent': onInvoiceSent,
     'invoice.updated': onInvoiceChanged,
-    'payment.recorded': [onPaymentRecorded, onInvoiceChanged],
+    // …and a partner's client paying earns the partner their share, which a refund takes back (partners/handlers.ts).
+    'payment.recorded': [onPaymentRecorded, onInvoiceChanged, onPartnerPayment],
     'payment.updated': onInvoiceChanged,
     'payment.failed': [onPaymentFailed, onInvoiceChanged],
-    'refund.recorded': onInvoiceChanged,
+    'refund.recorded': [onInvoiceChanged, onPartnerRefund],
     'invoice.paid': onInvoicePaid,
     // A plan: the provider is made to match what it says here (money/subscriptions.ts), and the cycle job
     // watches it from then on.
@@ -317,6 +319,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onPipelineEvidence,
       // Automations' "Did the job happen?": a push to whoever is on it, once it's over (automations/job-check.ts).
       onArmJobCheck,
+      // Booked through a partner's link: the customer becomes that partner's client (partners/handlers.ts).
+      onPartnerBooking,
     ],
     'appointment.updated': onAppointmentChanged,
     'appointment.rescheduled': [

@@ -29,6 +29,9 @@ someone who already has your customers' attention, asked to send them your way f
 | 13  | Can a partner be pitched as a customer? | **Never.** Once someone's a partner prospect, they only get partner messages, on every network.                                                                                                                |
 | 14  | Keep Alignable's referral swap?         | **Yes, beside the commission** (decision 79). A business with the same customers can earn commission and get referrals back.                                                                                   |
 | 15  | Which networks?                         | **All four at once.** Instagram's and Alignable's partner steps run as soon as each network's own steps do (they're still looked at, decision 78).                                                             |
+| 16  | Who pays Stripe's fees?                 | **The business,** added to its monthly charge and shown on its statement (Chris, 18 Oct 2026).                                                                                                                 |
+| 17  | What's the smallest payout?             | **$25,** with less carried to the next month. A business can set a lower one for its partners.                                                                                                                 |
+| 18  | Partners outside the US?                | **Later.** US partners first.                                                                                                                                                                                  |
 
 ## How it works, in plain words
 
@@ -192,6 +195,67 @@ working a profile:
   business's partner terms there first.
 - **The business's settings:** its default rate, and the terms partners accept.
 
+### How stage 2 is built (18 Oct 2026)
+
+**A core feature, `partners`** (`CORE_FEATURES`), on while an add-on that uses it runs: Social Outreach says
+`uses: ['main_offer', 'partners']`. People's commands refuse while it's off (`partners_not_in_use`), as the main
+offer's do. The worker's keep counting all the same: a partner was promised their share, and nothing is earned without
+one. Owners and admins hold a new permission, `partners.manage`, which an owner can give anyone in Settings →
+Permissions. Make partner on the Partners list needs it, since it promises the business's money, and makes the contact
+a partner here too (`partner.add`).
+
+**Its settings** (`settings.partners`, `partners.save_settings`, kept beside `money`): the default rate (10% to
+start), the terms partners accept (with a version that goes up when they change), the smallest payout ($25, or lower
+if the business says, decision 17), and the calendar the referral link books.
+
+**The tables:**
+
+- `app.partners`: the partner's contact (one partner per contact), a code of 10 letters and digits for their link,
+  their own rate when it isn't the default, active, paused or ended, and the version of the terms they accepted, with
+  when.
+- `app.partner_referrals`: a client of theirs (each customer is one partner's: the first to send them), how (link or
+  by hand), the booking it came from, when, and when their first payment after it was. A customer deleted for good
+  lets go of it, so what was earned stays.
+- `app.partner_commissions`: a share earned on a payment, or taken back on a refund or a lost dispute: what it was
+  worked out on, the rate, the amount (negative when taken back), when it was earned, when it's free to pay out (30
+  days after, decision 8), held while a dispute is open, and payments in a provider's test mode marked so they're
+  never paid out.
+
+**How it's worked out:**
+
+- A booking through `?ref=pa-<code>` (the attendee's `link_ref`) makes its customer the partner's client, unless
+  they're already someone's or they're the partner (`partner.referral_note`, the worker on `appointment.booked`).
+- **Referred by** on a customer sets or clears it by hand (`partner.referral_set`). A client who has earned their
+  partner something, even what a refund took back since, stays theirs: the database holds it too, since a commission's
+  referral never cascades.
+- Each payment that succeeds (`payment.recorded`): a client's first payment after they were referred starts their 12
+  months (decision 7), and each payment in them earns an active partner their rate of what the client paid
+  (`partner.commission_note`). Only what they pay after they were sent counts. A paused or ended partner earns
+  nothing on new payments, though the client's 12 months still run.
+- A refund (`refund.recorded`) takes back the same rate of what was refunded, never more than was earned
+  (`partner.commission_take_back`). It comes off with what it takes from: while that still waits its 30 days, so
+  does what's taken back; once that's free to pay out, it comes off at once.
+- **Whichever the worker notes first**, it comes out the same: a deposit paid as the customer booked, noted before
+  the booking is, still earns once the booking makes them a client; a refund noted before its payment comes off as
+  soon as the payment earns. The worker's three steps run core's commands in the event's own transaction
+  (`apps/worker/src/partners/handlers.ts`), so a retry adds nothing.
+- Disputes: `app.payment_disputes` keeps each one from Stripe's and Square's webhooks (`payment.record_dispute`),
+  with `dispute.opened` and `dispute.closed`. An open one holds its payment's commission, a lost one takes it back,
+  and a won one lets it go.
+
+**Build order:**
+
+1. **2a:** the core feature, its permission and settings, the tables, referrals, commissions on payments and refunds,
+   and Make partner.
+2. **2b:** disputes, and a refund made in Stripe's or Square's own dashboard recorded here too: today the worker
+   passes over one HandsFreeOS never asked for, so its share wouldn't come back.
+3. **2c:** the partner's page (`portal.partner`: their link, their clients by first name and last initial, what's
+   earned, waiting and paid) and accepting the terms, with **Send their page** (`portal_access.give`).
+4. **2d:** the screens, on the web and the phone: Settings → Partners, the partners with their clients and
+   commissions, and Referred by on a customer. Make partner shows only to whoever holds Manage partners. The Deleted
+   bin says when a contact is a partner: deleting one for good takes their partner record and what they earned with
+   it.
+
 ## Stage 3: payouts (core)
 
 - **The partner's bank:** Stripe Connect Express, set up from their page with Stripe's own form (bank details, tax
@@ -201,6 +265,10 @@ working a profile:
   card is charged off-session, once per month by its key; then each partner is paid by a Stripe transfer tied to
   that charge. A declined card waits and is tried again, with the owner told, as wallet recharges do. A partner who
   hasn't set up their bank yet has their share kept for them.
+- **Stripe's fees are the business's** (decision 16): added to the month's charge, each on its own line of the
+  statement.
+- **The smallest payout** (decision 17): $25 unless the business sets a lower one in its partner settings. A partner
+  owed less than that has it carried to the next month.
 - **Tax forms:** Stripe files each partner's 1099 for HandsFreeOS, the platform paying them.
 - **docs/operations.md** gets a section: turning on Express accounts and tax forms in Stripe.
 
@@ -209,11 +277,10 @@ working a profile:
 - **Chris, with his accountant or lawyer:** HandsFreeOS charging businesses and paying their partners makes it the
   platform that pays them. Stripe holds and moves the money as the licensed party, but the business's terms, the
   partners' terms and the 1099s should be checked.
-- **Open questions, each with a recommendation, asked before stage 3:**
-  - **Stripe's fees** (about 3% on the monthly charge, and about $2 a month per active partner plus 0.25% per
-    payout): **added to the business's monthly charge,** shown on its statement.
-  - **The smallest payout:** **$25,** with less carried to the next month.
-  - **Partners outside the US:** **later.**
+- **The questions asked before stage 3 are answered** (decisions 16 to 18, Chris, 18 Oct 2026): the business pays
+  Stripe's fees (about 3% on the monthly charge, and about $2 a month per active partner plus 0.25% per payout),
+  added to its monthly charge; the smallest payout is $25 unless the business sets a lower one; and partners outside
+  the US come later.
 
 ## Build order
 

@@ -57,8 +57,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   planned add-on declares no code); the catalogue tests run them on every build.
 - **Parts of core only some add-ons use** (`uses`, from `CORE_FEATURES`): built in core so add-ons can share them,
   shown only while an add-on that names one is on. The business's main offer is the first (`uses: ['main_offer']`,
-  docs/main-offer.md): its capability is current only then (`coreFeatureOn`), and its commands refuse otherwise. Core
-  never names an add-on; the add-on names what it uses.
+  docs/main-offer.md): its capability is current only then (`coreFeatureOn`), and its commands refuse otherwise.
+  Partners is the second (`'partners'`, HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md), whose worker steps keep
+  counting even while it's off, since a partner was promised their share. Core never names an add-on; the add-on
+  names what it uses.
 - **Catalogue status**: `planned` (a promise: never installable, never offered, voted on), `development` (offered nowhere),
   `beta` and `built` (staff hand it out), `available` (anyone who manages add-ons installs it), `deprecated` (runs
   where installed, offered to nobody), `unavailable` (runs nowhere). HandsFreeOS staff can push an add-on down to

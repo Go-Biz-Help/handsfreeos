@@ -6907,7 +6907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Marks someone on the person’s Partners list: interested, call booked, a partner now, not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.
+         * Marks someone on the person’s Partners list: interested, call booked, a partner now (made a partner of the business, with a link of their own), not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.
          * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked.
          */
         post: operations["command_outreach_partner_mark"];
@@ -7351,6 +7351,86 @@ export interface paths {
          * @description Risk level 3. Requires platform.own_business.manage. Emits own_business.changed.
          */
         post: operations["command_own_business_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/partner.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a contact a partner of the business: they get a link of their own, and each customer who books through it earns them a share of what that customer pays in their first 12 months. Brings back a partner who was paused or ended.
+         * @description Risk level 2. Requires partners.manage. Emits partner.added, partner.updated.
+         */
+        post: operations["command_partner_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/partner.referral_set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark which partner sent a customer, or that none did. Their payments from then on, in their first 12 months, earn that partner their share. A customer who has earned a partner something stays theirs.
+         * @description Risk level 2. Requires partners.manage. Emits partner.referred, partner.referral_removed.
+         */
+        post: operations["command_partner_referral_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/partner.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a partner’s own share (or go back to the business’s), or pause or end them. A paused or ended partner earns nothing on payments from then on; what they earned is kept.
+         * @description Risk level 2. Requires partners.manage. Emits partner.updated.
+         */
+        post: operations["command_partner_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/partners.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the partner settings: the share partners earn unless they have their own, the terms they accept, the smallest payout ($25 or lower), and the calendar their links book. Partners accept changed terms again.
+         * @description Risk level 2. Requires partners.manage. Emits partners.settings_saved.
+         */
+        post: operations["command_partners_save_settings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17951,6 +18031,86 @@ export interface paths {
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_wheels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/partner.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One partner: their share, link and what they earned; the clients they sent, how, when, and when each one’s 12 months end; and their latest commissions, with what each was worked out on.
+         * @description Requires partners.manage.
+         */
+        post: operations["query_partner_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/partner.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s partners: each one’s share, link, how many clients they sent, and what they earned, what’s waiting its 30 days and what’s free to pay out. Active partners first, the biggest earners first.
+         * @description Requires partners.manage.
+         */
+        post: operations["query_partner_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/partner.of_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A customer’s partner side: whether they’re a partner of the business, and which partner sent them, how and when, with what they earned that partner.
+         * @description Requires partners.manage.
+         */
+        post: operations["query_partner_of_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/partners.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The partner settings, every default filled in: the share partners earn unless they have their own, the terms they accept, the smallest payout and the calendar their links book; and whether partners are on here.
+         * @description Requires partners.manage.
+         */
+        post: operations["query_partners_settings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38718,6 +38878,156 @@ export interface operations {
             };
         };
     };
+    command_partner_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** @default null */
+                    rateBp?: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: string;
+                        created: boolean;
+                        /** Format: uuid */
+                        partnerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_partner_referral_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    partnerId: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        referralId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_partner_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    partnerId: string;
+                    rateBp?: number | null;
+                    /** @enum {string} */
+                    status?: "active" | "paused" | "ended";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        partnerId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_partners_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    settings: {
+                        calendarId: string | null;
+                        rateBp: number;
+                        smallestPayoutCents: number;
+                        terms: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        settings: {
+                            /** @default null */
+                            calendarId: string | null;
+                            /** @default 1000 */
+                            rateBp: number;
+                            /** @default 2500 */
+                            smallestPayoutCents: number;
+                            /** @default  */
+                            terms: string;
+                            /** @default 0 */
+                            termsVersion: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_payment_connection_connect: {
         parameters: {
             query?: never;
@@ -38996,7 +39306,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "partners.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -39030,7 +39340,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "partners.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -68869,6 +69179,234 @@ export interface operations {
                                 on: boolean;
                             };
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_partner_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    partnerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        clients: {
+                            earnedCents: number;
+                            firstPaidAt: string | null;
+                            /** @enum {string} */
+                            how: "link" | "by_hand";
+                            monthsEndAt: string | null;
+                            name: string;
+                            personId: string | null;
+                            /** Format: uuid */
+                            referralId: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                        }[];
+                        commissions: {
+                            amountCents: number;
+                            baseCents: number;
+                            clientName: string;
+                            /** Format: uuid */
+                            commissionId: string;
+                            /** Format: date-time */
+                            earnedAt: string;
+                            invoiceNumber: string | null;
+                            /** @enum {string} */
+                            kind: "earned" | "taken_back";
+                            /** Format: date-time */
+                            payableAt: string;
+                            rateBp: number;
+                            test: boolean;
+                        }[];
+                        partner: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            clients: number;
+                            code: string;
+                            earnings: {
+                                earnedCents: number;
+                                payableCents: number;
+                                waitingCents: number;
+                            };
+                            email: string | null;
+                            linkPath: string | null;
+                            name: string;
+                            ownRate: boolean;
+                            /** Format: uuid */
+                            partnerId: string;
+                            /** Format: uuid */
+                            personId: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "ended";
+                            termsAccepted: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_partner_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        partners: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            clients: number;
+                            code: string;
+                            earnings: {
+                                earnedCents: number;
+                                payableCents: number;
+                                waitingCents: number;
+                            };
+                            email: string | null;
+                            linkPath: string | null;
+                            name: string;
+                            ownRate: boolean;
+                            /** Format: uuid */
+                            partnerId: string;
+                            /** Format: uuid */
+                            personId: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "ended";
+                            termsAccepted: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_partner_of_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: boolean;
+                        partner: {
+                            /** Format: uuid */
+                            partnerId: string;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "ended";
+                        } | null;
+                        referredBy: {
+                            earnedCents: number;
+                            /** @enum {string} */
+                            how: "link" | "by_hand";
+                            name: string;
+                            /** Format: uuid */
+                            partnerId: string;
+                            /** Format: uuid */
+                            referralId: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_partners_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: boolean;
+                        linkCalendar: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        settings: {
+                            /** @default null */
+                            calendarId: string | null;
+                            /** @default 1000 */
+                            rateBp: number;
+                            /** @default 2500 */
+                            smallestPayoutCents: number;
+                            /** @default  */
+                            terms: string;
+                            /** @default 0 */
+                            termsVersion: number;
+                        };
                     };
                 };
             };

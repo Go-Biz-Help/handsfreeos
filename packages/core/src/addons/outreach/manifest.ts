@@ -71,7 +71,7 @@ export const outreachAddon = defineAddon({
   ],
   billing: { model: 'free' },
   // The business's main offer, built in core so other add-ons share it (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md).
-  uses: ['main_offer'],
+  uses: ['main_offer', 'partners'],
   events: {
     emits: [
       'outreach.playbook.saved',

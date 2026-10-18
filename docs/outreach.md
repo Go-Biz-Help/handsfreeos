@@ -1436,9 +1436,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     playbook's, the AI judging fit first and size second. It warms them up, then asks only whether they're open to a
     partnership, and every partner message waits for the person's OK. Someone asked to partner is never pitched as a
     customer. A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
-    paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe. Each
-    partner has their own page. Alignable's referral swap stays beside the commission. Social Outreach finds and asks;
-    partners, commissions and payouts are core's, as money is. Group admins and moderators are still never approached
+    paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe, with
+    Stripe's fees the business's and $25 the smallest payout unless the business sets a lower one; US partners
+    first (the plan's decisions 16 to 18). Each partner has their own page. Alignable's referral swap stays beside
+    the commission. Social Outreach finds and asks; partners, commissions and payouts are core's, as money is: **Make
+    partner** on the Partners list takes Manage partners (`partners.manage`), since it promises the business's money,
+    and makes the contact a partner in core too (`partner.add`), with a link of their own. Group admins and moderators are still never approached
     as customers; this is the one way they're approached, as Chris asked.
 
 ## Rules worth knowing before changing anything

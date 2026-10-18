@@ -51,6 +51,8 @@ export const ROLE_PERMISSIONS = {
     'knowledge.manage',
     // The business's main offer (20261027006100), which only shows while an add-on that uses it is on.
     'main_offer.manage',
+    // Its partners and what they earn (20261027008600), the same way.
+    'partners.manage',
     'ai_team.manage',
     'money.read',
     'money.bill',
@@ -94,6 +96,7 @@ export const ROLE_PERMISSIONS = {
     'workflows.manage',
     'knowledge.manage',
     'main_offer.manage',
+    'partners.manage',
     'ai_team.manage',
     'money.read',
     'money.bill',
@@ -391,6 +394,13 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         label: 'Build the main offer',
         description:
           'Who the business helps, the result, the guarantee and the price that its sales add-ons use.',
+        requires: [],
+      },
+      {
+        permission: 'partners.manage',
+        label: 'Manage partners',
+        description:
+          'Who the business’s partners are, their share, the clients they sent and what they earned.',
         requires: [],
       },
       {
