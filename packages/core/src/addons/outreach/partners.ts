@@ -394,24 +394,31 @@ export type PartnerMarkOutput = z.output<typeof PartnerMarkOutput>;
 
 /**
  * The marks a row of the Partners list offers at each stage, the web's and the phone's: the stages still ahead, Not
- * now, and Not a partner while the AI may have been wrong; back on the list once set aside. A partner has none yet:
- * stage 2 keeps them in core.
+ * now, and Not a partner while the AI may have been wrong; back on the list once set aside. A partner has none: core
+ * keeps them from then on. Make partner promises the business's money, so it shows only to whoever holds Manage
+ * partners (`makePartner`); the command refuses anyone else all the same.
  */
-export function partnerMarksFor(stage: PartnerStage): readonly PartnerMark[] {
-  switch (stage) {
-    case 'found':
-    case 'warming':
-    case 'asked':
-      return ['interested', 'call_booked', 'not_now', 'not_partner'];
-    case 'interested':
-      return ['call_booked', 'partner', 'not_now'];
-    case 'call_booked':
-      return ['partner', 'not_now'];
-    case 'partner':
-      return [];
-    case 'not_now':
-      return ['again', 'not_partner'];
-  }
+export function partnerMarksFor(
+  stage: PartnerStage,
+  opts: { readonly makePartner?: boolean } = {},
+): readonly PartnerMark[] {
+  const marks = ((): readonly PartnerMark[] => {
+    switch (stage) {
+      case 'found':
+      case 'warming':
+      case 'asked':
+        return ['interested', 'call_booked', 'not_now', 'not_partner'];
+      case 'interested':
+        return ['call_booked', 'partner', 'not_now'];
+      case 'call_booked':
+        return ['partner', 'not_now'];
+      case 'partner':
+        return [];
+      case 'not_now':
+        return ['again', 'not_partner'];
+    }
+  })();
+  return opts.makePartner === false ? marks.filter((m) => m !== 'partner') : marks;
 }
 
 // ------------------------------------------------------------------------------------------------- reaching them

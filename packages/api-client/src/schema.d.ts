@@ -57950,6 +57950,7 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                partners?: number;
                                 people?: number;
                                 relationships?: number;
                                 /** Format: date-time */
@@ -58021,6 +58022,7 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                partners?: number;
                                 people?: number;
                                 relationships?: number;
                                 /** Format: date-time */

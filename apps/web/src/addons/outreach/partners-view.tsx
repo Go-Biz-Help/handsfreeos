@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
+import { useCan } from '@/components/shell/workspace-shell';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -156,6 +157,8 @@ function PartnerItem({
   first: boolean;
 }) {
   const { busy, act } = useAct();
+  // Make partner promises the business's money: only whoever holds Manage partners sees it.
+  const makesPartners = useCan('partners.manage');
   const audience = P.audienceLine(p);
   const mark = (m: PartnerMark) =>
     act(
@@ -168,7 +171,7 @@ function PartnerItem({
         ),
       P.marked(m, p.name),
     );
-  const marks = partnerMarksFor(p.stage);
+  const marks = partnerMarksFor(p.stage, { makePartner: makesPartners });
   return (
     <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="partner">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

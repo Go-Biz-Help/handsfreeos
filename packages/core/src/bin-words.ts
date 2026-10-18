@@ -45,10 +45,16 @@ export function binContentsWords(c: BinContents): string | null {
 export function binContentsTotal(list: readonly BinContents[]): BinContents {
   if (list.length === 1) return list[0]!;
   const total: Partial<
-    Record<(typeof COUNTED)[number][0] | 'upcoming' | 'bills' | 'people', number>
+    Record<(typeof COUNTED)[number][0] | 'upcoming' | 'bills' | 'people' | 'partners', number>
   > = {};
   for (const c of list)
-    for (const key of [...COUNTED.map(([k]) => k), 'upcoming', 'bills', 'people'] as const) {
+    for (const key of [
+      ...COUNTED.map(([k]) => k),
+      'upcoming',
+      'bills',
+      'people',
+      'partners',
+    ] as const) {
       const n = c[key];
       if (n) total[key] = (total[key] ?? 0) + n;
     }
@@ -153,6 +159,16 @@ export function binDeleteBox(
         bills === 1
           ? `Their bill stays, with just ${several ? 'the' : 'their'} name on it.`
           : `Their ${bills} bills stay, with just ${several ? 'the names' : 'their name'} on them.`,
+      );
+    // A partner's record goes with their contact: what they earned, and which clients were theirs.
+    const partners = contents.partners ?? 0;
+    if (partners > 0)
+      lines.push(
+        !several
+          ? 'They’re one of your partners. Their partner record goes too: what they’ve earned, and which clients they sent you.'
+          : partners === 1
+            ? 'One of them is your partner. Their partner record goes too: what they’ve earned, and which clients they sent you.'
+            : `${partners} of them are your partners. Their partner records go too: what they’ve earned, and which clients they sent you.`,
       );
   } else if (kind === 'conversation') {
     const people = new Set(names);

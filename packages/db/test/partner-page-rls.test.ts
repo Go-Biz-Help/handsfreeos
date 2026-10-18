@@ -25,6 +25,9 @@ let otherWs: string;
 let paula: string;
 let nina: string;
 let other: string;
+// Codes are unique everywhere, so each run makes its own.
+const paulaCode = `Pp${randomBytes(4).toString('hex')}`;
+const otherCode = `Po${randomBytes(4).toString('hex')}`;
 
 const admin = () => dbs.admin.db;
 const one = async (q: Promise<{ id: string }[]>) => (await q)[0]!.id;
@@ -105,12 +108,12 @@ beforeAll(async () => {
   const maria = await person(ws, 'Maria', 'lopez');
   const [partner] = await rows<{ id: string }>(
     admin(),
-    sql`insert into app.partners (workspace_id, person_id, code) values (${ws}, ${paula}, 'PpRlS23456')
+    sql`insert into app.partners (workspace_id, person_id, code) values (${ws}, ${paula}, ${paulaCode})
         returning id`,
   );
   await rows(
     admin(),
-    sql`insert into app.partners (workspace_id, person_id, code) values (${otherWs}, ${other}, 'PpOtH23456')`,
+    sql`insert into app.partners (workspace_id, person_id, code) values (${otherWs}, ${other}, ${otherCode})`,
   );
   const [referral] = await rows<{ id: string }>(
     admin(),
@@ -140,7 +143,7 @@ afterAll(closeAll);
 describe('the partner’s page', () => {
   it('shows a partner their own, and names their clients by first name and last initial', async () => {
     const mine = await page(await signedIn(paula));
-    expect(mine.partner).toEqual([{ code: 'PpRlS23456' }]);
+    expect(mine.partner).toEqual([{ code: paulaCode }]);
     expect(mine.settings).toMatchObject({ rateBp: 1500, terms: 'Paid monthly.', termsVersion: 1 });
     expect(mine.calendar).not.toBeNull();
     expect(mine.clients).toEqual([{ first_name: 'Maria', last_initial: 'L' }]);
@@ -156,7 +159,7 @@ describe('the partner’s page', () => {
       earnings: '0',
     });
     const theirs = await page(await signedIn(other, otherWs));
-    expect(theirs).toMatchObject({ partner: [{ code: 'PpOtH23456' }], clients: [], settings: {} });
+    expect(theirs).toMatchObject({ partner: [{ code: otherCode }], clients: [], settings: {} });
   });
 
   it('keeps the partner tables themselves shut to the portal', async () => {
