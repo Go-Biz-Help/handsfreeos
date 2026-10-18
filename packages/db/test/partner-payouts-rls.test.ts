@@ -41,6 +41,7 @@ let paula: string;
 let petra: string;
 let paulaPartner: string;
 let payoutId: string;
+let lineId: string;
 
 const admin = () => dbs.admin.db;
 const one = async (q: Promise<{ id: string }[]>) => (await q)[0]!.id;
@@ -135,12 +136,44 @@ beforeAll(async () => {
             values (${A.ws}, ${A.org}, '2026-11-01', true, 10000, 200, 50, 338, 10588) returning id`,
       ),
     );
-    await tx.execute(
-      sql`insert into app.partner_payout_lines (workspace_id, payout_id, partner_id, account_ref, amount_cents,
-            account_fee_cents, payout_fee_cents)
-          values (${A.ws}, ${payoutId}, ${paulaPartner}, 'acct_line', 10000, 200, 50)`,
+    lineId = await one(
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.partner_payout_lines (workspace_id, payout_id, partner_id, account_ref, amount_cents,
+              account_fee_cents, payout_fee_cents)
+            values (${A.ws}, ${payoutId}, ${paulaPartner}, 'acct_line', 10000, 200, 50) returning id`,
+      ),
     );
   });
+  // Paula's share of a client's payment, on its way to her in that line.
+  const client = await person('Maria');
+  const referral = await one(
+    rows<{ id: string }>(
+      admin(),
+      sql`insert into app.partner_referrals (workspace_id, partner_id, person_id, how, referred_at)
+          values (${A.ws}, ${paulaPartner}, ${client}, 'by_hand', now() - interval '40 days') returning id`,
+    ),
+  );
+  const invoice = await one(
+    rows<{ id: string }>(
+      admin(),
+      sql`insert into app.invoices (workspace_id, person_id, title, status)
+          values (${A.ws}, ${client}, 'Tune-up', 'sent') returning id`,
+    ),
+  );
+  const payment = await one(
+    rows<{ id: string }>(
+      admin(),
+      sql`insert into app.payments (workspace_id, invoice_id, amount_cents, method, status, received_at)
+          values (${A.ws}, ${invoice}, 10000, 'cash', 'succeeded', now() - interval '35 days') returning id`,
+    ),
+  );
+  await admin().execute(
+    sql`insert into app.partner_commissions (workspace_id, partner_id, referral_id, payment_id, kind, base_cents,
+          rate_bp, amount_cents, earned_at, payable_at, payout_line_id)
+        values (${A.ws}, ${paulaPartner}, ${referral}, ${payment}, 'earned', 10000, 1500, 1500,
+          now() - interval '35 days', now() - interval '5 days', ${lineId})`,
+  );
 });
 afterAll(closeAll);
 
@@ -270,19 +303,30 @@ describe('partner payouts', () => {
           tx,
           sql`select amount_cents from portal.partner_payouts()`,
         ),
+        totals: await rows<{ paying_cents: string; paid_cents: string }>(
+          tx,
+          sql`select paying_cents, paid_cents from portal.partner_payout_totals()`,
+        ),
         open: (
           await rows<{ open: boolean }>(tx, sql`select portal.partner_payouts_open() as open`)
         )[0]!.open,
       }));
+    const none = [{ paying_cents: '0', paid_cents: '0' }];
     expect(await read(await signedIn(paula))).toEqual({
       account: [{ payouts_enabled: true }],
       lines: [{ amount_cents: '10000' }],
+      totals: [{ paying_cents: '1500', paid_cents: '0' }],
       open: true,
     });
     const session = await signedIn(petra);
-    expect(await read(session)).toEqual({ account: [], lines: [], open: true });
+    expect(await read(session)).toEqual({ account: [], lines: [], totals: none, open: true });
     const client = await person('Nina');
-    expect(await read(await signedIn(client))).toEqual({ account: [], lines: [], open: false });
+    expect(await read(await signedIn(client))).toEqual({
+      account: [],
+      lines: [],
+      totals: none,
+      open: false,
+    });
     for (const table of TABLES)
       expect(
         await code(() =>

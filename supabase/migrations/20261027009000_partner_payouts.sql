@@ -26,8 +26,8 @@
 --        Whoever holds partners.manage sees it, and whoever holds
 --        money.manage the card.
 --
--- Only adds: four tables, a column, a staff permission, two staff functions, three worker look-ups, and three portal
--- look-ups. portal.partner_earnings() is dropped and made again with two more columns, in this transaction.
+-- Only adds: four tables, a column, a staff permission, two staff functions, three worker look-ups, and four portal
+-- look-ups. portal.partner_earnings() keeps its columns, and now leaves out what a payout has taken.
 -- =============================================================================
 
 -- ---------- the staff permission: opening payouts for a business ----------
@@ -339,25 +339,33 @@ grant execute on function private.partner_payouts_due(integer), private.partner_
   private.partner_payout_account_by_ref(text) to service_actor;
 
 -- ---------- the partner's page ----------
--- What they earned: everything less what was taken back; what's waiting its 30 days, free to pay out or held by
--- an open dispute, of what no payout has taken yet; what's on its way in a payout; and what's been paid.
-drop function portal.partner_earnings();
-create function portal.partner_earnings()
-returns table (earned_cents bigint, waiting_cents bigint, payable_cents bigint, held_cents bigint,
-  paying_cents bigint, paid_cents bigint)
+-- What they earned: everything less what was taken back; and what's waiting its 30 days, free to pay out or held
+-- by an open dispute, of what no payout has taken yet. Its columns are as they were, so it's replaced in place.
+create or replace function portal.partner_earnings()
+returns table (earned_cents bigint, waiting_cents bigint, payable_cents bigint, held_cents bigint)
 language sql stable security definer set search_path = '' as $$
   select coalesce(sum(c.amount_cents), 0)::bigint,
     coalesce(sum(c.amount_cents) filter (where s.free and not s.held and c.payable_at > now()), 0)::bigint,
     coalesce(sum(c.amount_cents) filter (where s.free and not s.held and c.payable_at <= now()), 0)::bigint,
-    coalesce(sum(c.amount_cents) filter (where s.free and s.held), 0)::bigint,
-    coalesce(sum(c.amount_cents) filter (where l.status in ('pending', 'held')), 0)::bigint,
-    coalesce(sum(c.amount_cents) filter (where l.status = 'paid'), 0)::bigint
+    coalesce(sum(c.amount_cents) filter (where s.free and s.held), 0)::bigint
   from app.partner_commissions c
   join app.partners pa on pa.id = c.partner_id
   left join app.partner_payout_lines l on l.id = c.payout_line_id
   cross join lateral (select l.id is null or l.status = 'cancelled' as free,
       exists (select 1 from app.payment_disputes d
         where d.payment_id = c.payment_id and d.status = 'open') as held) s
+  where pa.workspace_id = portal.workspace() and pa.person_id = portal.person() and not c.test
+$$;
+
+-- What's on its way to them in a payout, and what's been paid.
+create or replace function portal.partner_payout_totals()
+returns table (paying_cents bigint, paid_cents bigint)
+language sql stable security definer set search_path = '' as $$
+  select coalesce(sum(c.amount_cents) filter (where l.status in ('pending', 'held')), 0)::bigint,
+    coalesce(sum(c.amount_cents) filter (where l.status = 'paid'), 0)::bigint
+  from app.partner_commissions c
+  join app.partners pa on pa.id = c.partner_id
+  join app.partner_payout_lines l on l.id = c.payout_line_id
   where pa.workspace_id = portal.workspace() and pa.person_id = portal.person() and not c.test
 $$;
 
@@ -395,7 +403,7 @@ language sql stable security definer set search_path = '' as $$
   limit 60
 $$;
 
-revoke all on function portal.partner_earnings(), portal.partner_payout_account(), portal.partner_payouts_open(),
-  portal.partner_payouts() from public;
-grant execute on function portal.partner_earnings(), portal.partner_payout_account(), portal.partner_payouts_open(),
-  portal.partner_payouts() to portal_actor;
+revoke all on function portal.partner_payout_totals(), portal.partner_payout_account(),
+  portal.partner_payouts_open(), portal.partner_payouts() from public;
+grant execute on function portal.partner_payout_totals(), portal.partner_payout_account(),
+  portal.partner_payouts_open(), portal.partner_payouts() to portal_actor;

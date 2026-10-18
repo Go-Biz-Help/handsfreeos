@@ -383,7 +383,10 @@ export const portalPartner = defineQuery({
       held_cents: string | number;
       paying_cents: string | number;
       paid_cents: string | number;
-    }>(ctx.tx, sql`select * from portal.partner_earnings()`);
+    }>(
+      ctx.tx,
+      sql`select * from portal.partner_earnings() cross join portal.partner_payout_totals()`,
+    );
     const [open] = await rows<{ open: boolean }>(
       ctx.tx,
       sql`select portal.partner_payouts_open() as open`,
