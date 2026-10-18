@@ -6910,6 +6910,8 @@ Two settings choose the models:
 - `ASSISTANT_MODEL` is Ask HandsFreeOS, the team's own helper. It is Claude Opus 5.5 (`claude-opus-5-5`) unless set.
 - `AI_MODEL` is everything else: the AI teammate, calls (unless `VOICE_MODEL` names a model of their own), workflow AI steps, the builders and the knowledge base. It is Claude Sonnet 5 (`claude-sonnet-5`) unless set. Customers wait on these, so a faster model matters more here than a stronger one.
 
+Claude Sonnet 5 thinks before it answers, and its thinking counts toward each answer's token cap. So every structured ask (`askStructured` in `apps/worker/src/ai/ask.ts`, and support's drafts) gets 16,000 tokens of room to think on top of what its answer may take: an answer cut off can't be used. A model that doesn't think, such as Claude Haiku 4.5, never uses the room, and a finished answer costs only what it wrote.
+
 Try any other model on your laptop first ("Trying the Assistant" in "Local development"). Anthropic lists the model IDs at `https://platform.claude.com/docs/en/models/overview`. For example, `claude-opus-5` costs $5 per million input tokens and $25 per million output tokens, and `claude-haiku-4-5` costs $1 and $5.
 
 Businesses pay for `AI_MODEL`'s tokens at the rate card's AI prices, which are set for Claude Sonnet 5. Before moving `AI_MODEL` to a dearer model, raise the card's `ai.` lines to match, or businesses are charged less than the tokens cost.

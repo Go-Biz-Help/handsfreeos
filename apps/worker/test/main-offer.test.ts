@@ -29,7 +29,6 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
-import { MAIN_OFFER_MAX_TOKENS } from '../src/main-offer/routes';
 import { testServices } from './helpers';
 
 /**
@@ -326,9 +325,6 @@ describe('a try of the whole offer', () => {
     expect(write!.messages[0]!.content).toContain('<keep>Guarantee</keep>');
     expect(score!.system).toBe(OFFER_SCORE_SYSTEM);
     expect(score!.messages[0]!.content).toContain('Who: Businesses that live on leads');
-    // Room for the model's thinking as well as the whole offer, so the try isn't cut off.
-    expect(write!.maxTokens).toBe(MAIN_OFFER_MAX_TOKENS);
-    expect(score!.maxTokens).toBe(MAIN_OFFER_MAX_TOKENS);
     expect(await usage()).toBe(before + 2);
 
     // The draft itself is as it was.

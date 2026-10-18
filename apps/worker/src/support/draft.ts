@@ -11,6 +11,7 @@
 import { AiOutputError, parseStructured, type AiMessage } from '@hfos/ai';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { z } from 'zod';
+import { THINKING_ROOM } from '../ai/ask';
 import type { JobContext } from '../jobs';
 import type { WorkerServices } from '../services';
 
@@ -147,7 +148,7 @@ export async function writeTicketDraft(
       system: SYSTEM,
       context: sourceText || 'Nothing saved to go on yet.',
       messages,
-      maxTokens: 1200,
+      maxTokens: 1200 + THINKING_ROOM,
       responseFormat: { schema: SCHEMA as unknown as Record<string, unknown> },
     });
     const answer = parseStructured(turn, DraftAnswer);
