@@ -83,6 +83,8 @@ const sumOf = (partners: readonly PartnerRow[]): PartnerEarnings => ({
   waitingCents: partners.reduce((t, p) => t + p.earnings.waitingCents, 0),
   payableCents: partners.reduce((t, p) => t + p.earnings.payableCents, 0),
   heldCents: partners.reduce((t, p) => t + p.earnings.heldCents, 0),
+  payingCents: partners.reduce((t, p) => t + p.earnings.payingCents, 0),
+  paidCents: partners.reduce((t, p) => t + p.earnings.paidCents, 0),
 });
 
 export function PartnersScreen() {

@@ -195,6 +195,8 @@ describe('what a partner earned on a disputed payment', () => {
       waitingCents: 1_000,
       payableCents: 0,
       heldCents: 0,
+      payingCents: 0,
+      paidCents: 0,
     });
     const opened = await dispute(won.providerPaymentId);
     expect(await earnings()).toMatchObject({ waitingCents: 0, heldCents: 1_000 });

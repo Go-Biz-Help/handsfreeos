@@ -97,7 +97,14 @@ const SETTINGS: PartnersSettingsOut = {
   linkCalendar: { id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', name: 'Drain checks' },
 };
 
-const EARNINGS = { earnedCents: 12_000, waitingCents: 12_000, payableCents: 0, heldCents: 0 };
+const EARNINGS = {
+  earnedCents: 12_000,
+  waitingCents: 12_000,
+  payableCents: 0,
+  heldCents: 0,
+  payingCents: 0,
+  paidCents: 0,
+};
 const PARTNER: PartnerRow = {
   partnerId: PIA,
   personId: PIA_PERSON,
@@ -142,6 +149,7 @@ const GOT: PartnerGetOut = {
       invoiceNumber: 'INV-1001',
     },
   ],
+  payouts: { account: null, lines: [] },
 };
 
 beforeEach(() => {

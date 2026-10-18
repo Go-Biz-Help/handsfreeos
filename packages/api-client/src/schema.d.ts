@@ -7377,6 +7377,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/partner.payout_forget_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the card off partner payouts. Nothing more is charged to it; what partners are owed waits until a card is back on.
+         * @description Risk level 3. Requires money.manage. Emits partner.payout_card_forgotten.
+         */
+        post: operations["command_partner_payout_forget_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/partner.referral_set": {
         parameters: {
             query?: never;
@@ -7391,6 +7411,26 @@ export interface paths {
          * @description Risk level 2. Requires partners.manage. Emits partner.referred, partner.referral_removed.
          */
         post: operations["command_partner_referral_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/partner.set_payouts_open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: open partner payouts for one business, so HandsFreeOS charges its card each month and pays its partners, or close them.
+         * @description Risk level 4. Requires platform.partner_payouts.manage. Emits partner.payouts_open_changed.
+         */
+        post: operations["command_partner_set_payouts_open"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18091,6 +18131,46 @@ export interface paths {
          * @description Requires partners.manage.
          */
         post: operations["query_partner_of_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/partner.payout_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One month’s partner payout, as its statement: what each partner was owed and whether they’re paid, then Stripe’s fees, each on its own line, and what the card was charged.
+         * @description Requires partners.manage.
+         */
+        post: operations["query_partner_payout_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/partner.payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How the business pays its partners: whether HandsFreeOS has opened payouts for it, the card they’re charged to, the next payout as it stands now (who it would pay, who waits and why, and what it would charge with Stripe’s fees), and its latest payouts.
+         * @description Requires partners.manage.
+         */
+        post: operations["query_partner_payouts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38914,6 +38994,40 @@ export interface operations {
             };
         };
     };
+    command_partner_payout_forget_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        card: {
+                            brand: string;
+                            expiryMonth: number | null;
+                            expiryYear: number | null;
+                            last4: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     command_partner_referral_set: {
         parameters: {
             query?: never;
@@ -38941,6 +39055,41 @@ export interface operations {
                 content: {
                     "application/json": {
                         referralId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_partner_set_payouts_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    open: boolean;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        open: boolean;
+                        wasOpen: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -69249,7 +69398,9 @@ export interface operations {
                             earnings: {
                                 earnedCents: number;
                                 heldCents: number;
+                                paidCents: number;
                                 payableCents: number;
+                                payingCents: number;
                                 waitingCents: number;
                             };
                             email: string | null;
@@ -69264,6 +69415,30 @@ export interface operations {
                             /** @enum {string} */
                             status: "active" | "paused" | "ended";
                             termsAccepted: boolean;
+                        };
+                        payouts: {
+                            account: {
+                                detailsSubmitted: boolean;
+                                needsMore: boolean;
+                                ready: boolean;
+                            } | null;
+                            lines: {
+                                accountFeeCents: number;
+                                amountCents: number;
+                                heldReason: string | null;
+                                /** Format: uuid */
+                                lineId: string;
+                                livemode: boolean;
+                                month: string;
+                                name: string;
+                                paidAt: string | null;
+                                partnerId: string | null;
+                                payoutFeeCents: number;
+                                /** Format: uuid */
+                                payoutId: string;
+                                /** @enum {string} */
+                                status: "pending" | "paid" | "held" | "cancelled";
+                            }[];
                         };
                     };
                 };
@@ -69301,7 +69476,9 @@ export interface operations {
                             earnings: {
                                 earnedCents: number;
                                 heldCents: number;
+                                paidCents: number;
                                 payableCents: number;
+                                payingCents: number;
                                 waitingCents: number;
                             };
                             email: string | null;
@@ -69366,6 +69543,165 @@ export interface operations {
                             /** Format: date-time */
                             referredAt: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_partner_payout_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    payoutId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines: {
+                            accountFeeCents: number;
+                            amountCents: number;
+                            heldReason: string | null;
+                            /** Format: uuid */
+                            lineId: string;
+                            name: string;
+                            paidAt: string | null;
+                            partnerId: string | null;
+                            payoutFeeCents: number;
+                            /** @enum {string} */
+                            status: "pending" | "paid" | "held" | "cancelled";
+                        }[];
+                        payout: {
+                            attempts: number;
+                            card: {
+                                brand: string;
+                                last4: string;
+                            } | null;
+                            chargedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            failedAt: string | null;
+                            failureMessage: string | null;
+                            livemode: boolean;
+                            month: string;
+                            nextTryAt: string | null;
+                            paidAt: string | null;
+                            partners: number;
+                            /** Format: uuid */
+                            payoutId: string;
+                            /** @enum {string} */
+                            status: "charging" | "paying" | "paid" | "failed";
+                            totals: {
+                                accountFeesCents: number;
+                                cardFeeCents: number;
+                                chargeCents: number;
+                                owedCents: number;
+                                payoutFeesCents: number;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_partner_payouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        card: {
+                            brand: string;
+                            expiryMonth: number | null;
+                            expiryYear: number | null;
+                            last4: string;
+                        } | null;
+                        next: {
+                            lines: {
+                                amountCents: number;
+                                name: string;
+                                /** Format: uuid */
+                                partnerId: string;
+                            }[];
+                            month: string;
+                            soon: boolean;
+                            totals: {
+                                accountFeesCents: number;
+                                cardFeeCents: number;
+                                chargeCents: number;
+                                owedCents: number;
+                                payoutFeesCents: number;
+                            };
+                            waiting: {
+                                name: string;
+                                owedCents: number;
+                                /** Format: uuid */
+                                partnerId: string;
+                                /** @enum {string} */
+                                why: "below_smallest" | "no_bank";
+                            }[];
+                        };
+                        open: boolean;
+                        payouts: {
+                            attempts: number;
+                            card: {
+                                brand: string;
+                                last4: string;
+                            } | null;
+                            chargedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            failedAt: string | null;
+                            failureMessage: string | null;
+                            livemode: boolean;
+                            month: string;
+                            nextTryAt: string | null;
+                            paidAt: string | null;
+                            partners: number;
+                            /** Format: uuid */
+                            payoutId: string;
+                            /** @enum {string} */
+                            status: "charging" | "paying" | "paid" | "failed";
+                            totals: {
+                                accountFeesCents: number;
+                                cardFeeCents: number;
+                                chargeCents: number;
+                                owedCents: number;
+                                payoutFeesCents: number;
+                            };
+                        }[];
                     };
                 };
             };

@@ -11,6 +11,7 @@ import {
   SMALLEST_PAYOUT_LEAST_CENTS,
 } from '../partners/settings';
 import { isoDateTime, uuid } from './common';
+import { PartnerPayoutAccountOut, PartnerPayoutsOfPartner } from './partner-payouts';
 
 export const PARTNER_STATUSES = ['active', 'paused', 'ended'] as const;
 export type PartnerStatus = (typeof PARTNER_STATUSES)[number];
@@ -110,6 +111,10 @@ export const PartnerEarnings = z.object({
   payableCents: cents,
   /** On payments with a dispute open: neither waiting nor free to pay out until it's settled. */
   heldCents: cents,
+  /** In a payout that hasn't reached them yet (stage 3). */
+  payingCents: cents,
+  /** Paid to them. */
+  paidCents: cents,
 });
 export type PartnerEarnings = z.infer<typeof PartnerEarnings>;
 
@@ -170,6 +175,8 @@ export const PartnerGetOutput = z.object({
   clients: z.array(PartnerClientOut),
   /** The latest 200, the newest first. */
   commissions: z.array(PartnerCommissionOut),
+  /** Their bank at Stripe and their part of each payout (stage 3). */
+  payouts: PartnerPayoutsOfPartner,
 });
 
 /** A customer's partner side: whether they're a partner, and who sent them. */
@@ -224,6 +231,27 @@ export const PortalPartnerOutput = z.object({
       }),
       earnings: PartnerEarnings,
       clients: z.array(PortalPartnerClientOut),
+      /** How they're paid (stage 3): their bank at Stripe, and what they've been paid. */
+      payouts: z.object({
+        /** Whether the business pays its partners through HandsFreeOS yet. */
+        open: z.boolean(),
+        /** Less than this waits for the next month. */
+        smallestPayoutCents: z.int(),
+        /** Null until they start setting up their bank. */
+        account: PartnerPayoutAccountOut.nullable(),
+        /** What they've been paid and what's on its way, the newest first. */
+        lines: z.array(
+          z.object({
+            lineId: uuid,
+            month: z.string(),
+            amountCents: cents,
+            status: z.enum(['pending', 'paid', 'held']),
+            paidAt: isoDateTime.nullable(),
+            /** False for a payout made with Stripe's test keys: no real money moved. */
+            livemode: z.boolean(),
+          }),
+        ),
+      }),
     })
     .nullable(),
 });
