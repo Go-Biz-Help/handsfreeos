@@ -910,9 +910,9 @@ describe('numbering and ways to pay', () => {
 
 describe('automatic top-up of the balance', () => {
   beforeAll(async () => {
-    // A balance with a card on it: opened by the owner's own press, the card from the provider, and the business
-    // on the wallet (stage is HandsFreeOS's to set, so it is set the way the worker would).
-    await run(walletSetAutoTopup, { workspaceId, autoTopup: false });
+    // A balance with a card on it and automatic top-up off: the card from the provider, then the owner's own
+    // press turning it off (a card going on turns it on), and the business on the wallet (stage is HandsFreeOS's
+    // to set, so it is set the way the worker would).
     await sys(walletRecordCard, {
       workspaceId,
       provider: 'stripe',
@@ -923,6 +923,7 @@ describe('automatic top-up of the balance', () => {
       cardExpiryMonth: 4,
       cardExpiryYear: 2030,
     });
+    await run(walletSetAutoTopup, { workspaceId, autoTopup: false });
     await admin().transaction(async (tx) => {
       await tx.execute(
         sql`select set_config('app.system_scope.workspace_id', ${workspaceId}, true)`,
