@@ -1,14 +1,16 @@
 /**
  * Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2): what the worker notes as the business's work goes
  * on. A booking through a partner's link makes its customer that partner's client; each payment a client makes earns
- * their partner a share; a refund takes back the share of what went back. Core's commands do the sums, in the event's
- * own transaction, so a retry finds what the last try wrote and adds nothing.
+ * their partner a share; a refund, or a dispute the business lost, takes back the share of what went back. A dispute
+ * still open holds what was earned on its payment, which needs no step here: the partner's numbers read it. Core's
+ * commands do the sums, in the event's own transaction, so a retry finds what the last try wrote and adds nothing.
  *
  * They run whether or not an add-on that uses partners is on: a partner was promised their share. Most bookings,
  * payments and refunds have nothing to do with a partner, and those cost one look here and nothing more.
  */
 import {
   executeCommandIn,
+  partnerCommissionDisputeNote,
   partnerCommissionNote,
   partnerCommissionTakeBack,
   partnerReferralNote,
@@ -87,6 +89,28 @@ export const onPartnerRefund: EventHandler = async (ctx) => {
     ctx.tx,
     partnerCommissionTakeBack,
     { workspaceId: scope.workspaceId, refundId },
+    systemActor(scope),
+    metaOf(ctx),
+  );
+};
+
+/** `dispute.closed`: a dispute the business lost on a payment a partner earned on takes their share of it back. */
+export const onPartnerDispute: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const p = payloadOf(ctx);
+  const disputeId = idIn(p, 'disputeId', ctx.event.entityId);
+  const paymentId = idIn(p, 'paymentId', null);
+  if (!disputeId || !paymentId || p['status'] !== 'lost') return;
+  const [earned] = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select c.id from app.partner_commissions c
+        where c.workspace_id = ${scope.workspaceId} and c.payment_id = ${paymentId} and c.kind = 'earned'`,
+  );
+  if (!earned) return;
+  await executeCommandIn(
+    ctx.tx,
+    partnerCommissionDisputeNote,
+    { workspaceId: scope.workspaceId, disputeId },
     systemActor(scope),
     metaOf(ctx),
   );

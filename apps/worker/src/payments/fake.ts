@@ -107,6 +107,8 @@ export interface FakeCharge {
   capturable: boolean;
   refundedCents: number;
   disputed: boolean;
+  /** The dispute's own id, once the customer's bank has opened one. */
+  disputeId: string | null;
   readonly customerRef: string | null;
   readonly idempotencyKey: string;
   readonly description: string | null;
@@ -202,6 +204,8 @@ export interface FakePayments {
   failTransfer(providerPaymentId: string, code?: string): Promise<FakeCharge | null>;
   /** The customer's bank takes the money back. */
   dispute(providerPaymentId: string, reason?: string): Promise<FakeCharge | null>;
+  /** The dispute on a charge is settled: the business won it, or lost it. */
+  settleDispute(providerPaymentId: string, outcome: 'won' | 'lost'): Promise<FakeCharge | null>;
   /** The plan bills its next cycle: a new charge, and the event that says so. */
   cycle(providerSubscriptionId: string): Promise<FakeCharge | null>;
   /** The seller revoked us at the provider (Square's revoke, Stripe's deauthorize). */
@@ -630,6 +634,7 @@ export function createFakePayments(opts: {
       capturable: input.hold,
       refundedCents: 0,
       disputed: false,
+      disputeId: null,
       customerRef: input.customerRef,
       idempotencyKey: input.idempotencyKey,
       description: input.description,
@@ -1257,23 +1262,54 @@ export function createFakePayments(opts: {
       const c = charges.get(providerPaymentId);
       if (!c) return null;
       c.disputed = true;
+      c.disputeId = c.provider === 'stripe' ? nextId('dp') : randomUUID();
+      // The answer is due a week out, as both providers give about that long.
+      const dueBy = Date.now() + 7 * 86_400_000;
       await send(
         c.provider,
         c.provider === 'stripe' ? 'charge.dispute.created' : 'dispute.created',
         c.accountId,
         c.provider === 'stripe'
           ? {
-              id: nextId('dp'),
+              id: c.disputeId,
               object: 'dispute',
               payment_intent: c.id,
               amount: c.amountCents,
               reason,
+              status: 'needs_response',
+              evidence_details: { due_by: Math.floor(dueBy / 1000) },
             }
           : {
-              id: randomUUID(),
+              id: c.disputeId,
               payment_id: c.id,
               reason: reason.toUpperCase(),
               state: 'EVIDENCE_REQUIRED',
+              due_at: new Date(dueBy).toISOString(),
+              amount_money: { amount: c.amountCents, currency: 'USD' },
+            },
+      );
+      return c;
+    },
+
+    async settleDispute(providerPaymentId, outcome) {
+      const c = charges.get(providerPaymentId);
+      if (!c?.disputeId) return null;
+      await send(
+        c.provider,
+        c.provider === 'stripe' ? 'charge.dispute.closed' : 'dispute.state.updated',
+        c.accountId,
+        c.provider === 'stripe'
+          ? {
+              id: c.disputeId,
+              object: 'dispute',
+              payment_intent: c.id,
+              amount: c.amountCents,
+              status: outcome,
+            }
+          : {
+              id: c.disputeId,
+              payment_id: c.id,
+              state: outcome.toUpperCase(),
               amount_money: { amount: c.amountCents, currency: 'USD' },
             },
       );

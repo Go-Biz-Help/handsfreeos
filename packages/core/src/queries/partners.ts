@@ -2,7 +2,8 @@
  * Partners in core (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2), for whoever holds `partners.manage`: the
  * partner settings, the partners with their clients and what they earned, one partner's clients and commissions, and
  * a customer's partner side (whether they're a partner, and who sent them). What's earned leaves out payments taken
- * in a provider's test mode, which are shown on their own lines but never paid out.
+ * in a provider's test mode, which are shown on their own lines but never paid out; what's on a payment with a dispute
+ * open is held until it's settled.
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
@@ -30,6 +31,11 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 });
 
 const iso = (v: Date | string) => new Date(v).toISOString();
+
+/** A commission (`c`) whose payment has a dispute open: it waits until that's settled. */
+const HELD = sql.raw(
+  `exists (select 1 from app.payment_disputes d where d.payment_id = c.payment_id and d.status = 'open')`,
+);
 const isoOrNull = (v: Date | string | null) => (v ? iso(v) : null);
 
 /** The calendar partners' links book: the one the settings name, else the first that takes bookings. */
@@ -62,6 +68,7 @@ interface PartnerRow extends Record<string, unknown> {
   earned: string | number;
   waiting: string | number;
   payable: string | number;
+  held: string | number;
 }
 
 /** The partners of the business, one or all, with how many clients they sent and what they earned. */
@@ -73,14 +80,18 @@ async function partnersOf(ctx: QueryContext, partnerId: string | null): Promise<
     sql`select pa.id, pa.person_id, ${PERSON_NAME} as name, pp.email::text as email, pa.status, pa.rate_bp,
           pa.code, pa.terms_version, pa.created_at,
           (select count(*)::int from app.partner_referrals r where r.partner_id = pa.id) as clients,
-          coalesce(e.earned, 0) as earned, coalesce(e.waiting, 0) as waiting, coalesce(e.payable, 0) as payable
+          coalesce(e.earned, 0) as earned, coalesce(e.waiting, 0) as waiting, coalesce(e.payable, 0) as payable,
+          coalesce(e.held, 0) as held
         from app.partners pa
         join app.people pp on pp.id = pa.person_id
         left join lateral (
           select sum(c.amount_cents) as earned,
-            sum(c.amount_cents) filter (where c.payable_at > now()) as waiting,
-            sum(c.amount_cents) filter (where c.payable_at <= now()) as payable
-          from app.partner_commissions c where c.partner_id = pa.id and not c.test
+            sum(c.amount_cents) filter (where not h.held and c.payable_at > now()) as waiting,
+            sum(c.amount_cents) filter (where not h.held and c.payable_at <= now()) as payable,
+            sum(c.amount_cents) filter (where h.held) as held
+          from app.partner_commissions c
+          cross join lateral (select ${HELD} as held) h
+          where c.partner_id = pa.id and not c.test
         ) e on true
         where pa.workspace_id = ${ws} ${one}
         order by pa.status = 'ended', pa.status = 'paused', coalesce(e.earned, 0) desc, pa.created_at, pa.id`,
@@ -96,6 +107,7 @@ function partnerOut(
     earnedCents: Number(r.earned),
     waitingCents: Number(r.waiting),
     payableCents: Number(r.payable),
+    heldCents: Number(r.held),
   };
   return {
     partnerId: r.id,
@@ -196,12 +208,13 @@ export const partnerGet = defineQuery({
       earned_at: Date | string;
       payable_at: Date | string;
       test: boolean;
+      held: boolean;
       client: string | null;
       number: string | null;
     }>(
       ctx.tx,
       sql`select c.id, c.kind, c.amount_cents, c.base_cents, c.rate_bp, c.earned_at, c.payable_at, c.test,
-            case when pp.id is null then null else ${PERSON_NAME} end as client, i.number
+            ${HELD} as held, case when pp.id is null then null else ${PERSON_NAME} end as client, i.number
           from app.partner_commissions c
           join app.partner_referrals r on r.id = c.referral_id
           left join app.people pp on pp.id = r.person_id
@@ -233,6 +246,7 @@ export const partnerGet = defineQuery({
         earnedAt: iso(c.earned_at),
         payableAt: iso(c.payable_at),
         test: c.test,
+        held: c.held,
         clientName: c.client ?? deleted,
         invoiceNumber: c.number,
       })),

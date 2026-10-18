@@ -111,7 +111,7 @@ describe('a partner’s link', () => {
     const got = await query(w, partnerGet, { ...ws(), partnerId });
     expect(got.partner).toMatchObject({
       clients: 1,
-      earnings: { earnedCents: 5_000, waitingCents: 5_000, payableCents: 0 },
+      earnings: { earnedCents: 5_000, waitingCents: 5_000, payableCents: 0, heldCents: 0 },
     });
   });
 });

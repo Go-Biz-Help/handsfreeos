@@ -69230,6 +69230,7 @@ export interface operations {
                             commissionId: string;
                             /** Format: date-time */
                             earnedAt: string;
+                            held: boolean;
                             invoiceNumber: string | null;
                             /** @enum {string} */
                             kind: "earned" | "taken_back";
@@ -69245,6 +69246,7 @@ export interface operations {
                             code: string;
                             earnings: {
                                 earnedCents: number;
+                                heldCents: number;
                                 payableCents: number;
                                 waitingCents: number;
                             };
@@ -69296,6 +69298,7 @@ export interface operations {
                             code: string;
                             earnings: {
                                 earnedCents: number;
+                                heldCents: number;
                                 payableCents: number;
                                 waitingCents: number;
                             };

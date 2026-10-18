@@ -7,7 +7,12 @@ import { withAttention } from '../attention/index';
 import { onSweepStarted, withContactAi } from '../contact-ai/index';
 import { onPortalReplySent } from '../portal/replies';
 import { onPortalAccessGiven } from '../portal/invite';
-import { onPartnerBooking, onPartnerPayment, onPartnerRefund } from '../partners/handlers';
+import {
+  onPartnerBooking,
+  onPartnerDispute,
+  onPartnerPayment,
+  onPartnerRefund,
+} from '../partners/handlers';
 import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladder';
 import { onChatReplySent } from '../chat/followup';
 import { onDomainServing } from '../chat/own-domain';
@@ -296,6 +301,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment.updated': onInvoiceChanged,
     'payment.failed': [onPaymentFailed, onInvoiceChanged],
     'refund.recorded': [onInvoiceChanged, onPartnerRefund],
+    // A dispute the business lost takes back what a partner earned on the payment (partners/handlers.ts).
+    'dispute.closed': onPartnerDispute,
     'invoice.paid': onInvoicePaid,
     // A plan: the provider is made to match what it says here (money/subscriptions.ts), and the cycle job
     // watches it from then on.

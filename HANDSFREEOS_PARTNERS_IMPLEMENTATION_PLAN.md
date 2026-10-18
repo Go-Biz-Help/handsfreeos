@@ -82,7 +82,8 @@ says it uses. Another add-on (Sales Coach, say) could use it later.
 - **The booking link's ref:** `?ref=` on a booking page is kept on `app.appointment_attendees.link_ref`. Social
   Outreach's demo link uses `so-…` and notes a demo when it books (`outreach.demo.note`).
 - **Money:** HandsFreeOS takes money for a business through its own Stripe or Square account, and never holds any.
-  `payment.recorded`, `invoice.paid` and `refund.recorded` are outbox events. A dispute is only logged, not stored.
+  `payment.recorded`, `invoice.paid` and `refund.recorded` are outbox events. A dispute was only logged, not stored,
+  until stage 2b.
   **Nothing pays money out to anyone today.** HandsFreeOS's own Stripe account can charge a business's saved card
   (wallet top-ups, texting fees and RCS renewals do).
 - **Portals:** only a business's own contacts can sign in to its portal (`portal_access`). There's no partner sign-in.
@@ -239,16 +240,22 @@ if the business says, decision 17), and the calendar the referral link books.
   the booking is, still earns once the booking makes them a client; a refund noted before its payment comes off as
   soon as the payment earns. The worker's three steps run core's commands in the event's own transaction
   (`apps/worker/src/partners/handlers.ts`), so a retry adds nothing.
-- Disputes: `app.payment_disputes` keeps each one from Stripe's and Square's webhooks (`payment.record_dispute`),
-  with `dispute.opened` and `dispute.closed`. An open one holds its payment's commission, a lost one takes it back,
-  and a won one lets it go.
+- **Disputes** (2b, 18 Oct 2026): `app.payment_disputes` keeps each one from Stripe's and Square's webhooks
+  (`payment.record_dispute`), with `dispute.opened` and `dispute.closed`. It's open while the business answers it at
+  the provider, then won, lost, or closed (an inquiry that ended with no money taken), and it settles once: a late
+  "still open" changes nothing. It never un-pays the invoice. An open one holds what its payment earned a partner
+  (`heldCents`, neither waiting nor free to pay out), a lost one takes back the share of what the bank took
+  (`partner.commission_dispute_note`, on `dispute.closed`), and a won or closed one lets it go. As with refunds, a
+  lost dispute noted before its payment earned comes off as soon as it does.
 
 **Build order:**
 
 1. **2a:** the core feature, its permission and settings, the tables, referrals, commissions on payments and refunds,
    and Make partner.
-2. **2b:** disputes, and a refund made in Stripe's or Square's own dashboard recorded here too: today the worker
-   passes over one HandsFreeOS never asked for, so its share wouldn't come back.
+2. **2b:** disputes (built). A refund made in Stripe's or Square's own dashboard waits on Chris: today the worker
+   passes over one HandsFreeOS never asked for ("deferred, on purpose", apps/worker/src/money/processors.ts), so its
+   share wouldn't come back. Recording them would also count them on the invoice, and needs Stripe's `refund.created`
+   added to the webhook's events, since `charge.refunded` carries the charge and not the refund.
 3. **2c:** the partner's page (`portal.partner`: their link, their clients by first name and last initial, what's
    earned, waiting and paid) and accepting the terms, with **Send their page** (`portal_access.give`).
 4. **2d:** the screens, on the web and the phone: Settings → Partners, the partners with their clients and

@@ -918,6 +918,40 @@ export const PaymentRecordRefundInput = z.object({
   refundedAt: isoDateTime.nullable().default(null),
 });
 
+// ---------- disputes ----------
+
+/**
+ * Where a dispute stands: open while the business answers it at the provider, then won, lost, or closed (an
+ * inquiry that ended with no money taken). It settles once.
+ */
+export const DISPUTE_STATUSES = ['open', 'won', 'lost', 'closed'] as const;
+export const disputeStatus = z.enum(DISPUTE_STATUSES);
+export type DisputeStatus = z.infer<typeof disputeStatus>;
+
+/** Worker: what the provider said about a dispute (20261027008700). */
+export const PaymentRecordDisputeInput = z.object({
+  ...inWorkspace,
+  provider: paymentProvider,
+  providerDisputeId: providerId,
+  /** The payment it's about, by the provider's own id. */
+  providerPaymentId: providerId,
+  /** Left out, the whole payment. */
+  amountCents: cents.min(1).nullable().default(null),
+  reason: z.string().trim().min(1).max(200).nullable().default(null),
+  status: disputeStatus,
+  providerStatus: providerWord.nullable().default(null),
+  /** When the business's answer is due at the provider. */
+  respondBy: isoDateTime.nullable().default(null),
+  /** When the provider said so; now when it didn't. */
+  at: isoDateTime.nullable().default(null),
+});
+export const PaymentRecordDisputeOutput = z.object({
+  /** Null when the payment isn't one HandsFreeOS knows. */
+  disputeId: uuid.nullable(),
+  status: disputeStatus.nullable(),
+  changed: z.boolean(),
+});
+
 // ---------- subscriptions ----------
 
 export const SubscriptionStartInput = z.object({

@@ -13,11 +13,17 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  catalogAddon,
+  executeCommand,
+  executeQuery,
+  partnerAdd,
+  partnerGet,
+  partnerReferralSet,
   paymentConnectionDisconnect,
   paymentRefund,
+  personCreate,
   subscriptionRecordCycle,
   subscriptionStart,
-  executeCommand,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
@@ -104,6 +110,51 @@ const squareBody = (
   });
 
 const squareUrl = `${TEST_PUBLIC_URL}/webhooks/square`;
+
+/** The dispute HandsFreeOS keeps on a payment, by the provider's id for the payment. */
+async function disputeOf(providerPaymentId: string) {
+  const [row] = await rows<{
+    status: string;
+    reason: string | null;
+    provider_status: string | null;
+    provider_dispute_id: string;
+    amount_cents: number;
+    respond_by: Date | string | null;
+  }>(
+    admin(),
+    sql`select d.status, d.reason, d.provider_status, d.provider_dispute_id, d.amount_cents::int as amount_cents,
+          d.respond_by
+        from app.payment_disputes d join app.payments p on p.id = d.payment_id
+        where p.provider_payment_id = ${providerPaymentId}`,
+  );
+  return row ?? null;
+}
+
+const commissionsFor = async (partnerId: string) =>
+  (
+    await rows<{ amount_cents: number }>(
+      admin(),
+      sql`select amount_cents::int as amount_cents from app.partner_commissions
+          where partner_id = ${partnerId} order by created_at`,
+    )
+  ).map((c) => c.amount_cents);
+
+/** A partner's commissions as the business sees them, the newest first. */
+const partnerCommissions = async (partnerId: string) =>
+  (
+    await executeQuery(
+      testDbs().api.db,
+      partnerGet,
+      { workspaceId: w.workspaceId, partnerId },
+      { type: 'human', userId: w.owner.id, email: w.owner.email, claims: w.owner.claims },
+      { correlationId: randomUUID(), channel: 'test' },
+    )
+  ).commissions.map((c) => ({
+    kind: c.kind,
+    amountCents: c.amountCents,
+    held: c.held,
+    test: c.test,
+  }));
 
 /** Pays an invoice by card through Stripe, end to end on the customer's page. */
 async function payByCard(
@@ -326,7 +377,7 @@ describe('what the routes do with an event they take', () => {
     expect(row.balance_cents).toBe(inv.totalCents);
   });
 
-  it('keeps a dispute where a person can find it', async () => {
+  it('keeps a dispute with how it stands, settles it once, and never un-pays the invoice', async () => {
     const inv = await sentInvoice(w);
     const providerPaymentId = await payByCard(inv, FAKE_CARDS.disputes);
     const disputed = await post(w, '/test/money/provider-event', {
@@ -340,17 +391,41 @@ describe('what the routes do with an event they take', () => {
     const stored = (await deliveryRows(w.workspaceId)).filter((d) => d.kind === 'payment.disputed');
     expect(stored.length).toBeGreaterThan(0);
     expect(stored.at(-1)).toMatchObject({ status: 'done', signature_valid: true });
+    const opened = await disputeOf(providerPaymentId);
+    expect(opened).toMatchObject({
+      status: 'open',
+      reason: 'fraudulent',
+      provider_status: 'needs_response',
+      amount_cents: inv.totalCents,
+    });
+    expect(opened?.respond_by).not.toBeNull();
+
+    // Lost at the provider; then a late "still open" for the same dispute changes nothing.
+    await w.s.payments.fake.settleDispute(providerPaymentId, 'lost');
+    await drain(w);
+    expect(await disputeOf(providerPaymentId)).toMatchObject({ status: 'lost' });
+    const late = stripeBody('charge.dispute.updated', w.stripe.accountId, {
+      id: opened!.provider_dispute_id,
+      object: 'dispute',
+      payment_intent: providerPaymentId,
+      amount: inv.totalCents,
+      status: 'needs_response',
+    });
+    expect((await hook('stripe', late, w.s.payments.fake.signStripe(late))).statusCode).toBe(200);
+    await drain(w);
+    expect(await disputeOf(providerPaymentId)).toMatchObject({ status: 'lost' });
     // A disputed payment is still a payment that was made: nothing un-pays the invoice.
     expect(await invoiceRow(inv.id)).toMatchObject({ status: 'paid', balance_cents: 0 });
   });
 
-  it('keeps a Square dispute under the names Square uses today, and knows which payment it is', async () => {
+  it('reads a Square dispute under the names Square uses today, and passes over one on a payment never taken here', async () => {
     // Square's own shape: the dispute nested under its type, and the payment one level further down.
     const dispute = {
       id: 'sq_dispute_1',
       state: 'WON',
       reason: 'AMOUNT_DIFFERS',
       amount_money: { amount: 8_801, currency: 'USD' },
+      due_at: '2026-11-01T17:00:00.000Z',
       disputed_payment: { payment_id: 'sq_payment_disputed' },
     };
     const ids: string[] = [];
@@ -364,10 +439,11 @@ describe('what the routes do with an event they take', () => {
     await drain(w);
     const stored = (await deliveryRows(w.workspaceId)).filter((d) => ids.includes(d.dedupe_key));
     expect(stored).toHaveLength(2);
+    // Nothing of ours was disputed: stored, and passed over.
     for (const row of stored)
       expect(row).toMatchObject({
         kind: 'payment.disputed',
-        status: 'done',
+        status: 'ignored',
         signature_valid: true,
       });
     const facts = disputeFactsOf({
@@ -377,7 +453,66 @@ describe('what the routes do with an event they take', () => {
       createdAt: null,
       data: { dispute },
     });
-    expect(facts).toMatchObject({ providerPaymentId: 'sq_payment_disputed', amountCents: 8_801 });
+    expect(facts).toMatchObject({
+      providerDisputeId: 'sq_dispute_1',
+      providerPaymentId: 'sq_payment_disputed',
+      amountCents: 8_801,
+      status: 'won',
+      respondBy: '2026-11-01T17:00:00.000Z',
+    });
+    // Accepted is lost, an inquiry's close takes no money, and anything still being worked on is open.
+    const statusOf = (state: string) =>
+      disputeFactsOf({
+        id: 'evt',
+        type: 'dispute.state.updated',
+        accountRef: null,
+        createdAt: null,
+        data: { dispute: { ...dispute, state } },
+      }).status;
+    expect(['ACCEPTED', 'INQUIRY_CLOSED', 'PROCESSING'].map(statusOf)).toEqual([
+      'lost',
+      'closed',
+      'open',
+    ]);
+  });
+
+  it('takes back what a partner earned on a payment its dispute lost, and holds it while open', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${w.workspaceId}, 'outreach', 'enabled', ${catalogAddon('outreach').version})
+          on conflict do nothing`,
+    );
+    const { personId: pia } = await run(w, personCreate, {
+      workspaceId: w.workspaceId,
+      firstName: 'Pia',
+      lastName: 'Partner',
+      ignoreDuplicates: true,
+    });
+    const { partnerId } = await run(w, partnerAdd, { workspaceId: w.workspaceId, personId: pia });
+    await run(w, partnerReferralSet, {
+      workspaceId: w.workspaceId,
+      personId: w.person.id,
+      partnerId,
+    });
+    const inv = await sentInvoice(w);
+    const providerPaymentId = await payByCard(inv, FAKE_CARDS.disputes);
+    const share = (await commissionsFor(partnerId))[0]!;
+    expect(share).toBeGreaterThan(0);
+    // The stand-in's accounts are in test mode, so none of it counts toward what's earned; it's held and taken
+    // back all the same.
+    await w.s.payments.fake.dispute(providerPaymentId, 'fraudulent');
+    await drain(w);
+    expect(await partnerCommissions(partnerId)).toEqual([
+      { kind: 'earned', amountCents: share, held: true, test: true },
+    ]);
+    await w.s.payments.fake.settleDispute(providerPaymentId, 'lost');
+    await drain(w);
+    expect(await commissionsFor(partnerId)).toEqual([share, -share]);
+    expect(await partnerCommissions(partnerId)).toEqual([
+      { kind: 'taken_back', amountCents: -share, held: false, test: true },
+      { kind: 'earned', amountCents: share, held: false, test: true },
+    ]);
   });
 
   it('records a plan’s cycle against the plan the provider named', async () => {

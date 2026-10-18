@@ -93,6 +93,9 @@ export const PartnerCommissionNoteOutput = z.object({ earned: z.boolean() });
 export const PartnerCommissionTakeBackInput = z.object({ workspaceId: uuid, refundId: uuid });
 export const PartnerCommissionTakeBackOutput = z.object({ takenBack: z.boolean() });
 
+/** Worker: a dispute on a payment closed (`dispute.closed`). */
+export const PartnerCommissionDisputeNoteInput = z.object({ workspaceId: uuid, disputeId: uuid });
+
 // ---------- what the screens read ----------
 
 const cents = z.int();
@@ -105,6 +108,8 @@ export const PartnerEarnings = z.object({
   waitingCents: cents,
   /** Free to pay out now. */
   payableCents: cents,
+  /** On payments with a dispute open: neither waiting nor free to pay out until it's settled. */
+  heldCents: cents,
 });
 export type PartnerEarnings = z.infer<typeof PartnerEarnings>;
 
@@ -152,6 +157,8 @@ export const PartnerCommissionOut = z.object({
   earnedAt: isoDateTime,
   payableAt: isoDateTime,
   test: z.boolean(),
+  /** Its payment has a dispute open: it waits until that's settled. */
+  held: z.boolean(),
   /** The client it came from: null once they were deleted for good. */
   clientName: z.string(),
   invoiceNumber: z.string().nullable(),
