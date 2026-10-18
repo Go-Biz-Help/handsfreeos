@@ -159,4 +159,17 @@ export const PARTNERS_WORDS = {
     saved: 'Saved.',
     noPartners: 'You have no other partners yet.',
   },
+
+  /** What only the phone says: everything here needs signal, and how partners are paid is changed on the web. */
+  phone: {
+    rowDetail: 'Who sends you customers, and what they’ve earned',
+    needsSignal: 'Partners need signal. Try again when you’re back online.',
+    paidTitle: 'How partners are paid',
+    terms: (version: number) => (version > 0 ? `Version ${version}` : 'None yet'),
+    calendarNone: 'None takes bookings yet',
+    changeOnWeb: 'Change these on the web',
+    shareLink: 'Share their link',
+    rateSave: 'Save their share',
+    rateBad: 'Type a share between 0.01% and 100%.',
+  },
 } as const;
