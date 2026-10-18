@@ -5,7 +5,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { AiAskError, askStructured } from '../src/ai/ask';
+import { AiAskError, askStructured, THINKING_ROOM } from '../src/ai/ask';
 import { aiBudget, recordAiUsage } from '../src/ai/budget';
 import { tokensToday } from '../src/assistant/store';
 import { testServices } from './helpers';
@@ -164,5 +164,20 @@ describe('askStructured', () => {
       retryable: false,
     });
     expect(await usageRows()).toBe(before + 1);
+  });
+
+  it('gives the model room to think on top of the answer, so the answer isn’t cut off', async () => {
+    const asked: (number | undefined)[] = [];
+    const recording: AiProvider = {
+      id: 'recording',
+      model: scripted.model,
+      stream: (request, options) => {
+        asked.push(request.maxTokens);
+        return scripted.stream(request, options);
+      },
+    };
+    await askStructured(ctx(recording), scope, { ...ask('hello'), maxTokens: 300 });
+    await askStructured(ctx(recording), scope, ask('hello'));
+    expect(asked).toEqual([300 + THINKING_ROOM, 2048 + THINKING_ROOM]);
   });
 });
