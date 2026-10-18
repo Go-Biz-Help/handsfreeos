@@ -59,6 +59,7 @@ import {
   immediateHandOff,
   makeApprovals,
   makeDraft,
+  REWRITE_ONLY,
   withFeedback,
   type DraftRun,
 } from '../ai-team/run';
@@ -591,6 +592,7 @@ export async function thinkTurn(
       })
     : null;
 
+  const callTools = tools.map((t) => streamSpoken(toolDefinition(t)));
   const loop = await runToolLoop({
     ...base,
     messages: [
@@ -603,7 +605,7 @@ export async function thinkTurn(
         ),
       },
     ],
-    tools: tools.map((t) => streamSpoken(toolDefinition(t))),
+    tools: callTools,
     maxRounds: call.config.limits.toolRounds,
     ...(early ? { onToolInput: early.onToolInput } : {}),
     ...(clock ? { onAsked: clock.onAsked, onStarted: clock.onStarted } : {}),
@@ -635,11 +637,17 @@ export async function thinkTurn(
   if (!verdict.ok) {
     checks.push(...checkRows(1, verdict, false));
     state.end = null;
+    // The same tools as the turn, as a text reply's rewrite does: changing them would void the turn's thinking
+    // (Claude Haiku 5.5 refuses it) and its cache. Only the turn-ending ones run, with one more round to reply.
     const redo = await runToolLoop({
       ...base,
+      execute: (toolCall) =>
+        enders.some((t) => t.name === toolCall.name)
+          ? execute(toolCall)
+          : Promise.resolve({ content: { error: REWRITE_ONLY }, isError: true }),
       messages: withFeedback(loop.messages, verdict, said ? alreadySaid(said) : undefined),
-      tools: enders.map(toolDefinition),
-      maxRounds: 1,
+      tools: callTools,
+      maxRounds: 2,
     });
     const again = failed(redo);
     if (again) return again;

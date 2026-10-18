@@ -63,19 +63,13 @@ export function callModel(
 }
 
 /**
- * A separate model for calls (VOICE_MODEL), only with Claude: the scripted stand-in answers calls too. With a
- * backup there always is one, AI_MODEL's when VOICE_MODEL is unset, so a call's backup is the fast one too.
+ * The model for calls (VOICE_MODEL, Claude Haiku 5.5 unless set), only with Claude: the scripted stand-in answers
+ * calls too. A call's backup is OpenAI's fast one.
  */
 export function createVoiceAi(
-  env: VoiceEnv & Pick<WorkerEnv, 'voiceModel' | 'aiModel'>,
+  env: VoiceEnv & Pick<WorkerEnv, 'voiceModel'>,
   aiSwitch: AiSwitchboard | null = null,
 ): AiProvider | null {
   if (env.assistantProvider !== 'anthropic' || !env.anthropicApiKey) return null;
-  if (!env.voiceModel && !aiSwitch) return null;
-  return claudeWithBackup(
-    env,
-    aiSwitch,
-    { model: env.voiceModel ?? env.aiModel },
-    voiceBackup(env),
-  );
+  return claudeWithBackup(env, aiSwitch, { model: env.voiceModel }, voiceBackup(env));
 }

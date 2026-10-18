@@ -897,7 +897,7 @@ export function withFeedback(
 }
 
 /** What the rewrite answers a tool other than one that ends the turn. */
-const REWRITE_ONLY =
+export const REWRITE_ONLY =
   'Nothing else can be done now. Send the rewritten reply with reply, or hand off.';
 
 /** How the tools ended the turn so far (read through a call: the loop's tools change it). */

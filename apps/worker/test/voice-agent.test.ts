@@ -451,6 +451,9 @@ describe('a call', () => {
       .flatMap((c) => (c.type === 'text' ? [c.text] : []))
       .find((t) => t.startsWith('Your reply wasn’t sent.'));
     expect(feedback).toContain('The caller already heard you say “Sure thing.”');
+    // It offers the turn's tools again, so the turn's thinking and cache still hold (Claude Haiku 5.5 checks).
+    const [turn, redo] = teammateRequests(w).slice(-2);
+    expect(redo!.tools).toEqual(turn!.tools);
     call.hangUp();
     const done = await waitForRun(callSid, 'done');
     expect(done.transcript).toContain(`Ava: Sure thing. ${rewrite}`);
