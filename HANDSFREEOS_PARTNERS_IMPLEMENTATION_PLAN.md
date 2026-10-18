@@ -114,6 +114,13 @@ says it uses. Another add-on (Sales Coach, say) could use it later.
   how big; why, in up to three short reasons. It counts against the day's checks.
 - **The list's order:** fit first, then audience size, then how active it is (posts this week, members' posts).
 
+### Group admins: a settled rule, changed by Chris
+
+docs/outreach.md has said from the start that group admins and moderators are never approached, so a group never
+throws the person out. Chris's request is to approach them, so this is his decision changing that rule: they're
+still never approached as customers, and a partner playbook asks them only about partnering, warmed up first, each
+message with the person's OK.
+
 ### Never pitched as customers
 
 - A profile with a partner row is never pitched as a customer: `pitchable` leaves it out, on every network, as it

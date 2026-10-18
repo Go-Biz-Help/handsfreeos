@@ -810,7 +810,8 @@ onboarding, built in HandsFreeOS as the setup (decision 45, settings part 6); (5
 groups; (6) team sharing, after-demo workflow, birthday notes, templates; (7) LinkedIn, then Instagram. (1) to (4) are
 built.
 
-From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached;
+From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached
+(as customers: decision 81 lets a partner playbook ask them to partner, each message with the person's OK);
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
 likes and 1 post, half that for new or quiet accounts.
@@ -1405,7 +1406,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     customer. A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
     paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe. Each
     partner has their own page. Alignable's referral swap stays beside the commission. Social Outreach finds and asks;
-    partners, commissions and payouts are core's, as money is.
+    partners, commissions and payouts are core's, as money is. Group admins and moderators are still never approached
+    as customers; this is the one way they're approached, as Chris asked.
 
 ## Rules worth knowing before changing anything
 
