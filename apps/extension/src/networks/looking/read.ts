@@ -4,6 +4,7 @@
  * words, never class names; and it's tuned from what Check <network> sends back, not from guesses.
  */
 import { clean, textLines } from '../facebook/dom';
+import { visible } from '../facebook/fetch';
 import { maskWith, outlineWith, type OutlineOptions, type OutlineSite } from '../outline';
 import type { LookingRead, LookingSite } from './site';
 
@@ -41,6 +42,10 @@ export const maskOn = (site: LookingSite) => (text: string) =>
       /^(\d{1,3}(,\d{3})*|\d+(\.\d+)?\s*[km]|\d{1,3}\s?[smhdwy])$/i.test(t),
     shapes: [],
   });
+
+/** Where a person writes, never a search: a form's boxes. */
+const BOXES =
+  'textarea, input[type="text"], input:not([type]), [role="textbox"], [contenteditable="true"]';
 
 /** Where a page's menus are: its navigation and its banner. */
 const MENUS = 'nav, [role="navigation"], header, [role="banner"]';
@@ -147,6 +152,12 @@ export function readLooking(
     edits: [...edits],
     warnings: readWarnings(doc, href, site),
     signedOut: doc.querySelector('input[type="password"]') !== null,
+    boxes: [...doc.querySelectorAll(BOXES)].filter(
+      (box) =>
+        visible(box) &&
+        box.getAttribute('role') !== 'combobox' &&
+        !/search/i.test(box.getAttribute('placeholder') ?? ''),
+    ).length,
     notes: [
       `The extension only reads ${site.name} for now: its steps are built from what Check ${site.name} reads.`,
     ],

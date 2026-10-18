@@ -302,6 +302,44 @@ describe('Instagram’s looks, which never press a step’s last button', () => 
     expect(box.value).toBe('');
   }, 15_000);
 
+  it('looks at the box as Instagram draws it again once a word is written, and empties that one', async () => {
+    const doc = page(
+      `${IG}/p/C9xYz12AbCd/`,
+      `<main role="main"><section><form><textarea aria-label="Add a comment…"></textarea></form></section></main>`,
+    );
+    // As the owner's Check found it (0.62.0): once something's written, the form is drawn again with Post, and its new
+    // box holds the word while the box it was written in reads empty.
+    const draw = (words: string) => {
+      const section = doc.querySelector('section')!;
+      section.innerHTML = `<form><textarea aria-label="Add a comment…"></textarea>${
+        words ? '<div role="button">Post</div>' : ''
+      }</form>`;
+      const box = section.querySelector('textarea')!;
+      box.value = words;
+      box.addEventListener('input', () => draw(box.value));
+      return box;
+    };
+    const first = draw('');
+    doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
+      const box = doc.activeElement as HTMLTextAreaElement | null;
+      if (!box || box.tagName !== 'TEXTAREA') return false;
+      if (command === 'insertText') box.value = text ?? '';
+      else if (command === 'delete') box.value = '';
+      else return false;
+      const words = box.value;
+      box.value = '';
+      draw(words);
+      return true;
+    };
+    expect(await look(INSTAGRAM, 'comment', doc)).toMatchObject({
+      works: true,
+      found: { box: true, typed: true, post: 1, emptied: true },
+    });
+    expect(first.isConnected).toBe(false);
+    expect(doc.querySelector('textarea')!.value).toBe('');
+    expect(doc.querySelector('[role="button"]')).toBeNull();
+  }, 15_000);
+
   it('finds the bio’s box and Submit on their own profile’s form', async () => {
     const doc = page(
       `${IG}/accounts/edit/`,

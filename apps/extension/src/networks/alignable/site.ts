@@ -14,6 +14,7 @@
  */
 import { clean } from '../facebook/dom';
 import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
+import { aboutLook, idealLook, pitchLook, readOwnProfile } from './own-profile';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
 
@@ -513,8 +514,13 @@ export const ALIGNABLE: LookingSite = {
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,
-  // Its own profile's forms, as the owner's own profile linked them (17 Oct 2026): /biz/<what>/<id>/edit.
-  editLink: (url) => /^\/biz\/[^/]+\/[^/]+\/edit\/?$/i.test(url.pathname),
+  // Its own profile's forms, as the owner's own profile linked them (17 and 18 Oct 2026): /biz/<what>/<id>/edit, and
+  // About Us's own page at /biz/profile/<part>.
+  editLink: (url) =>
+    /^\/biz\/[^/]+\/[^/]+\/edit\/?$/i.test(url.pathname) ||
+    /^\/biz\/profile\/[^/]+\/?$/i.test(url.pathname),
+  // Read for the AI's check (decision 80); what it writes goes in once Check has read each editor.
+  ownProfile: { read: readOwnProfile },
   // The menu's link to the person's own profile, by its words.
   ownLink: (doc, href) => {
     for (const anchor of doc.querySelectorAll(
@@ -571,6 +577,11 @@ export const ALIGNABLE: LookingSite = {
       on: ['*'],
       look: (doc) => lookFor('like', mainOf(doc), ALIGNABLE, { words: LIKE, name: 'Like' }),
     },
+    // Their own profile's editors (decision 80): opened and closed with nothing written or saved, and About Us's page
+    // looked at for its box and Save.
+    pitch: { on: ['*'], look: (doc) => pitchLook(doc, ALIGNABLE) },
+    ideal: { on: ['*'], look: (doc) => idealLook(doc, ALIGNABLE) },
+    about: { on: ['*'], look: (doc) => aboutLook(doc, ALIGNABLE) },
     // A box to comment in, or the Comment that opens one: nothing is written.
     comment: {
       on: ['*'],

@@ -64,6 +64,7 @@ describe('a note of what a job saw', () => {
     };
     expect(ownProfileNote(read)).toEqual({
       found: {
+        name: false,
         bio: true,
         about: true,
         roles: 0,
@@ -79,5 +80,12 @@ describe('a note of what a job saw', () => {
       note: 'Not read: Featured.',
       outline: false,
     });
+    // Each network's parts in its own words: Alignable's About Us and services, with its pitch and posts not read yet.
+    expect(
+      ownProfileNote({ ...read, platform: 'alignable', bio: null, about: null, posts: [] }).note,
+    ).toBe('Not read: About Us, the ideal customer, the services.');
+    expect(ownProfileNote({ ...read, platform: 'instagram', about: null }).note).toBe(
+      'Not read: a link, highlights.',
+    );
   });
 });

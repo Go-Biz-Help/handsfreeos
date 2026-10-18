@@ -99,15 +99,17 @@ export function ownProfileNote(read: ProfileRead): ReportNote {
   const roles = read.intro?.length ?? 0;
   const featured = read.featured?.length ?? 0;
   const posts = read.posts?.length ?? 0;
+  const parts = PARTS_ON[read.platform ?? 'facebook'];
   const missing = [
-    !read.bio && (read.platform === 'linkedin' ? 'the headline' : 'the bio'),
-    read.platform === 'linkedin' && !read.about && 'About',
-    roles === 0 && (read.platform === 'linkedin' ? 'Experience' : 'the intro'),
-    featured === 0 && 'Featured',
-    posts === 0 && 'any posts',
+    !read.bio && parts.bio,
+    !read.about && parts.about,
+    roles === 0 && parts.intro,
+    featured === 0 && parts.featured,
+    posts === 0 && parts.posts,
   ].filter((m): m is string => typeof m === 'string');
   return {
     found: {
+      name: Boolean(read.name),
       bio: Boolean(read.bio),
       about: Boolean(read.about),
       roles,
@@ -121,6 +123,44 @@ export function ownProfileNote(read: ProfileRead): ReportNote {
     outline: !read.bio || roles === 0,
   };
 }
+
+/** What each part of a profile is called on each network, as a note's "Not read" says it: null where none is read. */
+const PARTS_ON: Readonly<
+  Record<
+    Platform,
+    Readonly<Record<'bio' | 'about' | 'intro' | 'featured' | 'posts', string | null>>
+  >
+> = {
+  facebook: {
+    bio: 'the bio',
+    about: null,
+    intro: 'the intro',
+    featured: 'Featured',
+    posts: 'any posts',
+  },
+  linkedin: {
+    bio: 'the headline',
+    about: 'About',
+    intro: 'Experience',
+    featured: 'Featured',
+    posts: 'any posts',
+  },
+  instagram: {
+    bio: 'the bio',
+    about: null,
+    intro: 'a link',
+    featured: 'highlights',
+    posts: 'any posts',
+  },
+  // Its Elevator Pitch isn't read yet, and its posts aren't on the profile.
+  alignable: {
+    bio: null,
+    about: 'About Us',
+    intro: 'the ideal customer',
+    featured: 'the services',
+    posts: null,
+  },
+};
 
 /**
  * How loading a whole profile went, added to its note: the steps down, the parts LinkedIn held a place for and those
@@ -194,7 +234,8 @@ export function tryNote(tried: StepTry): ReportNote {
     note: tried.works
       ? null
       : `${name[0]!.toUpperCase()}${name.slice(1)}: ${tried.tried ? '' : 'not tried, '}${why}.`,
-    outline: !tried.works,
+    // A try's own outline, taken while what it opened was open, is kept even when it works: an editor Check opened.
+    outline: !tried.works || Boolean(tried.outline),
     ...(tried.outline ? { outlineText: tried.outline } : {}),
   };
 }

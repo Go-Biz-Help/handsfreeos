@@ -95,13 +95,47 @@ const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/austin-tx/acme-plumbing/dana-reyes`]: html(
     `${ALIGNABLE_MENU}<main><button>Connect</button><button>Message</button><button>Recommend</button></main>`,
   ),
-  // The person's own business's profile, with the link to its form (as the owner's own profile linked it).
-  [`${AL}/biz/businesses/my_profile`]: html(`${ALIGNABLE_MENU}<main><h1>Casey’s Roofing</h1>
-    <a href="/biz/businesses/42/edit">Edit</a><button data-testid="elevator-pitch-cta-button">Add Elevator Pitch</button></main>`),
-  [`${AL}/biz/businesses/42/edit`]: html(
-    `<main><form><label for="d">Business Description</label><textarea id="d"></textarea><button>Save Changes</button></form></main>`,
+  // The person's own profile, as the owner's own profile drew it (0.62.0): its Elevator Pitch, My Ideal Customer, and
+  // the Edit links to About Us's page and their details'.
+  [`${AL}/biz/businesses/my_profile`]: html(`${ALIGNABLE_MENU}<main>
+    <span><a href="/biz/users/77/edit"><img alt="Casey Owner profile picture" /></a></span>
+    <h1 title="Casey Owner">Casey Owner</h1><h2 title="Owner">Owner</h2>
+    <div data-testid="ideal-customer-information"><h1>My Ideal Customers</h1>
+      <div data-testid="ideal-customer-add-description"><span>Say who you serve.</span><button>Add</button></div></div>
+    <div><div><div>About Us</div><div><button data-testid="elevator-pitch-cta-button"><p>Add Your Elevator Pitch</p></button>
+      <a href="/biz/profile/about_us?source=profile">Edit</a></div></div><p>We fix roofs in Columbus.</p></div></main>`),
+  // About Us's page, drawn a moment after it opens.
+  [`${AL}/biz/profile/about_us`]: html(`<main></main>`),
+  [`${AL}/biz/users/77/edit`]: html(
+    `<main><form><label for="f">First Name</label><input id="f" type="text" value="Casey" /><button>Save</button></form></main>`,
   ),
 };
+
+/** What Alignable's pages draw a moment after they open, on the second read. */
+const ALIGNABLE_DRAWS: Record<string, (doc: Document) => void> = {
+  [`${AL}/biz/profile/about_us`]: (doc) => {
+    doc.querySelector('main')!.innerHTML = `<form><label for="a">About Us</label>
+      <textarea id="a">We fix roofs in Columbus.</textarea><button>Save Changes</button></form>`;
+  },
+};
+
+/** What their own profile's editors do: the Elevator Pitch opens a box in a dialog, My Ideal Customer one in place. */
+function alignableDoes(doc: Document) {
+  doc.querySelector('[data-testid="elevator-pitch-cta-button"]')?.addEventListener('click', () => {
+    const dialog = doc.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.innerHTML = `<textarea aria-label="Elevator Pitch"></textarea><button>Save</button><button>Cancel</button>`;
+    dialog.querySelectorAll('button')[1]!.addEventListener('click', () => dialog.remove());
+    doc.body.append(dialog);
+  });
+  const part = doc.querySelector('[data-testid="ideal-customer-add-description"]');
+  part?.querySelector('button')?.addEventListener('click', () => {
+    const editor = doc.createElement('div');
+    editor.innerHTML = `<textarea placeholder="Describe your ideal customer"></textarea><button>Cancel</button>`;
+    editor.querySelector('button')!.addEventListener('click', () => editor.remove());
+    part.append(editor);
+  });
+}
 
 /** A tab on a network still looked at, opening the pages above by address; it reads and looks as the tab does. */
 function fakeTab(pages: Record<string, string>, platform: 'instagram' | 'alignable') {
@@ -111,14 +145,17 @@ function fakeTab(pages: Record<string, string>, platform: 'instagram' | 'alignab
   const opened: string[] = [];
   const asked: string[] = [];
   const order: string[] = [];
+  let reads = 0;
   const tab = {
     async open(url: string) {
       const page = pages[url];
       if (!page) throw new Error(`Not expected: ${url}`);
       opened.push(url);
       at = url;
+      reads = 0;
       doc = new JSDOM(page, { url }).window.document;
       if (platform === 'instagram') instagramDoes(doc);
+      else alignableDoes(doc);
       return 1;
     },
     async inFront<T>(work: () => Promise<T>) {
@@ -130,7 +167,10 @@ function fakeTab(pages: Record<string, string>, platform: 'instagram' | 'alignab
     async ask(message: { readonly type: string; readonly step?: string }) {
       asked.push(message.type);
       if (!doc) return { ok: false, error: 'closed' };
-      if (message.type === 'hfos-read') return { ok: true, result: kit.readPage(doc, at) };
+      if (message.type === 'hfos-read') {
+        if (++reads === 2) ALIGNABLE_DRAWS[at]?.(doc);
+        return { ok: true, result: kit.readPage(doc, at) };
+      }
       if (message.type === 'hfos-outline')
         return {
           ok: true,
@@ -138,7 +178,7 @@ function fakeTab(pages: Record<string, string>, platform: 'instagram' | 'alignab
           outline: kit.outline(doc, at),
           shown: true,
         };
-      if (message.type === 'hfos-try') {
+      if (message.type === 'hfos-try' || message.type === 'hfos-own-profile') {
         // As the tab answers it (src/networks/looking/kit.ts), on this page.
         vi.stubGlobal('location', new URL(at));
         vi.stubGlobal('document', doc);
@@ -188,8 +228,8 @@ describe('Check Instagram', () => {
       `${IG}/p/E2bCd45EfGh/`,
       `${IG}/direct/inbox/`,
     ]);
-    // It reads, and tries: nothing else is asked of the tab.
-    expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-try']));
+    // It reads (their own account too, as the AI's check would), and tries: nothing else is asked of the tab.
+    expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-own-profile', 'hfos-try']));
     expect(notes.filter((n) => n.job?.startsWith('checkup.')).map((n) => n.job)).toEqual([
       'checkup.bio',
       'checkup.follow',
@@ -276,23 +316,38 @@ describe('Check Alignable', () => {
       `${AL}/inbox`,
       `${AL}/forum`,
       `${AL}/me`,
-      // Your own profile was a place already; your business's, and the form it's edited on, each read (decision 80).
+      // Their own profile, then the pages its Edit links open: About Us's, and their details' (decision 80).
       `${AL}/biz/businesses/my_profile`,
-      `${AL}/biz/businesses/42/edit`,
+      // Its Edit link's address is opened without what it says it came from.
+      `${AL}/biz/profile/about_us`,
+      `${AL}/biz/users/77/edit`,
       `${AL}/austin-tx/acme-plumbing/dana-reyes`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
     // One note of each step, its best: found on the page it was first found on.
     const steps = notes.filter((n) => n.job?.startsWith('checkup.') && n.job !== 'checkup.summary');
     expect(steps.map((n) => [n.job, n.found?.works])).toEqual([
+      // Their own profile's editors, opened and closed with nothing written, and About Us's page once it's drawn.
+      ['checkup.pitch', true],
+      ['checkup.ideal', true],
+      ['checkup.about', true],
       ['checkup.connect', true],
       ['checkup.message', true],
       ['checkup.recommend', true],
       ['checkup.like', true],
       ['checkup.comment', true],
     ]);
+    // Each editor's note keeps its outline while it was open.
+    expect(notes.find((n) => n.job === 'checkup.pitch')).toMatchObject({ outline: true });
+    expect(notes.find((n) => n.job === 'checkup.pitch')?.outlineText).toContain('dialog');
+    expect(notes.find((n) => n.job === 'checkup.about')?.found).toMatchObject({
+      box: true,
+      save: 1,
+    });
+    // Their profile as the AI's check reads it: what was found, never what it says.
+    expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 8 Alignable pages and tried 5 steps up to their last press. Everything works.',
+      'Read 9 Alignable pages and tried 8 steps up to their last press. Everything works.',
     );
   });
 
@@ -341,7 +396,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 8 Alignable pages and tried 5 steps up to their last press. Not working: recommending.',
+      'Read 9 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
     );
   });
 });

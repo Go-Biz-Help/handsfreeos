@@ -136,11 +136,16 @@ function bioBoxOf(doc: Document): HTMLTextAreaElement | null {
   );
 }
 
-/** Writes in a box as typing does, in place of what's there; a value set by hand only where that can't be done. */
+/**
+ * Writes in a box as typing does, in place of what's there; a value set by hand only where that can't be done. Typing
+ * goes where the focus is, so it's never done unless the box has it.
+ */
 function writeIn(doc: Document, box: HTMLTextAreaElement, text: string): void {
   box.focus();
-  box.select();
+  const focused = doc.activeElement === box;
+  if (focused) box.select();
   const typed =
+    focused &&
     typeof doc.execCommand === 'function' &&
     (text ? doc.execCommand('insertText', false, text) : doc.execCommand('delete'));
   if (!typed) typeInto(doc, box, text, true);
@@ -157,12 +162,13 @@ export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
   if (!box) return 'none';
   // In already: Instagram keeps Submit off with nothing changed.
   if (clean(box.value) === wanted) return 'done';
-  // Instagram redraws the form once its box has the focus, so the box is found again after.
+  // Instagram redraws the form once its box has the focus, and may again as it's written in, so the box is found
+  // again after each (Check Instagram's comment box, 0.62.0).
   box.focus();
   await pause(400);
   box = bioBoxOf(doc) ?? box;
   writeIn(doc, box, bio);
-  const typed = await waitFor(() => (clean(box!.value) === wanted ? true : null), 2_000);
+  const typed = await waitFor(() => (clean(bioBoxOf(doc)?.value) === wanted ? true : null), 2_000);
   if (!typed) return 'none';
   const submit = controlsSaying(mainOf(doc), SUBMIT, true).find((control) => shown(control));
   if (!submit) return 'none';
@@ -177,5 +183,6 @@ export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
     const said = SAVED.test(clean(doc.body.textContent));
     return now && clean(now.value) === wanted && (said || off) ? true : null;
   }, 8_000);
-  return kept ? 'done' : writingIn(box) ? 'not_saved' : 'none';
+  const last = bioBoxOf(doc);
+  return kept ? 'done' : last && writingIn(last) ? 'not_saved' : 'none';
 }
