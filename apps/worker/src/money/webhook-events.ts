@@ -63,8 +63,12 @@ const STRIPE_KINDS: Readonly<Record<string, PaymentEventKind>> = {
   'payment_intent.amount_capturable_updated': 'payment.processing',
   'payment_intent.payment_failed': 'payment.failed',
   'payment_intent.canceled': 'payment.failed',
-  'charge.refunded': 'payment.refunded',
+  // A refund's own events carry it, with its id: one made in Stripe's dashboard is kept from them (decision 19 of
+  // the partners plan). `charge.refunded` is about the charge, and is read only to be passed over.
+  'refund.created': 'payment.refunded',
   'refund.updated': 'payment.refunded',
+  'refund.failed': 'payment.refunded',
+  'charge.refunded': 'payment.refunded',
   'charge.refund.updated': 'payment.refunded',
   'charge.dispute.created': 'payment.disputed',
   'charge.dispute.updated': 'payment.disputed',
@@ -190,9 +194,13 @@ export function paymentFactsOf(
 }
 
 export interface RefundEventFacts {
+  /** The event carries the refund itself, with its own id; Stripe's `charge.refunded` carries the charge. */
+  readonly isRefund: boolean;
   readonly providerRefundId: string | null;
   readonly providerPaymentId: string | null;
   readonly status: RefundState | null;
+  /** The provider's own word for it, kept beside ours. */
+  readonly providerStatus: string | null;
   readonly amountCents: number | null;
   readonly refundedAt: string | null;
 }
@@ -222,8 +230,10 @@ export function refundFactsOf(
   // Stripe's `charge.refunded` carries the charge, not the refund: the refund's own id may not be there.
   const isRefundObject = str(data['object']) === 'refund' || !!data['payment_id'];
   return {
+    isRefund: isRefundObject,
     providerRefundId: isRefundObject ? str(data['id']) : null,
     providerPaymentId: str(data['payment_intent']) ?? str(data['payment_id']),
+    providerStatus: status,
     status: status
       ? provider === 'stripe'
         ? (STRIPE_REFUND_STATE[status] ?? null)

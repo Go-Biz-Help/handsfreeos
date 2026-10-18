@@ -14,6 +14,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   catalogAddon,
+  commissionCents,
   executeCommand,
   executeQuery,
   partnerAdd,
@@ -592,6 +593,155 @@ describe('what the routes do with an event they take', () => {
           where id = ${extra.connectionId}`,
     );
     expect(row).toMatchObject({ status: 'disconnected', disconnected_reason: 'deauthorized' });
+  });
+});
+
+/** A refund HandsFreeOS keeps, by the provider's own id for it. */
+async function refundByProviderId(providerRefundId: string) {
+  return rows<{
+    id: string;
+    status: string;
+    amount_cents: number;
+    provider_refund_id: string | null;
+  }>(
+    admin(),
+    sql`select id, status::text as status, amount_cents::int as amount_cents, provider_refund_id
+        from app.refunds where provider_refund_id = ${providerRefundId}`,
+  );
+}
+
+describe('a refund made in the provider’s own dashboard (the partners plan, decision 19)', () => {
+  it('is kept from Stripe’s refund events: the invoice counts it, and the partner’s share comes back', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${w.workspaceId}, 'outreach', 'enabled', ${catalogAddon('outreach').version})
+          on conflict do nothing`,
+    );
+    const person = (firstName: string, lastName: string) =>
+      run(w, personCreate, {
+        workspaceId: w.workspaceId,
+        firstName,
+        lastName,
+        ignoreDuplicates: true,
+      }) as Promise<{ personId: string }>;
+    const { personId: cora } = await person('Cora', 'Client');
+    const { personId: rae } = await person('Rae', 'Partner');
+    const { partnerId } = await run(w, partnerAdd, { workspaceId: w.workspaceId, personId: rae });
+    await run(w, partnerReferralSet, { workspaceId: w.workspaceId, personId: cora, partnerId });
+    const inv = await sentInvoice(w, { personId: cora });
+    const providerPaymentId = await payByCard(inv);
+    const share = (await commissionsFor(partnerId))[0]!;
+    expect(share).toBeGreaterThan(0);
+
+    const half = Math.floor(inv.totalCents / 2);
+    const made = (await w.s.payments.fake.dashboardRefund(providerPaymentId, half))!;
+    await drain(w);
+    expect(await refundByProviderId(made.id)).toEqual([
+      {
+        id: expect.any(String),
+        status: 'succeeded',
+        amount_cents: half,
+        provider_refund_id: made.id,
+      },
+    ]);
+    expect(await invoiceRow(inv.id)).toMatchObject({
+      status: 'paid',
+      amount_refunded_cents: half,
+    });
+    // The business's default share is 10%: what half the payment earned comes back.
+    expect(await commissionsFor(partnerId)).toEqual([share, -commissionCents(half, 1_000)]);
+
+    // The refund's own event, delivered again, is kept once; the charge-level one beside it changed nothing.
+    const sentIt = w.s.payments.fake
+      .webhooks()
+      .find((p) => p.type === 'refund.created' && p.body.includes(made.id))!;
+    expect(
+      w.s.payments.fake
+        .webhooks()
+        .some((p) => p.type === 'charge.refunded' && p.body.includes(providerPaymentId)),
+    ).toBe(true);
+    const again = stripeBody(
+      'refund.created',
+      w.stripe.accountId,
+      JSON.parse(sentIt.body).data.object,
+    );
+    expect((await hook('stripe', again, w.s.payments.fake.signStripe(again))).statusCode).toBe(200);
+    await drain(w);
+    expect(await refundByProviderId(made.id)).toHaveLength(1);
+    expect(await commissionsFor(partnerId)).toHaveLength(2);
+  });
+
+  it('is kept from Square’s while it waits, and counted once it goes through', async () => {
+    const inv = await sentInvoice(w, { connectionId: w.square.connectionId });
+    const clientId = randomUUID();
+    const start = await post(w, `/public/invoice/${inv.token}/pay`, { clientId, method: 'card' });
+    const prepared = start.json() as { payment: { hostedUrl: string } };
+    const back = await payOnStandInPage(w, prepared.payment.hostedUrl, FAKE_CARDS.succeeds, 'card');
+    const paid = await post(w, `/public/invoice/${inv.token}/pay`, {
+      clientId,
+      method: 'card',
+      sourceToken: back.searchParams.get('token'),
+    });
+    expect(paid.statusCode, paid.body).toBe(200);
+    await drain(w);
+    const [payment] = await paymentRows(inv.id);
+    expect(payment!.status).toBe('succeeded');
+
+    const made = (await w.s.payments.fake.dashboardRefund(payment!.provider_payment_id!, 1_000, {
+      status: 'pending',
+    }))!;
+    await drain(w);
+    expect(await refundByProviderId(made.id)).toMatchObject([{ status: 'pending' }]);
+    expect((await invoiceRow(inv.id)).amount_refunded_cents).toBe(0);
+    await w.s.payments.fake.settleRefund(made.id, 'succeeded');
+    await drain(w);
+    expect(await refundByProviderId(made.id)).toMatchObject([
+      { status: 'succeeded', amount_cents: 1_000 },
+    ]);
+    expect((await invoiceRow(inv.id)).amount_refunded_cents).toBe(1_000);
+  });
+
+  it('never pins a dashboard refund, or a charge-level event, on a refund of ours still waiting', async () => {
+    const inv = await sentInvoice(w);
+    const providerPaymentId = await payByCard(inv);
+    const [payment] = await paymentRows(inv.id);
+    // Ours, asked for and not answered yet: Stripe has it, and the worker hasn't kept its id.
+    const [ours] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, provider, connection_id,
+            status, idempotency_key)
+          select p.workspace_id, p.id, p.invoice_id, 1000, p.provider, p.connection_id, 'pending',
+            ${`ours-${randomUUID()}`}
+          from app.payments p where p.id = ${payment!.id}
+          returning id`,
+    );
+
+    // Stripe's charge-level event names the payment, but not the refund: passed over.
+    const charge = stripeBody('charge.refunded', w.stripe.accountId, {
+      id: `ch_${randomUUID().slice(0, 8)}`,
+      object: 'charge',
+      payment_intent: providerPaymentId,
+      amount: inv.totalCents,
+      amount_refunded: 2_000,
+      status: 'succeeded',
+    });
+    expect((await hook('stripe', charge, w.s.payments.fake.signStripe(charge))).statusCode).toBe(
+      200,
+    );
+    // One made in the dashboard for another amount on the same payment: kept as its own.
+    const made = (await w.s.payments.fake.dashboardRefund(providerPaymentId, 2_000))!;
+    await drain(w);
+
+    const [mine] = await rows<{ status: string; provider_refund_id: string | null }>(
+      admin(),
+      sql`select status::text as status, provider_refund_id from app.refunds where id = ${ours!.id}`,
+    );
+    expect(mine).toEqual({ status: 'pending', provider_refund_id: null });
+    expect(await refundByProviderId(made.id)).toMatchObject([
+      { status: 'succeeded', amount_cents: 2_000 },
+    ]);
+    expect((await invoiceRow(inv.id)).amount_refunded_cents).toBe(2_000);
   });
 });
 

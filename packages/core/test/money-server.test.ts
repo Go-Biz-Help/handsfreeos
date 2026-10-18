@@ -59,6 +59,7 @@ import {
   moneySummary,
   organizationCreate,
   paymentList,
+  paymentRecordDashboardRefund,
   paymentRecordRefund,
   paymentRefund,
   planCreate,
@@ -1071,6 +1072,119 @@ describe('a refund', () => {
       w.owner,
     );
     expect(asked.status).toBe('pending');
+  });
+
+  /** A card payment taken through a Stripe account of the business's, as the worker records it. */
+  async function stripePayment(invoiceId: string, amountCents: number) {
+    const [conn] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.payment_connections (workspace_id, provider, environment, status,
+            external_account_id, connected_at)
+          values (${w.wsId}, 'stripe', 'live', 'active', ${`acct_${randomUUID().slice(0, 10)}`}, now())
+          returning id`,
+    );
+    const providerPaymentId = `pi_${randomUUID().slice(0, 12)}`;
+    const paid = await sys(invoiceRecordPayment, {
+      workspaceId: w.wsId,
+      invoiceId,
+      amountCents,
+      method: 'card',
+      provider: 'stripe',
+      connectionId: conn!.id,
+      status: 'succeeded',
+      providerPaymentId,
+    });
+    return { paymentId: paid.paymentId, providerPaymentId };
+  }
+
+  const refundRow = async (refundId: string) =>
+    (
+      await rows<{ status: string; provider_refund_id: string | null; refunded_at: Date | null }>(
+        admin(),
+        sql`select status::text as status, provider_refund_id, refunded_at from app.refunds
+            where id = ${refundId}`,
+      )
+    )[0]!;
+
+  it('keeps one made in the provider’s own dashboard, once, and moves it on as the provider says', async () => {
+    const sent = await sentInvoice();
+    const { providerPaymentId } = await stripePayment(sent.invoiceId, 100_000);
+    // A provider's refund ids are unique everywhere, so each run makes its own.
+    const re = (n: number) => `re_${n}_${randomUUID().slice(0, 8)}`;
+    const [first, second, third] = [re(1), re(2), re(3)];
+    const dashboard = (
+      status: 'pending' | 'succeeded',
+      providerRefundId = first,
+      amountCents = 40_000,
+      paymentRef = providerPaymentId,
+    ) =>
+      sys(paymentRecordDashboardRefund, {
+        workspaceId: w.wsId,
+        provider: 'stripe',
+        providerPaymentId: paymentRef,
+        providerRefundId,
+        amountCents,
+        status,
+        providerStatus: status,
+      });
+    const waiting = await dashboard('pending');
+    expect(waiting).toMatchObject({ status: 'pending', created: true });
+    let got = await ask(invoiceGet, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner);
+    expect(got.invoice.amountRefundedCents).toBe(0);
+
+    // It goes through: the same refund, now counted on the invoice, which stays paid.
+    expect(await dashboard('succeeded')).toEqual({
+      refundId: waiting.refundId,
+      status: 'succeeded',
+      created: false,
+    });
+    got = await ask(invoiceGet, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner);
+    expect(got.invoice).toMatchObject({
+      amountRefundedCents: 40_000,
+      status: 'paid',
+      state: 'partly_refunded',
+    });
+    const kept = await refundRow(waiting.refundId!);
+
+    // Heard again, nothing changes, not even when it went through; and it was said once.
+    await dashboard('succeeded');
+    expect(await refundRow(waiting.refundId!)).toEqual(kept);
+    const [said] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.events
+          where entity_id = ${waiting.refundId} and event_type = 'refund.recorded'`,
+    );
+    expect(said!.n).toBe(1);
+
+    // More than is left on the payment, or a payment never taken here, is passed over.
+    const none = { refundId: null, status: null, created: false };
+    expect(await dashboard('succeeded', second, 70_000)).toEqual(none);
+    expect(await dashboard('succeeded', third, 1_000, 'pi_never_taken_here')).toEqual(none);
+  });
+
+  it('never loses the provider’s id for a refund, nor when it went through, on hearing it again', async () => {
+    const sent = await sentInvoice();
+    const { paymentId } = await stripePayment(sent.invoiceId, 100_000);
+    const asked = await run(
+      paymentRefund,
+      { workspaceId: w.wsId, paymentId, amountCents: 10_000 },
+      w.owner,
+    );
+    const record = (input: Record<string, unknown>) =>
+      sys(paymentRecordRefund, { workspaceId: w.wsId, refundId: asked.refundId, ...input });
+    // Still waiting, with the provider's id now known.
+    const providerRefundId = `re_${randomUUID().slice(0, 12)}`;
+    await record({ status: 'pending', providerRefundId });
+    expect(await refundRow(asked.refundId)).toMatchObject({
+      status: 'pending',
+      provider_refund_id: providerRefundId,
+    });
+    // An answer without the refund's own id keeps the one known.
+    await record({ status: 'succeeded', refundedAt: '2026-10-01T12:00:00.000Z' });
+    const done = await refundRow(asked.refundId);
+    expect(done).toMatchObject({ status: 'succeeded', provider_refund_id: providerRefundId });
+    await record({ status: 'succeeded', refundedAt: '2026-10-09T12:00:00.000Z' });
+    expect(await refundRow(asked.refundId)).toEqual(done);
   });
 
   /**

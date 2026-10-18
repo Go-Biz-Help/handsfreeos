@@ -253,10 +253,14 @@ if the business says, decision 17), and the calendar the referral link books.
 
 1. **2a:** the core feature, its permission and settings, the tables, referrals, commissions on payments and refunds,
    and Make partner.
-2. **2b:** disputes (built). A refund made in Stripe's or Square's own dashboard waits on Chris: today the worker
-   passes over one HandsFreeOS never asked for ("deferred, on purpose", apps/worker/src/money/processors.ts), so its
-   share wouldn't come back. Recording them would also count them on the invoice, and needs Stripe's `refund.created`
-   added to the webhook's events, since `charge.refunded` carries the charge and not the refund.
+2. **2b:** disputes (built). A refund made in Stripe's or Square's own dashboard is recorded since decision 19
+   (built 18 Oct 2026, with stage 3): the worker keeps one HandsFreeOS never asked for from the refund's own events
+   (`payment.record_dashboard_refund`), so it counts on the invoice and `refund.recorded` takes back the partner's
+   share. Stripe's `refund.created` and `refund.failed` are now among the webhook's events (Stripe Part 4 in
+   docs/operations.md); `charge.refunded` carries the charge and not the refund, so it's passed over rather than
+   pinned on a refund of ours that's still waiting. A refund of ours the provider answers before our job keeps its id
+   is matched by its payment and its amount. Still open: a refund the bank turns down after it went through stays
+   counted, since a refund's status only moves forward.
 3. **2c:** the partner's page (built 18 Oct 2026). A partner signs in to the business's portal as any client does
    (`portal_access.give`, whose email tells a partner about their partner page instead of a client's to-do). Home
    has a card and the menu a **Partner** page for them while partners are on (`portal.home`'s `partner`). The page

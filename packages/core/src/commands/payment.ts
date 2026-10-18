@@ -25,6 +25,8 @@ import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { canRefundMove, isManualPaymentMethod, money, type RefundStatus } from '../money/index';
 import {
+  PaymentRecordDashboardRefundInput,
+  PaymentRecordDashboardRefundOutput,
   PaymentRecordDisputeInput,
   PaymentRecordDisputeOutput,
   PaymentRecordRefundInput,
@@ -192,6 +194,109 @@ export const paymentRefund = defineCommand({
   },
 });
 
+/** A refund as `recordRefundStatus` moves it on. */
+type RefundRow = {
+  readonly id: string;
+  readonly payment_id: string;
+  readonly invoice_id: string;
+  readonly amount_cents: number;
+  readonly status: string;
+  readonly method: string;
+  readonly provider_refund_id: string | null;
+};
+
+/** What the provider (or the person handing cash back) said about a refund. */
+interface RefundNews {
+  readonly status: RefundStatus;
+  readonly providerRefundId: string | null;
+  readonly providerStatus: string | null;
+  readonly failureCode: string | null;
+  readonly refundedAt: string | null;
+}
+
+/** A refund, held until the command ends, with the payment's method. */
+async function lockedRefund(ctx: CommandContext, refundId: string): Promise<RefundRow | null> {
+  const [r] = await rows<RefundRow>(
+    ctx.tx,
+    sql`select r.id, r.payment_id, r.invoice_id, r.amount_cents::float8 as amount_cents,
+          r.status::text as status, p.method::text as method, r.provider_refund_id
+        from app.refunds r join app.payments p on p.id = r.payment_id
+        where r.workspace_id = ${ctx.scope.workspaceId!} and r.id = ${refundId}::uuid
+        for no key update of r`,
+  );
+  return r ?? null;
+}
+
+/**
+ * Moves a refund on as the provider says, forward only, and says so when it settles. Hearing the same thing again
+ * changes nothing that was kept: not when it went through, nor the provider's id for it.
+ */
+async function recordRefundStatus(ctx: CommandContext, r: RefundRow, news: RefundNews) {
+  const from = r.status as RefundStatus;
+  const manual = isManualPaymentMethod(r.method as never);
+  const same = (status: RefundStatus) => ({
+    refundId: r.id,
+    paymentId: r.payment_id,
+    invoiceId: r.invoice_id,
+    amountCents: Number(r.amount_cents),
+    status,
+    manual,
+  });
+  // A late callback is kept quietly, as the database guard does.
+  if (from !== news.status && !canRefundMove(from, news.status)) return same(from);
+  if (from === news.status) {
+    // Only what wasn't known yet: an id the provider gives later, and its own word for where it stands.
+    await ctx.tx
+      .update(refunds)
+      .set({
+        providerRefundId: r.provider_refund_id ?? news.providerRefundId,
+        ...(news.providerStatus ? { providerStatus: news.providerStatus } : {}),
+      })
+      .where(eq(refunds.id, r.id));
+    return same(from);
+  }
+  const before = await requireInvoice(ctx, r.invoice_id);
+  await ctx.tx
+    .update(refunds)
+    .set({
+      status: news.status,
+      // An answer without the refund's own id (Stripe's charge-level events) never loses the one kept.
+      providerRefundId: news.providerRefundId ?? r.provider_refund_id,
+      providerStatus: news.providerStatus,
+      failureCode: news.status === 'failed' ? news.failureCode : null,
+      refundedAt:
+        news.status === 'succeeded'
+          ? news.refundedAt
+            ? new Date(news.refundedAt)
+            : new Date()
+          : null,
+    })
+    .where(eq(refunds.id, r.id));
+  const after = await requireInvoice(ctx, r.invoice_id);
+  await ctx.emit({
+    type: news.status === 'failed' ? 'refund.failed' : 'refund.recorded',
+    entityType: 'refund',
+    entityId: r.id,
+    payload: {
+      refundId: r.id,
+      paymentId: r.payment_id,
+      invoiceId: r.invoice_id,
+      personId: after.person_id,
+      amountCents: Number(r.amount_cents),
+      status: news.status,
+      failureCode: news.failureCode,
+    },
+    before: { balance: money(Number(before.balance_cents)) },
+    after: {
+      invoice: after.number ?? 'Invoice',
+      refunded: money(Number(r.amount_cents)),
+      status: news.status,
+      balance: money(Number(after.balance_cents)),
+    },
+  });
+  return same(news.status);
+}
+
 export const paymentRecordRefund = defineCommand({
   name: 'payment.record_refund',
   description:
@@ -204,75 +309,94 @@ export const paymentRecordRefund = defineCommand({
   emits: ['refund.recorded', 'refund.failed'],
   actors: ['system'],
   async handler(ctx, input) {
-    const [r] = await rows<{
+    const r = await lockedRefund(ctx, input.refundId);
+    if (!r) throw HfosError.notFound('That refund isn’t there.');
+    return recordRefundStatus(ctx, r, input);
+  },
+});
+
+/**
+ * A refund made in Stripe's or Square's own dashboard, never asked for here (the partners plan, decision 19): kept as
+ * one of the payment's refunds, as one made here is, so the invoice counts it and a partner's share of it comes back.
+ * It's found again by the provider's id, so a replay changes nothing and a later "it went through" moves the same
+ * one on. A payment HandsFreeOS never took, or more going back than is left on one, is passed over.
+ */
+export const paymentRecordDashboardRefund = defineCommand({
+  name: 'payment.record_dashboard_refund',
+  description:
+    'Worker: a refund made in the provider’s own dashboard, kept as one of the payment’s refunds so the invoice counts it and a partner’s share of it comes back. Its status only moves forward.',
+  risk: 1,
+  input: PaymentRecordDashboardRefundInput,
+  output: PaymentRecordDashboardRefundOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['refund.recorded', 'refund.failed'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const news: RefundNews = input;
+    const known = async () => {
+      const [row] = await rows<{ id: string }>(
+        ctx.tx,
+        sql`select r.id from app.refunds r
+            where r.workspace_id = ${ws} and r.provider::text = ${input.provider}
+              and r.provider_refund_id = ${input.providerRefundId}`,
+      );
+      return row ? await lockedRefund(ctx, row.id) : null;
+    };
+    const kept = async (r: RefundRow, created: boolean) => ({
+      refundId: r.id,
+      status: (await recordRefundStatus(ctx, r, news)).status,
+      created,
+    });
+    const had = await known();
+    if (had) return kept(had, false);
+    // Held until the command ends, so two refunds at once can't both take what's left.
+    const [payment] = await rows<{
       id: string;
-      payment_id: string;
       invoice_id: string;
       amount_cents: number;
+      connection_id: string | null;
       status: string;
-      method: string;
     }>(
       ctx.tx,
-      sql`select r.id, r.payment_id, r.invoice_id, r.amount_cents::float8 as amount_cents,
-            r.status::text as status, p.method::text as method
-          from app.refunds r join app.payments p on p.id = r.payment_id
-          where r.workspace_id = ${ctx.scope.workspaceId!} and r.id = ${input.refundId}::uuid
-          for no key update of r`,
+      sql`select p.id, p.invoice_id, p.amount_cents::float8 as amount_cents, p.connection_id,
+            p.status::text as status
+          from app.payments p
+          where p.workspace_id = ${ws} and p.provider::text = ${input.provider}
+            and p.provider_payment_id = ${input.providerPaymentId}
+          limit 1
+          for no key update`,
     );
-    if (!r) throw HfosError.notFound('That refund isn’t there.');
-    const from = r.status as RefundStatus;
-    const manual = isManualPaymentMethod(r.method as never);
-    const same = (changed: boolean, status: RefundStatus) => ({
-      refundId: r.id,
-      paymentId: r.payment_id,
-      invoiceId: r.invoice_id,
-      amountCents: Number(r.amount_cents),
-      status,
-      manual,
-    });
-    // A late callback is kept quietly, as the database guard does.
-    if (from !== input.status && !canRefundMove(from, input.status)) return same(false, from);
-    const before = await requireInvoice(ctx, r.invoice_id);
-    await ctx.tx
-      .update(refunds)
-      .set({
-        status: input.status,
+    if (!payment || payment.status !== 'succeeded')
+      return { refundId: null, status: null, created: false };
+    const [given] = await rows<{ cents: number }>(
+      ctx.tx,
+      sql`select coalesce(sum(r.amount_cents), 0)::float8 as cents from app.refunds r
+          where r.payment_id = ${payment.id} and r.status = 'succeeded'`,
+    );
+    if (input.amountCents > Number(payment.amount_cents) - Number(given?.cents ?? 0))
+      return { refundId: null, status: null, created: false };
+    const [row] = await ctx.tx
+      .insert(refunds)
+      .values({
+        workspaceId: ws,
+        paymentId: payment.id,
+        invoiceId: payment.invoice_id,
+        amountCents: input.amountCents,
+        provider: input.provider,
+        connectionId: payment.connection_id,
         providerRefundId: input.providerRefundId,
         providerStatus: input.providerStatus,
-        failureCode: input.status === 'failed' ? input.failureCode : null,
-        refundedAt:
-          input.status === 'succeeded'
-            ? input.refundedAt
-              ? new Date(input.refundedAt)
-              : new Date()
-            : null,
+        status: 'pending',
+        idempotencyKey: `dashboard:${input.providerRefundId}`.slice(0, 100),
       })
-      .where(eq(refunds.id, r.id));
-    if (from !== input.status) {
-      const after = await requireInvoice(ctx, r.invoice_id);
-      await ctx.emit({
-        type: input.status === 'failed' ? 'refund.failed' : 'refund.recorded',
-        entityType: 'refund',
-        entityId: r.id,
-        payload: {
-          refundId: r.id,
-          paymentId: r.payment_id,
-          invoiceId: r.invoice_id,
-          personId: after.person_id,
-          amountCents: Number(r.amount_cents),
-          status: input.status,
-          failureCode: input.failureCode,
-        },
-        before: { balance: money(Number(before.balance_cents)) },
-        after: {
-          invoice: after.number ?? 'Invoice',
-          refunded: money(Number(r.amount_cents)),
-          status: input.status,
-          balance: money(Number(after.balance_cents)),
-        },
-      });
-    }
-    return same(from !== input.status, input.status);
+      .onConflictDoNothing()
+      .returning({ id: refunds.id });
+    // Kept by a delivery of the same refund at the same moment: that one is it.
+    const r = row ? await lockedRefund(ctx, row.id) : await known();
+    if (!r) return { refundId: null, status: null, created: false };
+    return kept(r, !!row);
   },
 });
 
@@ -396,4 +520,9 @@ export const paymentRecordDispute = defineCommand({
   },
 });
 
-export const paymentCommands = [paymentRefund, paymentRecordRefund, paymentRecordDispute] as const;
+export const paymentCommands = [
+  paymentRefund,
+  paymentRecordRefund,
+  paymentRecordDashboardRefund,
+  paymentRecordDispute,
+] as const;

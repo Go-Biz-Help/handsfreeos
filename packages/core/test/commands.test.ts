@@ -519,6 +519,7 @@ describe('registry', () => {
       'invoice.mark_overdue',
       'payment.refund',
       'payment.record_refund',
+      'payment.record_dashboard_refund',
       'payment.record_dispute',
       'subscription.start',
       'subscription.pause',
