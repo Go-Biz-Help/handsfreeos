@@ -78,9 +78,37 @@ export const TODAY_KINDS = {
   warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   confirm: 'Confirm their request',
+  // A partner's steps (./partners.ts, decision 81), on the list's own part (`partners`), in the same order.
+  partner_reply: 'Reply to a partner',
+  partner_details: 'Send the partner details',
+  partner_follow_up: 'Follow up on partnering',
+  partner_ask: 'Ask about partnering',
+  partner_warm_up: 'Warm up a partner',
 } as const;
 export type TodayKind = keyof typeof TODAY_KINDS;
 export const TODAY_KIND_KEYS = Object.keys(TODAY_KINDS) as [TodayKind, ...TodayKind[]];
+
+/**
+ * A partner's steps (decision 81): a like first, then the ask, follow-ups, the details after a yes, and replies. Each
+ * message waits for the person's OK, one at a time (./sends.ts `goesAsItIs`).
+ */
+export const PARTNER_TODAY_KINDS = [
+  'partner_reply',
+  'partner_details',
+  'partner_follow_up',
+  'partner_ask',
+  'partner_warm_up',
+] as const satisfies readonly TodayKind[];
+export type PartnerTodayKind = (typeof PARTNER_TODAY_KINDS)[number];
+export const PARTNER_MESSAGE_KINDS = [
+  'partner_ask',
+  'partner_follow_up',
+  'partner_details',
+  'partner_reply',
+] as const satisfies readonly PartnerTodayKind[];
+export type PartnerMessageKind = (typeof PARTNER_MESSAGE_KINDS)[number];
+export const isPartnerKind = (kind: string): kind is PartnerTodayKind =>
+  (PARTNER_TODAY_KINDS as readonly string[]).includes(kind);
 
 /** Which daily limit each kind counts against: a reply and a confirm count against none. */
 export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
@@ -96,6 +124,11 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   reply: null,
   comment: 'comment',
   warm_lead: 'comment',
+  partner_reply: null,
+  partner_details: 'follow_up',
+  partner_follow_up: 'follow_up',
+  partner_ask: 'first_message',
+  partner_warm_up: 'like',
 };
 
 /** How far back a new friend, a follow-up in a chat that started another way, and a reply are still worth it. */
@@ -144,6 +177,8 @@ export const TodayItem = z.object({
   personId: z.uuid().nullable(),
   /** The person marked them as having booked a demo (`outreach.demo.mark`). */
   demoBooked: z.boolean(),
+  /** For a partner's step (`partners`): their row on the Partners list (./partners.ts). */
+  partnerId: z.uuid().nullable().optional(),
   /**
    * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
    * to go. Null until it drafts one. One handed over, or to someone who needs the person, waits for an OK of its own:
@@ -173,6 +208,11 @@ export const TodayOutput = z.object({
     like: z.object({ done: n, most: n }),
   }),
   items: z.array(TodayItem),
+  /**
+   * Partners' steps (decision 81): warm-ups, asks, follow-ups, details and replies, in their kinds' order, within
+   * what the customers' steps above left of the daily limits, and at most 3 asks a day.
+   */
+  partners: z.array(TodayItem).default([]),
   /** Groups with people saved whose full list of admins hasn't been read: their members wait for it. */
   readAdmins: z.array(
     z.object({ groupId: z.uuid(), name: z.string().nullable(), url: z.string() }),
@@ -236,8 +276,14 @@ export const DRAFT_KINDS = [
   'reply',
   'comment',
   'warm_lead',
+  ...PARTNER_MESSAGE_KINDS,
 ] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
+/** The drafts for customers: a partner's are written as ./partners.ts says. */
+export type CustomerDraftKind = Exclude<DraftKind, PartnerMessageKind>;
+export const CUSTOMER_DRAFT_KINDS = DRAFT_KINDS.filter(
+  (k): k is CustomerDraftKind => !isPartnerKind(k),
+);
 export const DRAFTS_MOST = 3;
 /** How many drafts each kind gets: two for a comment (decision 20). */
 export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
@@ -250,6 +296,10 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   reply: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
   warm_lead: COMMENT_DRAFTS,
+  partner_ask: DRAFTS_MOST,
+  partner_follow_up: DRAFTS_MOST,
+  partner_details: DRAFTS_MOST,
+  partner_reply: DRAFTS_MOST,
 };
 export const DRAFT_MOST_CHARS = 600;
 /** What the extension looked up about them just before (decision 21): lines from their profile and business page. */
@@ -350,7 +400,7 @@ export interface DraftConversation {
   readonly followUps: number;
 }
 
-const TASK: Record<DraftKind, string> = {
+const TASK: Record<CustomerDraftKind, string> = {
   opener:
     'They just accepted the owner’s friend request. Write the first message. Its only job is a yes: ask straight out whether they’d be open to the offer’s outcome on its guarantee, in a few words each, and say that if they are, the owner will send more info. Open with one line about them (their business, their job, something they posted) only when the facts or their pages show something real that fits the offer; otherwise just say hi. Never the price, never a long story.',
   reconnect:
@@ -375,18 +425,19 @@ const TASK: Record<DraftKind, string> = {
  * A kind's task on a network, in its words. A post off a group (LinkedIn's post search and feed, where the helpful post
  * goes on the person's own) is on the network, not in a group.
  */
-function taskOn(kind: DraftKind, platform: Platform, inGroup: boolean): string {
+function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): string {
   const task = inNetworkWords(TASK[kind], platform);
   if (platform === 'facebook' || inGroup) return task;
   const name = NETWORKS[platform].name;
   return task.replace(`in a ${name} group`, `on ${name}`);
 }
 
-const chatLines = (recent: readonly DownloadMessage[]) =>
+/** A chat as a draft reads it: "Owner: …" and "Them: …", a line each. */
+export const chatLines = (recent: readonly DownloadMessage[]) =>
   recent.map((m) => `${m.fromMe ? 'Owner' : 'Them'}: ${m.text}`).join('\n');
 
 /** When the latest message in a chat was, either way. */
-const lastOf = (recent: readonly DownloadMessage[]): string | null =>
+export const lastOf = (recent: readonly DownloadMessage[]): string | null =>
   recent.reduce<string | null>((last, m) => (last === null || m.at > last ? m.at : last), null);
 
 /** Whether a kind of draft is a message in Messenger, which can go as a few texts, rather than a public comment. */
@@ -403,7 +454,7 @@ const OFFER_KINDS: ReadonlySet<DraftKind> = new Set([
 ]);
 
 export function todayDraftPrompt(input: {
-  readonly kind: DraftKind;
+  readonly kind: CustomerDraftKind;
   readonly business: string;
   readonly name: string;
   readonly facts: readonly string[];

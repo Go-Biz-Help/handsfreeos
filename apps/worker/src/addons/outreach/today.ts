@@ -40,12 +40,13 @@ import {
   checkedDrafts,
   draftOfferOf,
   DRAFTS_FOR,
+  isPartnerKind,
   TODAY_DRAFT_SCHEMA,
   todayDraftSystem,
   TodayDraftAnswer,
   TodayDraftInput,
   todayDraftPrompt,
-  type DraftKind,
+  type CustomerDraftKind,
   type DraftOffer,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
@@ -60,6 +61,7 @@ import {
   askStructured,
 } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
+import { partnerDraft } from './partner-drafts';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
@@ -68,6 +70,13 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   input: TodayDraftInput,
   async run(ctx, raw): Promise<TodayDraftOutput> {
     const input = TodayDraftInput.parse(raw);
+    // A partner's message (decision 81) is written about partnering only (./partner-drafts.ts).
+    if (isPartnerKind(input.kind))
+      try {
+        return await partnerDraft(ctx, { ...input, kind: input.kind });
+      } catch (e) {
+        throw draftRefusal(e);
+      }
     const ws = ctx.scope.workspaceId!;
     const found = await asWorker(ctx.db, ctx.scope, async (tx) => {
       const [business] = await rows<{ name: string }>(
@@ -266,7 +275,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       : null;
     // The network the message goes on: the profile's.
     const platform = found.profile?.platform ?? 'facebook';
-    const draft = async (kind: DraftKind) => {
+    const draft = async (kind: CustomerDraftKind) => {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: todayDraftSystem(platform),
         messages: [
@@ -319,7 +328,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       };
     };
     try {
-      let kind: DraftKind = input.kind;
+      let kind: CustomerDraftKind = input.kind;
       let made = await draft(kind);
       // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead.
       const answer = answerOf(kind, made.value, recent);
@@ -355,17 +364,22 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         simple: kind === 'reply' && made.value.simple && theirs !== null && !replyNeedsYou(theirs),
       };
     } catch (e) {
-      if (!(e instanceof AiAskError)) throw e;
-      if (e.code === 'budget_reached' || e.code === 'wallet_empty')
-        throw HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);
-      if (e.code === 'ai_unavailable')
-        throw HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
-      if (e.retryable) throw HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE);
-      throw HfosError.rule(
-        'ai_failed',
-        502,
-        'The AI couldn’t write that just now. Try again, or write it yourself.',
-      );
+      throw draftRefusal(e);
     }
   },
 };
+
+/** What the person reads when the AI couldn't write a draft, and what to do. */
+function draftRefusal(e: unknown): unknown {
+  if (!(e instanceof AiAskError)) return e;
+  if (e.code === 'budget_reached' || e.code === 'wallet_empty')
+    return HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);
+  if (e.code === 'ai_unavailable')
+    return HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
+  if (e.retryable) return HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE);
+  return HfosError.rule(
+    'ai_failed',
+    502,
+    'The AI couldn’t write that just now. Try again, or write it yourself.',
+  );
+}

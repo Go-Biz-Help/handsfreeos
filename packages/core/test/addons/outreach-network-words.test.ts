@@ -23,7 +23,7 @@ import {
   ProfileRead,
 } from '../../src/addons/outreach/profile-check';
 import {
-  DRAFT_KINDS,
+  CUSTOMER_DRAFT_KINDS,
   TODAY_DRAFT_SYSTEM,
   todayDraftPrompt,
   todayDraftSystem,
@@ -32,7 +32,7 @@ import { todayKindsOn } from '../../src/addons/outreach/network-words';
 
 const FACEBOOK_WORDS = /Facebook|Messenger|friend request|\bfriends?\b/i;
 
-const draft = (kind: (typeof DRAFT_KINDS)[number], platform?: 'facebook' | 'linkedin') =>
+const draft = (kind: (typeof CUSTOMER_DRAFT_KINDS)[number], platform?: 'facebook' | 'linkedin') =>
   todayDraftPrompt({
     kind,
     business: 'Bright Books',
@@ -67,7 +67,7 @@ describe('each network’s words for the AI', () => {
     expect(checkSystem('facebook')).toBe(CHECK_SYSTEM);
     expect(likePickSystem('facebook')).toBe(LIKE_PICK_SYSTEM);
     expect(postCheckSystem('facebook')).toBe(POST_CHECK_SYSTEM);
-    for (const kind of DRAFT_KINDS) expect(draft(kind, 'facebook')).toBe(draft(kind));
+    for (const kind of CUSTOMER_DRAFT_KINDS) expect(draft(kind, 'facebook')).toBe(draft(kind));
     expect(TODAY_DRAFT_SYSTEM).toContain('short Facebook messages');
     expect(draft('opener')).toContain('accepted the owner’s friend request');
     expect(draft('comment')).toContain('posted this in a Facebook group');
@@ -90,7 +90,7 @@ describe('each network’s words for the AI', () => {
         playbooks: [],
         platform: 'linkedin',
       }),
-      ...DRAFT_KINDS.map((kind) => draft(kind, 'linkedin')),
+      ...CUSTOMER_DRAFT_KINDS.map((kind) => draft(kind, 'linkedin')),
     ])
       expect(text).not.toMatch(FACEBOOK_WORDS);
     expect(todayDraftSystem('linkedin')).toContain('short LinkedIn messages');

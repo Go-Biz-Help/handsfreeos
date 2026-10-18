@@ -47,6 +47,7 @@ import {
 } from './common';
 import { limitsFor } from './automation';
 import { clearNeeds } from './needs';
+import { notePartnerWarmed } from './partners';
 import { slowsNow, warningOf } from './tidy';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -309,6 +310,9 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           at,
         })
         .returning({ id: touches.id });
+      // A like or a comment on someone just found as a partner warms them up (decision 81).
+      if (input.kind === 'like' || input.kind === 'comment')
+        await notePartnerWarmed(ctx, me, profile.id, at);
       // A step the extension handed to the person, taken now: it's done (Waiting for you).
       await clearNeeds(
         ctx,

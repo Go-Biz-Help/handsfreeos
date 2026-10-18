@@ -209,7 +209,8 @@ export function goesAsItIs(o: {
   /** From `replyNeedsYou`. */
   readonly needsYou: string | null;
 }): boolean {
-  if (o.wheels || o.sending === 'off') return false;
+  // A partner's messages wait for the person's OK, whatever Sending says (decision 81).
+  if (o.wheels || o.sending === 'off' || o.kind.startsWith('partner_')) return false;
   if (o.kind !== 'reply') return o.sending === 'everything';
   if (o.needsYou) return false;
   return o.replies === 'everything' || (o.replies === 'simple' && o.simple);

@@ -11,9 +11,21 @@ import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
+import { demoLink, partnerRef, readPartnerRef } from '../demos';
+import type { DailyStep } from '../limits';
 import { NETWORKS, type Platform } from '../networks';
 import {
   PARTNER_AGAIN_DAYS,
+  PARTNER_ASKS_PER_DAY,
+  PARTNER_FOLLOW_UP_DAYS,
+  PARTNER_FOLLOW_UPS,
+  PARTNER_REPLY_DAYS,
+  PARTNER_WARM_DAYS,
+  PARTNER_WORDS,
+  PartnerAnswerInput,
+  PartnerAnswerOutput,
+  PartnerCallInput,
+  PartnerCallOutput,
   PARTNER_MIN_FOLLOWERS,
   PARTNER_MIN_MEMBERS,
   PARTNER_QUIET_DAYS,
@@ -38,7 +50,15 @@ import {
   type PartnerRow,
   type PartnerStage,
 } from '../partners';
-import { partners, profiles } from '../tables';
+import { forPartners, PlaybookDetails, upgradePlaybookDetails } from '../playbooks';
+import {
+  PARTNER_TODAY_KINDS,
+  TODAY_LIMIT,
+  TODAY_MOST,
+  type PartnerTodayKind,
+  type TodayItem,
+} from '../today';
+import { partners, playbooks, profiles } from '../tables';
 import { readsPerDay, readToday } from './checks';
 import { inWorkspace, notNever, partnered, type Ctx } from './common';
 import { partnerPlaybooksInUse } from './friends';
@@ -477,5 +497,320 @@ export const partnerMark = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const partnerCommands = [partnerLook, partnerSave, partnerMark] as const;
+// ------------------------------------------------------------------------------------------------- reaching them
+
+/** The person's row for a profile on their Partners list, locked to change; none when they aren't on it. */
+async function listedRow(ctx: Ctx, me: string, profileId: string) {
+  const [row] = await ctx.tx
+    .select()
+    .from(partners)
+    .where(
+      and(
+        eq(partners.workspaceId, ctx.scope.workspaceId!),
+        eq(partners.userId, me),
+        eq(partners.profileId, profileId),
+        sql`${partners.stage} is not null`,
+      ),
+    )
+    .for('update');
+  return row ?? null;
+}
+
+/** A like or a comment of the person's on someone just found as a partner: they're warming up (decision 81). */
+export async function notePartnerWarmed(ctx: Ctx, me: string, profileId: string, at: Date) {
+  await ctx.tx
+    .update(partners)
+    .set({ stage: 'warming', warmedAt: at })
+    .where(
+      and(
+        eq(partners.workspaceId, ctx.scope.workspaceId!),
+        eq(partners.userId, me),
+        eq(partners.profileId, profileId),
+        eq(partners.stage, 'found'),
+      ),
+    );
+}
+
+/**
+ * A partner's message went (`outreach.send.done`): the ask makes them Asked, a new round after Not now included; a
+ * follow-up and the details are counted on their row.
+ */
+export async function notePartnerSent(
+  ctx: Ctx,
+  me: string,
+  sent: { readonly profileId: string; readonly kind: string; readonly at: Date },
+) {
+  const row = await listedRow(ctx, me, sent.profileId);
+  if (!row) return;
+  const at = sent.at;
+  const set: Partial<typeof partners.$inferInsert> =
+    sent.kind === 'partner_ask'
+      ? {
+          // An ask to someone further along already changes nothing but when it went.
+          ...(['found', 'warming', 'not_now'].includes(row.stage!)
+            ? { stage: 'asked' as const, notNowAt: null, followUps: 0, followedAt: null }
+            : {}),
+          askedAt: at,
+        }
+      : sent.kind === 'partner_follow_up'
+        ? { followUps: Math.min(row.followUps + 1, 10), followedAt: at }
+        : sent.kind === 'partner_details'
+          ? { detailsAt: at }
+          : {};
+  if (Object.keys(set).length)
+    await ctx.tx.update(partners).set(set).where(eq(partners.id, row.id));
+}
+
+/** Where an answer puts someone on the Partners list: a yes Interested, not now or no set aside, a question as they were. */
+function stageAfter(stage: PartnerStage, answer: PartnerAnswerInput['answer']): PartnerStage {
+  if (answer === 'yes')
+    return ['found', 'warming', 'asked', 'not_now'].includes(stage) ? 'interested' : stage;
+  if (answer === 'later' || answer === 'no') return stage === 'partner' ? stage : 'not_now';
+  return stage;
+}
+
+export const partnerAnswer = defineAddonCommand(outreachAddon, {
+  name: 'outreach.partner.answer',
+  description:
+    'Worker: what the AI read in a partner’s answer while drafting the reply (yes, a question, not now, no). A yes makes them Interested, and their details follow; not now or no sets them aside, to be asked again in 90 days.',
+  risk: 0,
+  input: PartnerAnswerInput,
+  output: PartnerAnswerOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.partner.marked'],
+  async handler(ctx, input) {
+    const row = await listedRow(ctx, input.userId, input.profileId);
+    if (!row) return { stage: null };
+    const at = changeMoment(ctx.meta);
+    const stage = stageAfter(row.stage!, input.answer);
+    await ctx.tx
+      .update(partners)
+      .set({
+        stage,
+        answer: input.answer,
+        answeredAt: at,
+        ...(stage === 'interested' && row.stage !== 'interested'
+          ? { interestedAt: row.interestedAt ?? at, notNowAt: null }
+          : {}),
+        ...(stage === 'not_now' && row.stage !== 'not_now' ? { notNowAt: at } : {}),
+      })
+      .where(eq(partners.id, row.id));
+    if (stage !== row.stage)
+      await ctx.emit({
+        type: 'outreach.partner.marked',
+        entityType: 'outreach_profile',
+        entityId: row.profileId,
+        payload: { partnerId: row.id, answer: input.answer, stage },
+      });
+    return { stage };
+  },
+});
+
+export const partnerCall = defineAddonCommand(outreachAddon, {
+  name: 'outreach.partner.call',
+  description:
+    'Worker: a call booked through a person’s partner link (its ref starts sp-): the partner it went to is at Call booked, unless they’re a partner already. Never counted as a demo.',
+  risk: 0,
+  input: PartnerCallInput,
+  output: PartnerCallOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.partner.marked'],
+  async handler(ctx, input) {
+    const who = readPartnerRef(input.ref);
+    if (!who) return { noted: false };
+    const row = await listedRow(ctx, who.userId, who.profileId);
+    if (!row) return { noted: false };
+    const at = new Date(input.at);
+    const stage: PartnerStage = row.stage === 'partner' ? 'partner' : 'call_booked';
+    await ctx.tx
+      .update(partners)
+      .set({ stage, callAt: row.callAt ?? at, notNowAt: null })
+      .where(eq(partners.id, row.id));
+    await ctx.emit({
+      type: 'outreach.partner.marked',
+      entityType: 'outreach_profile',
+      entityId: row.profileId,
+      payload: { partnerId: row.id, appointmentId: input.appointmentId, stage },
+    });
+    return { noted: true };
+  },
+});
+
+/** A partner row as Today reads it. */
+type TodayRow = {
+  id: string;
+  stage: PartnerStage;
+  details_at: Date | string | null;
+  profile_id: string;
+  name: string;
+  url: string;
+  kind: PartnerKind;
+  audience: string | null;
+  why: string[];
+  next_step: string | null;
+  playbook_id: string | null;
+  person_id: string | null;
+  thread_key: string | null;
+  chat_id: string | null;
+};
+
+/**
+ * Today's partner steps for the person on a network (decision 81), in their kinds' order: replies owed, the details
+ * after a yes, follow-ups to an ask gone quiet, asks a day after a warm-up, and warm-ups for those just found. Each
+ * within what `left` says the customers' steps left of its daily limit, and at most `PARTNER_ASKS_PER_DAY` asks a
+ * day; the best fits with the biggest audiences first.
+ */
+export async function partnerToday(
+  ctx: Ctx,
+  me: string,
+  o: {
+    readonly platform: Platform;
+    readonly now: number;
+    readonly todayFrom: string;
+    readonly left: (step: DailyStep) => number;
+  },
+): Promise<TodayItem[]> {
+  const ws = ctx.scope.workspaceId!;
+  const ago = (days: number) => new Date(o.now - days * DAY).toISOString();
+  // The partner link for the details: the partner playbook's booking link, with who it's from and to.
+  const kept = await ctx.tx
+    .select({ id: playbooks.id, name: playbooks.name, details: playbooks.details })
+    .from(playbooks)
+    .where(and(eq(playbooks.workspaceId, ws), sql`${playbooks.archivedAt} is null`));
+  const partnerBooks = kept.flatMap((p) => {
+    const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
+    return read.success && forPartners(read.data) ? [{ id: p.id, name: p.name, ...read.data }] : [];
+  });
+  const bookOf = (id: string | null) =>
+    partnerBooks.find((b) => b.id === id) ??
+    [...partnerBooks].sort((a, b) => a.name.localeCompare(b.name))[0];
+  const select = sql`select pa.id, pa.stage, pa.details_at, pa.profile_id, p.name, p.url, pa.kind, pa.audience,
+      pa.why, pa.next_step, pa.playbook_id, p.person_id`;
+  const from = sql`from addon_outreach.partners pa join addon_outreach.profiles p on p.id = pa.profile_id
+      where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${o.platform} and ${notNever('p')}`;
+  const best = sql`pa.fit = 'maybe', coalesce(pa.audience_size, p.followers) desc nulls last, pa.id`;
+  const listOf = (where: ReturnType<typeof sql>, most: number) =>
+    most > 0
+      ? rows<TodayRow>(
+          ctx.tx,
+          sql`${select}, null::text as thread_key, null::uuid as chat_id ${from} and ${where}
+              order by ${best} limit ${most}`,
+        )
+      : Promise.resolve([] as TodayRow[]);
+  // The latest each way between them in the person's chats and the replies seen: who wrote last, and when.
+  const lastTheirs = sql`greatest(
+      (select max(r.seen_at) from addon_outreach.replies r where r.profile_id = pa.profile_id and r.user_id = ${me}),
+      (select max(c.last_at) from addon_outreach.file_chats c
+        where c.profile_id = pa.profile_id and c.user_id = ${me} and not c.last_from_me))`;
+  const lastMine = sql`(select max(t.at) from addon_outreach.touches t
+      where t.profile_id = pa.profile_id and t.user_id = ${me} and t.kind = 'message')`;
+  const [asked] = await rows<{ n: number }>(
+    ctx.tx,
+    sql`select count(*)::int as n from addon_outreach.sends s
+        where s.workspace_id = ${ws} and s.user_id = ${me} and s.kind = 'partner_ask' and s.state = 'sent'
+          and s.done_at >= ${o.todayFrom}::timestamptz`,
+  );
+  const follows = Math.max(0, o.left('follow_up'));
+  const replies = await rows<TodayRow & { wrote_at: Date | string }>(
+    ctx.tx,
+    sql`${select}, (select c.thread_key from addon_outreach.file_chats c
+          where c.profile_id = pa.profile_id and c.user_id = ${me} order by c.last_at desc limit 1) as thread_key,
+        (select c.id from addon_outreach.file_chats c
+          where c.profile_id = pa.profile_id and c.user_id = ${me} order by c.last_at desc limit 1) as chat_id,
+        ${lastTheirs} as wrote_at
+        ${from} and pa.stage is not null and ${lastTheirs} >= ${ago(PARTNER_REPLY_DAYS)}::timestamptz
+          and ${lastTheirs} > coalesce(${lastMine}, '-infinity'::timestamptz)
+        order by ${lastTheirs} desc limit ${TODAY_MOST}`,
+  );
+  const details = await listOf(sql`pa.stage = 'interested' and pa.details_at is null`, follows);
+  const followUps = await listOf(
+    sql`pa.stage = 'asked' and pa.follow_ups < ${PARTNER_FOLLOW_UPS}
+      and coalesce(pa.followed_at, pa.asked_at) <= ${ago(PARTNER_FOLLOW_UP_DAYS)}::timestamptz
+      and (${lastTheirs} is null or ${lastTheirs} < coalesce(pa.followed_at, pa.asked_at))`,
+    follows - details.length,
+  );
+  const asks = await listOf(
+    sql`((pa.stage = 'warming' and pa.warmed_at <= ${ago(PARTNER_WARM_DAYS)}::timestamptz and pa.asked_at is null)
+      or (pa.stage = 'found' and p.warm_up_missed_at is not null)
+      or (pa.stage = 'not_now' and pa.not_now_at <= ${ago(PARTNER_AGAIN_DAYS)}::timestamptz))`,
+    Math.min(PARTNER_ASKS_PER_DAY - (asked?.n ?? 0), o.left('first_message')),
+  );
+  const warmUps = await listOf(
+    sql`pa.stage = 'found' and pa.warmed_at is null and p.warm_up_missed_at is null`,
+    o.left('like'),
+  );
+  const byKind: Record<PartnerTodayKind, readonly TodayRow[]> = {
+    partner_reply: replies,
+    partner_details: details,
+    partner_follow_up: followUps,
+    partner_ask: asks,
+    partner_warm_up: warmUps,
+  };
+  // Someone on the list once a day: their furthest step.
+  const listed = new Set<string>();
+  const items: TodayItem[] = [];
+  for (const listedAs of PARTNER_TODAY_KINDS)
+    for (const r of byKind[listedAs]) {
+      if (listed.has(r.profile_id)) continue;
+      listed.add(r.profile_id);
+      const book = bookOf(r.playbook_id);
+      // A yes read in their reply (`outreach.partner.answer`) is answered with the details.
+      const kind: PartnerTodayKind =
+        listedAs === 'partner_reply' && r.stage === 'interested' && r.details_at === null
+          ? 'partner_details'
+          : listedAs;
+      items.push({
+        kind,
+        name: r.name,
+        profileId: r.profile_id,
+        profileUrl: r.url,
+        chatId: r.chat_id,
+        threadKey: r.thread_key,
+        postId: null,
+        postUrl: null,
+        posted: null,
+        post: null,
+        asking: false,
+        why: [PARTNER_WORDS.todayWhy(r.kind, r.audience), ...r.why],
+        summary: r.audience,
+        nextStep: r.next_step,
+        playbookName: book?.name ?? null,
+        // The partner link (./demos.ts): a call booked through it moves them to Call booked, never a demo.
+        demoLink:
+          kind === 'partner_details' || kind === 'partner_reply'
+            ? demoLink(book?.link, partnerRef(me, r.profile_id))
+            : null,
+        videoLink: null,
+        personId: r.person_id,
+        demoBooked: false,
+        partnerId: r.id,
+        send: null,
+        recent: [],
+      });
+    }
+  return items;
+}
+
+/** How many more of each daily limit Today's partner steps may take, after the customers' on the list. */
+export function partnerRoom(
+  limits: Readonly<Record<DailyStep, { readonly done: number; readonly most: number }>>,
+  planned: readonly Pick<TodayItem, 'kind'>[],
+): (step: DailyStep) => number {
+  return (step) => {
+    const { done, most } = limits[step];
+    return Math.max(0, most - done - planned.filter((i) => TODAY_LIMIT[i.kind] === step).length);
+  };
+}
+
+export const partnerCommands = [
+  partnerLook,
+  partnerSave,
+  partnerMark,
+  partnerAnswer,
+  partnerCall,
+] as const;
 export const partnerQueries = [partnersNext, partnersList] as const;

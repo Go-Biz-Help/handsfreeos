@@ -177,6 +177,7 @@ describe('A network’s list for today', () => {
     const today: TodayOutput = {
       limits: LIVE.limits,
       items: [item],
+      partners: [],
       readAdmins: [],
       hasPlaybook: true,
       warning: null,

@@ -50,6 +50,7 @@ import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
 import { conversationPace } from './conversation';
+import { partnerRoom, partnerToday } from './partners';
 import {
   chatKey,
   countryLetsSql,
@@ -244,6 +245,7 @@ export const today = defineAddonQuery(outreachAddon, {
       send: null,
       personId: null,
       demoBooked: false,
+      partnerId: null,
       recent: [],
       ...more,
     });
@@ -1017,14 +1019,36 @@ export const today = defineAddonQuery(outreachAddon, {
           ...(send ? { send } : {}),
         };
       });
+    // Partners' steps (decision 81), after the customers': within what those left of each daily limit.
+    const partnerItems = (
+      await partnerToday(ctx, me, {
+        platform: input.platform,
+        now,
+        todayFrom,
+        left: partnerRoom(limits, listedItems),
+      })
+    ).filter((i) => !drafted.off(i.profileId, i.kind));
+    const partnerRecent = await recentOf(ctx, me, partnerItems.filter(isMessage));
+    const partnersListed = partnerItems.map((i) => {
+      const send = drafted.open(i.profileId, i.kind);
+      return {
+        ...i,
+        why: i.why.map((w) => inNetworkWords(w, input.platform)),
+        recent: isMessage(i) ? (partnerRecent.get(chatKey(i)) ?? []) : [],
+        ...(send ? { send } : {}),
+      };
+    });
     return {
       limits,
       items: ready ? listedItems : listedItems.filter((i) => i.kind === 'reply'),
+      partners: ready ? partnersListed : partnersListed.filter((i) => i.kind === 'partner_reply'),
       readAdmins: readAdmins.map((g) => ({ groupId: g.id, name: g.name, url: g.url })),
       hasPlaybook: playbooks.length > 0,
       warning,
       auto: ready ? autoKinds(settings) : [],
-      messages: messageKinds(settings).filter((k) => ready || k === 'reply'),
+      messages: messageKinds(settings).filter(
+        (k) => ready || k === 'reply' || k === 'partner_reply',
+      ),
       sending: settings.sending,
       wheels,
       ready,

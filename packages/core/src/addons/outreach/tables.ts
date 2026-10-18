@@ -1102,6 +1102,12 @@ export const partners = addonOutreach.table(
     callAt: ts('call_at'),
     partnerAt: ts('partner_at'),
     notNowAt: ts('not_now_at'),
+    /** Reaching them (20261027008500): follow-ups since the ask and when the last went, the details, their answer. */
+    followUps: smallint('follow_ups').notNull().default(0),
+    followedAt: ts('followed_at'),
+    detailsAt: ts('details_at'),
+    answer: text('answer').$type<Answer>(),
+    answeredAt: ts('answered_at'),
     lookedAt: ts('looked_at').notNull(),
     checkedAt: ts('checked_at'),
     createdAt: ts('created_at').notNull().defaultNow(),

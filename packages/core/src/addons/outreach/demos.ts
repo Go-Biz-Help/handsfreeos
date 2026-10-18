@@ -47,22 +47,40 @@ function unpackUuid(packed: string): string | null {
   return HEX_UUID.test(id) ? id : null;
 }
 
-/** The `ref` of the person's demo link for someone they reached: 47 characters. */
-export function demoRef(userId: string, profileId: string): string {
-  return `${DEMO_REF_PREFIX}${packUuid(profileId)}${packUuid(userId)}`;
-}
+/**
+ * What a partner link's `ref` starts with (./partners.ts, decision 81): a call booked through it is a partner's, never
+ * counted as a demo.
+ */
+export const PARTNER_REF_PREFIX = 'sp-';
 
-/** Who a booking's `ref` says sent the link to whom; null for any other `ref`. */
-export function readDemoRef(
+const refOf = (prefix: string, userId: string, profileId: string) =>
+  `${prefix}${packUuid(profileId)}${packUuid(userId)}`;
+
+function readRef(
+  prefix: string,
   ref: string | null | undefined,
 ): { userId: string; profileId: string } | null {
-  if (!ref?.startsWith(DEMO_REF_PREFIX)) return null;
-  const packed = ref.slice(DEMO_REF_PREFIX.length);
+  if (!ref?.startsWith(prefix)) return null;
+  const packed = ref.slice(prefix.length);
   if (packed.length !== 44) return null;
   const profileId = unpackUuid(packed.slice(0, 22));
   const userId = unpackUuid(packed.slice(22));
   return profileId && userId ? { userId, profileId } : null;
 }
+
+/** The `ref` of the person's demo link for someone they reached: 47 characters. */
+export const demoRef = (userId: string, profileId: string): string =>
+  refOf(DEMO_REF_PREFIX, userId, profileId);
+
+/** Who a booking's `ref` says sent the link to whom; null for any other `ref`. */
+export const readDemoRef = (ref: string | null | undefined) => readRef(DEMO_REF_PREFIX, ref);
+
+/** The `ref` of the person's partner link for someone on their Partners list, as long as a demo link's. */
+export const partnerRef = (userId: string, profileId: string): string =>
+  refOf(PARTNER_REF_PREFIX, userId, profileId);
+
+/** Who a booking's `ref` says sent the partner link to whom; null for any other `ref`. */
+export const readPartnerRef = (ref: string | null | undefined) => readRef(PARTNER_REF_PREFIX, ref);
 
 /**
  * The playbook's link with the `ref` on it, for someone the person reached: null with no link. A booking page of the

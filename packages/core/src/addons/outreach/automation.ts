@@ -388,7 +388,10 @@ export function autoKinds(settings: DoesChoices): TodayKind[] {
   ];
 }
 
-/** The kinds on the list that are messages: the extension drafts each, and sends it once it's OK'd (./sends.ts). */
+/**
+ * The kinds on the list that are messages: the extension drafts each, and sends it once it's OK'd (./sends.ts). A
+ * partner's (decision 81) always wait for an OK of their own.
+ */
 export const MESSAGE_KINDS = [
   'opener',
   'reconnect',
@@ -397,6 +400,10 @@ export const MESSAGE_KINDS = [
   'follow_up',
   'check_in',
   'reply',
+  'partner_ask',
+  'partner_follow_up',
+  'partner_details',
+  'partner_reply',
 ] as const satisfies readonly TodayKind[];
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
