@@ -1,22 +1,26 @@
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { ExternalLink, Settings2 } from '@/components/icons';
 import { Screen } from '@/components/shell/screen';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Segmented } from '@/components/ui/segmented';
-import { Text } from '@/components/ui/text';
 
 import { openOutreach, switchOutreach, type OutreachTab } from './kit';
 
 /**
  * Social Outreach's frame on the phone (decision 59): its name, the gear for Settings and Playbooks, and the four tabs
  * the web has, Today, People, Groups and Results, so the add-on is one place rather than a list of screens. People has
- * its own Pipeline, Chats and the Never contact list, and Friends, which stays on the web.
+ * its own Pipeline, Chats, the Partners list and the Never contact list, a row of them that scrolls, and Friends, which
+ * stays on the web.
  */
 
 export type FrameTab = 'today' | 'people' | 'groups' | 'results';
+/** People's lists the phone has. */
+type PeopleList = 'pipeline' | 'chats' | 'partners' | 'never_contact';
+const PEOPLE_LISTS: readonly PeopleList[] = ['pipeline', 'chats', 'partners', 'never_contact'];
 
 /** The business whose Social Outreach is open: the page sets it, so each screen's body draws the frame alone. */
 export const OutreachWorkspace = React.createContext('');
@@ -37,7 +41,7 @@ export function OutreachFrame({
 }: {
   tab: FrameTab;
   /** Which of People's lists, on the People tab. */
-  people?: 'pipeline' | 'chats' | 'never_contact';
+  people?: PeopleList;
   subtitle?: string;
   testID?: string;
   children?: React.ReactNode;
@@ -74,29 +78,37 @@ export function OutreachFrame({
             testID="outreach-tabs"
           />
           {tab === 'people' ? (
-            <View className="flex-row items-center gap-2">
-              <Segmented
-                label={W.tabs.people}
-                className="flex-1"
-                value={people ?? 'pipeline'}
-                onChange={(v) => switchOutreach(workspaceId, v)}
-                options={(['pipeline', 'chats', 'never_contact'] as const).map((v) => ({
-                  value: v,
-                  label: W.peopleParts[v],
-                  testID: `outreach-people-${v}`,
-                }))}
-              />
-              <Pressable
-                role="link"
-                accessibilityLabel={`${W.peopleParts.friends}, ${W.onTheWeb.toLowerCase()}`}
-                onPress={() => openOutreach(workspaceId, 'friends')}
-                className="h-10 flex-row items-center gap-1.5 rounded-[9px] px-3 active:bg-card-2"
-                testID="outreach-people-friends"
-              >
-                <Text className="text-sm font-medium text-text-2">{W.peopleParts.friends}</Text>
-                <Icon as={ExternalLink} className="size-3.5 text-text-3" />
-              </Pressable>
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-1.5" accessibilityLabel={W.tabs.people}>
+                {PEOPLE_LISTS.map((v) => {
+                  const on = (people ?? 'pipeline') === v;
+                  return (
+                    <Button
+                      key={v}
+                      size="sm"
+                      variant={on ? 'secondary' : 'ghost'}
+                      accessibilityState={{ selected: on }}
+                      onPress={() => {
+                        if (!on) switchOutreach(workspaceId, v);
+                      }}
+                      testID={`outreach-people-${v}`}
+                    >
+                      {W.peopleParts[v]}
+                    </Button>
+                  );
+                })}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={ExternalLink}
+                  accessibilityLabel={`${W.peopleParts.friends}, ${W.onTheWeb.toLowerCase()}`}
+                  onPress={() => openOutreach(workspaceId, 'friends')}
+                  testID="outreach-people-friends"
+                >
+                  {W.peopleParts.friends}
+                </Button>
+              </View>
+            </ScrollView>
           ) : null}
         </View>
       }

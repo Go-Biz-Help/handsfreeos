@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { blankPlaybook } from '@hfos/core/addons/outreach/playbooks';
 import { expect, test, type Page } from '@playwright/test';
 import { api, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
@@ -23,6 +24,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  * - Settings has a page for each part, opened from its menu: General, then each network (decision 73). Every change
  *   saves as it's made, with no Save button, and is still there after a reload. A network's On for you saves at once
  *   with a line beside it (Chris, 2026-10-16); one that can't be saved goes back, saying why.
+ * - The Partners list, under People (decision 81), has everyone the AI found could send the business customers, by
+ *   stage, and marks them along.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -910,4 +913,85 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
     voice: { emoji: true },
     networks: { linkedin: { on: true } },
   });
+});
+
+test('the Partners list has who could send the business customers, by stage, and marks them along', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-partners');
+  const workspaceId = await createBusiness(page, { name: 'Summit Roofing' });
+  await turnOnOutreach(page, email, workspaceId);
+
+  // A playbook whose goal is Find partners, and a friend the extension read with a following, for the AI's check.
+  const { token } = await signInOwner(email);
+  await api(token, 'commands', 'outreach.playbook.save', {
+    workspaceId,
+    name: 'Partners',
+    template: null,
+    details: {
+      ...blankPlaybook(),
+      goal: 'partner',
+      offer: '10% of what each customer pays for a year',
+      audience: 'Homeowners in Austin',
+      link: 'https://summit.test/partner-call',
+    },
+  });
+  const fb = 'https://www.facebook.com';
+  await api(token, 'commands', 'outreach.friends.save', {
+    workspaceId,
+    list: 'friends',
+    people: [
+      {
+        profile: { id: null, username: 'dana.reyes.12', url: `${fb}/dana.reyes.12` },
+        name: 'Dana Reyes',
+        mutualFriends: null,
+      },
+    ],
+  });
+  const friends = await api<{ people: { profileId: string }[] }>(
+    token,
+    'queries',
+    'outreach.friends',
+    { workspaceId },
+  );
+  await api(token, 'commands', 'outreach.partner.look', {
+    workspaceId,
+    profileId: friends.people[0]!.profileId,
+    kind: 'creator',
+    lines: ['Dana Reyes', 'Home tips for Austin homeowners'],
+    followers: 3400,
+  });
+  // The AI checks them on the worker.
+  await expect
+    .poll(
+      async () =>
+        (
+          await api<{ partners: unknown[] }>(token, 'queries', 'outreach.partners', {
+            workspaceId,
+          })
+        ).partners.length,
+      { timeout: 60_000 },
+    )
+    .toBe(1);
+
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=pipeline`);
+  await page.getByTestId('outreach-people-partners').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=partners$`));
+  await expect(page.getByTestId('partners-show-all')).toContainText(/Everyone\s*1/);
+  const row = page.getByTestId('partner');
+  await expect(row).toContainText('Dana Reyes');
+  await expect(row).toContainText('Creator · 3,400 people');
+  await expect(row).toContainText('Might be a partner');
+  await expect(row.getByTestId('partner-stage')).toContainText('Found');
+  await row.getByTestId('partner-mark-interested').click();
+  await expect(page.getByText('Dana Reyes is interested.')).toBeVisible();
+  await expect(page.getByTestId('partners-show-interested')).toContainText(/Interested\s*1/);
+  await expect(row.getByTestId('partner-stage')).toContainText('Interested');
+  // Interested: what's ahead is the call and making them a partner.
+  await expect(row.getByTestId('partner-mark-interested')).toHaveCount(0);
+  await expect(row.getByTestId('partner-mark-partner')).toBeVisible();
+  await page.getByTestId('partners-show-asked').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=partners&show=asked$`));
+  await expect(page.getByTestId('partners-empty')).toContainText('Nobody is at Asked yet.');
 });

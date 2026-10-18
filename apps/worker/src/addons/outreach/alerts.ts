@@ -24,7 +24,7 @@ import {
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { handOverPushWords } from '@hfos/core/addons/outreach/sends';
 import { today } from '@hfos/core/addons/outreach/ops/today';
-import type { TodayOutput } from '@hfos/core/addons/outreach/today';
+import { doneOnItsOwn, type TodayOutput } from '@hfos/core/addons/outreach/today';
 import { executeQuery, localDateOf, workspaceMessaging } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
@@ -196,8 +196,10 @@ export async function morningJob(ctx: AddonJobContext): Promise<JobResult> {
       );
       continue;
     }
-    // What the extension does on its own isn't theirs to do.
-    const words = morningPushWords(list.items.filter((item) => !list.auto.includes(item.kind)));
+    // What the extension does on its own isn't theirs to do. A partner's steps are on the list too (decision 81).
+    const words = morningPushWords(
+      [...list.items, ...list.partners].filter((item) => !doneOnItsOwn(item.kind, list.auto)),
+    );
     if (!words) continue;
     await asWorker(ctx.db, ctx.scope, (tx) =>
       pushAddonNotice(ctx, tx, {

@@ -121,11 +121,24 @@ export type MessageSamples = z.output<typeof MessageSamples>;
 
 // ---- Copying a draft ----
 
-/** A message the person copied from a draft to send themselves: noted as sent, so its follow-ups come in turn. */
+/**
+ * A message the person copied from a draft to send themselves: noted as sent, so its follow-ups come in turn. A
+ * partner's (./partners.ts, decision 81) moves them along the Partners list instead, as one the extension sent does.
+ */
 export const ConversationNoteInput = z.object({
   workspaceId: z.uuid(),
   profileId: z.uuid(),
-  kind: z.enum(['opener', 'video', 'follow_up', 'check_in', 'reply']),
+  kind: z.enum([
+    'opener',
+    'video',
+    'follow_up',
+    'check_in',
+    'reply',
+    'partner_ask',
+    'partner_follow_up',
+    'partner_details',
+    'partner_reply',
+  ]),
 });
 export type ConversationNoteInput = z.input<typeof ConversationNoteInput>;
 export const ConversationNoteOutput = z.object({ noted: z.boolean() });

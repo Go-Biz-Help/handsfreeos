@@ -32,6 +32,7 @@ import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
 import { followUps, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
+import { notePartnerSent } from './partners';
 import { numbersIn } from './tracking';
 
 /**
@@ -280,7 +281,7 @@ export async function restartConversation(ctx: Ctx, me: string, profileId: strin
 export const conversationNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.conversation.note',
   description:
-    'The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched.',
+    'The person copied a message draft to send themselves: a first message, the video, a follow-up, a check-in or a reply. It’s noted as sent, so their follow-ups come at the playbook’s pace. Copying the link is noted by marking them pitched. A message to a partner moves them along the Partners list.',
   risk: 0,
   input: ConversationNoteInput,
   output: ConversationNoteOutput,
@@ -297,10 +298,16 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
       );
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Reload your list.');
+    const at = changeMoment(ctx.meta);
+    // A partner's moves them along the Partners list, never a customer conversation (decision 81).
+    if (input.kind.startsWith('partner_')) {
+      await notePartnerSent(ctx, me, { profileId: profile.id, kind: input.kind, at });
+      return { noted: true };
+    }
     await noteSent(ctx, me, {
       profileId: profile.id,
       kind: input.kind,
-      at: changeMoment(ctx.meta),
+      at,
       offerVersion: await offerVersionFor(ctx, me, profile.id),
     });
     return { noted: true };

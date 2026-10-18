@@ -65,6 +65,7 @@ export const OUTREACH_WORDS = {
     groups: 'Groups',
     chats: 'Chats',
     never_contact: 'Never contact',
+    partners: 'Partners',
     playbooks: 'Playbooks',
     settings: 'Settings',
     activity: 'Activity',
@@ -243,16 +244,17 @@ export const OUTREACH_WORDS = {
   },
   tabDetails: {
     today: 'What needs you, and your list',
-    people: 'Everyone you reached, your friends and chats',
+    people: 'Everyone you reached, your friends, chats and partners',
     groups: 'Groups to work, and why',
     results: 'Friends made, chats and demos booked',
     settings: 'Your settings, playbooks and computer',
   },
-  /** People's three lists. */
+  /** People's lists. */
   peopleParts: {
     pipeline: 'Pipeline',
     friends: 'Friends',
     chats: 'Chats',
+    partners: 'Partners',
     never_contact: 'Never contact',
   },
   /** The business's Never contact list, on the phone's People tab as on the web's Friends tab. */

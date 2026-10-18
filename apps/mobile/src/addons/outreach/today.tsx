@@ -8,7 +8,9 @@ import {
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { PARTNER_WORDS as PW } from '@hfos/core/addons/outreach/partners';
 import {
+  doneOnItsOwn,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   type TodayItem,
@@ -51,6 +53,7 @@ import { PersonMenu } from './person-menu';
  *
  * The list is one network's (`outreach.today`'s `platform`), in its words: "Send an invitation to connect" on
  * LinkedIn, its chats opening in LinkedIn messaging; Today's tab shows the one picked on its strip (./hub.tsx).
+ * Partners from the Partners list (decision 81) have a part of their own after it, each message with an OK of its own.
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -232,13 +235,9 @@ export function TodayBody({
     return frame(
       error ? <NeedsSignal words={error} onRetry={onRetry} testID="today-needs-signal" /> : null,
     );
+  const shown = (i: TodayItem) => !(i.send?.state === 'waiting' && hideSends?.has(i.send.sendId));
   const list: TodayOutput = hideSends?.size
-    ? {
-        ...today,
-        items: today.items.filter(
-          (i) => !(i.send?.state === 'waiting' && hideSends.has(i.send.sendId)),
-        ),
-      }
+    ? { ...today, items: today.items.filter(shown), partners: today.partners.filter(shown) }
     : today;
   const kinds = TODAY_KIND_KEYS.filter((k) => list.items.some((i) => i.kind === k && !i.asking));
   // Posts asking for what the business offers come first, apart (decision 49).
@@ -288,11 +287,35 @@ export function TodayBody({
             onNotForMe={onNotForMe}
           />
         ))
-      ) : (
+      ) : list.partners.length ? null : (
         <Card className="px-5 py-6" testID="today-empty">
           <Note>{W.todayEmpty}</Note>
         </Card>
       )}
+      {list.partners.length ? (
+        <Part
+          title={`${PW.title} · ${list.partners.length.toLocaleString('en-US')}`}
+          about={PW.todayAbout}
+          testID="today-partners"
+        >
+          {list.partners.map((item, i) => (
+            <ItemCard
+              key={`${item.kind}:${item.profileId ?? i}`}
+              platform={platform}
+              item={item}
+              step={[
+                todayKindsOn(platform)[item.kind],
+                doneOnItsOwn(item.kind, list.auto) ? W.doneOnItsOwn : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              onOk={onOk}
+              onSkip={onSkip}
+              onNotForMe={onNotForMe}
+            />
+          ))}
+        </Part>
+      ) : null}
       <Note>{W.todayComputerOnly}</Note>
       {wheels ? (
         <Part title={W.wheelsTitle} testID="today-wheels-team">
@@ -373,6 +396,7 @@ function KindPart({
 function ItemCard({
   platform,
   item,
+  step,
   menu,
   onOk,
   onSkip,
@@ -380,6 +404,8 @@ function ItemCard({
 }: {
   platform: Platform;
   item: TodayItem;
+  /** The step, where the part isn't one kind's: a partner's. */
+  step?: string;
   menu?: (item: TodayItem) => React.ReactNode;
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
@@ -401,6 +427,7 @@ function ItemCard({
         </View>
         {menu?.(item)}
       </View>
+      {step ? <Note testID="today-step">{step}</Note> : null}
       {item.why.length ? <Note>{item.why.join(' · ')}</Note> : null}
       {item.kind === 'video' && !item.send ? <Note>{W.videoNext}</Note> : null}
       {item.summary ? <Text className="text-[14px] leading-[20px]">{item.summary}</Text> : null}

@@ -9,10 +9,12 @@ import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { morningPushWords } from '../../src/addons/outreach/alerts';
 import { partnerRef, readDemoRef, readPartnerRef } from '../../src/addons/outreach/demos';
 import { PARTNER_WORDS, partnerDraftPrompt } from '../../src/addons/outreach/partners';
 import { blankPlaybook, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { goesAsItIs } from '../../src/addons/outreach/sends';
+import { doneOnItsOwn } from '../../src/addons/outreach/today';
 import { outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -58,6 +60,19 @@ describe('a partner’s messages', () => {
     expect(readPartnerRef(ref)).toEqual({ userId, profileId });
     expect(readDemoRef(ref)).toBeNull();
     expect(readPartnerRef('so-made-up')).toBeNull();
+  });
+
+  it('count in the morning push, but not a like the extension gives on its own', () => {
+    const list = [
+      { kind: 'partner_warm_up' },
+      { kind: 'partner_ask' },
+      { kind: 'opener' },
+    ] as const;
+    expect(morningPushWords(list.filter((i) => !doneOnItsOwn(i.kind, ['warm_up'])))).toEqual({
+      title: '2 on your list for today',
+      body: '1 first message to a new friend and 1 partner to ask. Open the extension on Facebook to start.',
+    });
+    expect(list.filter((i) => !doneOnItsOwn(i.kind, []))).toHaveLength(3);
   });
 
   it('are about partnering only, with their audience and the partner link, as data', () => {
@@ -439,5 +454,45 @@ describe('reaching partners', () => {
           where workspace_id = ${ws} and kind = 'partner_ask'`,
     );
     expect((await partnerSteps()).filter((s) => s.kind === 'partner_ask')).toHaveLength(3);
+  });
+
+  it('notes an ask copied to send by hand as one the extension sent', async () => {
+    const ida = { profileId: await idOf('ida.ideas.3') };
+    const id = await partnerOf(ida.profileId);
+    expect(
+      await runAs(owner, ws, 'outreach.conversation.note', {
+        profileId: ida.profileId,
+        kind: 'partner_ask',
+      }),
+    ).toEqual({ noted: true });
+    expect(await row(id)).toMatchObject({ stage: 'asked', asked: true });
+    // Never a customer conversation.
+    const [conversations] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from addon_outreach.follow_ups where profile_id = ${ida.profileId}`,
+    );
+    expect(conversations!.n).toBe(0);
+  });
+
+  it('shows the person’s own asks, yeses, calls and partners made in Results', async () => {
+    const gwen = await partnerOf(await idOf('gwen.group.1'));
+    await runAs(owner, ws, 'outreach.partner.mark', { partnerId: gwen, mark: 'partner' });
+    // Gwen asked 8 days ago, Hal and Ida today; Gwen said yes, booked her call, and is a partner now.
+    expect((await runAs(owner, ws, 'outreach.activity', { period: 'month' })).partners).toEqual({
+      asked: 3,
+      interested: 1,
+      calls: 1,
+      partners: 1,
+    });
+    expect((await runAs(owner, ws, 'outreach.activity', { period: 'week' })).partners).toEqual({
+      asked: 2,
+      interested: 1,
+      calls: 1,
+      partners: 1,
+    });
+    // Each person's Partners list is their own: the team's results leave it out.
+    expect(
+      (await runAs(owner, ws, 'outreach.activity', { period: 'month', everyone: true })).partners,
+    ).toBeNull();
   });
 });

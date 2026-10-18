@@ -109,6 +109,14 @@ export const PARTNER_MESSAGE_KINDS = [
 export type PartnerMessageKind = (typeof PARTNER_MESSAGE_KINDS)[number];
 export const isPartnerKind = (kind: string): kind is PartnerTodayKind =>
   (PARTNER_TODAY_KINDS as readonly string[]).includes(kind);
+export const isPartnerMessage = (kind: string): kind is PartnerMessageKind =>
+  (PARTNER_MESSAGE_KINDS as readonly string[]).includes(kind);
+/**
+ * Whether the extension does a step on the list on its own (`TodayOutput.auto`): a partner's like as the customers'
+ * warm-ups go, since `auto` names only the kinds builds made before partners know.
+ */
+export const doneOnItsOwn = (kind: TodayKind, auto: readonly TodayKind[]) =>
+  auto.includes(kind === 'partner_warm_up' ? 'warm_up' : kind);
 
 /** Which daily limit each kind counts against: a reply and a confirm count against none. */
 export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {

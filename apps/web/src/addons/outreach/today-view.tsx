@@ -25,13 +25,19 @@
  * person works, with its own Start my day and Stop for today and its own warning line, and the list is the one shown
  * (`outreach.today` with its `platform`), in its words: an invitation to connect on LinkedIn, a friend request on
  * Facebook. Asks made from it carry its network, and only the kinds it can be asked show.
+ *
+ * Partners from the Partners list (decision 81) have a part of their own below it: a like first, the ask, follow-ups,
+ * the details after a yes, and replies, each message with an OK of its own. Copying one moves them along the list.
  */
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { PARTNER_WORDS as PW } from '@hfos/core/addons/outreach/partners';
 import {
+  doneOnItsOwn,
   DRAFT_KINDS,
+  isPartnerMessage,
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
@@ -164,6 +170,9 @@ export function TodayView({
   const items = today.items.filter(
     (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
   );
+  const partners = today.partners.filter(
+    (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
+  );
   // Approve all leaves those that wait for an OK of their own: a reply handed over, or one to someone who needs them.
   const approvable = items.filter((i) => i.send?.state === 'waiting' && !oneByOne(i.send)).length;
   const approving = useAct();
@@ -261,6 +270,38 @@ export function TodayView({
           ) : readiness ? null : (
             <TodayStart workspaceId={workspaceId} platform={platform} />
           )}
+          {partners.length ? (
+            <section
+              aria-labelledby="today-partners-title"
+              className="space-y-3"
+              data-testid="today-partners"
+            >
+              <h2 id="today-partners-title" className="text-lg font-semibold tracking-tight">
+                {PW.title}
+                <span className="font-medium text-text-3">
+                  {' '}
+                  · {partners.length.toLocaleString()}
+                </span>
+              </h2>
+              <p className="-mt-1 text-[13px] text-text-2">{PW.todayAbout}</p>
+              <Card className="p-0" data-testid="today-partner-list">
+                <ul>
+                  {partners.map((item, i) => (
+                    <TodayRow
+                      key={`${item.kind}:${item.profileId ?? item.name}`}
+                      workspaceId={workspaceId}
+                      platform={platform}
+                      item={item}
+                      auto={doneOnItsOwn(item.kind, today.auto)}
+                      asks={asks}
+                      first={i === 0}
+                      partner
+                    />
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          ) : null}
         </div>
         <aside className="space-y-4">
           {live ? <DoneToday workspaceId={workspaceId} live={live} platform={platform} /> : null}
@@ -463,6 +504,7 @@ function TodayRow({
   auto,
   asks,
   first = false,
+  partner = false,
 }: {
   workspaceId: string;
   /** The network the list is on. */
@@ -473,6 +515,8 @@ function TodayRow({
   asks: Asks;
   /** The list's first row: no line above it. */
   first?: boolean;
+  /** Someone on the Partners list: never offered a demo or Don't pitch, which are a customer's. */
+  partner?: boolean;
 }) {
   const url = openUrl(item, platform);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
@@ -508,7 +552,7 @@ function TodayRow({
             </Badge>
           ) : null}
           <Badge variant={KIND_BADGE[item.kind]}>{todayKindsOn(platform)[item.kind]}</Badge>
-          <PersonMenu workspaceId={workspaceId} who={item} />
+          {partner ? null : <PersonMenu workspaceId={workspaceId} who={item} />}
         </span>
       </div>
       {item.post ? (
@@ -663,8 +707,8 @@ function Drafts({
   };
   /**
    * Copying a message notes it as sent, so its follow-ups come in turn (decision 67): the link moves them on to
-   * pitched (decision 47), and a first message also notes which opener it was. That it couldn't is no reason to stop
-   * them.
+   * pitched (decision 47), a first message also notes which opener it was, and a partner's moves them along the
+   * Partners list. That it couldn't is no reason to stop them.
    */
   const noteSent = async (sent: DraftKind) => {
     const profileId = item.profileId;
@@ -681,7 +725,8 @@ function Drafts({
       sent === 'video' ||
       sent === 'follow_up' ||
       sent === 'check_in' ||
-      sent === 'reply'
+      sent === 'reply' ||
+      isPartnerMessage(sent)
     )
       await api
         .POST('/v1/commands/outreach.conversation.note', {
