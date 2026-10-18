@@ -144,10 +144,15 @@ working a profile:
 
 ### The messages
 
-- New kinds: `partner_ask` (the first message, with no link) and `partner_details` (after a yes: what's in it for
-  them, and the call link). Follow-ups after the ask use the usual `follow_up` kind, at most two, a week apart. A
-  migration widens `sends_kind_check`.
-- **Every partner message waits for an OK:** `goesAsItIs` says no to them whatever Sending says.
+- New kinds: `partner_ask` (the first message, with no link), `partner_follow_up` (at most two, a week apart),
+  `partner_details` (after a yes: what's in it for them, and the call link) and `partner_reply`. Kinds of their own,
+  so a partner's drafts are written as partners' and never mixed with a customer's conversation. A migration widens
+  `sends_kind_check`.
+- **Every partner message waits for an OK:** `goesAsItIs` says no to them whatever Sending says, and each waits for
+  an OK of its own, never Approve all.
+- **On Today**, in a part of its own (`partners`), so builds made before it never see them: a like first, the ask a
+  day later, follow-ups, the details after a yes, and replies, each within what the customers' steps left of the
+  day's limits.
 - **The AI writes them** about the person and their audience ("your group of 4,000 Austin homeowners"), in the
   person's voice (`voice.ts`), and asks about interest only.
 - **Counted** against the day's first messages, at most 3 partner asks a day, so customer messages still go.
@@ -156,7 +161,7 @@ working a profile:
 ### The partner call
 
 - The partner link carries its own ref, `sp-…` (as the demo link carries `so-…`), so a call booked through it moves
-  them to **Call booked** and is never counted as a demo. A new `outreach.partner.call_note`, run by the worker on
+  them to **Call booked** and is never counted as a demo. A new `outreach.partner.call`, run by the worker on
   `appointment.booked`.
 
 ### Screens (web and phone)
@@ -215,8 +220,9 @@ working a profile:
 1. **Stage 1, in core:** partner playbooks, the partners table, the partner check, the stages, the new message kinds,
    never pitching partners as customers, and the partner call's ref. Its migration goes on the hosted database before
    `main`. Built first: partner playbooks, the partners table and `profiles.partner_found_at`, the partner check, the
-   Partners list and its marks, and never pitching partners as customers (migration 20261027008400). Next: the
-   message kinds, the stages they move, and the partner call's ref.
+   Partners list and its marks, and never pitching partners as customers (migration 20261027008400). Then the
+   partner steps on Today, the message kinds and the stages they move, their answers, and the partner call's ref
+   (migration 20261027008500).
 2. **Stage 1, the extension:** followers read on each network's profiles, partners found from groups and searches,
    partner warm-ups and asks run as Today's other steps are.
 3. **Stage 1, the apps:** Partners on the web and the phone, and Today's partner items.

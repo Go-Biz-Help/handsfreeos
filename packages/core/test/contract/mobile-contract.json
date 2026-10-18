@@ -7354,7 +7354,11 @@
                           "check_in",
                           "reply",
                           "comment",
-                          "warm_lead"
+                          "warm_lead",
+                          "partner_ask",
+                          "partner_follow_up",
+                          "partner_details",
+                          "partner_reply"
                         ]
                       },
                       "profileId": {

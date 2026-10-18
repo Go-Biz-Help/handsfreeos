@@ -1726,6 +1726,35 @@ function scriptedTodayDraft(message: string) {
   const last = [...message.matchAll(/^(Owner|Them): /gm)].at(-1)?.[1];
   const reply = message.includes('They wrote last. Write the owner’s reply');
   const answer = reply && last === 'Them' ? scriptedAnswer(theirs) : 'none';
+  // A partner's messages (decision 81): the ask, a nudge, the details, and a reply that reads their answer.
+  if (message.includes('Write the first message about partnering'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Hi ${first}, would you be open to a partnership? I’d share what each person you send pays.`,
+      ],
+    };
+  if (message.includes('whether they’d be open to partnering, and they haven’t answered'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [`Hi ${first}, just checking you saw my note.`],
+    };
+  if (message.includes('They said they’re open to partnering'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Great, ${first}! You’d earn a share of what each customer pays. Book a quick call here.`,
+      ],
+    };
+  if (message.includes('They answered the owner about partnering'))
+    return {
+      simple: false,
+      answer: last === 'Them' ? scriptedAnswer(theirs) : 'none',
+      drafts: [`Thanks for getting back to me, ${first}.`],
+    };
   if (message.includes('Write a short message with the short video'))
     return {
       simple: false,

@@ -31,11 +31,14 @@ import {
   type RecentMessage,
   type Send,
 } from '../sends';
+import { PARTNER_WORDS } from '../partners';
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
+import { isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
 import { noteSent, offerVersionFor } from './conversation';
 import { chatKey, contactable, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
 import { openNeed } from './needs';
+import { notePartnerSent } from './partners';
 import { notePitched } from './stages';
 
 type Row = typeof sends.$inferSelect;
@@ -145,8 +148,11 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       chat?.userId === me
         ? ([...chat.recent].reverse().find((m) => !m.fromMe)?.text ?? null)
         : null;
-    const needsYou =
-      input.kind !== 'reply'
+    const partner = isPartnerKind(input.kind);
+    // A partner's message waits for an OK of its own, never Approve all (decision 81).
+    const needsYou = partner
+      ? PARTNER_WORDS.needsYou
+      : input.kind !== 'reply'
         ? null
         : theirs === null
           ? 'HandsFreeOS hasn’t seen what they wrote'
@@ -186,7 +192,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         needsYou,
         // The main offer's version it goes with: the one they were first pitched with, or the live one.
         offerVersion:
-          input.kind === 'reconnect' ? null : await offerVersionFor(ctx, me, profile.id),
+          input.kind === 'reconnect' || partner ? null : await offerVersionFor(ctx, me, profile.id),
         createdAt: at,
         updatedAt: at,
       })
@@ -404,8 +410,11 @@ export const sendDone = defineAddonCommand(outreachAddon, {
       await noteOpener(ctx, me, row, row.opener);
     // A pitch that went moves them on to pitched (decision 47).
     if (input.sent && row.kind === 'pitch') await notePitched(ctx, me, row.profileId, at);
-    // Where their conversation is now: a step, a follow-up, a check-in or a reply (decisions 65 to 67).
-    if (input.sent)
+    // Where their conversation is now: a step, a follow-up, a check-in or a reply (decisions 65 to 67); a partner's
+    // moves them along the Partners list instead (decision 81).
+    if (input.sent && isPartnerKind(row.kind))
+      await notePartnerSent(ctx, me, { profileId: row.profileId, kind: row.kind, at });
+    else if (input.sent)
       await noteSent(ctx, me, {
         profileId: row.profileId,
         kind: row.kind,

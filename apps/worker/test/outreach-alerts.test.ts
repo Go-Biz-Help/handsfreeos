@@ -5,7 +5,7 @@
  * once when it's fresh (decision 49); and a booking through someone's demo link counts as a demo by itself.
  */
 import { randomUUID } from 'node:crypto';
-import { demoRef } from '@hfos/core/addons/outreach/demos';
+import { demoRef, partnerRef } from '@hfos/core/addons/outreach/demos';
 import { nextWeekly } from '@hfos/core/addons/outreach/results';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import { pushDeviceRegister } from '@hfos/core/server';
@@ -490,5 +490,52 @@ describe('the demo link', () => {
         person_id: booked.personId,
       },
     ]);
+  }, 90_000);
+});
+
+describe('the partner link', () => {
+  it('moves the partner a call was booked through to Call booked, and never counts a demo', async () => {
+    const s = testServices();
+    const t = await setupTeam('outreach-partner-link');
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${t.wsId}, 'outreach', 'enabled', '0.5.0')`,
+    );
+    await runAs(t.owner, t.wsId, 'outreach.touch.save', {
+      kind: 'message',
+      profile: fb('gail.a'),
+      name: 'Gail Admin',
+    });
+    const [gail] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.profiles where workspace_id = ${t.wsId} and username = 'gail.a'`,
+    );
+    // On the owner's Partners list, asked.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.partners (workspace_id, user_id, profile_id, kind, fit, stage, found_at,
+            asked_at, looked_at)
+          values (${t.wsId}, ${t.owner.id}, ${gail!.id}, 'group_admin', 'good', 'asked', now(), now(), now())`,
+    );
+    const online = await makeCalendar(t, 'Partner calls', {
+      public: true,
+      team: { members: [{ userId: t.priya.id }] },
+    });
+    await bookOnline(t, online.id, isoAt(nextWeekday(3), '10:00'), {
+      linkRef: partnerRef(t.owner.id, gail!.id),
+    });
+    await drain(s, t.wsId);
+    expect(
+      await rows(
+        admin(),
+        sql`select stage, call_at is not null as call from addon_outreach.partners where workspace_id = ${t.wsId}`,
+      ),
+    ).toEqual([{ stage: 'call_booked', call: true }]);
+    const [demos] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from addon_outreach.demos where workspace_id = ${t.wsId}`,
+    );
+    expect(demos!.n).toBe(0);
   }, 90_000);
 });

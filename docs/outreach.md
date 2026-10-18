@@ -93,7 +93,15 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   them and their twins out of every step for customers from then (`pitchable`); a friend request from them is still
   confirmed. The person marks them (`outreach.partner.mark`): Interested, Call booked, Make partner, Not now, back on
   the list, or not a partner after all, which takes them off the list so they may be pitched again. Each person's own,
-  like their checks.
+  like their checks. Today reaches them in a part of its own (`partners`, `partnerToday`): a like first
+  (`partner_warm_up`; one moves them to Warming up), the ask a day later (`partner_ask`, at most 3 a day, within the
+  first messages the customers' steps left; again 90 days after Not now), up to 2 follow-ups a week apart
+  (`partner_follow_up`), the details with the person's partner link after a yes (`partner_details`), and replies owed
+  (`partner_reply`). Each is a message of its own kind, drafted by the worker about partnering only
+  (`partnerDraftPrompt`), and always waits for an OK of its own, never Approve all; once it goes it moves them along
+  (`notePartnerSent`). The AI reads their answer while drafting a reply (`outreach.partner.answer`): a yes makes them
+  Interested and drafts the details, not now or no sets them aside. A call booked through the partner link (its ref
+  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo.
 - **Research one person** (decision 46a, `researchShown` and `RESEARCH_WORDS` in `checks.ts`, the ask kind `research`
   in `asks.ts`, the web's `research.tsx`, the extension's `research` in `src/jobs/checks.ts`): a **Research** button
   on each row of the Friends tab (friends, good fits, requests received and sent, kept) and the People tab's pipeline

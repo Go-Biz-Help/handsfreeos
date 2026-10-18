@@ -26,7 +26,20 @@ import {
   type PartnerKind,
   type PlaybookDetails,
 } from './playbooks';
-import { LOOKUP_LINE_MOST, LOOKUP_LINES } from './today';
+import { ANSWER_KEYS, type Answer } from './conversation';
+import type { DownloadMessage } from './download';
+import {
+  ANSWER_ASK,
+  chatLines,
+  DRAFTS_FOR,
+  lastOf,
+  LOOKUP_LINE_MOST,
+  LOOKUP_LINES,
+  TODAY_DRAFT_ASK,
+  type PartnerMessageKind,
+  type TodayDraftAnswer,
+} from './today';
+import { gapLine, VOICE_DEFAULTS, voiceLines, type Voice } from './voice';
 
 // ------------------------------------------------------------------------------------------------- who and where
 
@@ -378,6 +391,156 @@ export const PartnerMarkOutput = z.object({
 });
 export type PartnerMarkOutput = z.output<typeof PartnerMarkOutput>;
 
+// ------------------------------------------------------------------------------------------------- reaching them
+
+/** Asks a day, counted in the day's first messages, after the customers' (decision 81): theirs still go. */
+export const PARTNER_ASKS_PER_DAY = 3;
+/** The ask goes a day after the warm-up, as a friend request waits a day after a like. */
+export const PARTNER_WARM_DAYS = 1;
+/** Follow-ups to an ask nobody answered, and the quiet days before each. */
+export const PARTNER_FOLLOW_UPS = 2;
+export const PARTNER_FOLLOW_UP_DAYS = 7;
+/** How long a partner's message to the person is owed a reply on Today. */
+export const PARTNER_REPLY_DAYS = 14;
+
+/** What a partner's message is told about the partner playbook, its link the person's partner link for them. */
+export type PartnerDraftPlaybook = Pick<
+  PlaybookDetails,
+  'offer' | 'audience' | 'tone' | 'samples' | 'avoid' | 'disclaimer'
+> & {
+  readonly name: string;
+  readonly link: string | null;
+};
+
+const PARTNER_TASK: Record<PartnerMessageKind, string> = {
+  partner_ask:
+    'Many of the owner’s customers listen to them (their audience is below). Write the first message about partnering. Its only job is to find out whether they’re open to it: say in a few words who the owner helps, mention their audience in a few words from the facts (their group, their followers, their customers), and ask whether they’d be open to a partnership where they send people the owner’s way and earn a share of what each pays. Say that if they are, the owner will send the details. No link, no numbers, and never pitch them as a customer.',
+  partner_follow_up:
+    'The owner asked whether they’d be open to partnering, and they haven’t answered. Write a short, light nudge, one or two lines, that never repeats an earlier message and makes it easy to say no.',
+  partner_details:
+    'They said they’re open to partnering. Write a short message with what’s in it for them, from what a partner gets below, in a line or two, and the link to book a quick call about working together. No pressure.',
+  partner_reply:
+    'They answered the owner about partnering. Write the owner’s reply to their last message. When it’s a question, answer it honestly from what a partner gets in a sentence or two, then offer a quick call. When they said not now, say no problem and that the owner will check back in a few months. When they said no, thank them kindly and leave it there. Otherwise answer and move it along.',
+};
+
+/** A partner's message (the worker's `outreach.today.draft`): the person's own words, about partnering only. */
+export function partnerDraftPrompt(input: {
+  readonly kind: PartnerMessageKind;
+  readonly business: string;
+  readonly name: string;
+  /** Who the business helps, in its main offer's words, when it has one live. */
+  readonly helps: string | null;
+  /** What the AI's partner check said of them. */
+  readonly partner: {
+    readonly kind: PartnerKind;
+    readonly audience: string | null;
+    readonly why: readonly string[];
+  };
+  readonly facts: readonly string[];
+  readonly recent: readonly DownloadMessage[];
+  readonly playbook: PartnerDraftPlaybook | null;
+  /** Follow-ups sent since the ask, for a follow-up. */
+  readonly followUps?: number;
+  readonly lookup?: readonly string[];
+  readonly voice?: Voice;
+  readonly lastAt?: Date | string | null;
+  readonly now?: number;
+  readonly platform?: Platform;
+}): string {
+  const p = input.playbook;
+  const voice = input.voice ?? VOICE_DEFAULTS;
+  const playbook = p
+    ? [
+        `Name: ${p.name}`,
+        p.offer ? `What a partner gets: ${p.offer}` : null,
+        p.audience ? `The customers their audience should be: ${p.audience}` : null,
+        p.tone ? `Tone: ${p.tone}` : null,
+        p.samples.length ? `Sample messages:\n${p.samples.map((m) => `- ${m}`).join('\n')}` : null,
+        p.avoid.length ? `Words to avoid: ${p.avoid.join(', ')}` : null,
+        p.disclaimer ? `Every message must say: ${p.disclaimer}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : 'None yet: keep it friendly and simple.';
+  const audience = [
+    `They’re a ${PARTNER_KINDS[input.partner.kind].toLowerCase()}.`,
+    input.partner.audience ? `Their audience: ${input.partner.audience}` : null,
+    ...input.partner.why,
+  ]
+    .filter(Boolean)
+    .join('\n');
+  const link =
+    p?.link && (input.kind === 'partner_details' || input.kind === 'partner_reply')
+      ? input.kind === 'partner_details'
+        ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
+        : `When you offer the call, give this link exactly as written: ${quoteData(p.link)}`
+      : null;
+  return [
+    `<business>${quoteData(input.business)}</business>`,
+    input.helps ? `<who_it_helps>${quoteData(input.helps)}</who_it_helps>` : null,
+    `<partner_playbook>\n${quoteData(playbook)}\n</partner_playbook>`,
+    `<person>${quoteData(input.name)}</person>`,
+    `<their_audience>\n${quoteData(audience)}\n</their_audience>`,
+    input.facts.length ? `<facts>\n${quoteData(input.facts.join('\n'))}\n</facts>` : null,
+    input.lookup?.length
+      ? `<their_pages>\n${quoteData(input.lookup.join('\n'))}\n</their_pages>`
+      : null,
+    input.recent.length ? `<chat>\n${quoteData(chatLines(input.recent))}\n</chat>` : null,
+    inNetworkWords(PARTNER_TASK[input.kind], input.platform ?? 'facebook'),
+    input.kind === 'partner_follow_up'
+      ? `This is follow-up ${Math.min((input.followUps ?? 0) + 1, PARTNER_FOLLOW_UPS)} of ${PARTNER_FOLLOW_UPS}.`
+      : null,
+    link,
+    voiceLines(voice, true),
+    input.kind !== 'partner_ask'
+      ? gapLine(input.lastAt ?? lastOf(input.recent), input.now ?? Date.now(), {
+          split: voice.split,
+          theyWroteLast: input.recent.at(-1)?.fromMe === false,
+        })
+      : null,
+    `Give ${DRAFTS_FOR[input.kind]} different drafts to pick from.`,
+    ANSWER_ASK,
+    TODAY_DRAFT_ASK,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/** Their answer to the person's ask, as the AI read it for a reply with a chat to read: null when it couldn't tell. */
+export function partnerAnswerOf(
+  kind: PartnerMessageKind,
+  answer: TodayDraftAnswer,
+  recent: readonly DownloadMessage[],
+): Answer | null {
+  if (kind !== 'partner_reply' || answer.answer === 'none') return null;
+  // Only an answer they wrote: with no chat, or the owner's last, there's nothing of theirs to read.
+  if (recent.at(-1)?.fromMe !== false) return null;
+  return answer.answer;
+}
+
+/**
+ * The worker read a partner's answer while drafting a reply to it (`outreach.partner.answer`, the worker's alone): a
+ * yes makes them Interested, and the details are drafted; not now or no sets them aside (decision 81).
+ */
+export const PartnerAnswerInput = z.object({
+  workspaceId: z.uuid(),
+  userId: z.uuid(),
+  profileId: z.uuid(),
+  answer: z.enum(ANSWER_KEYS),
+});
+export type PartnerAnswerInput = z.input<typeof PartnerAnswerInput>;
+export const PartnerAnswerOutput = z.object({ stage: z.enum(PARTNER_STAGE_KEYS).nullable() });
+
+/** A call booked through a partner link (`outreach.partner.call`, the worker's on `appointment.booked`). */
+export const PartnerCallInput = z.object({
+  workspaceId: z.uuid(),
+  ref: z.string().min(1).max(200),
+  appointmentId: z.uuid(),
+  at: z.iso.datetime({ offset: true }),
+});
+export type PartnerCallInput = z.input<typeof PartnerCallInput>;
+export const PartnerCallOutput = z.object({ noted: z.boolean() });
+
 // ------------------------------------------------------------------------------------------------- the words
 
 const count = (n: number) => n.toLocaleString('en-US');
@@ -398,6 +561,11 @@ export const PARTNER_WORDS = {
       : row.followers !== null
         ? `${count(row.followers)} followers`
         : null),
+  /** Why a partner's message waits for its own OK (../sends.ts `needsYou`). */
+  needsYou: 'it’s a message to a partner',
+  /** Why a partner's step is on Today, in a line. */
+  todayWhy: (kind: PartnerKind, audience: string | null) =>
+    audience ? `${PARTNER_KINDS[kind]}: ${audience}` : PARTNER_KINDS[kind],
   marked: (mark: PartnerMark, name: string) =>
     ({
       interested: `${name} is interested.`,

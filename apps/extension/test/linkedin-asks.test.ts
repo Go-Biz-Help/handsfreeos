@@ -39,6 +39,10 @@ vi.mock('../src/jobs/job', async (original) => ({
   pause: () => Promise.resolve(),
 }));
 
+// Check LinkedIn builds every page it reads in jsdom and tries each step on its own page: under a second here, but
+// almost 6 on a busy CI runner, past vitest's 5 (18 Oct 2026).
+vi.setConfig({ testTimeout: 30_000 });
+
 const { runAsk } = await import('../src/asks/run');
 const { warnedLine } = await import('../src/jobs/job');
 const { reporter } = await import('../src/jobs/report');

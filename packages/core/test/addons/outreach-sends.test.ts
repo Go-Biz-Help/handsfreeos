@@ -224,6 +224,11 @@ describe('messages on their own', () => {
       'follow_up',
       'check_in',
       'reply',
+      // A partner's (decision 81), which always wait for an OK of their own.
+      'partner_ask',
+      'partner_follow_up',
+      'partner_details',
+      'partner_reply',
     ]);
     expect((await openerOf('Dana Cole')).send).toBeNull();
 

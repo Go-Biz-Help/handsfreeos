@@ -112,7 +112,8 @@ export async function noteSent(
     readonly offerVersion: number | null;
   },
 ): Promise<void> {
-  if (sent.kind === 'reconnect') return;
+  // A partner's messages are the Partners list's (./partners.ts), never a customer conversation.
+  if (sent.kind === 'reconnect' || sent.kind.startsWith('partner_')) return;
   const ws = ctx.scope.workspaceId!;
   const at = sent.at;
   const row = await kept(ctx, me, sent.profileId);

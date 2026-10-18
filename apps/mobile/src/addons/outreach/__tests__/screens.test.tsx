@@ -170,6 +170,7 @@ describe('Today on the phone', () => {
     const today: TodayOutput = {
       limits: LIVE.limits,
       items: [post(1, 'Lee Park', true), post(2, 'Kim Ng', false)],
+      partners: [],
       readAdmins: [],
       hasPlaybook: true,
       warning: null,
@@ -205,6 +206,7 @@ describe('Today on the phone', () => {
     const today: TodayOutput = {
       limits: LIVE.limits,
       items: [],
+      partners: [],
       readAdmins: [],
       hasPlaybook: true,
       warning: null,
@@ -271,6 +273,7 @@ describe('Today on the phone', () => {
     const today: TodayOutput = {
       limits: LIVE.limits,
       items: [],
+      partners: [],
       readAdmins: [],
       hasPlaybook: true,
       warning: null,
