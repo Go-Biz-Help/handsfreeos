@@ -918,6 +918,30 @@ export const PaymentRecordRefundInput = z.object({
   refundedAt: isoDateTime.nullable().default(null),
 });
 
+/**
+ * Worker: a refund made in Stripe's or Square's own dashboard, never asked for here (the partners plan, decision 19).
+ * It's kept as one of the payment's refunds, found again by the provider's id.
+ */
+export const PaymentRecordDashboardRefundInput = z.object({
+  ...inWorkspace,
+  provider: paymentProvider,
+  /** The payment it gave money back on, by the provider's own id. */
+  providerPaymentId: providerId,
+  providerRefundId: providerId,
+  amountCents: cents.min(1),
+  status: refundStatus,
+  providerStatus: providerWord.nullable().default(null),
+  failureCode: providerWord.nullable().default(null),
+  refundedAt: isoDateTime.nullable().default(null),
+});
+export const PaymentRecordDashboardRefundOutput = z.object({
+  /** Null when the payment isn't one HandsFreeOS took, or when more went back than is left on it. */
+  refundId: uuid.nullable(),
+  status: refundStatus.nullable(),
+  /** False when it was kept already: a replay, or the same refund moving on. */
+  created: z.boolean(),
+});
+
 // ---------- disputes ----------
 
 /**

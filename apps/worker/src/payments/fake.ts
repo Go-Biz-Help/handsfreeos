@@ -206,6 +206,20 @@ export interface FakePayments {
   dispute(providerPaymentId: string, reason?: string): Promise<FakeCharge | null>;
   /** The dispute on a charge is settled: the business won it, or lost it. */
   settleDispute(providerPaymentId: string, outcome: 'won' | 'lost'): Promise<FakeCharge | null>;
+  /**
+   * The business gives money back in the provider's own dashboard, never asking HandsFreeOS: the refund's events,
+   * posted to our endpoint. A pending one settles later with `settleRefund`.
+   */
+  dashboardRefund(
+    providerPaymentId: string,
+    amountCents: number,
+    opts?: { status?: 'pending' | 'succeeded' },
+  ): Promise<FakeRefund | null>;
+  /** A refund that was waiting goes through, or the bank refuses it. */
+  settleRefund(
+    providerRefundId: string,
+    outcome: 'succeeded' | 'failed',
+  ): Promise<FakeRefund | null>;
   /** The plan bills its next cycle: a new charge, and the event that says so. */
   cycle(providerSubscriptionId: string): Promise<FakeCharge | null>;
   /** The seller revoked us at the provider (Square's revoke, Stripe's deauthorize). */
@@ -463,6 +477,45 @@ export function createFakePayments(opts: {
       post.ok = false;
       opts.log?.debug({ err: e, type }, 'the stand-in payment webhook was not taken');
     }
+  }
+
+  /**
+   * A refund's events, shaped as each provider's are: Stripe's carry the Refund itself (`refund.created`,
+   * `refund.updated`, `refund.failed`), and one that went through is followed by `charge.refunded`, which carries the
+   * Charge and not the refund; Square's carry the refund under `object.refund`.
+   */
+  async function sendRefund(c: FakeCharge, row: FakeRefund, type: string): Promise<void> {
+    if (c.provider === 'stripe') {
+      await send('stripe', type, c.accountId, {
+        id: row.id,
+        object: 'refund',
+        payment_intent: c.id,
+        amount: row.amountCents,
+        status: row.status,
+        created: Math.floor(Date.now() / 1000),
+      });
+      if (row.status === 'succeeded')
+        await send('stripe', 'charge.refunded', c.accountId, {
+          id: `ch_${c.id.replace(/^pi_/, '')}`,
+          object: 'charge',
+          payment_intent: c.id,
+          amount: c.amountCents,
+          amount_refunded: c.refundedCents,
+          refunded: c.refundedCents >= c.amountCents,
+          status: 'succeeded',
+        });
+      return;
+    }
+    const state = { pending: 'PENDING', succeeded: 'COMPLETED', failed: 'FAILED' }[row.status];
+    await send('square', type, c.accountId, {
+      id: row.id,
+      refund: {
+        id: row.id,
+        payment_id: c.id,
+        status: state,
+        amount_money: { amount: row.amountCents, currency: 'USD' },
+      },
+    });
   }
 
   /** The event a provider sends when a payment lands or moves on. */
@@ -887,19 +940,7 @@ export function createFakePayments(opts: {
           createdAt: now(),
         };
         refundRows.push(row);
-        await send(
-          name,
-          name === 'stripe' ? 'charge.refunded' : 'refund.updated',
-          c.accountId,
-          name === 'stripe'
-            ? { id: row.id, object: 'refund', payment_intent: c.id, amount, status: 'succeeded' }
-            : {
-                id: row.id,
-                payment_id: c.id,
-                status: 'COMPLETED',
-                amount_money: { amount, currency: 'USD' },
-              },
-        );
+        await sendRefund(c, row, name === 'stripe' ? 'refund.created' : 'refund.updated');
         return {
           providerRefundId: row.id,
           status: 'succeeded',
@@ -1314,6 +1355,37 @@ export function createFakePayments(opts: {
             },
       );
       return c;
+    },
+
+    async dashboardRefund(providerPaymentId, amountCents, opts = {}) {
+      const c = charges.get(providerPaymentId);
+      if (!c || c.status !== 'succeeded' || c.refundedCents + amountCents > c.amountCents)
+        return null;
+      c.refundedCents += amountCents;
+      const row: FakeRefund = {
+        id: c.provider === 'stripe' ? nextId('re') : randomUUID(),
+        paymentId: c.id,
+        amountCents,
+        status: opts.status ?? 'succeeded',
+        createdAt: now(),
+      };
+      refundRows.push(row);
+      await sendRefund(c, row, 'refund.created');
+      return row;
+    },
+
+    async settleRefund(providerRefundId, outcome) {
+      const row = refundRows.find((r) => r.id === providerRefundId);
+      const c = row ? charges.get(row.paymentId) : undefined;
+      if (!row || !c || row.status !== 'pending') return null;
+      row.status = outcome;
+      if (outcome === 'failed') c.refundedCents -= row.amountCents;
+      await sendRefund(
+        c,
+        row,
+        c.provider === 'stripe' && outcome === 'failed' ? 'refund.failed' : 'refund.updated',
+      );
+      return row;
     },
 
     async cycle(providerSubscriptionId) {

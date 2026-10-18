@@ -12,26 +12,27 @@ someone who already has your customers' attention, asked to send them your way f
 
 ## Decisions (Chris, 18 Oct 2026)
 
-| #   | Question                                | Answer                                                                                                                                                                                                         |
-| --- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Who should it look for?                 | **All three:** admins and moderators of Facebook groups your target audience is in; creators whose followers are your target audience (Instagram, LinkedIn, Facebook); and businesses with the same customers. |
-| 2   | How is a "large following" judged?      | **Fit first, size second.** The AI scores how well their audience matches yours, then its size and how active it is. A busy 2,000-member local group can beat a quiet 50,000 one.                              |
-| 3   | What's offered?                         | **A commission on each client they send.**                                                                                                                                                                     |
-| 4   | What does the first message ask?        | **Whether they're open to a partnership at all.** The details and the call link go once they say yes.                                                                                                          |
-| 5   | When is a commission earned?            | **When the client pays in HandsFreeOS.** HandsFreeOS sees the payment. A client who pays some other way is marked by hand.                                                                                     |
-| 6   | How much?                               | **A share of what the client pays,** at a rate the business sets, which can differ for one partner.                                                                                                            |
-| 7   | For how long?                           | **Each payment in the client's first 12 months.**                                                                                                                                                              |
-| 8   | Who pays the partner, and when?         | **HandsFreeOS,** once a month, for payments at least 30 days old so a refund never has to be clawed back. HandsFreeOS charges the business's card the total and pays each partner.                             |
-| 9   | Do partner messages wait for an OK?     | **Always,** whatever Sending says. There's usually one chance with each partner.                                                                                                                               |
-| 10  | Warm them up first?                     | **Yes.** Follow them, like and comment on their posts, or be active in their group, for a few days first.                                                                                                      |
-| 11  | Where do partners live?                 | **Their own Partners list,** with its own stages, and each partner's clients and earnings beside them.                                                                                                         |
-| 12  | Do partners get a page?                 | **Yes, their own.** Their link, the clients they sent, what they've earned, and their bank details for payouts.                                                                                                |
-| 13  | Can a partner be pitched as a customer? | **Never.** Once someone's a partner prospect, they only get partner messages, on every network.                                                                                                                |
-| 14  | Keep Alignable's referral swap?         | **Yes, beside the commission** (decision 79). A business with the same customers can earn commission and get referrals back.                                                                                   |
-| 15  | Which networks?                         | **All four at once.** Instagram's and Alignable's partner steps run as soon as each network's own steps do (they're still looked at, decision 78).                                                             |
-| 16  | Who pays Stripe's fees?                 | **The business,** added to its monthly charge and shown on its statement (Chris, 18 Oct 2026).                                                                                                                 |
-| 17  | What's the smallest payout?             | **$25,** with less carried to the next month. A business can set a lower one for its partners.                                                                                                                 |
-| 18  | Partners outside the US?                | **Later.** US partners first.                                                                                                                                                                                  |
+| #   | Question                                             | Answer                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Who should it look for?                              | **All three:** admins and moderators of Facebook groups your target audience is in; creators whose followers are your target audience (Instagram, LinkedIn, Facebook); and businesses with the same customers. |
+| 2   | How is a "large following" judged?                   | **Fit first, size second.** The AI scores how well their audience matches yours, then its size and how active it is. A busy 2,000-member local group can beat a quiet 50,000 one.                              |
+| 3   | What's offered?                                      | **A commission on each client they send.**                                                                                                                                                                     |
+| 4   | What does the first message ask?                     | **Whether they're open to a partnership at all.** The details and the call link go once they say yes.                                                                                                          |
+| 5   | When is a commission earned?                         | **When the client pays in HandsFreeOS.** HandsFreeOS sees the payment. A client who pays some other way is marked by hand.                                                                                     |
+| 6   | How much?                                            | **A share of what the client pays,** at a rate the business sets, which can differ for one partner.                                                                                                            |
+| 7   | For how long?                                        | **Each payment in the client's first 12 months.**                                                                                                                                                              |
+| 8   | Who pays the partner, and when?                      | **HandsFreeOS,** once a month, for payments at least 30 days old so a refund never has to be clawed back. HandsFreeOS charges the business's card the total and pays each partner.                             |
+| 9   | Do partner messages wait for an OK?                  | **Always,** whatever Sending says. There's usually one chance with each partner.                                                                                                                               |
+| 10  | Warm them up first?                                  | **Yes.** Follow them, like and comment on their posts, or be active in their group, for a few days first.                                                                                                      |
+| 11  | Where do partners live?                              | **Their own Partners list,** with its own stages, and each partner's clients and earnings beside them.                                                                                                         |
+| 12  | Do partners get a page?                              | **Yes, their own.** Their link, the clients they sent, what they've earned, and their bank details for payouts.                                                                                                |
+| 13  | Can a partner be pitched as a customer?              | **Never.** Once someone's a partner prospect, they only get partner messages, on every network.                                                                                                                |
+| 14  | Keep Alignable's referral swap?                      | **Yes, beside the commission** (decision 79). A business with the same customers can earn commission and get referrals back.                                                                                   |
+| 15  | Which networks?                                      | **All four at once.** Instagram's and Alignable's partner steps run as soon as each network's own steps do (they're still looked at, decision 78).                                                             |
+| 16  | Who pays Stripe's fees?                              | **The business,** added to its monthly charge and shown on its statement (Chris, 18 Oct 2026).                                                                                                                 |
+| 17  | What's the smallest payout?                          | **$25,** with less carried to the next month. A business can set a lower one for its partners.                                                                                                                 |
+| 18  | Partners outside the US?                             | **Later.** US partners first.                                                                                                                                                                                  |
+| 19  | A refund made in Stripe's or Square's own dashboard? | **Recorded,** as one made in HandsFreeOS is: it counts on the invoice, and takes back the partner's share (Chris, 18 Oct 2026).                                                                                |
 
 ## How it works, in plain words
 
@@ -252,10 +253,14 @@ if the business says, decision 17), and the calendar the referral link books.
 
 1. **2a:** the core feature, its permission and settings, the tables, referrals, commissions on payments and refunds,
    and Make partner.
-2. **2b:** disputes (built). A refund made in Stripe's or Square's own dashboard waits on Chris: today the worker
-   passes over one HandsFreeOS never asked for ("deferred, on purpose", apps/worker/src/money/processors.ts), so its
-   share wouldn't come back. Recording them would also count them on the invoice, and needs Stripe's `refund.created`
-   added to the webhook's events, since `charge.refunded` carries the charge and not the refund.
+2. **2b:** disputes (built). A refund made in Stripe's or Square's own dashboard is recorded since decision 19
+   (built 18 Oct 2026, with stage 3): the worker keeps one HandsFreeOS never asked for from the refund's own events
+   (`payment.record_dashboard_refund`), so it counts on the invoice and `refund.recorded` takes back the partner's
+   share. Stripe's `refund.created` and `refund.failed` are now among the webhook's events (Stripe Part 4 in
+   docs/operations.md); `charge.refunded` carries the charge and not the refund, so it's passed over rather than
+   pinned on a refund of ours that's still waiting. A refund of ours the provider answers before our job keeps its id
+   is matched by its payment and its amount. Still open: a refund the bank turns down after it went through stays
+   counted, since a refund's status only moves forward.
 3. **2c:** the partner's page (built 18 Oct 2026). A partner signs in to the business's portal as any client does
    (`portal_access.give`, whose email tells a partner about their partner page instead of a client's to-do). Home
    has a card and the menu a **Partner** page for them while partners are on (`portal.home`'s `partner`). The page

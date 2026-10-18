@@ -15,6 +15,7 @@ import {
   executeCommand,
   invoiceRecordPayment,
   paymentConnectionRevoked,
+  paymentRecordDashboardRefund,
   paymentRecordDispute,
   paymentRecordRefund,
   subscriptionRecordCycle,
@@ -170,52 +171,84 @@ const onPaymentEvent: DeliveryProcessor = async (ctx) => {
 
 /**
  * Money given back. Ours is already recorded by the refund it answered (money/refunds.ts), so this is the
- * provider confirming it — or correcting it, if the bank later refused. A refund raised in the provider's own
- * dashboard has no row here and is left alone: reconciling those is deferred, on purpose.
+ * provider confirming it, or correcting it if the bank later refused. One made in the provider's own dashboard is
+ * kept as one of the payment's refunds (the partners plan, decision 19), so the invoice counts it and a partner's
+ * share of it comes back. Stripe's `charge.refunded` is about the charge, with no refund of its own to go by: the
+ * refund's own events say what happened, so it's passed over rather than pinned on the wrong refund.
  */
 const onRefundEvent: DeliveryProcessor = async (ctx) => {
   const r = routed(ctx);
   if (!r) return 'ignored';
   const facts = refundFactsOf(r.provider, r.event);
-  if (!facts.status) return 'ignored';
+  if (!facts.status || !facts.isRefund) return 'ignored';
   const [ours] = await asWorker(ctx.db, r.scope, (tx) =>
-    rows<{ id: string; status: string }>(
+    rows<{ id: string }>(
       tx,
-      sql`select rf.id, rf.status::text as status
+      sql`select rf.id
           from app.refunds rf
           left join app.payments p on p.id = rf.payment_id
           where rf.workspace_id = ${r.scope.workspaceId}
             and (
               (${facts.providerRefundId}::text is not null
                  and rf.provider_refund_id = ${facts.providerRefundId}::text)
-              or (${facts.providerPaymentId}::text is not null
+              -- Ours, answered before our own job kept the provider's id for it: the same payment, the same
+              -- amount, still waiting.
+              or (rf.provider_refund_id is null and rf.status = 'pending'
+                 and ${facts.providerPaymentId}::text is not null
                  and p.provider_payment_id = ${facts.providerPaymentId}::text
-                 and rf.status = 'pending'))
-          order by rf.created_at desc
+                 and rf.amount_cents = ${facts.amountCents}::bigint))
+          order by (rf.provider_refund_id is not distinct from ${facts.providerRefundId}::text) desc,
+            rf.created_at desc
           limit 1`,
     ),
   );
-  if (!ours) {
+  if (ours) {
+    await executeCommand(
+      ctx.db,
+      paymentRecordRefund,
+      {
+        workspaceId: r.scope.workspaceId,
+        refundId: ours.id,
+        status: facts.status,
+        providerRefundId: facts.providerRefundId,
+        providerStatus: facts.providerStatus,
+        refundedAt: facts.refundedAt,
+      },
+      systemActor(r.scope),
+      workerMeta(),
+    );
+    return;
+  }
+  if (!facts.providerRefundId || !facts.providerPaymentId || !facts.amountCents) {
     ctx.log.info(
       { provider: r.provider, providerRefundId: facts.providerRefundId },
-      'a refund the provider knows about and we never asked for',
+      'a refund the provider knows about, with too little said to keep it',
     );
     return 'ignored';
   }
-  await executeCommand(
+  const kept = await executeCommand(
     ctx.db,
-    paymentRecordRefund,
+    paymentRecordDashboardRefund,
     {
       workspaceId: r.scope.workspaceId,
-      refundId: ours.id,
-      status: facts.status,
+      provider: r.provider,
+      providerPaymentId: facts.providerPaymentId,
       providerRefundId: facts.providerRefundId,
-      providerStatus: facts.status,
+      amountCents: facts.amountCents,
+      status: facts.status,
+      providerStatus: facts.providerStatus,
       refundedAt: facts.refundedAt,
     },
     systemActor(r.scope),
     workerMeta(),
   );
+  if (!kept.output.refundId) {
+    ctx.log.info(
+      { provider: r.provider, providerRefundId: facts.providerRefundId },
+      'a refund on a payment HandsFreeOS never took, or for more than is left on it',
+    );
+    return 'ignored';
+  }
 };
 
 const isoOrNull = (v: string | null): string | null =>

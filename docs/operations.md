@@ -9150,7 +9150,7 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
 
 4. Select these events, and no others. They are exactly the ones the worker acts on; anything else is answered with a 200 and dropped.
    - `payment_intent.succeeded`, `payment_intent.processing`, `payment_intent.amount_capturable_updated`, `payment_intent.payment_failed`, `payment_intent.canceled`
-   - `charge.refunded`, `refund.updated`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
+   - `refund.created`, `refund.updated`, `refund.failed`, `charge.refunded`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
    - `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`
    - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.paused`, `customer.subscription.resumed`, `customer.subscription.deleted`
    - `account.updated`, `capability.updated`, `account.application.deauthorized`
@@ -9160,6 +9160,8 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
 8. Save it in your password manager as "Stripe Connect platform", under webhook signing secret. **Each environment has its own**: a sandbox secret refuses every live event with a 403, and the log says `rejected an unsigned or mis-signed payment webhook`.
 
 You should see the endpoint listed as enabled. `account.application.deauthorized` is the one that matters most for trust: it is how a business revoking us in their own Stripe dashboard is noticed here, and the connection is marked disconnected without anybody having to tell us.
+
+**A refund made in Stripe's own dashboard** (the partners plan, decision 19) is kept from `refund.created`, `refund.updated` and `refund.failed`, which carry the refund itself: it counts on the invoice, and takes back a partner's share of it, as one made in HandsFreeOS does. `charge.refunded` carries the charge and not the refund, so the worker reads it only to pass it over. An endpoint set up before 2026-10-18 lacks `refund.created` and `refund.failed`: add them on the endpoint's page (**Update details** → **Select events**) in each environment, or a dashboard refund is only kept once Stripe sends a `refund.updated` for it. Square's subscription (Square Part 4) already has `refund.created` and `refund.updated`.
 
 ### Stripe Part 5: A test account to connect
 
