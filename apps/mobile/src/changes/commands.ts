@@ -1,6 +1,12 @@
 import {
   AccountDeleteInput,
   AccountDeleteOutput,
+  PartnerAddInput,
+  PartnerAddOutput,
+  PartnerReferralSetInput,
+  PartnerReferralSetOutput,
+  PartnerUpdateInput,
+  PartnerUpdateOutput,
   ExtensionSignInAnswerInput,
   ExtensionSignInAnswerOutput,
   ActivityLogInput,
@@ -529,6 +535,11 @@ export const PHONE_COMMANDS = {
     MainOfferSaveDirectionOutput,
   ),
   'main_offer.save_draft': command(ONLINE, MainOfferSaveDraftInput, MainOfferSaveDraftOutput),
+  // A partner's page and a customer's Partner card (the partners plan, stage 2d): online, since each is for the
+  // partner as HandsFreeOS has them now, and promises the business's money.
+  'partner.add': command(ONLINE, PartnerAddInput, PartnerAddOutput),
+  'partner.referral_set': command(ONLINE, PartnerReferralSetInput, PartnerReferralSetOutput),
+  'partner.update': command(ONLINE, PartnerUpdateInput, PartnerUpdateOutput),
   'message.cancel_scheduled': command(
     ANYTIME,
     MessageCancelScheduledInput,

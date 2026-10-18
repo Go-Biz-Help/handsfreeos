@@ -6,6 +6,7 @@ import {
   keptDocumentsLine,
   MAIN_OFFER_WORDS,
   MY_CELL_WORDS,
+  PARTNERS_WORDS,
   PHONE_SETTINGS_WORDS,
   SAFETY_PHONE_WORDS,
 } from '@hfos/core';
@@ -18,6 +19,7 @@ import {
   CloudCheck,
   FileText,
   Fingerprint,
+  Handshake,
   Layers,
   LogOut,
   Moon,
@@ -50,6 +52,7 @@ import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
 import { openWeb } from '@/lib/open-web';
 import { expireSavedSignIn } from '@/lib/test-tools';
 import { useMainOfferRow } from '@/main-offer/row';
+import { usePartnersHere } from '@/partners/calls';
 import { useMoneyRole } from '@/money/use-money';
 import {
   DOCUMENT_LIMIT_BYTES,
@@ -65,7 +68,9 @@ import { useWorksOffline } from '@/sync/hooks';
  * looks, signing out and deleting the account. Setting the business up — texting, payments, members, calendars —
  * stays on the web; its balance does not, because running out of it stops the texts and calls this app is for, and
  * nor do its add-ons, which owners and admins manage on the phone too (the owner's decision, 2026-09-28). The main
- * offer is the third exception (2026-10-16): reviewing it, steering the AI and putting it live work here too.
+ * offer is the third exception (2026-10-16): reviewing it, steering the AI and putting it live work here too. Partners
+ * are the fourth (stage 2d of the partners plan): each partner's page works here, and how partners are paid is shown
+ * to read, set up on the web.
  */
 export default function Settings() {
   const { me, business, userId } = useBusiness();
@@ -80,6 +85,8 @@ export default function Settings() {
   const { whole } = useMoneyRole();
   // The main offer is for everyone in a business that uses it; who may change it is the screen's to say.
   const offer = useMainOfferRow(business.id);
+  // Partners are for whoever holds Manage partners, while an add-on that uses them runs here.
+  const partners = usePartnersHere();
   // Add-ons are for whoever may install them (0108); nobody else sees the row.
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
@@ -180,7 +187,7 @@ export default function Settings() {
         />
       </List>
 
-      {whole || offer.here ? (
+      {whole || offer.here || partners ? (
         <>
           <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
           <List>
@@ -200,6 +207,15 @@ export default function Settings() {
                 detail={offer.line}
                 onPress={() => router.push(businessHref(business.id, 'settings/main-offer'))}
                 testID="setting-main-offer"
+              />
+            ) : null}
+            {partners ? (
+              <ListRow
+                icon={Handshake}
+                label={PARTNERS_WORDS.menu}
+                detail={PARTNERS_WORDS.phone.rowDetail}
+                onPress={() => router.push(businessHref(business.id, 'settings/partners'))}
+                testID="setting-partners"
               />
             ) : null}
           </List>

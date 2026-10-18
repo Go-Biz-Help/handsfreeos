@@ -157,6 +157,11 @@ const ONLINE_COMMANDS = [
   'main_offer.save_draft',
   'main_offer.save_direction',
   'main_offer.publish',
+  // A partner's page and a customer's Partner card (the partners plan, stage 2d): a contact made a partner, their
+  // share or status changed, and which partner sent a customer.
+  'partner.add',
+  'partner.update',
+  'partner.referral_set',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -260,6 +265,11 @@ const QUERIES = [
   // Settings → Main offer, with signal: the offer with its draft and score, and this round's tries.
   'main_offer.get',
   'main_offer.tries',
+  // Settings → Partners and a customer's Partner card, with signal (the partners plan, stage 2d).
+  'partners.settings',
+  'partner.list',
+  'partner.get',
+  'partner.of_person',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */
