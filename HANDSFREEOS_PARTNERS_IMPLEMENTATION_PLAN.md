@@ -29,6 +29,9 @@ someone who already has your customers' attention, asked to send them your way f
 | 13  | Can a partner be pitched as a customer? | **Never.** Once someone's a partner prospect, they only get partner messages, on every network.                                                                                                                |
 | 14  | Keep Alignable's referral swap?         | **Yes, beside the commission** (decision 79). A business with the same customers can earn commission and get referrals back.                                                                                   |
 | 15  | Which networks?                         | **All four at once.** Instagram's and Alignable's partner steps run as soon as each network's own steps do (they're still looked at, decision 78).                                                             |
+| 16  | Who pays Stripe's fees?                 | **The business,** added to its monthly charge and shown on its statement (Chris, 18 Oct 2026).                                                                                                                 |
+| 17  | What's the smallest payout?             | **$25,** with less carried to the next month. A business can set a lower one for its partners.                                                                                                                 |
+| 18  | Partners outside the US?                | **Later.** US partners first.                                                                                                                                                                                  |
 
 ## How it works, in plain words
 
@@ -201,6 +204,10 @@ working a profile:
   card is charged off-session, once per month by its key; then each partner is paid by a Stripe transfer tied to
   that charge. A declined card waits and is tried again, with the owner told, as wallet recharges do. A partner who
   hasn't set up their bank yet has their share kept for them.
+- **Stripe's fees are the business's** (decision 16): added to the month's charge, each on its own line of the
+  statement.
+- **The smallest payout** (decision 17): $25 unless the business sets a lower one in its partner settings. A partner
+  owed less than that has it carried to the next month.
 - **Tax forms:** Stripe files each partner's 1099 for HandsFreeOS, the platform paying them.
 - **docs/operations.md** gets a section: turning on Express accounts and tax forms in Stripe.
 
@@ -209,11 +216,10 @@ working a profile:
 - **Chris, with his accountant or lawyer:** HandsFreeOS charging businesses and paying their partners makes it the
   platform that pays them. Stripe holds and moves the money as the licensed party, but the business's terms, the
   partners' terms and the 1099s should be checked.
-- **Open questions, each with a recommendation, asked before stage 3:**
-  - **Stripe's fees** (about 3% on the monthly charge, and about $2 a month per active partner plus 0.25% per
-    payout): **added to the business's monthly charge,** shown on its statement.
-  - **The smallest payout:** **$25,** with less carried to the next month.
-  - **Partners outside the US:** **later.**
+- **The questions asked before stage 3 are answered** (decisions 16 to 18, Chris, 18 Oct 2026): the business pays
+  Stripe's fees (about 3% on the monthly charge, and about $2 a month per active partner plus 0.25% per payout),
+  added to its monthly charge; the smallest payout is $25 unless the business sets a lower one; and partners outside
+  the US come later.
 
 ## Build order
 
