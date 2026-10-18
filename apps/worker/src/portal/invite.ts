@@ -2,10 +2,11 @@
  * The email that lets a client into their portal (Real Estate round two, core). It goes when someone in the
  * business lets them in or sends the link again (`portal.access_given`), from the business, through message.send,
  * so it sits in the client's conversation like any other email the business sends. The link is signed here,
- * because only the worker holds the key; on the business's own address when one is serving.
+ * because only the worker holds the key; on the business's own address when one is serving. A partner of the business
+ * (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2c) hears about their partner page instead.
  */
 import { rows, sql } from '@hfos/db/client';
-import type { RequestMeta } from '@hfos/core/server';
+import { partnersInUse, type RequestMeta } from '@hfos/core/server';
 import { sendEmail } from '../booking/deliver';
 import type { EmailText } from '../booking/messages';
 import type { EventHandler } from '../handlers/types';
@@ -18,16 +19,24 @@ export function portalInviteEmail(input: {
   givenBy: string | null;
   link: string;
   resent: boolean;
+  /** A partner of the business, whose page is about their link and what they earned. */
+  partner?: boolean;
 }): EmailText {
   const who = input.givenBy ? `${input.givenBy} at ${input.business}` : input.business;
   return {
-    subject: input.resent
-      ? `Your portal link from ${input.business}`
-      : `Your private portal with ${input.business}`,
+    subject: input.partner
+      ? input.resent
+        ? `Your partner page link from ${input.business}`
+        : `Your partner page with ${input.business}`
+      : input.resent
+        ? `Your portal link from ${input.business}`
+        : `Your private portal with ${input.business}`,
     body: [
       `Hi ${input.firstName || 'there'},`,
       '',
-      `${who} set up a private page for you: where things stand, your key dates, what’s on your to-do, and a way to send a message.`,
+      input.partner
+        ? `${who} set up a private page for you as their partner: your link to share, the clients you’ve sent, what you’ve earned, and a way to send a message.`
+        : `${who} set up a private page for you: where things stand, your key dates, what’s on your to-do, and a way to send a message.`,
       '',
       `Open it here: ${input.link}`,
       '',
@@ -40,6 +49,7 @@ export function portalInviteEmail(input: {
 
 type AccessRow = {
   public_ref: string;
+  partner: boolean;
   link_version: number;
   revoked_at: Date | null;
   first_name: string;
@@ -54,7 +64,9 @@ export const onPortalAccessGiven: EventHandler = async (ctx) => {
   const [a] = await rows<AccessRow>(
     ctx.tx,
     sql`select a.public_ref, a.link_version, a.revoked_at, p.first_name, p.email, w.name as business,
-          u.full_name as given_by
+          u.full_name as given_by,
+          exists (select 1 from app.partners pa
+            where pa.workspace_id = a.workspace_id and pa.person_id = a.person_id and pa.status <> 'ended') as partner
         from app.portal_access a
         join app.people p on p.id = a.person_id
         join app.workspaces w on w.id = a.workspace_id
@@ -85,6 +97,7 @@ export const onPortalAccessGiven: EventHandler = async (ctx) => {
       givenBy: a.given_by,
       link,
       resent: !!p.resent,
+      partner: a.partner && (await partnersInUse(ctx, scope.workspaceId)),
     }),
     `portal-invite:${ctx.event.id}`,
     meta,

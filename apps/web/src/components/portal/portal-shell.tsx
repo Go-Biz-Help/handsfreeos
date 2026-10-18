@@ -8,7 +8,8 @@
  * The menu is Home, each add-on's own places (its manifest's portal pages without an id, like Real Estate's Homes
  * and To do), and Messages. An add-on's pages open at `a/<id>/<path>` through the registry.
  */
-import { Home, LayoutGrid, MessageSquare } from 'lucide-react';
+import { PARTNER_PAGE_WORDS } from '@hfos/core';
+import { Handshake, Home, LayoutGrid, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -197,6 +198,9 @@ function PortalMenu({ home, base }: { home: PortalHome; base: string }) {
           icon: ADDON_UI[a.id]?.portal?.icons?.[p.path] ?? LayoutGrid,
         })),
     ),
+    ...(home.partner
+      ? [{ href: `${base}/partner`, label: PARTNER_PAGE_WORDS.menu, icon: Handshake }]
+      : []),
     { href: `${base}/messages`, label: 'Messages', icon: MessageSquare },
   ];
   return (

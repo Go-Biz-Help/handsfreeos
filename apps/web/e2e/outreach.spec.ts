@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { blankPlaybook } from '@hfos/core/addons/outreach/playbooks';
 import { expect, test, type Page } from '@playwright/test';
-import { api, signInOwner, WORKER } from './booking-helpers';
-import { createBusiness, signUpAndConfirm } from './helpers';
+import { api, makeCalendar, signInOwner, WORKER } from './booking-helpers';
+import { createBusiness, linkFrom, signUpAndConfirm, waitForMail } from './helpers';
 import { madeUpDownload, makeZip } from './outreach-download';
 
 /**
@@ -26,6 +26,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   with a line beside it (Chris, 2026-10-16); one that can't be saved goes back, saying why.
  * - The Partners list, under People (decision 81), has everyone the AI found could send the business customers, by
  *   stage, and marks them along.
+ * - A partner the business lets into its portal is told about their partner page, signs in with a code, accepts the
+ *   business's terms there, and only then gets their link (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2c).
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -994,4 +996,83 @@ test('the Partners list has who could send the business customers, by stage, and
   await page.getByTestId('partners-show-asked').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=partners&show=asked$`));
   await expect(page.getByTestId('partners-empty')).toContainText('Nobody is at Asked yet.');
+});
+
+test('a partner signs in to their own page, accepts the terms, and only then gets their link', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const business = 'Cedar Roofing';
+  const { email } = await signUpAndConfirm(page, 'partner-page-owner');
+  const workspaceId = await createBusiness(page, { name: business });
+  await turnOnOutreach(page, email, workspaceId);
+  const { token, userId } = await signInOwner(email);
+  const weekly = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' }));
+  await api(token, 'commands', 'schedule.set', { workspaceId, ownerId: userId, weekly });
+  const site = `e2e-${randomUUID().slice(0, 8)}`;
+  await api(token, 'commands', 'booking_site.update', { workspaceId, slug: site, name: business });
+  const calendar = await makeCalendar(
+    { token, userId, workspaceId, site, business },
+    'Roof checks',
+  );
+  await api(token, 'commands', 'partners.save_settings', {
+    workspaceId,
+    settings: {
+      rateBp: 1_200,
+      terms: 'Paid on the 1st of each month, by bank transfer.',
+      smallestPayoutCents: 2_500,
+      calendarId: calendar.id,
+    },
+  });
+  const partnerEmail = `pat-${randomUUID().slice(0, 8)}@example.com`;
+  const { personId } = await api<{ personId: string }>(token, 'commands', 'person.create', {
+    workspaceId,
+    firstName: 'Pat',
+    lastName: 'Partner',
+    email: partnerEmail,
+  });
+  const { code } = await api<{ code: string }>(token, 'commands', 'partner.add', {
+    workspaceId,
+    personId,
+  });
+  const sent = Date.now();
+  await api(token, 'commands', 'portal_access.give', { workspaceId, personId });
+  const invite = await waitForMail(partnerEmail, `Your partner page with ${business}`, {
+    after: sent,
+  });
+  const link = linkFrom(invite.text, /http:\/\/localhost:3000\/c\/[A-Za-z0-9_.~-]+/);
+
+  // On their phone they ask for a code and type it in: Home says they're a partner.
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pat = await phone.newPage();
+  await pat.goto(link);
+  await expect(pat.getByTestId('portal-sign-in')).toContainText('Hi Pat');
+  const asked = Date.now();
+  await pat.getByTestId('portal-send-code').click();
+  const codeMail = await waitForMail(partnerEmail, `Your ${business} code`, { after: asked });
+  await pat.getByTestId('portal-digit-0').fill(/\b(\d{6})\b/.exec(codeMail.text)![1]!);
+  await expect(pat.getByTestId('portal-home-partner')).toContainText(
+    `You’re a partner of ${business}`,
+  );
+  await pat
+    .getByRole('navigation', { name: 'Your portal' })
+    .getByRole('link', { name: 'Partner' })
+    .click();
+
+  // The terms first: no link until they're accepted.
+  const terms = pat.getByTestId('portal-partner-terms');
+  await expect(terms).toContainText('Paid on the 1st of each month, by bank transfer.');
+  await expect(pat.getByTestId('portal-partner')).toContainText('You earn 12% of what each client');
+  await expect(pat.getByTestId('portal-partner-link')).toHaveCount(0);
+  await terms.getByRole('button', { name: 'I accept these terms' }).click();
+  await expect(terms).toContainText('You accepted these terms on');
+  await expect(pat.getByTestId('portal-partner-link')).toContainText(
+    `/book/c/${calendar.id}?ref=pa-${code}`,
+  );
+  await expect(pat.getByTestId('portal-partner-earnings')).toContainText('$0');
+  await expect(pat.getByTestId('portal-partner-clients')).toContainText(
+    'Nobody has booked through your link yet.',
+  );
+  await phone.close();
 });
