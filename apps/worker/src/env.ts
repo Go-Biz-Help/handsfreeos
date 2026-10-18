@@ -62,8 +62,8 @@ export interface WorkerEnv {
    * the team and going to voicemail; `fake` is the stand-in for development and tests.
    */
   readonly voiceAgent: 'deepgram' | 'fake' | 'off';
-  /** The model that thinks on a call; unset uses AI_MODEL. A faster one keeps the pauses short. */
-  readonly voiceModel: string | null;
+  /** The model that thinks on a call; unset is Claude Haiku 5.5. A faster one keeps the pauses short. */
+  readonly voiceModel: string;
   /**
    * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
    * in-memory stand-in for development and tests. `off` is the honest default for a deployment that has not
@@ -235,8 +235,8 @@ export interface WorkerEnv {
    */
   readonly assistantModel: string;
   /**
-   * The model for everything else: the AI teammate, calls (unless VOICE_MODEL), workflow steps, the builders and
-   * the knowledge base. Customers wait on these, and businesses pay for them at the card's AI rates.
+   * The model for everything else: the AI teammate, workflow steps, the builders and the knowledge base (calls
+   * have VOICE_MODEL). Customers wait on these, and businesses pay for them at the card's AI rates.
    */
   readonly aiModel: string;
   /**
@@ -634,7 +634,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     geocoder: geocoder as 'google' | 'fake' | 'off',
     googleMapsServerKey,
     voiceAgent: voiceAgent as 'deepgram' | 'fake' | 'off',
-    voiceModel: (env.VOICE_MODEL ?? '').trim() || null,
+    voiceModel: (env.VOICE_MODEL ?? '').trim() || 'claude-haiku-5-5',
     walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,
     twilioAuthToken,

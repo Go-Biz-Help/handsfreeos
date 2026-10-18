@@ -32,7 +32,7 @@ export function createModelPicker(
   return (model) => {
     let provider = made.get(model);
     if (!provider) {
-      provider = claudeWithBackup(env, aiSwitch, { model }, voiceBackup(env));
+      provider = claudeWithBackup(env, aiSwitch, { model, effort: CALL_EFFORT }, voiceBackup(env));
       made.set(model, provider);
     }
     return provider;
@@ -44,7 +44,12 @@ type VoiceEnv = Pick<
   'assistantProvider' | 'anthropicApiKey' | 'openAiApiKey' | 'openAiVoiceModel'
 >;
 
-/** On a call every pause is heard, so the backup answers without reasoning first. */
+/**
+ * On a call every pause is heard, so Claude thinks at low effort (and can skip thinking on a simple turn), and the
+ * backup answers without reasoning first. A model with no effort levels (Claude Haiku 4.5) answers as it always did.
+ */
+const CALL_EFFORT = 'low';
+
 const voiceBackup = (env: VoiceEnv) => ({
   model: env.openAiVoiceModel,
   reasoningEffort: 'none' as const,
@@ -63,19 +68,18 @@ export function callModel(
 }
 
 /**
- * A separate model for calls (VOICE_MODEL), only with Claude: the scripted stand-in answers calls too. With a
- * backup there always is one, AI_MODEL's when VOICE_MODEL is unset, so a call's backup is the fast one too.
+ * The model for calls (VOICE_MODEL, Claude Haiku 5.5 unless set), only with Claude: the scripted stand-in answers
+ * calls too. A call's backup is OpenAI's fast one.
  */
 export function createVoiceAi(
-  env: VoiceEnv & Pick<WorkerEnv, 'voiceModel' | 'aiModel'>,
+  env: VoiceEnv & Pick<WorkerEnv, 'voiceModel'>,
   aiSwitch: AiSwitchboard | null = null,
 ): AiProvider | null {
   if (env.assistantProvider !== 'anthropic' || !env.anthropicApiKey) return null;
-  if (!env.voiceModel && !aiSwitch) return null;
   return claudeWithBackup(
     env,
     aiSwitch,
-    { model: env.voiceModel ?? env.aiModel },
+    { model: env.voiceModel, effort: CALL_EFFORT },
     voiceBackup(env),
   );
 }
