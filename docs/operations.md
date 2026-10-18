@@ -10095,7 +10095,7 @@ the same way it refuses removing a business's last owner.
   A support admin can also pick the model a business's AI teammate thinks with on calls, under **AI on their
   calls**: **Default** is the worker's `VOICE_MODEL` (Claude Haiku 5.5 unless set), or **Claude Haiku 4.5
   (older)**, which doesn't think before it answers. Every business was put back on Default by
-  `20261027009000_every_business_calls_on_haiku_5_5.sql`. It changes
+  `20261027009100_every_business_calls_on_haiku_5_5.sql`. It changes
   from the next call and the next test call, with no redeploy, so try it on your own business first.
 - **Health** is what has failed lately across every business: jobs, webhooks, bounced email, failed texts,
   failed payments, and work still queued. Look here before a customer has to tell you.
