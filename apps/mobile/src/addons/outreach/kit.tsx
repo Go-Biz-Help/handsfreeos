@@ -102,6 +102,8 @@ export interface OutreachContext {
   readonly timeZone: string;
   /** An owner's or admin's say: playbooks, business settings, the team (`outreach.manage`). */
   readonly manages: boolean;
+  /** Whether they may make someone a partner, which promises the business's money (`partners.manage`). */
+  readonly makesPartners: boolean;
   readonly online: boolean;
 }
 
@@ -115,6 +117,7 @@ export function useOutreachContext(): OutreachContext {
       userId: me.user.id,
       timeZone: business.timezone || 'UTC',
       manages: permissions?.includes(OUTREACH_MANAGE) ?? false,
+      makesPartners: permissions?.includes('partners.manage') ?? false,
       online,
     }),
     [business.id, business.timezone, me.user.id, permissions, online],

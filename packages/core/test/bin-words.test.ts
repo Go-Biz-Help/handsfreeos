@@ -48,6 +48,20 @@ describe('the delete box', () => {
     expect(box.lines).toContain('Their bill stays, with just the name on it.');
   });
 
+  it('says when a customer is a partner: their partner record goes with them', () => {
+    expect(binDeleteBox('person', ['Gail Admin'], { partners: 1 }).lines[0]).toBe(
+      'They’re one of your partners. Their partner record goes too: what they’ve earned, and which clients they sent you.',
+    );
+    const total = binContentsTotal([{ partners: 1 }, { messages: 2 }, { partners: 1 }]);
+    expect(total).toEqual({ partners: 2, messages: 2 });
+    expect(binDeleteBox('person', ['Gail', 'Hal', 'Ida'], total).lines).toContain(
+      '2 of them are your partners. Their partner records go too: what they’ve earned, and which clients they sent you.',
+    );
+    expect(binDeleteBox('person', ['Gail', 'Hal'], { partners: 1 }).lines[0]).toMatch(
+      /^One of them is your partner\./,
+    );
+  });
+
   it('says a conversation leaves the customer, and one person’s lanes as theirs', () => {
     expect(binDeleteBox('conversation', ['Lou'], { messages: 1 })).toEqual({
       title: 'Delete the conversation with Lou for good?',

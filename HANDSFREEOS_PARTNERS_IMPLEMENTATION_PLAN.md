@@ -271,6 +271,19 @@ if the business says, decision 17), and the calendar the referral link books.
    commissions, and Referred by on a customer. Make partner shows only to whoever holds Manage partners. The Deleted
    bin says when a contact is a partner: deleting one for good takes their partner record and what they earned with
    it.
+   - **The web (built 18 Oct 2026):** Settings → Partners, for whoever holds Manage partners while partners are on.
+     The share, the smallest payout and the calendar save as they're changed; the terms wait for **Save the terms**,
+     since saving new ones asks every partner to accept them again. Below them, the partners with what all of them
+     have earned, and each one's page: their own share or the business's, Pause, Bring them back and End the
+     partnership (which asks first), their link, **Send their page** (`portal_access.give`, for whoever may let
+     customers into the portal), their clients, and each share earned or taken back, with what it was worked out on
+     and when it's free to pay out. A customer's page has a **Partner** card: Make them a partner (`partner.add`) and
+     **Sent by**, set by hand (`partner.referral_set`). Make partner on the Partners list, on the web and the phone,
+     shows only to whoever holds Manage partners (`partnerMarksFor`'s `makePartner`). The words are core's
+     (`partners/business-words.ts`), so the phone says the same. The Deleted bin's box says when a customer is a
+     partner (`bin_contents`' `partners`, migration 20261027008900).
+   - **The phone (next):** Settings → Partners and a partner's page, the Partner card on a customer, and sharing a
+     partner's link.
 
 ## Stage 3: payouts (core)
 

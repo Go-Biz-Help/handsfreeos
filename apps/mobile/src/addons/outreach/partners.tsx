@@ -97,6 +97,7 @@ export function PartnersScreen({
       onRetry={answer.reload}
       onMore={() => setPages((p) => p + 1)}
       online={ctx.online}
+      makesPartners={ctx.makesPartners}
       busy={busy}
       onMark={(p, m) => void mark(p, m)}
     />
@@ -113,6 +114,7 @@ export function PartnersBody({
   onRetry,
   onMore,
   online = true,
+  makesPartners = true,
   busy = null,
   onMark,
 }: {
@@ -126,6 +128,8 @@ export function PartnersBody({
   onRetry: () => void;
   onMore: () => void;
   online?: boolean;
+  /** Whether they hold Manage partners: Make partner shows only then. */
+  makesPartners?: boolean;
   busy?: string | null;
   onMark: (p: Partner, m: PartnerMark) => void;
 }) {
@@ -159,6 +163,7 @@ export function PartnersBody({
                 key={p.partnerId}
                 partner={p}
                 online={online}
+                makesPartners={makesPartners}
                 busy={busy}
                 onMark={onMark}
               />
@@ -189,11 +194,13 @@ export function PartnersBody({
 function PartnerCard({
   partner: p,
   online,
+  makesPartners,
   busy,
   onMark,
 }: {
   partner: Partner;
   online: boolean;
+  makesPartners: boolean;
   busy: string | null;
   onMark: (p: Partner, m: PartnerMark) => void;
 }) {
@@ -225,7 +232,7 @@ function PartnerCard({
         <Button size="sm" variant="ghost" icon={ExternalLink} onPress={() => openOutside(p.url)}>
           {openPageWords(p.platform)}
         </Button>
-        {partnerMarksFor(p.stage).map((m) => (
+        {partnerMarksFor(p.stage, { makePartner: makesPartners }).map((m) => (
           <Button
             key={m}
             size="sm"

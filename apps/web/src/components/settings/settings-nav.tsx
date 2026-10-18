@@ -3,6 +3,7 @@ import {
   ADDON_CATALOG,
   can,
   coreFeatureRunning,
+  PARTNERS_WORDS,
   type CoreFeature,
   type WorkspacePermission,
 } from '@hfos/core';
@@ -13,6 +14,7 @@ import {
   CalendarDays,
   CreditCard,
   FileText,
+  Handshake,
   Inbox,
   KanbanSquare,
   LifeBuoy,
@@ -47,7 +49,7 @@ interface SettingsItem {
   readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   readonly exact?: boolean;
   readonly needs?: WorkspacePermission;
-  /** A part of core only some add-ons use: shown only while one of them is on (the main offer). */
+  /** A part of core only some add-ons use: shown only while one of them is on (the main offer, partners). */
   readonly feature?: CoreFeature;
 }
 
@@ -137,6 +139,13 @@ const GROUPS: readonly { readonly label: string; readonly items: readonly Settin
         needs: 'money.manage',
       },
       { path: '/payments/products', label: 'Products', icon: Package, needs: 'money.manage' },
+      {
+        path: '/partners',
+        label: PARTNERS_WORDS.menu,
+        icon: Handshake,
+        needs: 'partners.manage',
+        feature: 'partners',
+      },
     ],
   },
   {

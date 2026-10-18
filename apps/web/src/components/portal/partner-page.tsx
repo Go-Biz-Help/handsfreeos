@@ -5,8 +5,7 @@
  * initial. Everything comes from `portal.partner`; accepting is `portal.partner_accept_terms`.
  */
 import {
-  fmtDateShort,
-  localDayOf,
+  formatDate,
   money,
   PARTNER_PAGE_WORDS as W,
   rateWords,
@@ -46,9 +45,8 @@ interface PortalPartner {
   } | null;
 }
 
-/** The customer's own zone, for dates on their page. */
-const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
-const day = (at: string) => fmtDateShort(localDayOf(at, zone()));
+/** A date on their own clock, with its year when it isn't this one: a client's 12 months end next year. */
+const day = (at: string) => formatDate(at);
 
 export function PortalPartnerPage() {
   const { home, op } = usePortal();

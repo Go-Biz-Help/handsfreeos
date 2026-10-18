@@ -73,6 +73,10 @@ to an hour for them first. Once emptying starts, nothing can bring it back.
 
 **A customer with bills is left as a name-only record** (`erased_at`) that the bills point to.
 
+**A partner's record goes with their contact** (20261027008900): what they earned, and which clients were theirs. The
+box says so first (`partners` in what goes with them). A client a partner sent only lets go of their referral, so what
+they earned the partner stays the partner's.
+
 **A lead, a company or a record takes only what's about it, and what was put on it on purpose** (20261027000800).
 
 - A lead takes its tasks, its files and the timeline lines that tell its own story (made, moved, won, lost). Its

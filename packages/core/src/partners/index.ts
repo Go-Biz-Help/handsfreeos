@@ -2,3 +2,4 @@
 export * from './settings';
 export * from './rules';
 export * from './words';
+export * from './business-words';

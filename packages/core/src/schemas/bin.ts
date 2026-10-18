@@ -46,6 +46,8 @@ export const BinContents = z.object({
   bills: z.number().int().optional(),
   /** A company's people, who stay. */
   people: z.number().int().optional(),
+  /** How many of the customers are the business's partners: their partner records go with them. */
+  partners: z.number().int().optional(),
   /** A conversation's channel ("sms", "email", "messenger"...). */
   channel: z.string().optional(),
   /** A booking's start, and who was on it; a lead's customer or company. */

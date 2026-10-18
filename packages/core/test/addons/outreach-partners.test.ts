@@ -15,6 +15,7 @@ import {
   PARTNER_CHECKS_PER_DAY,
   PARTNER_WORDS,
   partnerKindsOf,
+  partnerMarksFor,
   partnerPrompt,
   partnerReadsPerDay,
   partnerSystem,
@@ -166,6 +167,16 @@ describe('the AI’s partner check', () => {
     expect(PARTNER_WORDS.marked('not_now', 'Gail')).toBe(
       'Gail is set aside for now. They can be asked again in 90 days.',
     );
+  });
+
+  it('offers Make partner only to whoever can manage partners', () => {
+    expect(partnerMarksFor('interested')).toEqual(['call_booked', 'partner', 'not_now']);
+    expect(partnerMarksFor('interested', { makePartner: false })).toEqual([
+      'call_booked',
+      'not_now',
+    ]);
+    expect(partnerMarksFor('call_booked', { makePartner: false })).toEqual(['not_now']);
+    expect(partnerMarksFor('found', { makePartner: false })).toEqual(partnerMarksFor('found'));
   });
 });
 

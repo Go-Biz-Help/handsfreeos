@@ -28,6 +28,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   stage, and marks them along.
  * - A partner the business lets into its portal is told about their partner page, signs in with a code, accepts the
  *   business's terms there, and only then gets their link (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2c).
+ * - The business sets how partners are paid and their terms in Settings → Partners, makes a customer a partner and
+ *   marks who sent a client from their pages, and sees each partner's link, clients and what they earned (stage 2d).
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -1075,4 +1077,133 @@ test('a partner signs in to their own page, accepts the terms, and only then get
     'Nobody has booked through your link yet.',
   );
   await phone.close();
+});
+
+test('the business sets how partners are paid, makes a customer a partner, marks who sent a client, and sees what they earned', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const business = 'Birch Plumbing';
+  const { email } = await signUpAndConfirm(page, 'partners-owner');
+  const workspaceId = await createBusiness(page, { name: business });
+  await turnOnOutreach(page, email, workspaceId);
+  const { token, userId } = await signInOwner(email);
+  const weekly = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' }));
+  await api(token, 'commands', 'schedule.set', { workspaceId, ownerId: userId, weekly });
+  const site = `e2e-${randomUUID().slice(0, 8)}`;
+  await api(token, 'commands', 'booking_site.update', { workspaceId, slug: site, name: business });
+  const calendar = await makeCalendar(
+    { token, userId, workspaceId, site, business },
+    'Drain checks',
+  );
+  const partnerEmail = `pia-${randomUUID().slice(0, 8)}@example.com`;
+  const { personId: pia } = await api<{ personId: string }>(token, 'commands', 'person.create', {
+    workspaceId,
+    firstName: 'Pia',
+    lastName: 'Partner',
+    email: partnerEmail,
+  });
+  const { personId: cal } = await api<{ personId: string }>(token, 'commands', 'person.create', {
+    workspaceId,
+    firstName: 'Cal',
+    lastName: 'Client',
+  });
+
+  // Settings → Partners: the share saves as it's left; the terms wait for their button.
+  await page.goto(`/app/w/${workspaceId}/settings`);
+  await expect(
+    page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Partners' }),
+  ).toHaveAttribute('href', `/app/w/${workspaceId}/settings/partners`);
+  await page.goto(`/app/w/${workspaceId}/settings/partners`);
+  const settings = page.getByTestId('partners-settings');
+  await expect(settings.getByTestId('partners-empty')).toContainText('No partners yet.');
+  await settings.getByTestId('partners-rate').fill('12');
+  await settings.getByTestId('partners-rate').blur();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await settings.getByTestId('partners-terms-text').fill('Paid on the 1st of each month.');
+  await expect(settings.getByTestId('partners-terms-state')).toHaveText('Not saved yet.');
+  await settings.getByTestId('partners-terms-save').click();
+  await expect(settings.getByTestId('partners-terms-state')).toHaveText('Version 1');
+  await page.reload();
+  await expect(page.getByTestId('partners-rate')).toHaveValue('12');
+
+  // On Pia's page: make her a partner.
+  await page.goto(`/app/w/${workspaceId}/customers/people/${pia}`);
+  const piaCard = page.getByTestId('partner-card');
+  await piaCard.getByTestId('partner-card-make').click();
+  await expect(piaCard.getByTestId('partner-card-is')).toContainText(
+    'They’re one of your partners.',
+  );
+
+  // On Cal's: Pia sent him.
+  await page.goto(`/app/w/${workspaceId}/customers/people/${cal}`);
+  const calCard = page.getByTestId('partner-card');
+  await expect(calCard.getByTestId('partner-card-sent-by')).toHaveText('Nobody');
+  await calCard.getByTestId('partner-card-change').click();
+  await calCard.getByTestId('partner-card-pick').selectOption({ label: 'Pia Partner' });
+  await expect(calCard.getByTestId('partner-card-sent-by')).toContainText('Pia Partner');
+  await expect(calCard.getByTestId('partner-card-sent-by')).toContainText('Marked by hand');
+
+  // Cal pays $1,000: Pia earns 12% of it, waiting its 30 days.
+  const { invoiceId } = await api<{ invoiceId: string }>(token, 'commands', 'invoice.create', {
+    workspaceId,
+    personId: cal,
+    title: 'Repipe',
+    lines: [
+      {
+        productId: null,
+        name: 'Repipe',
+        description: null,
+        quantity: 1,
+        unitLabel: 'each',
+        unitPriceCents: 100_000,
+        taxable: false,
+        discountCents: 0,
+      },
+    ],
+  });
+  await api(token, 'commands', 'invoice.send', { workspaceId, invoiceId, channels: [] });
+  await api(token, 'commands', 'invoice.record_cash_payment', {
+    workspaceId,
+    invoiceId,
+    amountCents: 100_000,
+  });
+  await expect(async () => {
+    await page.goto(`/app/w/${workspaceId}/settings/partners`);
+    await expect(page.getByTestId('partners-row')).toContainText('$120', { timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
+  const row = page.getByTestId('partners-row');
+  await expect(row).toContainText('Pia Partner');
+  await expect(row).toContainText('12% · 1 client');
+  await expect(row).toContainText('Hasn’t accepted your terms yet');
+
+  // Her page: her link, what she earned and from whom, pausing and bringing her back, and sending her page.
+  await row.click();
+  const detail = page.getByTestId('partner-detail');
+  await expect(detail.getByTestId('partner-link')).toContainText(`/book/c/${calendar.id}?ref=pa-`);
+  await expect(detail.getByTestId('partner-terms')).toContainText(
+    'Hasn’t accepted your latest terms yet',
+  );
+  const commission = detail.getByTestId('partner-commission');
+  await expect(commission).toContainText('Cal Client');
+  await expect(commission).toContainText('12% of $1,000 paid');
+  await expect(commission).toContainText('Free to pay out');
+  await expect(detail.getByTestId('partner-clients')).toContainText('Earning them a share until');
+  await detail.getByTestId('partner-pause').click();
+  await expect(detail.getByTestId('partner-status')).toHaveText('Paused');
+  await expect(detail.getByTestId('partner-status-line')).toContainText('Pia Partner is paused.');
+  await detail.getByTestId('partner-resume').click();
+  await expect(detail.getByTestId('partner-status')).toHaveText('Active');
+  const sent = Date.now();
+  await detail.getByTestId('partner-send-page').click();
+  await expect(page.getByText(`Sent to ${partnerEmail}.`)).toBeVisible();
+  await waitForMail(partnerEmail, `Your partner page with ${business}`, { after: sent });
+
+  // Deleting her for good says her partner record goes with her.
+  await page.goto(`/app/w/${workspaceId}/customers/people/${pia}`);
+  await page.getByTestId('record-menu').click();
+  await page.getByTestId('record-delete').click();
+  await expect(page.getByTestId('delete-dialog')).toContainText(
+    'They’re one of your partners. Their partner record goes too',
+  );
 });

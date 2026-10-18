@@ -366,3 +366,14 @@ export type BinPreview = Ok<'/v1/queries/bin.preview'>;
 export type BinPreviewItem = BinPreview['items'][number];
 export type BinList = Ok<'/v1/queries/bin.list'>;
 export type BinListItem = BinList['items'][number];
+
+// Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2d): Settings → Partners, a partner's page there, and a
+// customer's Partner card.
+export type PartnersSettingsOut = Ok<'/v1/queries/partners.settings'>;
+export type PartnerSettingsValue = PartnersSettingsOut['settings'];
+export type PartnerListOut = Ok<'/v1/queries/partner.list'>;
+export type PartnerRow = PartnerListOut['partners'][number];
+export type PartnerGetOut = Ok<'/v1/queries/partner.get'>;
+export type PartnerClientRow = PartnerGetOut['clients'][number];
+export type PartnerCommissionRow = PartnerGetOut['commissions'][number];
+export type PartnerOfPersonOut = Ok<'/v1/queries/partner.of_person'>;

@@ -165,6 +165,26 @@ describe('the Partners list on the phone', () => {
     expect(screen.getByTestId('partner-mark-interested')).toBeDisabled();
     expect(screen.getByTestId('partners-more')).toBeTruthy();
   });
+
+  it('offers Make partner only to whoever can manage partners', async () => {
+    const body = (makesPartners?: boolean) => (
+      <PartnersBody
+        view="all"
+        onView={jest.fn()}
+        list={{ counts: COUNTS, partners: [partner({ stage: 'interested' })], more: false }}
+        error={null}
+        onRetry={jest.fn()}
+        onMore={jest.fn()}
+        onMark={jest.fn()}
+        makesPartners={makesPartners}
+      />
+    );
+    await render(body());
+    expect(screen.getByTestId('partner-mark-partner')).toBeTruthy();
+    await render(body(false));
+    expect(screen.queryByTestId('partner-mark-partner')).toBeNull();
+    expect(screen.getByTestId('partner-mark-call_booked')).toBeTruthy();
+  });
 });
 
 const LIMIT = { done: 0, most: 20 };
