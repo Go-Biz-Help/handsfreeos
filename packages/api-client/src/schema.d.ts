@@ -18497,6 +18497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.partner_payouts.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business’s partner payouts, for the support desk: whether they’re open, whether there’s a card, how many payouts it has had and how the latest went.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_partner_payouts_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.problem_report.get": {
         parameters: {
             query?: never;
@@ -70892,6 +70912,40 @@ export interface operations {
                             skipped: number;
                         }[];
                         turnedOff: number;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_partner_payouts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hasCard: boolean;
+                        latestStatus: ("charging" | "paying" | "paid" | "failed") | null;
+                        open: boolean;
+                        payouts: number;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };

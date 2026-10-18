@@ -114,7 +114,7 @@ import {
   partnersSettings,
   portalPartner,
 } from './partners';
-import { partnerPayoutGet, partnerPayouts } from './partner-payouts';
+import { partnerPayoutGet, partnerPayouts, platformPartnerPayoutsGet } from './partner-payouts';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -355,6 +355,7 @@ export const queries: readonly QueryDef[] = [
   portalPartner,
   partnerPayouts,
   partnerPayoutGet,
+  platformPartnerPayoutsGet,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,

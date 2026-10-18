@@ -42,6 +42,7 @@ import {
   partnerReferralSet,
   partnerSetPayoutsOpen,
   partnersSaveSettings,
+  platformPartnerPayoutsGet,
   personCreate,
   portalAccessGive,
   portalCheckCode,
@@ -283,12 +284,18 @@ describe('paying partners', () => {
   });
   afterAll(closeTestDbs);
 
+  const staffView = (who: TestUser) =>
+    executeQuery(testDbs().api.db, platformPartnerPayoutsGet, ws(), human(who), meta());
+
   it('pay nobody until staff open them, and only staff admins open them', async () => {
+    expect(await staffView(staff)).toMatchObject({ open: false, hasCard: false, payouts: 0 });
+    await expectHfos(() => staffView(t.owner), 'not_found');
     expect(await build('2026-11-01')).toMatchObject({ outcome: 'not_open', payoutId: null });
     // Not found rather than forbidden: the support desk doesn't exist for someone who doesn't work here.
     await expectHfos(() => open(true, t.owner), 'not_found');
     expect(await open(true)).toMatchObject({ wasOpen: false, open: true, changed: true });
     expect(await open(true)).toMatchObject({ wasOpen: true, changed: false });
+    expect(await staffView(staff)).toMatchObject({ open: true, latestStatus: null });
     // Open with no card: still nothing, and the month isn't spent.
     expect(await build('2026-11-01')).toMatchObject({ outcome: 'no_card' });
     const [b] = await rows<{ last_month: string | null }>(

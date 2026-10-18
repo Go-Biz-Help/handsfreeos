@@ -22,6 +22,8 @@ import {
   PartnerPayoutGetOutput,
   PartnerPayoutsInput,
   PartnerPayoutsOutput,
+  PlatformPartnerPayoutsGetInput,
+  PlatformPartnerPayoutsGetOutput,
   type PartnerPayoutLineOut,
   type PartnerPayoutOut,
   type PayoutLineStatus,
@@ -293,5 +295,35 @@ export const partnerPayoutGet = defineQuery({
           order by l.amount_cents desc, l.created_at, l.id`,
     );
     return { payout: payoutOut(payout), lines: lines.map(lineOut) };
+  },
+});
+
+/** Staff: whether a business's partner payouts are open, and how they've gone, for its page on /admin. */
+export const platformPartnerPayoutsGet = defineQuery({
+  name: 'platform.partner_payouts.get',
+  description:
+    'One business’s partner payouts, for the support desk: whether they’re open, whether there’s a card, how many payouts it has had and how the latest went.',
+  input: PlatformPartnerPayoutsGetInput,
+  output: PlatformPartnerPayoutsGetOutput,
+  permission: 'platform.businesses.read',
+  scope: () => ({ kind: 'platform' as const }),
+  async handler(ctx, input) {
+    const [row] = await rows<{
+      open: boolean;
+      has_card: boolean;
+      payouts: number;
+      latest_status: PayoutStatus | null;
+    }>(ctx.tx, sql`select * from private.staff_partner_payouts(${input.workspaceId}::uuid)`);
+    if (!row)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Refresh Businesses and pick it again.',
+      );
+    return {
+      workspaceId: input.workspaceId,
+      open: row.open,
+      hasCard: row.has_card,
+      payouts: row.payouts,
+      latestStatus: row.latest_status,
+    };
   },
 });

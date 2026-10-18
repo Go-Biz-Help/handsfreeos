@@ -927,6 +927,7 @@ describe('registry', () => {
       'portal.partner',
       'partner.payouts',
       'partner.payout_get',
+      'platform.partner_payouts.get',
       'knowledge_item.get',
       'knowledge.search',
       'knowledge_scan.get',

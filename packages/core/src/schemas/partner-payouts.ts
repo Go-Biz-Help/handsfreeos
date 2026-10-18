@@ -148,6 +148,16 @@ export const PartnerSetPayoutsOpenOutput = z.object({
   changed: z.boolean(),
 });
 
+/** Staff: a business's partner payouts as /admin shows them. */
+export const PlatformPartnerPayoutsGetInput = z.object(inWorkspace);
+export const PlatformPartnerPayoutsGetOutput = z.object({
+  workspaceId: uuid,
+  open: z.boolean(),
+  hasCard: z.boolean(),
+  payouts: z.int().min(0),
+  latestStatus: z.enum(PAYOUT_STATUSES).nullable(),
+});
+
 // ---------- what the worker writes ----------
 
 /** Worker: a card was put on partner payouts, read back from Stripe's own page. */

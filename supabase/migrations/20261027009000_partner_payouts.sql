@@ -26,7 +26,7 @@
 --        Whoever holds partners.manage sees it, and whoever holds
 --        money.manage the card.
 --
--- Only adds: four tables, a column, a staff permission and its function, three worker look-ups, and three portal
+-- Only adds: four tables, a column, a staff permission, two staff functions, three worker look-ups, and three portal
 -- look-ups. portal.partner_earnings() is dropped and made again with two more columns, in this transaction.
 -- =============================================================================
 
@@ -269,6 +269,21 @@ begin
 end $$;
 revoke all on function private.set_partner_payouts_open(uuid, boolean) from public;
 grant execute on function private.set_partner_payouts_open(uuid, boolean) to authenticated;
+
+-- What staff see of a business's partner payouts on /admin: whether they're open, whether there's a card, how many
+-- payouts it has had and how the latest went. Nothing about the card itself.
+create or replace function private.staff_partner_payouts(p_workspace uuid)
+returns table (open boolean, has_card boolean, payouts integer, latest_status text)
+language sql stable security definer set search_path = '' as $$
+  select coalesce(b.opened_at is not null, false), coalesce(b.method_token is not null, false),
+    (select count(*)::int from app.partner_payouts p where p.workspace_id = w.id),
+    (select p.status from app.partner_payouts p where p.workspace_id = w.id order by p.created_at desc limit 1)
+  from app.workspaces w
+  left join app.partner_payout_billing b on b.workspace_id = w.id
+  where w.id = p_workspace and private.staff_can('platform.businesses.read')
+$$;
+revoke all on function private.staff_partner_payouts(uuid) from public;
+grant execute on function private.staff_partner_payouts(uuid) to authenticated;
 
 -- ---------- what the worker looks up across businesses ----------
 -- The businesses whose payout for this month, in their own time zone, hasn't been worked out yet: open, with a
