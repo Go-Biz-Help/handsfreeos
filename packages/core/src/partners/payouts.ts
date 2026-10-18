@@ -6,6 +6,7 @@
  *
  * Browser-safe.
  */
+import { zonedParts } from '../calendar/engine/zoned';
 import { BASIS_POINTS } from '../money/totals';
 
 /** Stripe's card fee on the month's charge, for a US card: 2.9% + 30¢. */
@@ -118,23 +119,8 @@ export function planPayout(input: {
 
 /** A date's month in a time zone, as its first day: "2026-11-01". An unknown time zone reads as UTC. */
 export function payoutMonthOf(at: Date, timeZone: string | null | undefined): string {
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timeZone || 'UTC',
-      year: 'numeric',
-      month: '2-digit',
-    }).formatToParts(at);
-  } catch {
-    parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'UTC',
-      year: 'numeric',
-      month: '2-digit',
-    }).formatToParts(at);
-  }
-  const year = parts.find((p) => p.type === 'year')?.value ?? String(at.getUTCFullYear());
-  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
-  return `${year}-${month}-01`;
+  const { year, month } = zonedParts(at, timeZone || 'UTC');
+  return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
 /** The first day of the month after one: "2026-12-01" after "2026-11-01". */
