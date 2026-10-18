@@ -4,7 +4,7 @@
  * with each add-on's part of it and the newest message; Messages, the customer's thread with the business; Files,
  * what's been shared with them and what they added; and the door to an add-on's pages.
  */
-import { ADDON_CATALOG, dayTime } from '@hfos/core';
+import { ADDON_CATALOG, dayTime, PARTNER_PAGE_WORDS } from '@hfos/core';
 import { Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
@@ -65,6 +65,14 @@ export function PortalHomePage() {
           </AddonBoundary>
         );
       })}
+      {home.partner ? (
+        <Link href={href('partner')} className="block" data-testid="portal-home-partner">
+          <Card className="p-4 hover:bg-card-2">
+            <PortalCardHead>{PARTNER_PAGE_WORDS.title}</PortalCardHead>
+            <p className="text-[14px]">{PARTNER_PAGE_WORDS.homeCard(home.business.name)}</p>
+          </Card>
+        </Link>
+      ) : null}
       <Link href={href('messages')} className="block" data-testid="portal-home-messages">
         <Card className="p-4 hover:bg-card-2">
           <PortalCardHead

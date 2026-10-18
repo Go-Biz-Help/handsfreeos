@@ -195,6 +195,7 @@ describe('a customer’s look-ups', () => {
           ],
         },
       ],
+      partner: false,
     });
   });
 

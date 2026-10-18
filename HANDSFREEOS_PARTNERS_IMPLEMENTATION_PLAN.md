@@ -256,8 +256,17 @@ if the business says, decision 17), and the calendar the referral link books.
    passes over one HandsFreeOS never asked for ("deferred, on purpose", apps/worker/src/money/processors.ts), so its
    share wouldn't come back. Recording them would also count them on the invoice, and needs Stripe's `refund.created`
    added to the webhook's events, since `charge.refunded` carries the charge and not the refund.
-3. **2c:** the partner's page (`portal.partner`: their link, their clients by first name and last initial, what's
-   earned, waiting and paid) and accepting the terms, with **Send their page** (`portal_access.give`).
+3. **2c:** the partner's page (built 18 Oct 2026). A partner signs in to the business's portal as any client does
+   (`portal_access.give`, whose email tells a partner about their partner page instead of a client's to-do). Home
+   has a card and the menu a **Partner** page for them while partners are on (`portal.home`'s `partner`). The page
+   (`portal.partner`) has their share, the business's terms to accept first (`portal.partner_accept_terms`, refused
+   with `partner_terms_changed` when the terms changed since they opened them), and only then their link; what
+   they earned, what's waiting its 30 days, what's free to pay out and what a dispute holds, worked out as the
+   business's Partners page works it out; and the clients they sent by first name and last initial, never more. An
+   ended partner keeps the page and what they earned, without a link. `portal_actor` reads all of it through five
+   look-ups that hand back only the signed-in partner's own (`portal.partner()` and the four beside it, migration
+   20261027008800); the partner tables stay shut to the portal. **Send their page** on the business's screens comes
+   with 2d.
 4. **2d:** the screens, on the web and the phone: Settings → Partners, the partners with their clients and
    commissions, and Referred by on a customer. Make partner shows only to whoever holds Manage partners. The Deleted
    bin says when a contact is a partner: deleting one for good takes their partner record and what they earned with

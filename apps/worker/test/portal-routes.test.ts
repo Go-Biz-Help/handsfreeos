@@ -5,7 +5,13 @@
  * replaced or turned off.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
-import { personCreate, portalAccessGive, portalAccessRevoke } from '@hfos/core/server';
+import {
+  catalogAddon,
+  partnerAdd,
+  personCreate,
+  portalAccessGive,
+  portalAccessRevoke,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import type { LightMyRequestResponse } from 'fastify';
@@ -87,6 +93,29 @@ describe('the invite', () => {
     expect(mail.text).toContain('6-digit code');
     token = tokenIn(mail.text);
     expect(mail.text).toContain(`http://localhost:3000/c/${token}`);
+  });
+
+  it('tells a partner of the business about their partner page instead', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${w.workspaceId}, 'outreach', 'enabled', ${catalogAddon('outreach').version})
+          on conflict do nothing`,
+    );
+    const partnerEmail = `paula-${randomUUID().slice(0, 8)}@example.com`;
+    const { personId: paula } = await run(w, personCreate, {
+      workspaceId: w.workspaceId,
+      firstName: 'Paula',
+      lastName: 'Partner',
+      email: partnerEmail,
+    });
+    await run(w, partnerAdd, { workspaceId: w.workspaceId, personId: paula });
+    await run(w, portalAccessGive, { workspaceId: w.workspaceId, personId: paula });
+    await drain(w);
+    const mail = await waitForMail(partnerEmail, `Your partner page with ${business}`);
+    expect(mail.text).toContain('your link to share, the clients you’ve sent, what you’ve earned');
+    expect(mail.text).not.toContain('to-do');
+    expect(tokenIn(mail.text)).toBeTruthy();
   });
 
   it('shows only whose portal it is to someone with just the link', async () => {
@@ -172,6 +201,7 @@ describe('signing in on a new device', () => {
       business: { name: business },
       person: { firstName: 'Linh', lastName: 'Nguyen' },
       addons: [],
+      partner: false,
     });
     const nobody = await call('POST', '/public/portal/op/portal.home');
     expect(nobody.statusCode).toBe(401);

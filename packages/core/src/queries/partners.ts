@@ -6,11 +6,14 @@
  * open is held until it's settled.
  */
 import { rows, sql } from '@hfos/db/client';
+import { ADDON_CATALOG } from '../addons/catalog';
+import { requireCustomer } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
 import { loadPartnerSettings, partnersInUse, PERSON_NAME } from '../commands/partners';
 import { monthsEndAt, partnerLinkPath } from '../partners/rules';
-import type { PartnerSettings } from '../partners/settings';
+import { partnerSettingsOf, type PartnerSettings } from '../partners/settings';
+import { clientShortName } from '../partners/words';
 import {
   PartnerGetInput,
   PartnerGetOutput,
@@ -20,6 +23,8 @@ import {
   PartnerOfPersonOutput,
   PartnersSettingsInput,
   PartnersSettingsOutput,
+  PortalPartnerInput,
+  PortalPartnerOutput,
   type PartnerEarnings,
   type PartnerOut,
 } from '../schemas/partners';
@@ -298,6 +303,121 @@ export const partnerOfPerson = defineQuery({
             earnedCents: Number(referral.earned),
           }
         : null,
+    };
+  },
+});
+
+// ---------- the partner's own page, in the business's portal (stage 2c) ----------
+
+/**
+ * Whether an add-on that uses partners runs in the business, as a customer's portal asks it (`portal_actor` never
+ * reaches the add-on tables): `portal.addon_in_use` for each add-on that names partners.
+ */
+async function partnersInPortal(ctx: QueryContext): Promise<boolean> {
+  for (const m of ADDON_CATALOG.filter((a) => a.uses?.includes('partners'))) {
+    const [row] = await rows<{ on: boolean }>(
+      ctx.tx,
+      sql`select portal.addon_in_use(${m.id}) as on`,
+    );
+    if (row?.on) return true;
+  }
+  return false;
+}
+
+/** Whether the signed-in customer is a partner of the business, while partners are on in it. */
+export async function isPortalPartner(ctx: QueryContext): Promise<boolean> {
+  if (!(await partnersInPortal(ctx))) return false;
+  const [row] = await rows<{ yes: boolean }>(
+    ctx.tx,
+    sql`select exists (select 1 from portal.partner()) as yes`,
+  );
+  return row?.yes ?? false;
+}
+
+export const portalPartner = defineQuery({
+  name: 'portal.partner',
+  description:
+    'A partner’s own page in the business’s portal: their share, their link once they accept the terms, the terms, what they earned, and the clients they sent by first name and last initial.',
+  input: PortalPartnerInput,
+  output: PortalPartnerOutput,
+  permission: null,
+  actors: ['customer'],
+  scope: inWorkspace,
+  async handler(ctx) {
+    requireCustomer(ctx);
+    if (!(await partnersInPortal(ctx))) return { partner: null };
+    const [me] = await rows<{
+      code: string;
+      rate_bp: number | null;
+      status: PartnerOut['status'];
+      terms_version: number | null;
+      terms_accepted_at: Date | string | null;
+      created_at: Date | string;
+    }>(
+      ctx.tx,
+      sql`select code, rate_bp, status, terms_version, terms_accepted_at, created_at from portal.partner()`,
+    );
+    if (!me) return { partner: null };
+    const [stored] = await rows<{ settings: Record<string, unknown> | null }>(
+      ctx.tx,
+      sql`select portal.partner_settings() as settings`,
+    );
+    const settings = partnerSettingsOf({ partners: stored?.settings ?? {} });
+    const [calendar] = await rows<{ id: string | null }>(
+      ctx.tx,
+      sql`select portal.partner_link_calendar() as id`,
+    );
+    const [earned] = await rows<{
+      earned_cents: string | number;
+      waiting_cents: string | number;
+      payable_cents: string | number;
+      held_cents: string | number;
+    }>(ctx.tx, sql`select * from portal.partner_earnings()`);
+    const clients = await rows<{
+      referral_id: string;
+      first_name: string | null;
+      last_initial: string | null;
+      how: 'link' | 'by_hand';
+      referred_at: Date | string;
+      first_paid_at: Date | string | null;
+      earned_cents: string | number;
+    }>(ctx.tx, sql`select * from portal.partner_clients()`);
+    // Nothing to accept until the business writes its terms; their link waits on the terms they're shown.
+    const accepted =
+      settings.termsVersion === 0 || (me.terms_version ?? 0) >= settings.termsVersion;
+    return {
+      partner: {
+        status: me.status,
+        rateBp: me.rate_bp ?? settings.rateBp,
+        since: iso(me.created_at),
+        linkPath:
+          accepted && me.status !== 'ended' && calendar?.id
+            ? partnerLinkPath(calendar.id, me.code)
+            : null,
+        terms: {
+          text: settings.terms,
+          version: settings.termsVersion,
+          accepted,
+          acceptedAt: isoOrNull(me.terms_accepted_at),
+        },
+        earnings: {
+          earnedCents: Number(earned?.earned_cents ?? 0),
+          waitingCents: Number(earned?.waiting_cents ?? 0),
+          payableCents: Number(earned?.payable_cents ?? 0),
+          heldCents: Number(earned?.held_cents ?? 0),
+        },
+        clients: clients.map((c) => ({
+          referralId: c.referral_id,
+          name: clientShortName(c.first_name, c.last_initial),
+          how: c.how,
+          referredAt: iso(c.referred_at),
+          firstPaidAt: isoOrNull(c.first_paid_at),
+          monthsEndAt: c.first_paid_at
+            ? monthsEndAt(new Date(c.first_paid_at)).toISOString()
+            : null,
+          earnedCents: Number(c.earned_cents),
+        })),
+      },
     };
   },
 });

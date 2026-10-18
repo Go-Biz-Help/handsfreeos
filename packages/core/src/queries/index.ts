@@ -107,7 +107,13 @@ import { migrationQueries } from './migration';
 import { walletQueries } from './wallet';
 import { offerList } from './offer';
 import { mainOfferGet, mainOfferTryList, mainOfferVersionList } from './main-offer';
-import { partnerGet, partnerList, partnerOfPerson, partnersSettings } from './partners';
+import {
+  partnerGet,
+  partnerList,
+  partnerOfPerson,
+  partnersSettings,
+  portalPartner,
+} from './partners';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -345,6 +351,7 @@ export const queries: readonly QueryDef[] = [
   partnerList,
   partnerGet,
   partnerOfPerson,
+  portalPartner,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,

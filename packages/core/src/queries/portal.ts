@@ -8,6 +8,7 @@ import { HfosError } from '../errors';
 import { requireCustomer } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { PortalHomeInput, PortalHomeOutput } from '../schemas/portal';
+import { isPortalPartner } from './partners';
 
 /** The portal's first screen: whose business, who they are, and the add-ons that have pages for them. */
 export const portalHome = defineQuery({
@@ -50,6 +51,7 @@ export const portalHome = defineQuery({
             .map((p) => ({ path: p.path, title: p.title })),
         }),
       ),
+      partner: await isPortalPartner(ctx),
     };
   },
 });

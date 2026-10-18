@@ -188,3 +188,49 @@ export const PartnerOfPersonOutput = z.object({
     })
     .nullable(),
 });
+
+// ---------- the partner's own page, in the business's portal (stage 2c) ----------
+
+export const PortalPartnerInput = z.object({ workspaceId: uuid });
+export const PortalPartnerClientOut = z.object({
+  referralId: uuid,
+  /** "Maria L.": first name and last initial, never more. Null once they were deleted. */
+  name: z.string().nullable(),
+  how: z.enum(['link', 'by_hand']),
+  referredAt: isoDateTime,
+  firstPaidAt: isoDateTime.nullable(),
+  /** When their 12 months end; null before their first payment. */
+  monthsEndAt: isoDateTime.nullable(),
+  earnedCents: cents,
+});
+export const PortalPartnerOutput = z.object({
+  /** Null when they aren't a partner of the business, or partners aren't on in it. */
+  partner: z
+    .object({
+      status: z.enum(PARTNER_STATUSES),
+      /** What they earn: their own share or the business's. */
+      rateBp: z.int(),
+      since: isoDateTime,
+      /** Their link's path on the business's booking page: null until they accept the terms, once they've ended, or while the business takes no bookings online. */
+      linkPath: z.string().nullable(),
+      terms: z.object({
+        /** Empty when the business hasn't written any. */
+        text: z.string(),
+        /** 0 when there are none to accept. */
+        version: z.int().min(0),
+        accepted: z.boolean(),
+        /** When they accepted the terms they last accepted. */
+        acceptedAt: isoDateTime.nullable(),
+      }),
+      earnings: PartnerEarnings,
+      clients: z.array(PortalPartnerClientOut),
+    })
+    .nullable(),
+});
+
+/** A partner accepts the terms they read: the version they were shown. */
+export const PortalPartnerAcceptTermsInput = z.object({
+  workspaceId: uuid,
+  termsVersion: z.int().min(1),
+});
+export const PortalPartnerAcceptTermsOutput = z.object({ accepted: z.boolean() });

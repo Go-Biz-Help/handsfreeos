@@ -15,7 +15,7 @@ import { ADDON_CATALOG } from '../addons/catalog';
 import { addonsUsing, coreFeatureRunning } from '../addons/capabilities';
 import { loadActiveAddons } from '../addons/load';
 import { HfosError } from '../errors';
-import { requireHuman, userIdOf } from '../kernel/actor';
+import { requireCustomer, requireHuman, userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext, QueryContext } from '../kernel/types';
@@ -44,6 +44,8 @@ import {
   PartnersSaveSettingsOutput,
   PartnerUpdateInput,
   PartnerUpdateOutput,
+  PortalPartnerAcceptTermsInput,
+  PortalPartnerAcceptTermsOutput,
 } from '../schemas/partners';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -733,5 +735,65 @@ export const partnerCommissionDisputeNote = defineCommand({
   emits: ['partner.commission_taken_back'],
   async handler(ctx, input) {
     return { takenBack: await disputeLostOn(ctx, input.disputeId) };
+  },
+});
+
+// ---------- the partner's own page, in the business's portal (stage 2c) ----------
+
+export const portalPartnerAcceptTerms = defineCommand({
+  name: 'portal.partner_accept_terms',
+  description:
+    'A partner accepts the business’s partner terms on their page: the version they were shown. Their link shows once they have.',
+  risk: 1,
+  input: PortalPartnerAcceptTermsInput,
+  output: PortalPartnerAcceptTermsOutput,
+  permission: null,
+  actors: ['customer'],
+  scope: inWorkspace,
+  emits: ['partner.terms_accepted'],
+  async handler(ctx, input) {
+    const me = requireCustomer(ctx);
+    const ws = ctx.scope.workspaceId!;
+    // The worker's own transaction: the partner is checked to be them.
+    const [partner] = await ctx.tx
+      .select({ id: partners.id, termsVersion: partners.termsVersion })
+      .from(partners)
+      .where(and(eq(partners.workspaceId, ws), eq(partners.personId, me.personId)))
+      .for('update');
+    if (!partner || !(await partnersInUse(ctx, ws)))
+      throw HfosError.notFound(
+        'That isn’t in your portal any more. Refresh the page to see what is.',
+      );
+    const settings = await loadPartnerSettings(ctx, ws);
+    if (settings.termsVersion === 0)
+      throw HfosError.rule(
+        'partner_no_terms',
+        409,
+        'There aren’t any terms to accept yet. Refresh the page to see what’s there.',
+      );
+    if (input.termsVersion !== settings.termsVersion)
+      throw HfosError.rule(
+        'partner_terms_changed',
+        409,
+        'The terms changed since you opened them. Read them again, then accept them.',
+      );
+    if ((partner.termsVersion ?? 0) >= settings.termsVersion) return { accepted: true };
+    await ctx.tx
+      .update(partners)
+      .set({ termsVersion: settings.termsVersion, termsAcceptedAt: changeMoment(ctx.meta) })
+      .where(eq(partners.id, partner.id));
+    await ctx.emit({
+      type: 'partner.terms_accepted',
+      entityType: 'partner',
+      entityId: partner.id,
+      payload: {
+        partnerId: partner.id,
+        personId: me.personId,
+        termsVersion: settings.termsVersion,
+      },
+      before: { termsVersion: partner.termsVersion },
+      after: { termsVersion: settings.termsVersion },
+    });
+    return { accepted: true };
   },
 });

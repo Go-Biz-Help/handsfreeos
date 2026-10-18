@@ -95,6 +95,8 @@ export const PortalHomeOutput = z.object({
   person: z.object({ firstName: z.string(), lastName: z.string() }),
   /** The add-ons with pages for them: on in the business, and with records they're on. */
   addons: z.array(z.object({ id: z.string(), name: z.string(), pages: z.array(PortalHomePage) })),
+  /** Whether they're a partner of the business, while partners are on in it: their page is `portal.partner`. */
+  partner: z.boolean(),
 });
 
 // ---------- files in the portal ----------

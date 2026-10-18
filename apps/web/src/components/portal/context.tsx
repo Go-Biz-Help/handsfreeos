@@ -17,6 +17,8 @@ export interface PortalHome {
     readonly name: string;
     readonly pages: readonly { readonly path: string; readonly title: string }[];
   }[];
+  /** They're a partner of the business: their page is `partner`. */
+  readonly partner: boolean;
 }
 
 export interface Portal {
