@@ -7,6 +7,7 @@ import {
   parseStructured,
   searchesTools,
   structuredOutputSchema,
+  takesEffort,
   type AiRequest,
   type AiToolInput,
   type AiTurn,
@@ -543,6 +544,56 @@ describe('AnthropicProvider', () => {
     expect(searchesTools('claude-haiku-4-5-20251001')).toBe(true);
   });
 
+  it('thinks at the effort it was given, warming the same way, only on a model that takes one', async () => {
+    const warmed = () =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_warm',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-haiku-5-5',
+          content: [],
+          stop_reason: 'max_tokens',
+          stop_sequence: null,
+          usage: {
+            input_tokens: 12,
+            output_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 5100,
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    const bodiesFor = async (model: string) => {
+      let calls = 0;
+      const { sent, fetch } = recording(() => (++calls > 1 ? sse(TOOL_TURN) : warmed()));
+      const provider = new AnthropicProvider({
+        apiKey: 'k',
+        model,
+        fetch,
+        maxRetries: 0,
+        effort: 'low',
+      });
+      await provider.warm(REQUEST);
+      await provider.stream(REQUEST);
+      return { provider, warm: sent[0]!.body, turn: sent[1]!.body };
+    };
+
+    // Claude Haiku 5.5, as on a call: the warm-up asks the same way as the turn, so the turn finds it ready.
+    const haiku = await bodiesFor('claude-haiku-5-5');
+    expect(haiku.provider.effort).toBe('low');
+    expect(haiku.warm['output_config']).toEqual({ effort: 'low' });
+    expect(haiku.turn['output_config']).toEqual({ effort: 'low' });
+
+    // Claude Haiku 4.5 refuses an effort level, so none is sent.
+    const older = await bodiesFor('claude-haiku-4-5');
+    expect(older.provider.effort).toBeNull();
+    expect(older.warm).not.toHaveProperty('output_config');
+    expect(older.turn).not.toHaveProperty('output_config');
+    expect(takesEffort('claude-opus-5-5')).toBe(true);
+    expect(takesEffort('claude-sonnet-4-5-20250929')).toBe(false);
+  });
+
   it('keeps a tool search in the turn, hands it back as it came, and reports a paused turn', async () => {
     const search = {
       type: 'server_tool_use',
@@ -805,6 +856,25 @@ describe('structured output', () => {
       maxRetries: 0,
     }).stream(REQUEST);
     expect(sent[0]!.body).not.toHaveProperty('output_config');
+  });
+
+  it('sends an effort beside the schema', async () => {
+    const { sent, fetch } = recording(() => sse(JSON_TURN));
+    await new AnthropicProvider({
+      apiKey: 'k',
+      model: 'claude-haiku-5-5',
+      fetch,
+      maxRetries: 0,
+      effort: 'low',
+    }).stream({
+      system: 'Suggest knowledge items.',
+      messages: [{ role: 'user', content: 'Hours?' }],
+      responseFormat: { schema: ITEMS_SCHEMA },
+    });
+    expect(sent[0]!.body['output_config']).toMatchObject({
+      effort: 'low',
+      format: { type: 'json_schema' },
+    });
   });
 
   it('keeps what structured outputs support and moves the rest into the description', () => {

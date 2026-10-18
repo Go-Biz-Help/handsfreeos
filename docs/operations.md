@@ -6906,7 +6906,7 @@ Each extra million tokens a day can add up to $10 a day per workspace. Raise the
 Three settings choose the models:
 
 - `ASSISTANT_MODEL` is Ask HandsFreeOS, the team's own helper. It is Claude Opus 5.5 (`claude-opus-5-5`) unless set.
-- `VOICE_MODEL` is calls and the test console's calls. It is Claude Haiku 5.5 (`claude-haiku-5-5`) unless set. A caller hears every pause, so speed matters most here. A support admin can still pick another model for one business in /admin.
+- `VOICE_MODEL` is calls and the test console's calls. It is Claude Haiku 5.5 (`claude-haiku-5-5`) unless set. A caller hears every pause, so speed matters most here: calls think at low effort, so Claude can skip thinking on a simple turn (a model with no effort levels, such as Claude Haiku 4.5, ignores it). A support admin can still pick another model for one business in /admin.
 - `AI_MODEL` is everything else: the AI teammate, workflow AI steps, the builders and the knowledge base. It is Claude Sonnet 5 (`claude-sonnet-5`) unless set. Customers wait on these, so a faster model matters more here than a stronger one.
 
 Try any other model on your laptop first ("Trying the Assistant" in "Local development"). Anthropic lists the model IDs at `https://platform.claude.com/docs/en/models/overview`. For example, `claude-opus-5` costs $5 per million input tokens and $25 per million output tokens, and `claude-haiku-4-5` costs $1 and $5.
@@ -8932,7 +8932,7 @@ What keeps the wait short:
   that call.
 
 When calls feel slow, the log line says where: a large `waitMs` with `thought: true` is the model thinking before
-it answers (Claude Haiku 5.5, the default, does when a turn needs it; Claude Haiku 4.5 doesn't, which a support
+it answers (Claude Haiku 5.5, the default, does at low effort, when a turn needs it; Claude Haiku 4.5 doesn't, which a support
 admin can pick per business in /admin), and a large `loadMs` is the database.
 
 To hear it for yourself, use **Call live** in the test console: it runs on the same loop as a real call and shows

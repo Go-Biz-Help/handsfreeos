@@ -32,7 +32,7 @@ export function createModelPicker(
   return (model) => {
     let provider = made.get(model);
     if (!provider) {
-      provider = claudeWithBackup(env, aiSwitch, { model }, voiceBackup(env));
+      provider = claudeWithBackup(env, aiSwitch, { model, effort: CALL_EFFORT }, voiceBackup(env));
       made.set(model, provider);
     }
     return provider;
@@ -44,7 +44,12 @@ type VoiceEnv = Pick<
   'assistantProvider' | 'anthropicApiKey' | 'openAiApiKey' | 'openAiVoiceModel'
 >;
 
-/** On a call every pause is heard, so the backup answers without reasoning first. */
+/**
+ * On a call every pause is heard, so Claude thinks at low effort (and can skip thinking on a simple turn), and the
+ * backup answers without reasoning first. A model with no effort levels (Claude Haiku 4.5) answers as it always did.
+ */
+const CALL_EFFORT = 'low';
+
 const voiceBackup = (env: VoiceEnv) => ({
   model: env.openAiVoiceModel,
   reasoningEffort: 'none' as const,
@@ -71,5 +76,10 @@ export function createVoiceAi(
   aiSwitch: AiSwitchboard | null = null,
 ): AiProvider | null {
   if (env.assistantProvider !== 'anthropic' || !env.anthropicApiKey) return null;
-  return claudeWithBackup(env, aiSwitch, { model: env.voiceModel }, voiceBackup(env));
+  return claudeWithBackup(
+    env,
+    aiSwitch,
+    { model: env.voiceModel, effort: CALL_EFFORT },
+    voiceBackup(env),
+  );
 }
